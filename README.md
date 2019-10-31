@@ -1,2 +1,1 @@
-# baremetal-csi-plugin repository
-ADS-11200
+# Bare-metal CSI Plugin

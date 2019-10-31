@@ -1,0 +1,29 @@
+# Docker registry to pull images
+global:
+  registry: 10.244.120.194:8085
+
+# CSI Plugin parameters
+image:
+  tag: 0.0.1
+
+# Storage Class name that provisions PVs dynamically
+storageClass:
+  name: baremetal-csi-sc
+
+# CSI Sidecars parameters
+provisioner:
+  image:
+    tag: v1.0.1
+
+attacher:
+  image:
+    tag: v1.0.1
+
+clusterDriverRegistrar:
+  image:
+    tag: v1.0.1
+
+nodeDriverRegistrar:
+  image:
+    tag: v1.0.1-gke.0
+

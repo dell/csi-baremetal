@@ -1,0 +1,5 @@
+# idea files
+.idea
+*_output
+vendor
+build/
