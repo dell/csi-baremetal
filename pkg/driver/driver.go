@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
@@ -151,4 +152,22 @@ func (d *ECSCSIDriver) Stop() {
 	d.ready = false
 	d.srv.Stop()
 	logrus.Info("Driver stopped. Ready: ", d.ready)
+}
+
+func checkDiskCanBeUsed(disk *util.HalDisk, allocated bool, requestCapacity int64) bool {
+	//expected formats of disk capacity: "4K", "7T", "64G", extract units ("K", "G", "T", "M") from string
+	unit := disk.Capacity[len(disk.Capacity)-1:]
+	requiredBytes := util.FormatCapacity(requestCapacity, unit)
+	capacity, err := strconv.ParseFloat(disk.Capacity[:len(disk.Capacity)-1], 64)
+	if err != nil {
+		logrus.Errorf("Error during converting string to int: %q", err)
+	} else if float64(requiredBytes) > capacity {
+		logrus.Info("Required bytes more than disk capacity: ", disk.Path)
+	} else {
+		//if a disk is not allocated and its capacity is enough then use the disk
+		if !allocated && disk.PartitionCount == 0 {
+			return true
+		}
+	}
+	return false
 }

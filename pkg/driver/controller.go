@@ -2,9 +2,8 @@ package driver
 
 import (
 	"context"
-	"strconv"
+	"strings"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -80,29 +79,43 @@ func (d *ECSCSIDriver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRe
 	}
 
 	var isDiskFound = false
-	for node := range NodeAllocatedDisks {
-		for disk, allocated := range NodeAllocatedDisks[node] {
-			//expected formats of disk capacity: "4K", "7T", "64G", extract units ("K", "G", "T", "M") from string
-			unit := disk.Capacity[len(disk.Capacity)-1:]
-			requiredBytes := util.FormatCapacity(req.GetCapacityRange().GetRequiredBytes(), unit)
-			capacity, err := strconv.ParseFloat(disk.Capacity[:len(disk.Capacity)-1], 64)
-			if err != nil {
-				logrus.Errorf("Error during converting string to int: %q", err)
-			} else if float64(requiredBytes) > capacity {
-				logrus.Info("Required bytes more than disk capacity: ", node)
-			} else {
-				if !allocated && disk.PartitionCount == 0 {
+	if req.GetAccessibilityRequirements() == nil {
+		//If external-provisioner didn't send AR then use all nodes no find disk
+		for node := range NodeAllocatedDisks {
+			for disk, allocated := range NodeAllocatedDisks[node] {
+				isDiskFound = checkDiskCanBeUsed(&disk, allocated, req.GetCapacityRange().GetRequiredBytes())
+				if isDiskFound {
 					volumeID = node + "_" + disk.Path
 					nodeID = node
 					NodeAllocatedDisks[node][disk] = true
-					isDiskFound = true
 					break
 				}
+			}
+			if isDiskFound {
+				logrus.Info("Disk found on the node - ", node)
+				break
+			} else {
+				logrus.Info("All disks are allocated on node - ", node)
+				logrus.Info(NodeAllocatedDisks[node])
+			}
+		}
+	} else {
+		/*If external-provisioner sent AR then use the first node from preferred ones (set by WaitForFirstConsumer
+		SC mode) to find a disk. Other nodes cannot be used because the pod that uses volumes has been scheduled to
+		the first node from preferred ones.*/
+		node := req.GetAccessibilityRequirements().Preferred[0].Segments["baremetal-csi/nodeid"]
+		logrus.Info("Preferred node: ", node)
+		for disk, allocated := range NodeAllocatedDisks[node] {
+			isDiskFound = checkDiskCanBeUsed(&disk, allocated, req.GetCapacityRange().GetRequiredBytes())
+			if isDiskFound {
+				volumeID = node + "_" + disk.Path
+				nodeID = node
+				NodeAllocatedDisks[node][disk] = true
+				break
 			}
 		}
 		if isDiskFound {
 			logrus.Info("Disk found on the node - ", node)
-			break
 		} else {
 			logrus.Info("All disks are allocated on node - ", node)
 			logrus.Info(NodeAllocatedDisks[node])
@@ -165,6 +178,16 @@ func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context, req *csi.C
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "ControllerUnPublishVolume Volume ID must be provided")
 	}
+	unpublishDiskPath := strings.Split(req.VolumeId, "_")[1]
+	node := req.GetNodeId()
+	for disk, _ := range NodeAllocatedDisks[node] {
+		if disk.Path == unpublishDiskPath {
+			NodeAllocatedDisks[node][disk] = false
+			break;
+		}
+	}
+	logrus.Info("Disks state after unpublish on node: ", node)
+	logrus.Info(NodeAllocatedDisks[node])
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 

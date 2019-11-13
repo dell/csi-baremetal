@@ -6,4 +6,4 @@ metadata:
     storageclass.kubernetes.io/is-default-class: "true"
 provisioner: baremetal-csi  # CSI driver name
 reclaimPolicy: Delete
-volumeBindingMode: Immediate
+volumeBindingMode: WaitForFirstConsumer

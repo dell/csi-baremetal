@@ -21,7 +21,7 @@ func (d *ECSCSIDriver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequ
 			"baremetal-csi/nodeid": d.nodeID,
 		},
 	}
-
+	logrus.Info("NodeGetInfo created topology: ", topology)
 	return &csi.NodeGetInfoResponse{
 		NodeId:             d.nodeID,
 		AccessibleTopology: &topology,
@@ -119,12 +119,6 @@ func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnp
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	for disk := range NodeAllocatedDisks[node] {
-		if strings.Contains(disk.Path, pathToDisk) {
-			NodeAllocatedDisks[node][disk] = false
-			logrus.Infof("Disk - %s is unallocated ", NodeAllocatedDisks[node][disk])
-		}
-	}
 	logrus.Infof("Disk - %s on node - %s is unpublished", pathToDisk, node)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
