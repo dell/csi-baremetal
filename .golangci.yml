@@ -1,0 +1,65 @@
+output:
+  # colored-line-number|line-number|json|tab|checkstyle|code-climate, default is "colored-line-number"
+  format: colored-line-number
+
+linters-settings:
+  funlen:
+    lines: 120
+    statements: 70
+
+linters:
+  # please, do not use `enable-all`: it is deprecated and will be removed soon.
+  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
+  disable-all: true
+  enable:
+    - bodyclose
+    - deadcode
+    - depguard
+    - dogsled
+    - errcheck
+    - funlen
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - golint
+    - gosimple
+    - govet
+    - ineffassign
+    - interfacer
+    - lll
+    - megacheck
+    - misspell
+    - nakedret
+    - scopelint
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+    - maligned
+    - prealloc
+    - dupl
+    - wsl
+
+  # don't enable:
+  # - gosec Because CSI uses lsblk servers for now
+  # - gochecknoglobals Because of NodeAllocatedDisks map
+  # - godox CSI now has a lot TODOs in source code
+
+run:
+  deadline: 15m
+  timeout:  15m
+
+  skip-dirs:
+    - test/
+    - vendor/
+  skip-files:
+    - .*_test.go

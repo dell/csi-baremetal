@@ -21,11 +21,14 @@ const logFile = "/var/log/logrus.log"
 
 func main() {
 	flag.Parse()
+
 	f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		logrus.SetOutput(os.Stdout)
 	}
+
 	logrus.SetOutput(f)
+
 	d, err := driver.NewDriver(*endpoint, *driverName, *nodeID)
 	if err != nil {
 		logrus.Error("Could not create driver:", err)
@@ -33,10 +36,12 @@ func main() {
 
 	if *startRest {
 		logrus.Info("Starting rest ...")
+
 		go util.StartRest()
 	}
 
 	logrus.Info("Starting driver")
+
 	if err := d.Run(); err != nil {
 		log.Fatalln(err)
 	}

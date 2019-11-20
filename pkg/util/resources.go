@@ -36,19 +36,29 @@ func (c *Client) ListDisks(host string) ([]HalDisk, error) {
 	}
 	u := c.BaseURL.ResolveReference(rel)
 	req, err := http.NewRequest("GET", u.String(), nil)
+
 	if err != nil {
 		return nil, err
 	}
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", c.UserAgent)
-
 	resp, err := c.httpClient.Do(req)
+
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		cerr := resp.Body.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+
 	var disks []HalDisk
 	err = json.NewDecoder(resp.Body).Decode(&disks)
+
 	return disks, err
 }
 
@@ -57,10 +67,16 @@ func (c *Client) ListDisks(host string) ([]HalDisk, error) {
 // GetDisks is a function for getting disks from node
 func GetDisks(w http.ResponseWriter, r *http.Request) {
 	ll := logrus.WithField("method", "getDisks")
+
 	w.Header().Set("Content-Type", "application/json")
+
 	disks := AllDisks()
 	ll.Info(disks)
-	json.NewEncoder(w).Encode(disks)
+	err := json.NewEncoder(w).Encode(disks)
+
+	if err != nil {
+		logrus.Errorf("Failed to get disk: %v", err)
+	}
 }
 
 // StartRest is a function for starting REST server
@@ -68,6 +84,7 @@ func StartRest() {
 	r := mux.NewRouter()
 	r.HandleFunc("/disks", GetDisks).Methods("GET")
 	logrus.Info("Starting REST server on ", port)
+
 	if err := http.ListenAndServe(port, r); err != nil {
 		log.Fatalln(err)
 	}
@@ -81,33 +98,33 @@ type Node struct {
 	SpecIP   string
 }
 
-func getNodes() ([]Node, error) {
-	clientset, err := getClient("")
-
-	if err != nil {
-		panic(err.Error())
-	}
-
-	nodes, err := clientset.CoreV1().Nodes().List(v1.ListOptions{})
-
-	if err != nil {
-		logrus.Errorf("Failed to get nodes: %v", err)
-	}
-
-	temp := make([]Node, 0)
-
-	for i := range nodes.Items {
-		temp = append(temp, Node{
-			Name:     nodes.Items[i].ObjectMeta.Name,
-			Hostname: nodes.Items[i].ObjectMeta.Labels["kubernetes.io/hostname"],
-			SpecIP:   nodes.Items[i].ObjectMeta.Labels["spec.ip"],
-		})
-	}
-
-	logrus.Info(temp)
-
-	return temp, nil
-}
+//func getNodes() []Node {
+//	clientset, err := getClient("")
+//
+//	if err != nil {
+//		panic(err.Error())
+//	}
+//
+//	nodes, err := clientset.CoreV1().Nodes().List(v1.ListOptions{})
+//
+//	if err != nil {
+//		logrus.Errorf("Failed to get nodes: %v", err)
+//	}
+//
+//	temp := make([]Node, 0)
+//
+//	for i := range nodes.Items {
+//		temp = append(temp, Node{
+//			Name:     nodes.Items[i].ObjectMeta.Name,
+//			Hostname: nodes.Items[i].ObjectMeta.Labels["kubernetes.io/hostname"],
+//			SpecIP:   nodes.Items[i].ObjectMeta.Labels["spec.ip"],
+//		})
+//	}
+//
+//	logrus.Info(temp)
+//
+//	return temp
+//}
 
 // Pod is a struct for a pod
 type Pod struct {
@@ -136,6 +153,7 @@ func GetPods() ([]Pod, error) {
 	for i := range pods.Items {
 		podName := pods.Items[i].ObjectMeta.Name
 		fmt.Printf("%+v", pods.Items[i].Spec.Hostname)
+
 		if strings.Contains(podName, "baremetal-csi") {
 			temp = append(temp, Pod{
 				Name:     podName,
@@ -145,6 +163,7 @@ func GetPods() ([]Pod, error) {
 			})
 		}
 	}
+
 	logrus.Info("Pods with plugin: ", temp)
 
 	return temp, nil
@@ -153,13 +172,18 @@ func GetPods() ([]Pod, error) {
 func getClient(pathToConfig string) (*kubernetes.Clientset, error) {
 	// specify path to kube config if you debug
 	//pathToConfig = "/home/chemaf/.kube/config"
-	var config *rest.Config
-	var err error
+	var (
+		config *rest.Config
+		err    error
+	)
+
 	if pathToConfig == "" {
 		logrus.Info("Using in cluster config")
+
 		config, err = rest.InClusterConfig()
 	} else {
 		logrus.Info("Using out of cluster config")
+
 		config, err = clientcmd.BuildConfigFromFlags("", pathToConfig)
 	}
 

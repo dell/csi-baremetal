@@ -1,3 +1,4 @@
+// Package driver implements CSI specification
 package driver
 
 import (
@@ -37,6 +38,7 @@ const (
 	version = "0.0.1"
 )
 
+// Mutex is a sync primitive to synchronize CreateVolume calls
 var Mutex = &sync.Mutex{}
 
 // NodeAllocatedDisks is a map for storing disk and allocation status
@@ -53,7 +55,6 @@ func GetNodeAllocatedDisks() {
 	//nodes:= [3]string{"localhost", "localhost1", "localhost2",}
 	//
 	//pods := [3]string{"localhost", "localhost", "localhost",}
-
 	pods, _ := util.GetPods()
 
 	for i := range pods {
@@ -69,15 +70,22 @@ func GetNodeAllocatedDisks() {
 			disks := make([]util.HalDisk, 0)
 			data, _ := ioutil.ReadAll(response.Body)
 			err = json.Unmarshal(data, &disks)
-
+			if err != nil {
+				logrus.Error(err)
+			}
 			for j := range disks {
 				//NodeAllocatedDisks[nodes[i]][disks[i]]= false
 				NodeAllocatedDisks[pods[i].NodeName][disks[j]] = false
 			}
 			logrus.Info("Get disks: ", disks, "from - ", pods[i])
 		}
-		response.Body.Close()
+
+		err = response.Body.Close()
+		if err != nil {
+			logrus.Error(err)
+		}
 	}
+
 	logrus.WithFields(logrus.Fields{
 		"method": "Driver - GetNodeAllocatedDisks",
 		"node":   NodeAllocatedDisks,
@@ -87,6 +95,7 @@ func GetNodeAllocatedDisks() {
 // NewDriver is function for creating CSI driver
 func NewDriver(endpoint, driverName, nodeID string) (*ECSCSIDriver, error) {
 	logrus.Info("Creating driver for endpoint ", endpoint)
+
 	return &ECSCSIDriver{
 		name:     driverName,
 		version:  version,
@@ -111,14 +120,12 @@ func (d *ECSCSIDriver) Run() error {
 	// CSI plugins talk only over UNIX sockets currently
 	if u.Scheme != "unix" {
 		return fmt.Errorf("currently only unix domain sockets are supported, have: %s", u.Scheme)
-	} else {
-		// remove the socket if it's already there. This can happen if we
-		// deploy a new version and the socket was created from the old running
-		// plugin.
-		logrus.WithField("socket", addr).Info("removing socket")
-		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to remove unix domain socket file %s, error: %s", addr, err)
-		}
+	}
+
+	logrus.WithField("socket", addr).Info("removing socket")
+
+	if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove unix domain socket file %s, error: %s", addr, err)
 	}
 
 	listener, err := net.Listen(u.Scheme, addr)
@@ -127,11 +134,13 @@ func (d *ECSCSIDriver) Run() error {
 	}
 
 	// log response errors for better observability
-	errHandler := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	errHandler := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (interface{}, error) {
 		resp, err := handler(ctx, req)
 		if err != nil {
 			logrus.WithError(err).WithField("method", info.FullMethod).Error("method failed")
 		}
+
 		return resp, err
 	}
 
@@ -141,6 +150,7 @@ func (d *ECSCSIDriver) Run() error {
 	csi.RegisterNodeServer(d.srv, d)
 
 	d.ready = true // we're now ready to go!
+
 	logrus.WithField("addr", addr).Info("server started")
 
 	return d.srv.Serve(listener)
@@ -154,20 +164,26 @@ func (d *ECSCSIDriver) Stop() {
 	logrus.Info("Driver stopped. Ready: ", d.ready)
 }
 
-func checkDiskCanBeUsed(disk *util.HalDisk, allocated bool, requestCapacity int64) bool {
+func checkDiskCanBeUsed(disk util.HalDisk, allocated bool, requestCapacity int64) bool {
 	//expected formats of disk capacity: "4K", "7T", "64G", extract units ("K", "G", "T", "M") from string
 	unit := disk.Capacity[len(disk.Capacity)-1:]
 	requiredBytes := util.FormatCapacity(requestCapacity, unit)
+
 	capacity, err := strconv.ParseFloat(disk.Capacity[:len(disk.Capacity)-1], 64)
 	if err != nil {
 		logrus.Errorf("Error during converting string to int: %q", err)
-	} else if float64(requiredBytes) > capacity {
-		logrus.Info("Required bytes more than disk capacity: ", disk.Path)
-	} else {
-		//if a disk is not allocated and its capacity is enough then use the disk
-		if !allocated && disk.PartitionCount == 0 {
-			return true
-		}
+		return false
 	}
+
+	if float64(requiredBytes) > capacity {
+		logrus.Info("Required bytes more than disk capacity: ", disk.Path)
+		return false
+	}
+
+	if !allocated && disk.PartitionCount == 0 {
+		//if a disk is not allocated and its capacity is enough then use the disk
+		return true
+	}
+
 	return false
 }

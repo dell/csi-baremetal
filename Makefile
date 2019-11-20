@@ -45,9 +45,4 @@ prepare-lint:
     rm -r golangci-lint-${LINTER_VERSION}-*
 
 lint:
-	${GOPATH}/bin/golangci-lint run --deadline=3m --skip-dirs="vendor" \
-	--exclude-use-default=false \
-	--disable=gochecknoinits \
-	--disable=gochecknoglobals \
-	--enable-all \
-	./...
+	${GOPATH}/bin/golangci-lint run ./...

@@ -1,9 +1,11 @@
+//Package util provide util function for CSI working
 package util
 
 import (
 	"math"
 )
 
+//FormatCapacity format capacity of disk:
 func FormatCapacity(requiredBytes int64, unit string) int64 {
 	switch unit {
 	case "K":
@@ -17,5 +19,6 @@ func FormatCapacity(requiredBytes int64, unit string) int64 {
 	default:
 		return requiredBytes
 	}
+
 	return requiredBytes
 }
