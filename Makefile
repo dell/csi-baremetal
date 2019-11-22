@@ -20,6 +20,7 @@ HARBOR           := harbor.lss.emc.com/ecs
 
 LINTER_VERSION   := 1.21.0
 
+.PHONY: test
 
 all: build image push
 
@@ -45,4 +46,10 @@ prepare-lint:
     rm -r golangci-lint-${LINTER_VERSION}-*
 
 lint:
-	${GOPATH}/bin/golangci-lint run ./...
+	golangci-lint run ./...
+
+test:
+	go test -cover ./... -coverprofile=coverage.out
+
+coverage:
+	go tool cover -html=coverage.out -o coverage.html

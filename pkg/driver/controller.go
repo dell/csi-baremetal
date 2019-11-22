@@ -185,6 +185,7 @@ func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context,
 	unpublishDiskPath := strings.Split(req.VolumeId, "_")[1]
 
 	node := req.GetNodeId()
+
 	for disk := range NodeAllocatedDisks[node] {
 		if disk.Path == unpublishDiskPath {
 			NodeAllocatedDisks[node][disk] = false
