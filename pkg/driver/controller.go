@@ -57,9 +57,12 @@ func (d *ECSCSIDriver) CreateVolume(ctx context.Context,
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
 	}
 
+	// volume identifier
 	var volumeID string
-
+	// node identifier. Currently is FQDN but must be UUID
 	var nodeID string
+	// allocated capacity
+	var capacity int64
 
 	Mutex.Lock()
 
@@ -70,56 +73,23 @@ func (d *ECSCSIDriver) CreateVolume(ctx context.Context,
 		NodeAllocatedDisksInitialized = true
 	}
 
-	var isDiskFound = false
-
-	if req.GetAccessibilityRequirements() == nil {
-		//If external-provisioner didn't send AR then use all nodes no find disk
-		for node := range NodeAllocatedDisks {
-			for disk, allocated := range NodeAllocatedDisks[node] {
-				isDiskFound = checkDiskCanBeUsed(disk, allocated, req.GetCapacityRange().GetRequiredBytes())
-				if isDiskFound {
-					volumeID = node + "_" + disk.Path
-					nodeID = node
-					NodeAllocatedDisks[node][disk] = true
-
-					break
-				}
-			}
-
-			if isDiskFound {
-				logrus.Info("Disk found on the node - ", node)
-				break
-			} else {
-				logrus.Info("All disks are allocated on node - ", node)
-				logrus.Info(NodeAllocatedDisks[node])
-			}
-		}
-	} else {
+	var preferredNode = ""
+	// If external-provisioner didn't send AR then use all nodes no find disk
+	if req.GetAccessibilityRequirements() != nil {
+		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments["baremetal-csi/nodeid"]
 		/*If external-provisioner sent AR then use the first node from preferred ones (set by WaitForFirstConsumer
 		SC mode) to find a disk. Other nodes cannot be used because the pod that uses volumes has been scheduled to
 		the first node from preferred ones.*/
-		node := req.GetAccessibilityRequirements().Preferred[0].Segments["baremetal-csi/nodeid"]
-		logrus.Info("Preferred node: ", node)
-		for disk, allocated := range NodeAllocatedDisks[node] {
-			isDiskFound = checkDiskCanBeUsed(disk, allocated, req.GetCapacityRange().GetRequiredBytes())
-			if isDiskFound {
-				volumeID = node + "_" + disk.Path
-				nodeID = node
-				NodeAllocatedDisks[node][disk] = true
-				break
-			}
-		}
-
-		if isDiskFound {
-			logrus.Info("Disk found on the node - ", node)
-		} else {
-			logrus.Info("All disks are allocated on node - ", node)
-			logrus.Info(NodeAllocatedDisks[node])
-		}
+		logrus.Info("Preferred node: ", preferredNode)
 	}
+	// requested capacity by external-provisioner
+	var requestedCapacity = req.GetCapacityRange().GetRequiredBytes()
+
+	capacity, nodeID, volumeID = AllocateDisk(NodeAllocatedDisks, preferredNode, requestedCapacity)
+
 	Mutex.Unlock()
 
-	if isDiskFound {
+	if capacity > 0 {
 		//d.nodeIad -> node id
 		topology := csi.Topology{
 			Segments: map[string]string{
@@ -131,7 +101,7 @@ func (d *ECSCSIDriver) CreateVolume(ctx context.Context,
 		resp := &csi.CreateVolumeResponse{
 			Volume: &csi.Volume{
 				VolumeId:           volumeID,
-				CapacityBytes:      req.GetCapacityRange().GetRequiredBytes(),
+				CapacityBytes:      capacity,
 				VolumeContext:      req.GetParameters(),
 				AccessibleTopology: topologyList,
 			},

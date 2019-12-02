@@ -1,10 +1,14 @@
 kind: StatefulSet
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 metadata:
   name: csi-do-controller
 spec:
   serviceName: "csi-do"
   replicas: 1
+  selector:
+    matchLabels:
+      app: csi-do-controller
+      role: csi-do
   template:
     metadata:
       labels:

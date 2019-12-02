@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -164,26 +165,102 @@ func (d *ECSCSIDriver) Stop() {
 	logrus.Info("Driver stopped. Ready: ", d.ready)
 }
 
-func checkDiskCanBeUsed(disk util.HalDisk, allocated bool, requestCapacity int64) bool {
-	//expected formats of disk capacity: "4K", "7T", "64G", extract units ("K", "G", "T", "M") from string
-	unit := disk.Capacity[len(disk.Capacity)-1:]
-	requiredBytes := util.FormatCapacity(requestCapacity, unit)
+func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
+	preferredNode string, requestedCapacity int64) (int64, string, string) {
+	// flag to inform that some disks were picked
+	var isDiskFound = false
+	// picked disk
+	var allocatedDisk util.HalDisk
+	// volume identifier
+	var volumeID string
+	// node identifier
+	var nodeID string
+	// allocated capacity
+	var allocatedCapacity int64 = math.MaxInt64
 
-	capacity, err := strconv.ParseFloat(disk.Capacity[:len(disk.Capacity)-1], 64)
+	var selectedDisks = make(map[string]map[util.HalDisk]bool)
+
+	if preferredNode != "" {
+		selectedDisks[preferredNode] = allDisks[preferredNode]
+	} else {
+		selectedDisks = allDisks
+	}
+
+	// check all disks
+	var pickedDisks = make(map[util.HalDisk]string)
+	// pick appropriate
+	for node := range selectedDisks {
+		for disk, allocated := range selectedDisks[node] {
+			if !allocated {
+				picked := tryToPick(disk, requestedCapacity)
+				if picked {
+					pickedDisks[disk] = node
+				}
+			}
+		}
+	}
+
+	// choose disk with the minimal size
+	for disk, node := range pickedDisks {
+		capacity := getCapacityInBytes(disk)
+		if capacity < allocatedCapacity {
+			allocatedDisk = disk
+			allocatedCapacity = capacity
+			volumeID = node + "_" + disk.Path
+			nodeID = node
+			// todo - refactor, no need to update it each time
+			isDiskFound = true
+		}
+	}
+
+	// update map
+	if isDiskFound {
+		allDisks[nodeID][allocatedDisk] = true
+	} else {
+		// no capacity allocated
+		allocatedCapacity = 0
+	}
+
+	if isDiskFound {
+		logrus.Info("Disk found on the node - ", nodeID)
+	} else {
+		logrus.Info("All disks are allocated on requested nodes")
+	}
+
+	return allocatedCapacity, nodeID, volumeID
+}
+
+// get capacity size in bytes
+func getCapacityInBytes(disk util.HalDisk) int64 {
+	//expected formats of disk capacity: "4K", "7T", "64G"
+	//extract units ("K", "G", "T", "M") from string
+	diskUnit := disk.Capacity[len(disk.Capacity)-1:]
+	// extract size 4, 7, 64
+	diskUnitSize, err := strconv.ParseInt(disk.Capacity[:len(disk.Capacity)-1], 0, 64)
+	// return null capacity when unable to decode
 	if err != nil {
 		logrus.Errorf("Error during converting string to int: %q", err)
+		return 0
+	}
+	// calcucate size in bytes
+	return util.FormatCapacity(diskUnitSize, diskUnit)
+}
+
+// try to pick the disk. requiredBytes - minimum size of disk.
+// return true in case of success, false otherwise
+func tryToPick(disk util.HalDisk, requiredBytes int64) bool {
+	// skip disk if it has partitions already
+	if disk.PartitionCount != 0 {
 		return false
 	}
 
-	if float64(requiredBytes) > capacity {
+	// calc capacity
+	capacityBytes := getCapacityInBytes(disk)
+	// check whether it matches
+	if requiredBytes > capacityBytes {
 		logrus.Info("Required bytes more than disk capacity: ", disk.Path)
 		return false
 	}
 
-	if !allocated && disk.PartitionCount == 0 {
-		//if a disk is not allocated and its capacity is enough then use the disk
-		return true
-	}
-
-	return false
+	return true
 }

@@ -1,24 +1,20 @@
 //Package util provide util function for CSI working
 package util
 
-import (
-	"math"
-)
-
 //FormatCapacity format capacity of disk:
-func FormatCapacity(requiredBytes int64, unit string) int64 {
+func FormatCapacity(size int64, unit string) int64 {
 	switch unit {
 	case "K":
-		requiredBytes /= 1000
+		size *= 1024
 	case "M":
-		requiredBytes /= int64(math.Pow(1000, 2))
+		size *= 1024 * 1024
 	case "G":
-		requiredBytes /= int64(math.Pow(1000, 3))
+		size *= 1024 * 1024 * 1024
 	case "T":
-		requiredBytes /= int64(math.Pow(1000, 4))
+		size *= 1024 * 1024 * 1024 * 1024
 	default:
-		return requiredBytes
+		return size
 	}
 
-	return requiredBytes
+	return size
 }

@@ -1,7 +1,6 @@
 package util
 
 import (
-	. "math"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -14,16 +13,26 @@ func TestService(t *testing.T) {
 }
 
 var _ = Describe("Converter", func() {
-	var requiredBytes int64 = int64(Pow(10, 9))
+	var requiredBytes int64 = 1
 	Context("Required bytes", func() {
-		It("Size must be 1000", func() {
-			size := FormatCapacity(requiredBytes, "M")
-			Expect(size == 1000)
+		It("Size must be 1K", func() {
+			size := FormatCapacity(requiredBytes, "K")
+			Expect(size).Should(BeNumerically("==", requiredBytes*1024))
 		})
 
-		It("Size should be 1", func() {
+		It("Size must be 1M", func() {
+			size := FormatCapacity(requiredBytes, "M")
+			Expect(size).Should(BeNumerically("==", requiredBytes*1024*1024))
+		})
+
+		It("Size should be 1G", func() {
 			size := FormatCapacity(requiredBytes, "G")
-			Expect(size == 1)
+			Expect(size).Should(BeNumerically("==", requiredBytes*1024*1024*1024))
+		})
+
+		It("Size should be 1T", func() {
+			size := FormatCapacity(requiredBytes, "T")
+			Expect(size).Should(BeNumerically("==", requiredBytes*1024*1024*1024*1024))
 		})
 	})
 })
