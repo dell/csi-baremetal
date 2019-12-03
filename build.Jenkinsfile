@@ -67,16 +67,20 @@ void runJob() {
                 }
 
                 stage('Image') {
-                    sh("make image")
+                    sh('make image')
                 }
 
                 stage('Push image') {
-                    sh("make push")
+                    sh("""
+                        ${common.DOCKER_REGISTRY.HARBOR.getLoginCommand()}
+                        ${common.DOCKER_REGISTRY.DOCKER_HUB.getLoginCommand()}
+                        make push
+                    """)
                 }
 
                 if (args.runMode != RUN_MODE_CUSTOM) {
                     build([
-                        job       : "csi-${args.bareMetalCsiRepoBranchName}-ci".toString(),
+                        job       : 'csi-master-ci',
                         parameters: [string(name: 'CSI_VERSION', value: args.version)],
                         wait      : false,
                         propagate : false,
