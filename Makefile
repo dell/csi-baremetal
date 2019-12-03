@@ -20,7 +20,7 @@ HARBOR           := harbor.lss.emc.com/ecs
 
 LINTER_VERSION   := 1.21.0
 
-.PHONY: test
+.PHONY: test build
 
 all: build image push
 
