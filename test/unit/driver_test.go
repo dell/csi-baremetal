@@ -43,12 +43,18 @@ var _ = Describe("Allocator", func() {
 	disk3.Path = "/dev/sdd"
 	disk3.PartitionCount = 0
 
+	var disk4 util.HalDisk
+	disk4.Capacity = "311.8G"
+	disk4.Path = "/dev/sde"
+	disk4.PartitionCount = 0
+
 
 	var NodeAllocatedDisks = make(map[string]map[util.HalDisk]bool)
 	NodeAllocatedDisks[node] = make(map[util.HalDisk]bool)
 	NodeAllocatedDisks[node][disk] = false
 	NodeAllocatedDisks[node][disk2] = false
 	NodeAllocatedDisks[node][disk3] = false
+	NodeAllocatedDisks[node][disk4] = false
 
 	var volumeID string
 	var nodeID string
@@ -77,7 +83,7 @@ var _ = Describe("Allocator", func() {
 
 		It("Third disk allocation must fail", func() {
 			// no available resources to allocate
-			requestedCapacity = 50 * (1024 * 1024 * 1024) // 50Gi
+			requestedCapacity = 500 * (1024 * 1024 * 1024) // 50Gi
 			capacity, nodeID, volumeID = driver.AllocateDisk(NodeAllocatedDisks, node, requestedCapacity)
 
 			Expect(capacity).Should(BeNumerically("==", 0))

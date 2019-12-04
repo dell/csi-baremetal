@@ -2,7 +2,7 @@
 package util
 
 //FormatCapacity format capacity of disk:
-func FormatCapacity(size int64, unit string) int64 {
+func FormatCapacity(size float64, unit string) int64 {
 	switch unit {
 	case "K":
 		size *= 1024
@@ -13,8 +13,8 @@ func FormatCapacity(size int64, unit string) int64 {
 	case "T":
 		size *= 1024 * 1024 * 1024 * 1024
 	default:
-		return size
+		return int64(size)
 	}
 
-	return size
+	return int64(size)
 }

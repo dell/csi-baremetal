@@ -202,7 +202,7 @@ func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 
 	// choose disk with the minimal size
 	for disk, node := range pickedDisks {
-		capacity := getCapacityInBytes(disk)
+		capacity := getCapacityInBytes(disk.Capacity)
 		if capacity < allocatedCapacity {
 			allocatedDisk = disk
 			allocatedCapacity = capacity
@@ -231,12 +231,12 @@ func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 }
 
 // get capacity size in bytes
-func getCapacityInBytes(disk util.HalDisk) int64 {
+func getCapacityInBytes(capacity string) int64 {
 	//expected formats of disk capacity: "4K", "7T", "64G"
 	//extract units ("K", "G", "T", "M") from string
-	diskUnit := disk.Capacity[len(disk.Capacity)-1:]
+	diskUnit := capacity[len(capacity)-1:]
 	// extract size 4, 7, 64
-	diskUnitSize, err := strconv.ParseInt(disk.Capacity[:len(disk.Capacity)-1], 0, 64)
+	diskUnitSize, err := strconv.ParseFloat(capacity[:len(capacity)-1], 64)
 	// return null capacity when unable to decode
 	if err != nil {
 		logrus.Errorf("Error during converting string to int: %q", err)
@@ -255,7 +255,7 @@ func tryToPick(disk util.HalDisk, requiredBytes int64) bool {
 	}
 
 	// calc capacity
-	capacityBytes := getCapacityInBytes(disk)
+	capacityBytes := getCapacityInBytes(disk.Capacity)
 	// check whether it matches
 	if requiredBytes > capacityBytes {
 		logrus.Info("Required bytes more than disk capacity: ", disk.Path)
