@@ -14,7 +14,7 @@ storageClass:
 provisioner:
   image:
     # if you want to use topology feature (multiple pvc per pod) you must use v1.2.2
-    tag: v1.0.1
+    tag: v1.2.2
 
 attacher:
   image:
