@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
@@ -263,4 +264,29 @@ func tryToPick(disk util.HalDisk, requiredBytes int64) bool {
 	}
 
 	return true
+}
+
+func ReleaseDisk(volumeID string, disks map[string]map[util.HalDisk]bool) error {
+	Mutex.Lock()
+	defer Mutex.Unlock()
+	//volumeid is nodeId_path
+	deletedDisk := strings.Split(volumeID, "_")
+
+	if len(deletedDisk) != 2 {
+		return fmt.Errorf("invalid volumeID: %v", volumeID)
+	}
+
+	node := deletedDisk[0]
+	diskPath := deletedDisk[1]
+
+	for disk := range disks[node] {
+		if disk.Path == diskPath {
+			disks[node][disk] = false
+			break
+		}
+	}
+
+	logrus.Info("Disks state after resetting cache: ", disks[node])
+
+	return nil
 }

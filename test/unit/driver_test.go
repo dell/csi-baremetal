@@ -1,9 +1,9 @@
 package unit
 
 import (
-	"testing"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/driver"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -87,6 +87,32 @@ var _ = Describe("Allocator", func() {
 			capacity, nodeID, volumeID = driver.AllocateDisk(NodeAllocatedDisks, node, requestedCapacity)
 
 			Expect(capacity).Should(BeNumerically("==", 0))
+		})
+	})
+	Context("Release disks cache", func() {
+		It("Cache doesn't change", func() {
+			//disk doesn't exist
+			volumeID = node + "_" + disk.Path + "1"
+			currentState := NodeAllocatedDisks
+			err := driver.ReleaseDisk(volumeID, NodeAllocatedDisks)
+
+			Expect(NodeAllocatedDisks).To(Equal(currentState))
+			Expect(err).To(BeNil())
+		})
+		It("First disk should be released", func() {
+			//release first disk
+			volumeID = node + "_" + disk.Path
+			err := driver.ReleaseDisk(volumeID, NodeAllocatedDisks)
+
+			Expect(NodeAllocatedDisks[node][disk]).To(BeFalse())
+			Expect(err).To(BeNil())
+		})
+		It("Resetting cache should fail", func() {
+			//disk has invalid format
+			volumeID = node + disk.Path
+			err := driver.ReleaseDisk(volumeID, NodeAllocatedDisks)
+
+			Expect(err).NotTo(BeNil())
 		})
 	})
 })

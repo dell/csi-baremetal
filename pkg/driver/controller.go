@@ -124,6 +124,12 @@ func (d *ECSCSIDriver) DeleteVolume(ctx context.Context,
 		return nil, status.Error(codes.InvalidArgument, "DeleteVolume Volume ID must be provided")
 	}
 
+	err := ReleaseDisk(req.VolumeId, NodeAllocatedDisks)
+
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "DeleteVolume has invalid Volume ID format")
+	}
+
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
