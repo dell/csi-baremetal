@@ -24,6 +24,9 @@ LINTER_VERSION   := 1.21.0
 
 all: build image push
 
+dependency:
+	GO111MODULE=on go mod download
+
 build:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/_output/baremetal_csi ./cmd/main.go
 

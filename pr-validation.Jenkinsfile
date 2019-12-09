@@ -34,6 +34,14 @@ boolean validatePullRequest(String commit) {
                     checkout scm
                 }
 
+                stage('Get dependencies') {
+                    depExitCode = sh(script: 'make dependency', returnStatus: true)
+                    if (depExitCode != 0) {
+                        currentBuild.result = 'FAILURE'
+                        throw new Exception("Get dependencies stage failed, check logs")
+                    }
+                }
+
                 stage('Lint') {
                     lintExitCode = sh(script: 'make lint', returnStatus: true)
                     if (lintExitCode != 0) {
