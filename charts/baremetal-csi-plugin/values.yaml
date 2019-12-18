@@ -4,7 +4,7 @@ global:
 
 # CSI Plugin parameters
 image:
-  tag: 0.0.2
+  tag: latest
 
 # Storage Class name that provisions PVs dynamically
 storageClass:
@@ -13,7 +13,7 @@ storageClass:
 # CSI Sidecars parameters
 provisioner:
   image:
-    # if you want to use topology feature (multiple pvc per pod) you must use v1.2.2
+    # if you want to use topology feature (multiple PVCs per pod) you should use v1.2.2
     tag: v1.2.2
 
 attacher:
