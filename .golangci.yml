@@ -3,8 +3,10 @@ output:
   format: colored-line-number
 
 linters-settings:
+  lll:
+    line-length: 180
   funlen:
-    lines: 120
+    lines: 180
     statements: 70
 
 linters:

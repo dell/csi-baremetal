@@ -30,8 +30,7 @@ func (d *ECSCSIDriver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequ
 }
 
 // NodeGetCapabilities is a function for getting node service capabilities
-func (d *ECSCSIDriver) NodeGetCapabilities(ctx context.Context,
-	req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+func (d *ECSCSIDriver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	logrus.WithFields(logrus.Fields{
 		"node_capabilities": "empty",
 		"method":            "node_get_capabilities",
@@ -43,24 +42,21 @@ func (d *ECSCSIDriver) NodeGetCapabilities(ctx context.Context,
 }
 
 // NodeStageVolume is a function which call NodeStageVolume request
-func (d *ECSCSIDriver) NodeStageVolume(ctx context.Context,
-	req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+func (d *ECSCSIDriver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 	logrus.WithField("request", req).Info("NodeServer: NodeStageVolume() call")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // NodeUnstageVolume is a function which call NodeUnstageVolume request
-func (d *ECSCSIDriver) NodeUnstageVolume(ctx context.Context,
-	req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+func (d *ECSCSIDriver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
 	logrus.WithField("request", req).Info("NodeServer: NodeUnstageVolume() call")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // NodePublishVolume is a function for publishing volume
-func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context,
-	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	logrus.WithField("request", req).Info("NodeServer: NodePublishVolume() call")
 
 	// Check arguments
@@ -94,8 +90,7 @@ func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context,
 }
 
 // NodeUnpublishVolume is a function for unpublishing volume
-func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context,
-	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	logrus.WithField("request", req).Info("NodeServer: NodeUnPublishVolume() call")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -140,16 +135,14 @@ func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context,
 }
 
 // NodeGetVolumeStats is a function
-func (d *ECSCSIDriver) NodeGetVolumeStats(ctx context.Context,
-	in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+func (d *ECSCSIDriver) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
 	logrus.Info("NodeServer: NodeGetVolumeStats() call")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // NodeExpandVolume is a function
-func (d *ECSCSIDriver) NodeExpandVolume(context.Context,
-	*csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+func (d *ECSCSIDriver) NodeExpandVolume(context.Context, *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	logrus.Info("NodeServer: NodeExpandVolume() call")
 
 	return nil, status.Error(codes.Unimplemented, "")

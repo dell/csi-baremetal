@@ -9,8 +9,7 @@ import (
 )
 
 // GetPluginInfo is a function for getting info about plugin
-func (d *ECSCSIDriver) GetPluginInfo(ctx context.Context,
-	req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+func (d *ECSCSIDriver) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	logrus.Info("IdentityServer: GetPluginInfo() call")
 
 	return &csi.GetPluginInfoResponse{
@@ -20,8 +19,7 @@ func (d *ECSCSIDriver) GetPluginInfo(ctx context.Context,
 }
 
 // GetPluginCapabilities is a function for getting plugin capabilities
-func (d *ECSCSIDriver) GetPluginCapabilities(ctx context.Context,
-	req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+func (d *ECSCSIDriver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 	resp := &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			{
