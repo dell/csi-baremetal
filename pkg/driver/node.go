@@ -57,6 +57,9 @@ func (d *ECSCSIDriver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnsta
 
 // NodePublishVolume is a function for publishing volume
 func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	Mutex.Lock()
+	defer Mutex.Unlock()
+
 	logrus.WithField("request", req).Info("NodeServer: NodePublishVolume() call")
 
 	// Check arguments
@@ -78,19 +81,28 @@ func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context, req *csi.NodePubli
 
 	target := req.TargetPath
 
+	// For idempotency support. If device is already mounted to the target path then return NodePublishVolumeResponse
+	if util.IsMounted(source, target) {
+		logrus.Infof("Device %s is already mounted to path %s", source, target)
+		return &csi.NodePublishVolumeResponse{}, nil
+	}
+
 	err := util.Mount(source, source, target)
 	if err != nil {
 		logrus.Info("Failed mount ", source, " to ", target)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	logrus.Info("Mounted from ", source, "to ", target)
+	logrus.Info("Mounted from ", source, " to ", target)
 
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 // NodeUnpublishVolume is a function for unpublishing volume
 func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	Mutex.Lock()
+	defer Mutex.Unlock()
+
 	logrus.WithField("request", req).Info("NodeServer: NodeUnPublishVolume() call")
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -102,14 +114,22 @@ func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnp
 	}
 
 	targetPath := req.GetTargetPath()
+
 	volumeID := req.GetVolumeId()
+	source := strings.Split(volumeID, "_")[1]
+	logrus.Info("Block device name - ", source)
 
 	logrus.Info("Unmount ", targetPath)
 
-	err := util.Unmount(targetPath)
-	if err != nil {
-		logrus.Error("Unmount ", targetPath, " is failed")
-		return nil, status.Error(codes.Internal, err.Error())
+	// Attempt to unmount only if volume is mounted to target path
+	if util.IsMounted(source, targetPath) {
+		err := util.Unmount(targetPath)
+		if err != nil {
+			logrus.Error("Unmount ", targetPath, " is failed")
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		logrus.Infof("Device %s is already unmounted from path %s", source, targetPath)
 	}
 
 	logrus.Infof("Volume %s/%s has been unmounted.", targetPath, volumeID)

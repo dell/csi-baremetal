@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -100,6 +101,19 @@ func Unmount(target string) error {
 	}
 
 	return nil
+}
+
+// Return true if source is mounted to target. Otherwise return false
+func IsMounted(source string, target string) bool {
+	cmd := exec.Command("lsblk", "-d", "-n", "-o", "MOUNTPOINT", source)
+
+	out, _ := cmd.CombinedOutput()
+
+	mountPoint := strings.TrimSpace(string(out))
+
+	logrus.Infof("MOUNTPOINT for %s is %s", source, mountPoint)
+
+	return mountPoint == target
 }
 
 //func isFormatted(source string) (bool, error) {

@@ -83,7 +83,28 @@ func (d *ECSCSIDriver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRe
 	// requested capacity by external-provisioner
 	var requestedCapacity = req.GetCapacityRange().GetRequiredBytes()
 
-	capacity, nodeID, volumeID = AllocateDisk(NodeAllocatedDisks, preferredNode, requestedCapacity)
+	volume := csiVolumesCache.getVolumeByName(req.GetName())
+	// Check if volume with req.Name exists in cache
+	if volume != nil {
+		// If volume exists then fill CreateVolumeResponse with its fields
+		capacity = volume.Size
+		nodeID = volume.NodeID
+		volumeID = volume.VolumeID
+	} else {
+		// If volume doesn't exist then attempt to allocate disk and update volumes cache in case of success
+		capacity, nodeID, volumeID = AllocateDisk(NodeAllocatedDisks, preferredNode, requestedCapacity)
+		if capacity > 0 {
+			err := csiVolumesCache.addVolumeToCache(&csiVolume{
+				Name:     req.GetName(),
+				VolumeID: volumeID,
+				NodeID:   nodeID,
+				Size:     capacity,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	Mutex.Unlock()
 
@@ -126,6 +147,9 @@ func (d *ECSCSIDriver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRe
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "DeleteVolume has invalid Volume ID format")
 	}
+
+	// Delete volume from cache by its ID
+	csiVolumesCache.deleteVolumeByID(req.GetVolumeId())
 
 	return &csi.DeleteVolumeResponse{}, nil
 }
