@@ -9,70 +9,38 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//TODO: try to using native Kubernetes libs
-
-//func format(blockDevice string) error {
-//	return nil
-//}
+// TODO: try to using native Kubernetes libs
 
 // Mount is a function for mounting block devices
-func Mount(blockDevice, source, target string) error {
-	logrus.Info("Running ls -lah ", blockDevice)
-	cmd := exec.Command("ls", "-lah", blockDevice)
+func Mount(source, target string) error {
+	logrus.Info("Running ls -lah ", source)
+	cmd := exec.Command("ls", "-lah", source)
 	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
+		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
-
-	/*logrus.Info("Running [parted -s ", blockDevice, " mklabel gpt]")
-	cmd = exec.Command("parted", "-s", blockDevice, "mklabel", "gpt")
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
-	}
-
-	logrus.Info("Running [parted -s ", blockDevice,
-	" mkpart --align optimal ECS:unassign:AAAAAAAAAAAAAAAAAAAAAA 0% 100%]")
-	cmd = exec.Command("parted", blockDevice, "mkpart", "--align", "optimal",
-	"ECS:unassign:AAAAAAAAAAAAAAAAAAAAAA", "0%", "100%")
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
-	}
-
-	for i := 1; i <= 5; i++ {
-		logrus.Info("Running [partprobe], attempt ", i)
-		cmd = exec.Command("partprobe")
-		out, err = cmd.CombinedOutput()
-		if err != nil {
-			logrus.Error("cmd.Run() failed with %s, output%s\n", err, out)
-			time.Sleep(2 * time.Second)
-		} else {
-			break
-		}
-	}*/
 
 	logrus.Info("Running [mkfs.xfs -f ", source, "]")
 	cmd = exec.Command("mkfs.xfs", "-f", source)
 	out, err = cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
+		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
 
 	cmd = exec.Command("mkdir", "-p", target)
 	out, err = cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
+		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
 
 	cmd = exec.Command("mount", source, target)
 	out, err = cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
+		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
 
 	return nil
@@ -86,14 +54,12 @@ func Unmount(target string) error {
 		return errors.New("target is not specified for unmounting the volume")
 	}
 
-	umountArgs := []string{target}
-
 	logrus.WithFields(logrus.Fields{
 		"cmd":  umountCmd,
-		"args": umountArgs,
+		"args": target,
 	}).Info("executing umount command")
 
-	out, err := exec.Command(umountCmd, umountArgs...).CombinedOutput()
+	out, err := exec.Command(umountCmd, target).CombinedOutput()
 
 	if err != nil {
 		return fmt.Errorf("unmounting failed: %v cmd: '%s %s' output: %q",
@@ -104,7 +70,7 @@ func Unmount(target string) error {
 }
 
 // Return true if source is mounted to target. Otherwise return false
-func IsMounted(source string, target string) bool {
+func IsMountedBockDevice(source string, target string) bool {
 	cmd := exec.Command("lsblk", "-d", "-n", "-o", "MOUNTPOINT", source)
 
 	out, _ := cmd.CombinedOutput()
@@ -115,11 +81,3 @@ func IsMounted(source string, target string) bool {
 
 	return mountPoint == target
 }
-
-//func isFormatted(source string) (bool, error) {
-//	return true, nil
-//}
-//
-//func isMounted(target string) (bool, error) {
-//	return false, nil
-//}

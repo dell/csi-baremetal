@@ -28,3 +28,5 @@ nodeDriverRegistrar:
   image:
     tag: v1.0.1-gke.0
 
+csiDriver:
+  lvmMode: false

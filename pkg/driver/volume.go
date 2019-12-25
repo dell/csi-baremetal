@@ -48,7 +48,7 @@ func (vc *VolumesCache) addVolumeToCache(volume *csiVolume) error {
 func (vc *VolumesCache) deleteVolumeByID(volumeID string) {
 	for volumeName, volume := range csiVolumesCache {
 		if volume.VolumeID == volumeID {
-			logrus.Infof("Attempt to delete volume %s from cache", volumeName)
+			logrus.Infof("Deleting volume %s from cache", volumeName)
 			delete(csiVolumesCache, volumeName)
 		}
 	}

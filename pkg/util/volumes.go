@@ -24,15 +24,9 @@ type HalDisk struct {
 	Slot           string `json:"Slot"`
 }
 
-// DisksCache is a slice for storing disks
-var DisksCache []HalDisk
-
-// AllDisks is a function for getting all disks from a node
+// AllDisks return block devices (/dev/sdXXX) without partitions from a node
 func AllDisks() *[]HalDisk {
-	if len(DisksCache) > 0 {
-		logrus.Info("Found disks in cache, will return them: ", DisksCache)
-		return &DisksCache
-	}
+	devMask := "/dev/sd"
 
 	cmd := exec.Command("lsblk", "-d", "-n", "-l", "-p", "-o", "TYPE,NAME", "-e", "7")
 	out, err := cmd.CombinedOutput()
@@ -55,7 +49,7 @@ func AllDisks() *[]HalDisk {
 		devType := device[0]
 		devName := device[1]
 
-		if devType == "disk" {
+		if devType == "disk" && strings.Contains(devName, devMask) {
 			disks = append(disks, devName)
 		}
 	}
@@ -89,6 +83,20 @@ func AllDisks() *[]HalDisk {
 	}
 
 	return &halDisks
+}
+
+// collect path to the block devices without partitions
+func AllDisksWithoutPartitions() []string { // list of path to device
+	devs := make([]string, 0)
+	allDisks := AllDisks()
+	// create physical volume from each disk with 0 partition
+	for _, d := range *allDisks {
+		if d.PartitionCount == 0 {
+			devs = append(devs, d.Path)
+		}
+	}
+
+	return devs
 }
 
 func countPartitions(device string) int {

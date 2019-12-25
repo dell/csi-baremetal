@@ -44,9 +44,18 @@ spec:
           image: {{ .Values.global.registry }}/baremetal-csi-plugin:{{ .Values.image.tag }}
           imagePullPolicy: Always
 
+          {{- if eq .Values.csiDriver.lvmMode true }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/usr/bin/curl", "127.0.0.1:9999/rlvm"]
+          {{ end }}
+
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--controller=false"
+            - --lmvmode={{ .Values.csiDriver.lvmMode }}
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock

@@ -40,16 +40,19 @@ func (d *ECSCSIDriver) GetPluginCapabilities(ctx context.Context, req *csi.GetPl
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"response": resp,
-		"method":   "get_plugin_capabilities",
-	}).Info("get plugin capabitilies called")
+		"component": "identityService",
+		"method":    "GetPluginCapabilities",
+	}).Infof("Response: %v", resp)
 
 	return resp, nil
 }
 
 // Probe is a function for querying readiness of the plugin
 func (d *ECSCSIDriver) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	logrus.Info("IdentityServer: Probe() call")
+	logrus.WithFields(logrus.Fields{
+		"component": "identityService",
+		"method":    "Probe",
+	}).Infof("Ready: %v", d.ready)
 
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{

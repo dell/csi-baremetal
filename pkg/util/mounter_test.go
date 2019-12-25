@@ -5,8 +5,8 @@ import (
 )
 
 func TestIsNotMounted(t *testing.T) {
-	mounted := IsMounted("/dev/random", "/usr/local/bin")
+	mounted := IsMountedBockDevice("/dev/random", "/usr/local/bin")
 	if mounted {
-		t.Errorf("IsMounted should return false")
+		t.Errorf("IsMountedBockDevice should return false")
 	}
 }

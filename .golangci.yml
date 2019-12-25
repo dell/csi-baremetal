@@ -49,12 +49,12 @@ linters:
     - maligned
     - prealloc
     - dupl
-    - wsl
 
   # don't enable:
   # - gosec Because CSI uses lsblk servers for now
   # - gochecknoglobals Because of NodeAllocatedDisks map
   # - godox CSI now has a lot TODOs in source code
+  # - wsl
 
 run:
   deadline: 15m

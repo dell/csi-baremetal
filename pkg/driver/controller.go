@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -35,117 +36,175 @@ func (d *ECSCSIDriver) ControllerGetCapabilities(ctx context.Context, req *csi.C
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"response": resp,
-		"method":   "controller_get_capabilities",
+		"response":  resp,
+		"component": "controllerService",
+		"method":    "ControllerGetCapabilities",
 	}).Info("controller get capabilities called")
 
 	return resp, nil
 }
 
 // CreateVolume is a function for creating volumes
-func (d *ECSCSIDriver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	logrus.WithField("request", req).Info("ControllerServer: CreateVolume() call")
+func (d *ECSCSIDriver) CreateVolume(ctx context.Context,
+	req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "controllerService",
+		"method":    "CreateVolume",
+		"requestID": req.GetName(),
+	})
+	ll.Infof("Got request: %v", req)
+
+	Mutex.Lock()
+	ll.Info("Lock mutex for %s", req.Name)
+	defer func() {
+		Mutex.Unlock()
+		ll.Info("Unlock mutex for %s", req.Name)
+	}()
 
 	// Check arguments
 	if len(req.GetName()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
 	}
-
 	if req.GetVolumeCapabilities() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
 	}
 
-	// volume identifier
-	var volumeID string
-	// node identifier. Currently is FQDN but must be UUID
-	var nodeID string
-	// allocated capacity
-	var capacity int64
-
-	Mutex.Lock()
-
-	if !NodeAllocatedDisksInitialized {
-		GetNodeAllocatedDisks()
-		logrus.Info("Firstly initialized NodeAllocatedDisks map")
-
-		NodeAllocatedDisksInitialized = true
-	}
-
 	var preferredNode = ""
-	// If external-provisioner didn't send AR then use all nodes no find disk
+	// If external-provisioner didn't send AR then use all nodes to find disk
 	if req.GetAccessibilityRequirements() != nil {
+		/*
+			If storage class have WaitForFirstConsumer binding mode then scheduler CHOOSE node for pod.
+			Then this node appear on first place on Preferred list from AccessibilityRequirements in CreateVolume request
+			If external-provisioner sent AR then use the first node from preferred ones (set by WaitForFirstConsumer
+			SC mode) to find a disk. Other nodes cannot be used because the pod that uses volumes has been scheduled to
+			the first node from preferred ones.
+		*/
 		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments["baremetal-csi/nodeid"]
-		/*If external-provisioner sent AR then use the first node from preferred ones (set by WaitForFirstConsumer
-		SC mode) to find a disk. Other nodes cannot be used because the pod that uses volumes has been scheduled to
-		the first node from preferred ones.*/
-		logrus.Info("Preferred node: ", preferredNode)
+		ll.Infof("Preferred node: %s", preferredNode)
 	}
-	// requested capacity by external-provisioner
-	var requestedCapacity = req.GetCapacityRange().GetRequiredBytes()
+
+	requestedCapacityInBytes := req.GetCapacityRange().GetRequiredBytes()
+	var nodeID, volumeID string
+	var finalCapacity int64 // if volume is created from block device all device capacity will be used
+	var err error
 
 	volume := csiVolumesCache.getVolumeByName(req.GetName())
 	// Check if volume with req.Name exists in cache
 	if volume != nil {
 		// If volume exists then fill CreateVolumeResponse with its fields
-		capacity = volume.Size
+		ll.Infof("Found volume in cache, will use nodeID %s, volulmeID %s, capacity %d", nodeID, volumeID, finalCapacity)
+		finalCapacity = volume.Size
 		nodeID = volume.NodeID
 		volumeID = volume.VolumeID
 	} else {
-		// If volume doesn't exist then attempt to allocate disk and update volumes cache in case of success
-		capacity, nodeID, volumeID = AllocateDisk(NodeAllocatedDisks, preferredNode, requestedCapacity)
-		if capacity > 0 {
-			err := csiVolumesCache.addVolumeToCache(&csiVolume{
-				Name:     req.GetName(),
-				VolumeID: volumeID,
-				NodeID:   nodeID,
-				Size:     capacity,
-			})
+		if d.LVMMode {
+			finalCapacity = requestedCapacityInBytes
+			volumeID, nodeID, err = d.createVolumeFromLVM(requestedCapacityInBytes, preferredNode)
 			if err != nil {
-				return nil, err
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+		} else {
+			if !NodeAllocatedDisksInitialized {
+				GetNodeAllocatedDisks()
+				ll.Info("Firstly initialized NodeAllocatedDisks map")
+				NodeAllocatedDisksInitialized = true
+			}
+			volumeID, finalCapacity, nodeID, err = d.createVolumeFromBlockDevice(requestedCapacityInBytes, preferredNode)
+			if err != nil {
+				return nil, status.Error(codes.Internal, err.Error())
 			}
 		}
+		ll.Infof("Got volumeID %s, nodeID %s, finalCapacity %d", volumeID, nodeID, finalCapacity)
+		err = csiVolumesCache.addVolumeToCache(&csiVolume{
+			Name:     req.GetName(),
+			VolumeID: volumeID,
+			NodeID:   nodeID,
+			Size:     finalCapacity,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	Mutex.Unlock()
+	topology := csi.Topology{
+		Segments: map[string]string{
+			"baremetal-csi/nodeid": nodeID,
+		},
+	}
+	topologyList := []*csi.Topology{&topology}
 
-	if capacity > 0 {
-		//d.nodeIad -> node id
-		topology := csi.Topology{
-			Segments: map[string]string{
-				"baremetal-csi/nodeid": nodeID,
-			},
-		}
-		topologyList := []*csi.Topology{&topology}
-
-		resp := &csi.CreateVolumeResponse{
-			Volume: &csi.Volume{
-				VolumeId:           volumeID,
-				CapacityBytes:      capacity,
-				VolumeContext:      req.GetParameters(),
-				AccessibleTopology: topologyList,
-			},
-		}
-
-		logrus.WithField("response", resp).Info("volume created with ID: ", volumeID)
-
-		return resp, nil
+	resp := &csi.CreateVolumeResponse{
+		Volume: &csi.Volume{
+			VolumeId:           volumeID,
+			CapacityBytes:      finalCapacity,
+			VolumeContext:      req.GetParameters(),
+			AccessibleTopology: topologyList,
+		},
 	}
 
-	return nil, status.Error(codes.ResourceExhausted, "cannot allocate locale volume on any node")
+	ll.WithField("response", resp).Info("volume created with ID: ", volumeID)
+	return resp, nil
+}
+
+func (d *ECSCSIDriver) createVolumeFromBlockDevice(capInBytes int64, preferredNode string) (volumeID string, capacity int64, nodeID string, err error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "controllerService",
+		"method":    "createVolumeFromBlockDevice",
+	})
+	ll.Info("Processing")
+
+	capacity, nodeID, volumeID = AllocateDisk(NodeAllocatedDisks, preferredNode, capInBytes)
+
+	if capacity <= 0 {
+		return "", 0, "", status.Error(codes.ResourceExhausted, "cannot allocate locale volume on any node")
+	}
+
+	return volumeID, capacity, nodeID, nil
+}
+
+func (d *ECSCSIDriver) createVolumeFromLVM(capInBytes int64, preferredNode string) (volumeID string, nodeID string, err error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "controllerService",
+		"method":    "createVolumeFromLVM",
+	})
+	var capacityInGb = math.RoundToEven(float64(capInBytes) / 1024 / 1024 / 1024)
+	ll.Infof("Requested capacity: %f", capacityInGb)
+
+	nodeID, volumeID, err = d.SS.PrepareVolume(capacityInGb, preferredNode)
+	if err != nil {
+		ll.Errorf("Could not create volume size of %f. Error: %v", capacityInGb, err)
+
+		return "", "", err
+	}
+
+	return volumeID, nodeID, nil
 }
 
 // DeleteVolume is a function for deleting volume
-func (d *ECSCSIDriver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	logrus.WithField("request", req).Info("ControllerServer: DeleteVolume() call")
+func (d *ECSCSIDriver) DeleteVolume(ctx context.Context,
+	req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "controllerService",
+		"method":    "DeleteVolume",
+		"VolumeID":  req.VolumeId,
+	})
+	ll.Infof("Request: %v", req)
 
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "DeleteVolume Volume ID must be provided")
 	}
 
-	err := ReleaseDisk(req.VolumeId, NodeAllocatedDisks)
-
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "DeleteVolume has invalid Volume ID format")
+	if d.LVMMode {
+		err := d.SS.ReleaseVolume(strings.Split(req.VolumeId, "_")[0], req.VolumeId) // TODO: handle index out of range error or implement struct for ID
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Could not remove volume with ID %s. Error: %v", req.VolumeId, err)
+		}
+		ll.Infof("Volume %s was successfully removed", req.VolumeId)
+	} else {
+		err := ReleaseDisk(req.VolumeId, NodeAllocatedDisks)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "DeleteVolume has invalid Volume ID format")
+		}
 	}
 
 	// Delete volume from cache by its ID
@@ -157,10 +216,10 @@ func (d *ECSCSIDriver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRe
 // ControllerPublishVolume is a function for publishing volume
 func (d *ECSCSIDriver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	ll := logrus.WithFields(logrus.Fields{
-		"volume_id": req.VolumeId,
-		"node_id":   req.NodeId,
+		"component": "controllerService",
+		"method":    "ControllerPublishVolume",
 	})
-	ll.Info("controller publish volume called")
+	ll.Infof("Request: %v", req)
 
 	return &csi.ControllerPublishVolumeResponse{
 		PublishContext: map[string]string{
@@ -170,14 +229,25 @@ func (d *ECSCSIDriver) ControllerPublishVolume(ctx context.Context, req *csi.Con
 }
 
 // ControllerUnpublishVolume is a function for unpublishing volume
-func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	logrus.WithField("request", req).Info("ControllerServer: ControllerUnpublishVolume() call")
+func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context,
+	req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "controllerService",
+		"method":    "ControllerUnpublishVolume",
+	})
+	ll.Infof("Request: %v", req)
 
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "ControllerUnPublishVolume Volume ID must be provided")
 	}
 
-	unpublishDiskPath := strings.Split(req.VolumeId, "_")[1]
+	if d.LVMMode {
+		ll.Infof("Skip for LVM")
+
+		return &csi.ControllerUnpublishVolumeResponse{}, nil
+	}
+
+	unpublishDiskPath := strings.Split(req.VolumeId, "_")[1] // TODO: handle index out of range error or implement struct for ID
 
 	node := req.GetNodeId()
 
@@ -188,8 +258,7 @@ func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context, req *csi.C
 		}
 	}
 
-	logrus.Info("Disks state after unpublish on node: ", node)
-	logrus.Info(NodeAllocatedDisks[node])
+	logrus.Infof("Disks state after unpublish on node %s: %v", node, NodeAllocatedDisks[node])
 
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
@@ -197,12 +266,14 @@ func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context, req *csi.C
 // ValidateVolumeCapabilities is a function
 func (d *ECSCSIDriver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	logrus.Info("ControllerServer: ValidateVolumeCapabilities()")
+
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ListVolumes is a function
 func (d *ECSCSIDriver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	logrus.Info("ControllerServer: ListVolumes()")
+
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
@@ -215,6 +286,7 @@ func (d *ECSCSIDriver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequ
 // CreateSnapshot is a function
 func (d *ECSCSIDriver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	logrus.Info("ControllerServer: CreateSnapshot()")
+
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
@@ -227,6 +299,7 @@ func (d *ECSCSIDriver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapsh
 // ListSnapshots is a function
 func (d *ECSCSIDriver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	logrus.Info("ControllerServer: ListSnapshots()")
+
 	return nil, status.Error(codes.Unimplemented, "")
 }
 

@@ -64,7 +64,8 @@ spec:
         args:
         - "--endpoint=$(CSI_ENDPOINT)"
         - "--nodeid=$(KUBE_NODE_NAME)"
-        - "--startrest=false"
+        - "--controller=true"
+        - --lmvmode={{ .Values.csiDriver.lvmMode }}
         env:
         - name: CSI_ENDPOINT
           value: unix:///csi/csi.sock
@@ -73,7 +74,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
-
         volumeMounts:
         - name: socket-dir
           mountPath: /csi

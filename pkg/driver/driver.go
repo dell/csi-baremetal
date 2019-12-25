@@ -16,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	sm "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/storagemanager"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -29,10 +32,11 @@ type ECSCSIDriver struct {
 	version  string
 	endpoint string
 	nodeID   string
+	LVMMode  bool
+	ready    bool
 
+	SS  sm.StorageSubsystem
 	srv *grpc.Server
-
-	ready bool
 }
 
 // TODO: generate version
@@ -53,38 +57,44 @@ var NodeAllocatedDisksInitialized = false
 
 // GetNodeAllocatedDisks is a function for getting allocated disks from node
 func GetNodeAllocatedDisks() {
-	//nodes, _ := util.GetNodes()
-	//nodes:= [3]string{"localhost", "localhost1", "localhost2",}
-	//
-	//pods := [3]string{"localhost", "localhost", "localhost",}
-	pods, _ := util.GetPods()
+	ll := logrus.WithField("method", "GetNodeAllocatedDisks")
+	pods, _ := util.GetNodeServicePods()
 
+	var netTransport = &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout: 50 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 15 * time.Second,
+	}
+	commonClient := http.Client{Timeout: 60 * time.Second, Transport: netTransport}
 	for i := range pods {
 		NodeAllocatedDisks[pods[i].NodeName] = make(map[util.HalDisk]bool)
-		//NodeAllocatedDisks[pods[i]] = make(map[util.HalDisk]bool)
 
-		url := fmt.Sprintf("http://%s:9999/disks", pods[i].PodIP)
-		//url := fmt.Sprintf("http://%s:9999/disks", pods[i])
-		response, err := http.Get(url)
+		disksURL := fmt.Sprintf("http://%s:9999/disks", pods[i].PodIP)
+
+		ll.Infof("Sending GET %s", disksURL)
+		response, err := commonClient.Get(disksURL)
 		if err != nil {
-			fmt.Printf("The HTTP request to pod %s failed with error %s\n", pods[i], err)
+			ll.Fatalf("The HTTP request to pod %v failed with error %+v. Exit", pods[i], err)
 		} else {
+			ll.Infof("Received: %v", response)
 			disks := make([]util.HalDisk, 0)
 			data, _ := ioutil.ReadAll(response.Body)
 			err = json.Unmarshal(data, &disks)
 			if err != nil {
-				logrus.Error(err)
+				ll.Error(err)
 			}
 			for j := range disks {
-				//NodeAllocatedDisks[nodes[i]][disks[i]]= false
 				NodeAllocatedDisks[pods[i].NodeName][disks[j]] = false
 			}
-			logrus.Info("Get disks: ", disks, "from - ", pods[i])
+			ll.Infof("From - %s, got disks: %v ", pods[i].PodIP, disks)
 		}
 
-		err = response.Body.Close()
-		if err != nil {
-			logrus.Error(err)
+		if response != nil {
+			err = response.Body.Close()
+			if err != nil {
+				ll.Error(err)
+			}
 		}
 	}
 
@@ -95,15 +105,24 @@ func GetNodeAllocatedDisks() {
 }
 
 // NewDriver is function for creating CSI driver
-func NewDriver(endpoint, driverName, nodeID string) (*ECSCSIDriver, error) {
+func NewDriver(endpoint, driverName, nodeID string, lvmMode bool) (*ECSCSIDriver, error) {
 	logrus.Info("Creating driver for endpoint ", endpoint)
+
+	var ss sm.StorageSubsystem
+	if lvmMode {
+		ss = &sm.LVMVolumeManager{}
+	} else {
+		ss = nil
+	}
 
 	return &ECSCSIDriver{
 		name:     driverName,
 		version:  version,
 		endpoint: endpoint,
 		nodeID:   nodeID,
+		LVMMode:  lvmMode,
 		ready:    false,
+		SS:       ss,
 	}, nil
 }
 
@@ -168,6 +187,9 @@ func (d *ECSCSIDriver) Stop() {
 
 func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 	preferredNode string, requestedCapacity int64) (int64, string, string) {
+	ll := logrus.WithField("method", "AllocateDisk")
+	ll.Infof("Got disks map: %v, preferredNode %s, capacity %d", allDisks, preferredNode, requestedCapacity)
+
 	// flag to inform that some disks were picked
 	var isDiskFound = false
 	// picked disk
@@ -193,6 +215,7 @@ func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 	for node := range selectedDisks {
 		for disk, allocated := range selectedDisks[node] {
 			if !allocated {
+				logrus.Infof("Try to Pick on node %s disk %s", node, disk.Path)
 				picked := tryToPick(disk, requestedCapacity)
 				if picked {
 					pickedDisks[disk] = node
@@ -235,15 +258,16 @@ func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 func getCapacityInBytes(capacity string) int64 {
 	//expected formats of disk capacity: "4K", "7T", "64G"
 	//extract units ("K", "G", "T", "M") from string
+	logrus.Infof("getCapacityInBytes: [%s]", capacity)
 	diskUnit := capacity[len(capacity)-1:]
 	// extract size 4, 7, 64
 	diskUnitSize, err := strconv.ParseFloat(capacity[:len(capacity)-1], 64)
-	// return null capacity when unable to decode
+	// return zero capacity when unable to decode
 	if err != nil {
-		logrus.Errorf("Error during converting string to int: %q", err)
+		logrus.Errorf("Error during converting string '%s' to float: %q", capacity, err)
 		return 0
 	}
-	// calcucate size in bytes
+	// calculate size in bytes
 	return util.FormatCapacity(diskUnitSize, diskUnit)
 }
 
@@ -259,7 +283,7 @@ func tryToPick(disk util.HalDisk, requiredBytes int64) bool {
 	capacityBytes := getCapacityInBytes(disk.Capacity)
 	// check whether it matches
 	if requiredBytes > capacityBytes {
-		logrus.Info("Required bytes more than disk capacity: ", disk.Path)
+		logrus.WithField("method", "tryToPick").Info("Required bytes more than disk capacity: ", disk.Path)
 		return false
 	}
 
@@ -270,7 +294,7 @@ func ReleaseDisk(volumeID string, disks map[string]map[util.HalDisk]bool) error 
 	Mutex.Lock()
 	defer Mutex.Unlock()
 	//volumeid is nodeId_path
-	deletedDisk := strings.Split(volumeID, "_")
+	deletedDisk := strings.Split(volumeID, "_") // TODO: handle index out of range error or implement struct for ID
 
 	if len(deletedDisk) != 2 {
 		return fmt.Errorf("invalid volumeID: %v", volumeID)

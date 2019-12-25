@@ -1,9 +1,10 @@
 package unit
 
 import (
+	"testing"
+
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/driver"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
-	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -47,7 +48,6 @@ var _ = Describe("Allocator", func() {
 	disk4.Capacity = "311.8G"
 	disk4.Path = "/dev/sde"
 	disk4.PartitionCount = 0
-
 
 	var NodeAllocatedDisks = make(map[string]map[util.HalDisk]bool)
 	NodeAllocatedDisks[node] = make(map[util.HalDisk]bool)
