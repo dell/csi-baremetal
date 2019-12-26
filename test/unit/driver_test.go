@@ -83,7 +83,7 @@ var _ = Describe("Allocator", func() {
 
 		It("Third disk allocation must fail", func() {
 			// no available resources to allocate
-			requestedCapacity = 500 * (1024 * 1024 * 1024) // 50Gi
+			requestedCapacity = 500 * (1024 * 1024 * 1024) // 500Gi
 			capacity, nodeID, volumeID = driver.AllocateDisk(NodeAllocatedDisks, node, requestedCapacity)
 
 			Expect(capacity).Should(BeNumerically("==", 0))

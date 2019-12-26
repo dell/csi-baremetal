@@ -215,7 +215,7 @@ func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 	for node := range selectedDisks {
 		for disk, allocated := range selectedDisks[node] {
 			if !allocated {
-				logrus.Infof("Try to Pick on node %s disk %s", node, disk.Path)
+				ll.Infof("Try to Pick on node %s disk %s", node, disk.Path)
 				picked := tryToPick(disk, requestedCapacity)
 				if picked {
 					pickedDisks[disk] = node
@@ -246,9 +246,9 @@ func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 	}
 
 	if isDiskFound {
-		logrus.Info("Disk found on the node - ", nodeID)
+		ll.Infof("Disk found on the node - %s", nodeID)
 	} else {
-		logrus.Info("All disks are allocated on requested nodes")
+		ll.Info("All disks are allocated on requested nodes")
 	}
 
 	return allocatedCapacity, nodeID, volumeID

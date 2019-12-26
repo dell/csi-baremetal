@@ -63,11 +63,8 @@ boolean validatePullRequest(String commit) {
                     //split because our make test fails and make coverage isn't invoked during sh()
                     coverageExitCode = sh(script: 'make coverage', returnStatus: true)
                     if ((testExitCode != 0) || (coverageExitCode != 0)) {
-                        /*
-                        Tests don't pass for now
                         currentBuild.result = 'FAILURE'
                         throw new Exception("Test and Coverage stage failed, check logs")
-                        */
                     }
                 }
 
