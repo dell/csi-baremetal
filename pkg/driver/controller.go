@@ -55,10 +55,10 @@ func (d *ECSCSIDriver) CreateVolume(ctx context.Context,
 	ll.Infof("Got request: %v", req)
 
 	Mutex.Lock()
-	ll.Info("Lock mutex for %s", req.Name)
+	ll.Infof("Lock mutex for %s", req.Name)
 	defer func() {
 		Mutex.Unlock()
-		ll.Info("Unlock mutex for %s", req.Name)
+		ll.Infof("Unlock mutex for %s", req.Name)
 	}()
 
 	// Check arguments
