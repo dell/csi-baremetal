@@ -5,6 +5,7 @@ global:
 # CSI Plugin parameters
 image:
   tag: latest
+  pullPolicy: Always #for e2e tests
 
 # Storage Class name that provisions PVs dynamically
 storageClass:
@@ -27,6 +28,11 @@ clusterDriverRegistrar:
 nodeDriverRegistrar:
   image:
     tag: v1.0.1-gke.0
+
+#For e2e tests
+busybox:
+  image:
+    tag: latest
 
 csiDriver:
   lvmMode: false

@@ -42,7 +42,7 @@ spec:
         # ********************** baremetal-csi-PLUGIN container definition **********************
         - name: baremetal-csi-plugin
           image: {{ .Values.global.registry }}/baremetal-csi-plugin:{{ .Values.image.tag }}
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
 
           {{- if eq .Values.csiDriver.lvmMode true }}
           lifecycle:
@@ -77,7 +77,7 @@ spec:
             mountPath: /var/lib/kubelet/pods
             mountPropagation: "Bidirectional"
         - name: log-collector
-          image: busybox
+          image: busybox:{{ .Values.busybox.image.tag }}
           args: [/bin/sh, -c, 'sleep 1; tail -n+1 -f /var/log/logrus.log']
           volumeMounts:
           - name: logs

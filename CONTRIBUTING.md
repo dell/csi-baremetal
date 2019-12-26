@@ -87,6 +87,54 @@ Please see Infra-Devkit [README.md](https://eos2git.cec.lab.emc.com/ECS/infra-de
 ##### Running Baremetal CSI Acceptance
 1. TDB
 
+##### Running Baremetal CSI E2E tests locally
+* Set environment variables to use KIND in  devkit: 
+```
+export DEVKIT_DOCKER_NETWORK_HOST_BOOL=true
+export DEVKIT_KIND_KERNEL_MODULE_SHARED_BOOL=true
+export DEVKIT_KIND_SRC_SHARED_BOOL=true
+export DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL=true
+export DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL=true
+export DEVKIT_USER_NAME=root
+```
+* Run devkit:
+```
+devkit --hal no
+```
+* Create kind cluster, optionally use config.yaml from baremetal-csi root directory and explicitly set path for kubeconfig:
+```
+kind create cluster --kubeconfig <kubeconfig path> --config config.yaml
+```
+* KIND can't pull images from remote repository, to load images to local docker repository on nodes:
+```
+kind load docker-image 10.244.120.194:8085/csi-provisioner:v1.2.2
+kind load docker-image 10.244.120.194:8085/csi-attacher:v1.0.1
+kind load docker-image 10.244.120.194:8085/csi-cluster-driver-registrar:v1.0.1
+kind load docker-image busybox:1.29
+kind load docker-image 10.244.120.194:8085/csi-node-driver-registrar:v1.0.1-gke.0
+kind load docker-image 10.244.120.194:8085/baremetal-csi-plugin:<csi-tag>
+```
+* E2E tests need yaml files with baremetal-csi resources (plugin, controller, rbac). To create yaml files use helm command:
+```
+helm template charts/baremetal-csi-plugin/ 
+--output-dir /tmp --set image.tag=<csi-tag> 
+--set busybox.image.tag=1.29  // e2e tests need this busybox for testing pods
+--set image.pullPolicy=IfNotPresent /*KIND can't work with imagePullPolicy <Always> 
+                                      because it can pull only from local repository*/
+``` 
+If you set `--output-dir` to another directory, you should change this line in [code](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/blob/feature-FABRIC-8422-implement-base-csi-e2e-tests-with-Kind/test/test/csi-volume.go#L22) to your directory, so framework can find yaml files. 
+* Set kubernetes context to kind:
+```
+kubectl config set-context "kind-kind"
+```
+* Run e2e tests:
+```
+go run cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=<kubeconfig path>
+```
+* Delete KIND cluster:
+```
+kind delete cluster
+```
 ## Contacts
 If you have any questions, please, contact Baremetal CSI Plugin team in our Slack [channel](https://dellstorage.slack.com/archives/CM7RQQ29X)
 

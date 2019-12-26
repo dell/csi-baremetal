@@ -1,5 +1,3 @@
-# ********************** RBAC settings **********************
-# https://github.com/kubernetes-csi/driver-registrar/blob/master/deploy/kubernetes/rbac.yaml
 ---
 apiVersion: v1
 kind: ServiceAccount
