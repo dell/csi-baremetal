@@ -74,19 +74,38 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
+        - name: LOG_RECEIVER
+{{- if eq .Values.logReceiver.type "Elasticsearch"}}
+          value: Elasticsearch
+{{- else }}
+          value: Dev
+{{- end }}
+        - name: LOG_DIRECTION
+          value: {{ .Values.logReceiver.source}}
+
         volumeMounts:
         - name: socket-dir
           mountPath: /csi
         - name: logs
           mountPath: /var/log
 
+{{- if eq .Values.logReceiver.type "Elasticsearch" }}
+      - name: fluentbit-agent
+        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log
+          - name: logs-config
+            mountPath: /fluent-bit/etc
+{{- end }}
+{{- if (eq .Values.logReceiver.source "file") (eq .Values.logReceiver.source "Dev") }}
       - name: log-collector
         image: busybox:{{ .Values.busybox.image.tag }}
-
-        args: [/bin/sh, -c, 'sleep 1; tail -n+1 -f /var/log/logrus.log']
+        args: [/bin/sh, -c, 'sleep 1; tail -n+1 -f /var/log/csi.log']
         volumeMounts:
-        - name: logs
-          mountPath: /var/log
+          - name: logs
+            mountPath: /var/log
+{{- end }}
       volumes:
       - name: logs
         emptyDir: {}
@@ -94,3 +113,8 @@ spec:
         hostPath:
           path: /tmp/baremetal-csi
           type: DirectoryOrCreate
+{{- if eq .Values.logReceiver.type "Elasticsearch" }}
+      - name: logs-config
+        configMap:
+          name: {{ .Release.Name }}-csi-logs-config
+{{- end }}

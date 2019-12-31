@@ -13,34 +13,34 @@ import (
 
 // Mount is a function for mounting block devices
 func Mount(source, target string) error {
-	logrus.Info("Running ls -lah ", source)
+	logger.Info("Running ls -lah ", source)
 	cmd := exec.Command("ls", "-lah", source)
 	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
+		logger.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
 
-	logrus.Info("Running [mkfs.xfs -f ", source, "]")
+	logger.Info("Running [mkfs.xfs -f ", source, "]")
 	cmd = exec.Command("mkfs.xfs", "-f", source)
 	out, err = cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
+		logger.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
 
 	cmd = exec.Command("mkdir", "-p", target)
 	out, err = cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
+		logger.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
 
 	cmd = exec.Command("mount", source, target)
 	out, err = cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
+		logger.Fatalf("cmd.Run() failed with %s, output: %s", err, out)
 	}
 
 	return nil
@@ -54,7 +54,7 @@ func Unmount(target string) error {
 		return errors.New("target is not specified for unmounting the volume")
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"cmd":  umountCmd,
 		"args": target,
 	}).Info("executing umount command")
@@ -77,7 +77,7 @@ func IsMountedBockDevice(source string, target string) bool {
 
 	mountPoint := strings.TrimSpace(string(out))
 
-	logrus.Infof("MOUNTPOINT for %s is %s", source, mountPoint)
+	logger.Infof("MOUNTPOINT for %s is %s", source, mountPoint)
 
 	return mountPoint == target
 }

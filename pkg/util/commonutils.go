@@ -3,15 +3,13 @@ package util
 import (
 	"bytes"
 	"os/exec"
-
-	"github.com/sirupsen/logrus"
 )
 
 // execute provided command and collect stdout and stderr separately
 // returns stdout, stderr and error
 // both stdout and stderr could be splitted by \n
 func RunCmdAndCollectOutput(cmd *exec.Cmd) (string, error) {
-	ll := logrus.WithField("operation", "exec cmd")
+	ll := logger.WithField("operation", "exec cmd")
 
 	var stdout, stderr bytes.Buffer
 	var strOut, strErr string
@@ -55,7 +53,7 @@ func FormatCapacity(size float64, unit string) int64 {
 func WipeFS(dev string) error {
 	_, err := RunCmdAndCollectOutput(exec.Command("wipefs", "-af", dev)) // TODO: do not use -f
 	if err != nil {
-		logrus.Fatalf("failed to wipe filesystem from %s", dev)
+		logger.Fatalf("failed to wipe filesystem from %s", dev)
 	}
 
 	return nil

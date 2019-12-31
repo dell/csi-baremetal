@@ -10,7 +10,7 @@ import (
 
 // GetPluginInfo is a function for getting info about plugin
 func (d *ECSCSIDriver) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	logrus.Info("IdentityServer: GetPluginInfo() call")
+	logger.Info("IdentityServer: GetPluginInfo() call")
 
 	return &csi.GetPluginInfoResponse{
 		Name:          d.name,
@@ -39,7 +39,7 @@ func (d *ECSCSIDriver) GetPluginCapabilities(ctx context.Context, req *csi.GetPl
 		},
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"component": "identityService",
 		"method":    "GetPluginCapabilities",
 	}).Infof("Response: %v", resp)
@@ -49,7 +49,7 @@ func (d *ECSCSIDriver) GetPluginCapabilities(ctx context.Context, req *csi.GetPl
 
 // Probe is a function for querying readiness of the plugin
 func (d *ECSCSIDriver) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	logrus.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"component": "identityService",
 		"method":    "Probe",
 	}).Infof("Ready: %v", d.ready)

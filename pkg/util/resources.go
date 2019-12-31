@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	k8srest "k8s.io/client-go/rest"
@@ -31,7 +30,7 @@ func GetNodeServicePods() ([]Pod, error) {
 	pods, err := clientset.CoreV1().Pods("").List(v1.ListOptions{})
 
 	if err != nil {
-		logrus.Errorf("Failed to get podes: %v", err)
+		logger.Errorf("Failed to get podes: %v", err)
 	}
 
 	temp := make([]Pod, 0)
@@ -50,7 +49,7 @@ func GetNodeServicePods() ([]Pod, error) {
 		}
 	}
 
-	logrus.Infof("Pods with plugin: %+v", temp)
+	logger.Infof("Pods with plugin: %+v", temp)
 
 	return temp, nil
 }
@@ -64,11 +63,11 @@ func getK8sClient(pathToConfig string) (*kubernetes.Clientset, error) {
 	)
 
 	if pathToConfig == "" {
-		logrus.Info("Using in cluster config")
+		logger.Info("Using in cluster config")
 
 		config, err = k8srest.InClusterConfig()
 	} else {
-		logrus.Info("Using out of cluster config")
+		logger.Info("Using out of cluster config")
 
 		config, err = clientcmd.BuildConfigFromFlags("", pathToConfig)
 	}

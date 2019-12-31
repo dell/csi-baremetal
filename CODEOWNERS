@@ -1,5 +1,5 @@
-# global owners
-* 	 @ECS/atlantic-baremetal-csi
+# These owners will be the default owners for everything in the repo
+*       @ECS/atlantic-baremetal-csi
 
 # Jenkinsfile owners
-*.Jenkinsfile   @dyubaa @shmelr @chemaf
+*.Jenkinsfile       @dyubaa @shmelr @chemaf

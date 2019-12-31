@@ -18,11 +18,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	sm "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/storagemanager"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/util"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
@@ -41,7 +42,7 @@ type ECSCSIDriver struct {
 
 // TODO: generate version
 const (
-	version = "0.0.1"
+	version = "0.0.2"
 )
 
 // Mutex is a sync primitive to synchronize CreateVolume calls
@@ -55,9 +56,11 @@ var NodeAllocatedDisks = make(map[string]map[util.HalDisk]bool)
 // status NodeAllocatedDisks initialization
 var NodeAllocatedDisksInitialized = false
 
+var logger = util.CreateLogger("driver")
+
 // GetNodeAllocatedDisks is a function for getting allocated disks from node
 func GetNodeAllocatedDisks() {
-	ll := logrus.WithField("method", "GetNodeAllocatedDisks")
+	ll := logger.WithField("method", "GetNodeAllocatedDisks")
 	pods, _ := util.GetNodeServicePods()
 
 	var netTransport = &http.Transport{
@@ -98,7 +101,7 @@ func GetNodeAllocatedDisks() {
 		}
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"method": "Driver - GetNodeAllocatedDisks",
 		"node":   NodeAllocatedDisks,
 	}).Info("Driver - GetNodeAllocatedDisks called")
@@ -106,7 +109,7 @@ func GetNodeAllocatedDisks() {
 
 // NewDriver is function for creating CSI driver
 func NewDriver(endpoint, driverName, nodeID string, lvmMode bool) (*ECSCSIDriver, error) {
-	logrus.Info("Creating driver for endpoint ", endpoint)
+	logger.Info("Creating driver for endpoint ", endpoint)
 
 	var ss sm.StorageSubsystem
 	if lvmMode {
@@ -143,7 +146,7 @@ func (d *ECSCSIDriver) Run() error {
 		return fmt.Errorf("currently only unix domain sockets are supported, have: %s", u.Scheme)
 	}
 
-	logrus.WithField("socket", addr).Info("removing socket")
+	logger.WithField("socket", addr).Info("removing socket")
 
 	if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove unix domain socket file %s, error: %s", addr, err)
@@ -159,7 +162,7 @@ func (d *ECSCSIDriver) Run() error {
 		handler grpc.UnaryHandler) (interface{}, error) {
 		resp, err := handler(ctx, req)
 		if err != nil {
-			logrus.WithError(err).WithField("method", info.FullMethod).Error("method failed")
+			logger.WithError(err).WithField("method", info.FullMethod).Error("method failed")
 		}
 
 		return resp, err
@@ -172,7 +175,7 @@ func (d *ECSCSIDriver) Run() error {
 
 	d.ready = true // we're now ready to go!
 
-	logrus.WithField("addr", addr).Info("server started")
+	logger.WithField("addr", addr).Info("server started")
 
 	return d.srv.Serve(listener)
 }
@@ -182,12 +185,12 @@ func (d *ECSCSIDriver) Stop() {
 	// TODO: do we need to add lock before calling stop?
 	d.ready = false
 	d.srv.Stop()
-	logrus.Info("Driver stopped. Ready: ", d.ready)
+	logger.Info("Driver stopped. Ready: ", d.ready)
 }
 
 func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 	preferredNode string, requestedCapacity int64) (int64, string, string) {
-	ll := logrus.WithField("method", "AllocateDisk")
+	ll := logger.WithField("method", "AllocateDisk")
 	ll.Infof("Got disks map: %v, preferredNode %s, capacity %d", allDisks, preferredNode, requestedCapacity)
 
 	// flag to inform that some disks were picked
@@ -258,13 +261,13 @@ func AllocateDisk(allDisks map[string]map[util.HalDisk]bool,
 func getCapacityInBytes(capacity string) int64 {
 	//expected formats of disk capacity: "4K", "7T", "64G"
 	//extract units ("K", "G", "T", "M") from string
-	logrus.Infof("getCapacityInBytes: [%s]", capacity)
+	logger.Infof("getCapacityInBytes: [%s]", capacity)
 	diskUnit := capacity[len(capacity)-1:]
 	// extract size 4, 7, 64
 	diskUnitSize, err := strconv.ParseFloat(capacity[:len(capacity)-1], 64)
 	// return zero capacity when unable to decode
 	if err != nil {
-		logrus.Errorf("Error during converting string '%s' to float: %q", capacity, err)
+		logger.Errorf("Error during converting string '%s' to float: %q", capacity, err)
 		return 0
 	}
 	// calculate size in bytes
@@ -283,7 +286,7 @@ func tryToPick(disk util.HalDisk, requiredBytes int64) bool {
 	capacityBytes := getCapacityInBytes(disk.Capacity)
 	// check whether it matches
 	if requiredBytes > capacityBytes {
-		logrus.WithField("method", "tryToPick").Info("Required bytes more than disk capacity: ", disk.Path)
+		logger.WithField("method", "tryToPick").Info("Required bytes more than disk capacity: ", disk.Path)
 		return false
 	}
 
@@ -310,7 +313,7 @@ func ReleaseDisk(volumeID string, disks map[string]map[util.HalDisk]bool) error 
 		}
 	}
 
-	logrus.Info("Disks state after resetting cache: ", disks[node])
+	logger.Info("Disks state after resetting cache: ", disks[node])
 
 	return nil
 }

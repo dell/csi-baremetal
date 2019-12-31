@@ -20,7 +20,7 @@ func (d *ECSCSIDriver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequ
 		},
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"component": "nodeService",
 		"method":    "NodeGetInfo",
 	}).Infof("NodeGetInfo created topology: %v", topology)
@@ -33,7 +33,7 @@ func (d *ECSCSIDriver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequ
 
 // NodeGetCapabilities is a function for getting node service capabilities
 func (d *ECSCSIDriver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	logrus.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"component":         "nodeService",
 		"method":            "NodeGetCapabilities",
 		"node_capabilities": "empty",
@@ -46,14 +46,14 @@ func (d *ECSCSIDriver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGet
 
 // NodeStageVolume is a function which call NodeStageVolume request
 func (d *ECSCSIDriver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	logrus.WithField("request", req).Info("NodeServer: NodeStageVolume() call")
+	logger.WithField("request", req).Info("NodeServer: NodeStageVolume() call")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // NodeUnstageVolume is a function which call NodeUnstageVolume request
 func (d *ECSCSIDriver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	logrus.WithField("request", req).Info("NodeServer: NodeUnstageVolume() call")
+	logger.WithField("request", req).Info("NodeServer: NodeUnstageVolume() call")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
@@ -61,7 +61,7 @@ func (d *ECSCSIDriver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnsta
 // NodePublishVolume is a function for publishing volume
 func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context,
 	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "nodeService",
 		"method":    "NodePublishVolume",
 		"volumeID":  req.VolumeId,
@@ -97,7 +97,7 @@ func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context,
 		source = strings.Split(volumeID, "_")[1]
 		// For idempotency support. If device is already mounted to the target path then return NodePublishVolumeResponse
 		if util.IsMountedBockDevice(source, target) {
-			logrus.Infof("Device %s is already mounted to path %s", source, target)
+			logger.Infof("Device %s is already mounted to path %s", source, target)
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 	}
@@ -118,7 +118,7 @@ func (d *ECSCSIDriver) NodePublishVolume(ctx context.Context,
 // NodeUnpublishVolume is a function for unpublishing volume
 func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "nodeService",
 		"method":    "NodeUnpublishVolume",
 		"volumeID":  req.VolumeId,
@@ -168,7 +168,7 @@ func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context,
 			// TODO: move it into Controller DeleteVolume request
 			err = util.WipeFS(pathToDisk)
 			if err != nil {
-				logrus.Infof("wipefs command is failed with %v", err)
+				logger.Infof("wipefs command is failed with %v", err)
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 		} else {
@@ -183,14 +183,14 @@ func (d *ECSCSIDriver) NodeUnpublishVolume(ctx context.Context,
 
 // NodeGetVolumeStats is a function
 func (d *ECSCSIDriver) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	logrus.Info("NodeServer: NodeGetVolumeStats() call")
+	logger.Info("NodeServer: NodeGetVolumeStats() call")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // NodeExpandVolume is a function
 func (d *ECSCSIDriver) NodeExpandVolume(context.Context, *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
-	logrus.Info("NodeServer: NodeExpandVolume() call")
+	logger.Info("NodeServer: NodeExpandVolume() call")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }

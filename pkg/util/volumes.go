@@ -3,8 +3,6 @@ package util
 import (
 	"os/exec"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 // HalDisk is a struct for a disk
@@ -32,7 +30,7 @@ func AllDisks() *[]HalDisk {
 	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
+		logger.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
 	}
 
 	outlines := strings.Split(string(out), "\n")
@@ -43,7 +41,7 @@ func AllDisks() *[]HalDisk {
 		device := strings.Split(line, " ")
 
 		if len(device) != 2 {
-			logrus.Error("Failed to parse line ", line)
+			logger.Error("Failed to parse line ", line)
 		}
 
 		devType := device[0]
@@ -105,11 +103,11 @@ func countPartitions(device string) int {
 	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		logrus.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
+		logger.Fatalf("cmd.Run() failed with %s, output%s\n", err, out)
 	}
 
 	output := string(out)
-	logrus.Info("combined out: ", output)
+	logger.Info("combined out: ", output)
 
 	outlines := strings.Split(output, "\n")
 	l := len(outlines)
@@ -122,7 +120,7 @@ func countPartitions(device string) int {
 		device := strings.Split(line, " ")
 
 		if len(device) != 2 {
-			logrus.Error("Failed to parse line ", line)
+			logger.Error("Failed to parse line ", line)
 		}
 
 		devType := device[0]

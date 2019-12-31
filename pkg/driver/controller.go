@@ -5,8 +5,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
+
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -35,7 +36,7 @@ func (d *ECSCSIDriver) ControllerGetCapabilities(ctx context.Context, req *csi.C
 		Capabilities: caps,
 	}
 
-	logrus.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"response":  resp,
 		"component": "controllerService",
 		"method":    "ControllerGetCapabilities",
@@ -47,7 +48,7 @@ func (d *ECSCSIDriver) ControllerGetCapabilities(ctx context.Context, req *csi.C
 // CreateVolume is a function for creating volumes
 func (d *ECSCSIDriver) CreateVolume(ctx context.Context,
 	req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "controllerService",
 		"method":    "CreateVolume",
 		"requestID": req.GetName(),
@@ -147,7 +148,7 @@ func (d *ECSCSIDriver) CreateVolume(ctx context.Context,
 }
 
 func (d *ECSCSIDriver) createVolumeFromBlockDevice(capInBytes int64, preferredNode string) (volumeID string, capacity int64, nodeID string, err error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "controllerService",
 		"method":    "createVolumeFromBlockDevice",
 	})
@@ -163,7 +164,7 @@ func (d *ECSCSIDriver) createVolumeFromBlockDevice(capInBytes int64, preferredNo
 }
 
 func (d *ECSCSIDriver) createVolumeFromLVM(capInBytes int64, preferredNode string) (volumeID string, nodeID string, err error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "controllerService",
 		"method":    "createVolumeFromLVM",
 	})
@@ -183,7 +184,7 @@ func (d *ECSCSIDriver) createVolumeFromLVM(capInBytes int64, preferredNode strin
 // DeleteVolume is a function for deleting volume
 func (d *ECSCSIDriver) DeleteVolume(ctx context.Context,
 	req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "controllerService",
 		"method":    "DeleteVolume",
 		"VolumeID":  req.VolumeId,
@@ -215,7 +216,7 @@ func (d *ECSCSIDriver) DeleteVolume(ctx context.Context,
 
 // ControllerPublishVolume is a function for publishing volume
 func (d *ECSCSIDriver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "controllerService",
 		"method":    "ControllerPublishVolume",
 	})
@@ -231,7 +232,7 @@ func (d *ECSCSIDriver) ControllerPublishVolume(ctx context.Context, req *csi.Con
 // ControllerUnpublishVolume is a function for unpublishing volume
 func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context,
 	req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := logger.WithFields(logrus.Fields{
 		"component": "controllerService",
 		"method":    "ControllerUnpublishVolume",
 	})
@@ -258,47 +259,46 @@ func (d *ECSCSIDriver) ControllerUnpublishVolume(ctx context.Context,
 		}
 	}
 
-	logrus.Infof("Disks state after unpublish on node %s: %v", node, NodeAllocatedDisks[node])
+	logger.Infof("Disks state after unpublish on node %s: %v", node, NodeAllocatedDisks[node])
 
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
 // ValidateVolumeCapabilities is a function
 func (d *ECSCSIDriver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-	logrus.Info("ControllerServer: ValidateVolumeCapabilities()")
+	logger.Info("ControllerServer: ValidateVolumeCapabilities()")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ListVolumes is a function
 func (d *ECSCSIDriver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
-	logrus.Info("ControllerServer: ListVolumes()")
+	logger.Info("ControllerServer: ListVolumes()")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // GetCapacity is a function
 func (d *ECSCSIDriver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
-	logrus.Info("ControllerServer: GetCapacity()")
+	logger.Info("ControllerServer: GetCapacity()")
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // CreateSnapshot is a function
 func (d *ECSCSIDriver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
-	logrus.Info("ControllerServer: CreateSnapshot()")
-
+	logger.Info("ControllerServer: CreateSnapshot()")
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // DeleteSnapshot is a function
 func (d *ECSCSIDriver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
-	logrus.Info("ControllerServer: DeleteSnapshot()")
+	logger.Info("ControllerServer: DeleteSnapshot()")
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ListSnapshots is a function
 func (d *ECSCSIDriver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
-	logrus.Info("ControllerServer: ListSnapshots()")
+	logger.Info("ControllerServer: ListSnapshots()")
 
 	return nil, status.Error(codes.Unimplemented, "")
 }

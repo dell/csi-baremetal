@@ -64,6 +64,14 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: LOG_RECEIVER
+{{- if eq .Values.logReceiver.type "Elasticsearch"}}
+              value: Elasticsearch
+{{- else }}
+              value: Dev
+{{- end }}
+            - name: LOG_DIRECTION
+              value: {{ .Values.logReceiver.source}}
           securityContext:
             privileged: true
           volumeMounts:
@@ -76,12 +84,23 @@ spec:
           - name: mountpoint-dir
             mountPath: /var/lib/kubelet/pods
             mountPropagation: "Bidirectional"
+{{- if eq .Values.logReceiver.type "Elasticsearch" }}
+        - name: fluentbit-agent
+          image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log
+            - name: logs-config
+              mountPath: /fluent-bit/etc
+{{- end }}
+{{- if (eq .Values.logReceiver.source "file") (eq .Values.logReceiver.source "Dev") }}
         - name: log-collector
           image: busybox:{{ .Values.busybox.image.tag }}
-          args: [/bin/sh, -c, 'sleep 1; tail -n+1 -f /var/log/logrus.log']
+          args: [/bin/sh, -c, 'sleep 1; tail -n+1 -f /var/log/csi.log']
           volumeMounts:
-          - name: logs
-            mountPath: /var/log
+            - name: logs
+              mountPath: /var/log
+{{- end }}
       volumes:
       - name: logs
         emptyDir: {}
@@ -97,9 +116,14 @@ spec:
         hostPath:
           path: /var/lib/kubelet/plugins_registry/
           type: DirectoryOrCreate
-            # This volume is where the driver mounts volumes
+      # This volume is where the driver mounts volumes
       - name: mountpoint-dir
         hostPath:
           path: /var/lib/kubelet/pods
           type: Directory
+{{- if eq .Values.logReceiver.type "Elasticsearch" }}
+      - name: logs-config
+        configMap:
+          name: {{ .Release.Name }}-csi-logs-config
+{{- end }}
 

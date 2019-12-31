@@ -2,14 +2,46 @@
 global:
   registry: 10.244.120.194:8085
 
-# CSI Plugin parameters
-image:
-  tag: latest
-  pullPolicy: Always #for e2e tests
-
 # Storage Class name that provisions PVs dynamically
 storageClass:
   name: baremetal-csi-sc
+
+
+# CSI Plugin parameters
+image:
+  tag: latest
+  pullPolicy: Always
+
+# Setting of a log receiver
+logReceiver:
+  # Dev - busybox that tails CSI log to stdout in log-collector container
+  # Elasticsearch - fluent-bit agent that redirect logs to Elasticsearch
+  # which has settings listed below
+  type: Dev
+  # Source from which logs will be collected. Valid values "file" and "stdout".
+  source: file
+
+  # Valid values for Elasticsearch are "http" and "https"
+  # protocol: http
+
+  # Elasticsearch address
+  # host: 192.168.1.1
+
+  # Port to use for provided Elasticsearch receiver
+  # port: 9200
+  # User login will be used by fluent-bit to connect to the elastic search.
+  # user: user
+  # Password will be used by fluent-bit to connect to the elastic search.
+  # password: password
+
+# The log agent configuration for log collection of ECS services with a Syslog
+# based receiver
+fluentbitAgent:
+  image:
+    repository: fluent-bit
+    tag: shippable
+    # pullPolicy: IfNotPresent
+
 
 # CSI Sidecars parameters
 provisioner:
@@ -29,7 +61,6 @@ nodeDriverRegistrar:
   image:
     tag: v1.0.1-gke.0
 
-#For e2e tests
 busybox:
   image:
     tag: latest
