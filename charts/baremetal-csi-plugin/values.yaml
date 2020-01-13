@@ -53,10 +53,6 @@ attacher:
   image:
     tag: v1.0.1
 
-clusterDriverRegistrar:
-  image:
-    tag: v1.0.1
-
 nodeDriverRegistrar:
   image:
     tag: v1.0.1-gke.0

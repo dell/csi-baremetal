@@ -22,7 +22,6 @@ spec:
       - name: csi-provisioner
         image: {{ .Values.global.registry }}/csi-provisioner:{{ .Values.provisioner.image.tag }}
         args:
-        - "--provisioner=baremetal-csi"
         - "--csi-address=$(ADDRESS)"
         - "--v=5"
         - "--feature-gates=Topology=true"
@@ -37,19 +36,6 @@ spec:
         image: {{ .Values.global.registry }}/csi-attacher:{{ .Values.attacher.image.tag }}
         args:
         - "--v=5"
-        - "--csi-address=$(ADDRESS)"
-        env:
-        - name: ADDRESS
-          value: /csi/csi.sock
-        volumeMounts:
-        - name: socket-dir
-          mountPath: /csi
-      # ********************** CLUSTER-DRIVER-REGISTRAR sidecar container definition **********************
-      - name: csi-cluster-driver-registrar
-        image: {{ .Values.global.registry }}/csi-cluster-driver-registrar:{{ .Values.clusterDriverRegistrar.image.tag }}
-        args:
-        - "--v=5"
-        - "--pod-info-mount-version=\"v1\""
         - "--csi-address=$(ADDRESS)"
         env:
         - name: ADDRESS
