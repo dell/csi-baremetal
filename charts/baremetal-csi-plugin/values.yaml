@@ -9,7 +9,7 @@ storageClass:
 
 # CSI Plugin parameters
 image:
-  tag: latest
+  tag: mvp
   pullPolicy: Always
 
 # Setting of a log receiver
