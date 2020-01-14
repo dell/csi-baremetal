@@ -18,8 +18,6 @@ import (
 )
 
 var CSITestSuites = []func() testsuites.TestSuite{
-	testsuites.InitVolumesTestSuite,
-	testsuites.InitVolumeIOTestSuite,
 	testsuites.InitProvisioningTestSuite,
 }
 
