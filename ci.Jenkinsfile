@@ -33,7 +33,7 @@ void runTests() {
         try {
             stage('Prepare iscsi') {
                 sh("zypper install -y open-iscsi")
-                containerId = sh(script: 'docker run -d --net=host ${registry}/ecs/itt:latest itt -p 127.0.0.1 -t 127.0.0.1:5230 -d /opt/emc/etc/itt/dev_ecs-test.xml',
+                containerId = sh(script: "docker run -d --net=host ${registry}/ecs/itt:latest itt -p 127.0.0.1 -t 127.0.0.1:5230 -d /opt/emc/etc/itt/dev_ecs-test.xml",
                                  returnStdout: true);
                 sh("""
                    service iscsid start
@@ -95,7 +95,7 @@ void runTests() {
                       dir('baremetal-csi-plugin'){
                            output = sh(script: 'go run cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true);
                            println output
-                           if (!(output.contains("FAIL")){
+                           if (!(output.contains("FAIL"))){
                                 testResultSuccess = true
                            }
                       }
