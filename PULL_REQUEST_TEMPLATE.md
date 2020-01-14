@@ -4,6 +4,8 @@ _Describe your changes_
 ## PR checklist
 - [ ] Choose PR label
 - [ ] New unit tests added
+- [ ] Modified code has meaningful comments
+- [ ] All TODOs are linked with JIRAs
 - [ ] PR validation passed
 - [ ] Custom CI passed
 
