@@ -81,7 +81,7 @@ void runJob() {
                 if (args.runMode != RUN_MODE_CUSTOM) {
                     build([
                         job       : 'csi-master-ci',
-                        parameters: [string(name: 'CSI_VERSION', value: args.version)],
+                        parameters: [string(name: 'CSI_TAG', value: args.version)],
                         wait      : false,
                         propagate : false,
                     ])
