@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package v1api;
+option go_package="v1api";
+
+enum DriveType {
+    HDD = 0;
+    SSD = 1;
+    NVMe = 2;
+}
+
+enum Health {
+    UNKNOWN = 0;
+    GOOD = 1;
+    BAD = 2;
+}
+
+enum Status {
+    ONLINE = 0;
+    OFFLINE = 1;
+}
+
+message Drive {
+    string VID = 1;
+    string PID = 2;
+    string SerialNumber = 3;
+    Health Health = 4;
+    DriveType Type = 5;
+    uint64 Size = 6;
+    Status status = 7;
+}
+

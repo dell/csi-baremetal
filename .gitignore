@@ -1,5 +1,6 @@
 # idea files
 .idea
 *_output
+*.pb.go
 vendor
 build/

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package v1api;
+option go_package="v1api";
+
+import "drive.proto";
+
+message DrivesRequest {
+}
+
+message DrivesResponse {
+    repeated Drive disks = 1;
+}
+
+service HWService {
+    rpc GetDrivesList(DrivesRequest) returns (DrivesResponse){};
+}

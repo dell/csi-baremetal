@@ -1,6 +1,8 @@
 # build command:
 # REGISTRY=<registry_url> TAG="<tag_name>" make all
 
+# file paths
+
 # version
 MAJOR            := 1
 MINOR            := 0
@@ -51,3 +53,6 @@ test:
 
 coverage:
 	# go tool cover -html=coverage.out -o coverage.html
+
+compile-proto:
+	protoc -I=api/v1 --go_out=plugins=grpc:api/generated/v1 api/v1/*.proto

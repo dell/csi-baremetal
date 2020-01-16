@@ -85,3 +85,13 @@ Usages
 Provide `baremetal-csi` storage class for PVC in PVC manifest or persistenVolumeClameTemapate section. 
 
 
+For developers
+---------------------
+
+1. Compile proto files
+    1.1 There is make target 'compile-proto' that will generate GO code from proto files:
+    ```
+    make compile-proto
+    ``` 
+    Proto files located under `/api/API_VERSION/` folder. Generated GO files will be located under `/api/generated/API_VERSION` folder.
+    Default API_VERSION is `v1`
