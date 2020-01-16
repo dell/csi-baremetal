@@ -1,6 +1,0 @@
-This CSI made for collaborating with Dell EMC Elastic Cloud Storage.
-To work correctly you need to install ECS Flex Operator and ECS Flex Cluster.
-But also you can use CSI independently. In that case you need to create own PVCs
-and use correct storage class name: {{ .Values.storageClass.name }}
-
-Your release is named {{ .Release.Name }}.
