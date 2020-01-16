@@ -55,4 +55,5 @@ coverage:
 	# go tool cover -html=coverage.out -o coverage.html
 
 compile-proto:
+	mkdir -p api/generated/v1/
 	protoc -I=api/v1 --go_out=plugins=grpc:api/generated/v1 api/v1/*.proto
