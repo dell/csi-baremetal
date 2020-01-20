@@ -1,11 +1,12 @@
 module eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git
 
 require (
+	github.com/golang/mock v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/onsi/ginkgo v1.6.0
 	github.com/onsi/gomega v0.0.0-20190113212917-5533ce8a0da3
 	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.4.0 // indirect
+	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
@@ -15,6 +16,7 @@ require (
 	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873 // indirect
 	google.golang.org/grpc v1.20.1
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/kubernetes v1.15.0
