@@ -63,5 +63,7 @@ run:
   skip-dirs:
     - test/
     - vendor/
+    - api/
   skip-files:
     - .*_test.go
+    - .*.pb.go

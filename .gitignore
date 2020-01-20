@@ -2,5 +2,6 @@
 .idea
 *_output
 *.pb.go
+api/generated
 vendor
 build/

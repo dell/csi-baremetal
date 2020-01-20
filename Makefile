@@ -45,15 +45,25 @@ clean:
 clean-image:
 	docker rmi ${REGISTRY}/${REPO}:${TAG}
 
-lint:
-	# golangci-lint run ./...
+lint: install-compile-proto
+	golangci-lint run ./...
 
 test:
-	# go test -cover ./... -coverprofile=coverage.out
+	go test -cover ./... -coverprofile=coverage.out
 
 coverage:
-	# go tool cover -html=coverage.out -o coverage.html
+	go tool cover -html=coverage.out -o coverage.html
+
+prepare-protoc:  # TODO: temporary solution while we build all in common devkit (DELIVERY-1488)
+	mkdir -p proto_3.11.0
+	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v3.11.0/protoc-3.11.0-linux-x86_64.zip && \
+	unzip protoc-3.11.0-linux-x86_64.zip -d proto_3.11.0/ && \
+	sudo mv proto_3.11.0/bin/protoc /usr/bin/protoc && \
+	protoc --version; rm -rf proto_3.11.0; rm protoc-*
+	go get -u github.com/golang/protobuf/protoc-gen-go
 
 compile-proto:
 	mkdir -p api/generated/v1/
 	protoc -I=api/v1 --go_out=plugins=grpc:api/generated/v1 api/v1/*.proto
+
+install-compile-proto: prepare-protoc compile-proto

@@ -1,7 +1,7 @@
 module eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git
 
 require (
-	github.com/golang/protobuf v1.3.1
+	github.com/golang/protobuf v1.3.2
 	github.com/onsi/ginkgo v1.6.0
 	github.com/onsi/gomega v0.0.0-20190113212917-5533ce8a0da3
 	github.com/sirupsen/logrus v1.4.2
