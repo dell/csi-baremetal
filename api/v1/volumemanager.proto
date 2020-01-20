@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package volumemanager;
+option go_package="v1api";
+
+import "drive.proto";
+
+message Volume {
+    string id = 1;
+    string owner = 2;
+    int64  size = 3;
+    Mode mode = 4;
+    string type = 5;
+    string location = 6;
+    v1api.Health health = 7;
+    OperationalStatus status = 8;
+}
+
+enum OperationalStatus {
+    Operative = 0;
+    Inoperative = 1;
+    Staging = 2;
+    Missing = 3;
+    Removing = 4;
+    ReadyToRemove = 5;
+    FailToRemove = 6;
+    Removed = 7;
+    Maintenance = 8;
+}
+
+enum Mode {
+    RAW = 0;
+    FS = 1;
+}
+
+enum StorageClass {
+    HDD = 0;
+    SSD = 1;
+    NVMe = 2;
+    HDDLVG = 3;
+    SSDLVG = 4;
+}
+
+message AvailableCapacity {
+    int64 size = 1;
+    StorageClass  type = 2;
+    string location = 3;
+}
+
+message VolumeRequest {
+}
+
+message VolumeResponse {
+    repeated Volume volume = 1;
+}
+
+message AvailableCapacityRequest {
+}
+
+message AvailableCapacityResponse {
+    repeated AvailableCapacity availableCapacity = 1;
+}
+
+service VolumeManager{
+    rpc GetLocalVolumes(VolumeRequest) returns (VolumeResponse){};
+    rpc GetAvailableCapacity(AvailableCapacityRequest) returns (AvailableCapacityResponse){};
+}
