@@ -49,6 +49,8 @@ lint: install-compile-proto
 	golangci-lint run ./...
 
 test:
+	# install hal for correct compilation during go test
+	make -f pkg/hwmgr/Makefile install-hal
 	go test -cover ./... -coverprofile=coverage.out
 
 coverage:
