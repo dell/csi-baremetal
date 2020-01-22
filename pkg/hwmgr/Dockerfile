@@ -17,3 +17,9 @@ RUN     zypper --no-gpg-checks --non-interactive addrepo http://asdrepo.isus.emc
 
 # Set active template as ecs_generic
 RUN     cp /opt/emc/hal/etc/ecs_generic.xml /opt/emc/hal/etc/active_template.xml
+
+ADD     hw-manager hw-manager
+
+EXPOSE  50052
+
+ENTRYPOINT  ["./hw-manager"]
