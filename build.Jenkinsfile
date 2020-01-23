@@ -51,6 +51,14 @@ void runJob() {
                     custom_packaging.fingerprintVersionFile('bare-metal-csi', args.version)
                 }
 
+                stage('Get Dependencies') {
+                    sh('''
+                        make install-compile-proto
+                        make install-hal
+                        make dependency
+                    ''')
+                }
+
                 stage('Lint') {
                     sh('make lint')
                 }
@@ -59,7 +67,7 @@ void runJob() {
                     sh('''
                        make test
                        make coverage
-                       ''')
+                    ''')
                 }
 
                 stage('Build') {

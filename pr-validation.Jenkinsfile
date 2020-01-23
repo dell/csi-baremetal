@@ -35,7 +35,11 @@ boolean validatePullRequest(String commit) {
                 }
 
                 stage('Get dependencies') {
-                    depExitCode = sh(script: 'make dependency', returnStatus: true)
+                    depExitCode = sh(script: '''
+                                        make install-compile-proto
+                                        make install-hal
+                                        make dependency
+                                     ''', returnStatus: true)
                     if (depExitCode != 0) {
                         currentBuild.result = 'FAILURE'
                         throw new Exception("Get dependencies stage failed, check logs")

@@ -19,3 +19,7 @@ func (v VolumeManager) GetAvailableCapacity(context.Context, *volumemanager.Avai
 	capacities := make([]*volumemanager.AvailableCapacity, 0)
 	return &volumemanager.AvailableCapacityResponse{AvailableCapacity: capacities}, nil
 }
+
+// depending on SC and parameters in CreateVolumeRequest()
+// here we should use different SC implementations for creating required volumes
+// the same principle we can use in Controller Server or read from a CRD instance

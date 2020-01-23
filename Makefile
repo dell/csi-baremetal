@@ -45,13 +45,11 @@ clean:
 clean-image:
 	docker rmi ${REGISTRY}/${REPO}:${TAG}
 
-lint: install-compile-proto
+lint:
 	golangci-lint run ./...
 
 test:
-	# install hal for correct compilation during go test
-	make -f pkg/hwmgr/Makefile install-hal
-	go test -cover ./... -coverprofile=coverage.out
+	go test -race -cover ./... -coverprofile=coverage.out
 
 coverage:
 	go tool cover -html=coverage.out -o coverage.html
@@ -69,3 +67,7 @@ compile-proto:
 	protoc -I=api/v1 --go_out=plugins=grpc:api/generated/v1 api/v1/*.proto
 
 install-compile-proto: prepare-protoc compile-proto
+
+# install hal for correct compilation during go test
+install-hal:
+	make -f pkg/hwmgr/Makefile install-hal
