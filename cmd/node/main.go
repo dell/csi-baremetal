@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
+
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
 
 	v1api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -22,6 +24,7 @@ func main() {
 	//Temporary run insecure server
 	s := base.NewServerRunner(nil, *address, int32(*port))
 	v1api.RegisterVolumeManagerServer(s.GRPCServer, &node.VolumeManager{})
+	csi.RegisterNodeServer(s.GRPCServer, &node.CSINodeService{})
 	if err := s.RunServer(); err != nil {
 		logrus.Fatalf("fail to serve: %v", err)
 	}
