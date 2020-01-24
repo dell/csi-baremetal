@@ -1,49 +1,84 @@
 # build command:
 # REGISTRY=<registry_url> TAG="<tag_name>" make all
 
-# file paths
+include variables.mk
 
-# version
-MAJOR            := 1
-MINOR            := 0
-PATCH            := 0
-PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
-BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
-BUILD_REL_B      := $(shell git rev-parse --short HEAD)
-BLD_CNT          := $(shell echo ${BUILD_REL_A})
-BLD_SHA          := $(shell echo ${BUILD_REL_B})
-RELEASE_STR      := ${BLD_CNT}.${BLD_SHA}
-FULL_VERSION     := ${PRODUCT_VERSION}-${RELEASE_STR}
-TAG				 := ${FULL_VERSION}
+NODE       := node
+HW_MANAGER := hwmgr
+CONTROLLER := controller
 
-REPO 			 := baremetal-csi-plugin
-REGISTRY          = 10.244.120.194:8085
-HARBOR           := harbor.lss.emc.com/ecs
+.PHONY: test build install-hal
 
-LINTER_VERSION   := 1.21.0
-
-.PHONY: test build
-
-all: build image push
+#all: build image push
 
 dependency:
 	GO111MODULE=on go mod download
 
-build:
+build: build-hwmgr build-node # build-controller
 
-image:
-	# docker build --network host --force-rm --tag ${REGISTRY}/${REPO}:${TAG} .
-	# docker tag ${REGISTRY}/${REPO}:${TAG} ${HARBOR}/${REPO}:${TAG}
+# NOTE: Output directory for binary file should be in Docker context.
+# So we can't use /baremetal-csi-plugin/build to build the image.
+build-hwmgr:
+	go build -o ./build/${HW_MANAGER}/${HW_MANAGER} ./cmd/${HW_MANAGER}/main.go
 
-push:
-	# docker push ${REGISTRY}/${REPO}:${TAG}
-	# docker push ${HARBOR}/${REPO}:${TAG}
+build-node:
+	go build -o ./build/${NODE}/${NODE} ./cmd/${NODE}/main.go
 
-clean:
-	rm -rf ./build/_output
+build-controller:
+	go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
-clean-image:
-	docker rmi ${REGISTRY}/${REPO}:${TAG}
+image: image-hwmgr image-node # image-controller
+
+image-hwmgr:
+	cp ./build/${HW_MANAGER}/${HW_MANAGER} ./pkg/${HW_MANAGER}/${HW_MANAGER}
+	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ./pkg/${HW_MANAGER}
+	docker tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
+
+image-node:
+	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
+	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ./pkg/${NODE}
+	docker tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ${HARBOR}/${REPO}-${NODE}:${TAG}
+
+image-controller:
+	cp ./build/${CONTROLLER}/${CONTROLLER} ./pkg/${CONTROLLER}/${CONTROLLER}
+	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ./pkg/${CONTROLLER}
+	docker tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}
+
+push: push-hwmgr push-node # push-controller
+
+push-hwmgr:
+	docker push ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+	docker push ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
+
+push-node:
+	docker push ${REGISTRY}/${REPO}-${NODE}:${TAG}
+	docker push ${HARBOR}/${REPO}-${NODE}:${TAG}
+
+push-controller:
+	docker push ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
+	docker push ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}\
+
+clean: clean-hwmgr clean-node # clean-controller
+
+clean-hwmgr:
+	rm -rf ./build/${HW_MANAGER}/${HW_MANAGER}
+
+clean-node:
+	rm -rf ./build/${NODE}/${NODE}
+
+clean-controller:
+	rm -rf ./build/${CONTROLLER}/${CONTROLLER}
+
+clean-image: clean-image-hwmgr clean-image-node # clean-image-controller
+
+clean-image-hwmgr:
+	docker rmi ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+
+clean-image-node:
+	docker rmi ${REGISTRY}/${REPO}-${NODE}:${TAG}
+
+clean-image-controller:
+	docker rmi ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
 lint:
 	golangci-lint run ./...
@@ -68,6 +103,7 @@ compile-proto:
 
 install-compile-proto: prepare-protoc compile-proto
 
-# install hal for correct compilation during go test
 install-hal:
-	make -f pkg/hwmgr/Makefile install-hal
+	# NOTE: Root privileges are required for installing or uninstalling packages.
+	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal/${HAL_VERSION}-go.SLES/viprhal-${HAL_VERSION}.SLES.x86_64.rpm
+	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal-devel/${HAL_VERSION}-go.SLES/viprhal-devel-${HAL_VERSION}.SLES.x86_64.rpm
