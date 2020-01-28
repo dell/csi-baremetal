@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	port = flag.Int("port", 50052, "HWManager server port")
-	host = flag.String("host", "", "HWManager server IP address")
+	port = flag.Int("port", base.DefaultHWMgrPort, "HWManager server port")
+	host = flag.String("host", base.DefaultHWMgrHost, "HWManager server IP address")
 )
 
 func main() {

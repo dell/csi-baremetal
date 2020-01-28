@@ -32,3 +32,11 @@ func TestNewClient(t *testing.T) {
 		t.Error("Ports are not equal")
 	}
 }
+
+func TestClientClose(t *testing.T) {
+	client, _ := NewClient(nil, testConfig.Host, testConfig.Port)
+	err := client.Close()
+	if err != nil {
+		t.Errorf("err should be nil, got %v", err)
+	}
+}
