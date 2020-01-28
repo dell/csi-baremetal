@@ -107,3 +107,15 @@ install-hal:
 	# NOTE: Root privileges are required for installing or uninstalling packages.
 	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal/${HAL_VERSION}-go.SLES/viprhal-${HAL_VERSION}.SLES.x86_64.rpm
 	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal-devel/${HAL_VERSION}-go.SLES/viprhal-devel-${HAL_VERSION}.SLES.x86_64.rpm
+
+install-controller-gen:
+    #Generate deepcopy functions for Volume
+	GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
+
+generate-deepcopy:
+    #Generate deepcopy functions for Volume
+	controller-gen object paths=api/v1/volume_types.go  output:dir=api/v1
+
+generate-crd:
+    #Generate CRD based on Volume type and group info
+	controller-gen crd:crdVersions=v1beta1,trivialVersions=true paths=api/v1/volume_types.go paths=api/v1/groupversion_info.go  output:crd:dir=charts/baremetal-csi-plugin/templates

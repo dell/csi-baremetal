@@ -38,6 +38,8 @@ boolean validatePullRequest(String commit) {
                     depExitCode = sh(script: '''
                                         make install-compile-proto
                                         make install-hal
+                                        make install-controller-gen
+                                        make generate-deepcopy
                                         make dependency
                                      ''', returnStatus: true)
                     if (depExitCode != 0) {
