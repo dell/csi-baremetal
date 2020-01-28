@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 
@@ -11,10 +12,11 @@ import (
 )
 
 type VolumeManager struct {
-	hWMgrClient  api.HWServiceClient
+	hWMgrClient api.HWServiceClient
+	sync.Mutex
 	volumesCache []*api.Volume
 	linuxUtils   *base.LinuxUtils
-	sync.Mutex
+	partition    *base.Partition
 }
 
 // NewVolumeManager returns new instance ov VolumeManager
@@ -23,6 +25,7 @@ func NewVolumeManager(client api.HWServiceClient) *VolumeManager {
 		hWMgrClient:  client,
 		volumesCache: make([]*api.Volume, 0),
 		linuxUtils:   base.NewLinuxUtils(&base.Executor{}),
+		partition:    &base.Partition{Executor: &base.Executor{}},
 	}
 }
 
@@ -124,4 +127,39 @@ func (m *VolumeManager) drivesAreNotUsed(drives []*api.Drive) []*api.Drive {
 	}
 
 	return drivesNotInUse
+}
+
+func (m *VolumeManager) CreateLocalVolume(ctx context.Context, request *api.CreateLocalVolumeRequest) (*api.CreateLocalVolumeResponse, error) {
+	// TODO: get device name from cache
+	device := ""
+	if exists, _ := m.partition.IsPartitionExists(device); exists {
+		err := m.partition.CreatePartitionTable(device)
+		if err != nil {
+			return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, err
+		}
+
+		err = m.partition.CreatePartition(device)
+		if err != nil {
+			return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, err
+		}
+
+		err = m.partition.SetPartitionUUID(device, request.PvcUUID)
+		if err != nil {
+			return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, err
+		}
+	}
+
+	return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, errors.New("unable to find suitable drive")
+}
+
+func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.DeleteLocalVolumeRequest) (*api.DeleteLocalVolumeResponse, error) {
+	// TODO: get device name Controller
+	device := ""
+
+	err := m.partition.DeletePartition(device)
+	if err != nil {
+		return &api.DeleteLocalVolumeResponse{Ok: false}, err
+	}
+
+	return &api.DeleteLocalVolumeResponse{Ok: true}, nil
 }

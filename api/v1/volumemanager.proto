@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package volumemanager;
+package node;
 option go_package="v1api";
 
 import "drive.proto";
@@ -68,7 +68,29 @@ message AvailableCapacityResponse {
     repeated AvailableCapacity availableCapacity = 1;
 }
 
-service VolumeManager{
+message CreateLocalVolumeRequest {
+    string pvcUUID = 1;
+    string capacity = 2;
+    string sc = 3;
+}
+
+message CreateLocalVolumeResponse {
+    string drive = 1;
+    bool ok = 2;
+}
+
+message DeleteLocalVolumeRequest {
+    string drive = 1;
+    string pvcUUID = 2;
+}
+
+message DeleteLocalVolumeResponse {
+    bool ok = 1;
+}
+
+service VolumeManager {
     rpc GetLocalVolumes(VolumeRequest) returns (VolumeResponse){};
     rpc GetAvailableCapacity(AvailableCapacityRequest) returns (AvailableCapacityResponse){};
+    rpc CreateLocalVolume(CreateLocalVolumeRequest) returns (CreateLocalVolumeResponse){};
+    rpc DeleteLocalVolume(DeleteLocalVolumeRequest) returns (DeleteLocalVolumeResponse){};
 }

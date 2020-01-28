@@ -6,12 +6,12 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
+	"github.com/sirupsen/logrus"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"github.com/sirupsen/logrus"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
 )
 
 var (
@@ -24,6 +24,7 @@ var (
 
 func main() {
 	flag.Parse()
+
 	logrus.Info("Start Node Volume Manager")
 	// Temporary run insecure server
 	s := base.NewServerRunner(nil, *host, int32(*port))
@@ -51,6 +52,7 @@ func main() {
 	}(*discoverTimeout)
 
 	csi.RegisterNodeServer(s.GRPCServer, &node.CSINodeService{})
+
 	if err := s.RunServer(); err != nil {
 		logrus.Fatalf("fail to serve: %v", err)
 	}

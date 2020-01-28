@@ -1,15 +1,16 @@
 package node
 
 import (
+	"context"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"golang.org/x/net/context"
 )
+
+type CSINodeService struct{}
 
 // depending on SC and parameters in CreateVolumeRequest()
 // here we should use different SC implementations for creating required volumes
 // the same principle we can use in Controller Server or read from a CRD instance
-
-type CSINodeService struct{}
 
 func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 	return &csi.NodeStageVolumeResponse{}, nil

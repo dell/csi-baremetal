@@ -1,29 +1,18 @@
 package sc
 
 import (
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-type testExecutorSuccess struct{}
-
-func (t testExecutorSuccess) RunCmd(cmd interface{}) (string, string, error) {
-	return "stdout", "", nil
-}
-
 var defaultDaSCSuccess = &DefaultDASC{
-	executor: testExecutorSuccess{},
-}
-
-type testExecutorFail struct{}
-
-func (t testExecutorFail) RunCmd(cmd interface{}) (string, string, error) {
-	return "error happened", "error", errors.New("error")
+	executor: mocks.EmptyExecutorSuccess{},
 }
 
 var defaultDaSCFail = &DefaultDASC{
-	executor: testExecutorFail{},
+	executor: mocks.EmptyExecutorFail{},
 }
 
 func TestCreateFileSystem(t *testing.T) {
