@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -34,7 +36,7 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	cl, err := client.New(ctrl.GetConfigOrDie(), client.Options{
 		Scheme: scheme,
 	})
 	if err != nil {
@@ -43,7 +45,7 @@ func main() {
 	}
 	s := base.NewServerRunner(nil, host, int32(port))
 	// register grpc services here
-	server := controller.NewControllerServer(mgr.GetClient())
+	server := controller.NewControllerServer(cl)
 	csi.RegisterIdentityServer(s.GRPCServer, controller.NewIdentityServer())
 	csi.RegisterControllerServer(s.GRPCServer, server)
 	if err := s.RunServer(); err != nil {

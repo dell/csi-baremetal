@@ -2,6 +2,11 @@ package controller
 
 import (
 	"context"
+	"strings"
+
+	"github.com/coreos/rkt/tests/testutils/logger"
+	"github.com/sirupsen/logrus"
+	v13 "k8s.io/api/core/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -23,6 +28,8 @@ type CSIControllerServer struct {
 }
 
 func (s CSIControllerServer) CreateVolume(context.Context, *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+	//Temporary to pass linter
+	_, _ = s.getPods(context.TODO(), "", "")
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 func (s CSIControllerServer) DeleteVolume(context.Context, *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
@@ -103,4 +110,22 @@ func (s CSIControllerServer) ReadVolumeList(ctx context.Context, namespace strin
 		return nil, err
 	}
 	return &volumes, nil
+}
+
+func (s *CSIControllerServer) getPods(ctx context.Context, mask string, namespace string) ([]*v13.Pod, error) {
+	pods := v13.PodList{}
+	err := s.List(ctx, &pods, client.InNamespace(namespace))
+	logrus.Info(pods)
+	if err != nil {
+		logger.Errorf("Failed to get podes: %v", err)
+		return nil, err
+	}
+	p := make([]*v13.Pod, 0)
+	for i := range pods.Items {
+		podName := pods.Items[i].ObjectMeta.Name
+		if strings.Contains(podName, mask) {
+			p = append(p, &pods.Items[i])
+		}
+	}
+	return p, nil
 }

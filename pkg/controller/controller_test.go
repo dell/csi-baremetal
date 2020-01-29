@@ -3,7 +3,10 @@ package controller
 import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
+	v12 "k8s.io/api/core/v1"
+	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -26,6 +29,10 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		os.Exit(1)
 	}
+	err = v12.AddToScheme(scheme)
+	if err != nil {
+		os.Exit(1)
+	}
 	server = NewControllerServer(fake.NewFakeClientWithScheme(scheme))
 	ctx = context.TODO()
 	code := m.Run()
@@ -44,9 +51,7 @@ func TestControllerServer_CreateVolumeCRD(t *testing.T) {
 		Status:   0,
 	}
 	volumeCRD, err := server.CreateVolumeCRD(ctx, volume, namespace)
-	if err != nil {
-		t.Fatalf("Error creating crd: %v", err)
-	}
+	assert.Nil(t, err)
 	if !(equals(volume, *volumeCRD)) {
 		t.Error("Volumes are not equal")
 	}
@@ -54,24 +59,47 @@ func TestControllerServer_CreateVolumeCRD(t *testing.T) {
 
 func TestControllerServer_ReadVolume(t *testing.T) {
 	volume, err := server.ReadVolume(ctx, name, namespace)
-	if err != nil {
-		t.Fatalf("Error reading crd: %v", err)
-	}
-	if volume.ObjectMeta.Name != name {
-		t.Error("Wrong volume crd")
-	}
+	assert.Nil(t, err)
+	assert.Equal(t, volume.ObjectMeta.Name, name, "Wrong volume crd")
 }
 
 func TestControllerServer_ReadVolumeList(t *testing.T) {
 	volumeList, err := server.ReadVolumeList(ctx, namespace)
-	if err != nil {
-		t.Fatalf("Error reading crd: %v", err)
-	}
+	assert.Nil(t, err)
 	for _, v := range volumeList.Items {
-		if v.Namespace != namespace {
-			t.Error("Namespaces are not equals")
-		}
+		assert.Equal(t, v.Namespace, namespace, "Namespaces are not equals")
 	}
+}
+
+func TestCSIControllerServer_getPods(t *testing.T) {
+	pods, e := server.getPods(ctx, name, namespace)
+	assert.Nil(t, e)
+	assert.Empty(t, pods)
+	pod := &v12.Pod{
+		ObjectMeta: v13.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v12.PodSpec{},
+	}
+	err := server.Create(ctx, pod)
+	assert.Nil(t, err)
+	pods, e = server.getPods(ctx, name, namespace)
+	assert.Contains(t, pods, pod)
+	assert.Nil(t, e)
+	copypod := pod.DeepCopy()
+	pod.Name = name + "1"
+	err = server.Create(ctx, pod)
+	assert.Nil(t, err)
+	pods, e = server.getPods(ctx, name, namespace)
+	assert.Contains(t, pods, pod, copypod)
+	assert.Nil(t, e)
+	pod.Name = "pod"
+	err = server.Create(ctx, pod)
+	assert.Nil(t, err)
+	pods, e = server.getPods(ctx, name, namespace)
+	assert.NotContains(t, pods, pod)
+	assert.Nil(t, e)
 }
 
 func equals(volume api.Volume, volume2 v1.Volume) bool {
