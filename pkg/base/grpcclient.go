@@ -1,7 +1,7 @@
 package base
 
 import (
-	"net"
+	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -12,11 +12,11 @@ type Client struct {
 	GRPCClient *grpc.ClientConn
 	Creds      credentials.TransportCredentials
 	Host       string
-	Port       string
+	Port       int
 }
 
 //NewClient creates new Client object with host, port, creds and calls init function
-func NewClient(creds credentials.TransportCredentials, host string, port string) (*Client, error) {
+func NewClient(creds credentials.TransportCredentials, host string, port int) (*Client, error) {
 	client := &Client{
 		Creds: creds,
 		Host:  host,
@@ -31,7 +31,7 @@ func NewClient(creds credentials.TransportCredentials, host string, port string)
 
 //initClient defines ClientConn field in Client struct
 func (c *Client) initClient() error {
-	hostPort := net.JoinHostPort(c.Host, c.Port)
+	hostPort := fmt.Sprintf("%s:%d", c.Host, c.Port)
 	var err error
 	if c.Creds != nil {
 		c.GRPCClient, err = grpc.Dial(hostPort, grpc.WithTransportCredentials(c.Creds))

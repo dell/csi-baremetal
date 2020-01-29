@@ -1,0 +1,81 @@
+{{- if eq .Values.deploy.controller true }}
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: baremetal-csi-controller
+spec:
+  serviceName: "csi-do"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: baremetal-csi-controller
+      role: csi-do
+  template:
+    metadata:
+      labels:
+        app: baremetal-csi-controller
+        role: csi-do
+    spec:
+      serviceAccount: csi-controller-sa
+      containers:
+      # ********************** EXTERNAL-PROVISIONER sidecar container definition **********************
+      - name: csi-provisioner
+        image: {{ .Values.global.registry }}/csi-provisioner:{{ .Values.provisioner.image.tag }}
+        args:
+        - "--csi-address=$(ADDRESS)"
+        - "--v=5"
+        - "--feature-gates=Topology=true"
+        env:
+        - name: ADDRESS
+          value: /csi/csi.sock
+        volumeMounts:
+        - name: socket-dir
+          mountPath: /csi
+      # ********************** EXTERNAL_ATTACHER sidecar container definition **********************
+      - name: csi-attacher
+        image: {{ .Values.global.registry }}/csi-attacher:{{ .Values.attacher.image.tag }}
+        args:
+        - "--v=5"
+        - "--csi-address=$(ADDRESS)"
+        env:
+        - name: ADDRESS
+          value: /csi/csi.sock
+        volumeMounts:
+        - name: socket-dir
+          mountPath: /csi
+      # ********************** baremetal-csi-controller container definition **********************
+      - name: baremetal-csi-controller
+      {{- if .Values.controller.image.tag }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ .Values.controller.image.tag }}
+      {{- else }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ .Values.image.tag }}
+      {{- end }}
+      {{- if .Values.controller.image.pullPolicy }}
+        imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
+      {{- else }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+      {{- end }}
+#        args:
+#        - "--endpoint=$(CSI_ENDPOINT)"
+#        - "--nodeid=$(KUBE_NODE_NAME)"
+#        env:
+#        - name: CSI_ENDPOINT
+#          value: unix:///csi/csi.sock
+#        - name: KUBE_NODE_NAME
+#          valueFrom:
+#            fieldRef:
+#              apiVersion: v1
+#              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: socket-dir
+          mountPath: /csi
+        - name: logs
+          mountPath: /var/log
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: socket-dir
+        hostPath:
+          path: /tmp/baremetal-csi
+          type: DirectoryOrCreate
+{{- end }}

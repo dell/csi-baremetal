@@ -1,0 +1,131 @@
+{{- if eq .Values.deploy.node true }}
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: baremetal-csi-node
+spec:
+  selector:
+    matchLabels:
+      app: baremetal-csi-node
+  template:
+    metadata:
+      labels:
+        app: baremetal-csi-node
+    spec:
+      serviceAccountName: csi-node-sa
+      containers:
+      # ********************** DRIVER-REGISTRAR sidecar container definition **********************
+#      - name: csi-node-driver-registrar
+#        image: {{ .Values.global.registry }}/csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
+#        args:
+#          - "--v=5"
+#          - "--csi-address=$(ADDRESS)"
+#          - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+#        lifecycle:
+#          preStop:
+#            exec:
+#              command: ["/bin/sh", "-c", "rm -rf /registration/baremetal-csi /registration/baremetal-csi-reg.sock"]
+#        env:
+#          - name: ADDRESS
+#            value: /csi/csi.sock
+#          - name: DRIVER_REG_SOCK_PATH
+#            value: /var/lib/kubelet/plugins/baremetal-csi/csi.sock
+#          - name: KUBE_NODE_NAME
+#            valueFrom:
+#              fieldRef:
+#                apiVersion: v1
+#                fieldPath: spec.nodeName
+#        volumeMounts:
+#          - name: csi-socket-dir
+#            mountPath: /csi
+#          - name: registration-dir
+#            mountPath: /registration
+      # ********************** baremetal-csi-node container definition **********************
+      - name: baremetal-csi-node
+      {{- if .Values.node.image.tag }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ .Values.node.image.tag }}
+      {{- else }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ .Values.image.tag }}
+      {{- end }}
+      {{- if .Values.node.image.pullPolicy }}
+        imagePullPolicy: {{ .Values.node.image.pullPolicy }}
+      {{- else }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+      {{- end }}
+        args:
+#          - "--endpoint=$(CSI_ENDPOINT)"
+#          - "--nodeid=$(KUBE_NODE_NAME)"
+        {{- if .Values.node.grpc.server.port }}
+          - --port={{ .Values.node.grpc.server.port }}
+        {{- end }}
+        {{- if .Values.node.grpc.client.hwmgr.port }}
+          - --hw-port={{ .Values.node.grpc.client.hwmgr.port }}
+        {{- end }}
+#        env:
+#          - name: CSI_ENDPOINT
+#            value: unix:///csi/csi.sock
+#          - name: KUBE_NODE_NAME
+#            valueFrom:
+#              fieldRef:
+#                apiVersion: v1
+#                fieldPath: spec.nodeName
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log
+        - name: host-dev
+          mountPath: /dev
+        - name: csi-socket-dir
+          mountPath: /csi
+        - name: mountpoint-dir
+          mountPath: /var/lib/kubelet/pods
+          mountPropagation: "Bidirectional"
+        ports:
+        {{- if .Values.hwmgr.grpc.server.port }}
+          - containerPort: {{ .Values.node.grpc.server.port }}
+        {{- end }}
+      # ********************** baremetal-csi-hwmgr container definition **********************
+      # TODO: FABRIC-8595 Replace HWManager to DaemonSet
+      - name: baremetal-csi-hwmgr
+      {{- if .Values.hwmgr.image.tag }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-hwmgr:{{ .Values.hwmgr.image.tag }}
+      {{- else }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-hwmgr:{{ .Values.image.tag }}
+      {{- end }}
+      {{- if .Values.hwmgr.image.pullPolicy }}
+        imagePullPolicy: {{ .Values.hwmgr.image.pullPolicy }}
+      {{- else }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+      {{- end }}
+        args:
+        {{- if .Values.hwmgr.grpc.server.port }}
+          - --port={{ .Values.hwmgr.grpc.server.port }}
+        {{- end }}
+        securityContext:
+          privileged: true
+        ports:
+        {{- if .Values.hwmgr.grpc.server.port }}
+          - containerPort: {{ .Values.hwmgr.grpc.server.port }}
+        {{- end }}
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: host-dev
+        hostPath:
+          path: /dev
+          type: Directory
+      - name: csi-socket-dir
+        hostPath:
+          path: /var/lib/kubelet/plugins/baremetal-csi
+          type: DirectoryOrCreate
+      - name: registration-dir
+        hostPath:
+          path: /var/lib/kubelet/plugins_registry/
+          type: DirectoryOrCreate
+      # This volume is where the driver mounts volumes
+      - name: mountpoint-dir
+        hostPath:
+          path: /var/lib/kubelet/pods
+          type: Directory
+{{- end }}

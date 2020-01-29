@@ -22,10 +22,10 @@ build-hwmgr:
 	go build -o ./build/${HW_MANAGER}/${HW_MANAGER} ./cmd/${HW_MANAGER}/main.go
 
 build-node:
-	go build -o ./build/${NODE}/${NODE} ./cmd/${NODE}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${NODE}/${NODE} ./cmd/${NODE}/main.go
 
 build-controller:
-	go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
 image: image-hwmgr image-node # image-controller
 

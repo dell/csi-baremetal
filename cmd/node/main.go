@@ -30,7 +30,7 @@ func main() {
 	s := base.NewServerRunner(nil, *host, int32(*port))
 
 	// create grpc client that will be communicated with HWManager
-	c, err := base.NewClient(nil, *hwMgrServerHost, string(*hwMgrServerPort))
+	c, err := base.NewClient(nil, *hwMgrServerHost, *hwMgrServerPort)
 	if err != nil {
 		logrus.Fatalf("fail to create grpc client: %v", err)
 	}

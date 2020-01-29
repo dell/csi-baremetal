@@ -6,12 +6,12 @@ import (
 
 type TestConfig struct {
 	Host string
-	Port string
+	Port int
 }
 
 var testConfig = &TestConfig{
 	Host: "localhost",
-	Port: "50051",
+	Port: 50051,
 }
 
 func TestNewClient(t *testing.T) {

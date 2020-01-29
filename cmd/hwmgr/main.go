@@ -17,6 +17,7 @@ var (
 
 func main() {
 	flag.Parse()
+	logrus.Info("Start HWManager")
 	// Server is insecure for now because credentials are nil
 	serverRunner := base.NewServerRunner(nil, *host, int32(*port))
 	api.RegisterHWServiceServer(serverRunner.GRPCServer, &hwmgr.HWServiceServerImpl{})

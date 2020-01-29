@@ -1,0 +1,6 @@
+This CSI plugin is a part of platform Atlantic.
+It is used to provide dynamic volume provisioning on bare-metal k8s cluster.
+To create Persistent Volume for a pod it's needed to set Storage Class {{ .Values.storageClass.name }}
+in corresponding Persistent Volume Claim.
+
+Your release is named {{ .Release.Name }}.
