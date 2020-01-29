@@ -27,7 +27,7 @@ message Drive {
     Health Health = 4;
     DriveType Type = 5;
     // size in bytes
-    uint64 Size = 6;
+    int64 Size = 6;
     Status status = 7;
 }
 

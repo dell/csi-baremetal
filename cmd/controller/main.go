@@ -45,7 +45,9 @@ func main() {
 	}
 	s := base.NewServerRunner(nil, host, int32(port))
 	// register grpc services here
-	server := controller.NewControllerServer(cl)
+
+	server := controller.NewControllerService(cl)
+
 	csi.RegisterIdentityServer(s.GRPCServer, controller.NewIdentityServer())
 	csi.RegisterControllerServer(s.GRPCServer, server)
 	if err := s.RunServer(); err != nil {

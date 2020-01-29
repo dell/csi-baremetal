@@ -23,6 +23,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// TODO: do we need this wrapper ???
 // VolumeSpec defines the desired state of Volume
 type VolumeSpec struct {
 	Volume api.Volume

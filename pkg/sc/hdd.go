@@ -4,23 +4,23 @@ import (
 	"sync"
 )
 
-type HDDSC struct {
+type HddSC struct {
 	DefaultDASC
 }
 
 var (
-	hddMU sync.Mutex
-	hddSC *HDDSC
+	hddMU         sync.Mutex
+	hddSCInstance *HddSC
 )
 
-func (h HDDSC) GetInstance() *HDDSC {
-	if hddSC == nil {
+func GetHDDSCInstance() *HddSC {
+	if hddSCInstance == nil {
 		hddMU.Lock()
 		defer hddMU.Unlock()
 
-		if hddSC == nil {
-			hddSC = &HDDSC{}
+		if hddSCInstance == nil {
+			hddSCInstance = &HddSC{}
 		}
 	}
-	return hddSC
+	return hddSCInstance
 }

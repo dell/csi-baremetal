@@ -2,8 +2,8 @@ package node
 
 import (
 	"context"
-	"errors"
-	"strconv"
+	"fmt"
+	"math"
 	"sync"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -12,26 +12,19 @@ import (
 )
 
 type VolumeManager struct {
-	hWMgrClient api.HWServiceClient
-	sync.Mutex
+	hWMgrClient  api.HWServiceClient
+	mu           sync.Mutex
 	volumesCache []*api.Volume
 	linuxUtils   *base.LinuxUtils
-	partition    *base.Partition
 }
 
 // NewVolumeManager returns new instance ov VolumeManager
-func NewVolumeManager(client api.HWServiceClient) *VolumeManager {
+func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor) *VolumeManager {
 	return &VolumeManager{
 		hWMgrClient:  client,
 		volumesCache: make([]*api.Volume, 0),
-		linuxUtils:   base.NewLinuxUtils(&base.Executor{}),
-		partition:    &base.Partition{Executor: &base.Executor{}},
+		linuxUtils:   base.NewLinuxUtils(executor),
 	}
-}
-
-// SetLinuxUtilsExecutor set executor for linuxUtils instance, needed for unit tests purposes
-func (m *VolumeManager) SetLinuxUtilsExecutor(e base.CmdExecutor) {
-	m.linuxUtils.SetExecutor(e)
 }
 
 // GetLocalVolumes request return array of volumes on node
@@ -53,8 +46,8 @@ func (m *VolumeManager) Discover() error {
 	})
 	ll.Infof("Current volumes cache is: %v", m.volumesCache)
 
-	m.Lock()
-	defer m.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	drivesResponse, err := m.hWMgrClient.GetDrivesList(context.Background(), &api.DrivesRequest{})
 	if err != nil {
@@ -73,15 +66,15 @@ func (m *VolumeManager) Discover() error {
 	for _, d := range freeDrives {
 		for _, ld := range *lsblk {
 			if ld.Serial == d.SerialNumber && len(ld.Children) > 0 {
-				sizeInt, err := strconv.ParseUint(ld.Size, 10, 64)
+				pID, err := m.linuxUtils.GetPartitionUUID(ld.Name)
 				if err != nil {
-					ll.Errorf("Unable to interpret size %v, lsblk output: %v", err, ld)
+					ll.Errorf("Unable to determine partition UUID for device %s, error: %v", ld.Name, err)
 					continue
 				}
 				v := &api.Volume{
-					Id:           "", // TODO: FABRIC-8507, need to search ID based on partition ID
+					Id:           pID,
 					Owner:        "", // TODO: need to search owner ??? CRD ???
-					Size:         sizeInt,
+					Size:         ld.Size,
 					Location:     d.SerialNumber,
 					LocationType: api.LocationType_Drive,
 					Mode:         api.Mode_FS,
@@ -129,34 +122,127 @@ func (m *VolumeManager) drivesAreNotUsed(drives []*api.Drive) []*api.Drive {
 	return drivesNotInUse
 }
 
-func (m *VolumeManager) CreateLocalVolume(ctx context.Context, request *api.CreateLocalVolumeRequest) (*api.CreateLocalVolumeResponse, error) {
-	// TODO: get device name from cache
+func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLocalVolumeRequest) (*api.CreateLocalVolumeResponse, error) {
+	logrus.WithFields(logrus.Fields{
+		"component": "VolumeManager",
+		"method":    "CreateLocalVolume",
+	}).Infof("Processing request %v", req)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	resp := &api.CreateLocalVolumeResponse{Drive: "", Capacity: 0, Ok: false}
+
+	drive, err := m.searchFreeDrive(req.Capacity)
+	if err != nil {
+		return resp, err
+	}
+
+	device, err := m.getDrivePathBySN(drive.SerialNumber)
+	if err != nil {
+		return resp, err
+	}
+
+	err = m.setPartitionUUIDForDev(device, req.PvcUUID)
+	if err != nil {
+		return resp, err
+	}
+
+	m.volumesCache = append(m.volumesCache, &api.Volume{
+		Id:           req.PvcUUID,
+		Owner:        "",
+		Size:         drive.Size,
+		Location:     device,
+		LocationType: api.LocationType_Drive,
+		Mode:         api.Mode_FS,
+		Type:         "", // TODO: set that filed to FSType
+		Health:       api.Health_GOOD,
+		Status:       api.OperationalStatus_Operative,
+	})
+
+	return &api.CreateLocalVolumeResponse{Drive: device, Capacity: drive.Size, Ok: true}, nil
+}
+
+// getDrivePathBySN returns drive path based on drive S/N
+func (m *VolumeManager) getDrivePathBySN(sn string) (string, error) {
+	lsblkOut, err := m.linuxUtils.Lsblk("disk")
+	if err != nil {
+		return "", err
+	}
+
 	device := ""
-	if exists, _ := m.partition.IsPartitionExists(device); exists {
-		err := m.partition.CreatePartitionTable(device)
-		if err != nil {
-			return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, err
-		}
-
-		err = m.partition.CreatePartition(device)
-		if err != nil {
-			return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, err
-		}
-
-		err = m.partition.SetPartitionUUID(device, request.PvcUUID)
-		if err != nil {
-			return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, err
+	for _, l := range *lsblkOut {
+		if l.Serial == sn {
+			device = l.Name
+			break
 		}
 	}
 
-	return &api.CreateLocalVolumeResponse{Drive: device, Ok: false}, errors.New("unable to find suitable drive")
+	if device == "" {
+		return "", fmt.Errorf("unable to find drive path by S/N \"%s\"", sn)
+	}
+
+	return device, nil
+}
+
+// searchFreeDrive search drive via HWMgr with appropriate capacity
+func (m *VolumeManager) searchFreeDrive(capacity int64) (*api.Drive, error) {
+	drivesResponse, err := m.hWMgrClient.GetDrivesList(context.Background(), &api.DrivesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	drives := drivesResponse.Disks
+
+	freeDrives := m.drivesAreNotUsed(drives)
+	minSize := int64(math.MaxInt64)
+	var drive *api.Drive
+	for _, d := range freeDrives {
+		if d.Size >= capacity && d.Size < minSize {
+			drive = d
+			minSize = d.Size
+		}
+	}
+
+	if drive == nil {
+		return nil, fmt.Errorf("unable to find suitable drive with capacity %d", capacity)
+	}
+
+	return drive, nil
+}
+
+// setPartitionUUIDForDev creates partition on device and set partition uuid
+func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) error {
+	exist, err := m.linuxUtils.IsPartitionExists(device)
+	if err != nil {
+		return err
+	}
+	if exist {
+		return fmt.Errorf("partition has already exist for device %s", device)
+	}
+
+	err = m.linuxUtils.CreatePartitionTable(device)
+	if err != nil {
+		return err
+	}
+
+	err = m.linuxUtils.CreatePartition(device)
+	if err != nil {
+		return err
+	}
+
+	err = m.linuxUtils.SetPartitionUUID(device, uuid)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.DeleteLocalVolumeRequest) (*api.DeleteLocalVolumeResponse, error) {
 	// TODO: get device name Controller
 	device := ""
 
-	err := m.partition.DeletePartition(device)
+	err := m.linuxUtils.DeletePartition(device)
 	if err != nil {
 		return &api.DeleteLocalVolumeResponse{Ok: false}, err
 	}

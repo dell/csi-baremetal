@@ -2,6 +2,7 @@ module eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git
 
 require (
 	github.com/container-storage-interface/spec v1.1.0
+	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/onsi/ginkgo v1.8.0

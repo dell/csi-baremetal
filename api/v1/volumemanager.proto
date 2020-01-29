@@ -8,7 +8,7 @@ import "drive.proto";
 message Volume {
     string id = 1;
     string owner = 2;
-    uint64  size = 3;
+    int64  size = 3;
     string location = 4;
     LocationType locationType = 5;
     Mode mode = 6;
@@ -70,13 +70,14 @@ message AvailableCapacityResponse {
 
 message CreateLocalVolumeRequest {
     string pvcUUID = 1;
-    string capacity = 2;
+    int64 capacity = 2;
     string sc = 3;
 }
 
 message CreateLocalVolumeResponse {
     string drive = 1;
-    bool ok = 2;
+    int64 capacity = 2;
+    bool ok = 3;
 }
 
 message DeleteLocalVolumeRequest {

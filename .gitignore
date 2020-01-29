@@ -5,3 +5,4 @@
 api/generated
 vendor
 build/
+zz_generated.*.go

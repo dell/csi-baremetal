@@ -8,14 +8,15 @@ import (
 )
 
 type LinuxUtils struct {
-	executor CmdExecutor
+	Partitioner
+	e CmdExecutor
 }
 
 type LsblkOutput struct {
 	Name       string        `json:"name,omitempty"`
 	Type       string        `json:"type,omitempty"`
-	Size       string        `json:"size,omitempty"`
-	Rota       string        `json:"rota,omitempty"`
+	Size       int64         `json:"size,omitempty"`
+	Rota       bool          `json:"rota,omitempty"`
 	Serial     string        `json:"serial,omitempty"`
 	WWN        string        `json:"wwn,omitempty"`
 	Vendor     string        `json:"vendor,omitempty"`
@@ -31,17 +32,16 @@ const (
 	LsblkOutputKey = "blockdevices"
 )
 
-// NewLinuxUtils returns new instance of LinuxUtils based on provided executor
+// NewLinuxUtils returns new instance of LinuxUtils based on provided e
 func NewLinuxUtils(e CmdExecutor) *LinuxUtils {
-	return &LinuxUtils{e}
-}
-
-func (l *LinuxUtils) SetExecutor(e CmdExecutor) {
-	l.executor = e
+	return &LinuxUtils{
+		Partitioner: Partition{e: e},
+		e:           e,
+	}
 }
 
 func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
-	strOut, strErr, err := l.executor.RunCmd(LsblkCmd)
+	strOut, strErr, err := l.e.RunCmd(LsblkCmd)
 	if err != nil {
 		logrus.Errorf("lsblk failed, stdErr: %s, Error: %v", strErr, err)
 		return nil, err

@@ -28,14 +28,14 @@ func TestLinuxUtils_LsblkFail(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid character")
 
 	e2 := mocks.EmptyExecutorFail{}
-	l.SetExecutor(e2)
+	l = NewLinuxUtils(e2)
 	out, err = l.Lsblk(DriveTypeDisk)
 	assert.Nil(t, out)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "error")
 
 	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{LsblkCmd: mocks.NoLsblkKey})
-	l.SetExecutor(e3)
+	l = NewLinuxUtils(e3)
 	out, err = l.Lsblk(DriveTypeDisk)
 	assert.Nil(t, out)
 	assert.NotNil(t, err)

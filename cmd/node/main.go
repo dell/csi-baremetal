@@ -37,17 +37,17 @@ func main() {
 	hwC := api.NewHWServiceClient(c.GRPCClient)
 
 	// create VolumeManager instance based on grpc client
-	vm := node.NewVolumeManager(hwC)
+	vm := node.NewVolumeManager(hwC, &base.Executor{})
 
 	api.RegisterVolumeManagerServer(s.GRPCServer, vm)
 
 	go func(timeout uint) {
 		for {
+			time.Sleep(time.Duration(timeout) * time.Second) // TODO: wait until hwmgl will be up
 			err := vm.Discover()
 			if err != nil {
 				logrus.WithField("method", "VolumeManager.Discover()").Errorf("Failed with: %v", err)
 			}
-			time.Sleep(time.Duration(timeout) * time.Second)
 		}
 	}(*discoverTimeout)
 

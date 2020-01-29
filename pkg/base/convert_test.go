@@ -30,7 +30,7 @@ func TestStrToBytesWrongUnit(t *testing.T) {
 
 var sizeTests = []struct {
 	str   string
-	bytes uint64
+	bytes int64
 }{
 	{"15 b", 15},
 	{"601B", 601},
@@ -70,10 +70,10 @@ func TestToSizeUnitPrecisionLoss(t *testing.T) {
 }
 
 var unitConversionTests = []struct {
-	value  uint64
+	value  int64
 	from   SizeUnit
 	to     SizeUnit
-	result uint64
+	result int64
 }{
 	{61, BYTE, BYTE, 61},
 	{48, KBYTE, BYTE, 48 * 1024},
@@ -103,9 +103,9 @@ func TestToSizeUnitCorrect(t *testing.T) {
 }
 
 var byteConversionTests = []struct {
-	value  uint64
+	value  int64
 	from   SizeUnit
-	result uint64
+	result int64
 }{
 	{72, BYTE, 72},
 	{48, KBYTE, 48 * 1024},

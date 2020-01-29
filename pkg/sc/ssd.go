@@ -4,23 +4,23 @@ import (
 	"sync"
 )
 
-type SSDSC struct {
+type SsdSC struct {
 	DefaultDASC
 }
 
 var (
-	ssdMU sync.Mutex
-	ssdSC *SSDSC
+	ssdMU         sync.Mutex
+	ssdSCInstance *SsdSC
 )
 
-func (s SSDSC) GetInstance() *SSDSC {
-	if ssdSC == nil {
+func GetSSDSCInstance() *SsdSC {
+	if ssdSCInstance == nil {
 		ssdMU.Lock()
 		defer ssdMU.Unlock()
 
-		if ssdSC == nil {
-			ssdSC = &SSDSC{}
+		if ssdSCInstance == nil {
+			ssdSCInstance = &SsdSC{}
 		}
 	}
-	return ssdSC
+	return ssdSCInstance
 }

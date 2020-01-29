@@ -14,7 +14,7 @@ CONTROLLER := controller
 dependency:
 	GO111MODULE=on go mod download
 
-build: build-hwmgr build-node # build-controller
+build: build-hwmgr build-node build-controller
 
 # NOTE: Output directory for binary file should be in Docker context.
 # So we can't use /baremetal-csi-plugin/build to build the image.
@@ -58,7 +58,7 @@ push-controller:
 	docker push ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 	docker push ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}\
 
-clean: clean-hwmgr clean-node # clean-controller
+clean: clean-hwmgr clean-node clean-controller
 
 clean-hwmgr:
 	rm -rf ./build/${HW_MANAGER}/${HW_MANAGER}
@@ -109,13 +109,13 @@ install-hal:
 	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal-devel/${HAL_VERSION}-go.SLES/viprhal-devel-${HAL_VERSION}.SLES.x86_64.rpm
 
 install-controller-gen:
-    #Generate deepcopy functions for Volume
+	# Generate deepcopy functions for Volume
 	GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
 
 generate-deepcopy:
-    #Generate deepcopy functions for Volume
+	# Generate deepcopy functions for Volume
 	controller-gen object paths=api/v1/volume_types.go  output:dir=api/v1
 
 generate-crd:
-    #Generate CRD based on Volume type and group info
+	# Generate CRD based on Volume type and group info
 	controller-gen crd:crdVersions=v1beta1,trivialVersions=true paths=api/v1/volume_types.go paths=api/v1/groupversion_info.go  output:crd:dir=charts/baremetal-csi-plugin/templates

@@ -1,5 +1,6 @@
 package base
 
+// TODO: TBD where store constants
 const (
 	// gRPC endpoints settings
 	DefaultHWMgrHost         = "localhost"

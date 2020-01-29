@@ -12,7 +12,7 @@ import (
 var executor = mocks.NewMockExecutor(mocks.DiskCommands)
 
 var partition = &Partition{
-	Executor: executor,
+	e: executor,
 }
 
 func TestIsPartitionExists(t *testing.T) {
