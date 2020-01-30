@@ -15,31 +15,31 @@ spec:
       serviceAccountName: csi-node-sa
       containers:
       # ********************** DRIVER-REGISTRAR sidecar container definition **********************
-#      - name: csi-node-driver-registrar
-#        image: {{ .Values.global.registry }}/csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
-#        args:
-#          - "--v=5"
-#          - "--csi-address=$(ADDRESS)"
-#          - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
-#        lifecycle:
-#          preStop:
-#            exec:
-#              command: ["/bin/sh", "-c", "rm -rf /registration/baremetal-csi /registration/baremetal-csi-reg.sock"]
-#        env:
-#          - name: ADDRESS
-#            value: /csi/csi.sock
-#          - name: DRIVER_REG_SOCK_PATH
-#            value: /var/lib/kubelet/plugins/baremetal-csi/csi.sock
-#          - name: KUBE_NODE_NAME
-#            valueFrom:
-#              fieldRef:
-#                apiVersion: v1
-#                fieldPath: spec.nodeName
-#        volumeMounts:
-#          - name: csi-socket-dir
-#            mountPath: /csi
-#          - name: registration-dir
-#            mountPath: /registration
+      - name: csi-node-driver-registrar
+        image: {{ .Values.global.registry }}/csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
+        args:
+          - "--v=5"
+          - "--csi-address=$(ADDRESS)"
+          - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "rm -rf /registration/baremetal-csi /registration/baremetal-csi-reg.sock"]
+        env:
+          - name: ADDRESS
+            value: /csi/csi.sock
+          - name: DRIVER_REG_SOCK_PATH
+            value: /var/lib/kubelet/plugins/baremetal-csi/csi.sock
+          - name: KUBE_NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+        volumeMounts:
+          - name: csi-socket-dir
+            mountPath: /csi
+          - name: registration-dir
+            mountPath: /registration
       # ********************** baremetal-csi-node container definition **********************
       - name: baremetal-csi-node
       {{- if .Values.node.image.tag }}
@@ -53,22 +53,22 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
       {{- end }}
         args:
-#          - "--endpoint=$(CSI_ENDPOINT)"
-#          - "--nodeid=$(KUBE_NODE_NAME)"
-        {{- if .Values.node.grpc.server.port }}
-          - --port={{ .Values.node.grpc.server.port }}
+          - "--csiendpoint=$(CSI_ENDPOINT)"
+          - "--nodeid=$(KUBE_NODE_NAME)"
+        {{- if .Values.node.grpc.server.endpoint }}
+          - --volumetmgrendpoint={{ .Values.node.grpc.server.endpoint }}
         {{- end }}
-        {{- if .Values.node.grpc.client.hwmgr.port }}
-          - --hw-port={{ .Values.node.grpc.client.hwmgr.port }}
+        {{- if .Values.node.grpc.client.hwmgr.endpoint }}
+          - --hwmgrendpoint={{ .Values.node.grpc.client.hwmgr.endpoint }}
         {{- end }}
-#        env:
-#          - name: CSI_ENDPOINT
-#            value: unix:///csi/csi.sock
-#          - name: KUBE_NODE_NAME
-#            valueFrom:
-#              fieldRef:
-#                apiVersion: v1
-#                fieldPath: spec.nodeName
+        env:
+          - name: CSI_ENDPOINT
+            value: unix:///csi/csi.sock
+          - name: KUBE_NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
         securityContext:
           privileged: true
         volumeMounts:
@@ -99,8 +99,8 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
       {{- end }}
         args:
-        {{- if .Values.hwmgr.grpc.server.port }}
-          - --port={{ .Values.hwmgr.grpc.server.port }}
+        {{- if .Values.hwmgr.grpc.server.endpoint }}
+          - --hwmgrendpoint={{ .Values.hwmgr.grpc.server.endpoint }}
         {{- end }}
         securityContext:
           privileged: true

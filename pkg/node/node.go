@@ -3,10 +3,14 @@ package node
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
-type CSINodeService struct{}
+type CSINodeService struct {
+	NodeID string
+}
 
 // depending on SC and parameters in CreateVolumeRequest()
 // here we should use different SC implementations for creating required volumes
@@ -33,6 +37,21 @@ func (s *CSINodeService) NodeExpandVolume(ctx context.Context, req *csi.NodeExpa
 func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	return &csi.NodeGetCapabilitiesResponse{}, nil
 }
+
 func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	return &csi.NodeGetInfoResponse{}, nil
+	topology := csi.Topology{
+		Segments: map[string]string{
+			"baremetal-csi/nodeid": s.NodeID,
+		},
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"component": "nodeService",
+		"method":    "NodeGetInfo",
+	}).Infof("NodeGetInfo created topology: %v", topology)
+
+	return &csi.NodeGetInfoResponse{
+		NodeId:             s.NodeID,
+		AccessibleTopology: &topology,
+	}, nil
 }

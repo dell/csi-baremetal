@@ -55,17 +55,17 @@ spec:
       {{- else }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
       {{- end }}
-#        args:
-#        - "--endpoint=$(CSI_ENDPOINT)"
-#        - "--nodeid=$(KUBE_NODE_NAME)"
-#        env:
-#        - name: CSI_ENDPOINT
-#          value: unix:///csi/csi.sock
-#        - name: KUBE_NODE_NAME
-#          valueFrom:
-#            fieldRef:
-#              apiVersion: v1
-#              fieldPath: spec.nodeName
+        args:
+        - "--endpoint=$(CSI_ENDPOINT)"
+        - "--nodeid=$(KUBE_NODE_NAME)"
+        env:
+        - name: CSI_ENDPOINT
+          value: unix:///csi/csi.sock
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
         volumeMounts:
         - name: socket-dir
           mountPath: /csi

@@ -30,6 +30,9 @@ func NewServerRunner(creds credentials.TransportCredentials, endpoint string) *S
 		Endpoint: endpoint,
 	}
 	sr.init()
+	endp, socket := sr.GetEndpoint()
+	logrus.Info("endpoint = ", endp)
+	logrus.Info("socket = ", socket)
 	return sr
 }
 
@@ -51,8 +54,6 @@ func (sr *ServerRunner) RunServer() error {
 		logrus.Errorf("failed to create listener for endpoint %s: %v", endpoint, err)
 		return err
 	}
-	// start new server
-	endpoint, socket = sr.GetEndpoint()
 	fmt.Printf("Starting gRPC server for endpoint %s and socket %s", endpoint, socket)
 	return sr.GRPCServer.Serve(sr.listener)
 }
@@ -68,7 +69,7 @@ func (sr *ServerRunner) GetEndpoint() (string, string) {
 	u, _ := url.Parse(sr.Endpoint)
 
 	if u.Scheme == unix {
-		return sr.Endpoint, unix
+		return u.Path, unix
 	}
 
 	return u.Host, tcp

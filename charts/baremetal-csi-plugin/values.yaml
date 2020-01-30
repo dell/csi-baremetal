@@ -30,10 +30,10 @@ node:
     pullPolicy: Always
   grpc:
     server:
-      port: 9999
+      endpoint: tcp://localhost:9999
     client:
       hwmgr:
-        port: 8888
+        endpoint: tcp://localhost:8888
 
 hwmgr:
   image:
@@ -41,7 +41,7 @@ hwmgr:
     pullPolicy: Always
   grpc:
     server:
-      port: 8888
+      endpoint: tcp://localhost:8888
 
 # CSI Sidecars parameters
 provisioner:
