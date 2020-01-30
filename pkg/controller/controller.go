@@ -30,12 +30,14 @@ type CSIControllerService struct {
 	k8sclient.Client
 	communicators map[NodeID]api.VolumeManagerClient
 	mu            sync.Mutex
+	volumeCache   *VolumesCache
 }
 
 func NewControllerService(k8sClient k8sclient.Client) *CSIControllerService {
 	return &CSIControllerService{
 		Client:        k8sClient,
 		communicators: make(map[NodeID]api.VolumeManagerClient),
+		volumeCache:   &VolumesCache{Cache: make(map[VolumeID]*csiVolume)},
 	}
 }
 

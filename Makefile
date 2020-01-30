@@ -117,5 +117,5 @@ generate-deepcopy:
 	controller-gen object paths=api/v1/volume_types.go  output:dir=api/v1
 
 generate-crd:
-	# Generate CRD based on Volume type and group info
-	controller-gen crd:crdVersions=v1beta1,trivialVersions=true paths=api/v1/volume_types.go paths=api/v1/groupversion_info.go  output:crd:dir=charts/baremetal-csi-plugin/templates
+    #Generate CRD based on Volume type and group info
+	controller-gen crd:trivialVersions=true paths=api/v1/volume_types.go paths=api/v1/groupversion_info.go  output:crd:dir=charts/baremetal-csi-plugin/templates

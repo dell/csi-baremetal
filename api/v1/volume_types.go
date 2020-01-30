@@ -26,7 +26,7 @@ import (
 // TODO: do we need this wrapper ???
 // VolumeSpec defines the desired state of Volume
 type VolumeSpec struct {
-	Volume api.Volume
+	Volume api.Volume `json:"volume"`
 }
 
 // VolumeStatus defines the observed state of Volume
