@@ -13,8 +13,8 @@ import (
 
 type VolumeManager struct {
 	hWMgrClient  api.HWServiceClient
-	mu           sync.Mutex
 	volumesCache []*api.Volume
+	cacheMutex   sync.Mutex
 	linuxUtils   *base.LinuxUtils
 }
 
@@ -46,8 +46,8 @@ func (m *VolumeManager) Discover() error {
 	})
 	ll.Infof("Current volumes cache is: %v", m.volumesCache)
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.cacheMutex.Lock()
+	defer m.cacheMutex.Unlock()
 
 	drivesResponse, err := m.hWMgrClient.GetDrivesList(context.Background(), &api.DrivesRequest{})
 	if err != nil {
@@ -128,8 +128,8 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 		"method":    "CreateLocalVolume",
 	}).Infof("Processing request %v", req)
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.cacheMutex.Lock()
+	defer m.cacheMutex.Unlock()
 
 	resp := &api.CreateLocalVolumeResponse{Drive: "", Capacity: 0, Ok: false}
 
@@ -157,7 +157,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 		Mode:         api.Mode_FS,
 		Type:         "", // TODO: set that filed to FSType
 		Health:       api.Health_GOOD,
-		Status:       api.OperationalStatus_Operative,
+		Status:       api.OperationalStatus_Staging, // becomes operative in NodePublishCall
 	})
 
 	return &api.CreateLocalVolumeResponse{Drive: device, Capacity: drive.Size, Ok: true}, nil
@@ -248,4 +248,13 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 	}
 
 	return &api.DeleteLocalVolumeResponse{Ok: true}, nil
+}
+
+func (m *VolumeManager) getVolumeFromCache(volumeID string) *api.Volume {
+	for _, v := range m.volumesCache {
+		if v.Id == volumeID {
+			return v
+		}
+	}
+	return nil
 }

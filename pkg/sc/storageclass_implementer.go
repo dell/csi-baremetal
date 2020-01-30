@@ -11,6 +11,7 @@ type StorageClassImplementer interface {
 
 	IsMounted(device, targetPath string) (bool, error)
 	Mount(device, dir string) (bool, error)
+	Unmount(path string) bool
 }
 
 // FileSystem defines Linux filesystem

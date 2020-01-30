@@ -30,9 +30,8 @@ func NewServerRunner(creds credentials.TransportCredentials, endpoint string) *S
 		Endpoint: endpoint,
 	}
 	sr.init()
-	endp, socket := sr.GetEndpoint()
-	logrus.Info("endpoint = ", endp)
-	logrus.Info("socket = ", socket)
+	e, socket := sr.GetEndpoint()
+	logrus.Infof("Create server for endpoint \"%s\" on \"%s\" socket", e, socket)
 	return sr
 }
 

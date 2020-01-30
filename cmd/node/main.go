@@ -22,7 +22,7 @@ var (
 
 func main() {
 	flag.Parse()
-	//
+
 	logrus.Info("Start Node Volume Manager")
 	//// Temporary run insecure server
 	//s := base.NewServerRunner(nil, *volumeMgrEndpoint)

@@ -16,6 +16,7 @@ type DefaultDASC struct {
 	executor base.CmdExecutor
 }
 
+// TODO: do not return error here
 func (d DefaultDASC) CreateFileSystem(fsType FileSystem, device string) (bool, error) {
 	var cmd string
 	switch fsType {
@@ -60,7 +61,7 @@ func (d DefaultDASC) DeleteTargetPath(path string) (bool, error) {
 }
 
 func (d DefaultDASC) IsMounted(device, targetPath string) (bool, error) {
-	stdout, stderr, err := d.executor.RunCmd(fmt.Sprintf("lsblk -d -n -o MOUNTPOUNT %s", device))
+	stdout, stderr, err := d.executor.RunCmd(fmt.Sprintf("lsblk -d -n -o MOUNTPOINT %s", device))
 	if err != nil {
 		logrus.Infof("Failed to check mount point of %s with error - %s", device, stderr)
 		return false, err
@@ -80,4 +81,13 @@ func (d DefaultDASC) Mount(device, dir string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (d DefaultDASC) Unmount(path string) bool {
+	_, _, err := d.executor.RunCmd(fmt.Sprintf("umount %s", path))
+	if err != nil {
+		logrus.Infof("Unable to unmount path %s", path)
+		return false
+	}
+	return true
 }

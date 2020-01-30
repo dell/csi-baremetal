@@ -37,7 +37,7 @@ func NewControllerService(k8sClient k8sclient.Client) *CSIControllerService {
 	return &CSIControllerService{
 		Client:        k8sClient,
 		communicators: make(map[NodeID]api.VolumeManagerClient),
-		volumeCache:   &VolumesCache{Cache: make(map[VolumeID]*csiVolume)},
+		volumeCache:   &VolumesCache{items: make(map[VolumeID]*csiVolume)},
 	}
 }
 
@@ -64,7 +64,6 @@ func (c *CSIControllerService) initCommunicators() error {
 }
 
 func (c *CSIControllerService) CreateVolume(ctx context.Context,
-	// 	_, _ = s.getPods(context.TODO(), "", "")
 	req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	ll := logrus.WithFields(logrus.Fields{
 		"component": "controller",
@@ -78,6 +77,11 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		c.mu.Unlock()
 		ll.Infof("Unlock mutex for %s", req.Name)
 	}()
+
+	if v := c.volumeCache.getVolumeByID(req.Name); v != nil {
+		ll.Info("volume was found in items")
+		return c.constructCreateVolumeResponse(v.NodeID, v.Size, req), nil
+	}
 
 	if len(c.communicators) == 0 {
 		ll.Info("Initialize communicators ...")
@@ -94,8 +98,6 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	if req.GetVolumeCapabilities() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
 	}
-
-	// TODO: implement VolumeCache here FABRIC-8593
 
 	var preferredNode = ""
 	if req.GetAccessibilityRequirements() != nil {
@@ -116,32 +118,56 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Sprintf("Unable to create volume on node \"%s\"", preferredNode))
 	}
 
+	err = c.volumeCache.addVolumeToCache(&csiVolume{
+		NodeID:   preferredNode,
+		VolumeID: req.GetName(),
+		Size:     resp.Capacity,
+	}, req.GetName())
+
+	if err != nil {
+		ll.Errorf("Unable to place volume in items: %v", err)
+		return nil, status.Errorf(codes.Internal, "volume was created but can't place them in items")
+	}
+
+	ll.Infof("Response: %v", resp)
+	return c.constructCreateVolumeResponse(preferredNode, resp.Capacity, req), nil
+}
+
+func (c *CSIControllerService) constructCreateVolumeResponse(node string, capacity int64,
+	req *csi.CreateVolumeRequest) *csi.CreateVolumeResponse {
 	topology := csi.Topology{
 		Segments: map[string]string{
-			"baremetal-csi/nodeid": preferredNode, // TODO: do not hardcode key
+			"baremetal-csi/nodeid": node, // TODO: do not hardcode key
 		},
 	}
 	topologyList := []*csi.Topology{&topology}
 
-	vresp := &csi.CreateVolumeResponse{
+	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:           req.GetName(),
-			CapacityBytes:      resp.Capacity,
+			CapacityBytes:      capacity,
 			VolumeContext:      req.GetParameters(),
 			AccessibleTopology: topologyList,
 		},
 	}
-
-	ll.WithField("response", resp).Info("volume created with ID: ", req.GetName())
-	return vresp, nil
 }
 
 func (c *CSIControllerService) DeleteVolume(context.Context, *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
-func (c *CSIControllerService) ControllerPublishVolume(context.Context, *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
+	req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "CSIControllerService",
+		"method":    "ControllerPublishVolume",
+	})
+	ll.Infof("Request: %v", req)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
 func (c *CSIControllerService) ControllerUnpublishVolume(context.Context, *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {

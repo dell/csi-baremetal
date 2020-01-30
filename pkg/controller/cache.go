@@ -17,41 +17,41 @@ type csiVolume struct {
 }
 
 type VolumesCache struct {
-	Cache map[VolumeID]*csiVolume
+	items map[VolumeID]*csiVolume
 	sync.Mutex
 }
 
-func (c *CSIControllerService) getVolumeByID(volumeID string) *csiVolume {
-	c.volumeCache.Lock()
-	defer c.volumeCache.Unlock()
-	volume, ok := c.volumeCache.Cache[VolumeID(volumeID)]
+func (c *VolumesCache) getVolumeByID(volumeID string) *csiVolume {
+	c.Lock()
+	defer c.Unlock()
+	volume, ok := c.items[VolumeID(volumeID)]
 	if ok {
-		logrus.Infof("Volume %s is found in Cache", volumeID)
+		logrus.Infof("Volume %s is found in items", volumeID)
 	} else {
-		logrus.Infof("Volume %s is not found in Cache", volumeID)
+		logrus.Infof("Volume %s is not found in items", volumeID)
 	}
 	return volume
 }
 
-func (c *CSIControllerService) addVolumeToCache(volume *csiVolume, name string) error {
-	c.volumeCache.Lock()
-	defer c.volumeCache.Unlock()
-	if _, ok := c.volumeCache.Cache[VolumeID(name)]; ok {
-		logrus.Errorf("Volume %s already exists in Cache", name)
-		return status.Errorf(codes.AlreadyExists, "Volume with the same name: %s already exist", name)
+func (c *VolumesCache) addVolumeToCache(volume *csiVolume, id string) error {
+	c.Lock()
+	defer c.Unlock()
+	if _, ok := c.items[VolumeID(id)]; ok {
+		logrus.Errorf("Volume %s already exists in items", id)
+		return status.Errorf(codes.AlreadyExists, "Volume with the same id: %s already exist", id)
 	}
-	c.volumeCache.Cache[VolumeID(name)] = volume
-	logrus.Infof("Volume %s is added to Cache", name)
+	c.items[VolumeID(id)] = volume
+	logrus.Infof("Volume %s is added to items", id)
 	return nil
 }
 
-func (c *CSIControllerService) deleteVolumeByID(volumeID string) {
-	c.volumeCache.Lock()
-	defer c.volumeCache.Unlock()
-	for volumeName, volume := range c.volumeCache.Cache {
+func (c *VolumesCache) deleteVolumeByID(volumeID string) {
+	c.Lock()
+	defer c.Unlock()
+	for volumeName, volume := range c.items {
 		if volume.VolumeID == volumeID {
-			logrus.Infof("Deleting volume %s from Cache", volumeName)
-			delete(c.volumeCache.Cache, volumeName)
+			logrus.Infof("Deleting volume %s from items", volumeName)
+			delete(c.items, volumeName)
 			break
 		}
 	}

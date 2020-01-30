@@ -2,28 +2,30 @@ package controller
 
 import "testing"
 
+var c = VolumesCache{items: make(map[VolumeID]*csiVolume)}
+
 func TestAddVolumeToCache(t *testing.T) {
 	volumeName := "add-volume"
 	volume := &csiVolume{}
-	err := svc.addVolumeToCache(volume, volumeName)
+	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())
 	}
-	if svc.volumeCache.Cache[VolumeID(volumeName)] != volume {
-		t.Errorf("Volume %s wasn't added to cache", volumeName)
+	if c.items[VolumeID(volumeName)] != volume {
+		t.Errorf("Volume %s wasn't added to items", volumeName)
 	}
 }
 
 func TestAddVolumeToCacheAlreadyExists(t *testing.T) {
 	volumeName := "exists"
 	volume := &csiVolume{}
-	err := svc.addVolumeToCache(volume, volumeName)
+	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())
 	}
-	err = svc.addVolumeToCache(volume, volumeName)
+	err = c.addVolumeToCache(volume, volumeName)
 	sameNameVolume := &csiVolume{}
-	err = svc.addVolumeToCache(sameNameVolume, volumeName)
+	err = c.addVolumeToCache(sameNameVolume, volumeName)
 	if err == nil {
 		t.Errorf("addVolumeToCache sholud throw an error")
 	}
@@ -31,7 +33,7 @@ func TestAddVolumeToCacheAlreadyExists(t *testing.T) {
 
 func TestGetVolumeByNameEmpty(t *testing.T) {
 	volumeName := "doesn't exist"
-	volume := svc.getVolumeByID(volumeName)
+	volume := c.getVolumeByID(volumeName)
 	if volume != nil {
 		t.Errorf("Volume %s shouldn't exist", volumeName)
 	}
@@ -40,11 +42,11 @@ func TestGetVolumeByNameEmpty(t *testing.T) {
 func TestGetVolumeByName(t *testing.T) {
 	volumeName := "get-volume"
 	volume := &csiVolume{}
-	err := svc.addVolumeToCache(volume, volumeName)
+	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())
 	}
-	if svc.getVolumeByID(volumeName) != volume {
+	if c.getVolumeByID(volumeName) != volume {
 		t.Errorf("Can't get volume %s", volumeName)
 	}
 }
@@ -55,12 +57,12 @@ func TestDeleteVolumeById(t *testing.T) {
 	volume := &csiVolume{
 		VolumeID: volumeID,
 	}
-	err := svc.addVolumeToCache(volume, volumeName)
+	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())
 	}
-	svc.deleteVolumeByID(volumeID)
-	if svc.getVolumeByID(volumeName) != nil {
+	c.deleteVolumeByID(volumeID)
+	if c.getVolumeByID(volumeName) != nil {
 		t.Errorf("Volume %s wasn't deleted", volumeName)
 	}
 }

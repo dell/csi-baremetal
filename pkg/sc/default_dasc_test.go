@@ -91,3 +91,13 @@ func TestMountFail(t *testing.T) {
 	assert.Equal(t, ok, false)
 	assert.Equal(t, err, err)
 }
+
+func TestUnmountSuccess(t *testing.T) {
+	ok := defaultDaSCSuccess.Unmount("/mnt/sda")
+	assert.Equal(t, ok, true)
+}
+
+func TestUnmountFail(t *testing.T) {
+	ok := defaultDaSCFail.Unmount("/mnt/sda")
+	assert.Equal(t, ok, false)
+}
