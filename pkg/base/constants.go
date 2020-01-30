@@ -3,10 +3,10 @@ package base
 // TODO: TBD where store constants
 const (
 	// gRPC endpoints settings
-	DefaultHWMgrHost         = "localhost"
-	DefaultHWMgrPort         = 8888
-	DefaultVolumeManagerHost = "localhost"
-	DefaultVolumeManagerPort = 9999
+	DefaultHWMgrEndpoint         = "tcp://localhost:8888"
+	DefaultHWMgrPort             = 8888
+	DefaultVolumeManagerEndpoint = "tcp://localhost:9999"
+	DefaultVolumeManagerPort     = 9999
 
 	// Linux Utils and VolumeManager constants
 	DriveTypeDisk          = "disk"

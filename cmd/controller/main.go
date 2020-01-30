@@ -28,11 +28,9 @@ func main() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = volumev1.AddToScheme(scheme)
 
-	var port int
-	var host string
+	var endpoint string
 
-	flag.IntVar(&port, "port", 50053, "Port for controller service")
-	flag.StringVar(&host, "host", "", "Host for controller service")
+	flag.StringVar(&endpoint, "endpoint", "", "Endpoint for controller service")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -43,7 +41,7 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-	s := base.NewServerRunner(nil, host, int32(port))
+	s := base.NewServerRunner(nil, endpoint)
 	// register grpc services here
 
 	server := controller.NewControllerService(cl)

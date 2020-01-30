@@ -47,7 +47,8 @@ func (c *CSIControllerService) initCommunicators() error {
 		return err
 	}
 	for _, pod := range pods {
-		client, err := base.NewClient(nil, pod.Status.PodIP, base.DefaultVolumeManagerPort)
+		endpoint := fmt.Sprintf("tcp://%s:%d", pod.Status.PodIP, base.DefaultVolumeManagerPort)
+		client, err := base.NewClient(nil, endpoint)
 		if err != nil {
 			logrus.Errorf("Unable to initialize gRPC client for communicating with pod %s, error: %v",
 				pod.Name, err)

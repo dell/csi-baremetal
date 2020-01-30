@@ -15,11 +15,9 @@ import (
 )
 
 var (
-	port            = flag.Int("port", base.DefaultVolumeManagerPort, "Node Volume Manager server port")
-	host            = flag.String("host", base.DefaultVolumeManagerHost, "Node Volume Manager server ip host")
-	hwMgrServerPort = flag.Int("hw-port", base.DefaultHWMgrPort, "Port which HW manager is listening")
-	hwMgrServerHost = flag.String("hw-host", base.DefaultHWMgrHost, "Address on which HW manager is running")
-	discoverTimeout = flag.Uint("dt", base.DefaultDiscoverTimeout, "Timeout between volume discovering")
+	hwMgrEndpoint     = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "Hardware Manager endpoint")
+	volumeMgrEndpoint = flag.String("volumetmgrendpoint", base.DefaultVolumeManagerEndpoint, "Node Volume Manager endpoint")
+	discoverTimeout   = flag.Uint("dt", base.DefaultDiscoverTimeout, "Timeout between volume discovering")
 )
 
 func main() {
@@ -27,10 +25,10 @@ func main() {
 
 	logrus.Info("Start Node Volume Manager")
 	// Temporary run insecure server
-	s := base.NewServerRunner(nil, *host, int32(*port))
+	s := base.NewServerRunner(nil, *volumeMgrEndpoint)
 
 	// create grpc client that will be communicated with HWManager
-	c, err := base.NewClient(nil, *hwMgrServerHost, *hwMgrServerPort)
+	c, err := base.NewClient(nil, *hwMgrEndpoint)
 	if err != nil {
 		logrus.Fatalf("fail to create grpc client: %v", err)
 	}

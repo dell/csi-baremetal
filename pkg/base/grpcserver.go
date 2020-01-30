@@ -3,10 +3,16 @@ package base
 import (
 	"fmt"
 	"net"
+	"net/url"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+)
+
+const (
+	tcp  string = "tcp"
+	unix string = "unix"
 )
 
 // ServerRunner encapsulates logic for creating/starting/stopping gRPC server
@@ -14,16 +20,14 @@ type ServerRunner struct {
 	GRPCServer *grpc.Server
 	listener   net.Listener
 	Creds      credentials.TransportCredentials
-	Host       string
-	Port       int32
+	Endpoint   string
 }
 
 // NewServerRunner returns ServerRunner object based on parameters that had provided
-func NewServerRunner(creds credentials.TransportCredentials, host string, port int32) *ServerRunner {
+func NewServerRunner(creds credentials.TransportCredentials, endpoint string) *ServerRunner {
 	sr := &ServerRunner{
-		Creds: creds,
-		Host:  host,
-		Port:  port,
+		Creds:    creds,
+		Endpoint: endpoint,
 	}
 	sr.init()
 	return sr
@@ -41,14 +45,15 @@ func (sr *ServerRunner) init() {
 // RunServer starts gRPC server in gorutine
 func (sr *ServerRunner) RunServer() error {
 	var err error
-	endpoint := sr.GetEndpoint()
-	sr.listener, err = net.Listen("tcp", endpoint)
+	endpoint, socket := sr.GetEndpoint()
+	sr.listener, err = net.Listen(socket, endpoint)
 	if err != nil {
 		logrus.Errorf("failed to create listener for endpoint %s: %v", endpoint, err)
 		return err
 	}
 	// start new server
-	fmt.Printf("Starting gRPC server for endpoint %s", sr.GetEndpoint())
+	endpoint, socket = sr.GetEndpoint()
+	fmt.Printf("Starting gRPC server for endpoint %s and socket %s", endpoint, socket)
 	return sr.GRPCServer.Serve(sr.listener)
 }
 
@@ -58,7 +63,13 @@ func (sr *ServerRunner) StopServer() {
 	sr.GRPCServer.GracefulStop()
 }
 
-// GetEndpoint returns endpoint representation based on host and port
-func (sr *ServerRunner) GetEndpoint() string {
-	return fmt.Sprintf("%s:%d", sr.Host, sr.Port)
+// GetEndpoint returns endpoint representation based on hostTCP and port
+func (sr *ServerRunner) GetEndpoint() (string, string) {
+	u, _ := url.Parse(sr.Endpoint)
+
+	if u.Scheme == unix {
+		return sr.Endpoint, unix
+	}
+
+	return u.Host, tcp
 }

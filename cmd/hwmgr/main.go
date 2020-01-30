@@ -11,17 +11,16 @@ import (
 )
 
 var (
-	port = flag.Int("port", base.DefaultHWMgrPort, "HWManager server port")
-	host = flag.String("host", base.DefaultHWMgrHost, "HWManager server IP address")
+	endpoint = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "HWManager Endpoint")
 )
 
 func main() {
 	flag.Parse()
 	logrus.Info("Start HWManager")
 	// Server is insecure for now because credentials are nil
-	serverRunner := base.NewServerRunner(nil, *host, int32(*port))
+	serverRunner := base.NewServerRunner(nil, *endpoint)
 	api.RegisterHWServiceServer(serverRunner.GRPCServer, &hwmgr.HWServiceServerImpl{})
 	if err := serverRunner.RunServer(); err != nil {
-		logrus.Fatalf("Failed to serve on %s:%d. Error: %s", *host, *port, err.Error())
+		logrus.Fatalf("Failed to serve on %s. Error: %s", *endpoint, err.Error())
 	}
 }

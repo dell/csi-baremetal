@@ -10,13 +10,15 @@ import (
 )
 
 var (
-	host        = "localhost"
-	port        = int32(4243)
+	port        int32 = 4243
+	socketType        = "tcp"
+	address           = fmt.Sprintf("localhost:%d", port)
+	endpoint          = fmt.Sprintf("%s://localhost:%d", socketType, port)
 	nonSecureSR *ServerRunner
 )
 
 func TestMain(m *testing.M) {
-	nonSecureSR = NewServerRunner(nil, host, port)
+	nonSecureSR = NewServerRunner(nil, endpoint)
 	code := m.Run()
 	nonSecureSR.StopServer()
 	os.Exit(code)
@@ -41,12 +43,12 @@ func TestServerRunner_RunServer(t *testing.T) {
 	}()
 
 	// Ensure that endpoint is accessible
-	if !isTCPPortOpen(nonSecureSR.GetEndpoint()) {
+	if !isTCPPortOpen(address) {
 		t.Errorf("TCP port %d should be opened", port)
 	}
 
 	// try to create server on same endpoint
-	nonSecureSR2 := NewServerRunner(nil, host, port)
+	nonSecureSR2 := NewServerRunner(nil, endpoint)
 	err := nonSecureSR2.RunServer()
 	if err == nil {
 		t.Errorf("Trying to create server for same endpoint. Error should appear but it doesn't.")
@@ -56,10 +58,9 @@ func TestServerRunner_RunServer(t *testing.T) {
 }
 
 func TestServerRunner_GetEndpoint(t *testing.T) {
-	expectedEndpoint := fmt.Sprintf("%s:%d", host, port)
-	currEndpoint := nonSecureSR.GetEndpoint()
-	if expectedEndpoint != currEndpoint {
-		t.Errorf("Got endpoint %s, expected %s", currEndpoint, expectedEndpoint)
+	currentURL, _ := nonSecureSR.GetEndpoint()
+	if address != currentURL {
+		t.Errorf("Got adress %s, expected %s", address, currentURL)
 	}
 }
 
