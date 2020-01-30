@@ -24,6 +24,11 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+const (
+	driverName = "baremetal-csi"
+	version    = "0.0.1"
+)
+
 func main() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = volumev1.AddToScheme(scheme)
@@ -46,7 +51,7 @@ func main() {
 
 	server := controller.NewControllerService(cl)
 
-	csi.RegisterIdentityServer(s.GRPCServer, controller.NewIdentityServer())
+	csi.RegisterIdentityServer(s.GRPCServer, controller.NewIdentityServer(driverName, version, true))
 	csi.RegisterControllerServer(s.GRPCServer, server)
 	if err := s.RunServer(); err != nil {
 		setupLog.Error(err, "fail to serve")
