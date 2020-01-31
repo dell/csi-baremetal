@@ -134,7 +134,7 @@ var LsblkDevWithChildren = CmdOut{
 				"type": "disk",
 				"serial": "hdd2",
 				"children": [{"name": "/dev/children1"}, {"name": "/dev/children2"}],
-				"size": 213674622976
+				"size": "213674622976"
 				}]
 			}`,
 	Stderr: "",

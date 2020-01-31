@@ -6,3 +6,6 @@ api/generated
 vendor
 build/
 zz_generated.*.go
+pkg/controller/controller
+pkg/hwmgr/hwmgr
+pkg/node/node

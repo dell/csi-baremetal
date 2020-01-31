@@ -15,8 +15,8 @@ type LinuxUtils struct {
 type LsblkOutput struct {
 	Name       string        `json:"name,omitempty"`
 	Type       string        `json:"type,omitempty"`
-	Size       int64         `json:"size,omitempty"`
-	Rota       bool          `json:"rota,omitempty"`
+	Size       string        `json:"size,omitempty"`
+	Rota       string        `json:"rota,omitempty"`
 	Serial     string        `json:"serial,omitempty"`
 	WWN        string        `json:"wwn,omitempty"`
 	Vendor     string        `json:"vendor,omitempty"`

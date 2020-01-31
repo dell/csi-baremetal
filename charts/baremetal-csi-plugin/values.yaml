@@ -29,8 +29,6 @@ node:
     #tag: latest
     pullPolicy: Always
   grpc:
-    server:
-      endpoint: tcp://localhost:9999
     client:
       hwmgr:
         endpoint: tcp://localhost:8888

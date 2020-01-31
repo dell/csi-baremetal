@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -31,18 +32,28 @@ type CSIControllerService struct {
 	communicators map[NodeID]api.VolumeManagerClient
 	mu            sync.Mutex
 	volumeCache   *VolumesCache
+	crdMu         sync.Mutex
+	log           *logrus.Logger
 }
 
 func NewControllerService(k8sClient k8sclient.Client) *CSIControllerService {
+	l := logrus.New()
+	l.Out = os.Stdout
 	return &CSIControllerService{
 		Client:        k8sClient,
 		communicators: make(map[NodeID]api.VolumeManagerClient),
 		volumeCache:   &VolumesCache{items: make(map[VolumeID]*csiVolume)},
+		log:           l,
 	}
 }
 
+func (c *CSIControllerService) SetLogger(logger *logrus.Logger) {
+	c.log = logger
+	c.log.Info("Logger was set in CSIControllerService")
+}
+
 func (c *CSIControllerService) initCommunicators() error {
-	pods, err := c.getPods(context.Background(), "baremetal-csi")
+	pods, err := c.getPods(context.Background(), "baremetal-csi-node")
 	if err != nil {
 		return err
 	}
@@ -50,7 +61,7 @@ func (c *CSIControllerService) initCommunicators() error {
 		endpoint := fmt.Sprintf("tcp://%s:%d", pod.Status.PodIP, base.DefaultVolumeManagerPort)
 		client, err := base.NewClient(nil, endpoint)
 		if err != nil {
-			logrus.Errorf("Unable to initialize gRPC client for communicating with pod %s, error: %v",
+			c.log.Errorf("Unable to initialize gRPC client for communicating with pod %s, error: %v",
 				pod.Name, err)
 		}
 		c.communicators[NodeID(pod.Spec.NodeName)] = api.NewVolumeManagerClient(client.GRPCClient)
@@ -65,7 +76,7 @@ func (c *CSIControllerService) initCommunicators() error {
 
 func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := c.log.WithFields(logrus.Fields{
 		"component": "controller",
 		"method":    "CreateVolume",
 		"requestID": req.GetName(),
@@ -87,7 +98,11 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		ll.Info("Initialize communicators ...")
 
 		if err := c.initCommunicators(); err != nil {
-			logrus.Fatalf("Unable to initialize communicators for node services: %v", err)
+			ll.Fatalf("Unable to initialize communicators for node services: %v", err)
+		}
+		ll.Infof("Communicators initialize successfully")
+		for n := range c.communicators {
+			ll.Infof("Node - %s", n)
 		}
 	}
 
@@ -129,6 +144,12 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		return nil, status.Errorf(codes.Internal, "volume was created but can't place them in items")
 	}
 
+	_, _ = c.CreateVolumeCRD(ctx, api.Volume{
+		Id:       req.Name,
+		Owner:    preferredNode,
+		Size:     resp.Capacity,
+		Location: resp.Drive,
+	}, "default")
 	ll.Infof("Response: %v", resp)
 	return c.constructCreateVolumeResponse(preferredNode, resp.Capacity, req), nil
 }
@@ -158,7 +179,7 @@ func (c *CSIControllerService) DeleteVolume(context.Context, *csi.DeleteVolumeRe
 
 func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := c.log.WithFields(logrus.Fields{
 		"component": "CSIControllerService",
 		"method":    "ControllerPublishVolume",
 	})
@@ -187,7 +208,35 @@ func (c *CSIControllerService) GetCapacity(context.Context, *csi.GetCapacityRequ
 }
 
 func (c *CSIControllerService) ControllerGetCapabilities(context.Context, *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+	newCap := func(cap csi.ControllerServiceCapability_RPC_Type) *csi.ControllerServiceCapability {
+		return &csi.ControllerServiceCapability{
+			Type: &csi.ControllerServiceCapability_Rpc{
+				Rpc: &csi.ControllerServiceCapability_RPC{
+					Type: cap,
+				},
+			},
+		}
+	}
+
+	caps := make([]*csi.ControllerServiceCapability, 0)
+	for _, cap := range []csi.ControllerServiceCapability_RPC_Type{
+		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+	} {
+		caps = append(caps, newCap(cap))
+	}
+
+	resp := &csi.ControllerGetCapabilitiesResponse{
+		Capabilities: caps,
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"response":  resp,
+		"component": "controllerService",
+		"method":    "ControllerGetCapabilities",
+	}).Info("controller get capabilities called")
+
+	return resp, nil
 }
 
 func (c *CSIControllerService) CreateSnapshot(context.Context, *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
@@ -207,6 +256,12 @@ func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.Cont
 }
 
 func (c *CSIControllerService) CreateVolumeCRD(ctx context.Context, volume api.Volume, namespace string) (*v1.Volume, error) {
+	c.crdMu.Lock()
+	defer c.crdMu.Unlock()
+	ll := c.log.WithFields(logrus.Fields{
+		"component": "CSIControllerService",
+		"method":    "CreateVolumeCRD"})
+	ll.Infof("Creating CRD for volume: %v", volume)
 	vol := &v1.Volume{
 		TypeMeta: v12.TypeMeta{
 			Kind:       "Volume",
@@ -232,10 +287,13 @@ func (c *CSIControllerService) CreateVolumeCRD(ctx context.Context, volume api.V
 			return nil, err
 		}
 	}
+	ll.Info("Creating successfully")
 	return vol, nil
 }
 
 func (c *CSIControllerService) ReadVolume(ctx context.Context, name string, namespace string) (*v1.Volume, error) {
+	c.crdMu.Lock()
+	defer c.crdMu.Unlock()
 	volume := v1.Volume{}
 	err := c.Get(ctx, k8sclient.ObjectKey{Name: name, Namespace: namespace}, &volume)
 	if err != nil {
@@ -245,6 +303,8 @@ func (c *CSIControllerService) ReadVolume(ctx context.Context, name string, name
 }
 
 func (c *CSIControllerService) ReadVolumeList(ctx context.Context, namespace string) (*v1.VolumeList, error) {
+	c.crdMu.Lock()
+	defer c.crdMu.Unlock()
 	volumes := v1.VolumeList{}
 	err := c.List(ctx, &volumes, k8sclient.InNamespace(namespace))
 	if err != nil {

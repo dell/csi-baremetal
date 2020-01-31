@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 
+	"github.com/sirupsen/logrus"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -19,10 +21,7 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
+var endpoint = flag.String("endpoint", "", "Endpoint for controller service")
 
 const (
 	driverName = "baremetal-csi"
@@ -30,13 +29,34 @@ const (
 )
 
 func main() {
+	flag.Parse()
+	logger := logrus.New()
+	logger.Out = os.Stdout
+
+	logger.Info("Starting controller ...")
+
+	csiControllerServer := base.NewServerRunner(nil, *endpoint)
+
+	k8sC := prepareCRD()
+	controllerService := controller.NewControllerService(k8sC)
+	controllerService.SetLogger(logger)
+
+	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version, true))
+	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
+
+	logger.Info("Starting CSIControllerService")
+	if err := csiControllerServer.RunServer(); err != nil {
+		logger.Fatalf("fail to serve, error: %v", err)
+		os.Exit(1)
+	}
+}
+
+func prepareCRD() client.Client {
+	scheme := runtime.NewScheme()
+	setupLog := ctrl.Log.WithName("setup")
+
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = volumev1.AddToScheme(scheme)
-
-	var endpoint string
-
-	flag.StringVar(&endpoint, "endpoint", "", "Endpoint for controller service")
-	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
 	cl, err := client.New(ctrl.GetConfigOrDie(), client.Options{
@@ -46,15 +66,6 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-	s := base.NewServerRunner(nil, endpoint)
-	// register grpc services here
 
-	server := controller.NewControllerService(cl)
-
-	csi.RegisterIdentityServer(s.GRPCServer, controller.NewIdentityServer(driverName, version, true))
-	csi.RegisterControllerServer(s.GRPCServer, server)
-	if err := s.RunServer(); err != nil {
-		setupLog.Error(err, "fail to serve")
-		os.Exit(1)
-	}
+	return cl
 }

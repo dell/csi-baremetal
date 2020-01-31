@@ -20,6 +20,6 @@ RUN     cp /opt/emc/hal/etc/ecs_generic.xml /opt/emc/hal/etc/active_template.xml
 
 ADD     hwmgr hw-manager
 
-EXPOSE  50052
+EXPOSE  8888
 
 ENTRYPOINT  ["./hw-manager"]

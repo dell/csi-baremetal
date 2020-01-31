@@ -55,9 +55,7 @@ spec:
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
-        {{- if .Values.node.grpc.server.endpoint }}
-          - --volumetmgrendpoint={{ .Values.node.grpc.server.endpoint }}
-        {{- end }}
+          - "--volumemgrip=$(MY_POD_IP)"
         {{- if .Values.node.grpc.client.hwmgr.endpoint }}
           - --hwmgrendpoint={{ .Values.node.grpc.client.hwmgr.endpoint }}
         {{- end }}
@@ -69,6 +67,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: spec.nodeName
+          - name: MY_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         securityContext:
           privileged: true
         volumeMounts:
@@ -76,6 +78,10 @@ spec:
           mountPath: /var/log
         - name: host-dev
           mountPath: /dev
+        - name: host-sys
+          mountPath: /sys
+        - name: host-run-udev
+          mountPath: /run/udev
         - name: csi-socket-dir
           mountPath: /csi
         - name: mountpoint-dir
@@ -114,6 +120,14 @@ spec:
       - name: host-dev
         hostPath:
           path: /dev
+          type: Directory
+      - name: host-sys
+        hostPath:
+          path: /sys
+          type: Directory
+      - name: host-run-udev
+        hostPath:
+          path: /run/udev
           type: Directory
       - name: csi-socket-dir
         hostPath:

@@ -1,6 +1,9 @@
 package base
 
 import (
+	"net/url"
+
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -27,8 +30,9 @@ func NewClient(creds credentials.TransportCredentials, endpoint string) (*Client
 
 //initClient defines ClientConn field in Client struct
 func (c *Client) initClient() error {
-	endpoint := c.Endpoint
+	endpoint := c.GetEndpoint()
 	var err error
+	logrus.Infof("Initialize client for endpoint \"%s\"", endpoint)
 	if c.Creds != nil {
 		c.GRPCClient, err = grpc.Dial(endpoint, grpc.WithTransportCredentials(c.Creds))
 	} else {
@@ -43,4 +47,15 @@ func (c *Client) initClient() error {
 //Close function calls Close method in ClientConn
 func (c *Client) Close() error {
 	return c.GRPCClient.Close()
+}
+
+// GetEndpoint returns endpoint representation
+func (c *Client) GetEndpoint() string {
+	u, _ := url.Parse(c.Endpoint)
+
+	if u.Scheme == unix {
+		return u.Path
+	}
+
+	return u.Host
 }

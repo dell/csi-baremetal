@@ -2,12 +2,17 @@ package base
 
 import (
 	"testing"
+
+	"gotest.tools/assert"
 )
 
-var testEndpoint string = "tcp://localhost:50051"
+var (
+	testTcpEndpoint string = "tcp://localhost:50051"
+	testUdsEndpoint string = "unix:///tmp/csi.sock"
+)
 
 func TestNewClient(t *testing.T) {
-	client, err := NewClient(nil, testEndpoint)
+	client, err := NewClient(nil, testTcpEndpoint)
 	if err != nil {
 		t.FailNow()
 	}
@@ -17,15 +22,23 @@ func TestNewClient(t *testing.T) {
 	if client.GRPCClient == nil {
 		t.Errorf("gRPC client must be initialized but got nil")
 	}
-	if client.Endpoint != testEndpoint {
+	if client.Endpoint != testTcpEndpoint {
 		t.Error("Endpoints are not equal")
 	}
 }
 
 func TestClientClose(t *testing.T) {
-	client, _ := NewClient(nil, testEndpoint)
+	client, _ := NewClient(nil, testTcpEndpoint)
 	err := client.Close()
 	if err != nil {
 		t.Errorf("err should be nil, got %v", err)
 	}
+}
+
+func TestClient_GetEndpoint(t *testing.T) {
+	c, _ := NewClient(nil, testTcpEndpoint)
+	assert.Equal(t, "localhost:50051", c.GetEndpoint())
+
+	c, _ = NewClient(nil, testUdsEndpoint)
+	assert.Equal(t, "/tmp/csi.sock", c.GetEndpoint())
 }

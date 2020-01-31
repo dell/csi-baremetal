@@ -1,12 +1,11 @@
-FROM alpine:3.10
+FROM ubuntu:18.04
 
 LABEL   description="Bare-metal CSI Node Service"
 
 ADD     node node
 
-RUN     apk add curl util-linux parted xfsprogs-extra lvm2 sgdisk
+RUN     apt update --no-install-recommends -y -q; apt install --no-install-recommends -y -q curl util-linux parted xfsprogs lvm2 gdisk strace
 
-EXPOSE  50051
+EXPOSE  9999
 
 ENTRYPOINT ["/node"]
-

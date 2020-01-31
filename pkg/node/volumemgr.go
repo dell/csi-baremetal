@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -16,15 +19,24 @@ type VolumeManager struct {
 	volumesCache []*api.Volume
 	cacheMutex   sync.Mutex
 	linuxUtils   *base.LinuxUtils
+	log          *logrus.Logger
 }
 
 // NewVolumeManager returns new instance ov VolumeManager
 func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor) *VolumeManager {
+	l := logrus.New()
+	l.Out = os.Stdout
 	return &VolumeManager{
 		hWMgrClient:  client,
 		volumesCache: make([]*api.Volume, 0),
 		linuxUtils:   base.NewLinuxUtils(executor),
+		log:          l,
 	}
+}
+
+func (m *VolumeManager) setLogger(logger *logrus.Logger) {
+	m.log = logger
+	m.log.Info("Logger was set in VolumeManager")
 }
 
 // GetLocalVolumes request return array of volumes on node
@@ -40,7 +52,7 @@ func (m *VolumeManager) GetAvailableCapacity(context.Context, *api.AvailableCapa
 
 // Discover inspects drives and create volume object if partition exist
 func (m *VolumeManager) Discover() error {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
 		"method":    "Discover",
 	})
@@ -60,21 +72,26 @@ func (m *VolumeManager) Discover() error {
 	// explore each drive from freeDrives
 	lsblk, err := m.linuxUtils.Lsblk(base.DriveTypeDisk)
 	if err != nil {
-		logrus.Errorf("Unable to inspect system block devices via lsblk, error: %v", err)
+		ll.Errorf("Unable to inspect system block devices via lsblk, error: %v", err)
 		return err
 	}
 	for _, d := range freeDrives {
 		for _, ld := range *lsblk {
-			if ld.Serial == d.SerialNumber && len(ld.Children) > 0 {
+			if strings.EqualFold(ld.Serial, d.SerialNumber) && len(ld.Children) > 0 {
 				pID, err := m.linuxUtils.GetPartitionUUID(ld.Name)
 				if err != nil {
 					ll.Errorf("Unable to determine partition UUID for device %s, error: %v", ld.Name, err)
 					continue
 				}
+				size, err := strconv.ParseInt(ld.Size, 10, 64)
+				if err != nil {
+					ll.Infof("Unable parse string %s to int, for device %s, error: %v", ld.Size, ld.Name, err)
+					continue
+				}
 				v := &api.Volume{
 					Id:           pID,
 					Owner:        "", // TODO: need to search owner ??? CRD ???
-					Size:         ld.Size,
+					Size:         size,
 					Location:     d.SerialNumber,
 					LocationType: api.LocationType_Drive,
 					Mode:         api.Mode_FS,
@@ -94,7 +111,7 @@ func (m *VolumeManager) Discover() error {
 
 // drivesAreNotUsed search drives that isn't have any volumes
 func (m *VolumeManager) drivesAreNotUsed(drives []*api.Drive) []*api.Drive {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
 		"method":    "drivesAreNotUsed",
 	})
@@ -107,7 +124,7 @@ func (m *VolumeManager) drivesAreNotUsed(drives []*api.Drive) []*api.Drive {
 			// expect only Drive LocationType, for Drive LocationType Location will be a SN of the drive
 			if d.Type != api.DriveType_NVMe &&
 				v.LocationType == api.LocationType_Drive &&
-				d.SerialNumber == v.Location {
+				strings.EqualFold(d.SerialNumber, v.Location) {
 				isUsed = true
 				ll.Infof("Found volume with ID \"%s\" in cache for drive with S/N \"%s\"",
 					v.Id, d.SerialNumber)
@@ -123,7 +140,7 @@ func (m *VolumeManager) drivesAreNotUsed(drives []*api.Drive) []*api.Drive {
 }
 
 func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLocalVolumeRequest) (*api.CreateLocalVolumeResponse, error) {
-	logrus.WithFields(logrus.Fields{
+	m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
 		"method":    "CreateLocalVolume",
 	}).Infof("Processing request %v", req)
@@ -137,11 +154,13 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 	if err != nil {
 		return resp, err
 	}
+	m.log.Infof("Found drive: %v", drive)
 
 	device, err := m.getDrivePathBySN(drive.SerialNumber)
 	if err != nil {
 		return resp, err
 	}
+	m.log.Infof("Choose device: %s", device)
 
 	err = m.setPartitionUUIDForDev(device, req.PvcUUID)
 	if err != nil {
@@ -172,14 +191,14 @@ func (m *VolumeManager) getDrivePathBySN(sn string) (string, error) {
 
 	device := ""
 	for _, l := range *lsblkOut {
-		if l.Serial == sn {
+		if strings.EqualFold(l.Serial, sn) {
 			device = l.Name
 			break
 		}
 	}
 
 	if device == "" {
-		return "", fmt.Errorf("unable to find drive path by S/N \"%s\"", sn)
+		return "", fmt.Errorf("unable to find drive path by S/N %s", sn)
 	}
 
 	return device, nil

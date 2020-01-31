@@ -27,6 +27,8 @@ func (p Partition) IsPartitionExists(device string) (exists bool, err error) {
 		return false, fmt.Errorf("unable to check partition existence for %s", device)
 	}
 
+	// TODO: Fedor to fix it
+	stdout = strings.TrimSpace(stdout)
 	if stdout == "(no output)" {
 		return false, nil
 	}

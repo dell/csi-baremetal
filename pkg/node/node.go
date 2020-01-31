@@ -2,6 +2,9 @@ package node
 
 import (
 	"context"
+	"os"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
@@ -12,6 +15,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// depending on SC and parameters in CreateVolumeRequest()
+// here we should use different SC implementations for creating required volumes
+// the same principle we can use in Controller Server or read from a CRD instance
 // store storage class name
 type SCName string
 
@@ -19,11 +25,25 @@ type CSINodeService struct {
 	VolumeManager
 	scMap  map[SCName]sc.StorageClassImplementer
 	NodeID string
+	log    *logrus.Logger
 }
 
-// depending on SC and parameters in CreateVolumeRequest()
-// here we should use different SC implementations for creating required volumes
-// the same principle we can use in Controller Server or read from a CRD instance
+func NewCSINodeService(client api.HWServiceClient, nodeID string) *CSINodeService {
+	l := logrus.New()
+	l.Out = os.Stdout
+	return &CSINodeService{
+		VolumeManager: *NewVolumeManager(client, &base.Executor{}),
+		scMap:         map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance()},
+		NodeID:        nodeID,
+		log:           l,
+	}
+}
+
+func (s *CSINodeService) SetLogger(logger *logrus.Logger) {
+	s.VolumeManager.setLogger(logger)
+	s.log = logger
+	s.log.Info("Logger was set in CSINodeService")
+}
 
 func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 	return &csi.NodeStageVolumeResponse{}, nil
@@ -35,7 +55,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 
 func (s *CSINodeService) NodePublishVolume(ctx context.Context,
 	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := s.log.WithFields(logrus.Fields{
 		"component": "NodeService",
 		"method":    "NodePublishVolume",
 		"volumeID":  req.VolumeId,
@@ -90,7 +110,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context,
 
 func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := s.log.WithFields(logrus.Fields{
 		"component": "NodeService",
 		"method":    "NodeUnpublishVolume",
 		"volumeID":  req.VolumeId,
@@ -142,7 +162,7 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 		},
 	}
 
-	logrus.WithFields(logrus.Fields{
+	s.log.WithFields(logrus.Fields{
 		"component": "nodeService",
 		"method":    "NodeGetInfo",
 	}).Infof("NodeGetInfo created topology: %v", topology)

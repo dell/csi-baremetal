@@ -27,7 +27,7 @@ build-node:
 build-controller:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
-image: image-hwmgr image-node # image-controller
+image: image-hwmgr image-node image-controller
 
 image-hwmgr:
 	cp ./build/${HW_MANAGER}/${HW_MANAGER} ./pkg/${HW_MANAGER}/${HW_MANAGER}
