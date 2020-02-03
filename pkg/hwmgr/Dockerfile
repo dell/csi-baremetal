@@ -1,4 +1,4 @@
-FROM    asdrepo.isus.emc.com:8085/ecs/minimal:3.5.0.0-859.3cf69bd.5
+FROM    asdrepo.isus.emc.com:8085/ecs/minimal:3.5.0.0-975.6b7cbbc.9
 
 ENV     LC_ALL="en_US.utf8" \
         LANG="en_US.utf8" \
