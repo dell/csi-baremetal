@@ -2,6 +2,8 @@ package sc
 
 import (
 	"sync"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
 type HddSC struct {
@@ -19,8 +21,12 @@ func GetHDDSCInstance() *HddSC {
 		defer hddMU.Unlock()
 
 		if hddSCInstance == nil {
-			hddSCInstance = &HddSC{}
+			hddSCInstance = &HddSC{DefaultDASC{executor: &base.Executor{}}}
 		}
 	}
 	return hddSCInstance
+}
+
+func (h *HddSC) SetHDDSCExecutor(executor base.Executor) {
+	h.executor = &executor
 }

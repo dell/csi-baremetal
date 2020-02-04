@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -53,8 +54,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) NodePublishVolume(ctx context.Context,
-	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"component": "NodeService",
 		"method":    "NodePublishVolume",
@@ -87,9 +87,12 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context,
 
 	scImpl := s.scMap[SCName("hdd")]
 	targetPath := req.TargetPath
+	// TODO: Ruslan to fix
 	bdev := v.Location
+	// bdev format - /dev/sda/
+	partition := fmt.Sprintf("%s1", bdev)
 
-	ok, _ := scImpl.CreateFileSystem(sc.XFS, bdev)
+	ok, _ := scImpl.CreateFileSystem(sc.XFS, partition)
 	if !ok {
 		return nil, status.Error(codes.Internal, "unable to create file system")
 	}
@@ -97,19 +100,18 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context,
 	if !ok {
 		return nil, status.Error(codes.Internal, "unable to create target path")
 	}
-	ok, _ = scImpl.Mount(bdev, targetPath)
+	ok, _ = scImpl.Mount(partition, targetPath)
 	if !ok {
 		return nil, status.Error(codes.Internal, "unable to mount to target path")
 	}
 
 	v.Status = api.OperationalStatus_Operative
-	ll.Infof("Successfully mount derive %s to path %s", bdev, targetPath)
+	ll.Infof("Successfully mount derive %s to path %s", partition, targetPath)
 
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context,
-	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"component": "NodeService",
 		"method":    "NodeUnpublishVolume",

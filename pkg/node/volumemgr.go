@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -168,9 +169,10 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 	}
 
 	m.volumesCache = append(m.volumesCache, &api.Volume{
-		Id:           req.PvcUUID,
-		Owner:        "",
-		Size:         drive.Size,
+		Id:    req.PvcUUID,
+		Owner: "",
+		Size:  drive.Size,
+		// TODO: Ruslan to fix, Location - SN
 		Location:     device,
 		LocationType: api.LocationType_Drive,
 		Mode:         api.Mode_FS,
@@ -258,13 +260,40 @@ func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) error
 }
 
 func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.DeleteLocalVolumeRequest) (*api.DeleteLocalVolumeResponse, error) {
-	// TODO: get device name Controller
-	device := ""
+	ll := m.log.WithFields(logrus.Fields{
+		"component": "VolumeManager",
+		"method":    "DeleteLocalVolume",
+	})
+	ll.Info("processing")
+
+	m.cacheMutex.Lock()
+	ll.Info("lock mutex")
+	defer func() {
+		m.cacheMutex.Unlock()
+		ll.Info("unlock mutex")
+	}()
+	volume := m.getVolumeFromCache(request.PvcUUID)
+
+	if volume == nil {
+		return &api.DeleteLocalVolumeResponse{Ok: false}, errors.New("unable to find volume by PVC UUID in volume manager cache")
+	}
+
+	// TODO: Ruslan to fix
+	device := volume.Location
+	//device, err := m.getDrivePathBySN(volume.Location)
+	//if err != nil {
+	//	return &api.DeleteLocalVolumeResponse{Ok: false}, err
+	//}
 
 	err := m.linuxUtils.DeletePartition(device)
 	if err != nil {
+		ll.Infof("failed to delete partition with %s, set operational status - fail to remove", err)
+		volume.Status = api.OperationalStatus_FailToRemove
 		return &api.DeleteLocalVolumeResponse{Ok: false}, err
 	}
+
+	// TODO: Ruslan to make cache as map
+	m.removeVolumeFromCache(volume.Id)
 
 	return &api.DeleteLocalVolumeResponse{Ok: true}, nil
 }
@@ -276,4 +305,15 @@ func (m *VolumeManager) getVolumeFromCache(volumeID string) *api.Volume {
 		}
 	}
 	return nil
+}
+
+func (m *VolumeManager) removeVolumeFromCache(volumeID string) {
+	index := 0
+	for i, v := range m.volumesCache {
+		if v.Id == volumeID {
+			index = i
+		}
+	}
+
+	m.volumesCache = append(m.volumesCache[:index], m.volumesCache[index+1:]...)
 }

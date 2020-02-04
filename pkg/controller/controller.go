@@ -74,8 +74,7 @@ func (c *CSIControllerService) initCommunicators() error {
 	return nil
 }
 
-func (c *CSIControllerService) CreateVolume(ctx context.Context,
-	req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"component": "controller",
 		"method":    "CreateVolume",
@@ -173,8 +172,43 @@ func (c *CSIControllerService) constructCreateVolumeResponse(node string, capaci
 	}
 }
 
-func (c *CSIControllerService) DeleteVolume(context.Context, *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "controllerService",
+		"method":    "DeleteVolume",
+		"VolumeID":  req.VolumeId,
+	})
+	ll.Info("processing")
+
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "DeleteVolume Volume ID must be provided")
+	}
+
+	c.mu.Lock()
+	defer func() {
+		c.mu.Unlock()
+		ll.Info("unlock mutex")
+	}()
+
+	volume := c.volumeCache.getVolumeByID(req.VolumeId)
+	if volume == nil {
+		return nil, errors.New("unable to find volume in cache for getting volume ID")
+	}
+
+	node := volume.NodeID
+	resp, err := c.communicators[NodeID(node)].DeleteLocalVolume(ctx, &api.DeleteLocalVolumeRequest{
+		PvcUUID: req.VolumeId,
+	})
+	if err != nil {
+		ll.Infof("failed to delete local volume with %s", err)
+		return nil, status.Error(codes.Internal, fmt.Sprintf("unable to delete volume on node \"%s\"", node))
+	}
+
+	if !resp.Ok {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("response for delete local volume is not ok"))
+	}
+	c.volumeCache.deleteVolumeByID(req.VolumeId)
+	return &csi.DeleteVolumeResponse{}, nil
 }
 
 func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
@@ -191,8 +225,18 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
-func (c *CSIControllerService) ControllerUnpublishVolume(context.Context, *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+func (c *CSIControllerService) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	ll := logrus.WithFields(logrus.Fields{
+		"component": "controllerService",
+		"method":    "ControllerUnpublishVolume",
+	})
+	ll.Infof("processing")
+
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerUnPublishVolume Volume ID must be provided")
+	}
+
+	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
 func (c *CSIControllerService) ValidateVolumeCapabilities(context.Context, *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {

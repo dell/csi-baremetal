@@ -25,6 +25,8 @@ spec:
         - "--csi-address=$(ADDRESS)"
         - "--v=5"
         - "--feature-gates=Topology=true"
+        # TODO: remove AK8S-58
+        - "--timeout=60s"
         env:
         - name: ADDRESS
           value: /csi/csi.sock
@@ -44,6 +46,7 @@ spec:
         - name: socket-dir
           mountPath: /csi
       # ********************** baremetal-csi-controller container definition **********************
+      # TODO: Make CSI containers name smaller - AK8S-57
       - name: baremetal-csi-controller
       {{- if .Values.controller.image.tag }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ .Values.controller.image.tag }}

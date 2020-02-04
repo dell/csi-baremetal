@@ -81,8 +81,7 @@ message CreateLocalVolumeResponse {
 }
 
 message DeleteLocalVolumeRequest {
-    string drive = 1;
-    string pvcUUID = 2;
+    string pvcUUID = 1;
 }
 
 message DeleteLocalVolumeResponse {

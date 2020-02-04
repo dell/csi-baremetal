@@ -2,6 +2,8 @@ package sc
 
 import (
 	"sync"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
 type SsdSC struct {
@@ -19,8 +21,12 @@ func GetSSDSCInstance() *SsdSC {
 		defer ssdMU.Unlock()
 
 		if ssdSCInstance == nil {
-			ssdSCInstance = &SsdSC{}
+			ssdSCInstance = &SsdSC{DefaultDASC{executor: &base.Executor{}}}
 		}
 	}
 	return ssdSCInstance
+}
+
+func (s *SsdSC) SetSDDSCExecutor(executor base.Executor) {
+	s.executor = &executor
 }
