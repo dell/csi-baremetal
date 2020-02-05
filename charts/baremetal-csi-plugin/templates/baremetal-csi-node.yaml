@@ -41,7 +41,7 @@ spec:
           - name: registration-dir
             mountPath: /registration
       # ********************** baremetal-csi-node container definition **********************
-      - name: baremetal-csi-node
+      - name: node
       {{- if .Values.node.image.tag }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ .Values.node.image.tag }}
       {{- else }}
@@ -93,7 +93,7 @@ spec:
         {{- end }}
       # ********************** baremetal-csi-hwmgr container definition **********************
       # TODO: FABRIC-8595 Replace HWManager to DaemonSet
-      - name: baremetal-csi-hwmgr
+      - name: hwmgr
       {{- if .Values.hwmgr.image.tag }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-hwmgr:{{ .Values.hwmgr.image.tag }}
       {{- else }}

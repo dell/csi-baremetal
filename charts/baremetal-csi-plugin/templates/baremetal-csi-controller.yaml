@@ -47,7 +47,7 @@ spec:
           mountPath: /csi
       # ********************** baremetal-csi-controller container definition **********************
       # TODO: Make CSI containers name smaller - AK8S-57
-      - name: baremetal-csi-controller
+      - name: controller
       {{- if .Values.controller.image.tag }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ .Values.controller.image.tag }}
       {{- else }}
