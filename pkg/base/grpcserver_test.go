@@ -2,6 +2,7 @@ package base
 
 import (
 	"fmt"
+	"gotest.tools/assert"
 	"net"
 	"os"
 	"strings"
@@ -58,10 +59,15 @@ func TestServerRunner_RunServer(t *testing.T) {
 }
 
 func TestServerRunner_GetEndpoint(t *testing.T) {
-	currentURL, _ := nonSecureSR.GetEndpoint()
-	if address != currentURL {
-		t.Errorf("Got adress %s, expected %s", address, currentURL)
-	}
+	endpoint, socket := nonSecureSR.GetEndpoint()
+	assert.Equal(t, address, endpoint)
+	assert.Equal(t, socketType, socket)
+
+	unixAddr := "unix:///tmp/csi.sock"
+	unixSrv := NewServerRunner(nil, unixAddr)
+	endpoint, socket = unixSrv.GetEndpoint()
+	assert.Equal(t, "unix", socket)
+	assert.Equal(t, "/tmp/csi.sock", endpoint)
 }
 
 func TestServerRunner_StopServer(t *testing.T) {

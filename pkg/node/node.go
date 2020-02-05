@@ -54,7 +54,8 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (s *CSINodeService) NodePublishVolume(ctx context.Context,
+	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"component": "NodeService",
 		"method":    "NodePublishVolume",
@@ -62,12 +63,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	})
 	ll.Infof("Processing request: %v", req)
 
-	s.cacheMutex.Lock()
-	ll.Info("Lock mutex")
-	defer func() {
-		s.cacheMutex.Unlock()
-		ll.Info("Unlock mutex")
-	}()
+	s.vCacheMu.Lock()
+	defer s.vCacheMu.Unlock()
 
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
@@ -80,16 +77,18 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	v := s.getVolumeFromCache(req.VolumeId)
+	v := s.volumesCache[req.VolumeId]
 	if v == nil {
 		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
 	}
 
 	scImpl := s.scMap[SCName("hdd")]
 	targetPath := req.TargetPath
-	// TODO: Ruslan to fix
-	bdev := v.Location
-	// bdev format - /dev/sda/
+
+	bdev, err := s.searchDrivePathBySN(v.Location)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
+	}
 	partition := fmt.Sprintf("%s1", bdev)
 
 	ok, _ := scImpl.CreateFileSystem(sc.XFS, partition)
@@ -106,12 +105,13 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	v.Status = api.OperationalStatus_Operative
-	ll.Infof("Successfully mount derive %s to path %s", partition, targetPath)
+	ll.Infof("Successfully mount %s to path %s", partition, targetPath)
 
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context,
+	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"component": "NodeService",
 		"method":    "NodeUnpublishVolume",
@@ -119,12 +119,8 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	})
 	ll.Infof("Processing request: %v", req)
 
-	s.cacheMutex.Lock()
-	ll.Info("Lock mutex")
-	defer func() {
-		s.cacheMutex.Unlock()
-		ll.Info("Unlock mutex")
-	}()
+	s.vCacheMu.Lock()
+	defer s.vCacheMu.Unlock()
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -134,12 +130,12 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	v := s.getVolumeFromCache(req.VolumeId)
+	v := s.volumesCache[req.VolumeId]
 	if ok := s.scMap["hdd"].Unmount(req.TargetPath); !ok {
 		return nil, status.Error(codes.Internal, "Unable to unmount")
 	}
 
-	v.Status = api.OperationalStatus_Staging
+	v.Status = api.OperationalStatus_ReadyToRemove
 	ll.Infof("volume was successfully unmount from %s", req.TargetPath)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil

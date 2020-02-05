@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 
@@ -49,8 +48,9 @@ func main() {
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
 
-	logger.Info("Starting Discovering go routine ...")
-	go Discovering(csiNodeService)
+	// TODO: implement logic for discover  AK8S-64
+	// logger.Info("Starting Discovering go routine ...")
+	// go Discovering(csiNodeService)
 
 	logger.Info("Starting VolumeManager server in go routine ...")
 	go func() {
@@ -66,17 +66,18 @@ func main() {
 	}
 }
 
-func Discovering(c *node.CSINodeService) {
-	for {
-		time.Sleep(time.Second * 60)
-		err := c.Discover()
-		if err != nil {
-			logger.Infof("Discover finished with error: %v", err)
-		} else {
-			logger.Info("Discover finished successful")
-		}
-	}
-}
+// TODO: implement logic for discover  AK8S-64
+//func Discovering(c *node.CSINodeService) {
+//	for {
+//		time.Sleep(time.Second * 30)
+//		err := c.Discover()
+//		if err != nil {
+//			logger.Infof("Discover finished with error: %v", err)
+//		} else {
+//			logger.Info("Discover finished successful")
+//		}
+//	}
+//}
 
 // StartVolumeManagerServer starts gRPC server to handle request from Controller Service
 func StartVolumeManagerServer(c *node.CSINodeService) error {

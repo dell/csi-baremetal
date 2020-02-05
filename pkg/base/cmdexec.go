@@ -49,6 +49,10 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 		ll.Errorf("got error: %v", err)
 	}
 	outStr, errStr = stdout.String(), stderr.String()
-	ll.Infof("stdout: %s, stderr: %s", outStr, errStr)
+	errPart := ""
+	if len(errStr) > 0 {
+		errPart = fmt.Sprintf(", stderr: %s", errStr)
+	}
+	ll.Infof("stdout: %s%s", outStr, errPart)
 	return outStr, errStr, err
 }

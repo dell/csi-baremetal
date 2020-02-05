@@ -44,7 +44,12 @@ image-controller:
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ./pkg/${CONTROLLER}
 	docker tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}
 
-push: push-hwmgr push-node # push-controller
+push: push-hwmgr push-node push-controller
+
+push-local:
+	docker push ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+	docker push ${REGISTRY}/${REPO}-${NODE}:${TAG}
+	docker push ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
 push-hwmgr:
 	docker push ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}

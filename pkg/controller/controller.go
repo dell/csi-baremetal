@@ -143,12 +143,15 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, status.Errorf(codes.Internal, "volume was created but can't place them in items")
 	}
 
-	_, _ = c.CreateVolumeCRD(ctx, api.Volume{
+	_, err = c.CreateVolumeCRD(ctx, api.Volume{
 		Id:       req.Name,
 		Owner:    preferredNode,
 		Size:     resp.Capacity,
 		Location: resp.Drive,
 	}, "default")
+	if err != nil {
+		ll.Errorf("Unable to create CRD, error: %v", err)
+	}
 	ll.Infof("Response: %v", resp)
 	return c.constructCreateVolumeResponse(preferredNode, resp.Capacity, req), nil
 }
@@ -200,7 +203,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		PvcUUID: req.VolumeId,
 	})
 	if err != nil {
-		ll.Infof("failed to delete local volume with %s", err)
+		ll.Errorf("failed to delete local volume with %s", err)
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unable to delete volume on node \"%s\"", node))
 	}
 

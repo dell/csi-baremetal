@@ -58,7 +58,7 @@ message VolumeRequest {
 }
 
 message VolumeResponse {
-    repeated Volume volume = 1;
+    repeated Volume volumes = 1;
 }
 
 message AvailableCapacityRequest {

@@ -3,6 +3,16 @@ package mocks
 import "errors"
 
 var err = errors.New("error")
+var EmptyOutSuccess = CmdOut{
+	Stdout: "",
+	Stderr: "",
+	Err:    nil,
+}
+var EmptyOutFail = CmdOut{
+	Stdout: "",
+	Stderr: "",
+	Err:    err,
+}
 
 // DiskCommands is the map that contains Linux commands output
 var DiskCommands = map[string]CmdOut{
@@ -26,57 +36,35 @@ var DiskCommands = map[string]CmdOut{
 		Stderr: "",
 		Err:    errors.New("unable to check partition existence for /dev/sdd"),
 	},
+	"partprobe -d -s /dev/sde": EmptyOutSuccess,
 	"partprobe -d -s /dev/sdqwe": {
 		Stdout: "",
 		Stderr: "",
 		Err:    errors.New("unable to get partition table"),
 	},
-	"parted -s /dev/sda mklabel gpt": {
-		Stdout: "",
-		Stderr: "",
-		Err:    nil,
-	},
+	"partprobe":                      EmptyOutSuccess,
+	"parted -s /dev/sda mklabel gpt": EmptyOutSuccess,
 	"parted -s /dev/sdd mklabel gpt": {
 		Stdout: "",
 		Stderr: "",
 		Err:    errors.New("unable to create partition table"),
 	},
-	"parted -s /dev/sdc mklabel gpt": {
-		Stdout: "",
-		Stderr: "",
-		Err:    nil,
-	},
-	"parted -s /dev/sda rm 1": {
-		Stdout: "",
-		Stderr: "",
-		Err:    nil,
-	},
-	"parted -s /dev/sdb rm 1": {
-		Stdout: "",
-		Stderr: "",
-		Err:    err,
-	},
-	"parted -s /dev/sde mkpart --align optimal CSI 0% 100%": {
-		Stdout: "",
-		Stderr: "",
-		Err:    nil,
-	},
-	"parted -s /dev/sdf mkpart --align optimal CSI 0% 100%": {
-		Stdout: "",
-		Stderr: "",
-		Err:    err,
-	},
-	"sgdisk /dev/sda -u 1:64be631b-62a5-11e9-a756-00505680d67f": {
+	"parted -s /dev/sdc mklabel gpt":                        EmptyOutSuccess,
+	"parted -s /dev/sda rm 1":                               EmptyOutSuccess,
+	"parted -s /dev/sdb rm 1":                               EmptyOutFail,
+	"parted -s /dev/sde mkpart --align optimal CSI 0% 100%": EmptyOutSuccess,
+	"parted -s /dev/sdf mkpart --align optimal CSI 0% 100%": EmptyOutFail,
+	"sgdisk /dev/sda --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
 		Stdout: "The operation has completed successfully.",
 		Stderr: "",
 		Err:    nil,
 	},
-	"sgdisk /dev/sdb -u 1:64be631b-62a5-11e9-a756-00505680d67f": {
+	"sgdisk /dev/sdb --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
 		Stdout: "The operation has completed successfully.",
 		Stderr: "",
 		Err:    err,
 	},
-	"sgdisk /dev/sda -i 1": {
+	"sgdisk /dev/sda --info=1": {
 		Stdout: `Partition GUID code: 0FC63DAF-8483-4772-8E79-3D69D8477DE4 (Linux filesystem)
 Partition unique GUID: 64BE631B-62A5-11E9-A756-00505680D67F
 First sector: 2048 (at 1024.0 KiB)
@@ -87,7 +75,7 @@ Partition name: 'CSI'`,
 		Stderr: "",
 		Err:    nil,
 	},
-	"sgdisk /dev/sdb -i 1": {
+	"sgdisk /dev/sdb --info=1": {
 		Stdout: `Partition GUID code: 0FC63DAF-8483-4772-8E79-3D69D8477DE4 (Linux filesystem)
 Partition: 64BE631B-62A5-11E9-A756-00505680D67F
 First sector: 2048 (at 1024.0 KiB)
@@ -98,11 +86,7 @@ Partition name: 'CSI'`,
 		Stderr: "",
 		Err:    nil,
 	},
-	"sgdisk /dev/sdc -i 1": {
-		Stdout: "",
-		Stderr: "",
-		Err:    err,
-	},
+	"sgdisk /dev/sdc --info=1": EmptyOutFail,
 }
 
 var NoLsblkKey = CmdOut{

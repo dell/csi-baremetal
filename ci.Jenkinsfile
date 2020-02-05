@@ -25,7 +25,7 @@ void runTests() {
     String output = ''
     final String RUN_MODE_MASTER = 'master'
     final String RUN_MODE_CUSTOM = 'custom'
-    final String registry = "asdrepo.isus.emc.com:8085"
+    final String registry = "asdrepo.isus.emc.com:8085/atlantic"
     String containerId = ''
     boolean allGood = false
     common.node(label: common.JENKINS_LABELS.FLEX_CI, time: 180) {

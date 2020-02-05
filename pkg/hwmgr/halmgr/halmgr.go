@@ -9,6 +9,7 @@ package halmgr
 import "C"
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
@@ -63,7 +64,7 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 		drive := &api.Drive{
 			VID:          C.GoString(&drivesSliceHAL[i].vid[0]),
 			PID:          C.GoString(&drivesSliceHAL[i].pid[0]),
-			SerialNumber: C.GoString(&drivesSliceHAL[i].serialNumber[0]),
+			SerialNumber: strings.ToLower(C.GoString(&drivesSliceHAL[i].serialNumber[0])),
 			Size:         base.ToBytes(int64(drivesSliceHAL[i].capacity), base.GBYTE),
 			Health:       mgr.convertDriveHealth(drivesSliceHAL[i].driveHealth),
 		}
