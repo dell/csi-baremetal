@@ -6,13 +6,14 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-
-	volumev1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -64,15 +65,17 @@ func main() {
 	}
 }
 
-func prepareCRD() client.Client {
+func prepareCRD() k8sClient.Client {
 	scheme := runtime.NewScheme()
 	setupLog := ctrl.Log.WithName("setup")
 
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = volumev1.AddToScheme(scheme)
-
+	//register volume crd
+	_ = volumecrd.AddToScheme(scheme)
+	//register available capacity crd
+	_ = accrd.AddToSchemeAvailableCapacity(scheme)
 	ctrl.SetLogger(zap.Logger(true))
-	cl, err := client.New(ctrl.GetConfigOrDie(), client.Options{
+	cl, err := k8sClient.New(ctrl.GetConfigOrDie(), k8sClient.Options{
 		Scheme: scheme,
 	})
 	if err != nil {

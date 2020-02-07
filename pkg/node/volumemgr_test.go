@@ -61,9 +61,15 @@ func TestVolumeManager_GetLocalVolumesSuccess(t *testing.T) {
 }
 
 func TestVolumeManager_GetAvailableCapacitySuccess(t *testing.T) {
-	vm := NewVolumeManager(nil, nil, vmLogger)
-	ac, err := vm.GetAvailableCapacity(context.Background(), &api.AvailableCapacityRequest{})
-	assert.NotNil(t, ac)
+	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger)
+	err := vm.Discover()
+	assert.Nil(t, err)
+	const nodeId = "node"
+	ac, err := vm.GetAvailableCapacity(context.Background(), &api.AvailableCapacityRequest{NodeId: nodeId})
+	assert.NotNil(t, ac.GetAvailableCapacity())
+	assert.Equal(t, 2, len(ac.GetAvailableCapacity()))
 	assert.Nil(t, err)
 }
 
@@ -171,7 +177,49 @@ func TestVolumeManager_getDrivePathBySN(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestVolumeManager_searchFreeDrive(t *testing.T) {
+func TestVolumeManager_DiscoverAvailableCapacity(t *testing.T) {
+	const nodeId = "node"
+	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger)
+	err := vm.Discover()
+	assert.Nil(t, err)
+	assert.Empty(t, vm.availableCapacityCache)
+	err = vm.DiscoverAvailableCapacity(nodeId)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(vm.availableCapacityCache))
+
+	//expected 1 available capacity because 1 drive is unhealthy
+	hwMgrRespDrives[1].Health = api.Health_BAD
+	vm = NewVolumeManager(*hwMgrClient, e1, vmLogger)
+	err = vm.Discover()
+	assert.Nil(t, err)
+	err = vm.DiscoverAvailableCapacity(nodeId)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(vm.availableCapacityCache))
+
+	//empty cache because 1 drive is unhealthy and another has volume
+	vm = NewVolumeManager(*hwMgrClient, e1, vmLogger)
+	hwMgrRespDrives[1].Health = api.Health_BAD
+	err = vm.Discover()
+	vm.volumesCache["id"] = &api.Volume{
+		Id:           "id",
+		Owner:        "pod",
+		Size:         1000,
+		Location:     hwMgrRespDrives[0].SerialNumber,
+		LocationType: api.LocationType_Drive,
+		Mode:         api.Mode_FS,
+		Type:         "xfs",
+		Health:       hwMgrRespDrives[0].Health,
+		Status:       api.OperationalStatus_Operative,
+	}
+	assert.Nil(t, err)
+	err = vm.DiscoverAvailableCapacity(nodeId)
+	assert.Nil(t, err)
+	assert.Empty(t, vm.availableCapacityCache)
+}
+
+func TestNewVolumeManager_searchFreeDrive(t *testing.T) {
 	// call to HWMgr fail
 	hwMgrClient := mocks.MockHWMgrClientFail{}
 	vm := NewVolumeManager(hwMgrClient, nil, vmLogger)

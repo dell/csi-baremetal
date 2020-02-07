@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package accrd
 
 import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -23,41 +23,33 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// TODO: do we need this wrapper ???
-// VolumeSpec defines the desired state of Volume
-type VolumeSpec struct {
-	Volume api.Volume `json:"volume"`
-}
-
-// VolumeStatus defines the observed state of Volume
-type VolumeStatus struct {
-}
-
 // +kubebuilder:object:root=true
 
-// Volume is the Schema for the volumes API
-type Volume struct {
+// AvailableCapacity is the Schema for the availablecapacities API
+//kubebuilder:object:generate=false
+type AvailableCapacity struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   VolumeSpec   `json:"spec,omitempty"`
-	Status VolumeStatus `json:"status,omitempty"`
+	Spec              api.AvailableCapacity `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// VolumeList contains a list of Volume
-type VolumeList struct {
+// AvailableCapacityList contains a list of AvailableCapacity
+//+kubebuilder:object:generate=true
+type AvailableCapacityList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Volume `json:"items"`
+	Items           []AvailableCapacity `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Volume{}, &VolumeList{})
+	SchemeBuilderAvailableCapacity.Register(&AvailableCapacity{}, &AvailableCapacityList{})
 }
 
-func (in *VolumeSpec) DeepCopyInto(out *VolumeSpec) {
+func (in *AvailableCapacity) DeepCopyInto(out *AvailableCapacity) {
 	*out = *in
-	out.Volume = in.Volume
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	in.Spec = out.Spec
 }

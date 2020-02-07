@@ -15,6 +15,9 @@ import (
 )
 
 type VolumeManager struct {
+	availableCapacityCache map[string]*api.AvailableCapacity
+	acCacheMu              sync.Mutex
+
 	hWMgrClient api.HWServiceClient
 	// stores volumes that actually is use, key - volume ID
 	volumesCache map[string]*api.Volume
@@ -30,10 +33,11 @@ type VolumeManager struct {
 // NewVolumeManager returns new instance ov VolumeManager
 func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, logger *logrus.Logger) *VolumeManager {
 	vm := &VolumeManager{
-		hWMgrClient:  client,
-		volumesCache: make(map[string]*api.Volume),
-		drivesCache:  make(map[string]*api.Drive),
-		linuxUtils:   base.NewLinuxUtils(executor, logger),
+		hWMgrClient:            client,
+		volumesCache:           make(map[string]*api.Volume),
+		drivesCache:            make(map[string]*api.Drive),
+		linuxUtils:             base.NewLinuxUtils(executor, logger),
+		availableCapacityCache: make(map[string]*api.AvailableCapacity),
 	}
 	vm.log = logger.WithField("component", "VolumeManager")
 	return vm
@@ -51,9 +55,17 @@ func (m *VolumeManager) GetLocalVolumes(context.Context, *api.VolumeRequest) (*a
 }
 
 // GetAvailableCapacity request return array of free capacity on node
-func (m *VolumeManager) GetAvailableCapacity(context.Context, *api.AvailableCapacityRequest) (*api.AvailableCapacityResponse, error) {
-	capacities := make([]*api.AvailableCapacity, 0)
-	return &api.AvailableCapacityResponse{AvailableCapacity: capacities}, nil
+func (m *VolumeManager) GetAvailableCapacity(ctx context.Context, req *api.AvailableCapacityRequest) (*api.AvailableCapacityResponse, error) {
+	if err := m.DiscoverAvailableCapacity(req.NodeId); err != nil {
+		return nil, err
+	}
+	ac := make([]*api.AvailableCapacity, len(m.availableCapacityCache))
+	i := 0
+	for _, item := range m.availableCapacityCache {
+		ac[i] = item
+		i++
+	}
+	return &api.AvailableCapacityResponse{AvailableCapacity: ac}, nil
 }
 
 // Discover inspects drives and create volume object if partition exist
@@ -160,6 +172,54 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*api.Drive) error {
 			}
 		}
 	}
+	return nil
+}
+
+//DiscoverAvailableCapacity inspect current available capacity on nodes and fill cache
+func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"component": "VolumeManager",
+		"method":    "DiscoverAvailableCapacity",
+	})
+	ll.Infof("Current available capacity cache is: %v", m.availableCapacityCache)
+
+	m.acCacheMu.Lock()
+	defer m.acCacheMu.Unlock()
+
+	for _, drive := range m.drivesCache {
+		if drive.Health == api.Health_GOOD && drive.Status == api.Status_ONLINE {
+			removed := false
+			for _, volume := range m.volumesCache {
+				//if drive contains volume then available capacity for this drive will be removed
+				if strings.EqualFold(volume.Location, drive.SerialNumber) {
+					delete(m.availableCapacityCache, drive.SerialNumber)
+					logrus.Infof("Remove available capacity on node %s, because drive %s has volume", nodeID, drive.SerialNumber)
+					removed = true
+				}
+			}
+			//if drive is empty
+			if !removed {
+				capacity := &api.AvailableCapacity{
+					Size:     drive.Size,
+					Type:     api.StorageClass_ANY,
+					Location: drive.SerialNumber,
+					NodeId:   nodeID,
+				}
+				logrus.Infof("Adding available capacity: %s-%s", capacity.NodeId, capacity.Location)
+				m.availableCapacityCache[capacity.Location] = capacity
+			}
+		} else {
+			//If drive is unhealthy or offline, remove available capacity
+			for _, ac := range m.availableCapacityCache {
+				if drive.SerialNumber == ac.Location {
+					logrus.Infof("Remove available capacity on node %s, because drive %s is not ready", ac.NodeId, ac.Location)
+					delete(m.availableCapacityCache, ac.Location)
+					break
+				}
+			}
+		}
+	}
+	ll.Info("Current available capacity cache: ", m.availableCapacityCache)
 	return nil
 }
 

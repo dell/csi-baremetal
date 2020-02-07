@@ -118,9 +118,11 @@ install-controller-gen:
 	GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
 
 generate-deepcopy:
-	# Generate deepcopy functions for Volume
-	controller-gen object paths=api/v1/volume_types.go  output:dir=api/v1
+	# Generate deepcopy functions for Volume and AvailableCapacity
+	controller-gen object paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go  output:dir=api/v1/volumecrd
+	controller-gen object paths=api/v1/availablecapacitycrd/availablecapacity_types.go paths=api/v1/availablecapacitycrd/groupversion_info.go  output:dir=api/v1/availablecapacitycrd
 
 generate-crd:
-    #Generate CRD based on Volume type and group info
-	controller-gen crd:trivialVersions=true paths=api/v1/volume_types.go paths=api/v1/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
+    #Generate CRD based on Volume and AvailableCapacity type and group info
+	controller-gen crd:trivialVersions=true paths=api/v1/availablecapacitycrd/availablecapacity_types.go paths=api/v1/availablecapacitycrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds

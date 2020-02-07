@@ -46,12 +46,14 @@ enum StorageClass {
     NVMe = 2;
     HDDLVG = 3;
     SSDLVG = 4;
+    ANY = 5;
 }
 
 message AvailableCapacity {
     int64 size = 1;
     StorageClass  type = 2;
     string location = 3;
+    string nodeId = 4;
 }
 
 message VolumeRequest {
@@ -62,6 +64,7 @@ message VolumeResponse {
 }
 
 message AvailableCapacityRequest {
+    string nodeId = 1;
 }
 
 message AvailableCapacityResponse {

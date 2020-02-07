@@ -7,14 +7,16 @@ import (
 	"strings"
 	"sync"
 
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	v13 "k8s.io/api/core/v1"
 
 	"github.com/sirupsen/logrus"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -29,20 +31,63 @@ type NodeID string
 type CSIControllerService struct {
 	k8sclient.Client
 	communicators map[NodeID]api.VolumeManagerClient
-	mu            sync.Mutex
 	volumeCache   *VolumesCache
-	crdMu         sync.Mutex
-	log           *logrus.Entry
+	//mutex for crd request
+	crdMu                  sync.Mutex
+	log                    *logrus.Entry
+	availableCapacityCache *AvailableCapacityCache
+	//mutex for csi request
+	reqMu sync.Mutex
 }
 
 func NewControllerService(k8sClient k8sclient.Client, logger *logrus.Logger) *CSIControllerService {
 	c := &CSIControllerService{
-		Client:        k8sClient,
-		communicators: make(map[NodeID]api.VolumeManagerClient),
-		volumeCache:   &VolumesCache{items: make(map[VolumeID]*csiVolume)},
+		Client:                 k8sClient,
+		communicators:          make(map[NodeID]api.VolumeManagerClient),
+		volumeCache:            &VolumesCache{items: make(map[VolumeID]*csiVolume)},
+		availableCapacityCache: &AvailableCapacityCache{items: make(map[string]*accrd.AvailableCapacity)},
 	}
+	c.volumeCache.SetLogger(logger)
+	c.availableCapacityCache.SetLogger(logger)
 	c.log = logger.WithField("component", "CSIControllerService")
 	return c
+}
+
+func (c *CSIControllerService) updateAvailableCapacityCache(ctx context.Context) error {
+	ll := c.log.WithFields(logrus.Fields{
+		"component": "controller",
+		"method":    "updateAvailableCapacityCache",
+	})
+	wasError := false
+	for nodeID, mgr := range c.communicators {
+		response, err := mgr.GetAvailableCapacity(ctx, &api.AvailableCapacityRequest{NodeId: string(nodeID)})
+		if err != nil {
+			ll.Errorf("Error during GetAvailableCapacity request to node %s: %v", nodeID, err)
+			wasError = true
+		}
+		availableCapacity := response.GetAvailableCapacity()
+		logrus.Info("Available capacity: ", availableCapacity)
+		for _, ac := range availableCapacity {
+			//name of available accrd crd is node id + drive location
+			name := ac.NodeId + "-" + strings.ToLower(ac.Location)
+			if c.availableCapacityCache.Get(name) == nil {
+				crd, err := c.CreateAvailableCapacity(ctx, *ac, "default", name)
+				if err != nil {
+					ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v", ac, err)
+					wasError = true
+				}
+				err = c.availableCapacityCache.Create(crd, name)
+				if err != nil {
+					ll.Errorf("Error during available accrd addition to cache: %v, error: %v", ac, err)
+					wasError = true
+				}
+			}
+		}
+	}
+	if wasError {
+		return errors.New("not all available capacity were created")
+	}
+	return nil
 }
 
 func (c *CSIControllerService) initCommunicators() error {
@@ -76,9 +121,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 
 	ll.Infof("Processing request: %v", req)
 
-	c.mu.Lock()
+	c.reqMu.Lock()
 	defer func() {
-		c.mu.Unlock()
+		c.reqMu.Unlock()
+		ll.Infof("Unlock mutex for %s", req.Name)
 		ll.Info("Unlock mutex")
 	}()
 
@@ -98,7 +144,12 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			ll.Infof("Node - %s", n)
 		}
 	}
-
+	if len(c.availableCapacityCache.items) == 0 {
+		ll.Info("Initialize available capacity ...")
+		if err := c.updateAvailableCapacityCache(ctx); err != nil {
+			ll.Errorf("Unable to initialize available capacity: %v", err)
+		}
+	}
 	// Check arguments
 	if len(req.GetName()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
@@ -183,9 +234,9 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 		return nil, status.Error(codes.InvalidArgument, "DeleteVolume Volume ID must be provided")
 	}
 
-	c.mu.Lock()
+	c.reqMu.Lock()
 	defer func() {
-		c.mu.Unlock()
+		c.reqMu.Unlock()
 		ll.Info("unlock mutex")
 	}()
 
@@ -219,8 +270,8 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 
 	ll.Infof("Processing for node: %s", req.GetNodeId())
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.reqMu.Lock()
+	defer c.reqMu.Unlock()
 
 	return &csi.ControllerPublishVolumeResponse{}, nil
 }
@@ -301,33 +352,30 @@ func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.Cont
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
-func (c *CSIControllerService) CreateVolumeCRD(ctx context.Context, volume api.Volume, namespace string) (*v1.Volume, error) {
+func (c *CSIControllerService) CreateVolumeCRD(ctx context.Context, volume api.Volume, namespace string) (*volumecrd.Volume, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "CreateVolumeCRD",
 		"volumeID": volume.GetId(),
 	})
 
-	c.crdMu.Lock()
-	defer c.crdMu.Unlock()
-
-	ll.Infof("Creating CRD for volume: %v", volume)
-	vol := &v1.Volume{
+	vol := &volumecrd.Volume{
 		TypeMeta: v12.TypeMeta{
 			Kind:       "Volume",
 			APIVersion: "volume.dell.com/v1",
 		},
 		ObjectMeta: v12.ObjectMeta{
-			//Currently name is volume id
+			//Currently volumeId is volume id
 			Name:      volume.Id,
 			Namespace: namespace,
 		},
-		Spec:   v1.VolumeSpec{Volume: volume},
-		Status: v1.VolumeStatus{},
+		Spec: volume,
 	}
-	instance := &v1.Volume{}
+	instance := &volumecrd.Volume{}
 	err := c.Get(ctx, k8sclient.ObjectKey{Name: volume.Id, Namespace: namespace}, instance)
 	if err != nil {
 		if k8serror.IsNotFound(err) {
+			c.crdMu.Lock()
+			defer c.crdMu.Unlock()
 			e := c.Create(ctx, vol)
 			if e != nil {
 				return nil, e
@@ -336,30 +384,65 @@ func (c *CSIControllerService) CreateVolumeCRD(ctx context.Context, volume api.V
 			return nil, err
 		}
 	}
-	ll.Info("Creating successfully")
+	ll.Infof("VolumeCRD with id %s was created successfully", volume.Id)
 	return vol, nil
 }
-
-func (c *CSIControllerService) ReadVolume(ctx context.Context, name string, namespace string) (*v1.Volume, error) {
-	c.crdMu.Lock()
-	defer c.crdMu.Unlock()
-	volume := v1.Volume{}
-	err := c.Get(ctx, k8sclient.ObjectKey{Name: name, Namespace: namespace}, &volume)
-	if err != nil {
-		return nil, err
+func (c *CSIControllerService) CreateAvailableCapacity(ctx context.Context, ac api.AvailableCapacity, namespace string, name string) (*accrd.AvailableCapacity, error) {
+	ll := c.log.WithFields(logrus.Fields{
+		"component": "CSIControllerService",
+		"method":    "CreateAvailableCapacity"})
+	ll.Infof("Creating CRD for availableCapacity: %v", ac)
+	newAC := &accrd.AvailableCapacity{
+		TypeMeta: v12.TypeMeta{
+			Kind:       "AvailableCapacity",
+			APIVersion: "availablecapacity.dell.com/v1",
+		},
+		ObjectMeta: v12.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: ac,
 	}
-	return &volume, nil
+	instance := &accrd.AvailableCapacity{}
+	err := c.Get(ctx, k8sclient.ObjectKey{Name: name, Namespace: namespace}, instance)
+	if err != nil {
+		if k8serror.IsNotFound(err) {
+			c.crdMu.Lock()
+			defer c.crdMu.Unlock()
+			e := c.Create(ctx, newAC)
+			if e != nil {
+				return nil, e
+			}
+		} else {
+			return nil, err
+		}
+	}
+	ll.Infof("AvailableCapacity created successfully on node %s with drive %s: ", ac.NodeId, ac.Location)
+	return newAC, nil
 }
 
-func (c *CSIControllerService) ReadVolumeList(ctx context.Context, namespace string) (*v1.VolumeList, error) {
+func (c *CSIControllerService) ReadCRD(ctx context.Context, name string, namespace string, object runtime.Object) error {
 	c.crdMu.Lock()
 	defer c.crdMu.Unlock()
-	volumes := v1.VolumeList{}
-	err := c.List(ctx, &volumes, k8sclient.InNamespace(namespace))
-	if err != nil {
-		return nil, err
-	}
-	return &volumes, nil
+	return c.Get(ctx, k8sclient.ObjectKey{Name: name, Namespace: namespace}, object)
+}
+
+func (c *CSIControllerService) ReadListCRD(ctx context.Context, namespace string, object runtime.Object) error {
+	c.crdMu.Lock()
+	defer c.crdMu.Unlock()
+	return c.List(ctx, object, k8sclient.InNamespace(namespace))
+}
+
+func (c *CSIControllerService) UpdateAvailableCapacity(ctx context.Context, capacity accrd.AvailableCapacity) error {
+	c.crdMu.Lock()
+	defer c.crdMu.Unlock()
+	return c.Update(ctx, &capacity)
+}
+
+func (c *CSIControllerService) DeleteAvailableCapacity(ctx context.Context, capacity accrd.AvailableCapacity) error {
+	c.crdMu.Lock()
+	defer c.crdMu.Unlock()
+	return c.Delete(ctx, &capacity)
 }
 
 func (c *CSIControllerService) getPods(ctx context.Context, mask string) ([]*v13.Pod, error) {

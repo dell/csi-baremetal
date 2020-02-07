@@ -14,9 +14,9 @@ limitations under the License.
 */
 
 // Package v1 contains API Schema definitions for the volume v1 API group
-// +kubebuilder:object:generate=true
 // +groupName=volume.dell.com
-package v1
+// +versionName=v1
+package volumecrd
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
