@@ -11,9 +11,15 @@ import (
 
 type CmdExecutor interface {
 	RunCmd(cmd interface{}) (string, string, error)
+	SetLogger(logger *logrus.Logger)
 }
 
 type Executor struct {
+	log *logrus.Entry
+}
+
+func (e *Executor) SetLogger(logger *logrus.Logger) {
+	e.log = logger.WithField("component", "Executor")
 }
 
 func (e *Executor) RunCmd(cmd interface{}) (string, string, error) {
@@ -40,7 +46,7 @@ func (e *Executor) runCmdFromStr(cmd string) (string, string, error) {
 
 // runCmdFromCmdObj runs command and return stdout, stderr and error
 func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string, err error) {
-	ll := logrus.WithField("cmd", strings.Join(cmd.Args, " "))
+	ll := e.log.WithField("cmd", strings.Join(cmd.Args, " "))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

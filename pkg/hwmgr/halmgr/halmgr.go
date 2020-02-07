@@ -19,7 +19,9 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 )
 
-type HALManager struct{}
+type HALManager struct {
+	Log *logrus.Entry
+}
 
 func (mgr *HALManager) convertDriveHealth(driveHealth C.DriveHealth) api.Health {
 	switch driveHealth {
@@ -45,7 +47,7 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 
 	if int(res.value) != 0 {
 		errorMessage := C.GoString(&res.message[0])
-		logrus.Error("Hal failed with:", errorMessage)
+		mgr.Log.Error("Hal failed with:", errorMessage)
 		return nil, fmt.Errorf("hal failed with message %s", errorMessage)
 	}
 
@@ -53,7 +55,7 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 
 	count := int(countHAL)
 
-	logrus.Infof("Found %d disks on the node", count)
+	mgr.Log.Infof("Found %d disks on the node", count)
 
 	// Convert C-style array of C-style structs to go-slice of C-style structs
 	drivesSliceHAL := (*[1 << 30]C.HalDisk)(unsafe.Pointer(drivesHAL))[:count:count]
@@ -72,7 +74,7 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 	}
 
 	for i, drive := range drivesSlice {
-		logrus.WithField("HalDrive", drive).Info("Drive ", i)
+		mgr.Log.WithField("HalDrive", drive).Info("Drive ", i)
 	}
 
 	return drivesSlice, nil

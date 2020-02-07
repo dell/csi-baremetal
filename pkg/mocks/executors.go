@@ -3,17 +3,31 @@ package mocks
 import (
 	"errors"
 	"fmt"
+
+	"github.com/sirupsen/logrus"
 )
 
+type LoggerSetter struct {
+	log *logrus.Entry
+}
+
+func (l LoggerSetter) SetLogger(logger *logrus.Logger) {
+	l.log = logger.WithField("component", "MockExecutor")
+}
+
 // Implements CmdExecutor interface, each command will finish success
-type EmptyExecutorSuccess struct{}
+type EmptyExecutorSuccess struct {
+	LoggerSetter
+}
 
 func (e EmptyExecutorSuccess) RunCmd(interface{}) (string, string, error) {
 	return "Stdout", "", nil
 }
 
 // Implements CmdExecutor interface, each command will finish with error
-type EmptyExecutorFail struct{}
+type EmptyExecutorFail struct {
+	LoggerSetter
+}
 
 func (e EmptyExecutorFail) RunCmd(interface{}) (string, string, error) {
 	return "error happened", "error", errors.New("error")
@@ -32,6 +46,7 @@ type CmdOut struct {
 // when cmd runs second time and so on results is searching (at first) in secondRun map
 type MockExecutor struct {
 	cmdMap map[string]CmdOut
+	LoggerSetter
 	// contains cmd and results if we run one cmd twice
 	secondRun map[string]CmdOut
 	// contains cmd that has already run

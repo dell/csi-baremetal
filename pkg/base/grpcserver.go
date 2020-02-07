@@ -1,7 +1,6 @@
 package base
 
 import (
-	"fmt"
 	"net"
 	"net/url"
 
@@ -21,18 +20,24 @@ type ServerRunner struct {
 	listener   net.Listener
 	Creds      credentials.TransportCredentials
 	Endpoint   string
+	log        *logrus.Entry
 }
 
 // NewServerRunner returns ServerRunner object based on parameters that had provided
-func NewServerRunner(creds credentials.TransportCredentials, endpoint string) *ServerRunner {
+func NewServerRunner(creds credentials.TransportCredentials, endpoint string, logger *logrus.Logger) *ServerRunner {
 	sr := &ServerRunner{
 		Creds:    creds,
 		Endpoint: endpoint,
 	}
+	sr.SetLogger(logger)
 	sr.init()
 	e, socket := sr.GetEndpoint()
-	logrus.Infof("Create server for endpoint \"%s\" on \"%s\" socket", e, socket)
+	logger.Infof("Create server for endpoint \"%s\" on \"%s\" socket", e, socket)
 	return sr
+}
+
+func (sr *ServerRunner) SetLogger(logger *logrus.Logger) {
+	sr.log = logger.WithField("component", "ServerRunner")
 }
 
 // init creates Listener for ServerRunner and initialized GRPCServer
@@ -50,16 +55,16 @@ func (sr *ServerRunner) RunServer() error {
 	endpoint, socket := sr.GetEndpoint()
 	sr.listener, err = net.Listen(socket, endpoint)
 	if err != nil {
-		logrus.Errorf("failed to create listener for endpoint %s: %v", endpoint, err)
+		sr.log.Errorf("failed to create listener for endpoint %s: %v", endpoint, err)
 		return err
 	}
-	fmt.Printf("Starting gRPC server for endpoint %s and socket %s", endpoint, socket)
+	sr.log.Infof("Starting gRPC server for endpoint %s and socket %s", endpoint, socket)
 	return sr.GRPCServer.Serve(sr.listener)
 }
 
 // StopServer gracefully stops gRPC server and closes listener
 func (sr *ServerRunner) StopServer() {
-	fmt.Println("Stopping server")
+	sr.log.Info("Stopping server")
 	sr.GRPCServer.GracefulStop()
 }
 

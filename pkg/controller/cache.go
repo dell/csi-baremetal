@@ -19,38 +19,49 @@ type csiVolume struct {
 type VolumesCache struct {
 	items map[VolumeID]*csiVolume
 	sync.Mutex
+	log *logrus.Entry
+}
+
+func (c *VolumesCache) SetLogger(logger *logrus.Logger) {
+	c.log = logger.WithField("component", "VolumesCache")
 }
 
 func (c *VolumesCache) getVolumeByID(volumeID string) *csiVolume {
+	ll := c.log.WithField("volumeID", volumeID)
+
 	c.Lock()
 	defer c.Unlock()
 	volume, ok := c.items[VolumeID(volumeID)]
 	if ok {
-		logrus.Infof("Volume %s is found in items", volumeID)
+		ll.Info("Volume is found in items")
 	} else {
-		logrus.Infof("Volume %s is not found in items", volumeID)
+		ll.Info("Volume is not found in items")
 	}
 	return volume
 }
 
 func (c *VolumesCache) addVolumeToCache(volume *csiVolume, id string) error {
+	ll := c.log.WithField("volumeID", id)
+
 	c.Lock()
 	defer c.Unlock()
 	if _, ok := c.items[VolumeID(id)]; ok {
-		logrus.Errorf("Volume %s already exists in items", id)
+		ll.Errorf("Volume already exists in items")
 		return status.Errorf(codes.AlreadyExists, "Volume with the same id: %s already exist", id)
 	}
 	c.items[VolumeID(id)] = volume
-	logrus.Infof("Volume %s is added to items", id)
+	ll.Info("Volume is added to items")
 	return nil
 }
 
 func (c *VolumesCache) deleteVolumeByID(volumeID string) {
+	ll := c.log.WithField("volumeID", volumeID)
+
 	c.Lock()
 	defer c.Unlock()
 	for volumeName, volume := range c.items {
 		if volume.VolumeID == volumeID {
-			logrus.Infof("Deleting volume %s from items", volumeName)
+			ll.Info("Deleting volume from items")
 			delete(c.items, volumeName)
 			break
 		}

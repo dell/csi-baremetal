@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 
@@ -26,24 +25,17 @@ type CSINodeService struct {
 	VolumeManager
 	scMap  map[SCName]sc.StorageClassImplementer
 	NodeID string
-	log    *logrus.Logger
+	log    *logrus.Entry
 }
 
-func NewCSINodeService(client api.HWServiceClient, nodeID string) *CSINodeService {
-	l := logrus.New()
-	l.Out = os.Stdout
-	return &CSINodeService{
-		VolumeManager: *NewVolumeManager(client, &base.Executor{}),
+func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger) *CSINodeService {
+	s := &CSINodeService{
+		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger),
 		scMap:         map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance()},
 		NodeID:        nodeID,
-		log:           l,
 	}
-}
-
-func (s *CSINodeService) SetLogger(logger *logrus.Logger) {
-	s.VolumeManager.setLogger(logger)
-	s.log = logger
-	s.log.Info("Logger was set in CSINodeService")
+	s.log = logger.WithField("component", "CSINodeService")
+	return s
 }
 
 func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
@@ -57,10 +49,10 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 func (s *CSINodeService) NodePublishVolume(ctx context.Context,
 	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
-		"component": "NodeService",
-		"method":    "NodePublishVolume",
-		"volumeID":  req.VolumeId,
+		"method":   "NodePublishVolume",
+		"volumeID": req.GetVolumeId(),
 	})
+
 	ll.Infof("Processing request: %v", req)
 
 	s.vCacheMu.Lock()
@@ -113,10 +105,10 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context,
 func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
-		"component": "NodeService",
-		"method":    "NodeUnpublishVolume",
-		"volumeID":  req.VolumeId,
+		"method":   "NodeUnpublishVolume",
+		"volumeID": req.GetVolumeId(),
 	})
+
 	ll.Infof("Processing request: %v", req)
 
 	s.vCacheMu.Lock()
@@ -154,16 +146,17 @@ func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeG
 }
 
 func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+	ll := s.log.WithFields(logrus.Fields{
+		"method": "NodeGetInfo",
+	})
+
 	topology := csi.Topology{
 		Segments: map[string]string{
 			"baremetal-csi/nodeid": s.NodeID,
 		},
 	}
 
-	s.log.WithFields(logrus.Fields{
-		"component": "nodeService",
-		"method":    "NodeGetInfo",
-	}).Infof("NodeGetInfo created topology: %v", topology)
+	ll.Infof("NodeGetInfo created topology: %v", topology)
 
 	return &csi.NodeGetInfoResponse{
 		NodeId:             s.NodeID,

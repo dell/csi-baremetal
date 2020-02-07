@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/sirupsen/logrus"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -21,7 +21,11 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-var endpoint = flag.String("endpoint", "", "Endpoint for controller service")
+var (
+	endpoint    = flag.String("endpoint", "", "Endpoint for controller service")
+	logPath     = flag.String("logpath", "", "Log path for Controller service")
+	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
+)
 
 const (
 	driverName = "baremetal-csi"
@@ -30,16 +34,25 @@ const (
 
 func main() {
 	flag.Parse()
-	logger := logrus.New()
-	logger.Out = os.Stdout
+
+	var logLevel logrus.Level
+	if *verboseLogs {
+		logLevel = logrus.DebugLevel
+	} else {
+		logLevel = logrus.InfoLevel
+	}
+
+	logger, err := base.InitLogger(*logPath, logLevel)
+	if err != nil {
+		fmt.Printf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
+	}
 
 	logger.Info("Starting controller ...")
 
-	csiControllerServer := base.NewServerRunner(nil, *endpoint)
+	csiControllerServer := base.NewServerRunner(nil, *endpoint, logger)
 
 	k8sC := prepareCRD()
-	controllerService := controller.NewControllerService(k8sC)
-	controllerService.SetLogger(logger)
+	controllerService := controller.NewControllerService(k8sC, logger)
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version, true))
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)

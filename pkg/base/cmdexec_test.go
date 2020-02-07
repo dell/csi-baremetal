@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,6 +26,7 @@ func TestExecutorFromStrWithoutError(t *testing.T) {
 	}
 
 	e := Executor{}
+	e.SetLogger(logrus.New())
 
 	for _, test := range cmdPass {
 		strOut, strErr, err := e.RunCmd(test.cmd)
@@ -41,6 +43,7 @@ func TestExecutorFromStrAndExpectError(t *testing.T) {
 	}
 
 	e := Executor{}
+	e.SetLogger(logrus.New())
 
 	for _, test := range cmdErr {
 		strOut, strErr, err := e.RunCmd(test.cmd)

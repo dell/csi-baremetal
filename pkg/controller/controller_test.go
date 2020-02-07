@@ -6,6 +6,7 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	v12 "k8s.io/api/core/v1"
@@ -35,7 +36,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		os.Exit(1)
 	}
-	svc = NewControllerService(fake.NewFakeClientWithScheme(scheme))
+	svc = NewControllerService(fake.NewFakeClientWithScheme(scheme), logrus.New())
 
 	ctx = context.TODO()
 	code := m.Run()

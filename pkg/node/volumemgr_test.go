@@ -15,6 +15,8 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 )
 
+var vmLogger = logrus.New()
+
 var hwMgrRespDrives = []*api.Drive{
 	{
 		SerialNumber: "hdd1",
@@ -31,7 +33,7 @@ var hwMgrRespDrives = []*api.Drive{
 }
 
 func TestVolumeManager_NewVolumeManager(t *testing.T) {
-	vm := NewVolumeManager(nil, nil)
+	vm := NewVolumeManager(nil, nil, vmLogger)
 	assert.NotNil(t, vm)
 	assert.Nil(t, vm.hWMgrClient)
 	assert.NotNil(t, vm.linuxUtils)
@@ -40,7 +42,7 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 
 func TestVolumeManager_SetLinuxUtilsExecutor(t *testing.T) {
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
-	vm := NewVolumeManager(nil, e)
+	vm := NewVolumeManager(nil, e, vmLogger)
 
 	out, err := vm.linuxUtils.Lsblk(base.DriveTypeDisk)
 	assert.NotNil(t, out)
@@ -49,7 +51,7 @@ func TestVolumeManager_SetLinuxUtilsExecutor(t *testing.T) {
 }
 
 func TestVolumeManager_GetLocalVolumesSuccess(t *testing.T) {
-	vm := NewVolumeManager(nil, nil)
+	vm := NewVolumeManager(nil, nil, vmLogger)
 	vm.volumesCache["id1"] = &api.Volume{Id: "id1", Owner: "test"}
 	vm.volumesCache["id2"] = &api.Volume{Id: "id2", Owner: "test"}
 	lvr, err := vm.GetLocalVolumes(context.Background(), &api.VolumeRequest{})
@@ -59,14 +61,14 @@ func TestVolumeManager_GetLocalVolumesSuccess(t *testing.T) {
 }
 
 func TestVolumeManager_GetAvailableCapacitySuccess(t *testing.T) {
-	vm := NewVolumeManager(nil, nil)
+	vm := NewVolumeManager(nil, nil, vmLogger)
 	ac, err := vm.GetAvailableCapacity(context.Background(), &api.AvailableCapacityRequest{})
 	assert.NotNil(t, ac)
 	assert.Nil(t, err)
 }
 
 func TestVolumeManager_DrivesNotInUse(t *testing.T) {
-	vm := NewVolumeManager(nil, nil)
+	vm := NewVolumeManager(nil, nil, vmLogger)
 
 	vm.drivesCache["hdd1"] = &api.Drive{SerialNumber: "hdd1", Type: api.DriveType_HDD}
 	vm.drivesCache["nvme1"] = &api.Drive{SerialNumber: "nvme1", Type: api.DriveType_NVMe}
@@ -90,7 +92,7 @@ func TestVolumeManager_DrivesNotInUse(t *testing.T) {
 }
 
 func TestVolumeManager_DiscoverFail(t *testing.T) {
-	vm := NewVolumeManager(nil, nil)
+	vm := NewVolumeManager(nil, nil, vmLogger)
 
 	// expect: hwMgrClient request fail with error
 	vm.hWMgrClient = mocks.MockHWMgrClientFail{}
@@ -99,7 +101,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	assert.Equal(t, "MockHWMgrClientFail: Error", err.Error())
 
 	// expect: lsblk fail with error
-	vm = NewVolumeManager(mocks.MockHWMgrClient{}, mocks.EmptyExecutorFail{})
+	vm = NewVolumeManager(mocks.MockHWMgrClient{}, mocks.EmptyExecutorFail{}, vmLogger)
 	err = vm.Discover()
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "error")
@@ -108,7 +110,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
-	vm := NewVolumeManager(*hwMgrClient, e1)
+	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger)
 
 	// expect that cache is empty because of all drives has not children
 	assert.Empty(t, vm.volumesCache)
@@ -123,7 +125,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 		"sgdisk /dev/sdb -i 1": {Stdout: "some output: here"},
 	}
 	e2 := mocks.NewMockExecutor(expectedCmdOut1)
-	vm = NewVolumeManager(*hwMgrClient, e2)
+	vm = NewVolumeManager(*hwMgrClient, e2, vmLogger)
 	err = vm.Discover()
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(vm.volumesCache))
@@ -134,7 +136,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 		"sgdisk /dev/sdb --info=1": {Stdout: "Partition unique GUID: uniq-guid-for-dev-sdb"},
 	}
 	e3 := mocks.NewMockExecutor(expectedCmdOut2)
-	vm = NewVolumeManager(*hwMgrClient, e3)
+	vm = NewVolumeManager(*hwMgrClient, e3, vmLogger)
 	err = vm.Discover()
 	assert.Nil(t, err)
 	// LsblkDevWithChildren contains 2 devices with children however one of them without size
@@ -147,7 +149,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 
 func TestVolumeManager_getDrivePathBySN(t *testing.T) {
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
-	vm := NewVolumeManager(nil, e1)
+	vm := NewVolumeManager(nil, e1, vmLogger)
 
 	// success
 	dev, err := vm.searchDrivePathBySN("hdd1")
@@ -163,7 +165,7 @@ func TestVolumeManager_getDrivePathBySN(t *testing.T) {
 
 	// fail: lsblk was failed
 	e2 := mocks.EmptyExecutorFail{}
-	vm = NewVolumeManager(nil, e2)
+	vm = NewVolumeManager(nil, e2, vmLogger)
 	dev, err = vm.searchDrivePathBySN("hdd12341")
 	assert.Empty(t, dev)
 	assert.NotNil(t, err)
@@ -172,7 +174,7 @@ func TestVolumeManager_getDrivePathBySN(t *testing.T) {
 func TestVolumeManager_searchFreeDrive(t *testing.T) {
 	// call to HWMgr fail
 	hwMgrClient := mocks.MockHWMgrClientFail{}
-	vm := NewVolumeManager(hwMgrClient, nil)
+	vm := NewVolumeManager(hwMgrClient, nil, vmLogger)
 	drive, err := vm.searchFreeDrive(1024 * 1024 * 1024 * 100)
 	assert.Nil(t, drive)
 	assert.NotNil(t, err)
@@ -180,7 +182,7 @@ func TestVolumeManager_searchFreeDrive(t *testing.T) {
 	// success, got second drive from hwMgrRespDrives
 	hwMgrClient2 := mocks.NewMockHWMgrClient(hwMgrRespDrives)
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
-	vm2 := NewVolumeManager(hwMgrClient2, e)
+	vm2 := NewVolumeManager(hwMgrClient2, e, vmLogger)
 	_ = vm2.Discover()
 	drive2, err2 := vm2.searchFreeDrive(1024 * 1024 * 1024 * 100)
 	assert.Nil(t, err2)
@@ -196,7 +198,7 @@ func TestVolumeManager_searchFreeDrive(t *testing.T) {
 
 func TestVolumeManager_updatesDrivesCache(t *testing.T) {
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	vm := NewVolumeManager(hwMgrClient, nil)
+	vm := NewVolumeManager(hwMgrClient, nil, vmLogger)
 
 	assert.Empty(t, vm.drivesCache)
 	vm.updateDrivesCache(hwMgrRespDrives)
@@ -212,16 +214,8 @@ func TestVolumeManager_updatesDrivesCache(t *testing.T) {
 	assert.Equal(t, api.Status_OFFLINE, vm.drivesCache["hdd_new"].Status)
 }
 
-func TestVolumeManager_SetLogger(t *testing.T) {
-	l := logrus.New()
-	vm := NewVolumeManager(nil, nil)
-	assert.NotEqual(t, l, vm.log)
-	vm.setLogger(l)
-	assert.Equal(t, l, vm.log)
-}
-
 func TestVolumeManager_setPartitionUUIDForDevSuccess(t *testing.T) {
-	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{})
+	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{}, vmLogger)
 
 	rollBacked, err := vm.setPartitionUUIDForDev("", "")
 	assert.Nil(t, err)
@@ -245,7 +239,7 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	}
 
 	// unable check whether partition exist
-	vm = NewVolumeManager(nil, mocks.EmptyExecutorFail{})
+	vm = NewVolumeManager(nil, mocks.EmptyExecutorFail{}, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.True(t, rollBacked)
 	assert.NotNil(t, err)
@@ -253,7 +247,7 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	// partition has already exist
 	cmdRes = mocks.CmdOut{Stdout: "/dev/sda: gpt partitions 1 "}
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{"partprobe -d -s /dev/sda": cmdRes})
-	vm = NewVolumeManager(nil, e)
+	vm = NewVolumeManager(nil, e, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.True(t, rollBacked)
 	assert.NotNil(t, err)
@@ -263,7 +257,7 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	createPTCMD := "parted -s /dev/sda mklabel gpt"
 	lifecycleCMD[createPTCMD] = mocks.CmdOut{Stdout: "", Stderr: "", Err: errors.New("create partition table failed")}
 	e = mocks.NewMockExecutor(lifecycleCMD)
-	vm = NewVolumeManager(nil, e)
+	vm = NewVolumeManager(nil, e, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.True(t, rollBacked)
 	assert.NotNil(t, err)
@@ -275,7 +269,7 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	lifecycleCMD[createPTCMD] = emptyCmdOk
 	lifecycleCMD[createPartCMD] = mocks.CmdOut{Stdout: "", Stderr: "", Err: errors.New("create partition failed")}
 	e = mocks.NewMockExecutor(lifecycleCMD)
-	vm = NewVolumeManager(nil, e)
+	vm = NewVolumeManager(nil, e, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.True(t, rollBacked)
 	assert.Equal(t, errors.New("create partition failed"), err)
@@ -286,7 +280,7 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	e = mocks.NewMockExecutor(lifecycleCMD)
 	// second time show that partition exist
 	e.AddSecondRun(partExistCMD, mocks.CmdOut{Stdout: "/dev/sda: gpt partitions 1"})
-	vm = NewVolumeManager(nil, e)
+	vm = NewVolumeManager(nil, e, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.False(t, rollBacked)
 	assert.NotNil(t, err)
@@ -300,7 +294,7 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	lifecycleCMD[setPartCMD] = mocks.CmdOut{Stdout: "", Stderr: "", Err: errors.New("set partition UUID failed")}
 	e = mocks.NewMockExecutor(lifecycleCMD)
 	e.AddSecondRun(partExistCMD, mocks.CmdOut{Stdout: "/dev/sda: gpt partitions 1"})
-	vm = NewVolumeManager(nil, e)
+	vm = NewVolumeManager(nil, e, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.False(t, false)
 	assert.NotNil(t, err)
@@ -312,7 +306,7 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	lifecycleCMD[setPartCMD] = mocks.CmdOut{Stdout: "", Stderr: "", Err: errors.New("set partition UUID failed")}
 	lifecycleCMD[deletePartCMD] = emptyCmdOk
 	e = mocks.NewMockExecutor(lifecycleCMD)
-	vm = NewVolumeManager(nil, e)
+	vm = NewVolumeManager(nil, e, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.True(t, rollBacked)
 	assert.NotNil(t, err)
@@ -328,7 +322,7 @@ func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 	c := mocks.NewMockHWMgrClient(drives)
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
 	e.SetSuccessIfNotFound(true)
-	return NewVolumeManager(c, e)
+	return NewVolumeManager(c, e, vmLogger)
 }
 
 func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
@@ -382,7 +376,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
 	e3.SetSuccessIfNotFound(false)
-	vm3.linuxUtils = base.NewLinuxUtils(e3)
+	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)
 
 	req3 := &api.CreateLocalVolumeRequest{
 		PvcUUID:  "uuid-1111",
@@ -405,7 +399,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 		deletePartCMD: mocks.EmptyOutFail}
 	e4 := mocks.NewMockExecutor(eMap)
 	e4.SetSuccessIfNotFound(true)
-	vm4.linuxUtils = base.NewLinuxUtils(e4)
+	vm4.linuxUtils = base.NewLinuxUtils(e4, vmLogger)
 
 	req4 := &api.CreateLocalVolumeRequest{
 		PvcUUID:  uuid,
@@ -470,7 +464,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 		deletePartitionCMD: mocks.EmptyOutFail,
 	})
 	e3.SetSuccessIfNotFound(false)
-	vm3.linuxUtils = base.NewLinuxUtils(e3)
+	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)
 
 	req3 := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
 

@@ -9,7 +9,8 @@ import (
 
 type LinuxUtils struct {
 	Partitioner
-	e CmdExecutor
+	e   CmdExecutor
+	log *logrus.Entry
 }
 
 type LsblkOutput struct {
@@ -33,23 +34,28 @@ const (
 )
 
 // NewLinuxUtils returns new instance of LinuxUtils based on provided e
-func NewLinuxUtils(e CmdExecutor) *LinuxUtils {
-	return &LinuxUtils{
+func NewLinuxUtils(e CmdExecutor, logger *logrus.Logger) *LinuxUtils {
+	l := &LinuxUtils{
 		Partitioner: Partition{e: e},
 		e:           e,
 	}
+	if l.e != nil {
+		l.e.SetLogger(logger)
+	}
+	l.log = logger.WithField("component", "LinuxUtils")
+	return l
 }
 
 func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
 	strOut, strErr, err := l.e.RunCmd(LsblkCmd)
 	if err != nil {
-		logrus.Errorf("lsblk failed, stdErr: %s, Error: %v", strErr, err)
+		l.log.Errorf("lsblk failed, stdErr: %s, Error: %v", strErr, err)
 		return nil, err
 	}
 	rawOut := make(map[string][]LsblkOutput, 1)
 	err = json.Unmarshal([]byte(strOut), &rawOut)
 	if err != nil {
-		logrus.Errorf("Could not unmarshal output to LsblkOutput instance, error: %v", err)
+		l.log.Errorf("Could not unmarshal output to LsblkOutput instance, error: %v", err)
 		return nil, err
 	}
 	res := make([]LsblkOutput, 0)
@@ -58,7 +64,7 @@ func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
 		ok   bool
 	)
 	if devs, ok = rawOut[LsblkOutputKey]; !ok {
-		logrus.Errorf("key \"%s\" is not in map %v", LsblkOutputKey, rawOut)
+		l.log.Errorf("key \"%s\" is not in map %v", LsblkOutputKey, rawOut)
 		return nil, fmt.Errorf("unexpected lsblk output format")
 	}
 	for _, d := range devs {

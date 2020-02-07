@@ -2,24 +2,27 @@ package base
 
 import (
 	"fmt"
-	"gotest.tools/assert"
 	"net"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
-	port        int32 = 4243
-	socketType        = "tcp"
-	address           = fmt.Sprintf("localhost:%d", port)
-	endpoint          = fmt.Sprintf("%s://localhost:%d", socketType, port)
-	nonSecureSR *ServerRunner
+	port         int32 = 4243
+	socketType         = "tcp"
+	address            = fmt.Sprintf("localhost:%d", port)
+	endpoint           = fmt.Sprintf("%s://localhost:%d", socketType, port)
+	nonSecureSR  *ServerRunner
+	serverLogger = logrus.New()
 )
 
 func TestMain(m *testing.M) {
-	nonSecureSR = NewServerRunner(nil, endpoint)
+	nonSecureSR = NewServerRunner(nil, endpoint, serverLogger)
 	code := m.Run()
 	nonSecureSR.StopServer()
 	os.Exit(code)
@@ -49,7 +52,7 @@ func TestServerRunner_RunServer(t *testing.T) {
 	}
 
 	// try to create server on same endpoint
-	nonSecureSR2 := NewServerRunner(nil, endpoint)
+	nonSecureSR2 := NewServerRunner(nil, endpoint, serverLogger)
 	err := nonSecureSR2.RunServer()
 	if err == nil {
 		t.Errorf("Trying to create server for same endpoint. Error should appear but it doesn't.")
@@ -64,7 +67,7 @@ func TestServerRunner_GetEndpoint(t *testing.T) {
 	assert.Equal(t, socketType, socket)
 
 	unixAddr := "unix:///tmp/csi.sock"
-	unixSrv := NewServerRunner(nil, unixAddr)
+	unixSrv := NewServerRunner(nil, unixAddr, serverLogger)
 	endpoint, socket = unixSrv.GetEndpoint()
 	assert.Equal(t, "unix", socket)
 	assert.Equal(t, "/tmp/csi.sock", endpoint)

@@ -1,10 +1,15 @@
 package controller
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/sirupsen/logrus"
+)
 
 var c = VolumesCache{items: make(map[VolumeID]*csiVolume)}
 
 func TestAddVolumeToCache(t *testing.T) {
+	c.SetLogger(logrus.New())
 	volumeName := "add-volume"
 	volume := &csiVolume{}
 	err := c.addVolumeToCache(volume, volumeName)

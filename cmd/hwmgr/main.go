@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 
@@ -11,16 +12,36 @@ import (
 )
 
 var (
-	endpoint = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "HWManager Endpoint")
+	endpoint    = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "HWManager Endpoint")
+	logPath     = flag.String("logpath", "", "Log path for HWManager")
+	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
 )
 
 func main() {
 	flag.Parse()
-	logrus.Info("Start HWManager")
+
+	var logLevel logrus.Level
+	if *verboseLogs {
+		logLevel = logrus.DebugLevel
+	} else {
+		logLevel = logrus.InfoLevel
+	}
+
+	logger, err := base.InitLogger(*logPath, logLevel)
+	if err != nil {
+		fmt.Printf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
+	}
+
+	logger.Info("Start HWManager")
 	// Server is insecure for now because credentials are nil
-	serverRunner := base.NewServerRunner(nil, *endpoint)
-	api.RegisterHWServiceServer(serverRunner.GRPCServer, &hwmgr.HWServiceServerImpl{})
+	serverRunner := base.NewServerRunner(nil, *endpoint, logger)
+
+	hwServiceServer := &hwmgr.HWServiceServerImpl{}
+	hwServiceServer.SetLogger(logger)
+
+	api.RegisterHWServiceServer(serverRunner.GRPCServer, hwServiceServer)
+
 	if err := serverRunner.RunServer(); err != nil {
-		logrus.Fatalf("Failed to serve on %s. Error: %s", *endpoint, err.Error())
+		logger.Fatalf("Failed to serve on %s. Error: %s", *endpoint, err.Error())
 	}
 }

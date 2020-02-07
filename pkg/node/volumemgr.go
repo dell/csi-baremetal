@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,25 +24,19 @@ type VolumeManager struct {
 	dCacheMu    sync.Mutex
 
 	linuxUtils *base.LinuxUtils
-	log        *logrus.Logger
+	log        *logrus.Entry
 }
 
 // NewVolumeManager returns new instance ov VolumeManager
-func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor) *VolumeManager {
-	l := logrus.New()
-	l.Out = os.Stdout
-	return &VolumeManager{
+func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, logger *logrus.Logger) *VolumeManager {
+	vm := &VolumeManager{
 		hWMgrClient:  client,
 		volumesCache: make(map[string]*api.Volume),
 		drivesCache:  make(map[string]*api.Drive),
-		linuxUtils:   base.NewLinuxUtils(executor),
-		log:          l,
+		linuxUtils:   base.NewLinuxUtils(executor, logger),
 	}
-}
-
-func (m *VolumeManager) setLogger(logger *logrus.Logger) {
-	m.log = logger
-	m.log.Info("Logger was set in VolumeManager")
+	vm.log = logger.WithField("component", "VolumeManager")
+	return vm
 }
 
 // GetLocalVolumes request return array of volumes on node
@@ -65,11 +58,7 @@ func (m *VolumeManager) GetAvailableCapacity(context.Context, *api.AvailableCapa
 
 // Discover inspects drives and create volume object if partition exist
 func (m *VolumeManager) Discover() error {
-	ll := m.log.WithFields(logrus.Fields{
-		"component": "VolumeManager",
-		"method":    "Discover",
-	})
-	ll.Infof("Current volumes cache is: %v", m.volumesCache)
+	m.log.Infof("Current volumes cache is: %v", m.volumesCache)
 
 	drivesResponse, err := m.hWMgrClient.GetDrivesList(context.Background(), &api.DrivesRequest{})
 	if err != nil {
@@ -130,8 +119,7 @@ func (m *VolumeManager) updateDrivesCache(discoveredDrives []*api.Drive) {
 // some partitions on them - try to read partition uuid and create volume object
 func (m *VolumeManager) updateVolumesCache(freeDrives []*api.Drive) error {
 	ll := m.log.WithFields(logrus.Fields{
-		"component": "VolumeManager",
-		"method":    "updateVolumesCache",
+		"method": "updateVolumesCache",
 	})
 
 	// explore each drive from freeDrives
@@ -178,8 +166,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*api.Drive) error {
 // drivesAreNotUsed search drives in drives cache that isn't have any volumes
 func (m *VolumeManager) drivesAreNotUsed() []*api.Drive {
 	ll := m.log.WithFields(logrus.Fields{
-		"component": "VolumeManager",
-		"method":    "drivesAreNotUsed",
+		"method": "drivesAreNotUsed",
 	})
 
 	// search drives that don't have parent volume
@@ -207,11 +194,11 @@ func (m *VolumeManager) drivesAreNotUsed() []*api.Drive {
 
 func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLocalVolumeRequest) (*api.CreateLocalVolumeResponse, error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"component": "VolumeManager",
-		"method":    "CreateLocalVolume",
-		"id":        req.PvcUUID,
+		"method":   "CreateLocalVolume",
+		"volumeID": req.GetPvcUUID(),
 	})
-	ll.Info("Processing ...")
+
+	ll.Infof("Processing request: %v", req)
 
 	resp := &api.CreateLocalVolumeResponse{Drive: "", Capacity: 0, Ok: false}
 
@@ -356,10 +343,11 @@ func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (roll
 
 func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.DeleteLocalVolumeRequest) (*api.DeleteLocalVolumeResponse, error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"component": "VolumeManager",
-		"method":    "DeleteLocalVolume",
+		"method":   "DeleteLocalVolume",
+		"volumeID": request.GetPvcUUID(),
 	})
-	ll.Info("processing")
+
+	ll.Infof("Processing request: %v", request)
 
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()

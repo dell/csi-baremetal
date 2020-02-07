@@ -13,14 +13,16 @@ type Client struct {
 	GRPCClient *grpc.ClientConn
 	Creds      credentials.TransportCredentials
 	Endpoint   string
+	log        *logrus.Entry
 }
 
 //NewClient creates new Client object with hostTCP, port, creds and calls init function
-func NewClient(creds credentials.TransportCredentials, endpoint string) (*Client, error) {
+func NewClient(creds credentials.TransportCredentials, endpoint string, logger *logrus.Logger) (*Client, error) {
 	client := &Client{
 		Creds:    creds,
 		Endpoint: endpoint,
 	}
+	client.SetLogger(logger)
 	err := client.initClient()
 	if err != nil {
 		return nil, err
@@ -28,11 +30,15 @@ func NewClient(creds credentials.TransportCredentials, endpoint string) (*Client
 	return client, nil
 }
 
+func (c *Client) SetLogger(logger *logrus.Logger) {
+	c.log = logger.WithField("component", "Client")
+}
+
 //initClient defines ClientConn field in Client struct
 func (c *Client) initClient() error {
 	endpoint := c.GetEndpoint()
 	var err error
-	logrus.Infof("Initialize client for endpoint \"%s\"", endpoint)
+	c.log.Infof("Initialize client for endpoint \"%s\"", endpoint)
 	if c.Creds != nil {
 		c.GRPCClient, err = grpc.Dial(endpoint, grpc.WithTransportCredentials(c.Creds))
 	} else {
