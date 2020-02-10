@@ -31,7 +31,7 @@ type CSINodeService struct {
 func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger) *CSINodeService {
 	s := &CSINodeService{
 		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger),
-		scMap:         map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance()},
+		scMap:         map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance(logger)},
 		NodeID:        nodeID,
 	}
 	s.log = logger.WithField("component", "CSINodeService")

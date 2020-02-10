@@ -3,6 +3,8 @@ package sc
 import (
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
@@ -15,13 +17,15 @@ var (
 	ssdSCInstance *SsdSC
 )
 
-func GetSSDSCInstance() *SsdSC {
+func GetSSDSCInstance(logger *logrus.Logger) *SsdSC {
 	if ssdSCInstance == nil {
 		ssdMU.Lock()
 		defer ssdMU.Unlock()
 
 		if ssdSCInstance == nil {
 			ssdSCInstance = &SsdSC{DefaultDASC{executor: &base.Executor{}}}
+			hddSCInstance.executor.SetLogger(logger)
+			hddSCInstance.SetLogger(logger, "SSDSC")
 		}
 	}
 	return ssdSCInstance

@@ -1,10 +1,13 @@
 package sc
 
 import (
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
 var defaultDaSCSuccess = &DefaultDASC{
@@ -13,6 +16,13 @@ var defaultDaSCSuccess = &DefaultDASC{
 
 var defaultDaSCFail = &DefaultDASC{
 	executor: mocks.EmptyExecutorFail{},
+}
+
+var loggerDaSC = logrus.New()
+
+func TestMain(m *testing.M) {
+	defaultDaSCSuccess.SetLogger(loggerDaSC, "DefaultDASC")
+	defaultDaSCFail.SetLogger(loggerDaSC, "DefaultDASC")
 }
 
 func TestCreateFileSystem(t *testing.T) {
