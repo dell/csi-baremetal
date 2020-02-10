@@ -193,7 +193,7 @@ func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
 				//if drive contains volume then available capacity for this drive will be removed
 				if strings.EqualFold(volume.Location, drive.SerialNumber) {
 					delete(m.availableCapacityCache, drive.SerialNumber)
-					logrus.Infof("Remove available capacity on node %s, because drive %s has volume", nodeID, drive.SerialNumber)
+					ll.Infof("Remove available capacity on node %s, because drive %s has volume", nodeID, drive.SerialNumber)
 					removed = true
 				}
 			}
@@ -205,14 +205,14 @@ func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
 					Location: drive.SerialNumber,
 					NodeId:   nodeID,
 				}
-				logrus.Infof("Adding available capacity: %s-%s", capacity.NodeId, capacity.Location)
+				ll.Infof("Adding available capacity: %s-%s", capacity.NodeId, capacity.Location)
 				m.availableCapacityCache[capacity.Location] = capacity
 			}
 		} else {
 			//If drive is unhealthy or offline, remove available capacity
 			for _, ac := range m.availableCapacityCache {
 				if drive.SerialNumber == ac.Location {
-					logrus.Infof("Remove available capacity on node %s, because drive %s is not ready", ac.NodeId, ac.Location)
+					ll.Infof("Remove available capacity on node %s, because drive %s is not ready", ac.NodeId, ac.Location)
 					delete(m.availableCapacityCache, ac.Location)
 					break
 				}
@@ -275,12 +275,16 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()
 
-	drive, err := m.searchFreeDrive(req.Capacity)
-	if err != nil {
-		return resp, err
+	var drive *api.Drive
+	var err error
+	if req.Location != "" {
+		drive = m.drivesCache[req.Location]
+	} else {
+		drive, err = m.searchFreeDrive(req.Capacity)
+		if err != nil {
+			return resp, err
+		}
 	}
-	ll.Infof("Found drive: %v", drive)
-
 	device, err := m.searchDrivePathBySN(drive.SerialNumber)
 	if err != nil {
 		return resp, err

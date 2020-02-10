@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 
@@ -73,14 +74,23 @@ func (c *CSIControllerService) updateAvailableCapacityCache(ctx context.Context)
 			//name of available capacity crd is node id + drive location
 			name := ac.NodeId + "-" + strings.ToLower(ac.Location)
 			if c.availableCapacityCache.Get(name) == nil {
-				crd, err := c.CreateAvailableCapacity(ctx, *ac, "default", name)
-				if err != nil {
+				newAC := &accrd.AvailableCapacity{
+					TypeMeta: v12.TypeMeta{
+						Kind:       "AvailableCapacity",
+						APIVersion: "availablecapacity.dell.com/v1",
+					},
+					ObjectMeta: v12.ObjectMeta{
+						Name:      name,
+						Namespace: "default",
+					},
+					Spec: *ac,
+				}
+				if err := c.CreateCRD(ctx, newAC, "default", name); err != nil {
 					ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v", ac, err)
 					wasError = true
 				}
-				err = c.availableCapacityCache.Create(crd, name)
-				if err != nil {
-					ll.Errorf("Error during available accrd addition to cache: %v, error: %v", ac, err)
+				if err = c.availableCapacityCache.Create(newAC, name); err != nil {
+					ll.Errorf("Error during available crd addition to cache: %v, error: %v", ac, err)
 					wasError = true
 				}
 			}
@@ -168,11 +178,18 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		ll.Errorf("Preferred node must be provided. Check that driver's volumeBindingMode is WaitForFirstConsumer")
 		return nil, status.Error(codes.InvalidArgument, "Preferred node must be provided.")
 	}
-
+	requiredBytes := req.GetCapacityRange().GetRequiredBytes()
+	//drive where volume can be allocated
+	allocatedDisk := c.searchAvailableDrive(preferredNode, requiredBytes)
+	if allocatedDisk == "" {
+		return nil, status.Errorf(codes.Internal, "there is no suitable drive for volume")
+	}
+	ll.Infof("Available disk is %s on node %s", allocatedDisk, preferredNode)
 	resp, err := c.communicators[NodeID(preferredNode)].CreateLocalVolume(ctx, &api.CreateLocalVolumeRequest{
 		PvcUUID:  req.Name,
-		Capacity: req.GetCapacityRange().GetRequiredBytes(),
+		Capacity: requiredBytes,
 		Sc:       "hdd",
+		Location: allocatedDisk,
 	})
 	if err != nil {
 		ll.Errorf("Unable to create volume size of %d bytes on node %s. Error: %v",
@@ -191,18 +208,44 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		ll.Errorf("Unable to place volume in items: %v", err)
 		return nil, status.Errorf(codes.Internal, "volume was created but seems like same volume was created before")
 	}
-
-	_, err = c.CreateVolumeCRD(ctx, api.Volume{
-		Id:       req.Name,
-		Owner:    preferredNode,
-		Size:     resp.Capacity,
-		Location: resp.Drive,
-	}, "default")
+	vol := &volumecrd.Volume{
+		TypeMeta: v12.TypeMeta{
+			Kind:       "Volume",
+			APIVersion: "volume.dell.com/v1",
+		},
+		ObjectMeta: v12.ObjectMeta{
+			//Currently volumeId is volume id
+			Name:      req.Name,
+			Namespace: "default",
+		},
+		Spec: api.Volume{
+			Id:       req.Name,
+			Owner:    preferredNode,
+			Size:     resp.Capacity,
+			Location: resp.Drive,
+		},
+	}
+	err = c.CreateCRD(ctx, vol, "default", req.Name)
 	if err != nil {
 		ll.Errorf("Unable to create CRD, error: %v", err)
 	}
 
 	return c.constructCreateVolumeResponse(preferredNode, resp.Capacity, req), nil
+}
+
+func (c *CSIControllerService) searchAvailableDrive(preferredNode string, requiredBytes int64) string {
+	var allocatedDisk string
+	var allocatedCapacity int64 = math.MaxInt64
+	for _, capacity := range c.availableCapacityCache.items {
+		//id of available capacity is node id + drive serial number
+		if strings.EqualFold(capacity.Spec.NodeId, preferredNode) {
+			if capacity.Spec.Size < allocatedCapacity && capacity.Spec.Size >= requiredBytes {
+				allocatedCapacity = capacity.Spec.Size
+				allocatedDisk = capacity.Spec.Location
+			}
+		}
+	}
+	return allocatedDisk
 }
 
 func (c *CSIControllerService) constructCreateVolumeResponse(node string, capacity int64,
@@ -356,75 +399,25 @@ func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.Cont
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
-func (c *CSIControllerService) CreateVolumeCRD(ctx context.Context, volume api.Volume, namespace string) (*volumecrd.Volume, error) {
+func (c *CSIControllerService) CreateCRD(ctx context.Context, obj runtime.Object, namespace string, name string) error {
 	ll := c.log.WithFields(logrus.Fields{
-		"method":   "CreateVolumeCRD",
-		"volumeID": volume.GetId(),
+		"method": "CreateCRD",
 	})
-
-	vol := &volumecrd.Volume{
-		TypeMeta: v12.TypeMeta{
-			Kind:       "Volume",
-			APIVersion: "volume.dell.com/v1",
-		},
-		ObjectMeta: v12.ObjectMeta{
-			//Currently volumeId is volume id
-			Name:      volume.Id,
-			Namespace: namespace,
-		},
-		Spec: volume,
-	}
-	instance := &volumecrd.Volume{}
-	err := c.Get(ctx, k8sclient.ObjectKey{Name: volume.Id, Namespace: namespace}, instance)
+	err := c.Get(ctx, k8sclient.ObjectKey{Name: name, Namespace: namespace}, obj)
 	if err != nil {
 		if k8serror.IsNotFound(err) {
 			c.crdMu.Lock()
 			defer c.crdMu.Unlock()
-			e := c.Create(ctx, vol)
+			e := c.Create(ctx, obj)
 			if e != nil {
-				return nil, e
+				return e
 			}
 		} else {
-			return nil, err
+			return err
 		}
 	}
-	ll.Infof("VolumeCRD with id %s was created successfully", volume.Id)
-	return vol, nil
-}
-
-func (c *CSIControllerService) CreateAvailableCapacity(ctx context.Context,
-	ac api.AvailableCapacity, namespace string, name string) (*accrd.AvailableCapacity, error) {
-	ll := c.log.WithFields(logrus.Fields{
-		"component": "CSIControllerService",
-		"method":    "CreateAvailableCapacity"})
-	ll.Infof("Creating CRD for availableCapacity: %v", ac)
-	newAC := &accrd.AvailableCapacity{
-		TypeMeta: v12.TypeMeta{
-			Kind:       "AvailableCapacity",
-			APIVersion: "availablecapacity.dell.com/v1",
-		},
-		ObjectMeta: v12.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ac,
-	}
-	instance := &accrd.AvailableCapacity{}
-	err := c.Get(ctx, k8sclient.ObjectKey{Name: name, Namespace: namespace}, instance)
-	if err != nil {
-		if k8serror.IsNotFound(err) {
-			c.crdMu.Lock()
-			defer c.crdMu.Unlock()
-			e := c.Create(ctx, newAC)
-			if e != nil {
-				return nil, e
-			}
-		} else {
-			return nil, err
-		}
-	}
-	ll.Infof("AvailableCapacity created successfully on node %s with drive %s: ", ac.NodeId, ac.Location)
-	return newAC, nil
+	ll.Infof("CRD with id %s was created successfully", name)
+	return nil
 }
 
 func (c *CSIControllerService) ReadCRD(ctx context.Context, name string, namespace string, object runtime.Object) error {
@@ -439,16 +432,16 @@ func (c *CSIControllerService) ReadListCRD(ctx context.Context, namespace string
 	return c.List(ctx, object, k8sclient.InNamespace(namespace))
 }
 
-func (c *CSIControllerService) UpdateAvailableCapacity(ctx context.Context, capacity accrd.AvailableCapacity) error {
+func (c *CSIControllerService) UpdateCRD(ctx context.Context, object runtime.Object) error {
 	c.crdMu.Lock()
 	defer c.crdMu.Unlock()
-	return c.Update(ctx, &capacity)
+	return c.Update(ctx, object)
 }
 
-func (c *CSIControllerService) DeleteAvailableCapacity(ctx context.Context, capacity accrd.AvailableCapacity) error {
+func (c *CSIControllerService) DeleteCRD(ctx context.Context, object runtime.Object) error {
 	c.crdMu.Lock()
 	defer c.crdMu.Unlock()
-	return c.Delete(ctx, &capacity)
+	return c.Delete(ctx, object)
 }
 
 func (c *CSIControllerService) getPods(ctx context.Context, mask string) ([]*v13.Pod, error) {

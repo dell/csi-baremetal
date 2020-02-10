@@ -379,6 +379,7 @@ func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 150,
 		Sc:       "hdd",
+		Location: "hdd2",
 	}
 	resp, err := vm.CreateLocalVolume(context.Background(), req)
 	assert.NotNil(t, resp)
@@ -390,20 +391,6 @@ func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
 }
 
 func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
-	// expect: searchFreeDrive fail
-	bigCapacity := int64(1024 * 1024 * 1024 * 1024) // more then one of drive1/drive2
-	vm1 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	req1 := &api.CreateLocalVolumeRequest{
-		PvcUUID:  "uuid-1111",
-		Capacity: bigCapacity,
-		Sc:       "hdd",
-	}
-	resp1, err1 := vm1.CreateLocalVolume(context.Background(), req1)
-	assert.NotNil(t, resp1)
-	assert.False(t, resp1.Ok)
-	assert.NotNil(t, err1)
-	assert.Equal(t, fmt.Errorf("unable to find suitable drive with capacity %d", bigCapacity), err1)
-
 	// expect: searchDrivePathBySN fail
 	// fmt.Errorf("unable to find drive path by S/N %s", sn)
 	sn := "will-not-be-found"
@@ -413,6 +400,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 45, // expect drive3 here
 		Sc:       "hdd",
+		Location: "will-not-be-found",
 	}
 	resp2, err2 := vm2.CreateLocalVolume(context.Background(), req2)
 	assert.NotNil(t, resp2)
@@ -430,6 +418,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 45,
 		Sc:       "hdd",
+		Location: "hdd1",
 	}
 	resp3, err3 := vm3.CreateLocalVolume(context.Background(), req3)
 	assert.NotNil(t, resp3)
@@ -453,6 +442,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 		PvcUUID:  uuid,
 		Capacity: 1024 * 1024 * 1024 * 45,
 		Sc:       "hdd",
+		Location: "hdd2",
 	}
 	resp4, err4 := vm4.CreateLocalVolume(context.Background(), req4)
 	assert.NotNil(t, resp4)
