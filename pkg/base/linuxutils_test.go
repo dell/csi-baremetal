@@ -1,6 +1,7 @@
 package base
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -12,7 +13,9 @@ import (
 var luLogger = logrus.New()
 
 func TestLinuxUtils_LsblkSuccess(t *testing.T) {
-	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{LsblkCmd: mocks.LsblkTwoDevices})
+
+	e := &mocks.GoMockExecutor{}
+	e.On("RunCmd", LsblkCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	l := NewLinuxUtils(e, luLogger)
 
 	out, err := l.Lsblk(DriveTypeDisk)
@@ -23,23 +26,23 @@ func TestLinuxUtils_LsblkSuccess(t *testing.T) {
 }
 
 func TestLinuxUtils_LsblkFail(t *testing.T) {
-	e1 := mocks.EmptyExecutorSuccess{}
-	l := NewLinuxUtils(e1, luLogger)
+	e := &mocks.GoMockExecutor{}
+	l := NewLinuxUtils(e, luLogger)
 
+	e.On(mocks.RunCmd, LsblkCmd).Return("not a json", "", nil).Times(1)
 	out, err := l.Lsblk(DriveTypeDisk)
 	assert.Nil(t, out)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "invalid character")
+	assert.Contains(t, err.Error(), "unable to unmarshal output to LsblkOutput instance")
 
-	e2 := mocks.EmptyExecutorFail{}
-	l = NewLinuxUtils(e2, luLogger)
+	expectedError := errors.New("lsblk failed")
+	e.On(mocks.RunCmd, LsblkCmd).Return("", "", expectedError).Times(1)
 	out, err = l.Lsblk(DriveTypeDisk)
 	assert.Nil(t, out)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "error")
+	assert.Equal(t, expectedError, err)
 
-	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{LsblkCmd: mocks.NoLsblkKey})
-	l = NewLinuxUtils(e3, luLogger)
+	e.On(mocks.RunCmd, LsblkCmd).Return(mocks.NoLsblkKeyStr, "", nil).Times(1)
 	out, err = l.Lsblk(DriveTypeDisk)
 	assert.Nil(t, out)
 	assert.NotNil(t, err)

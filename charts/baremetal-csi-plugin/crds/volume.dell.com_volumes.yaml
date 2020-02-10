@@ -17,7 +17,7 @@ spec:
   scope: ""
   validation:
     openAPIV3Schema:
-      description: Volume is the Schema for the volumes API
+      description: Volume is the Schema for the volumes API kubebuilder:object:generate=false
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -32,7 +32,6 @@ spec:
         metadata:
           type: object
         spec:
-          description: VolumeSpec defines the desired state of Volume
           properties:
             health:
               format: int32

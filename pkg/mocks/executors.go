@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,9 +43,9 @@ type CmdOut struct {
 
 // Implements CmdExecutor interface, each command will return appropriate key from cmdMap map
 // there is ability to return different value for same command if it runs twice, for it
-// add this command and result (that expected on second run) in secondRun map
+// add this command and result (that expected on second run) in SecondRun map
 // when cmd runs first result gets from cmdMap,
-// when cmd runs second time and so on results is searching (at first) in secondRun map
+// when cmd runs second time and so on results is searching (at first) in SecondRun map
 type MockExecutor struct {
 	cmdMap map[string]CmdOut
 	LoggerSetter
@@ -102,4 +104,22 @@ func (e *MockExecutor) RunCmd(cmd interface{}) (string, string, error) {
 	}
 	e.runBefore = append(e.runBefore, cmdStr)
 	return res.Stdout, res.Stderr, res.Err
+}
+
+// RunCmd is the name of CmdExecutor method name
+var RunCmd = "RunCmd"
+
+// GoMockExecutor implement CmdExecutor
+type GoMockExecutor struct {
+	mock.Mock
+	LoggerSetter
+}
+
+func (g *GoMockExecutor) RunCmd(cmd interface{}) (string, string, error) {
+	args := g.Mock.Called(cmd.(string))
+	return args.String(0), args.String(1), args.Error(2)
+}
+
+func (g *GoMockExecutor) OnCommand(cmd string) *mock.Call {
+	return g.On(RunCmd, cmd)
 }

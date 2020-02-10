@@ -41,7 +41,7 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 }
 
 func TestVolumeManager_SetLinuxUtilsExecutor(t *testing.T) {
-	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(nil, e, vmLogger)
 
 	out, err := vm.linuxUtils.Lsblk(base.DriveTypeDisk)
@@ -62,7 +62,7 @@ func TestVolumeManager_GetLocalVolumesSuccess(t *testing.T) {
 
 func TestVolumeManager_GetAvailableCapacitySuccess(t *testing.T) {
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger)
 	err := vm.Discover()
 	assert.Nil(t, err)
@@ -115,7 +115,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 }
 func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger)
 
 	// expect that cache is empty because of all drives has not children
@@ -154,7 +154,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 }
 
 func TestVolumeManager_getDrivePathBySN(t *testing.T) {
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(nil, e1, vmLogger)
 
 	// success
@@ -180,7 +180,7 @@ func TestVolumeManager_getDrivePathBySN(t *testing.T) {
 func TestVolumeManager_DiscoverAvailableCapacity(t *testing.T) {
 	const nodeId = "node"
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger)
 	err := vm.Discover()
 	assert.Nil(t, err)
@@ -229,7 +229,7 @@ func TestNewVolumeManager_searchFreeDrive(t *testing.T) {
 
 	// success, got second drive from hwMgrRespDrives
 	hwMgrClient2 := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm2 := NewVolumeManager(hwMgrClient2, e, vmLogger)
 	_ = vm2.Discover()
 	drive2, err2 := vm2.searchFreeDrive(1024 * 1024 * 1024 * 100)
@@ -368,7 +368,7 @@ var (
 
 func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 	c := mocks.NewMockHWMgrClient(drives)
-	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
 	return NewVolumeManager(c, e, vmLogger)
 }
@@ -422,7 +422,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 
 	// expect: setPartitionUUIDForDev fail but partition hadn't created (rollback is no needed)
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices})
+	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	e3.SetSuccessIfNotFound(false)
 	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)
 
@@ -442,7 +442,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	uuid := "uuid-4444"
 	setUUIDCMD := fmt.Sprintf("sgdisk /dev/sdb --partition-guid=1:%s", uuid)
 	deletePartCMD := "parted -s /dev/sdb rm 1"
-	eMap := map[string]mocks.CmdOut{base.LsblkCmd: mocks.LsblkTwoDevices,
+	eMap := map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr},
 		setUUIDCMD:    mocks.EmptyOutFail,
 		deletePartCMD: mocks.EmptyOutFail}
 	e4 := mocks.NewMockExecutor(eMap)
@@ -508,7 +508,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	vm3.volumesCache[uuid] = &api.Volume{Id: uuid, Location: drive1.SerialNumber}
 	deletePartitionCMD := fmt.Sprintf("parted -s %s1 rm 1", "/dev/sda")
 	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{
-		base.LsblkCmd:      mocks.LsblkTwoDevices,
+		base.LsblkCmd:      {Stdout: mocks.LsblkTwoDevicesStr},
 		deletePartitionCMD: mocks.EmptyOutFail,
 	})
 	e3.SetSuccessIfNotFound(false)

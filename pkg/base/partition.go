@@ -15,14 +15,23 @@ type Partitioner interface {
 	GetPartitionUUID(device string) (uuid string, err error)
 }
 
-const PartitionGPT = "gpt"
+const (
+	PartitionGPT                = "gpt"
+	PartprobeDeviceCmdTmpl      = "partprobe -d -s %s"
+	PartprobeCmdTmpl            = "partprobe"
+	CreatePartitionTableCmdTmpl = "parted -s %s mklabel %s"
+	CreatePartitionCmdTmpl      = "parted -s %s mkpart --align optimal CSI 0%% 100%%"
+	DeletePartitionCmdTmpl      = "parted -s %s rm 1"
+	SetPartitionUUIDCmdTmpl     = "sgdisk %s --partition-guid=1:%s"
+	GetPartitionUUIDCmdTmpl     = "sgdisk %s --info=1"
+)
 
 type Partition struct {
 	e CmdExecutor
 }
 
 func (p Partition) IsPartitionExists(device string) (bool, error) {
-	cmd := fmt.Sprintf("partprobe -d -s %s", device)
+	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
 	stdout, _, err := p.e.RunCmd(cmd)
 	if err != nil {
 		return false, fmt.Errorf("unable to check partition existence for %s", device)
@@ -41,7 +50,7 @@ func (p Partition) IsPartitionExists(device string) (bool, error) {
 }
 
 func (p Partition) CreatePartitionTable(device string) error {
-	cmd := fmt.Sprintf("parted -s %s mklabel %s", device, PartitionGPT)
+	cmd := fmt.Sprintf(CreatePartitionTableCmdTmpl, device, PartitionGPT)
 
 	_, _, err := p.e.RunCmd(cmd)
 
@@ -54,7 +63,7 @@ func (p Partition) CreatePartitionTable(device string) error {
 
 // GetPartitionTableType returns string that represent partition table type
 func (p Partition) GetPartitionTableType(device string) (string, error) {
-	cmd := fmt.Sprintf("partprobe -d -s %s", device)
+	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
 	stdout, _, err := p.e.RunCmd(cmd)
 
 	if err != nil {
@@ -70,12 +79,12 @@ func (p Partition) GetPartitionTableType(device string) (string, error) {
 }
 
 func (p Partition) CreatePartition(device string) error {
-	cmd := fmt.Sprintf("parted -s %s mkpart --align optimal CSI 0%% 100%%", device)
+	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, device)
 
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
 		return err
 	}
-	if _, _, err := p.e.RunCmd("partprobe"); err != nil {
+	if _, _, err := p.e.RunCmd(PartprobeCmdTmpl); err != nil {
 		return err
 	}
 
@@ -83,7 +92,7 @@ func (p Partition) CreatePartition(device string) error {
 }
 
 func (p Partition) DeletePartition(device string) error {
-	cmd := fmt.Sprintf("parted -s %s rm 1", device)
+	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device)
 
 	if _, stderr, err := p.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("stderr: %s, error: %v", stderr, err)
@@ -92,7 +101,7 @@ func (p Partition) DeletePartition(device string) error {
 }
 
 func (p Partition) SetPartitionUUID(device, pvcUUID string) error {
-	cmd := fmt.Sprintf("sgdisk %s --partition-guid=1:%s", device, pvcUUID)
+	cmd := fmt.Sprintf(SetPartitionUUIDCmdTmpl, device, pvcUUID)
 
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
 		return err
@@ -102,7 +111,7 @@ func (p Partition) SetPartitionUUID(device, pvcUUID string) error {
 }
 
 func (p Partition) GetPartitionUUID(device string) (string, error) {
-	cmd := fmt.Sprintf("sgdisk %s --info=1", device)
+	cmd := fmt.Sprintf(GetPartitionUUIDCmdTmpl, device)
 	partitionPresentation := "Partition unique GUID:"
 	stdout, _, err := p.e.RunCmd(cmd)
 

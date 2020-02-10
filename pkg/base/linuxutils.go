@@ -55,8 +55,7 @@ func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
 	rawOut := make(map[string][]LsblkOutput, 1)
 	err = json.Unmarshal([]byte(strOut), &rawOut)
 	if err != nil {
-		l.log.Errorf("Could not unmarshal output to LsblkOutput instance, error: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("unable to unmarshal output to LsblkOutput instance, error: %v", err)
 	}
 	res := make([]LsblkOutput, 0)
 	var (

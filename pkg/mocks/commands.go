@@ -2,7 +2,7 @@ package mocks
 
 import "errors"
 
-var err = errors.New("error")
+var Err = errors.New("error")
 var EmptyOutSuccess = CmdOut{
 	Stdout: "",
 	Stderr: "",
@@ -11,7 +11,7 @@ var EmptyOutSuccess = CmdOut{
 var EmptyOutFail = CmdOut{
 	Stdout: "",
 	Stderr: "",
-	Err:    err,
+	Err:    Err,
 }
 
 // DiskCommands is the map that contains Linux commands output
@@ -62,7 +62,7 @@ var DiskCommands = map[string]CmdOut{
 	"sgdisk /dev/sdb --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
 		Stdout: "The operation has completed successfully.",
 		Stderr: "",
-		Err:    err,
+		Err:    Err,
 	},
 	"sgdisk /dev/sda --info=1": {
 		Stdout: `Partition GUID code: 0FC63DAF-8483-4772-8E79-3D69D8477DE4 (Linux filesystem)
@@ -89,14 +89,9 @@ Partition name: 'CSI'`,
 	"sgdisk /dev/sdc --info=1": EmptyOutFail,
 }
 
-var NoLsblkKey = CmdOut{
-	Stdout: `{"anotherKey": [{"name": "/dev/sda", "type": "disk"}]}`,
-	Stderr: "",
-	Err:    nil,
-}
+var NoLsblkKeyStr = `{"anotherKey": [{"name": "/dev/sda", "type": "disk"}]}`
 
-var LsblkTwoDevices = CmdOut{
-	Stdout: `{
+var LsblkTwoDevicesStr = `{
 			  "blockdevices":[{
 				"name": "/dev/sda",
 				"type": "disk",
@@ -106,10 +101,7 @@ var LsblkTwoDevices = CmdOut{
 				"type": "disk",
 				"serial": "hdd2"
 				}]
-			}`,
-	Stderr: "",
-	Err:    nil,
-}
+			}`
 
 var LsblkDevWithChildren = CmdOut{
 	Stdout: `{

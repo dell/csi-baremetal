@@ -1,11 +1,14 @@
 package controller
 
 import (
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var crdCache = AvailableCapacityCache{items: make(map[string]*accrd.AvailableCapacity)}
@@ -13,19 +16,20 @@ var crdCache = AvailableCapacityCache{items: make(map[string]*accrd.AvailableCap
 const capacityID = "node_drive"
 
 func TestCRDCache_Create(t *testing.T) {
+	ns := "default"
 	capacity := &accrd.AvailableCapacity{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "AvailableCapacity",
-			APIVersion: "availablecapacity.dell.com/v1",
+			APIVersion: "availablecapacity.dell.com/metav1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			//Currently capacityID is node id
 			Name:      capacityID,
-			Namespace: namespace,
+			Namespace: ns,
 		},
-		Spec: v1api.AvailableCapacity{
+		Spec: api.AvailableCapacity{
 			Size:     1000,
-			Type:     v1api.StorageClass_ANY,
+			Type:     api.StorageClass_ANY,
 			Location: "drive",
 			NodeId:   "node",
 		},

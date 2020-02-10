@@ -4,43 +4,45 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
-	testTcpEndpoint string         = "tcp://localhost:50051"
-	testUdsEndpoint string         = "unix:///tmp/csi.sock"
-	clientLogger    *logrus.Logger = logrus.New()
+	testTcpEndpoint  string         = "tcp://localhost:50051"
+	testUdsEndpoint  string         = "unix:///tmp/csi.sock"
+	testFailEndpoint string         = "dsf:// df df :sdf"
+	clientLogger     *logrus.Logger = logrus.New()
 )
 
-func TestNewClient(t *testing.T) {
+func TestNewClient_Success(t *testing.T) {
 	client, err := NewClient(nil, testTcpEndpoint, clientLogger)
-	if err != nil {
-		t.FailNow()
-	}
-	if client.Creds != nil {
-		t.Errorf("Creds should be nil")
-	}
-	if client.GRPCClient == nil {
-		t.Errorf("gRPC client must be initialized but got nil")
-	}
-	if client.Endpoint != testTcpEndpoint {
-		t.Error("Endpoints are not equal")
-	}
+	assert.Nil(t, err)
+	assert.Nil(t, client.Creds)
+	assert.NotNil(t, client.GRPCClient)
+	assert.Equal(t, testTcpEndpoint, client.Endpoint)
+}
+
+func TestNewClient_Fail(t *testing.T) {
+	client, err := NewClient(nil, testFailEndpoint, clientLogger)
+	assert.NotNil(t, err)
+	assert.Nil(t, client)
+	assert.Contains(t, err.Error(), "unable to create client")
 }
 
 func TestClientClose(t *testing.T) {
 	client, _ := NewClient(nil, testTcpEndpoint, clientLogger)
 	err := client.Close()
-	if err != nil {
-		t.Errorf("err should be nil, got %v", err)
-	}
+	assert.Nil(t, err)
 }
 
 func TestClient_GetEndpoint(t *testing.T) {
 	c, _ := NewClient(nil, testTcpEndpoint, clientLogger)
-	assert.Equal(t, "localhost:50051", c.GetEndpoint())
+	actual, err := c.GetEndpoint()
+	assert.Nil(t, err)
+	assert.Equal(t, "localhost:50051", actual)
 
 	c, _ = NewClient(nil, testUdsEndpoint, clientLogger)
-	assert.Equal(t, "/tmp/csi.sock", c.GetEndpoint())
+	actual, err = c.GetEndpoint()
+	assert.Nil(t, err)
+	assert.Equal(t, "/tmp/csi.sock", actual)
 }
