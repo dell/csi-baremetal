@@ -214,7 +214,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			APIVersion: "volume.dell.com/v1",
 		},
 		ObjectMeta: v12.ObjectMeta{
-			//Currently volumeId is volume id
+			//Currently volumeId is req.Name
 			Name:      req.Name,
 			Namespace: "default",
 		},
@@ -229,7 +229,13 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	if err != nil {
 		ll.Errorf("Unable to create CRD, error: %v", err)
 	}
-
+	acID := preferredNode + "-" + allocatedDisk
+	availableCapacity := c.availableCapacityCache.Get(acID)
+	err = c.DeleteCRD(ctx, availableCapacity)
+	if err != nil {
+		ll.Errorf("Unable to delete CRD, error: %v", err)
+	}
+	c.availableCapacityCache.Delete(acID)
 	return c.constructCreateVolumeResponse(preferredNode, resp.Capacity, req), nil
 }
 
