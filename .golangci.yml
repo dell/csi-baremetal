@@ -4,7 +4,7 @@ output:
 
 linters-settings:
   lll:
-    line-length: 180
+    line-length: 190
   funlen:
     lines: 180
     statements: 70

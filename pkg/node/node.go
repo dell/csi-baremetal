@@ -46,8 +46,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) NodePublishVolume(ctx context.Context,
-	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodePublishVolume",
 		"volumeID": req.GetVolumeId(),
@@ -83,27 +82,22 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context,
 	}
 	partition := fmt.Sprintf("%s1", bdev)
 
-	ok, _ := scImpl.CreateFileSystem(sc.XFS, partition)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to create file system")
+	rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
+	if err != nil {
+		if !rollBacked {
+			v.Status = api.OperationalStatus_Inoperative
+			// TODO: figure out device status
+			return nil, status.Error(codes.Internal, fmt.Sprintf("unable to publish volume to %s on %s", targetPath, bdev))
+		}
+		return nil, err
 	}
-	ok, _ = scImpl.CreateTargetPath(targetPath)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to create target path")
-	}
-	ok, _ = scImpl.Mount(partition, targetPath)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to mount to target path")
-	}
-
 	v.Status = api.OperationalStatus_Operative
 	ll.Infof("Successfully mount %s to path %s", partition, targetPath)
 
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context,
-	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodeUnpublishVolume",
 		"volumeID": req.GetVolumeId(),
@@ -123,7 +117,8 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context,
 	}
 
 	v := s.volumesCache[req.VolumeId]
-	if ok := s.scMap["hdd"].Unmount(req.TargetPath); !ok {
+	err := s.scMap["hdd"].Unmount(req.TargetPath)
+	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to unmount")
 	}
 

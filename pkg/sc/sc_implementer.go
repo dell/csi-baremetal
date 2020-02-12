@@ -3,15 +3,18 @@ package sc
 // StorageClassImplementer is an interface with different methods for a volume creation depending on Storage Class
 // It should be used across node level operations
 type StorageClassImplementer interface {
-	CreateFileSystem(fsType FileSystem, device string) (bool, error)
-	DeleteFileSystem(device string) (bool, error)
+	CreateFileSystem(fsType FileSystem, device string) error
+	DeleteFileSystem(device string) error
 
-	CreateTargetPath(path string) (bool, error)
-	DeleteTargetPath(path string) (bool, error)
+	CreateTargetPath(path string) error
+	DeleteTargetPath(path string) error
 
 	IsMounted(device, targetPath string) (bool, error)
-	Mount(device, dir string) (bool, error)
-	Unmount(path string) bool
+	Mount(device, dir string) error
+	Unmount(path string) error
+
+	// atomic methods for using in NodePublish
+	PrepareVolume(device, targetPath string) (bool, error)
 }
 
 // FileSystem defines Linux filesystem

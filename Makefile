@@ -11,6 +11,9 @@ CONTROLLER := controller
 
 #all: build image push
 
+# use in clear environment
+prepare-env: install-compile-proto install-hal install-controller-gen generate-deepcopy dependency
+
 dependency:
 	GO111MODULE=on go mod download
 

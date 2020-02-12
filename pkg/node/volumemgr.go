@@ -43,6 +43,10 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 	return vm
 }
 
+func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
+	m.linuxUtils.SetLinuxUtilsExecutor(executor)
+}
+
 // GetLocalVolumes request return array of volumes on node
 func (m *VolumeManager) GetLocalVolumes(context.Context, *api.VolumeRequest) (*api.VolumeResponse, error) {
 	volumes := make([]*api.Volume, len(m.volumesCache))

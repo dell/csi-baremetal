@@ -46,6 +46,10 @@ func NewLinuxUtils(e CmdExecutor, logger *logrus.Logger) *LinuxUtils {
 	return l
 }
 
+func (l *LinuxUtils) SetLinuxUtilsExecutor(executor CmdExecutor) {
+	l.e = executor
+}
+
 func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
 	strOut, strErr, err := l.e.RunCmd(LsblkCmd)
 	if err != nil {
