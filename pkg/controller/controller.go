@@ -48,7 +48,7 @@ func NewControllerService(k8sClient k8sclient.Client, logger *logrus.Logger) *CS
 		Client:                 k8sClient,
 		communicators:          make(map[NodeID]api.VolumeManagerClient),
 		volumeCache:            &VolumesCache{items: make(map[VolumeID]*csiVolume)},
-		availableCapacityCache: &AvailableCapacityCache{items: make(map[string]*accrd.AvailableCapacity)},
+		availableCapacityCache: &AvailableCapacityCache{items: make(map[string]map[string]*accrd.AvailableCapacity)},
 	}
 	c.volumeCache.SetLogger(logger)
 	c.availableCapacityCache.SetLogger(logger)
@@ -72,7 +72,7 @@ func (c *CSIControllerService) updateAvailableCapacityCache(ctx context.Context)
 		for _, ac := range availableCapacity {
 			//name of available capacity crd is node id + drive location
 			name := ac.NodeId + "-" + strings.ToLower(ac.Location)
-			if c.availableCapacityCache.Get(name) == nil {
+			if c.availableCapacityCache.Get(ac.NodeId, ac.Location) == nil {
 				newAC := &accrd.AvailableCapacity{
 					TypeMeta: v12.TypeMeta{
 						Kind:       "AvailableCapacity",
@@ -88,7 +88,7 @@ func (c *CSIControllerService) updateAvailableCapacityCache(ctx context.Context)
 					ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v", ac, err)
 					wasError = true
 				}
-				if err = c.availableCapacityCache.Create(newAC, name); err != nil {
+				if err = c.availableCapacityCache.Create(newAC, ac.NodeId, ac.Location); err != nil {
 					ll.Errorf("Error during available crd addition to cache: %v, error: %v", ac, err)
 					wasError = true
 				}
@@ -169,44 +169,37 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		}
 	}
 
-	var (
-		preferredNode string
-		//drive where volume can be allocated
-		allocatedDisk string
-		requiredBytes = req.GetCapacityRange().GetRequiredBytes()
-	)
+	var availableCapacity *accrd.AvailableCapacity
+	requiredBytes := req.GetCapacityRange().GetRequiredBytes()
 	if req.GetAccessibilityRequirements() != nil {
-		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments["baremetal-csi/nodeid"]
-		ll.Infof("Preferred node: %s", preferredNode)
-		allocatedDisk = c.searchAvailableDriveOnNode(preferredNode, requiredBytes)
-		if allocatedDisk == "" {
-			return nil, status.Errorf(codes.Internal, "there is no suitable drive for volume")
-		}
+		preferredNode := req.GetAccessibilityRequirements().Preferred[0].Segments["baremetal-csi/nodeid"]
+		ll.Infof("Preferred node was provided: %s", preferredNode)
+		availableCapacity = c.searchAvailableDrive(preferredNode, requiredBytes)
 	} else {
-		preferredNode, allocatedDisk = c.searchAvailableDriveAndNode(requiredBytes)
-		ll.Warnf("Preferred node was not provided. Disk %s on node %s was choose.", allocatedDisk, preferredNode)
+		ll.Info("Preferred node wasn't provided, search appropriate node and drive")
+		availableCapacity = c.searchAvailableDrive("", requiredBytes)
 	}
-
-	if allocatedDisk == "" || preferredNode == "" {
+	if availableCapacity == nil {
 		return nil, status.Errorf(codes.Internal, "there is no suitable drive for volume")
 	}
-
-	ll.Infof("Available disk is %s on node %s", allocatedDisk, preferredNode)
-	resp, err := c.communicators[NodeID(preferredNode)].CreateLocalVolume(ctx, &api.CreateLocalVolumeRequest{
+	nodeID := availableCapacity.Spec.NodeId
+	diskLocation := availableCapacity.Spec.Location
+	ll.Infof("Disk with S/N %s on node %s was selected", diskLocation, nodeID)
+	resp, err := c.communicators[NodeID(nodeID)].CreateLocalVolume(ctx, &api.CreateLocalVolumeRequest{
 		PvcUUID:  req.Name,
 		Capacity: requiredBytes,
 		Sc:       "hdd",
-		Location: allocatedDisk,
+		Location: diskLocation,
 	})
 	if err != nil {
 		ll.Errorf("Unable to create volume size of %d bytes on node %s. Error: %v",
-			req.GetCapacityRange().GetRequiredBytes(), preferredNode, err)
-		return nil, status.Errorf(codes.Internal, "Unable to create volume on node %s", preferredNode)
+			req.GetCapacityRange().GetRequiredBytes(), nodeID, err)
+		return nil, status.Errorf(codes.Internal, "Unable to create volume on node %s", nodeID)
 	}
-	ll.Infof("CreateLocalVolume for node %s returned response: %v", preferredNode, resp)
+	ll.Infof("CreateLocalVolume for node %s returned response: %v", nodeID, resp)
 
 	err = c.volumeCache.addVolumeToCache(&csiVolume{
-		NodeID:   preferredNode,
+		NodeID:   nodeID,
 		VolumeID: req.GetName(),
 		Size:     resp.Capacity,
 	}, req.GetName())
@@ -227,7 +220,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		},
 		Spec: api.Volume{
 			Id:       req.Name,
-			Owner:    preferredNode,
+			Owner:    nodeID,
 			Size:     resp.Capacity,
 			Location: resp.Drive,
 		},
@@ -236,45 +229,36 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	if err != nil {
 		ll.Errorf("Unable to create CRD, error: %v", err)
 	}
-	acID := preferredNode + "-" + allocatedDisk
-	availableCapacity := c.availableCapacityCache.Get(acID)
 	err = c.DeleteCRD(ctx, availableCapacity)
 	if err != nil {
 		ll.Errorf("Unable to delete CRD, error: %v", err)
 	}
-	c.availableCapacityCache.Delete(acID)
-	return c.constructCreateVolumeResponse(preferredNode, resp.Capacity, req), nil
+	c.availableCapacityCache.Delete(nodeID, diskLocation)
+	ll.Infof("Delete CRD with on node %s with drive %s", nodeID, diskLocation)
+	return c.constructCreateVolumeResponse(nodeID, resp.Capacity, req), nil
 }
 
-func (c *CSIControllerService) searchAvailableDriveOnNode(preferredNode string, requiredBytes int64) string {
-	var allocatedDisk string
-	var allocatedCapacity int64 = math.MaxInt64
-	for _, capacity := range c.availableCapacityCache.items {
-		//id of available capacity is node id + drive serial number
-		if strings.EqualFold(capacity.Spec.NodeId, preferredNode) {
-			if capacity.Spec.Size < allocatedCapacity && capacity.Spec.Size >= requiredBytes {
-				allocatedCapacity = capacity.Spec.Size
-				allocatedDisk = capacity.Spec.Location
+func (c *CSIControllerService) searchAvailableDrive(preferredNode string, requiredBytes int64) *accrd.AvailableCapacity {
+	var (
+		allocatedCapacity int64 = math.MaxInt64
+		foundAC           *accrd.AvailableCapacity
+		maxLen            = 0
+	)
+	if preferredNode == "" {
+		for nodeID, ac := range c.availableCapacityCache.items {
+			if len(ac) > maxLen {
+				preferredNode = nodeID
+				maxLen = len(ac)
 			}
 		}
 	}
-	return allocatedDisk
-}
-
-// searchAvailableDriveAndNode search appropriate drive with capacity >= requiredBytes
-// returns NodeID and drive location - S/N
-func (c *CSIControllerService) searchAvailableDriveAndNode(requiredBytes int64) (string, string) {
-	var acInst *accrd.AvailableCapacity
-	for _, ac := range c.availableCapacityCache.items {
-		if ac.Spec.Size >= requiredBytes && (acInst == nil || ac.Spec.Size < acInst.Spec.Size) {
-			acInst = ac
+	for _, capacity := range c.availableCapacityCache.items[preferredNode] {
+		if capacity.Spec.Size < allocatedCapacity && capacity.Spec.Size >= requiredBytes {
+			foundAC = capacity
+			allocatedCapacity = capacity.Spec.Size
 		}
 	}
-
-	if acInst == nil {
-		return "", ""
-	}
-	return acInst.Spec.NodeId, acInst.Spec.Location
+	return foundAC
 }
 
 func (c *CSIControllerService) constructCreateVolumeResponse(node string, capacity int64,

@@ -47,6 +47,7 @@ var (
 
 	testDriveLocation1 = "drive"
 	testDriveLocation2 = "drive1-sn1"
+	testDriveLocation3 = "drive2"
 	testNode4Name      = "preferredNode"
 	// valid pod
 	testPod1 = &v12.Pod{
@@ -99,6 +100,17 @@ var (
 			Size:     1024 * 1024,
 			Type:     api.StorageClass_HDD,
 			Location: testDriveLocation2,
+			NodeId:   testNode4Name,
+		},
+	}
+
+	testAC3 = accrd.AvailableCapacity{
+		TypeMeta:   v13.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
+		ObjectMeta: v13.ObjectMeta{Name: testName, Namespace: testNs},
+		Spec: api.AvailableCapacity{
+			Size:     1024 * 1024 * 2,
+			Type:     api.StorageClass_HDD,
+			Location: testDriveLocation3,
 			NodeId:   testNode4Name,
 		},
 	}
@@ -227,29 +239,42 @@ var _ = Describe("CSIControllerService addition functions", func() {
 		})
 	})
 
-	Context("searchAvailableDriveOnNode scenarios", func() {
+	Context("searchAvailableDrive scenarios", func() {
 		It("Found ac with drive-node1 id", func() {
 			addAC(svc)
 			requiredCapacity := int64(900)
-			drive := svc.searchAvailableDriveOnNode(testNode1Name, requiredCapacity)
-			Expect(testDriveLocation1).To(Equal(drive))
+			drive := svc.searchAvailableDrive(testNode1Name, requiredCapacity)
+			Expect(testDriveLocation1).To(Equal(drive.Spec.Location))
 		})
 		It("Found ac with preferredNode-drive1-sn1 id", func() {
 			addAC(svc)
 			requiredCapacity := int64(2000)
-			drive := svc.searchAvailableDriveOnNode(testNode4Name, requiredCapacity)
-			Expect(testDriveLocation2).To(Equal(drive))
+			drive := svc.searchAvailableDrive(testNode4Name, requiredCapacity)
+			Expect(testDriveLocation2).To(Equal(drive.Spec.Location))
 
 		})
 		It("Couldn't find any ac because of requiredCapacity", func() {
 			addAC(svc)
-			drive := svc.searchAvailableDriveOnNode(testNode1Name, 1024*1024*2)
-			Expect("").To(Equal(drive))
+			drive := svc.searchAvailableDrive(testNode1Name, 1024*1024*2)
+			Expect(drive).To(BeNil())
 		})
 		It("Couldn't find any ac because of preferred node", func() {
 			addAC(svc)
-			drive := svc.searchAvailableDriveOnNode("node", 1024)
-			Expect("").To(Equal(drive))
+			drive := svc.searchAvailableDrive("node", 1024)
+			Expect(drive).To(BeNil())
+		})
+		It("Choose preferred node", func() {
+			addAC(svc)
+			err := svc.availableCapacityCache.Create(&testAC3, testNode4Name, testDriveLocation3)
+			Expect(err).To(BeNil())
+			drive := svc.searchAvailableDrive("", 1024)
+			Expect(*drive).To(Equal(testAC2))
+		})
+		It("No available capacity", func() {
+			drive := svc.searchAvailableDrive("", 1024)
+			Expect(drive).To(BeNil())
+			drive = svc.searchAvailableDrive(testNode4Name, 1024)
+			Expect(drive).To(BeNil())
 		})
 	})
 	Context("updateAvailableCapacity scenarios", func() {
@@ -544,13 +569,13 @@ func createPods(s *CSIControllerService, pods ...*v12.Pod) {
 
 // add available capacity to svc cache
 func addAC(s *CSIControllerService) {
-	err := s.availableCapacityCache.Create(&testAC, testNode1Name+"-"+testDriveLocation1)
+	err := s.availableCapacityCache.Create(&testAC, testNode1Name, testDriveLocation1)
 	if err != nil {
-		Fail(fmt.Sprintf("uable to create ac %s", testNode1Name+"-"+testDriveLocation1))
+		Fail(fmt.Sprintf("uable to create ac %s, %s", testNode1Name, testDriveLocation1))
 	}
-	err = s.availableCapacityCache.Create(&testAC2, testNode4Name+"-"+testDriveLocation2)
+	err = s.availableCapacityCache.Create(&testAC2, testNode4Name, testDriveLocation2)
 	if err != nil {
-		Fail(fmt.Sprintf("unable to create ac %s", testNode4Name+"-"+testDriveLocation2))
+		Fail(fmt.Sprintf("unable to create ac %s, %s", testNode4Name, testDriveLocation2))
 	}
 }
 

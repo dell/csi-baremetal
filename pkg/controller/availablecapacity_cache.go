@@ -11,7 +11,8 @@ import (
 
 //AvailableCapacityCache store AvailableCapacity CRD for controller service
 type AvailableCapacityCache struct {
-	items map[string]*accrd.AvailableCapacity
+	//key - Node ID, value - map with key - drive location (S/N for hdd/sdd) and value - pointer to the available capacity obj
+	items map[string]map[string]*accrd.AvailableCapacity
 	sync.RWMutex
 	log *logrus.Entry
 }
@@ -20,39 +21,50 @@ func (c *AvailableCapacityCache) SetLogger(logger *logrus.Logger) {
 	c.log = logger.WithField("component", "AvailableCapacityCache")
 }
 
-func (c *AvailableCapacityCache) Get(id string) *accrd.AvailableCapacity {
+func (c *AvailableCapacityCache) Get(nodeID string, location string) *accrd.AvailableCapacity {
 	c.RLock()
 	defer c.RUnlock()
-	crd, ok := c.items[id]
+	if c.items[nodeID] == nil {
+		logrus.Infof("Available capacity %s, %s is not found in items", nodeID, location)
+		return nil
+	}
+	crd, ok := c.items[nodeID][location]
 	if ok {
-		logrus.Infof("Available capacity %s is found in items", id)
+		logrus.Infof("Available capacity %s, %s is found in items", nodeID, location)
 	} else {
-		logrus.Infof("Available capacity %s is not found in items", id)
+		logrus.Infof("Available capacity %s, %s is not found in items", nodeID, location)
 	}
 	return crd
 }
 
-func (c *AvailableCapacityCache) Create(obj *accrd.AvailableCapacity, id string) error {
+func (c *AvailableCapacityCache) Create(obj *accrd.AvailableCapacity, nodeID string, location string) error {
 	c.Lock()
 	defer c.Unlock()
-	if _, ok := c.items[id]; ok {
-		logrus.Errorf("AvailableCapacity %s already exists in items", id)
-		return status.Errorf(codes.AlreadyExists, "AvailableCapacity with the same id: %s already exist", id)
+	if c.items[nodeID] == nil {
+		c.items[nodeID] = make(map[string]*accrd.AvailableCapacity)
 	}
-	c.items[id] = obj
-	logrus.Infof("AvailableCapacity %s is added to items", id)
+	if _, ok := c.items[nodeID][location]; ok {
+		logrus.Errorf("AvailableCapacity %s, %s already exists in items", nodeID, location)
+		return status.Errorf(codes.AlreadyExists, "AvailableCapacity with the same id: %s, %s already exist", nodeID, location)
+	}
+	c.items[nodeID][location] = obj
+	logrus.Infof("AvailableCapacity %s, %s is added to items", nodeID, location)
 	return nil
 }
 
-func (c *AvailableCapacityCache) Update(obj *accrd.AvailableCapacity, id string) {
+func (c *AvailableCapacityCache) Update(obj *accrd.AvailableCapacity, nodeID string, location string) {
 	c.Lock()
 	defer c.Unlock()
-	c.items[id] = obj
-	logrus.Infof("AvailableCapacity %s is added to items", id)
+	if c.items[nodeID] != nil {
+		c.items[nodeID][location] = obj
+		logrus.Infof("AvailableCapacity %s, %s is added to items", nodeID, location)
+	}
 }
 
-func (c *AvailableCapacityCache) Delete(id string) {
+func (c *AvailableCapacityCache) Delete(nodeID string, location string) {
 	c.Lock()
 	defer c.Unlock()
-	delete(c.items, id)
+	if c.items[nodeID] != nil {
+		delete(c.items[nodeID], location)
+	}
 }
