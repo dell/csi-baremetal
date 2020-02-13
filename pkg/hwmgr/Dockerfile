@@ -16,8 +16,7 @@ RUN     zypper --no-gpg-checks --non-interactive addrepo http://asdrepo.isus.emc
 &&      zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal-devel/${HAL_VERSION}-go.SLES/viprhal-devel-${HAL_VERSION}.SLES.x86_64.rpm
 
 # Set active template as ecs_generic
-RUN     cp /opt/emc/hal/etc/ecs_generic.xml /opt/emc/hal/etc/active_template.xml \
-&&      echo enable_iscsi=true > /opt/emc/hal/etc/.hal_override
+RUN     cp /opt/emc/hal/etc/ecs_generic.xml /opt/emc/hal/etc/active_template.xml
 
 ADD     hwmgr hw-manager
 
