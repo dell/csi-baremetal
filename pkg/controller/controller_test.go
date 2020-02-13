@@ -169,6 +169,29 @@ var _ = Describe("CSIControllerService manipulations with CRD", func() {
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("\"%s\" not found", name)))
 		})
+
+		It("Construct Volume CRD instance", func() {
+			vol := &api.Volume{
+				Id:       testName,
+				Owner:    "pod",
+				Size:     1000,
+				Type:     "Type",
+				Location: "location",
+			}
+			crd := svc.constructVolumeCRD(testName, testNs, vol)
+			Expect(crd).To(Equal(&testVolume))
+		})
+
+		It("Construct AvailableCapacity CRD instance", func() {
+			ac := &api.AvailableCapacity{
+				Size:     1024 * 1024,
+				Type:     api.StorageClass_HDD,
+				Location: testDriveLocation1,
+				NodeId:   testNode1Name,
+			}
+			crd := svc.constructAvailableCapacityCRD(testName, testNs, ac)
+			Expect(crd).To(Equal(&testAC))
+		})
 	})
 
 	Context("Update Available Capacity instance", func() {
@@ -494,15 +517,14 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).To(Equal(status.Error(codes.Internal, "response for delete local volume is not ok")))
 		})
-	})
 
-	Context("Success scenarios", func() {
-		It("Volume was delete successful", func() {
+		It("DeleteLocalVolume doesn't return local volume", func() {
 			mc := &mocks.VolumeMgrClientMock{}
 			// prepare communicator
 			svc.communicators[NodeID(node)] = mc
 			dlReq := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
-			dlResp := &api.DeleteLocalVolumeResponse{Ok: true}
+
+			dlResp := &api.DeleteLocalVolumeResponse{Ok: true, Volume: nil}
 			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
 
 			// prepare cache
@@ -513,9 +535,72 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			}, uuid)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
+			Expect(resp).To(BeNil())
+			Expect(err).To(Equal(status.Error(codes.Internal, "delete local volume didn't return local volume from node")))
+		})
+
+		It("VolumeCRD isn't found on cluster", func() {
+			mc := &mocks.VolumeMgrClientMock{}
+			// prepare communicator
+			svc.communicators[NodeID(node)] = mc
+			dlReq := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
+
+			localVolume := &api.Volume{
+				Id:       uuid,
+				Owner:    node,
+				Size:     capacity,
+				Location: testDriveLocation1,
+			}
+
+			dlResp := &api.DeleteLocalVolumeResponse{Ok: true, Volume: localVolume}
+			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
+
+			// prepare cache
+			_ = svc.volumeCache.addVolumeToCache(&csiVolume{
+				NodeID:   node,
+				VolumeID: uuid,
+				Size:     capacity,
+			}, uuid)
+
+			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
+			Expect(resp).To(BeNil())
+			Expect(err.Error()).To(ContainSubstring("can't delete volume crd:"))
+		})
+	})
+
+	Context("Success scenarios", func() {
+		It("Volume was delete successful", func() {
+			mc := &mocks.VolumeMgrClientMock{}
+			// prepare communicator
+			svc.communicators[NodeID(node)] = mc
+			dlReq := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
+
+			localVolume := &api.Volume{
+				Id:       uuid,
+				Owner:    node,
+				Size:     capacity,
+				Location: testDriveLocation1,
+			}
+
+			dlResp := &api.DeleteLocalVolumeResponse{Ok: true, Volume: localVolume}
+			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
+
+			// prepare cache
+			_ = svc.volumeCache.addVolumeToCache(&csiVolume{
+				NodeID:   node,
+				VolumeID: uuid,
+				Size:     capacity,
+			}, uuid)
+
+			// create volume crd to delete
+			volumeCrd := svc.constructVolumeCRD(uuid, "default", localVolume)
+			_ = svc.CreateCRD(testCtx, volumeCrd, "default", uuid)
+
+			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
 			Expect(len(svc.volumeCache.items)).To(Equal(0))
+			Expect(len(svc.availableCapacityCache.items)).To(Equal(1))
 		})
 	})
 })

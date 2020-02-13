@@ -10,6 +10,7 @@ import (
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 	"github.com/stretchr/testify/assert"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -402,7 +403,7 @@ func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.True(t, resp.Ok)
-	assert.Equal(t, "/dev/sdb", resp.Drive)
+	assert.Equal(t, "hdd2", resp.Drive)
 	assert.Equal(t, drive2.Size, resp.Capacity)
 
 }
@@ -472,6 +473,11 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 
 func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+
+	scImplMock := &sc.ImplementerMock{}
+	scImplMock.On("DeleteFileSystem", "/dev/sdb").Return(nil).Times(1)
+	vm.scMap[SCName("hdd")] = scImplMock
+
 	uuid := "uuid-1111"
 	vm.volumesCache[uuid] = &api.Volume{Id: uuid, Location: drive2.SerialNumber}
 

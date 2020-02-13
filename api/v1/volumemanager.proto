@@ -90,6 +90,7 @@ message DeleteLocalVolumeRequest {
 
 message DeleteLocalVolumeResponse {
     bool ok = 1;
+    Volume volume = 2;
 }
 
 service VolumeManager {

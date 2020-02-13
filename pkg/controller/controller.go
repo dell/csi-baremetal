@@ -73,17 +73,7 @@ func (c *CSIControllerService) updateAvailableCapacityCache(ctx context.Context)
 			//name of available capacity crd is node id + drive location
 			name := ac.NodeId + "-" + strings.ToLower(ac.Location)
 			if c.availableCapacityCache.Get(ac.NodeId, ac.Location) == nil {
-				newAC := &accrd.AvailableCapacity{
-					TypeMeta: v12.TypeMeta{
-						Kind:       "AvailableCapacity",
-						APIVersion: "availablecapacity.dell.com/v1",
-					},
-					ObjectMeta: v12.ObjectMeta{
-						Name:      name,
-						Namespace: "default",
-					},
-					Spec: *ac,
-				}
+				newAC := c.constructAvailableCapacityCRD(name, "default", ac)
 				if err := c.CreateCRD(ctx, newAC, "default", name); err != nil {
 					ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v", ac, err)
 					wasError = true
@@ -208,23 +198,13 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		ll.Errorf("Unable to place volume in items: %v", err)
 		return nil, status.Errorf(codes.Internal, "volume was created but seems like same volume was created before")
 	}
-	vol := &volumecrd.Volume{
-		TypeMeta: v12.TypeMeta{
-			Kind:       "Volume",
-			APIVersion: "volume.dell.com/v1",
-		},
-		ObjectMeta: v12.ObjectMeta{
-			//Currently volumeId is req.Name
-			Name:      req.Name,
-			Namespace: "default",
-		},
-		Spec: api.Volume{
-			Id:       req.Name,
-			Owner:    nodeID,
-			Size:     resp.Capacity,
-			Location: resp.Drive,
-		},
-	}
+
+	vol := c.constructVolumeCRD(req.Name, "default", &api.Volume{
+		Id:       req.Name,
+		Owner:    nodeID,
+		Size:     resp.Capacity,
+		Location: resp.Drive,
+	})
 	err = c.CreateCRD(ctx, vol, "default", req.Name)
 	if err != nil {
 		ll.Errorf("Unable to create CRD, error: %v", err)
@@ -305,6 +285,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 	}
 
 	node := volume.NodeID
+
 	resp, err := c.communicators[NodeID(node)].DeleteLocalVolume(ctx, &api.DeleteLocalVolumeRequest{
 		PvcUUID: req.VolumeId,
 	})
@@ -316,7 +297,46 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 	if !resp.Ok {
 		return nil, status.Error(codes.Internal, "response for delete local volume is not ok")
 	}
+
+	localVolume := resp.GetVolume()
+	ll.Infof("Got local volume %v from node %s", localVolume, node)
+	if localVolume == nil {
+		return nil, status.Error(codes.Internal, "delete local volume didn't return local volume from node")
+	}
+
+	volumeCRD := c.constructVolumeCRD(req.VolumeId, "default", &api.Volume{
+		Id:       req.VolumeId,
+		Owner:    node,
+		Size:     localVolume.Size,
+		Location: localVolume.Location,
+	})
+	err = c.DeleteCRD(ctx, volumeCRD)
+	if err != nil {
+		ll.Errorf("Delete CRD failed with error: %s", err.Error())
+		return nil, status.Errorf(codes.Internal, "can't delete volume crd: %s", err.Error())
+	}
+
 	c.volumeCache.deleteVolumeByID(req.VolumeId)
+
+	ac := &api.AvailableCapacity{
+		Size:     localVolume.Size,
+		Type:     api.StorageClass_ANY,
+		Location: localVolume.Location,
+		NodeId:   node,
+	}
+
+	name := node + "-" + strings.ToLower(localVolume.Location)
+	if c.availableCapacityCache.Get(node, localVolume.Location) == nil {
+		crd := c.constructAvailableCapacityCRD(name, "default", ac)
+		if err := c.CreateCRD(ctx, crd, "default", name); err != nil {
+			ll.Errorf("Can't create AvailableCapacity CRD %v error: %v", crd, err)
+		}
+		err = c.availableCapacityCache.Create(crd, node, localVolume.Location)
+		if err != nil {
+			ll.Errorf("Error during available capacity addition to cache: %v, error: %v", *ac, err)
+		}
+	}
+
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
@@ -410,6 +430,35 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 
 func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+}
+
+func (c *CSIControllerService) constructAvailableCapacityCRD(name string, ns string, ac *api.AvailableCapacity) *accrd.AvailableCapacity {
+	return &accrd.AvailableCapacity{
+		TypeMeta: v12.TypeMeta{
+			Kind:       "AvailableCapacity",
+			APIVersion: "availablecapacity.dell.com/v1",
+		},
+		ObjectMeta: v12.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: *ac,
+	}
+}
+
+func (c *CSIControllerService) constructVolumeCRD(name string, ns string, vol *api.Volume) *volumecrd.Volume {
+	return &volumecrd.Volume{
+		TypeMeta: v12.TypeMeta{
+			Kind:       "Volume",
+			APIVersion: "volume.dell.com/v1",
+		},
+		ObjectMeta: v12.ObjectMeta{
+			//Currently volumeId is volume id
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: *vol,
+	}
 }
 
 func (c *CSIControllerService) CreateCRD(ctx context.Context, obj runtime.Object, namespace string, name string) error {

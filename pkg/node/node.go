@@ -7,7 +7,6 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
@@ -23,7 +22,6 @@ type SCName string
 
 type CSINodeService struct {
 	VolumeManager
-	scMap  map[SCName]sc.StorageClassImplementer
 	NodeID string
 	log    *logrus.Entry
 }
@@ -31,7 +29,6 @@ type CSINodeService struct {
 func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger) *CSINodeService {
 	s := &CSINodeService{
 		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger),
-		scMap:         map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance(logger)},
 		NodeID:        nodeID,
 	}
 	s.log = logger.WithField("component", "CSINodeService")

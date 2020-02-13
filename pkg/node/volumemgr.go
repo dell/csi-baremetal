@@ -14,6 +14,7 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,6 +30,8 @@ type VolumeManager struct {
 	drivesCache map[string]*api.Drive
 	dCacheMu    sync.Mutex
 
+	scMap map[SCName]sc.StorageClassImplementer
+
 	linuxUtils *base.LinuxUtils
 	log        *logrus.Entry
 }
@@ -41,6 +44,7 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 		drivesCache:            make(map[string]*api.Drive),
 		linuxUtils:             base.NewLinuxUtils(executor, logger),
 		availableCapacityCache: make(map[string]*api.AvailableCapacity),
+		scMap:                  map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance(logger)},
 	}
 	vm.log = logger.WithField("component", "VolumeManager")
 	return vm
@@ -320,7 +324,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 		Status:       api.OperationalStatus_Staging, // becomes operative in NodePublishCall
 	}
 
-	return &api.CreateLocalVolumeResponse{Drive: device, Capacity: drive.Size, Ok: true}, nil
+	return &api.CreateLocalVolumeResponse{Drive: drive.SerialNumber, Capacity: drive.Size, Ok: true}, nil
 }
 
 // searchDrivePathBySN returns drive path based on drive S/N
@@ -444,7 +448,16 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 		return &api.DeleteLocalVolumeResponse{Ok: false}, wErr
 	}
 
+	scImpl := m.scMap[SCName("hdd")]
+	err = scImpl.DeleteFileSystem(device)
+	if err != nil {
+		wErr := fmt.Errorf("failed to wipefs device, error: %v", err)
+		ll.Errorf("%v, set operational status - fail to remove", wErr)
+		volume.Status = api.OperationalStatus_FailToRemove
+		return &api.DeleteLocalVolumeResponse{Ok: false}, wErr
+	}
+
 	delete(m.volumesCache, volume.Id)
 
-	return &api.DeleteLocalVolumeResponse{Ok: true}, nil
+	return &api.DeleteLocalVolumeResponse{Ok: true, Volume: volume}, nil
 }
