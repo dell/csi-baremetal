@@ -31,16 +31,16 @@ void runTests() {
     common.node(label: common.JENKINS_LABELS.FLEX_CI, time: 180) {
         String workspace = pwd()
         try {
-            stage('Prepare iscsi') {
-                sh("zypper install -y open-iscsi")
-                containerId = sh(script: "docker run -d --net=host ${registry}/itt:latest itt -p 127.0.0.1 -t 127.0.0.1:5230 -d /opt/emc/etc/itt/dev_ecs-test.xml",
-                                 returnStdout: true);
-                sh("""
-                   service iscsid start
-                   iscsiadm --mode discovery --type=sendtargets --portal 127.0.0.1
-                   iscsiadm --mode node --portal 127.0.0.1:3260 --login
-                """)
-            }
+//             stage('Prepare iscsi') {
+//                 sh("zypper install -y open-iscsi")
+//                 containerId = sh(script: "docker run -d --net=host ${registry}/itt:latest itt -p 127.0.0.1 -t 127.0.0.1:5230 -d /opt/emc/etc/itt/dev_ecs-test.xml",
+//                                  returnStdout: true);
+//                 sh("""
+//                    service iscsid start
+//                    iscsiadm --mode discovery --type=sendtargets --portal 127.0.0.1
+//                    iscsiadm --mode node --portal 127.0.0.1:3260 --login
+//                 """)
+//             }
             common.withInfraDevkitContainerKind() {
                 stage('Git clone') {
                      scmData = checkout scm
@@ -57,57 +57,105 @@ void runTests() {
                          ]
                      }
                 }
-                stage('Image Pulling') {
-                     //e2e tests need busybox:1.29 for testing pods
-                     sh("""
-                        docker pull ${registry}/csi-provisioner:v1.2.2
-                        docker pull ${registry}/csi-attacher:v1.0.1
-                        docker pull busybox:1.29
-                        docker pull ${registry}/csi-node-driver-registrar:v1.0.1-gke.0
-                        docker pull ${registry}/baremetal-csi-plugin-controller:${csiTag}
-                        docker pull ${registry}/baremetal-csi-plugin-node:${csiTag}
-                        docker pull ${registry}/baremetal-csi-plugin-hwmgr:${csiTag}
-                        """);
+                stage('Get dependencies') {
+                    depExitCode = sh(script: '''
+                                        make install-compile-proto
+                                        make install-hal
+                                        make install-controller-gen
+                                        make generate-deepcopy
+                                        make dependency
+                                     ''', returnStatus: true)
+                    if (depExitCode != 0) {
+                        currentBuild.result = 'FAILURE'
+                        throw new Exception("Get dependencies stage failed, check logs")
+                    }
+                 }
+
+                stage('Lint') {
+                    lintExitCode = sh(script: 'make lint', returnStatus: true)
+                    if (lintExitCode != 0) {
+                        currentBuild.result = 'FAILURE'
+                        throw new Exception("Lint stage failed, check logs")
+                    }
                 }
-                 //E2E tests can't work with helm, so we need to provide prepared yaml files for it
-                 stage('Prepare YAML for e2e tests'){
-                     dir('baremetal-csi-plugin'){
-                         sh("helm template charts/baremetal-csi-plugin/ "+
-                             "--output-dir /tmp --set image.tag=${csiTag} "+
-                             "--set image.pullPolicy=IfNotPresent")
-                     }
-                 }
-                 stage('Create Kind cluster') {
-                      dir('baremetal-csi-plugin'){
-                           sh("""
-                              kind create cluster --kubeconfig /root/.kube/config --config config.yaml
-                              kind load docker-image ${registry}/csi-provisioner:v1.2.2
-                              kind load docker-image ${registry}/csi-attacher:v1.0.1
-                              kind load docker-image ${registry}/csi-node-driver-registrar:v1.0.1-gke.0
-                              kind load docker-image ${registry}/baremetal-csi-plugin-controller:${csiTag}
-                              kind load docker-image ${registry}/baremetal-csi-plugin-node:${csiTag}
-                              kind load docker-image ${registry}/baremetal-csi-plugin-hwmgr:${csiTag}
-                              kind load docker-image busybox:1.29
-                              kubectl config set-context \"kind-kind\"
-                              """)
-                      }
-                 }
-                 stage('E2E testing') {
-                      dir('baremetal-csi-plugin'){
-                           output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true);
-                           println output
-                           if (!(output.contains("FAIL"))){
-                                testResultSuccess = true
-                           }
-                      }
-                 }
-                 stage('Delete kind cluster') {
-                     dir('baremetal-csi-plugin'){
-                         sh('kind delete cluster')
-                     }
-                 }
+
+                stage('Build') {
+                    buildExitCode = sh(script: 'make build', returnStatus: true)
+                    if (buildExitCode != 0) {
+                        currentBuild.result = 'FAILURE'
+                        throw new Exception("Build stage failed, check logs")
+                    }
+                }
+
+                stage('Test and Coverage') {
+                    testExitCode = sh(script: 'make test', returnStatus: true)
+                    //split because our make test fails and make coverage isn't invoked during sh()
+                    coverageExitCode = sh(script: 'make coverage', returnStatus: true)
+                    if ((testExitCode != 0) || (coverageExitCode != 0)) {
+                        currentBuild.result = 'FAILURE'
+                        throw new Exception("Test and Coverage stage failed, check logs")
+                    }
+                }
+
+                stage('Make image') {
+                    imageExitCode = sh(script: 'make image', returnStatus: true)
+                    if (imageExitCode != 0) {
+                        currentBuild.result = 'FAILURE'
+                        throw new Exception("Image stage failed, check logs")
+                    }
+                }
+//                 stage('Image Pulling') {
+//                      //e2e tests need busybox:1.29 for testing pods
+//                      sh("""
+//                         docker pull ${registry}/csi-provisioner:v1.2.2
+//                         docker pull ${registry}/csi-attacher:v1.0.1
+//                         docker pull busybox:1.29
+//                         docker pull ${registry}/csi-node-driver-registrar:v1.0.1-gke.0
+//                         docker pull ${registry}/baremetal-csi-plugin-controller:${csiTag}
+//                         docker pull ${registry}/baremetal-csi-plugin-node:${csiTag}
+//                         docker pull ${registry}/baremetal-csi-plugin-hwmgr:${csiTag}
+//                         """);
+//                 }
+//                  //E2E tests can't work with helm, so we need to provide prepared yaml files for it
+//                  stage('Prepare YAML for e2e tests'){
+//                      dir('baremetal-csi-plugin'){
+//                          sh("helm template charts/baremetal-csi-plugin/ "+
+//                              "--output-dir /tmp --set image.tag=${csiTag} "+
+//                              "--set image.pullPolicy=IfNotPresent")
+//                      }
+//                  }
+//                  stage('Create Kind cluster') {
+//                       dir('baremetal-csi-plugin'){
+//                            sh("""
+//                               kind create cluster --kubeconfig /root/.kube/config --config config.yaml
+//                               kind load docker-image ${registry}/csi-provisioner:v1.2.2
+//                               kind load docker-image ${registry}/csi-attacher:v1.0.1
+//                               kind load docker-image ${registry}/csi-node-driver-registrar:v1.0.1-gke.0
+//                               kind load docker-image ${registry}/baremetal-csi-plugin-controller:${csiTag}
+//                               kind load docker-image ${registry}/baremetal-csi-plugin-node:${csiTag}
+//                               kind load docker-image ${registry}/baremetal-csi-plugin-hwmgr:${csiTag}
+//                               kind load docker-image busybox:1.29
+//                               kubectl config set-context \"kind-kind\"
+//                               """)
+//                       }
+//                  }
+//                  stage('E2E testing') {
+//                       dir('baremetal-csi-plugin'){
+//                            output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true);
+//                            println output
+//                            if (!(output.contains("FAIL"))){
+//                                 testResultSuccess = true
+//                            }
+//                       }
+//                  }
+//                  stage('Delete kind cluster') {
+//                      dir('baremetal-csi-plugin'){
+//                          sh('kind delete cluster')
+//                      }
+//                  }
                  stage('Image retagging'){
-                     if (testResultSuccess && (args.runMode == RUN_MODE_MASTER)){
+                     //if (testResultSuccess && (args.runMode == RUN_MODE_MASTER)){
+                     if (args.runMode == RUN_MODE_MASTER){
                           harbor.retagCSIImages(args.harborProject, args.csiTag, 'latest')
                           String repo = 'baremetal-csi-plugin'
                           DockerImage sourceImage = new DockerImage(registry: DockerRegistries.ASDREPO_ECS_REGISTRY, repo: repo, tag: args.csiTag)
@@ -116,17 +164,17 @@ void runTests() {
                      }
                  }
             }
-            allGood=true
+//            allGood=true
         }
         finally {
-            sh("""
-               iscsiadm --mode node --portal 127.0.0.1:3260 --logout
-               iscsiadm --mode node --portal 127.0.0.1:3260 --op delete
-               docker rm -f ${containerId}
-            """)
-            if (!testResultSuccess || !allGood) {
-                common.setBuildFailure()
-            }
+//             sh("""
+//                iscsiadm --mode node --portal 127.0.0.1:3260 --logout
+//                iscsiadm --mode node --portal 127.0.0.1:3260 --op delete
+//                docker rm -f ${containerId}
+//             """)
+//             if (!testResultSuccess || !allGood) {
+//                 common.setBuildFailure()
+//             }
             common.slackSend(channel: args.slackChannel)
         }
     }
