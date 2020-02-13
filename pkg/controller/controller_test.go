@@ -227,28 +227,28 @@ var _ = Describe("CSIControllerService addition functions", func() {
 		})
 	})
 
-	Context("searchAvailableDrive scenarios", func() {
+	Context("searchAvailableDriveOnNode scenarios", func() {
 		It("Found ac with drive-node1 id", func() {
 			addAC(svc)
 			requiredCapacity := int64(900)
-			drive := svc.searchAvailableDrive(testNode1Name, requiredCapacity)
+			drive := svc.searchAvailableDriveOnNode(testNode1Name, requiredCapacity)
 			Expect(testDriveLocation1).To(Equal(drive))
 		})
 		It("Found ac with preferredNode-drive1-sn1 id", func() {
 			addAC(svc)
 			requiredCapacity := int64(2000)
-			drive := svc.searchAvailableDrive(testNode4Name, requiredCapacity)
+			drive := svc.searchAvailableDriveOnNode(testNode4Name, requiredCapacity)
 			Expect(testDriveLocation2).To(Equal(drive))
 
 		})
 		It("Couldn't find any ac because of requiredCapacity", func() {
 			addAC(svc)
-			drive := svc.searchAvailableDrive(testNode1Name, 1024*1024*2)
+			drive := svc.searchAvailableDriveOnNode(testNode1Name, 1024*1024*2)
 			Expect("").To(Equal(drive))
 		})
 		It("Couldn't find any ac because of preferred node", func() {
 			addAC(svc)
-			drive := svc.searchAvailableDrive("node", 1024)
+			drive := svc.searchAvailableDriveOnNode("node", 1024)
 			Expect("").To(Equal(drive))
 		})
 	})
@@ -332,18 +332,6 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Controller service was not initialized"))
-		})
-
-		It("AccessibilityRequirements is nil", func() {
-			addAC(svc)
-			req := &csi.CreateVolumeRequest{
-				Name:               "some-name-1",
-				VolumeCapabilities: make([]*csi.VolumeCapability, 0),
-			}
-			createPods(svc, testPod1) // init communicators
-			resp, err := svc.CreateVolume(context.Background(), req)
-			Expect(resp).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("Preferred node must be provided"))
 		})
 
 		It("Communicator on CreateLocalVolume request returns error", func() {

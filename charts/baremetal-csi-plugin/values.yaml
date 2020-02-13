@@ -1,6 +1,6 @@
 # Docker registry to pull images
 global:
-  registry: 10.244.120.194:8085/atlantic
+  registry: 10.244.120.194:8085/atlantic  # asdrepo.isus.emc.com:8085/atlantic
 
 # Storage Class name that provisions PVs dynamically
 storageClass:
@@ -21,13 +21,11 @@ image:
 
 controller:
   image:
-    #tag: latest
-    pullPolicy: Always
+    tag:
 
 node:
   image:
-    #tag: latest
-    pullPolicy: Always
+    tag:
   grpc:
     client:
       hwmgr:
@@ -35,8 +33,7 @@ node:
 
 hwmgr:
   image:
-    #tag: latest
-    pullPolicy: Always
+    tag:
   grpc:
     server:
       endpoint: tcp://localhost:8888

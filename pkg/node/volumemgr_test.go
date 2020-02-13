@@ -64,13 +64,25 @@ func TestVolumeManager_GetAvailableCapacitySuccess(t *testing.T) {
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger)
-	err := vm.Discover()
-	assert.Nil(t, err)
+	assert.Empty(t, vm.drivesCache)
 	const nodeId = "node"
 	ac, err := vm.GetAvailableCapacity(context.Background(), &api.AvailableCapacityRequest{NodeId: nodeId})
+	// since drivesCache(during discover method) was not initialized we expect that drivesCache
+	// will be initialized in GetAvailableCapacity method
+	assert.Equal(t, 2, len(vm.drivesCache))
 	assert.NotNil(t, ac.GetAvailableCapacity())
 	assert.Equal(t, 2, len(ac.GetAvailableCapacity()))
 	assert.Nil(t, err)
+}
+
+func TestVolumeManager_GetAvailableCapacityFail(t *testing.T) {
+	// expect that Discover return errors
+	hwMgrClient := mocks.MockHWMgrClientFail{}
+	vm := NewVolumeManager(hwMgrClient, nil, vmLogger)
+	const nodeId = "node"
+	ac, err := vm.GetAvailableCapacity(context.Background(), &api.AvailableCapacityRequest{NodeId: nodeId})
+	assert.NotNil(t, err)
+	assert.Nil(t, ac)
 }
 
 func TestVolumeManager_DrivesNotInUse(t *testing.T) {
@@ -370,7 +382,12 @@ func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 	c := mocks.NewMockHWMgrClient(drives)
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
-	return NewVolumeManager(c, e, vmLogger)
+	nVM := NewVolumeManager(c, e, vmLogger)
+	// prepare drives cache
+	if err := nVM.Discover(); err != nil {
+		return nil
+	}
+	return nVM
 }
 
 func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
@@ -396,6 +413,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	sn := "will-not-be-found"
 	drive3 := &api.Drive{Size: 1024 * 1024 * 1024 * 50, SerialNumber: sn}
 	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2, drive3})
+
 	req2 := &api.CreateLocalVolumeRequest{
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 45, // expect drive3 here

@@ -17,6 +17,7 @@ spec:
       # ********************** DRIVER-REGISTRAR sidecar container definition **********************
       - name: csi-node-driver-registrar
         image: {{ .Values.global.registry }}/csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
           - "--v=5"
           - "--csi-address=$(ADDRESS)"
@@ -42,16 +43,12 @@ spec:
             mountPath: /registration
       # ********************** baremetal-csi-node container definition **********************
       - name: node
-      {{- if .Values.node.image.tag }}
+        {{- if .Values.node.image.tag }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ .Values.node.image.tag }}
-      {{- else }}
+        {{- else }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ .Values.image.tag }}
-      {{- end }}
-      {{- if .Values.node.image.pullPolicy }}
-        imagePullPolicy: {{ .Values.node.image.pullPolicy }}
-      {{- else }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-      {{- end }}
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
@@ -94,16 +91,12 @@ spec:
       # ********************** baremetal-csi-hwmgr container definition **********************
       # TODO: FABRIC-8595 Replace HWManager to DaemonSet
       - name: hwmgr
-      {{- if .Values.hwmgr.image.tag }}
+        {{- if .Values.hwmgr.image.tag }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-hwmgr:{{ .Values.hwmgr.image.tag }}
-      {{- else }}
+        {{- else }}
         image: {{ .Values.global.registry }}/baremetal-csi-plugin-hwmgr:{{ .Values.image.tag }}
-      {{- end }}
-      {{- if .Values.hwmgr.image.pullPolicy }}
-        imagePullPolicy: {{ .Values.hwmgr.image.pullPolicy }}
-      {{- else }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-      {{- end }}
         args:
         {{- if .Values.hwmgr.grpc.server.endpoint }}
           - --hwmgrendpoint={{ .Values.hwmgr.grpc.server.endpoint }}

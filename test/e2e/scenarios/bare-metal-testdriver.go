@@ -59,9 +59,10 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 
 	manifests := []string{
 		"controller-rbac.yaml",
+		"node-rbac.yaml",
 		"baremetal-csi-controller.yaml",
-		"driver-registrar-rbac.yaml",
-		"baremetal-csi-plugin.yaml",
+		"baremetal-csi-node.yaml",
+		"baremetal-csi-sc.yaml",
 	}
 
 	cleanup, err := f.CreateFromManifests(nil, manifests...)

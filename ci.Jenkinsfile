@@ -25,7 +25,7 @@ void runTests() {
     String output = ''
     final String RUN_MODE_MASTER = 'master'
     final String RUN_MODE_CUSTOM = 'custom'
-    final String registry = "asdrepo.isus.emc.com:8085/atlantic"
+    final String registry = "10.244.120.194:8085/atlantic"  // asdrepo.isus.emc.com:8085/atlantic
     String containerId = ''
     boolean allGood = false
     common.node(label: common.JENKINS_LABELS.FLEX_CI, time: 180) {
@@ -62,10 +62,11 @@ void runTests() {
                      sh("""
                         docker pull ${registry}/csi-provisioner:v1.2.2
                         docker pull ${registry}/csi-attacher:v1.0.1
-                        docker pull ${registry}/csi-cluster-driver-registrar:v1.0.1
                         docker pull busybox:1.29
                         docker pull ${registry}/csi-node-driver-registrar:v1.0.1-gke.0
-                        docker pull ${registry}/baremetal-csi-plugin:${csiTag}
+                        docker pull ${registry}/baremetal-csi-plugin-controller:${csiTag}
+                        docker pull ${registry}/baremetal-csi-plugin-node:${csiTag}
+                        docker pull ${registry}/baremetal-csi-plugin-hwmgr:${csiTag}
                         """);
                 }
                  //E2E tests can't work with helm, so we need to provide prepared yaml files for it
@@ -73,7 +74,6 @@ void runTests() {
                      dir('baremetal-csi-plugin'){
                          sh("helm template charts/baremetal-csi-plugin/ "+
                              "--output-dir /tmp --set image.tag=${csiTag} "+
-                             "--set busybox.image.tag=1.29 "+
                              "--set image.pullPolicy=IfNotPresent")
                      }
                  }
@@ -83,17 +83,18 @@ void runTests() {
                               kind create cluster --kubeconfig /root/.kube/config --config config.yaml
                               kind load docker-image ${registry}/csi-provisioner:v1.2.2
                               kind load docker-image ${registry}/csi-attacher:v1.0.1
-                              kind load docker-image ${registry}/csi-cluster-driver-registrar:v1.0.1
-                              kind load docker-image busybox:1.29
                               kind load docker-image ${registry}/csi-node-driver-registrar:v1.0.1-gke.0
-                              kind load docker-image ${registry}/baremetal-csi-plugin:${csiTag}
+                              kind load docker-image ${registry}/baremetal-csi-plugin-controller:${csiTag}
+                              kind load docker-image ${registry}/baremetal-csi-plugin-node:${csiTag}
+                              kind load docker-image ${registry}/baremetal-csi-plugin-hwmgr:${csiTag}
+                              kind load docker-image busybox:1.29
                               kubectl config set-context \"kind-kind\"
                               """)
                       }
                  }
                  stage('E2E testing') {
                       dir('baremetal-csi-plugin'){
-                           output = sh(script: 'go run cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true);
+                           output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true);
                            println output
                            if (!(output.contains("FAIL"))){
                                 testResultSuccess = true

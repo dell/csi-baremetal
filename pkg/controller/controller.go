@@ -58,8 +58,7 @@ func NewControllerService(k8sClient k8sclient.Client, logger *logrus.Logger) *CS
 
 func (c *CSIControllerService) updateAvailableCapacityCache(ctx context.Context) error {
 	ll := c.log.WithFields(logrus.Fields{
-		"component": "controller",
-		"method":    "updateAvailableCapacityCache",
+		"method": "updateAvailableCapacityCache",
 	})
 	wasError := false
 	for nodeID, mgr := range c.communicators {
@@ -69,7 +68,7 @@ func (c *CSIControllerService) updateAvailableCapacityCache(ctx context.Context)
 			wasError = true
 		}
 		availableCapacity := response.GetAvailableCapacity()
-		logrus.Info("Available capacity: ", availableCapacity)
+		ll.Info("Current available capacity is: ", availableCapacity)
 		for _, ac := range availableCapacity {
 			//name of available capacity crd is node id + drive location
 			name := ac.NodeId + "-" + strings.ToLower(ac.Location)
@@ -170,20 +169,28 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		}
 	}
 
-	var preferredNode string
+	var (
+		preferredNode string
+		//drive where volume can be allocated
+		allocatedDisk string
+		requiredBytes = req.GetCapacityRange().GetRequiredBytes()
+	)
 	if req.GetAccessibilityRequirements() != nil {
 		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments["baremetal-csi/nodeid"]
 		ll.Infof("Preferred node: %s", preferredNode)
+		allocatedDisk = c.searchAvailableDriveOnNode(preferredNode, requiredBytes)
+		if allocatedDisk == "" {
+			return nil, status.Errorf(codes.Internal, "there is no suitable drive for volume")
+		}
 	} else {
-		ll.Errorf("Preferred node must be provided. Check that driver's volumeBindingMode is WaitForFirstConsumer")
-		return nil, status.Error(codes.InvalidArgument, "Preferred node must be provided.")
+		preferredNode, allocatedDisk = c.searchAvailableDriveAndNode(requiredBytes)
+		ll.Warnf("Preferred node was not provided. Disk %s on node %s was choose.", allocatedDisk, preferredNode)
 	}
-	requiredBytes := req.GetCapacityRange().GetRequiredBytes()
-	//drive where volume can be allocated
-	allocatedDisk := c.searchAvailableDrive(preferredNode, requiredBytes)
-	if allocatedDisk == "" {
+
+	if allocatedDisk == "" || preferredNode == "" {
 		return nil, status.Errorf(codes.Internal, "there is no suitable drive for volume")
 	}
+
 	ll.Infof("Available disk is %s on node %s", allocatedDisk, preferredNode)
 	resp, err := c.communicators[NodeID(preferredNode)].CreateLocalVolume(ctx, &api.CreateLocalVolumeRequest{
 		PvcUUID:  req.Name,
@@ -239,7 +246,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	return c.constructCreateVolumeResponse(preferredNode, resp.Capacity, req), nil
 }
 
-func (c *CSIControllerService) searchAvailableDrive(preferredNode string, requiredBytes int64) string {
+func (c *CSIControllerService) searchAvailableDriveOnNode(preferredNode string, requiredBytes int64) string {
 	var allocatedDisk string
 	var allocatedCapacity int64 = math.MaxInt64
 	for _, capacity := range c.availableCapacityCache.items {
@@ -252,6 +259,22 @@ func (c *CSIControllerService) searchAvailableDrive(preferredNode string, requir
 		}
 	}
 	return allocatedDisk
+}
+
+// searchAvailableDriveAndNode search appropriate drive with capacity >= requiredBytes
+// returns NodeID and drive location - S/N
+func (c *CSIControllerService) searchAvailableDriveAndNode(requiredBytes int64) (string, string) {
+	var acInst *accrd.AvailableCapacity
+	for _, ac := range c.availableCapacityCache.items {
+		if ac.Spec.Size >= requiredBytes && (acInst == nil || ac.Spec.Size < acInst.Spec.Size) {
+			acInst = ac
+		}
+	}
+
+	if acInst == nil {
+		return "", ""
+	}
+	return acInst.Spec.NodeId, acInst.Spec.Location
 }
 
 func (c *CSIControllerService) constructCreateVolumeResponse(node string, capacity int64,

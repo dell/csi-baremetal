@@ -9,6 +9,9 @@ import (
 	"strings"
 	"sync"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"github.com/sirupsen/logrus"
@@ -60,6 +63,17 @@ func (m *VolumeManager) GetLocalVolumes(context.Context, *api.VolumeRequest) (*a
 
 // GetAvailableCapacity request return array of free capacity on node
 func (m *VolumeManager) GetAvailableCapacity(ctx context.Context, req *api.AvailableCapacityRequest) (*api.AvailableCapacityResponse, error) {
+	// TODO: quick hack, here we should be sure that drives cache has been filled
+	// TODO: m.Discover() should be the flag that node service pod is ready AK8S-65
+	if len(m.drivesCache) == 0 {
+		m.log.Info("Drives Cache has been initialized. Initialize it ...")
+		err := m.Discover()
+		if err != nil {
+			m.log.Errorf("unable to perform first Discover and fills drivesCache, error: %v", err)
+			return nil, status.Error(codes.Internal, "Node service are not ready")
+		}
+	}
+
 	if err := m.DiscoverAvailableCapacity(req.NodeId); err != nil {
 		return nil, err
 	}
@@ -179,7 +193,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*api.Drive) error {
 	return nil
 }
 
-//DiscoverAvailableCapacity inspect current available capacity on nodes and fill cache
+// DiscoverAvailableCapacity inspect current available capacity on nodes and fill cache
 func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
@@ -265,16 +279,6 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 	ll.Infof("Processing request: %v", req)
 
 	resp := &api.CreateLocalVolumeResponse{Drive: "", Capacity: 0, Ok: false}
-
-	// TODO: quick hack, here we should be sure that drives cache has been filled
-	// TODO: m.Discover() should be the flag that node service pod is ready AK8S-65
-	if len(m.drivesCache) == 0 {
-		ll.Info("Drives Cache has been initialized. Initialize it ...")
-		err := m.Discover()
-		if err != nil {
-			return resp, fmt.Errorf("unable to perform first Discover and fills drivesCache, error: %v", err)
-		}
-	}
 
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()
