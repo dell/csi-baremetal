@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -18,6 +19,11 @@ type cmdAndResult struct {
 }
 
 func TestExecutorFromStrWithoutError(t *testing.T) {
+	// here we run some real shell command that wouldn't work on windows os
+	if runtime.GOOS == "windows" {
+		return
+	}
+
 	var cmdPass = []cmdAndResult{
 		{"echo", "\n", "", nil},
 		{"echo 123", "123\n", "", nil},
@@ -37,6 +43,11 @@ func TestExecutorFromStrWithoutError(t *testing.T) {
 }
 
 func TestExecutorFromStrAndExpectError(t *testing.T) {
+	// here we run some real shell command that wouldn't work on windows os
+	if runtime.GOOS == "windows" {
+		return
+	}
+
 	var cmdErr = []cmdAndResult{
 		{"false", "", "", errors.New("exit status 1")},
 		{2, "", "", errors.New("could not interpret command from 2")},

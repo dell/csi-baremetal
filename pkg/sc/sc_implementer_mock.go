@@ -28,8 +28,8 @@ func (m *ImplementerMock) DeleteTargetPath(path string) error {
 	return args.Error(0)
 }
 
-func (m *ImplementerMock) IsMounted(device, targetPath string) (bool, error) {
-	args := m.Mock.Called(device, targetPath)
+func (m *ImplementerMock) IsMounted(device string) (bool, error) {
+	args := m.Mock.Called(device)
 	return args.Bool(0), args.Error(1)
 }
 

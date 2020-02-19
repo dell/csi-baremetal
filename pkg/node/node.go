@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 
@@ -51,9 +52,6 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 
 	ll.Infof("Processing request: %v", req)
 
-	s.vCacheMu.Lock()
-	defer s.vCacheMu.Unlock()
-
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -65,10 +63,20 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	v := s.volumesCache[req.VolumeId]
-	if v == nil {
+	v, ok := s.getFromVolumeCache(req.VolumeId)
+	if !ok {
 		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
 	}
+
+	// OperationalStatus_Created means that volumes was created (setPartitionUUID) but it is a first NodePublish reuest
+	if v.Status == api.OperationalStatus_Publishing ||
+		v.Status == api.OperationalStatus_Published ||
+		v.Status == api.OperationalStatus_FailedToCreate {
+		return s.pullPublishStatus(ctx, v.Id)
+	}
+
+	ll.Info("Set status to Publishing")
+	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Publishing)
 
 	scImpl := s.scMap[SCName("hdd")]
 	targetPath := req.TargetPath
@@ -79,19 +87,59 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 	partition := fmt.Sprintf("%s1", bdev)
 
-	rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
-	if err != nil {
-		if !rollBacked {
-			v.Status = api.OperationalStatus_Inoperative
-			// TODO: figure out device status
-			return nil, status.Error(codes.Internal, fmt.Sprintf("unable to publish volume to %s on %s", targetPath, bdev))
+	ll.Info("Create file system and mount in background")
+	go func() {
+		rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
+		if err != nil {
+			ll.Infof("PrepareVolume failed: %v, set status to FailedToPublish", err)
+			if !rollBacked {
+				ll.Error("Try to rollBack again")
+			}
+			s.setVolumeStatus(req.VolumeId, api.OperationalStatus_FailedToPublish)
+		} else {
+			ll.Info("PreparedVolume finished successfully, set status to Published")
+			s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Published)
 		}
-		return nil, err
-	}
-	v.Status = api.OperationalStatus_Operative
-	ll.Infof("Successfully mount %s to path %s", partition, targetPath)
+	}()
 
-	return &csi.NodePublishVolumeResponse{}, nil
+	return s.pullPublishStatus(ctx, v.Id)
+}
+
+func (s *CSINodeService) pullPublishStatus(ctx context.Context, volumeID string) (*csi.NodePublishVolumeResponse, error) {
+	ll := s.log.WithFields(logrus.Fields{
+		"method":   "pullPublishStatus",
+		"volumeID": volumeID,
+	})
+
+	var vol, _ = s.getFromVolumeCache(volumeID)
+	ll.Infof("Current status: %s", api.OperationalStatus_name[int32(vol.Status)])
+
+	for {
+		select {
+		case <-ctx.Done():
+			ll.Warnf("Context is done and volume still not become Published, current status %s",
+				api.OperationalStatus_name[int32(vol.Status)])
+			return nil, status.Error(codes.Internal, "volume is still publishing")
+		case <-time.After(time.Second):
+			vol, _ = s.getFromVolumeCache(volumeID)
+			switch vol.Status {
+			case api.OperationalStatus_Publishing:
+				{
+					time.Sleep(time.Second)
+				}
+			case api.OperationalStatus_Published:
+				{
+					ll.Info("Volume was published, return it")
+					return &csi.NodePublishVolumeResponse{}, nil
+				}
+			case api.OperationalStatus_FailedToPublish:
+				{
+					ll.Errorf("Failed to publish volume %s", volumeID)
+					return nil, fmt.Errorf("failed to publish volume %s", volumeID)
+				}
+			}
+		}
+	}
 }
 
 func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
@@ -102,9 +150,6 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 
 	ll.Infof("Processing request: %v", req)
 
-	s.vCacheMu.Lock()
-	defer s.vCacheMu.Unlock()
-
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -113,13 +158,17 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	v := s.volumesCache[req.VolumeId]
+	_, ok := s.getFromVolumeCache(req.VolumeId)
+	if !ok {
+		return nil, status.Error(codes.Internal, "Unable to find volume")
+	}
+
 	err := s.scMap["hdd"].Unmount(req.TargetPath)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to unmount")
 	}
 
-	v.Status = api.OperationalStatus_ReadyToRemove
+	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_ReadyToRemove)
 	ll.Infof("volume was successfully unmount from %s", req.TargetPath)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil

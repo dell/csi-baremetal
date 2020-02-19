@@ -36,7 +36,7 @@ func main() {
 
 	logger, err := base.InitLogger(*logPath, logLevel)
 	if err != nil {
-		fmt.Printf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
+		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
 
 	logger.Info("Starting Node Service")

@@ -41,13 +41,23 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	assert.Equal(t, len(vm.volumesCache), 0)
 }
 
+func TestNewVolumeManager_SetExecutor(t *testing.T) {
+	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{}, logrus.New())
+	vm.SetExecutor(mocks.EmptyExecutorFail{})
+	res, err := vm.linuxUtils.Lsblk("disk")
+	assert.Nil(t, res)
+	assert.NotNil(t, err)
+}
+
 func TestVolumeManager_SetLinuxUtilsExecutor(t *testing.T) {
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(nil, e, vmLogger)
 
 	out, err := vm.linuxUtils.Lsblk(base.DriveTypeDisk)
 	assert.NotNil(t, out)
-	assert.Equal(t, len(*out), 2)
+	if out != nil {
+		assert.Equal(t, len(*out), 2)
+	}
 	assert.Nil(t, err)
 }
 
@@ -71,8 +81,12 @@ func TestVolumeManager_GetAvailableCapacitySuccess(t *testing.T) {
 	// since drivesCache(during discover method) was not initialized we expect that drivesCache
 	// will be initialized in GetAvailableCapacity method
 	assert.Equal(t, 2, len(vm.drivesCache))
-	assert.NotNil(t, ac.GetAvailableCapacity())
-	assert.Equal(t, 2, len(ac.GetAvailableCapacity()))
+	assert.NotNil(t, ac)
+	if ac != nil {
+		assert.NotNil(t, ac.GetAvailableCapacity())
+		assert.Equal(t, 2, len(ac.GetAvailableCapacity()))
+	}
+
 	assert.Nil(t, err)
 }
 
@@ -419,17 +433,19 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 45, // expect drive3 here
 		Sc:       "hdd",
-		Location: "will-not-be-found",
 	}
 	resp2, err2 := vm2.CreateLocalVolume(context.Background(), req2)
 	assert.NotNil(t, resp2)
-	assert.False(t, resp2.Ok)
+	if resp2 != nil {
+		assert.False(t, resp2.Ok)
+	}
 	assert.NotNil(t, err2)
 	assert.Equal(t, fmt.Errorf("unable to find drive path by S/N %s", sn), err2)
 
 	// expect: setPartitionUUIDForDev fail but partition hadn't created (rollback is no needed)
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr},
+		fmt.Sprintf("partprobe -d -s /dev/sda"): {Err: errors.New("partprobe -d -s /dev/sda failed")}})
 	e3.SetSuccessIfNotFound(false)
 	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)
 
@@ -441,9 +457,11 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	}
 	resp3, err3 := vm3.CreateLocalVolume(context.Background(), req3)
 	assert.NotNil(t, resp3)
-	assert.False(t, resp3.Ok)
+	if resp3 != nil {
+		assert.False(t, resp3.Ok)
+	}
 	assert.NotNil(t, err3)
-	assert.Contains(t, err3.Error(), "unable to check partition existence for")
+	assert.Contains(t, err3.Error(), "unable to create local volume")
 
 	// expect: setPartitionUUIDForDev fail partition was created and rollback was failed too
 	vm4 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
@@ -465,9 +483,11 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	}
 	resp4, err4 := vm4.CreateLocalVolume(context.Background(), req4)
 	assert.NotNil(t, resp4)
-	assert.False(t, resp4.Ok)
+	if resp4 != nil {
+		assert.False(t, resp4.Ok)
+	}
 	assert.NotNil(t, err4)
-	assert.Equal(t, mocks.EmptyOutFail.Err, err4)
+	assert.Contains(t, err4.Error(), fmt.Sprintf("unable to create local volume %s", uuid))
 	assert.Equal(t, vm4.drivesCache[drive2.SerialNumber].Status, api.Status_OFFLINE)
 }
 

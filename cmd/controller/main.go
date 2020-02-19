@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -29,8 +29,10 @@ var (
 )
 
 const (
-	driverName = "baremetal-csi"
-	version    = "0.0.1"
+	driverName        = "baremetal-csi"
+	version           = "0.0.1"
+	timeoutBeforeInit = 15
+	attemptsToInit    = 5
 )
 
 func main() {
@@ -45,7 +47,7 @@ func main() {
 
 	logger, err := base.InitLogger(*logPath, logLevel)
 	if err != nil {
-		fmt.Printf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
+		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
 
 	logger.Info("Starting controller ...")
@@ -54,6 +56,21 @@ func main() {
 
 	k8sC := prepareCRD()
 	controllerService := controller.NewControllerService(k8sC, logger)
+
+	logger.Infof("Wait %d seconds before start controller initialization in %d attempts",
+		timeoutBeforeInit, attemptsToInit)
+	for i := 1; i <= attemptsToInit; i++ {
+		time.Sleep(timeoutBeforeInit * time.Second)
+		if err = controllerService.InitController(); err != nil {
+			if i == attemptsToInit {
+				logger.Fatal(err)
+			}
+			logger.Errorf("Failed to Init Controller: %v, attempt %d out of %d", err, i, attemptsToInit)
+		} else {
+			logger.Info("Controller was initialized.")
+			break
+		}
+	}
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version, true))
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)

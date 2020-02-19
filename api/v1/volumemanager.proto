@@ -27,6 +27,13 @@ enum OperationalStatus {
     FailToRemove = 6;
     Removed = 7;
     Maintenance = 8;
+    Creating = 9;
+    Created = 10;
+    FailedToCreate = 11;
+    FailedToRemove = 13;
+    Publishing = 14;
+    Published = 15;
+    FailedToPublish = 16;
 }
 
 enum Mode {

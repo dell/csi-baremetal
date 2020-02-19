@@ -76,6 +76,6 @@ spec:
         emptyDir: {}
       - name: socket-dir
         hostPath:
-          path: /tmp/baremetal-csi
+          path: /var/baremetal-csi/controller
           type: DirectoryOrCreate
 {{- end }}

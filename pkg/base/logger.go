@@ -3,7 +3,6 @@ package base
 import (
 	"os"
 
-	// TODO: implement own formatter
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
 )

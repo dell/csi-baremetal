@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -56,6 +57,7 @@ func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
 
 // GetLocalVolumes request return array of volumes on node
 func (m *VolumeManager) GetLocalVolumes(context.Context, *api.VolumeRequest) (*api.VolumeResponse, error) {
+	m.log.WithField("method", "GetLocalVolumes").Info("Processing ...")
 	volumes := make([]*api.Volume, len(m.volumesCache))
 	i := 0
 	for _, v := range m.volumesCache {
@@ -69,6 +71,7 @@ func (m *VolumeManager) GetLocalVolumes(context.Context, *api.VolumeRequest) (*a
 func (m *VolumeManager) GetAvailableCapacity(ctx context.Context, req *api.AvailableCapacityRequest) (*api.AvailableCapacityResponse, error) {
 	// TODO: quick hack, here we should be sure that drives cache has been filled
 	// TODO: m.Discover() should be the flag that node service pod is ready AK8S-65
+	m.log.WithField("method", "GetAvailableCapacity").Info("Processing ...")
 	if len(m.drivesCache) == 0 {
 		m.log.Info("Drives Cache has been initialized. Initialize it ...")
 		err := m.Discover()
@@ -112,6 +115,7 @@ func (m *VolumeManager) updateDrivesCache(discoveredDrives []*api.Drive) {
 		"component": "VolumeManager",
 		"method":    "updateDrivesCache",
 	})
+	ll.Info("Processing ...")
 
 	m.dCacheMu.Lock()
 	defer m.dCacheMu.Unlock()
@@ -155,6 +159,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*api.Drive) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "updateVolumesCache",
 	})
+	ll.Info("Processing")
 
 	// explore each drive from freeDrives
 	lsblk, err := m.linuxUtils.Lsblk(base.DriveTypeDisk)
@@ -250,6 +255,7 @@ func (m *VolumeManager) drivesAreNotUsed() []*api.Drive {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "drivesAreNotUsed",
 	})
+	ll.Info("Processing")
 
 	// search drives that don't have parent volume
 	drivesNotInUse := make([]*api.Drive, 0)
@@ -284,35 +290,31 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 
 	resp := &api.CreateLocalVolumeResponse{Drive: "", Capacity: 0, Ok: false}
 
-	m.vCacheMu.Lock()
-	defer m.vCacheMu.Unlock()
+	// TODO: should read from Volume CRD AK8S-170
+	if vol, ok := m.getFromVolumeCache(req.PvcUUID); ok {
+		ll.Infof("Found volume in cache with status: %s", api.OperationalStatus_name[int32(vol.Status)])
+		return m.pullCreateLocalVolume(ctx, vol.Id)
+	}
 
 	var drive *api.Drive
 	var err error
 	if req.Location != "" {
+		ll.Infof("Info about drive location was provided, location is %s", req.Location)
 		drive = m.drivesCache[req.Location]
 	} else {
+		ll.Info("Location was not provided, search free drive ...")
 		drive, err = m.searchFreeDrive(req.Capacity)
 		if err != nil {
 			return resp, err
 		}
 	}
+	ll.Infof("Search device file")
 	device, err := m.searchDrivePathBySN(drive.SerialNumber)
 	if err != nil {
 		return resp, err
 	}
-	ll.Infof("Choose device: %s", device)
 
-	rollBacked, err := m.setPartitionUUIDForDev(device, req.PvcUUID)
-	if err != nil {
-		if !rollBacked {
-			ll.Errorf("unable set partition uuid for dev %s, roll back failed too, set drive status to OFFLINE", device)
-			m.drivesCache[drive.SerialNumber].Status = api.Status_OFFLINE
-		}
-		return resp, err
-	}
-
-	m.volumesCache[req.PvcUUID] = &api.Volume{
+	m.setVolumeCacheValue(req.PvcUUID, &api.Volume{
 		Id:           req.PvcUUID,
 		Owner:        "",
 		Size:         drive.Size,
@@ -322,9 +324,65 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 		Type:         "", // TODO: set that filed to FSType
 		Health:       api.Health_GOOD,
 		Status:       api.OperationalStatus_Staging, // becomes operative in NodePublishCall
-	}
+	})
 
-	return &api.CreateLocalVolumeResponse{Drive: drive.SerialNumber, Capacity: drive.Size, Ok: true}, nil
+	ll.Infof("Create partition on device %s and set UUID in background", device)
+	go func() {
+		rollBacked, err := m.setPartitionUUIDForDev(device, req.PvcUUID)
+		if err != nil {
+			if !rollBacked {
+				ll.Errorf("unable set partition uuid for dev %s, roll back failed too, set drive status to OFFLINE", device)
+				m.drivesCache[drive.SerialNumber].Status = api.Status_OFFLINE
+			}
+			ll.Infof("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
+			m.setVolumeStatus(req.PvcUUID, api.OperationalStatus_FailedToCreate)
+		} else {
+			ll.Info("Partition UUID was set successfully, set volume status to Created")
+			m.setVolumeStatus(req.PvcUUID, api.OperationalStatus_Created)
+		}
+	}()
+
+	return m.pullCreateLocalVolume(ctx, req.PvcUUID)
+}
+
+func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID string) (*api.CreateLocalVolumeResponse, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "pullCreatedLocalVolume",
+		"volumeID": volumeID,
+	})
+	ll.Infof("Pulling status, current: %s", api.OperationalStatus_name[int32(m.getVolumeStatus(volumeID))])
+
+	var (
+		currStatus api.OperationalStatus
+		vol        *api.Volume
+	)
+	for {
+		select {
+		case <-ctx.Done():
+			ll.Errorf("Context was closed set volume %s status to FailedToCreate", vol.Location)
+			m.setVolumeStatus(volumeID, api.OperationalStatus_FailedToCreate)
+		case <-time.After(time.Second):
+			vol, _ = m.getFromVolumeCache(volumeID)
+			currStatus = vol.Status
+			switch currStatus {
+			case api.OperationalStatus_Creating:
+				{
+					ll.Info("Volume is in Creating state, continue pulling")
+				}
+			case api.OperationalStatus_Created:
+				{
+					ll.Info("Volume was became Created, return it")
+					return &api.CreateLocalVolumeResponse{Drive: vol.Location, Capacity: vol.Size, Ok: true}, nil
+				}
+			case api.OperationalStatus_FailedToCreate:
+				{
+					ll.Info("Volume was became FailedToCreate, return it and try to restrore.")
+					return &api.CreateLocalVolumeResponse{Ok: false},
+						fmt.Errorf("unable to create local volume %s size of %d", vol.Id, vol.Size)
+				}
+			}
+		}
+	}
 }
 
 // searchDrivePathBySN returns drive path based on drive S/N
@@ -351,6 +409,11 @@ func (m *VolumeManager) searchDrivePathBySN(sn string) (string, error) {
 
 // searchFreeDrive search drive in drives cache with appropriate capacity
 func (m *VolumeManager) searchFreeDrive(capacity int64) (*api.Drive, error) {
+	m.log.WithField("method", "searchFreeDrive").Info("Processing ...")
+
+	m.dCacheMu.Lock()
+	defer m.dCacheMu.Unlock()
+
 	freeDrives := m.drivesAreNotUsed()
 	minSize := int64(math.MaxInt64)
 	var drive *api.Drive
@@ -372,6 +435,8 @@ func (m *VolumeManager) searchFreeDrive(capacity int64) (*api.Drive, error) {
 // will try to rollback operation, returns error and roll back operation status (bool)
 // if error occurs, status value will show whether device has roll back to the initial state
 func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (rollBacked bool, err error) {
+	m.log.WithField("method", "setPartitionUUIDForDev").
+		Infof("Processing for device %s, uuid - %s", device, uuid)
 	var exist bool
 	rollBacked = true
 
@@ -459,5 +524,31 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 
 	delete(m.volumesCache, volume.Id)
 
+	m.log.Infof("Volume was successfully deleted")
 	return &api.DeleteLocalVolumeResponse{Ok: true, Volume: volume}, nil
+}
+
+// TODO: remove that methods when AK8S-170 will be closed
+func (m *VolumeManager) getFromVolumeCache(key string) (*api.Volume, bool) {
+	m.vCacheMu.Lock()
+	v, ok := m.volumesCache[key]
+	m.vCacheMu.Unlock()
+	return v, ok
+}
+
+func (m *VolumeManager) setVolumeCacheValue(key string, vol *api.Volume) {
+	m.vCacheMu.Lock()
+	m.volumesCache[key] = vol
+	m.vCacheMu.Unlock()
+}
+
+func (m *VolumeManager) getVolumeStatus(key string) api.OperationalStatus {
+	v, _ := m.getFromVolumeCache(key)
+	return v.Status
+}
+
+func (m *VolumeManager) setVolumeStatus(key string, newStatus api.OperationalStatus) {
+	v, _ := m.getFromVolumeCache(key)
+	v.Status = newStatus
+	m.setVolumeCacheValue(key, v)
 }

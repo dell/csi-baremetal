@@ -25,14 +25,14 @@ func (c *AvailableCapacityCache) Get(nodeID string, location string) *accrd.Avai
 	c.RLock()
 	defer c.RUnlock()
 	if c.items[nodeID] == nil {
-		logrus.Infof("Available capacity %s, %s is not found in items", nodeID, location)
+		c.log.Infof("Available capacity %s, %s is not found in items", nodeID, location)
 		return nil
 	}
 	crd, ok := c.items[nodeID][location]
 	if ok {
-		logrus.Infof("Available capacity %s, %s is found in items", nodeID, location)
+		c.log.Debugf("Available capacity %s, %s is found in items", nodeID, location)
 	} else {
-		logrus.Infof("Available capacity %s, %s is not found in items", nodeID, location)
+		c.log.Debugf("Available capacity %s, %s is not found in items", nodeID, location)
 	}
 	return crd
 }
@@ -44,11 +44,11 @@ func (c *AvailableCapacityCache) Create(obj *accrd.AvailableCapacity, nodeID str
 		c.items[nodeID] = make(map[string]*accrd.AvailableCapacity)
 	}
 	if _, ok := c.items[nodeID][location]; ok {
-		logrus.Errorf("AvailableCapacity %s, %s already exists in items", nodeID, location)
+		c.log.Errorf("AvailableCapacity %s, %s already exists in items", nodeID, location)
 		return status.Errorf(codes.AlreadyExists, "AvailableCapacity with the same id: %s, %s already exist", nodeID, location)
 	}
 	c.items[nodeID][location] = obj
-	logrus.Infof("AvailableCapacity %s, %s is added to items", nodeID, location)
+	c.log.Infof("AvailableCapacity %s, %s is added to items", nodeID, location)
 	return nil
 }
 
@@ -57,7 +57,7 @@ func (c *AvailableCapacityCache) Update(obj *accrd.AvailableCapacity, nodeID str
 	defer c.Unlock()
 	if c.items[nodeID] != nil {
 		c.items[nodeID][location] = obj
-		logrus.Infof("AvailableCapacity %s, %s is added to items", nodeID, location)
+		c.log.Infof("AvailableCapacity %s, %s is added to items", nodeID, location)
 	}
 }
 

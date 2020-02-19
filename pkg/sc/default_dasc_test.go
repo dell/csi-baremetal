@@ -3,8 +3,9 @@ package sc
 import (
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -82,13 +83,13 @@ func TestDeleteTargetPathFail(t *testing.T) {
 }
 
 func TestIsMounted(t *testing.T) {
-	ok, err := defaultDaSCSuccess.IsMounted("/dev/sdb1", targetPathTest)
+	ok, err := defaultDaSCSuccess.IsMounted("/dev/sdb1")
 	assert.False(t, ok)
 	assert.Nil(t, err)
 }
 
 func TestIsMountedFail(t *testing.T) {
-	ok, err := defaultDaSCFail.IsMounted("/dev/sda1", targetPathTest)
+	ok, err := defaultDaSCFail.IsMounted("/dev/sda1")
 	assert.False(t, ok)
 	assert.Equal(t, err, err)
 }
@@ -133,10 +134,7 @@ var _ = Describe("Successful scenarios ", func() {
 
 		Context("Should rollback", func() {
 			It("On mount stage", func() {
-				newdeviceTest := "/dev/children2"
-				cmd := fmt.Sprintf(MountpointCmdTmpl, newdeviceTest)
-
-				eTest.On(mocks.RunCmd, cmd).Return(targetPathTest, "", nil).Times(1)
+				newdeviceTest := "proc"
 
 				rollBacked, err := d.PrepareVolume(newdeviceTest, targetPathTest)
 				Expect(rollBacked).To(BeTrue())
@@ -174,14 +172,6 @@ var _ = Describe("Successful scenarios ", func() {
 
 var _ = Describe("Failure scenarios ", func() {
 	Context("CreateVolume() failure", func() {
-		It("Should fail with mount error", func() {
-			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", errTest).Times(1)
-
-			rollBacked, err := d.PrepareVolume(deviceTest, targetPathTest)
-			Expect(rollBacked).To(BeTrue())
-			Expect(err).NotTo(BeNil())
-		})
-
 		It("Should fail with creating file system error", func() {
 			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", errTest).Times(1)

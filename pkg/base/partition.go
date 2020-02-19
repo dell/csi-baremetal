@@ -3,6 +3,7 @@ package base
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 type Partitioner interface {
@@ -27,15 +28,23 @@ const (
 )
 
 type Partition struct {
-	e CmdExecutor
+	e       CmdExecutor
+	opMutex sync.Mutex
 }
 
-func (p Partition) IsPartitionExists(device string) (bool, error) {
+// TODO: run all operation with retries, without synchronization AK8S-171
+
+func (p *Partition) IsPartitionExists(device string) (bool, error) {
 	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
+
+	p.opMutex.Lock()
 	stdout, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
+
 	if err != nil {
 		return false, fmt.Errorf("unable to check partition existence for %s", device)
 	}
+
 	stdout = strings.TrimSpace(stdout)
 
 	// stdout with partitions contains something like - /dev/sda: msdos partitions 1
@@ -49,10 +58,12 @@ func (p Partition) IsPartitionExists(device string) (bool, error) {
 	return false, nil
 }
 
-func (p Partition) CreatePartitionTable(device string) error {
+func (p *Partition) CreatePartitionTable(device string) error {
 	cmd := fmt.Sprintf(CreatePartitionTableCmdTmpl, device, PartitionGPT)
 
+	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
 
 	if err != nil {
 		return fmt.Errorf("unable to create partition table for device %s", device)
@@ -62,9 +73,12 @@ func (p Partition) CreatePartitionTable(device string) error {
 }
 
 // GetPartitionTableType returns string that represent partition table type
-func (p Partition) GetPartitionTableType(device string) (string, error) {
+func (p *Partition) GetPartitionTableType(device string) (string, error) {
 	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
+
+	p.opMutex.Lock()
 	stdout, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
 
 	if err != nil {
 		return "", fmt.Errorf("unable to get partition table for device %s", device)
@@ -78,9 +92,11 @@ func (p Partition) GetPartitionTableType(device string) (string, error) {
 	return s[1], nil
 }
 
-func (p Partition) CreatePartition(device string) error {
+func (p *Partition) CreatePartition(device string) error {
 	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, device)
 
+	p.opMutex.Lock()
+	defer p.opMutex.Unlock()
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
 		return err
 	}
@@ -91,18 +107,23 @@ func (p Partition) CreatePartition(device string) error {
 	return nil
 }
 
-func (p Partition) DeletePartition(device string) error {
+func (p *Partition) DeletePartition(device string) error {
 	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device)
 
+	p.opMutex.Lock()
+	defer p.opMutex.Unlock()
 	if _, stderr, err := p.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("stderr: %s, error: %v", stderr, err)
 	}
+
 	return nil
 }
 
-func (p Partition) SetPartitionUUID(device, pvcUUID string) error {
+func (p *Partition) SetPartitionUUID(device, pvcUUID string) error {
 	cmd := fmt.Sprintf(SetPartitionUUIDCmdTmpl, device, pvcUUID)
 
+	p.opMutex.Lock()
+	defer p.opMutex.Unlock()
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
 		return err
 	}
@@ -110,10 +131,13 @@ func (p Partition) SetPartitionUUID(device, pvcUUID string) error {
 	return nil
 }
 
-func (p Partition) GetPartitionUUID(device string) (string, error) {
+func (p *Partition) GetPartitionUUID(device string) (string, error) {
 	cmd := fmt.Sprintf(GetPartitionUUIDCmdTmpl, device)
 	partitionPresentation := "Partition unique GUID:"
+
+	p.opMutex.Lock()
 	stdout, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
 
 	if err != nil {
 		return "", err

@@ -36,7 +36,7 @@ const (
 // NewLinuxUtils returns new instance of LinuxUtils based on provided e
 func NewLinuxUtils(e CmdExecutor, logger *logrus.Logger) *LinuxUtils {
 	l := &LinuxUtils{
-		Partitioner: Partition{e: e},
+		Partitioner: &Partition{e: e},
 		e:           e,
 	}
 	if l.e != nil {

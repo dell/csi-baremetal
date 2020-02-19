@@ -1,17 +1,19 @@
 package controller
 
 import (
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 )
 
-var c = VolumesCache{items: make(map[VolumeID]*csiVolume)}
+var c = VolumesCache{items: make(map[VolumeID]*vcrd.Volume)}
 
 func TestAddVolumeToCache(t *testing.T) {
 	c.SetLogger(logrus.New())
 	volumeName := "add-volume"
-	volume := &csiVolume{}
+	volume := &vcrd.Volume{}
 	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())
@@ -23,13 +25,13 @@ func TestAddVolumeToCache(t *testing.T) {
 
 func TestAddVolumeToCacheAlreadyExists(t *testing.T) {
 	volumeName := "exists"
-	volume := &csiVolume{}
+	volume := &vcrd.Volume{}
 	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())
 	}
 	err = c.addVolumeToCache(volume, volumeName)
-	sameNameVolume := &csiVolume{}
+	sameNameVolume := &vcrd.Volume{}
 	err = c.addVolumeToCache(sameNameVolume, volumeName)
 	if err == nil {
 		t.Errorf("addVolumeToCache sholud throw an error")
@@ -46,7 +48,7 @@ func TestGetVolumeByNameEmpty(t *testing.T) {
 
 func TestGetVolumeByName(t *testing.T) {
 	volumeName := "get-volume"
-	volume := &csiVolume{}
+	volume := &vcrd.Volume{}
 	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())
@@ -59,9 +61,7 @@ func TestGetVolumeByName(t *testing.T) {
 func TestDeleteVolumeById(t *testing.T) {
 	volumeID := "id_of_deleted_volume"
 	volumeName := "volume_to_delete"
-	volume := &csiVolume{
-		VolumeID: volumeID,
-	}
+	volume := &vcrd.Volume{Spec: api.Volume{Id: volumeID}}
 	err := c.addVolumeToCache(volume, volumeName)
 	if err != nil {
 		t.Errorf("Something went wrong: %s", err.Error())

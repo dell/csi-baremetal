@@ -3,6 +3,7 @@ package base
 import (
 	"net"
 	"net/url"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -53,6 +54,10 @@ func (sr *ServerRunner) init() {
 func (sr *ServerRunner) RunServer() error {
 	var err error
 	endpoint, socket := sr.GetEndpoint()
+	if socket == unix {
+		// try to remove
+		_ = os.Remove(endpoint)
+	}
 	sr.listener, err = net.Listen(socket, endpoint)
 	if err != nil {
 		sr.log.Errorf("failed to create listener for endpoint %s: %v", endpoint, err)

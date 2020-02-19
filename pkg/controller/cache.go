@@ -3,6 +3,10 @@ package controller
 import (
 	"sync"
 
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
+
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -10,14 +14,9 @@ import (
 
 type VolumeID string
 
-type csiVolume struct {
-	NodeID   string
-	VolumeID string
-	Size     int64
-}
-
+// thread safety cache
 type VolumesCache struct {
-	items map[VolumeID]*csiVolume
+	items map[VolumeID]*volumecrd.Volume
 	sync.Mutex
 	log *logrus.Entry
 }
@@ -26,21 +25,21 @@ func (c *VolumesCache) SetLogger(logger *logrus.Logger) {
 	c.log = logger.WithField("component", "VolumesCache")
 }
 
-func (c *VolumesCache) getVolumeByID(volumeID string) *csiVolume {
+func (c *VolumesCache) getVolumeByID(volumeID string) *volumecrd.Volume {
 	ll := c.log.WithField("volumeID", volumeID)
 
 	c.Lock()
 	defer c.Unlock()
 	volume, ok := c.items[VolumeID(volumeID)]
 	if ok {
-		ll.Info("Volume is found in items")
+		ll.Debug("Volume is found in items")
 	} else {
-		ll.Info("Volume is not found in items")
+		ll.Debug("Volume is not found in items")
 	}
 	return volume
 }
 
-func (c *VolumesCache) addVolumeToCache(volume *csiVolume, id string) error {
+func (c *VolumesCache) addVolumeToCache(volume *volumecrd.Volume, id string) error {
 	ll := c.log.WithField("volumeID", id)
 
 	c.Lock()
@@ -60,10 +59,27 @@ func (c *VolumesCache) deleteVolumeByID(volumeID string) {
 	c.Lock()
 	defer c.Unlock()
 	for volumeName, volume := range c.items {
-		if volume.VolumeID == volumeID {
+		if volume.Spec.Id == volumeID {
 			ll.Info("Deleting volume from items")
 			delete(c.items, volumeName)
 			break
 		}
 	}
+}
+
+func (c *VolumesCache) setVolumeStatus(volumeID string, newStatus api.OperationalStatus) {
+	ll := c.log.WithFields(logrus.Fields{
+		"volumeID": volumeID,
+		"method":   "setVolumeStatus"})
+
+	// getVolumeByID works through mutex
+	vol := c.getVolumeByID(volumeID)
+
+	c.Lock()
+	defer c.Unlock()
+	ll.Infof("Change status from %s to %s", api.OperationalStatus_name[int32(vol.Spec.Status)],
+		api.OperationalStatus_name[int32(newStatus)])
+
+	vol.ObjectMeta.Annotations[VolumeStatusAnnotationKey] = api.OperationalStatus_name[int32(newStatus)]
+	vol.Spec.Status = newStatus
 }

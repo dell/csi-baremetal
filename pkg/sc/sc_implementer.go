@@ -9,7 +9,7 @@ type StorageClassImplementer interface {
 	CreateTargetPath(path string) error
 	DeleteTargetPath(path string) error
 
-	IsMounted(device, targetPath string) (bool, error)
+	IsMounted(device string) (bool, error)
 	Mount(device, dir string) error
 	Unmount(path string) error
 

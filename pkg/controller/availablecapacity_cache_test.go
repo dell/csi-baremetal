@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/sirupsen/logrus"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,7 +12,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var testCRDCache = AvailableCapacityCache{items: make(map[string]map[string]*accrd.AvailableCapacity)}
+var testCRDCache = AvailableCapacityCache{
+	items: make(map[string]map[string]*accrd.AvailableCapacity),
+	log:   logrus.NewEntry(logrus.New()),
+}
 
 const (
 	nodeID        = "node"

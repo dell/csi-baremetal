@@ -1,12 +1,17 @@
 # idea files
 .idea
-*_output
+*.iml
+# generated code
 *.pb.go
 api/generated
+zz_generated.*.go
+# libries and build artifacts
+*_output
 vendor
 build/
-zz_generated.*.go
+# binaries
 pkg/controller/controller
 pkg/hwmgr/hwmgr
 pkg/node/node
+# tests results
 coverage.out

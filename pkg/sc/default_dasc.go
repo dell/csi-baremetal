@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -18,6 +20,7 @@ const (
 	MountpointCmdTmpl = "lsblk -d -n -o MOUNTPOINT %s"
 	MountCmdTmpl      = "mount %s %s"
 	UnmountCmdTmpl    = "umount %s"
+	ProcMountsFile    = "/proc/mounts"
 )
 
 // DefaultDASC is a default implementation of StorageClassImplementer interface
@@ -25,6 +28,7 @@ const (
 type DefaultDASC struct {
 	executor base.CmdExecutor
 	log      *logrus.Entry
+	opMutex  sync.Mutex
 }
 
 func (d *DefaultDASC) SetLogger(logger *logrus.Logger, componentName string) {
@@ -32,7 +36,7 @@ func (d *DefaultDASC) SetLogger(logger *logrus.Logger, componentName string) {
 }
 
 // TODO: do not return error here
-func (d DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
+func (d *DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
 	var cmd string
 	switch fsType {
 	case XFS:
@@ -41,6 +45,9 @@ func (d DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
 		return errors.New("unknown file system")
 	}
 
+	d.opMutex.Lock()
+	defer d.opMutex.Unlock()
+
 	if _, _, err := d.executor.RunCmd(cmd); err != nil {
 		d.log.Errorf("failed to create file system on %s", device)
 		return err
@@ -48,7 +55,10 @@ func (d DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
 	return nil
 }
 
-func (d DefaultDASC) DeleteFileSystem(device string) error {
+func (d *DefaultDASC) DeleteFileSystem(device string) error {
+	d.opMutex.Lock()
+	defer d.opMutex.Unlock()
+
 	if _, _, err := d.executor.RunCmd(fmt.Sprintf(WipeFSCmdTmpl, device)); err != nil {
 		d.log.Errorf("failed to wipe file system on %s ", device)
 		return err
@@ -56,8 +66,12 @@ func (d DefaultDASC) DeleteFileSystem(device string) error {
 	return nil
 }
 
-func (d DefaultDASC) CreateTargetPath(path string) error {
+func (d *DefaultDASC) CreateTargetPath(path string) error {
 	cmd := fmt.Sprintf(MKdirCmdTmpl, path)
+
+	d.opMutex.Lock()
+	defer d.opMutex.Unlock()
+
 	if _, _, err := d.executor.RunCmd(cmd); err != nil {
 		d.log.Errorf("failed to create target mount path %s", path)
 		return err
@@ -65,8 +79,12 @@ func (d DefaultDASC) CreateTargetPath(path string) error {
 	return nil
 }
 
-func (d DefaultDASC) DeleteTargetPath(path string) error {
+func (d *DefaultDASC) DeleteTargetPath(path string) error {
 	cmd := fmt.Sprintf(RMCmdTmpl, path)
+
+	d.opMutex.Lock()
+	defer d.opMutex.Unlock()
+
 	if _, _, err := d.executor.RunCmd(cmd); err != nil {
 		d.log.Errorf("failed to delete target mount path %s", path)
 		return err
@@ -74,23 +92,38 @@ func (d DefaultDASC) DeleteTargetPath(path string) error {
 	return nil
 }
 
-func (d DefaultDASC) IsMounted(device, targetPath string) (bool, error) {
-	cmd := fmt.Sprintf(MountpointCmdTmpl, device)
-	stdout, _, err := d.executor.RunCmd(cmd)
-	if err != nil {
-		d.log.Errorf("failed to check mount point of %s", device)
-		return false, err
+func (d *DefaultDASC) IsMounted(partition string) (bool, error) {
+	ll := d.log.WithField("method", "IsMounted")
+
+	procMounts, err := base.ConsistentRead(ProcMountsFile, 5, time.Millisecond)
+	if err != nil || len(procMounts) == 0 {
+		if err != nil {
+			ll.Errorf("%s is not consistent, error: %v", ProcMountsFile, err)
+		}
+		return false, fmt.Errorf("unable to check whether %s mounted or no", partition)
 	}
 
-	mountPoint := strings.TrimSpace(stdout)
+	// parse /proc/mounts content and search partition entry
+	for _, line := range strings.Split(string(procMounts), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if fields[0] == partition {
+			ll.Infof("There is a fstab entry for %s, entry: %s", partition, line)
+			return true, nil
+		}
+	}
 
-	d.log.Infof("mount point for %s is %s", device, mountPoint)
-
-	return mountPoint == targetPath, nil
+	return false, nil
 }
 
-func (d DefaultDASC) Mount(device, dir string) error {
+func (d *DefaultDASC) Mount(device, dir string) error {
 	cmd := fmt.Sprintf(MountCmdTmpl, device, dir)
+
+	d.opMutex.Lock()
+	defer d.opMutex.Unlock()
+
 	if _, _, err := d.executor.RunCmd(cmd); err != nil {
 		d.log.Errorf("failed to mount %s drive", device)
 		return err
@@ -98,9 +131,17 @@ func (d DefaultDASC) Mount(device, dir string) error {
 	return nil
 }
 
-func (d DefaultDASC) Unmount(path string) error {
+func (d *DefaultDASC) Unmount(path string) error {
 	cmd := fmt.Sprintf(UnmountCmdTmpl, path)
-	if _, _, err := d.executor.RunCmd(cmd); err != nil {
+
+	d.opMutex.Lock()
+	defer d.opMutex.Unlock()
+
+	if _, stderr, err := d.executor.RunCmd(cmd); err != nil {
+		d.log.Infof("%s has already unmounted", path)
+		if strings.Contains(stderr, "not mounted") {
+			return nil
+		}
 		d.log.Errorf("unable to unmount path %s", path)
 		return err
 	}
@@ -109,10 +150,10 @@ func (d DefaultDASC) Unmount(path string) error {
 
 // PrepareVolume is a function for preparing a volume in NodePublish() call
 // if error occurs, then we try to rollback successful steps
-func (d DefaultDASC) PrepareVolume(device, targetPath string) (rollBacked bool, err error) {
+func (d *DefaultDASC) PrepareVolume(device, targetPath string) (rollBacked bool, err error) {
 	rollBacked = true
 
-	mounted, err := d.IsMounted(device, targetPath)
+	mounted, err := d.IsMounted(device)
 
 	if err != nil || mounted {
 		// return true since mount is not successful and device should be ok after

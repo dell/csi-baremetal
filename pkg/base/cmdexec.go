@@ -46,19 +46,26 @@ func (e *Executor) runCmdFromStr(cmd string) (string, string, error) {
 
 // runCmdFromCmdObj runs command and return stdout, stderr and error
 func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string, err error) {
-	ll := e.log.WithField("cmd", strings.Join(cmd.Args, " "))
-	var stdout, stderr bytes.Buffer
+	var (
+		level               = logrus.InfoLevel
+		stdout, stderr      bytes.Buffer
+		stdErrPart, errPart string
+	)
+
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
-	if err != nil {
-		ll.Errorf("got error: %v", err)
-	}
+
 	outStr, errStr = stdout.String(), stderr.String()
-	errPart := ""
+	// construct log message based on output and error
 	if len(errStr) > 0 {
-		errPart = fmt.Sprintf(", stderr: %s", errStr)
+		stdErrPart = fmt.Sprintf(", stderr: %s", errStr)
 	}
-	ll.Infof("stdout: %s%s", outStr, errPart)
+	if err != nil {
+		errPart = fmt.Sprintf(", Error: %v", err)
+		level = logrus.ErrorLevel
+	}
+	e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
+		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
 	return outStr, errStr, err
 }
