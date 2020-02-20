@@ -51,3 +51,23 @@ attacher:
 nodeDriverRegistrar:
   image:
     tag: v1.0.1-gke.0
+
+logReceiver:
+  create: false
+  #stdout/es if stdout, then fluent bit will print collected logs in stdout, if es, then the output of fluent bit is Elastic Search
+  output: stdout #es
+  #format of logs, to set pretty logs use --set logReceiver=text
+  format: json #text
+  # Valid values for Elasticsearch are "http" and "https"
+  # protocol: http
+
+  # Elasticsearch address
+  # host: 10.249.234.158
+
+  # Port to use for provided Elasticsearch receiver
+  # port: 9200
+
+fluentbitAgent:
+  image:
+    repository: fluent-bit
+    tag: shippable

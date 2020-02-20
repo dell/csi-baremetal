@@ -11,10 +11,14 @@ import (
 // If path is incorrect then init logger with stdout
 func InitLogger(logPath string, logLevel logrus.Level) (*logrus.Logger, error) {
 	logger := logrus.New()
-	logger.SetFormatter(&nested.Formatter{
-		HideKeys:    true,
-		FieldsOrder: []string{"component", "method", "volumeID"},
-	})
+	if os.Getenv("LOG_FORMAT") == "text" {
+		logger.SetFormatter(&nested.Formatter{
+			HideKeys:    true,
+			FieldsOrder: []string{"component", "method", "volumeID"},
+		})
+	} else {
+		logger.SetFormatter(&logrus.JSONFormatter{})
+	}
 	logger.SetLevel(logLevel)
 	if logPath != "" {
 		file, err := os.Create(logPath)

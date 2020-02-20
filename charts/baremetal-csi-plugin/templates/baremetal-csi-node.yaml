@@ -53,12 +53,17 @@ spec:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
           - "--volumemgrip=$(MY_POD_IP)"
+          {{- if .Values.logReceiver.create  }}
+          - "--logpath=/var/log/csi.log"
+          {{- end }}
         {{- if .Values.node.grpc.client.hwmgr.endpoint }}
           - --hwmgrendpoint={{ .Values.node.grpc.client.hwmgr.endpoint }}
         {{- end }}
         env:
           - name: CSI_ENDPOINT
             value: unix:///csi/csi.sock
+          - name: LOG_FORMAT
+            value: {{ .Values.logReceiver.format }}
           - name: KUBE_NODE_NAME
             valueFrom:
               fieldRef:
@@ -99,7 +104,10 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         {{- if .Values.hwmgr.grpc.server.endpoint }}
-          - --hwmgrendpoint={{ .Values.hwmgr.grpc.server.endpoint }}
+        - --hwmgrendpoint={{ .Values.hwmgr.grpc.server.endpoint }}
+        {{- end }}
+        {{- if .Values.logReceiver.create  }}
+        - --logpath=/var/log/hwmgr.log
         {{- end }}
         securityContext:
           privileged: true
@@ -107,7 +115,27 @@ spec:
         {{- if .Values.hwmgr.grpc.server.port }}
           - containerPort: {{ .Values.hwmgr.grpc.server.port }}
         {{- end }}
+        {{- if .Values.logReceiver.create  }}
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/
+        {{- end }}
+      {{- if .Values.logReceiver.create  }}
+      - name: fluentbit-agent
+        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: logs-config
+            mountPath: /fluent-bit/etc
+          - name: logs
+            mountPath: /var/log/
+      {{- end }}
       volumes:
+      {{- if .Values.logReceiver.create }}
+      - name: logs-config
+        configMap:
+          name: {{ .Release.Name }}-logs-config
+      {{- end }}
       - name: logs
         emptyDir: {}
       - name: host-dev

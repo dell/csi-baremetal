@@ -58,9 +58,14 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - "--endpoint=$(CSI_ENDPOINT)"
+        {{- if .Values.logReceiver.create  }}
+        - "--logpath=/var/log/csi.log"
+        {{- end }}
         env:
         - name: CSI_ENDPOINT
           value: unix:///csi/csi.sock
+        - name: LOG_FORMAT
+          value: {{ .Values.logReceiver.format }}
         - name: KUBE_NODE_NAME
           valueFrom:
             fieldRef:
@@ -71,9 +76,25 @@ spec:
           mountPath: /csi
         - name: logs
           mountPath: /var/log
+#          Log receiver
+    {{- if .Values.logReceiver.create  }}
+      - name: fluentbit-agent
+        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: logs-config
+          mountPath: /fluent-bit/etc
+        - name: logs
+          mountPath: /var/log/
+    {{- end }}
       volumes:
       - name: logs
         emptyDir: {}
+    {{- if .Values.logReceiver.create }}
+      - name: logs-config
+        configMap:
+            name: {{ .Release.Name }}-logs-config
+    {{- end }}
       - name: socket-dir
         hostPath:
           path: /var/baremetal-csi/controller
