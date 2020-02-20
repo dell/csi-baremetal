@@ -111,6 +111,9 @@ spec:
         {{- end }}
         securityContext:
           privileged: true
+        env:
+        - name: LOG_FORMAT
+          value: {{ .Values.logReceiver.format }}
         ports:
         {{- if .Values.hwmgr.grpc.server.port }}
           - containerPort: {{ .Values.hwmgr.grpc.server.port }}
