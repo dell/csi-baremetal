@@ -2,6 +2,7 @@ import com.emc.pipelines.docker.DockerRegistries
 import com.emc.pipelines.docker.DockerImage
 
 loader.loadFrom('pipelines': [common          : 'common',
+                              custom_packaging: 'packaging/custom_packaging',
                               harbor          : 'flex/harbor',
                               devkit          : 'infra/devkit',
                               docker          : 'infra/docker',])
@@ -16,6 +17,7 @@ void runTests() {
 
     Map<String, Object> args = [
             csiTag       : params.CSI_TAG,
+            version      : '',
             runMode      : '',
             slackChannel : '',
             harborProject: 'ecs',
@@ -42,6 +44,12 @@ void runTests() {
                                 slackChannel: common.SLACK_CHANNEL.ECS_DEV,
                         ]
                     }
+                }
+
+                stage('Get Version') {
+                    args.version = common.getMakefileVar('FULL_VERSION')
+                    currentBuild.description += "CSI version: <b>${args.version}</b>"
+                    custom_packaging.fingerprintVersionFile('bare-metal-csi', args.version)
                 }
 
                 stage('Get dependencies') {
