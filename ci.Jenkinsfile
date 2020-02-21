@@ -20,7 +20,7 @@ void runTests() {
             version      : '',
             runMode      : '',
             slackChannel : '',
-            harborProject: 'ecs',
+            harborProject: 'atlantic',
     ]
     String csiTag = args.csiTag
     final String RUN_MODE_MASTER = 'master'
@@ -32,8 +32,6 @@ void runTests() {
             common.withInfraDevkitContainerKind() {
                 stage('Git clone') {
                     scmData = checkout scm
-                    currentBuild.description += "GIT_BRANCH = ${scmData.GIT_BRANCH} <br>"
-                    currentBuild.description += "CSI version: <b>${csiTag}</b>"
                     args.runMode = (scmData.GIT_BRANCH == 'origin/master') ? RUN_MODE_MASTER : RUN_MODE_CUSTOM
                     if (args.runMode == RUN_MODE_MASTER) {
                         args += [
@@ -102,11 +100,18 @@ void runTests() {
             }
             stage('Image retagging') {
                 if (args.runMode != RUN_MODE_MASTER) {
+                    // retag in harbor
                     harbor.retagCSIImages(args.harborProject, args.csiTag, 'latest')
-                    String repo = 'baremetal-csi-plugin'
-                    DockerImage sourceImage = new DockerImage(registry: registry, repo: repo, tag: args.csiTag)
-                    DockerImage newImage = new DockerImage(registry: registry, repo: repo, tag: 'latest')
-                    sh(docker.getRetagCommand(sourceImage, newImage))
+
+                    components = ['baremetal-csi-plugin-node',
+                                  'baremetal-csi-plugin-controller',
+                                  'baremetal-csi-plugin-hwmgr']
+                    // retag in asdrepo
+                    for (String component: components) {
+                        DockerImage sourceImage = new DockerImage(registry: registry, repo: component, tag: args.csiTag)
+                        DockerImage newImage = new DockerImage(registry: registry, repo: component, tag: 'latest')
+                        sh(docker.getRetagCommand(sourceImage, newImage))
+                    }
                 }
             }
         }
