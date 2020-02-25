@@ -2,10 +2,13 @@
 global:
   registry: 10.244.120.194:8085/atlantic  # asdrepo.isus.emc.com:8085/atlantic
 
+#format of logs
+log:
+  format: text
+
 # Storage Class name that provisions PVs dynamically
 storageClass:
   name: baremetal-csi-sc
-
 
 # CSI Plugin parameters
 
@@ -56,8 +59,6 @@ logReceiver:
   create: false
   #stdout/es if stdout, then fluent bit will print collected logs in stdout, if es, then the output of fluent bit is Elastic Search
   output: stdout #es
-  #format of logs, to set pretty logs use --set logReceiver=text
-  format: json #text
   # Valid values for Elasticsearch are "http" and "https"
   # protocol: http
 

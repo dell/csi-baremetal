@@ -35,7 +35,7 @@ data:
         Mem_Buf_Limit    5MB
         Skip_Long_Lines  Off
         Refresh_Interval 5
-        Tag              baremetal-csi
+        Tag              kubernetes_cluster-baremetal-csi
     [OUTPUT]
     {{- if eq .Values.logReceiver.output "es"}}
         Name            es
@@ -53,7 +53,7 @@ data:
         Port            {{ .Values.logReceiver.port }}
         Logstash_Format on
         Retry_Limit     False
-        Logstash_Prefix baremetal-csi
+        Logstash_Prefix kubernetes_cluster-baremetal-csi
     {{- end}}
     {{- if eq .Values.logReceiver.output "stdout"}}
         Name            stdout

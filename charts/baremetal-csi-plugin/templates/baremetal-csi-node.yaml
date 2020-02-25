@@ -63,7 +63,7 @@ spec:
           - name: CSI_ENDPOINT
             value: unix:///csi/csi.sock
           - name: LOG_FORMAT
-            value: {{ .Values.logReceiver.format }}
+            value: {{ .Values.log.format }}
           - name: KUBE_NODE_NAME
             valueFrom:
               fieldRef:
@@ -113,7 +113,7 @@ spec:
           privileged: true
         env:
         - name: LOG_FORMAT
-          value: {{ .Values.logReceiver.format }}
+          value: {{ .Values.log.format }}
         ports:
         {{- if .Values.hwmgr.grpc.server.port }}
           - containerPort: {{ .Values.hwmgr.grpc.server.port }}
