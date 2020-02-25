@@ -132,29 +132,29 @@ var _ = Describe("CSIControllerService manipulations with CRD", func() {
 
 	Context("Create and read CRDs (volume and AC)", func() {
 		It("Should create and read Volume CRD", func() {
-			err := svc.CreateCRD(testCtx, &testVolume, testNs, testName)
+			err := svc.CreateCRD(testCtx, &testVolume, testName)
 			Expect(err).To(BeNil())
 			rVolume := &vcrd.Volume{}
-			err = svc.ReadCRD(testCtx, testName, testNs, rVolume)
+			err = svc.ReadCRD(testCtx, testName, rVolume)
 			Expect(err).To(BeNil())
 			Expect(rVolume.ObjectMeta.Name).To(Equal(testName))
 		})
 
 		It("Should create and read Available Capacity CRD", func() {
-			err := svc.CreateCRD(testCtx, &testAC, testNs, testName)
+			err := svc.CreateCRD(testCtx, &testAC, testName)
 			Expect(err).To(BeNil())
 			rAC := &accrd.AvailableCapacity{}
-			err = svc.ReadCRD(testCtx, testName, testNs, rAC)
+			err = svc.ReadCRD(testCtx, testName, rAC)
 			Expect(err).To(BeNil())
 			Expect(rAC.ObjectMeta.Name).To(Equal(testName))
 		})
 
 		It("Should read volumes CRD List", func() {
-			err := svc.CreateCRD(context.Background(), &testVolume, testNs, testName)
+			err := svc.CreateCRD(context.Background(), &testVolume, testName)
 			Expect(err).To(BeNil())
 
 			vList := &vcrd.VolumeList{}
-			err = svc.ReadListCRD(context.Background(), testNs, vList)
+			err = svc.ReadListCRD(context.Background(), vList)
 			Expect(err).To(BeNil())
 			Expect(len(vList.Items)).To(Equal(1))
 			Expect(vList.Items[0].Namespace).To(Equal(testNs))
@@ -163,7 +163,7 @@ var _ = Describe("CSIControllerService manipulations with CRD", func() {
 		It("Try to read CRD that doesn't exist", func() {
 			name := "notexistingcrd"
 			ac := accrd.AvailableCapacity{}
-			err := svc.ReadCRD(testCtx, name, testNs, &ac)
+			err := svc.ReadCRD(testCtx, name, &ac)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("\"%s\" not found", name)))
 		})
@@ -176,7 +176,7 @@ var _ = Describe("CSIControllerService manipulations with CRD", func() {
 				Type:     "Type",
 				Location: "location",
 			}
-			crd := svc.constructVolumeCRD(testNs, vol)
+			crd := svc.constructVolumeCRD(vol)
 			Expect(equals(crd.Spec, testVolume)).To(BeTrue())
 
 		})
@@ -188,14 +188,14 @@ var _ = Describe("CSIControllerService manipulations with CRD", func() {
 				Location: testDriveLocation1,
 				NodeId:   testNode1Name,
 			}
-			crd := svc.constructAvailableCapacityCRD(testName, testNs, ac)
+			crd := svc.constructAvailableCapacityCRD(testName, ac)
 			Expect(crd).To(Equal(&testAC))
 		})
 	})
 
 	Context("Update Available Capacity instance", func() {
 		It("Should update successfully", func() {
-			err := svc.CreateCRD(testCtx, &testAC, testNs, testName)
+			err := svc.CreateCRD(testCtx, &testAC, testName)
 			Expect(err).To(BeNil())
 
 			newSize := int64(1024 * 105)
@@ -431,7 +431,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(ok).To(BeTrue())
 			Expect(volumeFromCache.Spec.Owner).To(Equal(testNode4Name))
 			vCrd := &vcrd.Volume{}
-			err = svc.ReadCRD(context.Background(), uuid, testNs, vCrd)
+			err = svc.ReadCRD(context.Background(), uuid, vCrd)
 			Expect(err).To(BeNil())
 		})
 
@@ -558,8 +558,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			_ = svc.volumeCache.addVolumeToCache(&vcrd.Volume{Spec: localVolume}, uuid)
 
 			// create volume crd to delete
-			volumeCrd := svc.constructVolumeCRD("default", &localVolume)
-			_ = svc.CreateCRD(testCtx, volumeCrd, "default", uuid)
+			volumeCrd := svc.constructVolumeCRD(&localVolume)
+			_ = svc.CreateCRD(testCtx, volumeCrd, uuid)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -647,7 +647,7 @@ func newSvc() *CSIControllerService {
 		panic(err)
 	}
 
-	nSvc := NewControllerService(fake.NewFakeClientWithScheme(scheme), logrus.New())
+	nSvc := NewControllerService(fake.NewFakeClientWithScheme(scheme), logrus.New(), testNs)
 	return nSvc
 }
 
@@ -674,11 +674,11 @@ func removeAllCrds(s *CSIControllerService) {
 		err    error
 	)
 
-	if err = s.ReadListCRD(testCtx, testNs, vList); err != nil {
+	if err = s.ReadListCRD(testCtx, vList); err != nil {
 		Fail(fmt.Sprintf("unable to read volume crds list: %v", err))
 	}
 
-	if err = s.ReadListCRD(testCtx, testNs, acList); err != nil {
+	if err = s.ReadListCRD(testCtx, acList); err != nil {
 		Fail(fmt.Sprintf("unable to read available capacity crds list: %v", err))
 	}
 

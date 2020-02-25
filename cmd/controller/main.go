@@ -23,6 +23,7 @@ import (
 )
 
 var (
+	namespace   = flag.String("namespace", "", "Namespace in which controller service run")
 	endpoint    = flag.String("endpoint", "", "Endpoint for controller service")
 	logPath     = flag.String("logpath", "", "Log path for Controller service")
 	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
@@ -55,7 +56,7 @@ func main() {
 	csiControllerServer := base.NewServerRunner(nil, *endpoint, logger)
 
 	k8sC := prepareCRD()
-	controllerService := controller.NewControllerService(k8sC, logger)
+	controllerService := controller.NewControllerService(k8sC, logger, *namespace)
 
 	logger.Infof("Wait %d seconds before start controller initialization in %d attempts",
 		timeoutBeforeInit, attemptsToInit)

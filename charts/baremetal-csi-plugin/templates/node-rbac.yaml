@@ -4,7 +4,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: csi-node-sa
-  namespace: default
+  # TODO: should be namespace specific AK8S-185
+  # namespace: default
 
 
 ---
@@ -37,7 +38,8 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-node-sa
-    namespace: default
+    # TODO: should be namespace specific AK8S-185
+    # namespace: default
 roleRef:
   kind: ClusterRole
   name: driver-registrar-runner

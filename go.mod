@@ -1,5 +1,7 @@
 module eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git
 
+go 1.12
+
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.3
 	github.com/client9/misspell v0.3.4 // indirect
@@ -8,7 +10,7 @@ require (
 	github.com/golang/protobuf v1.3.3
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
-	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
@@ -50,5 +52,3 @@ replace (
 	k8s.io/metrics => k8s.io/metrics v0.0.0-20190620085625-3b22d835f165
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20190620085408-1aef9010884e
 )
-
-go 1.12

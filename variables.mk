@@ -11,9 +11,14 @@ BLD_CNT          := $(shell echo ${BUILD_REL_A})
 BLD_SHA          := $(shell echo ${BUILD_REL_B})
 RELEASE_STR      := ${BLD_CNT}.${BLD_SHA}
 FULL_VERSION     := ${PRODUCT_VERSION}-${RELEASE_STR}
-TAG              := ${FULL_VERSION}
 
-LINTER_VERSION   := 1.21.0
+ifeq ($(GIT_BRANCH),master)
+	TAG          := ${FULL_VERSION}
+else
+	PREFIX		 := $(shell whoami)
+	TAG          := $(PREFIX)-${FULL_VERSION}
+endif
+
 HAL_VERSION      := 3.5.0.0-1821.cd52a26
 
 # registry

@@ -36,10 +36,13 @@ node:
 
 hwmgr:
   image:
-    tag:
+    repository: baremetal-csi-plugin-hwmgr
+    # tag:
   grpc:
     server:
       endpoint: tcp://localhost:8888
+  halOverride:
+    iscsi: false
 
 # CSI Sidecars parameters
 provisioner:

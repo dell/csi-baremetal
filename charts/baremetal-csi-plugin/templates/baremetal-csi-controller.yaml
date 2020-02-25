@@ -58,6 +58,7 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - "--endpoint=$(CSI_ENDPOINT)"
+        - "--namespace=$(NAMESPACE)"
         {{- if .Values.logReceiver.create  }}
         - "--logpath=/var/log/csi.log"
         {{- end }}
@@ -71,6 +72,11 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         volumeMounts:
         - name: socket-dir
           mountPath: /csi

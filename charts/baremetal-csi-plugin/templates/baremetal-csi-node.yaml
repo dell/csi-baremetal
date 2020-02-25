@@ -96,19 +96,20 @@ spec:
       # ********************** baremetal-csi-hwmgr container definition **********************
       # TODO: FABRIC-8595 Replace HWManager to DaemonSet
       - name: hwmgr
-        {{- if .Values.hwmgr.image.tag }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-hwmgr:{{ .Values.hwmgr.image.tag }}
-        {{- else }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-hwmgr:{{ .Values.image.tag }}
-        {{- end }}
+        image: {{ .Values.global.registry }}/{{ .Values.hwmgr.image.repository }}:{{ default .Values.image.tag .Values.hwmgr.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
+    {{- if eq .Values.hwmgr.halOverride.iscsi true }}
+        command: ["/iscsi_entrypoint.sh"]
+    {{- else}}
+      {{- if .Values.hwmgr.grpc.server.endpoint }}
         args:
-        {{- if .Values.hwmgr.grpc.server.endpoint }}
-        - --hwmgrendpoint={{ .Values.hwmgr.grpc.server.endpoint }}
-        {{- end }}
+          - --hwmgrendpoint={{ .Values.hwmgr.grpc.server.endpoint }}
         {{- if .Values.logReceiver.create  }}
-        - --logpath=/var/log/hwmgr.log
+          - --logpath=/var/log/hwmgr.log
         {{- end }}
+      {{- end }}
+    {{- end}}
         securityContext:
           privileged: true
         env:

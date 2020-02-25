@@ -1,0 +1,12 @@
+{{- if eq .Values.hwmgr.halOverride.iscsi true }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # TODO: should be namespace specific AK8S-185
+  name: hal-override-cm
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+data:
+  .hal_override: |
+    echo enable_iscsi=true
+{{- end }}

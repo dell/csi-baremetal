@@ -1,11 +1,8 @@
-import com.emc.pipelines.docker.DockerRegistries
-import com.emc.pipelines.docker.DockerImage
-
 loader.loadFrom('pipelines': [common          : 'common',
-                              custom_packaging: 'packaging/custom_packaging',
                               harbor          : 'flex/harbor',
                               devkit          : 'infra/devkit',
-                              docker          : 'infra/docker',])
+                              docker          : 'infra/docker',
+                              custom_packaging: 'packaging/custom_packaging'])
 
 devkit.devkitDockerImageTag = "latest"
 devkit.dockerRegistry = common.DOCKER_REGISTRY.ASDREPO_ECS_REGISTRY
@@ -14,24 +11,40 @@ this.runTests()
 
 void runTests() {
     currentBuild.description = ''
-
     Map<String, Object> args = [
-            csiTag       : params.CSI_TAG,
-            version      : '',
-            runMode      : '',
-            slackChannel : '',
-            harborProject: 'atlantic',
+            csiVersion    : params.CSI_VERSION,
+            runMode       : '',
+            slackChannel  : '',
+            dockerProject : 'atlantic',
     ]
-    String csiTag = args.csiTag
+
+    String csiVersion = args.csiVersion
     final String RUN_MODE_MASTER = 'master'
     final String RUN_MODE_CUSTOM = 'custom'
+    boolean testResultSuccess = false
     final String registry = "10.244.120.194:8085/atlantic"  // asdrepo.isus.emc.com:8085/atlantic
-    try {
-        common.node(label: common.JENKINS_LABELS.FLEX_CI, time: 180) {
-            String workspace = pwd()
+    common.node(label: 'ubuntu_build_hosts', time: 180) {
+        try {
+
+            stage('Start Minikube') {
+                sh("""
+                    minikube start --vm-driver=none --kubernetes-version=1.13.5
+                """)
+            }
+
+            stage('Prepare iscsi') {
+                sh("""
+                   docker run --name itt -d --net=host ${registry}/itt:latest itt -p 127.0.0.1 -t 127.0.0.1:5230 -d /opt/emc/etc/itt/dev_ecs-test.xml
+                   service iscsid start
+                   iscsiadm --mode discovery --type=sendtargets --portal 127.0.0.1
+                   iscsiadm --mode node --portal 127.0.0.1:3260 --login
+                """)
+            }
             common.withInfraDevkitContainerKind() {
                 stage('Git clone') {
                     scmData = checkout scm
+                    currentBuild.description += "GIT_BRANCH = ${scmData.GIT_BRANCH} <br>"
+                    currentBuild.description += "CSI version: <b>${csiVersion}</b>"
                     args.runMode = (scmData.GIT_BRANCH == 'origin/master') ? RUN_MODE_MASTER : RUN_MODE_CUSTOM
                     if (args.runMode == RUN_MODE_MASTER) {
                         args += [
@@ -44,85 +57,71 @@ void runTests() {
                     }
                 }
 
-                stage('Get Version') {
-                    args.version = common.getMakefileVar('FULL_VERSION')
-                    currentBuild.description += "CSI version: <b>${args.version}</b>"
-                    custom_packaging.fingerprintVersionFile('bare-metal-csi', args.version)
+                stage('Get fingerpint') {
+                    custom_packaging.fingerprintVersionFile('bare-metal-csi', csiVersion)
                 }
 
-                stage('Get dependencies') {
-                    depExitCode = sh(script: '''
-                                        make install-compile-proto
-                                        make install-hal
-                                        make install-controller-gen
-                                        make generate-deepcopy
-                                        make dependency
-                                     ''', returnStatus: true)
-                    if (depExitCode != 0) {
-                        currentBuild.result = 'FAILURE'
-                        throw new Exception("Get dependencies stage failed, check logs")
-                    }
+                //E2E tests can't work with helm, so we need to provide prepared yaml files for it
+                stage('Prepare YAML for e2e tests') {
+                    sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
+                            "--set global.registry=${registry} --set image.pullPolicy=IfNotPresent " +
+                            "--set hwmgr.halOverride.iscsi=true")
                 }
 
-                stage('Lint') {
-                    lintExitCode = sh(script: 'make lint', returnStatus: true)
-                    if (lintExitCode != 0) {
-                        currentBuild.result = 'FAILURE'
-                        throw new Exception("Lint stage failed, check logs")
-                    }
-                }
-
-                stage('Build') {
-                    buildExitCode = sh(script: 'make build', returnStatus: true)
-                    if (buildExitCode != 0) {
-                        currentBuild.result = 'FAILURE'
-                        throw new Exception("Build stage failed, check logs")
-                    }
-                }
-
-                stage('Test and Coverage') {
-                    testExitCode = sh(script: 'make test', returnStatus: true)
-                    //split because our make test fails and make coverage isn't invoked during sh()
-                    coverageExitCode = sh(script: 'make coverage', returnStatus: true)
-                    if ((testExitCode != 0) || (coverageExitCode != 0)) {
-                        currentBuild.result = 'FAILURE'
-                        throw new Exception("Test and Coverage stage failed, check logs")
-                    }
-                }
-
-                stage('Make image') {
-                    imageExitCode = sh(script: 'make image', returnStatus: true)
-                    if (imageExitCode != 0) {
-                        currentBuild.result = 'FAILURE'
-                        throw new Exception("Image stage failed, check logs")
+                stage('E2E testing') {
+                    sh('''
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/availablecapacity.dell.com_availablecapacities.yaml
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/volume.dell.com_volumes.yaml 
+                    ''')
+                    String output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true);
+                    println(output)
+                    if (!(output.contains("FAIL"))) {
+                        testResultSuccess = true
                     }
                 }
             }
-            stage('Image retagging') {
-                if (args.runMode != RUN_MODE_MASTER) {
-                    // retag in harbor
-                    harbor.retagCSIImages(args.harborProject, args.csiTag, 'latest')
 
-                    components = ['baremetal-csi-plugin-node',
-                                  'baremetal-csi-plugin-controller',
-                                  'baremetal-csi-plugin-hwmgr']
-                    // retag in asdrepo
-                    for (String component: components) {
-                        DockerImage sourceImage = new DockerImage(registry: registry, repo: component, tag: args.csiTag)
-                        DockerImage newImage = new DockerImage(registry: registry, repo: component, tag: 'latest')
-                        sh(docker.getRetagCommand(sourceImage, newImage))
+            stage('Image retagging') {
+                if (args.runMode != RUN_MODE_CUSTOM && testResultSuccess) {
+                    harbor.retagCSIImages(args.dockerProject, csiVersion, 'latest')
+                    common.withInfraDevkitContainerKind() {
+                        List<String> repos = ["baremetal-csi-plugin-node",
+                                              "baremetal-csi-plugin-controller",
+                                              "baremetal-csi-plugin-hwmgr"]
+                        // retag in asdrepo
+                        repos.each { String repo ->
+                            String image = "${registry}/${repo}"
+
+                            sh("""
+                                docker pull ${image}:${csiVersion}
+                                docker tag ${image}:${csiVersion} ${image}:latest
+                                docker push ${image}:latest
+                            """)
+                        }
                     }
+                } else {
+                    println('Skip pushing Docker images...')
                 }
             }
         }
-    }
-    catch (any) {
-        println any
-        common.setBuildFailure()
-        throw any
-    }
-    finally {
-        common.slackSend(channel: args.slackChannel)
+        catch (any) {
+            println any
+            common.setBuildFailure()
+            throw any
+        }
+        finally {
+            if (!testResultSuccess) {
+                common.setBuildFailure()
+            }
+            sh("""
+               iscsiadm --mode node --portal 127.0.0.1:3260 --logout
+               iscsiadm --mode node --portal 127.0.0.1:3260 --op delete
+               docker rm -f itt
+               minikube delete
+            """)
+            common.slackSend(channel: args.slackChannel)
+        }
     }
 }
+
 this
