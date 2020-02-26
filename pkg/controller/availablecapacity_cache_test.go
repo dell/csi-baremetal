@@ -63,9 +63,7 @@ func TestCRDCache_Update(t *testing.T) {
 }
 
 func TestCRDCache_Delete(t *testing.T) {
-	object := testCRDCache.items[nodeID][driveLocation]
 	testCRDCache.Delete(nodeID, driveLocation)
-	assert.NotContains(t, c.items, object)
 	beforeDelete := testCRDCache.items
 	testCRDCache.Delete(nodeID, driveLocation)
 	assert.Equal(t, beforeDelete, testCRDCache.items)

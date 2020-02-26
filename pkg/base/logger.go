@@ -14,6 +14,7 @@ func InitLogger(logPath string, logLevel logrus.Level) (*logrus.Logger, error) {
 	if os.Getenv("LOG_FORMAT") == "text" {
 		logger.SetFormatter(&nested.Formatter{
 			HideKeys:    true,
+			NoColors:    true,
 			FieldsOrder: []string{"component", "method", "volumeID"},
 		})
 	} else {

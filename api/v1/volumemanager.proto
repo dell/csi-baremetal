@@ -34,6 +34,7 @@ enum OperationalStatus {
     Publishing = 14;
     Published = 15;
     FailedToPublish = 16;
+    Unknown = 17;
 }
 
 enum Mode {

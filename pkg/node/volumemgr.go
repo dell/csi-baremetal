@@ -334,7 +334,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 				ll.Errorf("unable set partition uuid for dev %s, roll back failed too, set drive status to OFFLINE", device)
 				m.drivesCache[drive.SerialNumber].Status = api.Status_OFFLINE
 			}
-			ll.Infof("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
+			ll.Errorf("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
 			m.setVolumeStatus(req.PvcUUID, api.OperationalStatus_FailedToCreate)
 		} else {
 			ll.Info("Partition UUID was set successfully, set volume status to Created")
@@ -435,8 +435,12 @@ func (m *VolumeManager) searchFreeDrive(capacity int64) (*api.Drive, error) {
 // will try to rollback operation, returns error and roll back operation status (bool)
 // if error occurs, status value will show whether device has roll back to the initial state
 func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (rollBacked bool, err error) {
-	m.log.WithField("method", "setPartitionUUIDForDev").
-		Infof("Processing for device %s, uuid - %s", device, uuid)
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "setPartitionUUIDForDev",
+		"uuid":   uuid,
+	})
+	ll.Infof("Processing for device %s", device)
+
 	var exist bool
 	rollBacked = true
 
@@ -445,8 +449,18 @@ func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (roll
 	if err != nil {
 		return
 	}
+	// check partition UUID
 	if exist {
-		return rollBacked, fmt.Errorf("partition has already exist on device %s", device)
+		currUUID, err := m.linuxUtils.GetPartitionUUID(device)
+		if err != nil {
+			ll.Errorf("Partition has already exist but fail to get it UUID: %v", err)
+			return false, fmt.Errorf("partition has already exist on device %s", device)
+		}
+		if currUUID == uuid {
+			ll.Infof("Partition has already set.")
+			return true, nil
+		}
+		return false, fmt.Errorf("partition has already exist on device %s", device)
 	}
 
 	// create partition table
@@ -488,14 +502,13 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 		"volumeID": request.GetPvcUUID(),
 	})
 
-	ll.Infof("Processing request: %v", request)
+	ll.Info("Processing request")
 
-	m.vCacheMu.Lock()
-	defer m.vCacheMu.Unlock()
-
-	volume := m.volumesCache[request.PvcUUID]
-
-	if volume == nil {
+	var (
+		volume *api.Volume
+		ok     bool
+	)
+	if volume, ok = m.getFromVolumeCache(request.PvcUUID); !ok {
 		return &api.DeleteLocalVolumeResponse{Ok: false}, errors.New("unable to find volume by PVC UUID in volume manager cache")
 	}
 
@@ -504,23 +517,26 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 		return &api.DeleteLocalVolumeResponse{Ok: false},
 			fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
 	}
+	ll.Infof("Found device %s", device)
 
 	err = m.linuxUtils.DeletePartition(device)
 	if err != nil {
 		wErr := fmt.Errorf("failed to delete partition, error: %v", err)
 		ll.Errorf("%v, set operational status - fail to remove", wErr)
-		volume.Status = api.OperationalStatus_FailToRemove
+		m.setVolumeStatus(request.PvcUUID, api.OperationalStatus_FailToRemove)
 		return &api.DeleteLocalVolumeResponse{Ok: false}, wErr
 	}
+	ll.Info("Partition was deleted")
 
 	scImpl := m.scMap[SCName("hdd")]
 	err = scImpl.DeleteFileSystem(device)
 	if err != nil {
 		wErr := fmt.Errorf("failed to wipefs device, error: %v", err)
 		ll.Errorf("%v, set operational status - fail to remove", wErr)
-		volume.Status = api.OperationalStatus_FailToRemove
+		m.setVolumeStatus(request.PvcUUID, api.OperationalStatus_FailToRemove)
 		return &api.DeleteLocalVolumeResponse{Ok: false}, wErr
 	}
+	ll.Info("File system was deleted")
 
 	delete(m.volumesCache, volume.Id)
 
@@ -531,24 +547,39 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 // TODO: remove that methods when AK8S-170 will be closed
 func (m *VolumeManager) getFromVolumeCache(key string) (*api.Volume, bool) {
 	m.vCacheMu.Lock()
+	defer m.vCacheMu.Unlock()
+
 	v, ok := m.volumesCache[key]
-	m.vCacheMu.Unlock()
 	return v, ok
 }
 
-func (m *VolumeManager) setVolumeCacheValue(key string, vol *api.Volume) {
+func (m *VolumeManager) setVolumeCacheValue(key string, v *api.Volume) {
 	m.vCacheMu.Lock()
-	m.volumesCache[key] = vol
+	m.volumesCache[key] = v
 	m.vCacheMu.Unlock()
 }
 
 func (m *VolumeManager) getVolumeStatus(key string) api.OperationalStatus {
-	v, _ := m.getFromVolumeCache(key)
+	m.vCacheMu.Lock()
+	defer m.vCacheMu.Unlock()
+
+	v, ok := m.volumesCache[key]
+	if !ok {
+		m.log.WithField("method", "getVolumeStatus").Errorf("Unable to find volume with ID %s in cache", key)
+		return 17
+	}
 	return v.Status
 }
 
 func (m *VolumeManager) setVolumeStatus(key string, newStatus api.OperationalStatus) {
-	v, _ := m.getFromVolumeCache(key)
+	m.vCacheMu.Lock()
+	defer m.vCacheMu.Unlock()
+
+	v, ok := m.volumesCache[key]
+	if !ok {
+		m.log.WithField("method", "setVolumeStatus").Errorf("Unable to find volume with ID %s in cache", key)
+		return
+	}
 	v.Status = newStatus
-	m.setVolumeCacheValue(key, v)
+	m.volumesCache[key] = v
 }

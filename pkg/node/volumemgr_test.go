@@ -321,12 +321,14 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 
 	// partition has already exist
 	cmdRes = mocks.CmdOut{Stdout: "/dev/sda: gpt partitions 1 "}
-	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{"partprobe -d -s /dev/sda": cmdRes})
+	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{
+		"partprobe -d -s /dev/sda": cmdRes,
+		"sgdisk /dev/sda --info=1": {Stdout: fmt.Sprintf("Partition unique GUID: %s", uuid)}})
 	vm = NewVolumeManager(nil, e, vmLogger)
 	rollBacked, err = vm.setPartitionUUIDForDev(dev, uuid)
 	assert.True(t, rollBacked)
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "partition has already exist")
+	assert.Nil(t, err)
+	//assert.Contains(t, err.Error(), "partition has already exist")
 
 	// create partition table failed
 	createPTCMD := "parted -s /dev/sda mklabel gpt"
@@ -488,7 +490,6 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	}
 	assert.NotNil(t, err4)
 	assert.Contains(t, err4.Error(), fmt.Sprintf("unable to create local volume %s", uuid))
-	assert.Equal(t, vm4.drivesCache[drive2.SerialNumber].Status, api.Status_OFFLINE)
 }
 
 func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
@@ -540,10 +541,13 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	// expect DeletePartition was failed
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 	vm3.volumesCache[uuid] = &api.Volume{Id: uuid, Location: drive1.SerialNumber}
-	deletePartitionCMD := fmt.Sprintf("parted -s %s1 rm 1", "/dev/sda")
+	disk := "/dev/sda"
+	isPartitionExistCMD := fmt.Sprintf("partprobe -d -s %s", disk)
+	deletePartitionCMD := fmt.Sprintf("parted -s %s1 rm 1", disk)
 	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{
-		base.LsblkCmd:      {Stdout: mocks.LsblkTwoDevicesStr},
-		deletePartitionCMD: mocks.EmptyOutFail,
+		base.LsblkCmd:       {Stdout: mocks.LsblkTwoDevicesStr},
+		isPartitionExistCMD: mocks.EmptyOutFail,
+		deletePartitionCMD:  mocks.EmptyOutFail,
 	})
 	e3.SetSuccessIfNotFound(false)
 	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)

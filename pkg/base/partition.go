@@ -110,8 +110,13 @@ func (p *Partition) CreatePartition(device string) error {
 func (p *Partition) DeletePartition(device string) error {
 	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device)
 
+	if exist, err := p.IsPartitionExists(device); err == nil && !exist {
+		return nil
+	}
+
 	p.opMutex.Lock()
 	defer p.opMutex.Unlock()
+
 	if _, stderr, err := p.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("stderr: %s, error: %v", stderr, err)
 	}
