@@ -19,6 +19,10 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 )
 
+func NewHALManager(logger *logrus.Logger) *HALManager {
+	return &HALManager{Log: logger.WithField("component", "HALManager")}
+}
+
 type HALManager struct {
 	Log *logrus.Entry
 }

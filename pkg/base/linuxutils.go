@@ -3,6 +3,8 @@ package base
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -31,6 +33,7 @@ type LsblkOutput struct {
 const (
 	LsblkCmd       = "lsblk --paths --json --bytes --fs --output NAME,TYPE,SIZE,ROTA,SERIAL,WWN,VENDOR,MODEL,REV,MOUNTPOINT,FSTYPE"
 	LsblkOutputKey = "blockdevices"
+	IpmitoolCmd    = " ipmitool lan print"
 )
 
 // NewLinuxUtils returns new instance of LinuxUtils based on provided e
@@ -76,4 +79,34 @@ func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
 		}
 	}
 	return &res, nil
+}
+
+func (l *LinuxUtils) GetBmcIP() string {
+	/* Sample output
+	IP Address Source       : DHCP Address
+	IP Address              : 10.245.137.136
+	*/
+
+	strOut, _, err := l.e.RunCmd(IpmitoolCmd)
+	if err != nil {
+		return ""
+	}
+	ipAddrStr := "ip address"
+	var ip string
+	//Regular expr to find ip address
+	regex := regexp.MustCompile(`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$`)
+	for _, str := range strings.Split(strOut, "\n") {
+		str = strings.ToLower(str)
+		if strings.Contains(str, ipAddrStr) {
+			newStr := strings.Split(str, ":")
+			if len(newStr) == 2 {
+				s := strings.TrimSpace(newStr[1])
+				matched := regex.MatchString(s)
+				if matched {
+					ip = s
+				}
+			}
+		}
+	}
+	return ip
 }

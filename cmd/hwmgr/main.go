@@ -3,6 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"time"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/halmgr"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/idracmgr"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/sirupsen/logrus"
 
@@ -13,7 +20,7 @@ import (
 
 var (
 	endpoint    = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "HWManager Endpoint")
-	logPath     = flag.String("logpath", "", "Log path for HWManager")
+	logPath     = flag.String("logpath", "", "log path for HWManager")
 	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
 )
 
@@ -36,12 +43,30 @@ func main() {
 	// Server is insecure for now because credentials are nil
 	serverRunner := base.NewServerRunner(nil, *endpoint, logger)
 
-	hwServiceServer := &hwmgr.HWServiceServerImpl{}
-	hwServiceServer.SetLogger(logger)
+	hwManager, err := chooseHWManager(logger)
 
-	api.RegisterHWServiceServer(serverRunner.GRPCServer, hwServiceServer)
+	if err != nil {
+		logger.Fatalf("Failed to create HW manager: %s", err.Error())
+	}
+	hwServiceServer := hwmgr.NewHWServer(logger, hwManager)
+
+	api.RegisterHWServiceServer(serverRunner.GRPCServer, &hwServiceServer)
 
 	if err := serverRunner.RunServer(); err != nil {
 		logger.Fatalf("Failed to serve on %s. Error: %s", *endpoint, err.Error())
 	}
+}
+
+func chooseHWManager(logger *logrus.Logger) (hwmgr.HWManager, error) {
+	if os.Getenv("HW_MANAGER") == "IDRAC" {
+		e := &base.Executor{}
+		e.SetLogger(logger)
+		linuxUtils := base.NewLinuxUtils(e, logger)
+		ip := linuxUtils.GetBmcIP()
+		if ip == "" {
+			return nil, status.Error(codes.Internal, "IDRAC IP is not found")
+		}
+		return idracmgr.NewIDRACManager(logger, 10*time.Second, "root", "passwd", ip), nil
+	}
+	return halmgr.NewHALManager(logger), nil
 }

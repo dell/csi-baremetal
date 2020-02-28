@@ -48,3 +48,23 @@ func TestLinuxUtils_LsblkFail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unexpected lsblk output format")
 }
+
+func Test_GetBmcIP(t *testing.T) {
+	e := &mocks.GoMockExecutor{}
+	l := NewLinuxUtils(e, luLogger)
+
+	strOut := "IP Address Source       : DHCP Address \n IP Address              : 10.245.137.136"
+	e.On(mocks.RunCmd, IpmitoolCmd).Return(strOut, "", nil).Times(1)
+	ip := l.GetBmcIP()
+	assert.Equal(t, "10.245.137.136", ip)
+
+	strOut = "IP Address Source       : DHCP Address \n"
+	e.On(mocks.RunCmd, IpmitoolCmd).Return(strOut, "", nil).Times(1)
+	ip = l.GetBmcIP()
+	assert.Equal(t, "", ip)
+
+	expectedError := errors.New("ipmitool failed")
+	e.On(mocks.RunCmd, IpmitoolCmd).Return("", "", expectedError).Times(1)
+	ip = l.GetBmcIP()
+	assert.Equal(t, "", ip)
+}

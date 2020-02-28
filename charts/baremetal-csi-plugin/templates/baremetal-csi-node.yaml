@@ -115,6 +115,8 @@ spec:
         env:
         - name: LOG_FORMAT
           value: {{ .Values.log.format }}
+        - name: HW_MANAGER
+          value: {{ .Values.hwmgr.type }}
         ports:
         {{- if .Values.hwmgr.grpc.server.port }}
           - containerPort: {{ .Values.hwmgr.grpc.server.port }}
