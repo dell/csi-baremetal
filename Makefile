@@ -3,9 +3,10 @@
 
 include variables.mk
 
-NODE       := node
-HW_MANAGER := hwmgr
-CONTROLLER := controller
+NODE         := node
+HW_MANAGER   := hwmgr
+CONTROLLER   := controller
+HEALTH_PROBE := health_probe
 
 .PHONY: test build install-hal
 
@@ -37,8 +38,9 @@ image-hwmgr:
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ./pkg/${HW_MANAGER}
 	docker tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
 
-image-node:
+image-node: download-grpc-health-probe
 	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
+	cp ./build/${HEALTH_PROBE} ./pkg/${NODE}/${HEALTH_PROBE}
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ./pkg/${NODE}
 	docker tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ${HARBOR}/${REPO}-${NODE}:${TAG}
 
@@ -119,6 +121,11 @@ install-hal:
 install-controller-gen:
 	# Generate deepcopy functions for Volume
 	GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
+
+download-grpc-health-probe:
+	curl -OJL http://asdrepo.isus.emc.com:8081/artifactory/ecs-build/com/github/grpc-ecosystem/grpc-health-probe/0.3.1/grpc_health_probe-linux-amd64
+	chmod +x grpc_health_probe-linux-amd64
+	mv grpc_health_probe-linux-amd64 build/health_probe
 
 generate-deepcopy:
 	# Generate deepcopy functions for Volume and AvailableCapacity

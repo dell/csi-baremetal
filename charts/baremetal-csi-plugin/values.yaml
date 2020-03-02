@@ -19,7 +19,7 @@ deploy:
   hwmgr: true
 
 image:
-  tag: latest
+  tag: green
   pullPolicy: Always
 
 controller:
@@ -33,6 +33,8 @@ node:
     client:
       hwmgr:
         endpoint: tcp://localhost:8888
+    server:
+      port: 9999
 
 hwmgr:
   image:
