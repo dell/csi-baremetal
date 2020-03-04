@@ -14,7 +14,7 @@ FULL_VERSION     := ${PRODUCT_VERSION}-${RELEASE_STR}
 TAG              := ${FULL_VERSION}
 
 
-HAL_VERSION      := 3.5.0.0-1821.cd52a26
+HAL_VERSION      := 3.4.0.0-1835.b1a54fa
 
 # registry
 REPO             := baremetal-csi-plugin

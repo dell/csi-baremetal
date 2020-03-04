@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 )
 
 // ConsistentRead returns content of the file and ensure that
@@ -28,4 +31,28 @@ func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, 
 		oldContent = newContent
 	}
 	return nil, fmt.Errorf("could not get consistent content of %s after %d attempts", filename, retry)
+}
+
+// Converts string from k8s StorageClass's manifest to api.StorageClass const.
+// If it is impossible than use api.StorageClass_ANY
+func ConvertStorageClass(strSC string) api.StorageClass {
+	sc, ok := api.StorageClass_value[strings.ToUpper(strSC)]
+	if !ok {
+		sc = int32(api.StorageClass_ANY)
+	}
+	return api.StorageClass(sc)
+}
+
+// Temporary function to fill availableCapacity StorageClass based on its DriveType
+func ConvertDriveTypeToStorageClass(driveType api.DriveType) api.StorageClass {
+	switch driveType {
+	case api.DriveType_HDD:
+		return api.StorageClass_HDD
+	case api.DriveType_SSD:
+		return api.StorageClass_SSD
+	case api.DriveType_NVMe:
+		return api.StorageClass_NVME
+	default:
+		return api.StorageClass_ANY
+	}
 }

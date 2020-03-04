@@ -89,7 +89,7 @@ func TestIsMounted(t *testing.T) {
 }
 
 func TestIsMountedFail(t *testing.T) {
-	ok, err := defaultDaSCFail.IsMounted("/dev/sda1")
+	ok, err := defaultDaSCFail.IsMounted("/dev/sdw1")
 	assert.False(t, ok)
 	assert.Equal(t, err, err)
 }

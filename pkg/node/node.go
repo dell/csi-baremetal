@@ -80,7 +80,9 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	ll.Info("Set status to Publishing")
 	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Publishing)
 
-	scImpl := s.scMap[SCName("hdd")]
+	scImpl := s.getStorageClassImpl(v.StorageClass)
+	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
+
 	targetPath := req.TargetPath
 
 	bdev, err := s.searchDrivePathBySN(v.Location)
@@ -160,12 +162,15 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	_, ok := s.getFromVolumeCache(req.VolumeId)
+	v, ok := s.getFromVolumeCache(req.VolumeId)
 	if !ok {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
 
-	err := s.scMap["hdd"].Unmount(req.TargetPath)
+	scImpl := s.getStorageClassImpl(v.StorageClass)
+	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
+
+	err := scImpl.Unmount(req.TargetPath)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to unmount")
 	}

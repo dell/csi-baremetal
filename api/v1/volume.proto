@@ -15,6 +15,7 @@ message Volume {
     string type = 7;
     v1api.Health health = 8;
     OperationalStatus status = 9;
+    StorageClass storageClass = 10;
 }
 
 enum OperationalStatus {
@@ -51,7 +52,7 @@ enum LocationType {
 enum StorageClass {
     HDD = 0;
     SSD = 1;
-    NVMe = 2;
+    NVME = 2;
     HDDLVG = 3;
     SSDLVG = 4;
     ANY = 5;

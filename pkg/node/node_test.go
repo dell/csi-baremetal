@@ -107,7 +107,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err.Error()).To(ContainSubstring("There is no volume with appropriate VolumeID"))
 		})
 		It("Should fail with search device by S/N error", func() {
-			req := getNodePublishRequest("volume-id-2", targetPath, *volumeCap)
+			req := getNodePublishRequest("volume-id-3", targetPath, *volumeCap)
 
 			resp, err := node.NodePublishVolume(ctx, req)
 			Expect(resp).To(BeNil())
@@ -268,9 +268,11 @@ func newNodeService() *CSINodeService {
 
 	node.volumesCache["volume-id"] = &api.Volume{Id: volumeID, Owner: "test", Location: "hdd1"}
 	node.volumesCache["volume-id-2"] = &api.Volume{Id: volumeID, Owner: "test", Location: ""}
+	node.volumesCache["volume-id-3"] = &api.Volume{Id: volumeID, Owner: "test", Location: "hdd3"}
 
 	node.drivesCache["disks-1"] = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500}
 	node.drivesCache["disks-2"] = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200}
+	node.drivesCache["disks-3"] = &api.Drive{SerialNumber: "hdd3", Type: api.DriveType_HDD}
 
 	return node
 }

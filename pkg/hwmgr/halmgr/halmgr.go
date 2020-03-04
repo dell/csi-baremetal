@@ -43,6 +43,21 @@ func (mgr *HALManager) convertDriveHealth(driveHealth C.DriveHealth) api.Health 
 	}
 }
 
+// Converts C_HAL enum StorageClass_t var to api.DriveType to fill api.Drive struct.
+func (mgr *HALManager) convertDriveType(storageClass C.StorageClass_t) api.DriveType {
+	switch storageClass {
+	case C.HDD:
+		return api.DriveType_HDD
+	case C.SSD:
+		return api.DriveType_SSD
+	case C.NVME:
+		return api.DriveType_NVMe
+	default:
+		mgr.Log.Errorf("Can't recognize type of the drive. Use HDD as default value")
+		return api.DriveType_HDD
+	}
+}
+
 func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 	var drivesHAL *C.HalDisk
 
@@ -73,6 +88,7 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 			SerialNumber: strings.ToUpper(C.GoString(&drivesSliceHAL[i].serialNumber[0])),
 			Size:         base.ToBytes(int64(drivesSliceHAL[i].capacity), base.GBYTE),
 			Health:       mgr.convertDriveHealth(drivesSliceHAL[i].driveHealth),
+			Type:         mgr.convertDriveType(drivesSliceHAL[i].storageClass),
 		}
 		drivesSlice = append(drivesSlice, drive)
 	}

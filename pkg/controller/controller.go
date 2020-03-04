@@ -207,7 +207,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			ll.Infof("Preferred node was provided: %s", preferredNode)
 		}
 
-		if ac = c.searchAvailableCapacity(preferredNode, requiredBytes); ac == nil {
+		if ac = c.searchAvailableCapacity(preferredNode, requiredBytes, req.Parameters["storageType"]); ac == nil {
 			c.reqMu.Unlock()
 			ll.Info("There is no suitable drive for volume")
 			return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for request %s", req.GetName())
@@ -228,11 +228,12 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 				},
 			},
 			Spec: api.Volume{
-				Id:       reqName,
-				Owner:    ac.Spec.NodeId,
-				Size:     ac.Spec.Size,
-				Location: ac.Spec.Location,
-				Status:   api.OperationalStatus_Creating,
+				Id:           reqName,
+				Owner:        ac.Spec.NodeId,
+				Size:         ac.Spec.Size,
+				Location:     ac.Spec.Location,
+				Status:       api.OperationalStatus_Creating,
+				StorageClass: ac.Spec.Type,
 			},
 		}
 
@@ -292,7 +293,7 @@ func (c *CSIControllerService) createLocalVolume(req *csi.CreateVolumeRequest, a
 		clvReq = &api.CreateLocalVolumeRequest{
 			PvcUUID:  req.GetName(),
 			Capacity: req.GetCapacityRange().GetRequiredBytes(),
-			Sc:       "hdd",
+			Sc:       ac.Spec.Type,
 			Location: ac.Spec.Location,
 		}
 		node = ac.Spec.NodeId
@@ -408,7 +409,8 @@ func (c *CSIControllerService) changeVolumeStatus(volumeID string, newStatus api
 }
 
 // searchAvailableCapacity search appropriate available capacity and remove it from cache
-func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, requiredBytes int64) *accrd.AvailableCapacity {
+func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, requiredBytes int64,
+	storageClass string) *accrd.AvailableCapacity {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":        "searchAvailableCapacity",
 		"requiredBytes": fmt.Sprintf("%.3fG", float64(requiredBytes)/float64(base.GBYTE)),
@@ -442,12 +444,21 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 		}
 	}
 
-	ll.Infof("Node %s was selected, search drive size of %d on it", preferredNode, requiredBytes)
+	sc := base.ConvertStorageClass(storageClass)
+	ll.Infof("Node %s was selected, search available capacity size of %d on it with storageClass %s",
+		preferredNode, requiredBytes, sc.String())
 
 	for _, ac := range acNodeMap[preferredNode] {
-		if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes {
-			foundAC = ac
-			allocatedCapacity = ac.Spec.Size
+		if sc == api.StorageClass_ANY {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes {
+				foundAC = ac
+				allocatedCapacity = ac.Spec.Size
+			}
+		} else {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.Type == sc {
+				foundAC = ac
+				allocatedCapacity = ac.Spec.Size
+			}
 		}
 	}
 	return foundAC

@@ -411,7 +411,7 @@ func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
 	req := &api.CreateLocalVolumeRequest{
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 150,
-		Sc:       "hdd",
+		Sc:       api.StorageClass_HDD,
 		Location: "hdd2",
 	}
 	resp, err := vm.CreateLocalVolume(context.Background(), req)
@@ -433,7 +433,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	req2 := &api.CreateLocalVolumeRequest{
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 45, // expect drive3 here
-		Sc:       "hdd",
+		Sc:       api.StorageClass_HDD,
 	}
 	resp2, err2 := vm2.CreateLocalVolume(context.Background(), req2)
 	assert.NotNil(t, resp2)
@@ -453,7 +453,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	req3 := &api.CreateLocalVolumeRequest{
 		PvcUUID:  "uuid-1111",
 		Capacity: 1024 * 1024 * 1024 * 45,
-		Sc:       "hdd",
+		Sc:       api.StorageClass_HDD,
 		Location: "hdd1",
 	}
 	resp3, err3 := vm3.CreateLocalVolume(context.Background(), req3)
@@ -479,7 +479,7 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	req4 := &api.CreateLocalVolumeRequest{
 		PvcUUID:  uuid,
 		Capacity: 1024 * 1024 * 1024 * 45,
-		Sc:       "hdd",
+		Sc:       api.StorageClass_HDD,
 		Location: "hdd2",
 	}
 	resp4, err4 := vm4.CreateLocalVolume(context.Background(), req4)

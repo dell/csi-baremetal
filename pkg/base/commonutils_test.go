@@ -2,11 +2,13 @@ package base
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	"github.com/stretchr/testify/assert"
 )
 
 const tmpMounts = "/tmp/mounts"
@@ -77,4 +79,48 @@ func TestConsistentReadFail(t *testing.T) {
 	assert.Nil(t, content)
 	assert.NotNil(t, err)
 	fmt.Println(string(content))
+}
+
+var strToSC = []struct {
+	strSC string
+	check api.StorageClass
+}{
+	{"hdd", api.StorageClass_HDD},
+	{"ssd", api.StorageClass_SSD},
+	{"nvme", api.StorageClass_NVME},
+	{"hddlvg", api.StorageClass_HDDLVG},
+	{"ssdlvg", api.StorageClass_SSDLVG},
+	{"any", api.StorageClass_ANY},
+	{"random", api.StorageClass_ANY},
+}
+
+func TestConvertStorageClass(t *testing.T) {
+	for _, test := range strToSC {
+		got := ConvertStorageClass(test.strSC)
+		if got != test.check {
+			t.Errorf("Unexpected conversion between stringSC and api.StorageClass, expected %s, got %s",
+				test.strSC, test.check.String())
+		}
+	}
+}
+
+var driveTypeToSC = []struct {
+	driveType api.DriveType
+	check     api.StorageClass
+}{
+	{api.DriveType_HDD, api.StorageClass_HDD},
+	{api.DriveType_SSD, api.StorageClass_SSD},
+	{api.DriveType_NVMe, api.StorageClass_NVME},
+	{api.DriveType(5), api.StorageClass_ANY}, // random drive type
+}
+
+// Test byte value parsing from strings containing correct values
+func TestConvertDriveTypeToStorageClass(t *testing.T) {
+	for _, test := range driveTypeToSC {
+		got := ConvertDriveTypeToStorageClass(test.driveType)
+		if got != test.check {
+			t.Errorf("Unexpected conversion between api.DriveType and api.StorageClass, expected %s, got %s",
+				test.driveType.String(), test.check.String())
+		}
+	}
 }

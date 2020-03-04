@@ -23,7 +23,7 @@ message AvailableCapacityResponse {
 message CreateLocalVolumeRequest {
     string pvcUUID = 1;
     int64 capacity = 2;
-    string sc = 3;
+    StorageClass sc = 3;
     string location = 4;
 }
 

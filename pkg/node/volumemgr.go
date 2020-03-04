@@ -45,7 +45,8 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 		drivesCache:            make(map[string]*api.Drive),
 		linuxUtils:             base.NewLinuxUtils(executor, logger),
 		availableCapacityCache: make(map[string]*api.AvailableCapacity),
-		scMap:                  map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance(logger)},
+		scMap: map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance(logger),
+			"ssd": sc.GetSSDSCInstance(logger)},
 	}
 	vm.log = logger.WithField("component", "VolumeManager")
 	return vm
@@ -228,7 +229,7 @@ func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
 			if !removed {
 				capacity := &api.AvailableCapacity{
 					Size:     drive.Size,
-					Type:     api.StorageClass_ANY,
+					Type:     base.ConvertDriveTypeToStorageClass(drive.Type),
 					Location: drive.SerialNumber,
 					NodeId:   nodeID,
 				}
@@ -324,6 +325,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 		Type:         "", // TODO: set that filed to FSType
 		Health:       api.Health_GOOD,
 		Status:       api.OperationalStatus_Staging, // becomes operative in NodePublishCall
+		StorageClass: req.Sc,
 	})
 
 	ll.Infof("Create partition on device %s and set UUID in background", device)
@@ -528,7 +530,9 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 	}
 	ll.Info("Partition was deleted")
 
-	scImpl := m.scMap[SCName("hdd")]
+	scImpl := m.getStorageClassImpl(volume.StorageClass)
+	ll.Infof("Chosen StorageClass is %s", volume.StorageClass.String())
+
 	err = scImpl.DeleteFileSystem(device)
 	if err != nil {
 		wErr := fmt.Errorf("failed to wipefs device, error: %v", err)
@@ -582,4 +586,16 @@ func (m *VolumeManager) setVolumeStatus(key string, newStatus api.OperationalSta
 	}
 	v.Status = newStatus
 	m.volumesCache[key] = v
+}
+
+// Return appropriate StorageClass implementation from VolumeManager scMap field
+func (m *VolumeManager) getStorageClassImpl(storageClass api.StorageClass) sc.StorageClassImplementer {
+	switch storageClass {
+	case api.StorageClass_HDD:
+		return m.scMap[SCName("hdd")]
+	case api.StorageClass_SSD:
+		return m.scMap[SCName("ssd")]
+	default:
+		return m.scMap[SCName("hdd")]
+	}
 }

@@ -278,24 +278,30 @@ var _ = Describe("CSIControllerService addition functions", func() {
 		It("Found AC with min size on preferred node", func() {
 			addAC(svc, &testAC1, &testAC3)
 			requiredCapacity := int64(900)
-			drive := svc.searchAvailableCapacity(testNode1Name, requiredCapacity)
+			drive := svc.searchAvailableCapacity(testNode1Name, requiredCapacity, "")
 			Expect(testAC1.Spec.Location).To(Equal(drive.Spec.Location))
 		})
 		It("Found AC on node with maximum ACs (preferred node wasn't provided", func() {
 			addAC(svc, &testAC1, &testAC2, &testAC3)    // 2 ACs on node1 and 1 AC on node 3
 			requiredCapacity := int64(1024 * 1024 * 50) // expect testAC3
-			ac := svc.searchAvailableCapacity("", requiredCapacity)
+			ac := svc.searchAvailableCapacity("", requiredCapacity, "")
 			Expect(ac).ToNot(BeNil())
 			Expect(ac.Spec.Location).To(Equal(testAC3.Spec.Location))
 		})
+		It("Found AC on preferred node with defined storage class", func() {
+			addAC(svc, &testAC2)
+			requiredCapacity := int64(2000)
+			ac := svc.searchAvailableCapacity(testNode2Name, requiredCapacity, "hdd")
+			Expect(testAC2.Spec.Location).To(Equal(ac.Spec.Location))
+		})
 		It("Couldn't find any ac because of requiredCapacity", func() {
 			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity(testNode1Name, 1024*1024*2048)
+			drive := svc.searchAvailableCapacity(testNode1Name, 1024*1024*2048, "")
 			Expect(drive).To(BeNil())
 		})
 		It("Couldn't find any ac because of non-existed preferred node", func() {
 			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity("node", 1024)
+			drive := svc.searchAvailableCapacity("node", 1024, "")
 			Expect(drive).To(BeNil())
 		})
 	})
@@ -446,7 +452,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			mc.On("CreateLocalVolume", &api.CreateLocalVolumeRequest{
 				PvcUUID:  "req1",
 				Capacity: capacity,
-				Sc:       "hdd",
+				Sc:       api.StorageClass_HDD,
 				Location: testDriveLocation1,
 			}).Return(&api.CreateLocalVolumeResponse{}, errors.New("error"))
 			resp, err := svc.CreateVolume(context.Background(), req)
@@ -502,7 +508,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			mc.On("CreateLocalVolume", &api.CreateLocalVolumeRequest{
 				PvcUUID:  "req1",
 				Capacity: capacity,
-				Sc:       "hdd",
+				Sc:       api.StorageClass_HDD,
 				Location: testDriveLocation1,
 			}).Return(&api.CreateLocalVolumeResponse{Ok: true}, nil)
 			resp, err := svc.CreateVolume(context.Background(), req)
