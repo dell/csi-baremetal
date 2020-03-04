@@ -12,7 +12,6 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
 
@@ -23,10 +22,9 @@ import (
 type SCName string
 
 type CSINodeService struct {
+	VolumeManager
 	NodeID string
 	log    *logrus.Entry
-	VolumeManager
-	grpc_health_v1.HealthServer
 }
 
 func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger) *CSINodeService {
@@ -205,26 +203,4 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 		NodeId:             s.NodeID,
 		AccessibleTopology: &topology,
 	}, nil
-}
-
-// Check does the health check and changes the status of the server based on drives cache size
-func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
-	ll := s.log.WithFields(logrus.Fields{
-		"method": "Check",
-	})
-
-	switch len(s.drivesCache) {
-	case 0:
-		ll.Info("no drives in cache - Node service is not ready yet")
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
-	default:
-		ll.Info("drives in cache - Node service is ready")
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
-	}
-}
-
-// Watch is used by clients to receive updates when the service status changes.
-// Watch only dummy implemented just to satisfy the interface.
-func (s *CSINodeService) Watch(req *grpc_health_v1.HealthCheckRequest, srv grpc_health_v1.Health_WatchServer) error {
-	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }

@@ -6,7 +6,6 @@ _Describe your changes_
 - [ ] New unit tests added
 - [ ] Modified code has meaningful comments
 - [ ] All TODOs are linked with JIRAs
-- [ ] All comments are resolved
 - [ ] PR validation passed
 - [ ] Custom CI passed
 

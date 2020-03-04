@@ -32,10 +32,6 @@ var hwMgrRespDrives = []*api.Drive{
 		Size:         1024 * 1024 * 1024 * 150,
 	},
 }
-var (
-	drive1 = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500} // /dev/sda in LsblkTwoDevices
-	drive2 = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200} // /dev/sdb in LsblkTwoDevices
-)
 
 func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	vm := NewVolumeManager(nil, nil, vmLogger)
@@ -393,6 +389,11 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, errors.New("set partition UUID failed"), err)
 }
+
+var (
+	drive1 = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500} // /dev/sda in LsblkTwoDevices
+	drive2 = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200} // /dev/sdb in LsblkTwoDevices
+)
 
 func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 	c := mocks.NewMockHWMgrClient(drives)

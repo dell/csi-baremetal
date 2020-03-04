@@ -29,8 +29,7 @@
         - Add detailed description of the issue/feature and how it was solved/developed to simplify review process.
     - Make actions from PR Checklist.
     - Run custom CI (link) and attach link to your Pull Request.
-7. Wait approve or verbal consent from a person who commented your PR
-8. Merge your pull request after getting 2 approvals.
+7. Merge your pull request after getting 2 approvals.
 
 ### After PR merging
 1. Delete your branch.

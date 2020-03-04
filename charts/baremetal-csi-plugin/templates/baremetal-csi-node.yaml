@@ -59,20 +59,6 @@ spec:
         {{- if .Values.node.grpc.client.hwmgr.endpoint }}
           - --hwmgrendpoint={{ .Values.node.grpc.client.hwmgr.endpoint }}
         {{- end }}
-        ports:
-          - containerPort: {{ .Values.node.grpc.server.port }}
-        readinessProbe:
-          exec:
-            # have to use bash for extrapolating env var
-            command:
-              - "bash"
-              - "-c"
-              - |
-                /health_probe -addr=$MY_POD_IP:{{ .Values.node.grpc.server.port }}
-          initialDelaySeconds: 3
-          periodSeconds: 3
-          successThreshold: 3
-          failureThreshold: 100
         env:
           - name: CSI_ENDPOINT
             value: unix:///csi/csi.sock

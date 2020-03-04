@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	health "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/sirupsen/logrus"
 
@@ -52,7 +51,7 @@ func main() {
 	csiUDSServer := base.NewServerRunner(nil, *csiEndpoint, logger)
 
 	csiNodeService := node.NewCSINodeService(clientToHwMgr, *nodeID, logger)
-	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.2", true)
+	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.1.0", true)
 
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
@@ -95,8 +94,5 @@ func StartVolumeManagerServer(c *node.CSINodeService, logger *logrus.Logger) err
 	volumeMgrEndpoint := fmt.Sprintf("tcp://%s:%d", *volumeMgrIP, base.DefaultVolumeManagerPort)
 	volumeMgrTCPServer := base.NewServerRunner(nil, volumeMgrEndpoint, logger)
 	api.RegisterVolumeManagerServer(volumeMgrTCPServer.GRPCServer, c)
-	// register Health checks
-	logger.Info("Registering Node service health check")
-	health.RegisterHealthServer(volumeMgrTCPServer.GRPCServer, c)
 	return volumeMgrTCPServer.RunServer()
 }

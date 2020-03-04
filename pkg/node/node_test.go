@@ -3,7 +3,6 @@ package node
 import (
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"testing"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -225,25 +224,6 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 }
 */
 
-var _ = Describe("CSINodeService Check()", func() {
-	It("Should return serving", func() {
-		node := newNodeService()
-
-		resp, err := node.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
-		Expect(err).To(BeNil())
-		Expect(resp).ToNot(BeNil())
-		Expect(resp.Status).To(Equal(grpc_health_v1.HealthCheckResponse_SERVING))
-	})
-	It("Should return  not serving", func() {
-		node := newNodeService()
-		node.drivesCache = make(map[string]*api.Drive)
-		resp, err := node.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
-		Expect(err).To(BeNil())
-		Expect(resp).ToNot(BeNil())
-		Expect(resp.Status).To(Equal(grpc_health_v1.HealthCheckResponse_NOT_SERVING))
-	})
-})
-
 func getNodePublishRequest(volumeID, targetPath string, volumeCap csi.VolumeCapability) *csi.NodePublishVolumeRequest {
 	return &csi.NodePublishVolumeRequest{
 		VolumeId:         volumeID,
@@ -268,9 +248,6 @@ func newNodeService() *CSINodeService {
 
 	node.volumesCache["volume-id"] = &api.Volume{Id: volumeID, Owner: "test", Location: "hdd1"}
 	node.volumesCache["volume-id-2"] = &api.Volume{Id: volumeID, Owner: "test", Location: ""}
-
-	node.drivesCache["disks-1"] = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500}
-	node.drivesCache["disks-2"] = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200}
 
 	return node
 }
