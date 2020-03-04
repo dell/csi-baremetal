@@ -71,8 +71,12 @@ var (
 	}
 
 	testVolume = vcrd.Volume{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testID,
+			Namespace:         testNs,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
+		},
 		Spec: api.Volume{
 			Id:       testID,
 			Owner:    "pod",
@@ -453,6 +457,36 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.Status).To(Equal(api.OperationalStatus_FailedToCreate))
 		})
+		It("Volume CR creation timeout expired", func() {
+			uuid := "uuid-1234"
+			capacity := int64(1024 * 42)
+
+			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
+			mc := &mocks.VolumeMgrClientMock{}
+			svc.communicators[NodeID(testNode1Name)] = mc
+
+			err := svc.CreateCR(context.Background(), &vcrd.Volume{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:              uuid,
+					Namespace:         "default",
+					CreationTimestamp: k8smetav1.Time{Time: time.Now().Add(time.Duration(-100) * time.Minute)},
+				},
+				Spec: api.Volume{
+					Id:     req.GetName(),
+					Size:   1024 * 60,
+					Owner:  testNode1Name,
+					Status: api.OperationalStatus_Creating,
+				}}, req.GetName())
+			Expect(err).To(BeNil())
+
+			resp, err := svc.CreateVolume(context.Background(), req)
+			Expect(resp).To(BeNil())
+			Expect(err).ToNot(BeNil())
+			v := vcrd.Volume{}
+			err = svc.ReadCR(testCtx, req.GetName(), &v)
+			Expect(err).To(BeNil())
+			Expect(v.Spec.Status).To(Equal(api.OperationalStatus_FailedToCreate))
+		})
 	})
 
 	Context("Success scenarios", func() {
@@ -489,8 +523,9 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			err := svc.CreateCR(context.Background(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      uuid,
-					Namespace: "default",
+					Name:              uuid,
+					Namespace:         "default",
+					CreationTimestamp: k8smetav1.Time{Time: time.Now()},
 				},
 				Spec: api.Volume{
 					Id:     req.GetName(),

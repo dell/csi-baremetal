@@ -13,5 +13,6 @@ build/
 pkg/controller/controller
 pkg/hwmgr/hwmgr
 pkg/node/node
+pkg/node/health_probe
 # tests results
 coverage.out

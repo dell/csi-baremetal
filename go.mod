@@ -7,9 +7,11 @@ require (
 	github.com/container-storage-interface/spec v1.1.0
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.4
+	github.com/juju/errgo v0.0.0-20140925100237-08cceb5d0b53 // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/sirupsen/logrus v1.4.2
+	github.com/spf13/cobra v0.0.5 // indirect
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
@@ -23,7 +25,6 @@ require (
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 	k8s.io/kubernetes v1.15.0
 	sigs.k8s.io/controller-runtime v0.2.2
-	sigs.k8s.io/controller-tools v0.2.2 // indirect
 )
 
 replace (

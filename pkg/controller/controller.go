@@ -37,9 +37,13 @@ const (
 	NodeIDTopologyKey         = "baremetal-csi/nodeid"
 	VolumeStatusAnnotationKey = "dell.emc.csi/volume-status"
 
-	RequestUUID                     CtxKey = "RequestUUID"
-	DefaultVolumeID                        = "Undefined ID"
-	CreateLocalVolumeRequestTimeout        = 300 * time.Second
+	// timeout for gRPC request(CreateLocalVolume) to the node service
+	CreateLocalVolumeRequestTimeout = 300 * time.Second
+	// timeout in which we expect that volume will be created (Volume CR status became created or failedToCreate)
+	CreateVolumeTimeout = 10 * time.Minute
+
+	DefaultVolumeID        = "Undefined"
+	RequestUUID     CtxKey = "RequestUUID"
 )
 
 // interface implementation for ControllerServer
@@ -178,7 +182,15 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	err = c.ReadCR(ctx, reqName, volumeCR)
 	switch {
 	case err == nil:
-		ll.Infof("Volume exists, current status: %s", api.OperationalStatus_name[int32(volumeCR.Spec.Status)])
+		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(CreateVolumeTimeout)
+		ll.Infof("Volume exists, current status: %s.", api.OperationalStatus_name[int32(volumeCR.Spec.Status)])
+		if expiredAt.Before(time.Now()) {
+			ll.Errorf("Timeout of %s for volume creation exceeded.", CreateVolumeTimeout)
+			if err = c.changeVolumeStatus(req.GetName(), api.OperationalStatus_FailedToCreate); err != nil {
+				ll.Error(err.Error())
+			}
+			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
+		}
 	case !k8sError.IsNotFound(err):
 		ll.Errorf("unable to read volume CR: %v", err)
 		return nil, status.Error(codes.Aborted, "unable to check volume existence")
@@ -240,7 +252,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		go c.createLocalVolume(req, ac)
 	}
 
-	ll.Info("Waiting unit volume will reach Created status")
+	ll.Info("Waiting until volume will reach Created status")
 	reached, st := c.waitVCRStatus(ctx, req.GetName(),
 		api.OperationalStatus_Created, api.OperationalStatus_FailedToCreate)
 
@@ -419,6 +431,7 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 	}
 	acNodeMap = c.acNodeMapping(acList.Items)
 
+	// search node with max amount of available capacity
 	if preferredNode == "" {
 		for nodeID, acs := range acNodeMap {
 			if len(acs) > maxLen {
