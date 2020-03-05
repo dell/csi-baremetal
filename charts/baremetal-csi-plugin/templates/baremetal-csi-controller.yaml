@@ -3,6 +3,7 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: baremetal-csi-controller
+  namespace: {{ .Release.Namespace }}
 spec:
   serviceName: "csi-do"
   replicas: 1

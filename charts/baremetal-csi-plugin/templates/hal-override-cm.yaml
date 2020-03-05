@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  # TODO: should be namespace specific AK8S-185
+  namespace: {{ .Release.Namespace }}
   name: hal-override-cm
   labels:
     helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

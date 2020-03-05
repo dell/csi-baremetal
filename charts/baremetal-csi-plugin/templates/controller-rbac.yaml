@@ -12,9 +12,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: csi-controller-sa
-  # TODO: should be namespace specific AK8S-185
-  namespace: default
-
+  namespace: {{ .Release.Namespace }}
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -65,8 +63,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-controller-sa
-    # TODO: should be namespace specific AK8S-185
-    namespace: default
+    namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
   name: external-provisioner-runner
@@ -93,8 +90,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-controller-sa
-    # TODO: should be namespace specific AK8S-185
-    namespace: default
+    namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -106,8 +102,7 @@ roleRef:
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  # TODO: should be namespace specific AK8S-185
-  namespace: default
+  namespace: {{ .Release.Namespace }}
   name: external-provisioner-cfg
 rules:
   # Only one of the following rules for endpoints or leases is required based on
@@ -124,12 +119,11 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-provisioner-role-cfg
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: csi-controller-sa
-    # TODO: should be namespace specific AK8S-185
-    namespace: default
+    namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
   name: external-provisioner-cfg
@@ -153,8 +147,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-controller-sa
-    # TODO: should be namespace specific AK8S-185
-    namespace: default
+    namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
   name: csi-do-cluster-driver-registrar-role
@@ -188,8 +181,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-controller-sa
-    # TODO: should be namespace specific AK8S-185
-    namespace: default
+    namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
   name: csi-do-attacher-role

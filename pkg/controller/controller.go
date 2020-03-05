@@ -222,7 +222,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			},
 			ObjectMeta: apisV1.ObjectMeta{
 				Name:      reqName,
-				Namespace: "default",
+				Namespace: c.namespace,
 				Annotations: map[string]string{
 					VolumeStatusAnnotationKey: api.OperationalStatus_name[int32(api.OperationalStatus_Creating)],
 				},
