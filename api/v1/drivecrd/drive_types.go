@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package accrd
+package drivecrd
 
 import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -25,30 +25,44 @@ import (
 
 // +kubebuilder:object:root=true
 
-// AvailableCapacity is the Schema for the availablecapacities API
-type AvailableCapacity struct {
+// Drive is the Schema for the drives API
+//kubebuilder:object:generate=false
+type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              api.AvailableCapacity `json:"spec,omitempty"`
+
+	Spec api.Drive `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// AvailableCapacityList contains a list of AvailableCapacity
+// DriveList contains a list of Drive
 //+kubebuilder:object:generate=true
-type AvailableCapacityList struct {
+type DriveList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []AvailableCapacity `json:"items"`
+	Items           []Drive `json:"items"`
 }
 
-func init() {
-	SchemeBuilderAvailableCapacity.Register(&AvailableCapacity{}, &AvailableCapacityList{})
-}
-
-func (in *AvailableCapacity) DeepCopyInto(out *AvailableCapacity) {
+//Need to declare this method because api.Volume doesn't have DeepCopyInto
+func (in *Drive) DeepCopyInto(out *Drive) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec = out.Spec
+}
+
+func init() {
+	SchemeBuilderDrive.Register(&Drive{}, &DriveList{})
+}
+
+func (d *Drive) Equals(drive *api.Drive) bool {
+	return d.Spec.SerialNumber == drive.SerialNumber &&
+		d.Spec.NodeId == drive.NodeId &&
+		d.Spec.PID == drive.PID &&
+		d.Spec.VID == drive.VID &&
+		d.Spec.Status == drive.Status &&
+		d.Spec.Health == drive.Health &&
+		d.Spec.Type == drive.Type &&
+		d.Spec.Size == drive.Size
 }

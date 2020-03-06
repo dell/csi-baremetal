@@ -2,23 +2,14 @@ package main
 
 import (
 	"flag"
-	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -32,7 +23,7 @@ var (
 const (
 	driverName        = "baremetal-csi"
 	version           = "0.0.2"
-	timeoutBeforeInit = 15
+	timeoutBeforeInit = 30
 	attemptsToInit    = 5
 )
 
@@ -55,8 +46,12 @@ func main() {
 
 	csiControllerServer := base.NewServerRunner(nil, *endpoint, logger)
 
-	k8sC := prepareCRD()
-	controllerService := controller.NewControllerService(k8sC, logger, *namespace)
+	k8SClient, err := base.GetK8SClient()
+	if err != nil {
+		logger.Fatalf("fail to create kubernetes client, error: %v", err)
+	}
+	kubeClient := base.NewKubeClient(k8SClient, logger, *namespace)
+	controllerService := controller.NewControllerService(kubeClient, logger)
 
 	logger.Infof("Wait %d seconds before start controller initialization in %d attempts",
 		timeoutBeforeInit, attemptsToInit)
@@ -79,27 +74,5 @@ func main() {
 	logger.Info("Starting CSIControllerService")
 	if err := csiControllerServer.RunServer(); err != nil {
 		logger.Fatalf("fail to serve, error: %v", err)
-		os.Exit(1)
 	}
-}
-
-func prepareCRD() k8sClient.Client {
-	scheme := runtime.NewScheme()
-	setupLog := ctrl.Log.WithName("setup")
-
-	_ = clientgoscheme.AddToScheme(scheme)
-	//register volume crd
-	_ = volumecrd.AddToScheme(scheme)
-	//register available capacity crd
-	_ = accrd.AddToSchemeAvailableCapacity(scheme)
-	ctrl.SetLogger(zap.Logger(true))
-	cl, err := k8sClient.New(ctrl.GetConfigOrDie(), k8sClient.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to create manager")
-		os.Exit(1)
-	}
-
-	return cl
 }

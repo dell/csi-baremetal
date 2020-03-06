@@ -23,14 +23,10 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	apisV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type NodeID string
-
-// CtxKey variable type uses for keys in context WithValue
-type CtxKey string
 
 const (
 	NodeSvcPodsMask           = "baremetal-csi-node"
@@ -41,28 +37,23 @@ const (
 	CreateLocalVolumeRequestTimeout = 300 * time.Second
 	// timeout in which we expect that volume will be created (Volume CR status became created or failedToCreate)
 	CreateVolumeTimeout = 10 * time.Minute
-
-	DefaultVolumeID        = "Undefined"
-	RequestUUID     CtxKey = "RequestUUID"
 )
 
 // interface implementation for ControllerServer
 type CSIControllerService struct {
-	namespace     string
+	k8sclient *base.KubeClient
+
 	communicators map[NodeID]api.VolumeManagerClient
 	//mutex for csi request
 	reqMu sync.Mutex
 	log   *logrus.Entry
-	//mutex for request to CR
-	crMu sync.Mutex
 
 	k8sClient.Client
 }
 
-func NewControllerService(k8sClient k8sClient.Client, logger *logrus.Logger, namespace string) *CSIControllerService {
+func NewControllerService(k8sClient *base.KubeClient, logger *logrus.Logger) *CSIControllerService {
 	c := &CSIControllerService{
-		namespace:     namespace,
-		Client:        k8sClient,
+		k8sclient:     k8sClient,
 		communicators: make(map[NodeID]api.VolumeManagerClient),
 	}
 	c.log = logger.WithField("component", "CSIControllerService")
@@ -105,10 +96,10 @@ func (c *CSIControllerService) updateAvailableCapacityCRs(ctx context.Context) e
 		for _, ac := range availableCapacity {
 			//name of available capacity cr is node id + drive location
 			name := ac.NodeId + "-" + strings.ToLower(ac.Location)
-			if err := c.ReadCR(context.WithValue(ctx, RequestUUID, name), name, &accrd.AvailableCapacity{}); err != nil {
+			if err := c.k8sclient.ReadCR(context.WithValue(ctx, base.RequestUUID, name), name, &accrd.AvailableCapacity{}); err != nil {
 				if k8sError.IsNotFound(err) {
 					newAC := c.constructAvailableCapacityCR(name, ac)
-					if err := c.CreateCR(context.WithValue(ctx, RequestUUID, name), newAC, name); err != nil {
+					if err := c.k8sclient.CreateCR(context.WithValue(ctx, base.RequestUUID, name), newAC, name); err != nil {
 						ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v", ac, err)
 						wasError = true
 					}
@@ -174,12 +165,12 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 
 	var (
 		reqName   = req.GetName()
-		ctxWithID = context.WithValue(ctx, RequestUUID, req.GetName())
+		ctxWithID = context.WithValue(ctx, base.RequestUUID, req.GetName())
 		volumeCR  = &volumecrd.Volume{}
 		err       error
 	)
-	// check whether volume CR exist or no
-	err = c.ReadCR(ctx, reqName, volumeCR)
+	// check whether volume CRD exist or no
+	err = c.k8sclient.ReadCR(ctx, reqName, volumeCR)
 	switch {
 	case err == nil:
 		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(CreateVolumeTimeout)
@@ -222,7 +213,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			},
 			ObjectMeta: apisV1.ObjectMeta{
 				Name:      reqName,
-				Namespace: c.namespace,
+				Namespace: c.k8sclient.Namespace,
 				Annotations: map[string]string{
 					VolumeStatusAnnotationKey: api.OperationalStatus_name[int32(api.OperationalStatus_Creating)],
 				},
@@ -237,14 +228,14 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			},
 		}
 
-		if err = c.CreateCR(ctxWithID, volumeCR, reqName); err != nil {
+		if err = c.k8sclient.CreateCR(ctxWithID, volumeCR, reqName); err != nil {
 			ll.Errorf("Unable to create CR, error: %v", err)
 			c.reqMu.Unlock()
 			return nil, status.Errorf(codes.Internal, "unable to create volume CR")
 		}
 
 		// delete Available Capacity CR
-		if err = c.DeleteCR(ctxWithID, ac); err != nil {
+		if err = c.k8sclient.DeleteCR(ctxWithID, ac); err != nil {
 			ll.Errorf("Unable to delete Available Capacity CR, error: %v", err)
 		}
 		c.reqMu.Unlock()
@@ -345,7 +336,7 @@ func (c *CSIControllerService) waitVCRStatus(ctx context.Context,
 			ll.Warnf("Context is done but volume still not become in expected state")
 			return false, -1
 		case <-time.After(time.Second):
-			if err = c.ReadCR(context.WithValue(ctx, RequestUUID, volumeID), volumeID, v); err != nil {
+			if err = c.k8sclient.ReadCR(context.WithValue(ctx, base.RequestUUID, volumeID), volumeID, v); err != nil {
 				ll.Errorf("Unable to read volume CR and check status: %v", err)
 				continue
 			}
@@ -375,13 +366,13 @@ func (c *CSIControllerService) changeVolumeStatus(volumeID string, newStatus api
 		v            = &volumecrd.Volume{}
 		attempts     = 10
 		timeout      = 500 * time.Millisecond
-		ctxV         = context.WithValue(context.Background(), RequestUUID, volumeID)
+		ctxV         = context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	)
 	ll.Infof("Try to set status to %s", newStatusStr)
 
 	// read volume into v
 	for i := 0; i < attempts; i++ {
-		if err = c.ReadCR(ctxV, volumeID, v); err == nil {
+		if err = c.k8sclient.ReadCR(ctxV, volumeID, v); err == nil {
 			break
 		}
 		ll.Warnf("Unable to read CR: %v. Attempt %d out of %d.", err, i, attempts)
@@ -397,7 +388,7 @@ func (c *CSIControllerService) changeVolumeStatus(volumeID string, newStatus api
 
 	for i := 0; i < attempts; i++ {
 		// update volume with new status
-		if err = c.UpdateCR(ctxV, v); err == nil {
+		if err = c.k8sclient.UpdateCR(ctxV, v); err == nil {
 			return nil
 		}
 		ll.Warnf("Unable to update volume CR (set status to %s). Attempt %d out of %d",
@@ -426,7 +417,7 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 		maxLen            = 0
 	)
 
-	err := c.ReadList(context.Background(), acList)
+	err := c.k8sclient.ReadList(context.Background(), acList)
 	if err != nil {
 		ll.Errorf("Unable to read Available Capacity list, error: %v", err)
 		return nil // it does mean a non-retryable error
@@ -500,12 +491,12 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 
 	var (
 		volume         = &volumecrd.Volume{}
-		ctxT, cancelFn = context.WithTimeout(context.WithValue(ctx, RequestUUID, req.GetVolumeId()),
+		ctxT, cancelFn = context.WithTimeout(context.WithValue(ctx, base.RequestUUID, req.GetVolumeId()),
 			CreateLocalVolumeRequestTimeout)
 	)
 	defer cancelFn()
 
-	if err := c.ReadCR(ctxT, req.VolumeId, volume); err != nil {
+	if err := c.k8sclient.ReadCR(ctxT, req.VolumeId, volume); err != nil {
 		if k8sError.IsNotFound(err) {
 			ll.Infof("Volume CR doesn't exist, volume had removed")
 			return &csi.DeleteVolumeResponse{}, nil
@@ -537,7 +528,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 	}
 
 	// remove volume CR
-	if err = c.DeleteCR(ctxT, volume); err != nil {
+	if err = c.k8sclient.DeleteCR(ctxT, volume); err != nil {
 		ll.Errorf("Delete volume CR with name %s failed, error: %v", req.VolumeId, err)
 		return nil, status.Errorf(codes.Internal, "can't delete volume CR: %s", err.Error())
 	}
@@ -553,7 +544,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 	name := node + "-" + location
 
 	cr := c.constructAvailableCapacityCR(name, ac)
-	if err := c.CreateCR(ctxT, cr, name); err != nil {
+	if err := c.k8sclient.CreateCR(ctxT, cr, name); err != nil {
 		ll.Errorf("Can't create AvailableCapacity CR %v error: %v", cr, err)
 	}
 
@@ -648,94 +639,15 @@ func (c *CSIControllerService) constructAvailableCapacityCR(name string, ac *api
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
-			Namespace: c.namespace,
+			Namespace: c.k8sclient.Namespace,
 		},
 		Spec: *ac,
 	}
 }
 
-func (c *CSIControllerService) CreateCR(ctx context.Context, obj runtime.Object, name string) error {
-	c.crMu.Lock()
-	defer c.crMu.Unlock()
-
-	volumeID := ctx.Value(RequestUUID)
-	if volumeID == nil {
-		volumeID = DefaultVolumeID
-	}
-
-	ll := c.log.WithFields(logrus.Fields{
-		"method":      "CreateCR",
-		"requestUUID": volumeID.(string),
-	})
-	ll.Infof("Creating CR %s with name %s", obj.GetObjectKind().GroupVersionKind().Kind, name)
-
-	err := c.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: c.namespace}, obj)
-	if err != nil {
-		if k8sError.IsNotFound(err) {
-			e := c.Create(ctx, obj)
-			if e != nil {
-				return e
-			}
-		} else {
-			return err
-		}
-	}
-	ll.Infof("CR with name %s was created successfully", name)
-	return nil
-}
-
-func (c *CSIControllerService) ReadCR(ctx context.Context, name string, obj runtime.Object) error {
-	c.crMu.Lock()
-	defer c.crMu.Unlock()
-
-	return c.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: c.namespace}, obj)
-}
-
-func (c *CSIControllerService) ReadList(ctx context.Context, object runtime.Object) error {
-	c.crMu.Lock()
-	defer c.crMu.Unlock()
-	c.log.WithField("method", "ReadList").Info("Reading list")
-
-	return c.List(ctx, object, k8sClient.InNamespace(c.namespace))
-}
-
-func (c *CSIControllerService) UpdateCR(ctx context.Context, obj runtime.Object) error {
-	c.crMu.Lock()
-	defer c.crMu.Unlock()
-
-	volumeID := ctx.Value(RequestUUID)
-	if volumeID == nil {
-		volumeID = DefaultVolumeID
-	}
-
-	c.log.WithFields(logrus.Fields{
-		"method":   "UpdateCR",
-		"volumeID": volumeID.(string),
-	}).Infof("Updating CR %s", obj.GetObjectKind().GroupVersionKind().Kind)
-
-	return c.Update(ctx, obj)
-}
-
-func (c *CSIControllerService) DeleteCR(ctx context.Context, obj runtime.Object) error {
-	c.crMu.Lock()
-	defer c.crMu.Unlock()
-
-	volumeID := ctx.Value(RequestUUID)
-	if volumeID == nil {
-		volumeID = DefaultVolumeID
-	}
-
-	c.log.WithFields(logrus.Fields{
-		"method":   "DeleteCR",
-		"volumeID": volumeID.(string),
-	}).Infof("Deleting CR %s", obj.GetObjectKind().GroupVersionKind().Kind)
-
-	return c.Delete(ctx, obj)
-}
-
 func (c *CSIControllerService) getPods(ctx context.Context, mask string) ([]*coreV1.Pod, error) {
 	pods := coreV1.PodList{}
-	err := c.List(ctx, &pods, k8sClient.InNamespace(c.namespace))
+	err := c.k8sclient.List(ctx, &pods, k8sClient.InNamespace(c.k8sclient.Namespace))
 	// TODO: how does simulate error here?
 	if err != nil {
 		return nil, err

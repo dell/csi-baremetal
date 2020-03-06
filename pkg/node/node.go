@@ -29,9 +29,9 @@ type CSINodeService struct {
 	grpc_health_v1.HealthServer
 }
 
-func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger) *CSINodeService {
+func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger, k8sclient *base.KubeClient) *CSINodeService {
 	s := &CSINodeService{
-		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger),
+		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger, k8sclient, nodeID),
 		NodeID:        nodeID,
 	}
 	s.log = logger.WithField("component", "CSINodeService")
@@ -84,8 +84,14 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
 
 	targetPath := req.TargetPath
-
-	bdev, err := s.searchDrivePathBySN(v.Location)
+	//TODO AK8S-380 Make drives cache thread safe
+	s.dCacheMu.Lock()
+	drive := s.drivesCache[v.Location]
+	s.dCacheMu.Unlock()
+	if drive == nil {
+		return nil, fmt.Errorf("drive with uuid %s wasn't found ", v.Location)
+	}
+	bdev, err := s.searchDrivePathBySN(drive.Spec.SerialNumber)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
 	}
@@ -213,6 +219,7 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 }
 
 // Check does the health check and changes the status of the server based on drives cache size
+//TODO AK8S-379 Investigate readiness and liveness probes conditions
 func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "Check",

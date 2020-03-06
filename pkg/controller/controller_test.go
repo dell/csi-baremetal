@@ -1,9 +1,9 @@
 package controller
 
 import (
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -22,9 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 	coreV1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var (
@@ -125,112 +123,6 @@ func TestCSIControllerService(t *testing.T) {
 	RunSpecs(t, "CSIControllerService testing suite")
 }
 
-var _ = Describe("CSIControllerService manipulations with CRD", func() {
-	var svc *CSIControllerService
-
-	BeforeEach(func() {
-		svc = newSvc()
-	})
-
-	AfterEach(func() {
-		removeAllCrds(svc)
-	})
-
-	Context("Create and read CRs (volume and AC)", func() {
-		It("Should create and read Volume CR", func() {
-			err := svc.CreateCR(testCtx, &testVolume, testID)
-			Expect(err).To(BeNil())
-			rVolume := &vcrd.Volume{}
-			err = svc.ReadCR(testCtx, testID, rVolume)
-			Expect(err).To(BeNil())
-			Expect(rVolume.ObjectMeta.Name).To(Equal(testID))
-		})
-
-		It("Should create and read Available Capacity CR", func() {
-			err := svc.CreateCR(testCtx, &testAC1, testAC1Name)
-			Expect(err).To(BeNil())
-			rAC := &accrd.AvailableCapacity{}
-			err = svc.ReadCR(testCtx, testAC1Name, rAC)
-			Expect(err).To(BeNil())
-			Expect(rAC.ObjectMeta.Name).To(Equal(testAC1Name))
-		})
-
-		It("Should read volumes CR List", func() {
-			err := svc.CreateCR(context.Background(), &testVolume, testID)
-			Expect(err).To(BeNil())
-
-			vList := &vcrd.VolumeList{}
-			err = svc.ReadList(context.Background(), vList)
-			Expect(err).To(BeNil())
-			Expect(len(vList.Items)).To(Equal(1))
-			Expect(vList.Items[0].Namespace).To(Equal(testNs))
-		})
-
-		It("Try to read CR that doesn't exist", func() {
-			name := "notexistingcrd"
-			ac := accrd.AvailableCapacity{}
-			err := svc.ReadCR(testCtx, name, &ac)
-			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("\"%s\" not found", name)))
-		})
-
-		It("Construct AvailableCapacity CR instance", func() {
-			ac := &api.AvailableCapacity{
-				Size:     1024 * 1024,
-				Type:     api.StorageClass_HDD,
-				Location: testDriveLocation1,
-				NodeId:   testNode1Name,
-			}
-			crd := svc.constructAvailableCapacityCR(testAC1Name, ac)
-			Expect(crd).To(Equal(&testAC1))
-		})
-	})
-
-	Context("Update Available Capacity instance", func() {
-		It("Should update successfully", func() {
-			err := svc.CreateCR(testCtx, &testAC1, testID)
-			Expect(err).To(BeNil())
-
-			newSize := int64(1024 * 105)
-			testAC1.Spec.Size = newSize
-
-			err = svc.UpdateCR(testCtx, &testAC1)
-			Expect(err).To(BeNil())
-			Expect(testAC1.Spec.Size).To(Equal(newSize))
-
-			acCopy := testAC1.DeepCopy()
-			err = svc.Update(testCtx, &testAC1)
-			Expect(err).To(BeNil())
-			Expect(&testAC1).To(Equal(acCopy))
-		})
-
-		It("Update should fail", func() {
-
-		})
-	})
-
-	Context("Delete CR", func() {
-		It("Should be deleted", func() {
-			addAC(svc, &testAC1)
-			var (
-				acList = accrd.AvailableCapacityList{}
-				err    error
-			)
-
-			err = svc.ReadList(testCtx, &acList)
-			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(1))
-
-			err = svc.DeleteCR(testCtx, &testAC1)
-			Expect(err).To(BeNil())
-
-			err = svc.ReadList(testCtx, &acList)
-			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(0))
-		})
-	})
-})
-
 var _ = Describe("CSIControllerService addition functions", func() {
 	var svc *CSIControllerService
 
@@ -240,9 +132,21 @@ var _ = Describe("CSIControllerService addition functions", func() {
 
 	AfterEach(func() {
 		removeAllPods(svc)
-		removeAllCrds(svc)
+		removeAllCrds(svc.k8sclient)
 	})
 
+	Context("construct CR scenarios", func() {
+		It("Construct AvailableCapacity CRD instance", func() {
+			capacity := api.AvailableCapacity{
+				Size:     1024 * 1024,
+				Type:     api.StorageClass_HDD,
+				Location: testDriveLocation1,
+				NodeId:   testNode1Name,
+			}
+			ac := svc.constructAvailableCapacityCR(testAC1Name, &capacity)
+			Expect(ac).To(Equal(&testAC1))
+		})
+	})
 	Context("updateCommunicator success scenarios", func() {
 		It("updateCommunicator Success", func() {
 			createPods(svc, testPod1)
@@ -331,7 +235,7 @@ var _ = Describe("CSIControllerService addition functions", func() {
 			err := svc.updateAvailableCapacityCRs(context.Background())
 			Expect(err).To(BeNil())
 			acList := accrd.AvailableCapacityList{}
-			err = svc.ReadList(context.Background(), &acList)
+			err = svc.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
 			Expect(len(acList.Items)).To(Equal(0))
 		})
@@ -355,7 +259,7 @@ var _ = Describe("CSIControllerService addition functions", func() {
 			err := svc.updateAvailableCapacityCRs(context.Background())
 			Expect(err).To(BeNil())
 			acList := accrd.AvailableCapacityList{}
-			err = svc.ReadList(context.Background(), &acList)
+			err = svc.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
 			Expect(len(acList.Items)).To(Equal(1))
 		})
@@ -363,11 +267,11 @@ var _ = Describe("CSIControllerService addition functions", func() {
 
 	Context("waitVCRStatus scenarios", func() {
 		BeforeEach(func() {
-			err := svc.CreateCR(context.Background(), &testVolume, testID)
+			err := svc.k8sclient.CreateCR(context.Background(), &testVolume, testID)
 			Expect(err).To(BeNil())
 		})
 		AfterEach(func() {
-			err := svc.DeleteCR(context.Background(), &testVolume)
+			err := svc.k8sclient.DeleteCR(context.Background(), &testVolume)
 			Expect(err).To(BeNil())
 		})
 
@@ -393,7 +297,7 @@ var _ = Describe("CSIControllerService addition functions", func() {
 			}()
 			testV2 := testVolume
 			testV2.Spec.Status = api.OperationalStatus_FailedToCreate
-			err := svc.UpdateCR(context.Background(), &testV2)
+			err := svc.k8sclient.UpdateCR(context.Background(), &testV2)
 			Expect(err).To(BeNil())
 			wg.Wait()
 			Expect(reached).To(BeTrue())
@@ -459,7 +363,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
 			Expect(err).To(Equal(status.Error(codes.Internal, "Unable to create volume on local node.")))
-			err = svc.ReadCR(context.Background(), "req1", vol)
+			err = svc.k8sclient.ReadCR(context.Background(), "req1", vol)
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.Status).To(Equal(api.OperationalStatus_FailedToCreate))
 		})
@@ -471,7 +375,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			mc := &mocks.VolumeMgrClientMock{}
 			svc.communicators[NodeID(testNode1Name)] = mc
 
-			err := svc.CreateCR(context.Background(), &vcrd.Volume{
+			err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
 					Namespace:         "default",
@@ -489,7 +393,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
 			v := vcrd.Volume{}
-			err = svc.ReadCR(testCtx, req.GetName(), &v)
+			err = svc.k8sclient.ReadCR(testCtx, req.GetName(), &v)
 			Expect(err).To(BeNil())
 			Expect(v.Spec.Status).To(Equal(api.OperationalStatus_FailedToCreate))
 		})
@@ -515,7 +419,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(BeNil())
 			Expect(resp).ToNot(BeNil())
 
-			err = svc.ReadCR(context.Background(), "req1", vol)
+			err = svc.k8sclient.ReadCR(context.Background(), "req1", vol)
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.Status).To(Equal(api.OperationalStatus_Created))
 		})
@@ -527,7 +431,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			mc := &mocks.VolumeMgrClientMock{}
 			svc.communicators[NodeID(testNode1Name)] = mc
 
-			err := svc.CreateCR(context.Background(), &vcrd.Volume{
+			err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
 					Namespace:         "default",
@@ -560,7 +464,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 	BeforeEach(func() {
 		svc = newSvc()
 		// prepare crd
-		err := svc.CreateCR(context.Background(), &vcrd.Volume{
+		err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name:      uuid,
 				Namespace: "default",
@@ -570,10 +474,6 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				Owner: node,
 			}}, uuid)
 		Expect(err).To(BeNil())
-	})
-
-	AfterEach(func() {
-		removeAllCrds(svc)
 	})
 
 	Context("Fail scenarios", func() {
@@ -650,17 +550,17 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				},
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      localVolume.Id,
-					Namespace: svc.namespace,
+					Namespace: svc.k8sclient.Namespace,
 				},
 				Spec: localVolume,
 			}
-			_ = svc.CreateCR(testCtx, volumeCrd, uuid)
+			_ = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
 			acList := accrd.AvailableCapacityList{}
-			err = svc.ReadList(context.Background(), &acList)
+			err = svc.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
 			Expect(len(acList.Items)).To(Equal(1)) // expect that one AC will appear
 		})
@@ -695,7 +595,7 @@ var _ = Describe("CSIControllerService ControllerGetCapabilities", func() {
 // create provided pods via client from provided svc
 func createPods(s *CSIControllerService, pods ...*coreV1.Pod) {
 	for _, pod := range pods {
-		err := s.Create(context.Background(), pod)
+		err := s.k8sclient.Create(context.Background(), pod)
 		if err != nil {
 			Fail(fmt.Sprintf("uable to create pod %s, error: %v", pod.Name, err))
 		}
@@ -705,7 +605,7 @@ func createPods(s *CSIControllerService, pods ...*coreV1.Pod) {
 // add available capacity to svc cache
 func addAC(s *CSIControllerService, acs ...*accrd.AvailableCapacity) {
 	for _, ac := range acs {
-		if err := s.CreateCR(context.Background(), ac, ac.Name); err != nil {
+		if err := s.k8sclient.CreateCR(context.Background(), ac, ac.Name); err != nil {
 			Fail(fmt.Sprintf("uable to create ac %s, error: %v", ac.Name, err))
 		}
 	}
@@ -713,43 +613,51 @@ func addAC(s *CSIControllerService, acs ...*accrd.AvailableCapacity) {
 
 // create and instance of CSIControllerService with scheme for working with CRD
 func newSvc() *CSIControllerService {
-	scheme := runtime.NewScheme()
-	err := vcrd.AddToScheme(scheme)
-	if err != nil {
-		os.Exit(1)
-	}
-
-	err = coreV1.AddToScheme(scheme)
-	if err != nil {
-		os.Exit(1)
-	}
-
-	err = accrd.AddToSchemeAvailableCapacity(scheme)
+	kubeclient, err := base.GetFakeKubeClient(testNs)
 	if err != nil {
 		panic(err)
 	}
-
-	nSvc := NewControllerService(fake.NewFakeClientWithScheme(scheme), logrus.New(), testNs)
+	nSvc := NewControllerService(kubeclient, logrus.New())
 	return nSvc
 }
 
 // remove all pods via client from provided svc
 func removeAllPods(s *CSIControllerService) {
 	pods := coreV1.PodList{}
-	err := s.List(context.Background(), &pods, k8sclient.InNamespace(testNs))
+	err := s.k8sclient.List(context.Background(), &pods, k8sclient.InNamespace(testNs))
 	if err != nil {
 		Fail(fmt.Sprintf("unable to get pods list: %v", err))
 	}
 	for _, pod := range pods.Items {
-		err = s.Delete(context.Background(), &pod)
+		err = s.k8sclient.Delete(context.Background(), &pod)
 		if err != nil {
 			Fail(fmt.Sprintf("unable to delete pod: %v", err))
 		}
 	}
 }
 
+// return CreateVolumeRequest based on provided parameters
+func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.CreateVolumeRequest {
+	req := &csi.CreateVolumeRequest{
+		Name:               name,
+		CapacityRange:      &csi.CapacityRange{RequiredBytes: cap},
+		VolumeCapabilities: make([]*csi.VolumeCapability, 0),
+	}
+
+	if preferredNode != "" {
+		req.AccessibilityRequirements = &csi.TopologyRequirement{
+			Preferred: []*csi.Topology{
+				{
+					Segments: map[string]string{"baremetal-csi/nodeid": preferredNode},
+				},
+			},
+		}
+	}
+	return req
+}
+
 // remove all crds (volume and ac)
-func removeAllCrds(s *CSIControllerService) {
+func removeAllCrds(s *base.KubeClient) {
 	var (
 		vList  = &vcrd.VolumeList{}
 		acList = &accrd.AvailableCapacityList{}
@@ -777,24 +685,4 @@ func removeAllCrds(s *CSIControllerService) {
 			Fail(fmt.Sprintf("unable to delete ac crd: %v", err))
 		}
 	}
-}
-
-// return CreateVolumeRequest based on provided parameters
-func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.CreateVolumeRequest {
-	req := &csi.CreateVolumeRequest{
-		Name:               name,
-		CapacityRange:      &csi.CapacityRange{RequiredBytes: cap},
-		VolumeCapabilities: make([]*csi.VolumeCapability, 0),
-	}
-
-	if preferredNode != "" {
-		req.AccessibilityRequirements = &csi.TopologyRequirement{
-			Preferred: []*csi.Topology{
-				{
-					Segments: map[string]string{"baremetal-csi/nodeid": preferredNode},
-				},
-			},
-		}
-	}
-	return req
 }

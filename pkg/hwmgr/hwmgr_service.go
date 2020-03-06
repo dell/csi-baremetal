@@ -24,7 +24,7 @@ func NewHWServer(logger *logrus.Logger, manager HWManager) HWServiceServerImpl {
 	return hwService
 }
 
-func (svc *HWServiceServerImpl) GetDrivesList(context.Context, *api.DrivesRequest) (*api.DrivesResponse, error) {
+func (svc *HWServiceServerImpl) GetDrivesList(ctx context.Context, req *api.DrivesRequest) (*api.DrivesResponse, error) {
 	drives, err := svc.mgr.GetDrivesList()
 	if err != nil {
 		svc.log.Errorf("HWManager failed with error: %s", err.Error())
@@ -32,6 +32,7 @@ func (svc *HWServiceServerImpl) GetDrivesList(context.Context, *api.DrivesReques
 	}
 	// All drives are ONLINE by default
 	for _, drive := range drives {
+		drive.NodeId = req.NodeId
 		drive.Status = api.Status_ONLINE
 	}
 	return &api.DrivesResponse{

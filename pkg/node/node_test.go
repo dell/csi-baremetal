@@ -1,9 +1,12 @@
 package node
 
 import (
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -28,6 +31,11 @@ const (
 	device     = "/dev/sda1"
 	volumeID   = "volume-id"
 	targetPath = "/tmp/targetPath"
+)
+
+var (
+	disk1 = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID}
+	disk2 = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID}
 )
 
 func TestCSINodeService(t *testing.T) {
@@ -112,7 +120,6 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			resp, err := node.NodePublishVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("unable to find device for drive with S/N"))
 		})
 		It("Should fail with PrepareVolume() error", func() {
 			scImplMock.On("PrepareVolume", device, targetPath).
@@ -123,7 +130,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			node.volumesCache["volume-id"] = &api.Volume{
 				Id:       volumeID,
 				Owner:    "test",
-				Location: "hdd1",
+				Location: disk1.UUID,
 			}
 
 			resp, err := node.NodePublishVolume(ctx, req)
@@ -236,7 +243,7 @@ var _ = Describe("CSINodeService Check()", func() {
 	})
 	It("Should return  not serving", func() {
 		node := newNodeService()
-		node.drivesCache = make(map[string]*api.Drive)
+		node.drivesCache = make(map[string]*drivecrd.Drive)
 		resp, err := node.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
@@ -262,17 +269,38 @@ func getNodeUnpublishRequest(volumeID, targetPath string) *csi.NodeUnpublishVolu
 func newNodeService() *CSINodeService {
 	client := mocks.NewMockHWMgrClient(mocks.HwMgrRespDrives)
 	executor := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	node = NewCSINodeService(client, nodeID, logrus.New())
+	kubeClient, err := base.GetFakeKubeClient(testNs)
+	if err != nil {
+		panic(err)
+	}
+	node = NewCSINodeService(client, nodeID, logrus.New(), kubeClient)
 
 	node.VolumeManager.SetExecutor(executor)
 
-	node.volumesCache["volume-id"] = &api.Volume{Id: volumeID, Owner: "test", Location: "hdd1"}
+	node.drivesCache[disk1.UUID] = &drivecrd.Drive{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "Drive",
+			APIVersion: "drive.dell.com/v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      disk1.UUID,
+			Namespace: "default",
+		},
+		Spec: disk1,
+	}
+	node.drivesCache[disk2.UUID] = &drivecrd.Drive{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "Drive",
+			APIVersion: "drive.dell.com/v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      disk2.UUID,
+			Namespace: "default",
+		},
+		Spec: disk2,
+	}
+	node.volumesCache["volume-id"] = &api.Volume{Id: volumeID, Owner: "test", Location: disk1.UUID}
 	node.volumesCache["volume-id-2"] = &api.Volume{Id: volumeID, Owner: "test", Location: ""}
 	node.volumesCache["volume-id-3"] = &api.Volume{Id: volumeID, Owner: "test", Location: "hdd3"}
-
-	node.drivesCache["disks-1"] = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500}
-	node.drivesCache["disks-2"] = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200}
-	node.drivesCache["disks-3"] = &api.Drive{SerialNumber: "hdd3", Type: api.DriveType_HDD}
-
 	return node
 }

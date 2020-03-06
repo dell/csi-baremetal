@@ -62,23 +62,16 @@ type Controller struct {
 	Drive []map[string]string `json:"Drives"`
 }
 
-/*
-"Oem" property is implemented by company. If we want to get pid from idrac we need to use it.
-DellPhysicalDisk map[string]map[string]interface{} may be use with ILO.
-But in case of drive.Oem["Dell"]["DellPhysicalDisk"]["PPID"] we need to know which cluster we use,
-because ILO implements it in another way like drive.Oem["Hpe"]["DriveStatus"].
-*/
-type DellPhysicalDisk map[string]map[string]interface{}
-
 //container info about drive
 type IDRACDrive struct {
-	Status        map[string]string           `json:"Status"`
-	ID            string                      `json:"Id"`
-	SerialNumber  string                      `json:"SerialNumber"`
-	CapacityBytes int64                       `json:"CapacityBytes"`
-	MediaType     string                      `json:"MediaType"`
-	Oem           map[string]DellPhysicalDisk `json:"Oem"`
-	Protocol      string                      `json:"Protocol"`
+	Status        map[string]string `json:"Status"`
+	ID            string            `json:"Id"`
+	SerialNumber  string            `json:"SerialNumber"`
+	CapacityBytes int64             `json:"CapacityBytes"`
+	MediaType     string            `json:"MediaType"`
+	Manufacturer  string            `json:"Manufacturer"`
+	Protocol      string            `json:"Protocol"`
+	Model         string            `json:"Model"`
 }
 
 func (mgr *IDRACManager) GetDrivesList() ([]*api.Drive, error) {
@@ -184,13 +177,9 @@ func (mgr *IDRACManager) getDrive(driveURL string) *api.Drive {
 	} else {
 		diskType = convertMediaType(drive.MediaType)
 	}
-	var pid string
-	if drive.Oem["Dell"]["DellPhysicalDisk"]["PPID"] != nil {
-		pid = drive.Oem["Dell"]["DellPhysicalDisk"]["PPID"].(string)
-	}
 	apiDrive := &api.Drive{
-		VID:          drive.ID,
-		PID:          pid,
+		VID:          drive.Manufacturer,
+		PID:          drive.Model,
 		SerialNumber: drive.SerialNumber,
 		Health:       convertDriveHealth(drive.Status["Health"]),
 		Type:         diskType,

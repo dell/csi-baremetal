@@ -26,7 +26,6 @@ import (
 // +kubebuilder:object:root=true
 
 // Volume is the Schema for the volumes API
-//kubebuilder:object:generate=false
 type Volume struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

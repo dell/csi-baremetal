@@ -54,10 +54,11 @@ spec:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
           - "--volumemgrip=$(MY_POD_IP)"
+          - "--namespace={{ .Release.Namespace }}"
           {{- if .Values.logReceiver.create  }}
           - "--logpath=/var/log/csi.log"
           {{- end }}
-        {{- if .Values.node.grpc.client.hwmgr.endpoint }}
+          {{- if .Values.node.grpc.client.hwmgr.endpoint }}
           - --hwmgrendpoint={{ .Values.node.grpc.client.hwmgr.endpoint }}
         {{- end }}
         ports:

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	health "google.golang.org/grpc/health/grpc_health_v1"
@@ -16,6 +17,7 @@ import (
 )
 
 var (
+	namespace     = flag.String("namespace", "", "Namespace in which Node Service service run")
 	hwMgrEndpoint = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "Hardware Manager endpoint")
 	volumeMgrIP   = flag.String("volumemgrip", base.DefaultVolumeManagerEndpoint, "Node Volume Manager endpoint")
 	csiEndpoint   = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
@@ -51,16 +53,17 @@ func main() {
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := base.NewServerRunner(nil, *csiEndpoint, logger)
 
-	csiNodeService := node.NewCSINodeService(clientToHwMgr, *nodeID, logger)
+	k8SClient, err := base.GetK8SClient()
+	if err != nil {
+		logger.Fatalf("fail to create kubernetes client, error: %v", err)
+	}
+	kubeClient := base.NewKubeClient(k8SClient, logger, *namespace)
+	csiNodeService := node.NewCSINodeService(clientToHwMgr, *nodeID, logger, kubeClient)
 	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.2", true)
 
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
-
-	// TODO: implement logic for discover  AK8S-64
-	// logger.Info("Starting Discovering go routine ...")
-	// go Discovering(csiNodeService, logger)
 
 	logger.Info("Starting VolumeManager server in go routine ...")
 	go func() {
@@ -68,6 +71,9 @@ func main() {
 			logger.Infof("VolumeManager server failed with error: %v", err)
 		}
 	}()
+	// TODO: implement logic for discover  AK8S-64
+	// logger.Info("Starting Discovering go routine ...")
+	go Discovering(csiNodeService, logger)
 
 	logger.Info("Starting handle CSI calls in main thread ...")
 	// handle CSI calls
@@ -77,17 +83,17 @@ func main() {
 }
 
 // TODO: implement logic for discover  AK8S-64
-//func Discovering(c *node.CSINodeService, logger *logrus.Logger)  {
-//	for {
-//		time.Sleep(time.Second * 30)
-//		err := c.Discover()
-//		if err != nil {
-//			logger.Infof("Discover finished with error: %v", err)
-//		} else {
-//			logger.Info("Discover finished successful")
-//		}
-//	}
-//}
+func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
+	for {
+		err := c.Discover()
+		if err != nil {
+			logger.Infof("Discover finished with error: %v", err)
+		} else {
+			logger.Info("Discover finished successful")
+		}
+		time.Sleep(time.Second * 30)
+	}
+}
 
 // StartVolumeManagerServer starts gRPC server to handle request from Controller Service
 func StartVolumeManagerServer(c *node.CSINodeService, logger *logrus.Logger) error {

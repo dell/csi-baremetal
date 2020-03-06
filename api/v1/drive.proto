@@ -21,13 +21,15 @@ enum Status {
 }
 
 message Drive {
-    string VID = 1;
-    string PID = 2;
-    string SerialNumber = 3;
-    Health Health = 4;
-    DriveType Type = 5;
+    string UUID = 1;
+    string VID = 2;
+    string PID = 3;
+    string SerialNumber = 4;
+    Health Health = 5;
+    DriveType Type = 6;
     // size in bytes
-    int64 Size = 6;
-    Status status = 7;
+    int64 Size = 7;
+    Status status = 8;
+    string NodeId = 9;
 }
 

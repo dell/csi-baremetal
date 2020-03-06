@@ -8,6 +8,8 @@ linters-settings:
   funlen:
     lines: 180
     statements: 70
+  gocognit:
+    min-complexity: 60
 
 linters:
   # please, do not use `enable-all`: it is deprecated and will be removed soon.

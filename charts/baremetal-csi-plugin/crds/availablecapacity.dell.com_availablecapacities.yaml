@@ -18,7 +18,6 @@ spec:
   validation:
     openAPIV3Schema:
       description: AvailableCapacity is the Schema for the availablecapacities API
-        kubebuilder:object:generate=false
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
