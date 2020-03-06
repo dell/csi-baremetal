@@ -93,6 +93,9 @@ clean-image-controller:
 lint:
 	golangci-lint run ./...
 
+lint-charts:
+	helm lint ./${CHARTS_PATH}
+
 test:
 	go test -race -cover ./... -coverprofile=coverage.out
 
