@@ -28,9 +28,8 @@ boolean validatePullRequest(String commit) {
     int chartsLintExitCode = 0
     int chartsInstallExitCode = 0
     common.node(label: 'ubuntu_build_hosts', time: 180) {
-        try {
-            common.withInfraDevkitContainerKind() {
-
+        common.withInfraDevkitContainerKind() {
+            try {
                 stage('Git Clone') {
                     checkout scm
                 }
@@ -108,11 +107,13 @@ boolean validatePullRequest(String commit) {
                 }
 
             }
+            finally {
+                sh('kind delete cluster')
+                // publish in Jenkins test results
+                archiveArtifacts('coverage.html')
+            }
         }
-        finally {
-            // publish in Jenkins test results
-            archiveArtifacts('coverage.html')
-        }
+
     }
     // If we got here then nothing failed
     return true // as a mark of successful validation
