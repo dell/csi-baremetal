@@ -54,6 +54,9 @@ spec:
             status:
               format: int32
               type: integer
+            storageClass:
+              format: int32
+              type: integer
             type:
               type: string
           type: object

@@ -1,13 +1,17 @@
 package node
 
 import (
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"errors"
 	"fmt"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+
 	"github.com/google/uuid"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"testing"
+
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"

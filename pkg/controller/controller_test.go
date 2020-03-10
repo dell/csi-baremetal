@@ -1,13 +1,14 @@
 package controller
 
 import (
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
@@ -44,6 +45,7 @@ var (
 	testDriveLocation1 = "drive1-sn"
 	testDriveLocation2 = "drive2-sn"
 	testDriveLocation3 = "drive3-sn"
+	testDriveLocation4 = "drive4-sn"
 	testNode4Name      = "preferredNode"
 	// valid pod
 	testPod1 = &coreV1.Pod{
@@ -89,7 +91,7 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024,
+			Size:     1024 * 1024 * 1024,
 			Type:     api.StorageClass_HDD,
 			Location: testDriveLocation1,
 			NodeId:   testNode1Name},
@@ -99,7 +101,7 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024 * 1024,
+			Size:     1024 * 1024 * 1024 * 1024,
 			Type:     api.StorageClass_HDD,
 			Location: testDriveLocation2,
 			NodeId:   testNode2Name,
@@ -110,10 +112,21 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024 * 100,
+			Size:     1024 * 1024 * 1024 * 100,
 			Type:     api.StorageClass_HDD,
 			Location: testDriveLocation3,
 			NodeId:   testNode1Name,
+		},
+	}
+	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
+	testAC4     = accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNs},
+		Spec: api.AvailableCapacity{
+			Size:     1024 * 1024 * 1024 * 100,
+			Type:     api.StorageClass_HDDLVG,
+			Location: testDriveLocation4,
+			NodeId:   testNode2Name,
 		},
 	}
 )
@@ -136,9 +149,9 @@ var _ = Describe("CSIControllerService addition functions", func() {
 	})
 
 	Context("construct CR scenarios", func() {
-		It("Construct AvailableCapacity CRD instance", func() {
+		It("Construct AvailableCapacity CR instance", func() {
 			capacity := api.AvailableCapacity{
-				Size:     1024 * 1024,
+				Size:     1024 * 1024 * 1024,
 				Type:     api.StorageClass_HDD,
 				Location: testDriveLocation1,
 				NodeId:   testNode1Name,
@@ -182,30 +195,30 @@ var _ = Describe("CSIControllerService addition functions", func() {
 		It("Found AC with min size on preferred node", func() {
 			addAC(svc, &testAC1, &testAC3)
 			requiredCapacity := int64(900)
-			drive := svc.searchAvailableCapacity(testNode1Name, requiredCapacity, "")
+			drive := svc.searchAvailableCapacity(testNode1Name, requiredCapacity, api.StorageClass_ANY)
 			Expect(testAC1.Spec.Location).To(Equal(drive.Spec.Location))
 		})
 		It("Found AC on node with maximum ACs (preferred node wasn't provided", func() {
-			addAC(svc, &testAC1, &testAC2, &testAC3)    // 2 ACs on node1 and 1 AC on node 3
-			requiredCapacity := int64(1024 * 1024 * 50) // expect testAC3
-			ac := svc.searchAvailableCapacity("", requiredCapacity, "")
+			addAC(svc, &testAC1, &testAC2, &testAC3)           // 2 ACs on node1 and 1 AC on node 3
+			requiredCapacity := int64(1024 * 1024 * 1024 * 50) // expect testAC3
+			ac := svc.searchAvailableCapacity("", requiredCapacity, api.StorageClass_ANY)
 			Expect(ac).ToNot(BeNil())
 			Expect(ac.Spec.Location).To(Equal(testAC3.Spec.Location))
 		})
 		It("Found AC on preferred node with defined storage class", func() {
 			addAC(svc, &testAC2)
 			requiredCapacity := int64(2000)
-			ac := svc.searchAvailableCapacity(testNode2Name, requiredCapacity, "hdd")
+			ac := svc.searchAvailableCapacity(testNode2Name, requiredCapacity, api.StorageClass_HDD)
 			Expect(testAC2.Spec.Location).To(Equal(ac.Spec.Location))
 		})
 		It("Couldn't find any ac because of requiredCapacity", func() {
 			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity(testNode1Name, 1024*1024*2048, "")
+			drive := svc.searchAvailableCapacity(testNode1Name, 1024*1024*1024*2048, api.StorageClass_ANY)
 			Expect(drive).To(BeNil())
 		})
 		It("Couldn't find any ac because of non-existed preferred node", func() {
 			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity("node", 1024, "")
+			drive := svc.searchAvailableCapacity("node", 1024, api.StorageClass_ANY)
 			Expect(drive).To(BeNil())
 		})
 	})
@@ -464,16 +477,25 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 	BeforeEach(func() {
 		svc = newSvc()
 		// prepare crd
+		println("BEFORE EACH CREATE CR")
 		err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name:      uuid,
-				Namespace: "default",
+				Namespace: testNs,
+			},
+			TypeMeta: k8smetav1.TypeMeta{
+				Kind:       "Volume",
+				APIVersion: "volume.dell.com/v1",
 			},
 			Spec: api.Volume{
 				Id:    uuid,
 				Owner: node,
 			}}, uuid)
 		Expect(err).To(BeNil())
+	})
+
+	AfterEach(func() {
+		removeAllCrds(svc.k8sclient)
 	})
 
 	Context("Fail scenarios", func() {
@@ -501,7 +523,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
 			resp, err = svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(BeNil())
-			Expect(err).To(Equal(status.Error(codes.Internal, "response for delete local volume is not ok")))
+			Expect(err).To(Equal(status.Errorf(codes.Internal, "unable to delete volume on node %s", node)))
 		})
 
 		It("DeleteLocalVolume doesn't return local volume", func() {
@@ -515,7 +537,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(BeNil())
-			Expect(err).To(Equal(status.Error(codes.Internal, "Unable to delete volume from node")))
+			Expect(err).To(Equal(status.Errorf(codes.Internal, "unable to delete volume on node %s", node)))
 		})
 	})
 
@@ -527,34 +549,37 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(resp).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
-		It("Volume was delete successful", func() {
-			mc := &mocks.VolumeMgrClientMock{}
+		It("Volume is deleted successful, sc HDD", func() {
+			var (
+				localVolume = api.Volume{
+					Id:       uuid,
+					Owner:    node,
+					Location: testDriveLocation1,
+				}
+				volumeCrd = &vcrd.Volume{
+					TypeMeta: k8smetav1.TypeMeta{
+						Kind:       "Volume",
+						APIVersion: "volume.dell.com/v1",
+					},
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Name:      localVolume.Id,
+						Namespace: svc.k8sclient.Namespace,
+					},
+					Spec: localVolume,
+				}
+				mc     = &mocks.VolumeMgrClientMock{}
+				dlReq  = &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
+				dlResp = &api.DeleteLocalVolumeResponse{Ok: true, Volume: &localVolume}
+				err    error
+			)
+
 			// prepare communicator
 			svc.communicators[NodeID(node)] = mc
-			dlReq := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
-
-			localVolume := api.Volume{
-				Id:       uuid,
-				Owner:    node,
-				Location: testDriveLocation1,
-			}
-
-			dlResp := &api.DeleteLocalVolumeResponse{Ok: true, Volume: &localVolume}
 			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
 
 			// create volume crd to delete
-			volumeCrd := &vcrd.Volume{
-				TypeMeta: k8smetav1.TypeMeta{
-					Kind:       "Volume",
-					APIVersion: "volume.dell.com/v1",
-				},
-				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      localVolume.Id,
-					Namespace: svc.k8sclient.Namespace,
-				},
-				Spec: localVolume,
-			}
-			_ = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
+			err = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
+			Expect(err).To(BeNil())
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -563,6 +588,54 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = svc.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
 			Expect(len(acList.Items)).To(Equal(1)) // expect that one AC will appear
+		})
+		It("Volume is deleted successful, sc HDDLVG and AC size is increased", func() {
+			removeAllCrds(svc.k8sclient) // remove CRs that was created in BeforeEach()
+			addAC(svc, &testAC4)         // create AC CR, expect that size of that AC will be increased
+			var (
+				capacity = int64(1024 * 101)
+				volume   = api.Volume{
+					Id:           uuid,
+					Owner:        testNode2Name,
+					Location:     testDriveLocation4, // testAC4
+					Size:         capacity,
+					StorageClass: api.StorageClass_HDDLVG,
+				}
+				volumeCrd = vcrd.Volume{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Name:      uuid,
+						Namespace: svc.k8sclient.Namespace,
+					},
+					Spec: volume,
+				}
+
+				mc     = &mocks.VolumeMgrClientMock{}
+				dlReq  = &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
+				dlResp = &api.DeleteLocalVolumeResponse{Ok: true, Volume: &volume}
+			)
+			// create volume CR that should be deleted (created in BeforeEach)
+			err := svc.k8sclient.CreateCR(testCtx, &volumeCrd, volumeCrd.Name)
+			Expect(err).To(BeNil())
+
+			// prepare communicator
+			svc.communicators[NodeID(testNode2Name)] = mc
+			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
+
+			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volume.Id})
+			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
+			Expect(err).To(BeNil())
+
+			//// check that there are no any volume CR (was removed)
+			vList := vcrd.VolumeList{}
+			err = svc.k8sclient.ReadList(testCtx, &vList)
+			Expect(err).To(BeNil())
+			Expect(len(vList.Items)).To(Equal(0))
+			// check that AC size was increased on capacity
+			acList := accrd.AvailableCapacityList{}
+			err = svc.k8sclient.ReadList(context.Background(), &acList)
+			Expect(err).To(BeNil())
+			Expect(len(acList.Items)).To(Equal(1)) // expect that amount of AC was not increased
+			Expect(acList.Items[0].Spec.Size - capacity).To(Equal(testAC4.Spec.Size))
 		})
 	})
 })
@@ -664,6 +737,7 @@ func removeAllCrds(s *base.KubeClient) {
 		err    error
 	)
 
+	println("Removing all CRs")
 	if err = s.ReadList(testCtx, vList); err != nil {
 		Fail(fmt.Sprintf("unable to read volume crds list: %v", err))
 	}
@@ -685,4 +759,5 @@ func removeAllCrds(s *base.KubeClient) {
 			Fail(fmt.Sprintf("unable to delete ac crd: %v", err))
 		}
 	}
+	println("CRs were removed")
 }

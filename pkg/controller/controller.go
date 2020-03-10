@@ -37,6 +37,8 @@ const (
 	CreateLocalVolumeRequestTimeout = 300 * time.Second
 	// timeout in which we expect that volume will be created (Volume CR status became created or failedToCreate)
 	CreateVolumeTimeout = 10 * time.Minute
+	// if AC size becomes lower then acSizeMinThresholdBytes controller decides that AC should be removed
+	acSizeMinThresholdBytes = 1024 * 1024 // 1MB
 )
 
 // interface implementation for ControllerServer
@@ -164,10 +166,9 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	}
 
 	var (
-		reqName   = req.GetName()
-		ctxWithID = context.WithValue(ctx, base.RequestUUID, req.GetName())
-		volumeCR  = &volumecrd.Volume{}
-		err       error
+		reqName  = req.GetName()
+		volumeCR = &volumecrd.Volume{}
+		err      error
 	)
 	// check whether volume CRD exist or no
 	err = c.k8sclient.ReadCR(ctx, reqName, volumeCR)
@@ -189,21 +190,31 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		// create volume
 		c.reqMu.Lock()
 		var (
-			ac            *accrd.AvailableCapacity
-			requiredBytes = req.GetCapacityRange().GetRequiredBytes()
-			preferredNode = ""
+			ctxWithID      = context.WithValue(ctx, base.RequestUUID, req.GetName())
+			sc             = base.ConvertStorageClass(req.Parameters["storageType"])
+			requiredBytes  = req.GetCapacityRange().GetRequiredBytes()
+			preferredNode  = ""
+			ac             *accrd.AvailableCapacity
+			allocatedBytes int64
 		)
 		if req.GetAccessibilityRequirements() != nil {
 			preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[NodeIDTopologyKey]
 			ll.Infof("Preferred node was provided: %s", preferredNode)
 		}
 
-		if ac = c.searchAvailableCapacity(preferredNode, requiredBytes, req.Parameters["storageType"]); ac == nil {
+		if ac = c.searchAvailableCapacity(preferredNode, requiredBytes, sc); ac == nil {
 			c.reqMu.Unlock()
 			ll.Info("There is no suitable drive for volume")
 			return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for request %s", req.GetName())
 		}
 		ll.Infof("Disk with S/N %s on node %s was selected.", ac.Spec.Location, ac.Spec.NodeId)
+
+		switch sc {
+		case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
+			allocatedBytes = requiredBytes
+		default:
+			allocatedBytes = ac.Spec.Size
+		}
 
 		// create volume CR
 		volumeCR = &volumecrd.Volume{
@@ -221,7 +232,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			Spec: api.Volume{
 				Id:           reqName,
 				Owner:        ac.Spec.NodeId,
-				Size:         ac.Spec.Size,
+				Size:         allocatedBytes,
 				Location:     ac.Spec.Location,
 				Status:       api.OperationalStatus_Creating,
 				StorageClass: ac.Spec.Type,
@@ -234,10 +245,17 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 			return nil, status.Errorf(codes.Internal, "unable to create volume CR")
 		}
 
-		// delete Available Capacity CR
-		if err = c.k8sclient.DeleteCR(ctxWithID, ac); err != nil {
-			ll.Errorf("Unable to delete Available Capacity CR, error: %v", err)
+		// delete or modify Available Capacity CR based on storage class
+		switch sc {
+		case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
+			err = c.updateACSizeOrDelete(ac, -requiredBytes) // shrink size or delete AC
+		default:
+			err = c.k8sclient.DeleteCR(ctxWithID, ac)
 		}
+		if err != nil {
+			ll.Errorf("Unable to modify/delete Available Capacity %s, error: %v", ac.Name, err)
+		}
+
 		c.reqMu.Unlock()
 
 		// create volume on the remove node
@@ -401,7 +419,7 @@ func (c *CSIControllerService) changeVolumeStatus(volumeID string, newStatus api
 
 // searchAvailableCapacity search appropriate available capacity and remove it from cache
 func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, requiredBytes int64,
-	storageClass string) *accrd.AvailableCapacity {
+	storageClass api.StorageClass) *accrd.AvailableCapacity {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":        "searchAvailableCapacity",
 		"requiredBytes": fmt.Sprintf("%.3fG", float64(requiredBytes)/float64(base.GBYTE)),
@@ -424,7 +442,7 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 	}
 	acNodeMap = c.acNodeMapping(acList.Items)
 
-	// search node with max amount of available capacity
+	// search node with max amount of available capacity instances
 	if preferredNode == "" {
 		for nodeID, acs := range acNodeMap {
 			if len(acs) > maxLen {
@@ -435,24 +453,40 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 		}
 	}
 
-	sc := base.ConvertStorageClass(storageClass)
 	ll.Infof("Node %s was selected, search available capacity size of %d on it with storageClass %s",
-		preferredNode, requiredBytes, sc.String())
+		preferredNode, requiredBytes, storageClass.String())
 
 	for _, ac := range acNodeMap[preferredNode] {
-		if sc == api.StorageClass_ANY {
+		if storageClass == api.StorageClass_ANY {
 			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes {
 				foundAC = ac
 				allocatedCapacity = ac.Spec.Size
 			}
 		} else {
-			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.Type == sc {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes &&
+				ac.Spec.Type == storageClass {
 				foundAC = ac
 				allocatedCapacity = ac.Spec.Size
 			}
 		}
 	}
 	return foundAC
+}
+
+// updateACSizeOrDelete update size of AC or delete that AC if new size is low that some threshold
+// bytes - difference in size, could be negative number (decrease size)
+func (c *CSIControllerService) updateACSizeOrDelete(ac *accrd.AvailableCapacity, bytes int64) error {
+	ctx, fn := context.WithTimeout(context.Background(), 10*time.Second)
+	defer fn()
+
+	newSize := ac.Spec.Size + bytes
+	if newSize > acSizeMinThresholdBytes {
+		c.log.WithField("method", "updateACSizeOrDelete").
+			Infof("Updating size of AC %s to %d bytes", ac.Name, newSize)
+		ac.Spec.Size = newSize
+		return c.k8sclient.UpdateCR(ctx, ac)
+	}
+	return c.k8sclient.DeleteCR(ctx, ac)
 }
 
 // acNodeMapping constructs map with key - nodeID(hostname), value - AC instance
@@ -486,19 +520,21 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
 
-	c.reqMu.Lock()
-	defer c.reqMu.Unlock()
-
 	var (
-		volume         = &volumecrd.Volume{}
+		volume         = &volumecrd.Volume{TypeMeta: apisV1.TypeMeta{Kind: "Volume"}} // set Kind for better logging
 		ctxT, cancelFn = context.WithTimeout(context.WithValue(ctx, base.RequestUUID, req.GetVolumeId()),
 			CreateLocalVolumeRequestTimeout)
 	)
-	defer cancelFn()
+
+	c.reqMu.Lock()
+	defer func() {
+		c.reqMu.Unlock()
+		cancelFn() // close context
+	}()
 
 	if err := c.k8sclient.ReadCR(ctxT, req.VolumeId, volume); err != nil {
 		if k8sError.IsNotFound(err) {
-			ll.Infof("Volume CR doesn't exist, volume had removed")
+			ll.Infof("Volume CR doesn't exist, volume had removed before.")
 			return &csi.DeleteVolumeResponse{}, nil
 		}
 		ll.Errorf("Unable to read volume: %v", err)
@@ -507,44 +543,58 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 
 	node := volume.Spec.Owner //volume.NodeID
 
-	ll.Infof("RPC on node %s with", node)
+	ll.Infof("RPC on node %s", node)
 	resp, err := c.communicators[NodeID(node)].DeleteLocalVolume(ctxT, &api.DeleteLocalVolumeRequest{
 		PvcUUID: req.VolumeId,
 	})
 
-	if err != nil {
-		ll.Errorf("failed to delete local volume with %s", err)
+	localVolume := resp.GetVolume()
+	if err != nil || !resp.Ok || localVolume == nil {
+		ll.Errorf("failed to delete local volume, %v", err)
 		return nil, status.Errorf(codes.Internal, "unable to delete volume on node %s", node)
 	}
 
-	if !resp.Ok {
-		return nil, status.Error(codes.Internal, "response for delete local volume is not ok")
-	}
-
 	ll.Info("DeleteLocalVolume return Ok")
-	localVolume := resp.GetVolume()
-	if localVolume == nil {
-		return nil, status.Error(codes.Internal, "Unable to delete volume from node")
-	}
-
 	// remove volume CR
 	if err = c.k8sclient.DeleteCR(ctxT, volume); err != nil {
 		ll.Errorf("Delete volume CR with name %s failed, error: %v", req.VolumeId, err)
 		return nil, status.Errorf(codes.Internal, "can't delete volume CR: %s", err.Error())
 	}
 
+	var (
+		acName = node + "-" + strings.ToLower(localVolume.Location)
+		sc     = api.StorageClass_ANY
+	)
+
+	// if SC is LVM - try to find AC with that LVM
+	if volume.Spec.StorageClass == api.StorageClass_HDDLVG || volume.Spec.StorageClass == api.StorageClass_SSDLVG {
+		ac := &accrd.AvailableCapacity{}
+		if err := c.k8sclient.ReadCR(context.Background(), acName, ac); err != nil {
+			if !k8sError.IsNotFound(err) {
+				ll.Errorf("Unable to check whether AC %s exist or no, error: %v", acName, err)
+				return nil, status.Error(codes.Internal, "unable to restore capacity")
+			}
+			// AC wasn't found and going to be created with next sc
+			sc = volume.Spec.StorageClass
+		} else {
+			// AC was found, update it size
+			if err = c.updateACSizeOrDelete(ac, localVolume.Size); err != nil {
+				ll.Errorf("Unable to update AC %s size: %v", ac.Name, err)
+			}
+			return &csi.DeleteVolumeResponse{}, nil // volume was deleted
+		}
+	}
+
+	// create AC
 	ac := &api.AvailableCapacity{
 		Size:     localVolume.Size,
-		Type:     api.StorageClass_ANY,
+		Type:     sc,
 		Location: localVolume.Location,
 		NodeId:   node,
 	}
 
-	location := strings.ToLower(localVolume.Location)
-	name := node + "-" + location
-
-	cr := c.constructAvailableCapacityCR(name, ac)
-	if err := c.k8sclient.CreateCR(ctxT, cr, name); err != nil {
+	cr := c.constructAvailableCapacityCR(acName, ac)
+	if err := c.k8sclient.CreateCR(ctxT, cr, acName); err != nil {
 		ll.Errorf("Can't create AvailableCapacity CR %v error: %v", cr, err)
 	}
 
@@ -647,9 +697,8 @@ func (c *CSIControllerService) constructAvailableCapacityCR(name string, ac *api
 
 func (c *CSIControllerService) getPods(ctx context.Context, mask string) ([]*coreV1.Pod, error) {
 	pods := coreV1.PodList{}
-	err := c.k8sclient.List(ctx, &pods, k8sClient.InNamespace(c.k8sclient.Namespace))
-	// TODO: how does simulate error here?
-	if err != nil {
+
+	if err := c.k8sclient.List(ctx, &pods, k8sClient.InNamespace(c.k8sclient.Namespace)); err != nil {
 		return nil, err
 	}
 	p := make([]*coreV1.Pod, 0)

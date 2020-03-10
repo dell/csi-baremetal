@@ -19,7 +19,7 @@ import (
 var (
 	namespace     = flag.String("namespace", "", "Namespace in which Node Service service run")
 	hwMgrEndpoint = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "Hardware Manager endpoint")
-	volumeMgrIP   = flag.String("volumemgrip", base.DefaultVolumeManagerEndpoint, "Node Volume Manager endpoint")
+	volumeMgrIP   = flag.String("volumemgrip", base.DefaultVMMgrIP, "Node Volume Manager endpoint")
 	csiEndpoint   = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 	nodeID        = flag.String("nodeid", "", "node identification by k8s")
 	logPath       = flag.String("logpath", "", "Log path for Node Volume Manager service")
