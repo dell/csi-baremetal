@@ -11,14 +11,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
-	"github.com/sirupsen/logrus"
 )
 
 type VolumeManager struct {
@@ -64,6 +65,36 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 
 func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
 	m.linuxUtils.SetLinuxUtilsExecutor(executor)
+}
+
+func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+	ctx := context.Background()
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "Reconcile",
+		"volumeID": req.Name,
+	})
+
+	volume := &volumecrd.Volume{}
+
+	err := m.k8sclient.ReadCR(ctx, req.Name, volume)
+	if err != nil {
+		m.log.Errorf("Failed to read VolumeCR: %s", err.Error())
+		return ctrl.Result{}, err
+	}
+
+	// Here we need to check that this VolumeCR corresponds to this node
+	// because we deploy VolumeCRD Controller as DaemonSet
+	if volume.Spec.Owner == m.nodeID {
+		ll.Info("Volume CR changes were detected")
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&volumecrd.Volume{}).
+		Complete(m)
 }
 
 // GetLocalVolumes request return array of volumes on node

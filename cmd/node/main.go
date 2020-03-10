@@ -6,11 +6,18 @@ import (
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	health "google.golang.org/grpc/health/grpc_health_v1"
-
 	"github.com/sirupsen/logrus"
+	health "google.golang.org/grpc/health/grpc_health_v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	// +kubebuilder:scaffold:imports
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
@@ -61,6 +68,14 @@ func main() {
 	csiNodeService := node.NewCSINodeService(clientToHwMgr, *nodeID, logger, kubeClient)
 	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.2", true)
 
+	// Get CRD Controller Manager instance
+	mgr := prepareCRDControllerManager(logger)
+
+	// Try to bind CSINodeService's VolumeManager to Controller Manager
+	if err = csiNodeService.SetupWithManager(mgr); err != nil {
+		logger.Fatalf("unable to create controller: %s", err.Error())
+	}
+
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
@@ -74,6 +89,13 @@ func main() {
 	// TODO: implement logic for discover  AK8S-64
 	// logger.Info("Starting Discovering go routine ...")
 	go Discovering(csiNodeService, logger)
+
+	logger.Info("Starting CRD Controller Manager in go routine ...")
+	go func() {
+		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+			logger.Fatalf("CRD Controller Manager failed with error: %s", err.Error())
+		}
+	}()
 
 	logger.Info("Starting handle CSI calls in main thread ...")
 	// handle CSI calls
@@ -105,4 +127,22 @@ func StartVolumeManagerServer(c *node.CSINodeService, logger *logrus.Logger) err
 	logger.Info("Registering Node service health check")
 	health.RegisterHealthServer(volumeMgrTCPServer.GRPCServer, c)
 	return volumeMgrTCPServer.RunServer()
+}
+
+func prepareCRDControllerManager(logger *logrus.Logger) manager.Manager {
+	scheme := runtime.NewScheme()
+
+	_ = clientgoscheme.AddToScheme(scheme)
+	//register volume crd
+	_ = volumecrd.AddToScheme(scheme)
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:    scheme,
+		Namespace: *namespace,
+	})
+	if err != nil {
+		logger.WithField("method", "prepareCRDControllerManager").Fatalf("Unable to create new"+
+			" CRD Controller Manager: %s", err.Error())
+	}
+	return mgr
 }
