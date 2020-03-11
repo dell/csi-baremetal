@@ -2,16 +2,18 @@ package base
 
 import (
 	"context"
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"fmt"
+	"testing"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 )
 
 const (
@@ -177,7 +179,31 @@ var _ = Describe("Working with CRD", func() {
 		It("Update should fail", func() {
 
 		})
+
+		It("Should update Volume CR's status successfully", func() {
+			status := api.OperationalStatus_FailedToCreate
+			err := k8sclient.CreateCR(testCtx, &testVolume, testID)
+			Expect(err).To(BeNil())
+
+			err = k8sclient.ChangeVolumeStatus(testID, status)
+			Expect(err).To(BeNil())
+
+			rVolume := &vcrd.Volume{}
+			err = k8sclient.ReadCR(testCtx, testID, rVolume)
+			Expect(err).To(BeNil())
+			Expect(rVolume.Spec.Status).To(Equal(status))
+			Expect(rVolume.ObjectMeta.Annotations[VolumeStatusAnnotationKey]).To(Equal(api.OperationalStatus_name[int32(status)]))
+		})
+
+		It("Should fail during updating Volume CR's status which doesn't exist", func() {
+			status := api.OperationalStatus_FailedToCreate
+
+			err := k8sclient.ChangeVolumeStatus(testID, status)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unable to persist status"))
+		})
 	})
+
 	Context("Delete CR", func() {
 		It("AC should be deleted", func() {
 			err := k8sclient.CreateCR(testCtx, &testAC, testUUID)

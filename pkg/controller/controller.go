@@ -9,21 +9,19 @@ import (
 	"sync"
 	"time"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-
-	"github.com/sirupsen/logrus"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
 	coreV1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	apisV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
 type NodeID string
@@ -178,7 +176,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		ll.Infof("Volume exists, current status: %s.", api.OperationalStatus_name[int32(volumeCR.Spec.Status)])
 		if expiredAt.Before(time.Now()) {
 			ll.Errorf("Timeout of %s for volume creation exceeded.", CreateVolumeTimeout)
-			if err = c.changeVolumeStatus(req.GetName(), api.OperationalStatus_FailedToCreate); err != nil {
+			if err = c.k8sclient.ChangeVolumeStatus(req.GetName(), api.OperationalStatus_FailedToCreate); err != nil {
 				ll.Error(err.Error())
 			}
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
@@ -257,9 +255,6 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 		}
 
 		c.reqMu.Unlock()
-
-		// create volume on the remove node
-		go c.createLocalVolume(req, ac)
 	}
 
 	ll.Info("Waiting until volume will reach Created status")
@@ -289,46 +284,6 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context,
 	}
 
 	return nil, status.Errorf(codes.Aborted, "CreateVolume is in progress")
-}
-
-// createLocalVolume sends request to the local node and based on response sets volume status (update CR)
-func (c *CSIControllerService) createLocalVolume(req *csi.CreateVolumeRequest, ac *accrd.AvailableCapacity) {
-	ll := c.log.WithFields(logrus.Fields{
-		"method":   "createLocalVolume",
-		"volumeID": req.GetName(),
-	})
-
-	var (
-		clvReq = &api.CreateLocalVolumeRequest{
-			PvcUUID:  req.GetName(),
-			Capacity: req.GetCapacityRange().GetRequiredBytes(),
-			Sc:       ac.Spec.Type,
-			Location: ac.Spec.Location,
-		}
-		node = ac.Spec.NodeId
-	)
-
-	ll.Infof("RPC on node %s with timeout in %.2f seconds. Request: %v", node,
-		CreateLocalVolumeRequestTimeout.Seconds(), clvReq)
-
-	ctxT, cancelFn := context.WithTimeout(context.Background(), CreateLocalVolumeRequestTimeout)
-	resp, err := c.communicators[NodeID(node)].CreateLocalVolume(ctxT, clvReq)
-	cancelFn()
-	ll.Infof("Got response: %v", resp)
-
-	var newStatus api.OperationalStatus
-	if err != nil {
-		ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v. Set volume status to FailedToCreate",
-			clvReq.Capacity, err, ctxT.Err())
-		newStatus = api.OperationalStatus_FailedToCreate
-	} else {
-		ll.Infof("CreateLocalVolume returned response: %v. Set status to Created", resp)
-		newStatus = api.OperationalStatus_Created
-	}
-
-	if err = c.changeVolumeStatus(clvReq.PvcUUID, newStatus); err != nil {
-		ll.Error(err.Error())
-	}
 }
 
 // waitVCRStatus check volume status until it will be reached one of the statuses
@@ -366,55 +321,6 @@ func (c *CSIControllerService) waitVCRStatus(ctx context.Context,
 			}
 		}
 	}
-}
-
-// changeVolumeStatus sets volume status with reqMu.Lock(): read Volume, change status, update volume
-func (c *CSIControllerService) changeVolumeStatus(volumeID string, newStatus api.OperationalStatus) error {
-	ll := c.log.WithFields(logrus.Fields{
-		"method":   "createVolumeOnNode",
-		"volumeID": volumeID,
-	})
-
-	c.reqMu.Lock()
-	defer c.reqMu.Unlock()
-
-	var (
-		err          error
-		newStatusStr = api.OperationalStatus_name[int32(newStatus)]
-		v            = &volumecrd.Volume{}
-		attempts     = 10
-		timeout      = 500 * time.Millisecond
-		ctxV         = context.WithValue(context.Background(), base.RequestUUID, volumeID)
-	)
-	ll.Infof("Try to set status to %s", newStatusStr)
-
-	// read volume into v
-	for i := 0; i < attempts; i++ {
-		if err = c.k8sclient.ReadCR(ctxV, volumeID, v); err == nil {
-			break
-		}
-		ll.Warnf("Unable to read CR: %v. Attempt %d out of %d.", err, i, attempts)
-		time.Sleep(timeout)
-	}
-
-	// change status
-	v.Spec.Status = newStatus
-	if v.ObjectMeta.Annotations == nil {
-		v.ObjectMeta.Annotations = make(map[string]string, 1)
-	}
-	v.ObjectMeta.Annotations[VolumeStatusAnnotationKey] = newStatusStr
-
-	for i := 0; i < attempts; i++ {
-		// update volume with new status
-		if err = c.k8sclient.UpdateCR(ctxV, v); err == nil {
-			return nil
-		}
-		ll.Warnf("Unable to update volume CR (set status to %s). Attempt %d out of %d",
-			api.OperationalStatus_name[int32(newStatus)], i, attempts)
-		time.Sleep(timeout)
-	}
-
-	return fmt.Errorf("unable to persist status to %s for volume %s", newStatusStr, volumeID)
 }
 
 // searchAvailableCapacity search appropriate available capacity and remove it from cache

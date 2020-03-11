@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
@@ -43,7 +44,10 @@ type VolumeManager struct {
 	nodeID     string
 }
 
-const DiscoverDrivesTimout = 300 * time.Second
+const (
+	DiscoverDrivesTimout     = 300 * time.Second
+	CreateLocalVolumeTimeout = 300 * time.Second
+)
 
 // NewVolumeManager returns new instance ov VolumeManager
 func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, logger *logrus.Logger, k8sclient *base.KubeClient, nodeID string) *VolumeManager {
@@ -68,7 +72,9 @@ func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
 }
 
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+	ctx, cancelFn := context.WithTimeout(context.Background(), CreateLocalVolumeTimeout)
+	defer cancelFn()
+
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "Reconcile",
 		"volumeID": req.Name,
@@ -79,16 +85,41 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err := m.k8sclient.ReadCR(ctx, req.Name, volume)
 	if err != nil {
 		m.log.Errorf("Failed to read VolumeCR: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Here we need to check that this VolumeCR corresponds to this node
 	// because we deploy VolumeCRD Controller as DaemonSet
-	if volume.Spec.Owner == m.nodeID {
-		ll.Info("Volume CR changes were detected")
+	if volume.Spec.Owner != m.nodeID {
+		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, nil
+	ll.Info("Volume CR changes were detected")
+	switch volume.Spec.Status {
+	case api.OperationalStatus_Creating:
+		err := m.CreateLocalVolume(ctx, &volume.Spec)
+		var newStatus api.OperationalStatus
+		if err != nil {
+			ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
+				" Set volume status to FailedToCreate", volume.Spec.Size, err, ctx.Err())
+			newStatus = api.OperationalStatus_FailedToCreate
+		} else {
+			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
+			newStatus = api.OperationalStatus_Created
+		}
+
+		if err = m.k8sclient.ChangeVolumeStatus(volume.Name, newStatus); err != nil {
+			ll.Error(err.Error())
+			// Here we can return error because Volume created successfully and we can try to change CR's status
+			// one more time
+			return ctrl.Result{}, err
+		}
+		// If we return err here, we'll call that reconcile one more time.
+		// But we set OperationalStatus as FailedToCreate. And CSI Controller handles with FailedToCreate.
+		return ctrl.Result{}, nil
+	default:
+		return ctrl.Result{}, nil
+	}
 }
 
 func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
@@ -112,6 +143,11 @@ func (m *VolumeManager) GetLocalVolumes(context.Context, *api.VolumeRequest) (*a
 // GetAvailableCapacity request return array of free capacity on node
 func (m *VolumeManager) GetAvailableCapacity(ctx context.Context, req *api.AvailableCapacityRequest) (*api.AvailableCapacityResponse, error) {
 	m.log.WithField("method", "GetAvailableCapacity").Info("Processing ...")
+
+	// TODO Make CSI Controller wait til drives cache is empty AK8S-379
+	if len(m.drivesCache) == 0 {
+		return nil, fmt.Errorf("drives cache has not initialized yet")
+	}
 
 	if err := m.DiscoverAvailableCapacity(req.NodeId); err != nil {
 		return nil, err
@@ -339,48 +375,46 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 	return drives
 }
 
-func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLocalVolumeRequest) (*api.CreateLocalVolumeResponse, error) {
+func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "CreateLocalVolume",
-		"volumeID": req.GetPvcUUID(),
+		"volumeID": vol.Id,
 	})
 
-	ll.Infof("Processing request: %v", req)
-
-	resp := &api.CreateLocalVolumeResponse{Drive: "", Capacity: 0, Ok: false}
+	ll.Infof("Creating volume: %v", vol)
 
 	// TODO: should read from Volume CRD AK8S-170
-	if vol, ok := m.getFromVolumeCache(req.PvcUUID); ok {
+	if vol, ok := m.getFromVolumeCache(vol.Id); ok {
 		ll.Infof("Found volume in cache with status: %s", api.OperationalStatus_name[int32(vol.Status)])
 		return m.pullCreateLocalVolume(ctx, vol.Id)
 	}
 
 	var drive *drivecrd.Drive
 	var err error
-	if req.Location != "" {
-		ll.Infof("Info about drive location was provided, location is %s", req.Location)
-		if err = m.k8sclient.ReadCR(ctx, req.Location, drive); err != nil {
-			ll.Errorf("Failed to read crd with name %s, error %s", req.Location, err.Error())
-			drive, err = m.searchFreeDrive(req.Capacity)
+	if vol.Location != "" {
+		ll.Infof("Info about drive location was provided, location is %s", vol.Location)
+		if err = m.k8sclient.ReadCR(ctx, vol.Location, drive); err != nil {
+			ll.Errorf("Failed to read crd with name %s, error %s", vol.Location, err.Error())
+			drive, err = m.searchFreeDrive(vol.Size)
 			if err != nil {
-				return resp, err
+				return err
 			}
 		}
 	} else {
 		ll.Info("Location was not provided, search free drive ...")
-		drive, err = m.searchFreeDrive(req.Capacity)
+		drive, err = m.searchFreeDrive(vol.Size)
 		if err != nil {
-			return resp, err
+			return err
 		}
 	}
 	ll.Infof("Search device file")
 	device, err := m.searchDrivePathBySN(drive.Spec.SerialNumber)
 	if err != nil {
-		return resp, err
+		return err
 	}
 
-	m.setVolumeCacheValue(req.PvcUUID, &api.Volume{
-		Id:           req.PvcUUID,
+	m.setVolumeCacheValue(vol.Id, &api.Volume{
+		Id:           vol.Id,
 		Owner:        "",
 		Size:         drive.Spec.Size,
 		Location:     drive.Spec.UUID,
@@ -389,12 +423,12 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 		Type:         "", // TODO: set that filed to FSType
 		Health:       api.Health_GOOD,
 		Status:       api.OperationalStatus_Staging, // becomes operative in NodePublishCall
-		StorageClass: req.Sc,
+		StorageClass: vol.StorageClass,
 	})
 
 	ll.Infof("Create partition on device %s and set UUID in background", device)
 	go func() {
-		rollBacked, err := m.setPartitionUUIDForDev(device, req.PvcUUID)
+		rollBacked, err := m.setPartitionUUIDForDev(device, vol.Id)
 		if err != nil {
 			if !rollBacked {
 				ll.Errorf("unable set partition uuid for dev %s, roll back failed too, set drive status to OFFLINE", device)
@@ -404,17 +438,17 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, req *api.CreateLo
 				}
 			}
 			ll.Errorf("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
-			m.setVolumeStatus(req.PvcUUID, api.OperationalStatus_FailedToCreate)
+			m.setVolumeStatus(vol.Id, api.OperationalStatus_FailedToCreate)
 		} else {
 			ll.Info("Partition UUID was set successfully, set volume status to Created")
-			m.setVolumeStatus(req.PvcUUID, api.OperationalStatus_Created)
+			m.setVolumeStatus(vol.Id, api.OperationalStatus_Created)
 		}
 	}()
 
-	return m.pullCreateLocalVolume(ctx, req.PvcUUID)
+	return m.pullCreateLocalVolume(ctx, vol.Id)
 }
 
-func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID string) (*api.CreateLocalVolumeResponse, error) {
+func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID string) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "pullCreatedLocalVolume",
 		"volumeID": volumeID,
@@ -441,13 +475,12 @@ func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID stri
 			case api.OperationalStatus_Created:
 				{
 					ll.Info("Volume was became Created, return it")
-					return &api.CreateLocalVolumeResponse{Drive: vol.Location, Capacity: vol.Size, Ok: true}, nil
+					return nil
 				}
 			case api.OperationalStatus_FailedToCreate:
 				{
 					ll.Info("Volume was became FailedToCreate, return it and try to restrore.")
-					return &api.CreateLocalVolumeResponse{Ok: false},
-						fmt.Errorf("unable to create local volume %s size of %d", vol.Id, vol.Size)
+					return fmt.Errorf("unable to create local volume %s size of %d", vol.Id, vol.Size)
 				}
 			}
 		}

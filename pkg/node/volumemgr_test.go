@@ -2,21 +2,24 @@ package node
 
 import (
 	"context"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
-	"github.com/stretchr/testify/assert"
-
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 )
 
 var vmLogger = logrus.New()
@@ -24,6 +27,7 @@ var vmLogger = logrus.New()
 const (
 	testNs = "default"
 	nodeId = "node"
+	testID = "uuid-1111"
 )
 
 var hwMgrRespDrives = []*api.Drive{
@@ -57,6 +61,23 @@ var (
 			Namespace: testNs,
 		},
 		Spec: *drive1,
+	}
+
+	volCR = vcrd.Volume{
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
+		ObjectMeta: v1.ObjectMeta{
+			Name:              testID,
+			Namespace:         testNs,
+			CreationTimestamp: v1.Time{Time: time.Now()},
+		},
+		Spec: api.Volume{
+			Id:           testID,
+			Size:         1024 * 1024 * 1024 * 150,
+			StorageClass: api.StorageClass_HDD,
+			Location:     "hdd2",
+			Status:       api.OperationalStatus_Creating,
+			Owner:        nodeId,
+		},
 	}
 )
 
@@ -471,7 +492,7 @@ func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 	if err != nil {
 		panic(err)
 	}
-	nVM := NewVolumeManager(c, e, vmLogger, kubeClient, "nodeId")
+	nVM := NewVolumeManager(c, e, vmLogger, kubeClient, nodeId)
 	// prepare drives cache
 	if err := nVM.Discover(); err != nil {
 		return nil
@@ -481,19 +502,9 @@ func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 
 func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	req := &api.CreateLocalVolumeRequest{
-		PvcUUID:  "uuid-1111",
-		Capacity: 1024 * 1024 * 1024 * 150,
-		Sc:       api.StorageClass_HDD,
-		Location: "hdd2",
-	}
-	resp, err := vm.CreateLocalVolume(context.Background(), req)
-	assert.NotNil(t, resp)
+	vol := &volCR.Spec
+	err := vm.CreateLocalVolume(context.Background(), vol)
 	assert.Nil(t, err)
-	assert.True(t, resp.Ok)
-	assert.Equal(t, drive2.UUID, resp.Drive)
-	assert.Equal(t, drive2.Size, resp.Capacity)
-
 }
 
 func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
@@ -504,16 +515,12 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2, drive3})
 	err := vm2.Discover()
 	assert.Nil(t, err)
-	req2 := &api.CreateLocalVolumeRequest{
-		PvcUUID:  "uuid-1111",
-		Capacity: 1024 * 1024 * 1024 * 45, // expect drive3 here
-		Sc:       api.StorageClass_HDD,
+	vol2 := &api.Volume{
+		Id:           testID,
+		Size:         1024 * 1024 * 1024 * 45,
+		StorageClass: api.StorageClass_HDD,
 	}
-	resp2, err2 := vm2.CreateLocalVolume(context.Background(), req2)
-	assert.NotNil(t, resp2)
-	if resp2 != nil {
-		assert.False(t, resp2.Ok)
-	}
+	err2 := vm2.CreateLocalVolume(context.Background(), vol2)
 	assert.NotNil(t, err2)
 	assert.Equal(t, fmt.Errorf("unable to find drive path by S/N %s", sn), err2)
 
@@ -525,17 +532,13 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)
 	err = vm2.Discover()
 	assert.Nil(t, err)
-	req3 := &api.CreateLocalVolumeRequest{
-		PvcUUID:  "uuid-1111",
-		Capacity: 1024 * 1024 * 1024 * 45,
-		Sc:       api.StorageClass_HDD,
-		Location: "hdd1",
+	vol3 := &api.Volume{
+		Id:           testID,
+		Size:         1024 * 1024 * 1024 * 45,
+		StorageClass: api.StorageClass_HDD,
+		Location:     "hdd1",
 	}
-	resp3, err3 := vm3.CreateLocalVolume(context.Background(), req3)
-	assert.NotNil(t, resp3)
-	if resp3 != nil {
-		assert.False(t, resp3.Ok)
-	}
+	err3 := vm3.CreateLocalVolume(context.Background(), vol3)
 	assert.NotNil(t, err3)
 	assert.Contains(t, err3.Error(), "unable to create local volume")
 
@@ -551,19 +554,59 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	e4.SetSuccessIfNotFound(true)
 	vm4.linuxUtils = base.NewLinuxUtils(e4, vmLogger)
 
-	req4 := &api.CreateLocalVolumeRequest{
-		PvcUUID:  uuid,
-		Capacity: 1024 * 1024 * 1024 * 45,
-		Sc:       api.StorageClass_HDD,
-		Location: "hdd2",
+	vol4 := &api.Volume{
+		Id:           uuid,
+		Size:         1024 * 1024 * 1024 * 45,
+		StorageClass: api.StorageClass_HDD,
+		Location:     "hdd2",
 	}
-	resp4, err4 := vm4.CreateLocalVolume(context.Background(), req4)
-	assert.NotNil(t, resp4)
-	if resp4 != nil {
-		assert.False(t, resp4.Ok)
-	}
+	err4 := vm4.CreateLocalVolume(context.Background(), vol4)
 	assert.NotNil(t, err4)
 	assert.Contains(t, err4.Error(), fmt.Sprintf("unable to create local volume %s", uuid))
+}
+
+func TestVolumeManager_ReconcileCreateVolumeSuccess(t *testing.T) {
+	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+
+	err := vm.k8sclient.CreateCR(context.Background(), &volCR, testID)
+	assert.Nil(t, err)
+
+	_, err = vm.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{
+		Namespace: testNs,
+		Name:      testID,
+	},
+	})
+	assert.Nil(t, err)
+
+	volAfterReconcile := &vcrd.Volume{}
+	err = vm.k8sclient.ReadCR(context.Background(), testID, volAfterReconcile)
+	assert.Nil(t, err)
+
+	assert.Equal(t, api.OperationalStatus_Created, volAfterReconcile.Spec.Status)
+}
+
+func TestVolumeManager_ReconcileCreateVolumeFail(t *testing.T) {
+	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+
+	// Change VolumeCR size to large. Disk of that size doesn't exist.
+	// So CreateLocalVolume fails
+	volCRNotFound := &volCR
+	volCRNotFound.Spec.Size = 1024 * 1024 * 1024 * 1024
+	err := vm.k8sclient.CreateCR(context.Background(), volCRNotFound, testID)
+	assert.Nil(t, err)
+
+	_, err = vm.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{
+		Namespace: testNs,
+		Name:      testID,
+	},
+	})
+	assert.Nil(t, err)
+
+	volAfterReconcile := &vcrd.Volume{}
+	err = vm.k8sclient.ReadCR(context.Background(), testID, volAfterReconcile)
+	assert.Nil(t, err)
+
+	assert.Equal(t, api.OperationalStatus_FailedToCreate, volAfterReconcile.Spec.Status)
 }
 
 func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
@@ -573,11 +616,10 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 	scImplMock.On("DeleteFileSystem", "/dev/sdb").Return(nil).Times(1)
 	vm.scMap[SCName("hdd")] = scImplMock
 
-	uuid := "uuid-1111"
-	vm.volumesCache[uuid] = &api.Volume{Id: uuid, Location: drive2.UUID}
+	vm.volumesCache[testID] = &api.Volume{Id: testID, Location: drive2.UUID}
 
 	req := &api.DeleteLocalVolumeRequest{
-		PvcUUID: uuid,
+		PvcUUID: testID,
 	}
 
 	assert.Equal(t, 1, len(vm.volumesCache))
@@ -591,8 +633,7 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	// expect: volume wasn't found in volumesCache
 	vm1 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	uuid := "uuid-1111"
-	req1 := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
+	req1 := &api.DeleteLocalVolumeRequest{PvcUUID: testID}
 
 	resp1, err1 := vm1.DeleteLocalVolume(context.Background(), req1)
 	assert.NotNil(t, resp1)
@@ -603,8 +644,8 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	// expect searchDrivePathBySN return error
 	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 	location := "fail-here"
-	vm2.volumesCache[uuid] = &api.Volume{Id: uuid, Location: location}
-	req2 := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
+	vm2.volumesCache[testID] = &api.Volume{Id: testID, Location: location}
+	req2 := &api.DeleteLocalVolumeRequest{PvcUUID: testID}
 
 	resp2, err2 := vm2.DeleteLocalVolume(context.Background(), req2)
 	assert.NotNil(t, resp2)
@@ -614,7 +655,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 
 	// expect DeletePartition was failed
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	vm3.volumesCache[uuid] = &api.Volume{Id: uuid, Location: drive1.UUID}
+	vm3.volumesCache[testID] = &api.Volume{Id: testID, Location: drive1.UUID}
 	disk := "/dev/sda"
 	isPartitionExistCMD := fmt.Sprintf("partprobe -d -s %s", disk)
 	deletePartitionCMD := fmt.Sprintf("parted -s %s1 rm 1", disk)
@@ -626,14 +667,14 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	e3.SetSuccessIfNotFound(false)
 	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)
 
-	req3 := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
+	req3 := &api.DeleteLocalVolumeRequest{PvcUUID: testID}
 
 	resp3, err3 := vm3.DeleteLocalVolume(context.Background(), req3)
 	assert.NotNil(t, resp3)
 	assert.NotNil(t, err3)
 	assert.False(t, resp3.Ok)
 	assert.Contains(t, err3.Error(), "failed to delete partition")
-	assert.Equal(t, api.OperationalStatus_FailToRemove, vm3.volumesCache[uuid].Status)
+	assert.Equal(t, api.OperationalStatus_FailToRemove, vm3.volumesCache[testID].Status)
 }
 
 func Test_constructDriveCR(t *testing.T) {

@@ -24,12 +24,6 @@ func (m *VolumeMgrClientMock) GetAvailableCapacity(ctx context.Context,
 	return args.Get(0).(*api.AvailableCapacityResponse), args.Error(1)
 }
 
-func (m *VolumeMgrClientMock) CreateLocalVolume(ctx context.Context,
-	req *api.CreateLocalVolumeRequest, opts ...grpc.CallOption) (*api.CreateLocalVolumeResponse, error) {
-	args := m.Mock.Called(req)
-	return args.Get(0).(*api.CreateLocalVolumeResponse), args.Error(1)
-}
-
 func (m *VolumeMgrClientMock) DeleteLocalVolume(ctx context.Context,
 	req *api.DeleteLocalVolumeRequest, opts ...grpc.CallOption) (*api.DeleteLocalVolumeResponse, error) {
 	args := m.Mock.Called(req)

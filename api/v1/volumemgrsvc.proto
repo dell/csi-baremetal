@@ -20,19 +20,6 @@ message AvailableCapacityResponse {
     repeated AvailableCapacity availableCapacity = 1;
 }
 
-message CreateLocalVolumeRequest {
-    string pvcUUID = 1;
-    int64 capacity = 2;
-    StorageClass sc = 3;
-    string location = 4;
-}
-
-message CreateLocalVolumeResponse {
-    string drive = 1;
-    int64 capacity = 2;
-    bool ok = 3;
-}
-
 message DeleteLocalVolumeRequest {
     string pvcUUID = 1;
 }
@@ -45,6 +32,5 @@ message DeleteLocalVolumeResponse {
 service VolumeManager {
     rpc GetLocalVolumes(VolumeRequest) returns (VolumeResponse){};
     rpc GetAvailableCapacity(AvailableCapacityRequest) returns (AvailableCapacityResponse){};
-    rpc CreateLocalVolume(CreateLocalVolumeRequest) returns (CreateLocalVolumeResponse){};
     rpc DeleteLocalVolume(DeleteLocalVolumeRequest) returns (DeleteLocalVolumeResponse){};
 }

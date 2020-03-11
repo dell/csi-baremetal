@@ -8,12 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,6 +18,12 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
 var (
@@ -357,7 +357,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("there is no suitable drive for request"))
 		})
-		It("Status FailedToCreate had reached because of createLocalVolume had got error", func() {
+		It("Status FailedToCreate was set in Volume CR", func() {
 			addAC(svc, &testAC1, &testAC2)
 			var (
 				capacity = int64(1024 * 53)
@@ -366,12 +366,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 			svc.communicators[NodeID(testNode1Name)] = mc
-			mc.On("CreateLocalVolume", &api.CreateLocalVolumeRequest{
-				PvcUUID:  "req1",
-				Capacity: capacity,
-				Sc:       api.StorageClass_HDD,
-				Location: testDriveLocation1,
-			}).Return(&api.CreateLocalVolumeResponse{}, errors.New("error"))
+			go simulateCreateLocalVolumeInReconcile(svc, "req1", api.OperationalStatus_FailedToCreate)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
@@ -422,12 +417,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 			svc.communicators[NodeID(testNode1Name)] = mc
-			mc.On("CreateLocalVolume", &api.CreateLocalVolumeRequest{
-				PvcUUID:  "req1",
-				Capacity: capacity,
-				Sc:       api.StorageClass_HDD,
-				Location: testDriveLocation1,
-			}).Return(&api.CreateLocalVolumeResponse{Ok: true}, nil)
+			go simulateCreateLocalVolumeInReconcile(svc, "req1", api.OperationalStatus_Created)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(err).To(BeNil())
 			Expect(resp).ToNot(BeNil())
@@ -760,4 +750,15 @@ func removeAllCrds(s *base.KubeClient) {
 		}
 	}
 	println("CRs were removed")
+}
+
+func simulateCreateLocalVolumeInReconcile(s *CSIControllerService, volId string, statusToSet api.OperationalStatus) {
+	for {
+		tmpVol := &vcrd.Volume{}
+		err := s.k8sclient.ReadCR(context.Background(), volId, tmpVol)
+		if err == nil {
+			_ = s.k8sclient.ChangeVolumeStatus(volId, statusToSet)
+			break
+		}
+	}
 }
