@@ -56,13 +56,13 @@ func init() {
 	SchemeBuilderDrive.Register(&Drive{}, &DriveList{})
 }
 
-func (d *Drive) Equals(drive *api.Drive) bool {
-	return d.Spec.SerialNumber == drive.SerialNumber &&
-		d.Spec.NodeId == drive.NodeId &&
-		d.Spec.PID == drive.PID &&
-		d.Spec.VID == drive.VID &&
-		d.Spec.Status == drive.Status &&
-		d.Spec.Health == drive.Health &&
-		d.Spec.Type == drive.Type &&
-		d.Spec.Size == drive.Size
+func (in *Drive) Equals(drive *api.Drive) bool {
+	return in.Spec.SerialNumber == drive.SerialNumber &&
+		in.Spec.NodeId == drive.NodeId &&
+		in.Spec.PID == drive.PID &&
+		in.Spec.VID == drive.VID &&
+		in.Spec.Status == drive.Status &&
+		in.Spec.Health == drive.Health &&
+		in.Spec.Type == drive.Type &&
+		in.Spec.Size == drive.Size
 }

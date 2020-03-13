@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -163,7 +162,7 @@ func (m *VolumeManager) GetAvailableCapacity(ctx context.Context, req *api.Avail
 
 // Discover inspects drives and create volume object if partition exist
 func (m *VolumeManager) Discover() error {
-	m.log.Infof("Current volumes cache is: %v", m.volumesCache)
+	m.log.WithField("method", "Discover").Info("Processing")
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), DiscoverDrivesTimout)
 	defer cancelFn()
@@ -201,15 +200,15 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		}
 	}
 	//Try to find not existing CR for discovered drives, create it and add to cache
-	for _, drive := range discoveredDrives {
+	for _, drivePtr := range discoveredDrives {
 		exist := false
 		for _, d := range m.drivesCache {
 			//If drive CR already exist, try to update, if drive was changed
-			if d.Spec.SerialNumber == drive.SerialNumber && d.Spec.VID == drive.VID && d.Spec.PID == drive.PID {
+			if d.Spec.SerialNumber == drivePtr.SerialNumber && d.Spec.VID == drivePtr.VID && d.Spec.PID == drivePtr.PID {
 				exist = true
-				if !d.Equals(drive) {
-					drive.UUID = d.Spec.UUID
-					d.Spec = *drive
+				if !d.Equals(drivePtr) {
+					drivePtr.UUID = d.Spec.UUID
+					d.Spec = *drivePtr
 					if err := m.k8sclient.UpdateCR(ctx, d); err != nil {
 						ll.Errorf("Failed to update drive CR with Vid/Pid/SN %s-%s-%s, error %s", d.Spec.VID, d.Spec.PID, d.Spec.SerialNumber, err.Error())
 					}
@@ -220,9 +219,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		}
 		if !exist {
 			//Drive CR is not exist, try to create it
-			drive.UUID = uuid.New().String()
-			driveCR := m.constructDriveCR(*drive)
-			if e := m.k8sclient.CreateCR(ctx, driveCR, drive.UUID); e != nil {
+			drivePtr.UUID = uuid.New().String()
+			driveCR := m.k8sclient.ConstructDriveCR(drivePtr.UUID, *drivePtr)
+			if e := m.k8sclient.CreateCR(ctx, driveCR, drivePtr.UUID); e != nil {
 				ll.Errorf("Failed to create drive CR Vid/Pid/SN %s-%s-%s, error %s", driveCR.Spec.VID, driveCR.Spec.PID, driveCR.Spec.SerialNumber, e.Error())
 			}
 			m.drivesCache[driveCR.Spec.UUID] = driveCR
@@ -324,10 +323,10 @@ func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
 			//if drive is empty
 			if !removed {
 				capacity := &api.AvailableCapacity{
-					Size:     drive.Spec.Size,
-					Location: drive.Spec.UUID,
-					Type:     base.ConvertDriveTypeToStorageClass(drive.Spec.Type),
-					NodeId:   nodeID,
+					Size:         drive.Spec.Size,
+					Location:     drive.Spec.UUID,
+					StorageClass: base.ConvertDriveTypeToStorageClass(drive.Spec.Type),
+					NodeId:       nodeID,
 				}
 				ll.Infof("Adding available capacity: %s-%s", capacity.NodeId, capacity.Location)
 				m.availableCapacityCache[capacity.Location] = capacity
@@ -389,7 +388,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		return m.pullCreateLocalVolume(ctx, vol.Id)
 	}
 
-	var drive *drivecrd.Drive
+	var drive = &drivecrd.Drive{}
 	var err error
 	if vol.Location != "" {
 		ll.Infof("Info about drive location was provided, location is %s", vol.Location)
@@ -413,18 +412,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		return err
 	}
 
-	m.setVolumeCacheValue(vol.Id, &api.Volume{
-		Id:           vol.Id,
-		Owner:        "",
-		Size:         drive.Spec.Size,
-		Location:     drive.Spec.UUID,
-		LocationType: api.LocationType_Drive,
-		Mode:         api.Mode_FS,
-		Type:         "", // TODO: set that filed to FSType
-		Health:       api.Health_GOOD,
-		Status:       api.OperationalStatus_Staging, // becomes operative in NodePublishCall
-		StorageClass: vol.StorageClass,
-	})
+	m.setVolumeCacheValue(vol.Id, vol)
 
 	ll.Infof("Create partition on device %s and set UUID in background", device)
 	go func() {
@@ -646,9 +634,9 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 	}
 	ll.Info("File system was deleted")
 
-	delete(m.volumesCache, volume.Id)
+	m.deleteFromVolumeCache(volume.Id)
 
-	m.log.Infof("Volume was successfully deleted")
+	ll.Infof("Volume was successfully deleted, return it: %v", volume)
 	return &api.DeleteLocalVolumeResponse{Ok: true, Volume: volume}, nil
 }
 
@@ -659,6 +647,12 @@ func (m *VolumeManager) getFromVolumeCache(key string) (*api.Volume, bool) {
 
 	v, ok := m.volumesCache[key]
 	return v, ok
+}
+
+func (m *VolumeManager) deleteFromVolumeCache(key string) {
+	m.vCacheMu.Lock()
+	delete(m.volumesCache, key)
+	m.vCacheMu.Unlock()
 }
 
 func (m *VolumeManager) setVolumeCacheValue(key string, v *api.Volume) {
@@ -690,20 +684,6 @@ func (m *VolumeManager) setVolumeStatus(key string, newStatus api.OperationalSta
 	}
 	v.Status = newStatus
 	m.volumesCache[key] = v
-}
-
-func (m *VolumeManager) constructDriveCR(drive api.Drive) *drivecrd.Drive {
-	return &drivecrd.Drive{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "Drive",
-			APIVersion: "drive.dell.com/v1",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      drive.UUID,
-			Namespace: m.k8sclient.Namespace,
-		},
-		Spec: drive,
-	}
 }
 
 // Return appropriate StorageClass implementation from VolumeManager scMap field

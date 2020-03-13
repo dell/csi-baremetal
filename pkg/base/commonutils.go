@@ -18,18 +18,22 @@ func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
+
+	ticker := time.NewTicker(timeout)
 	for i := 0; i < retry; i++ {
-		time.Sleep(timeout)
+		<-ticker.C
 		newContent, err := ioutil.ReadFile(filename)
 		if err != nil {
 			return nil, err
 		}
 		if bytes.Equal(oldContent, newContent) {
+			ticker.Stop()
 			return newContent, nil
 		}
 		// Files are different, continue reading
 		oldContent = newContent
 	}
+	ticker.Stop()
 	return nil, fmt.Errorf("could not get consistent content of %s after %d attempts", filename, retry)
 }
 

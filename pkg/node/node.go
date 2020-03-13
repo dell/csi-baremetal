@@ -124,29 +124,25 @@ func (s *CSINodeService) pullPublishStatus(ctx context.Context, volumeID string)
 	var vol, _ = s.getFromVolumeCache(volumeID)
 	ll.Infof("Current status: %s", api.OperationalStatus_name[int32(vol.Status)])
 
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			ll.Warnf("Context is done and volume still not become Published, current status %s",
 				api.OperationalStatus_name[int32(vol.Status)])
 			return nil, status.Error(codes.Internal, "volume is still publishing")
-		case <-time.After(time.Second):
+		case <-ticker.C:
 			vol, _ = s.getFromVolumeCache(volumeID)
 			switch vol.Status {
 			case api.OperationalStatus_Publishing:
-				{
-					time.Sleep(time.Second)
-				}
+				<-ticker.C
 			case api.OperationalStatus_Published:
-				{
-					ll.Info("Volume was published, return it")
-					return &csi.NodePublishVolumeResponse{}, nil
-				}
+				ll.Info("Volume was published, return it")
+				return &csi.NodePublishVolumeResponse{}, nil
 			case api.OperationalStatus_FailedToPublish:
-				{
-					ll.Errorf("Failed to publish volume %s", volumeID)
-					return nil, fmt.Errorf("failed to publish volume %s", volumeID)
-				}
+				ll.Errorf("Failed to publish volume %s", volumeID)
+				return nil, fmt.Errorf("failed to publish volume %s", volumeID)
 			}
 		}
 	}

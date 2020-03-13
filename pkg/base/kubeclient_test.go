@@ -2,8 +2,11 @@ package base
 
 import (
 	"context"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
@@ -38,29 +41,72 @@ var (
 		},
 	}
 
-	testAC = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
-		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024,
-			Type:     api.StorageClass_HDD,
-			Location: testDriveLocation1,
-			NodeId:   testNode1Name},
+	testApiAC = api.AvailableCapacity{
+		Size:         1024 * 1024,
+		StorageClass: api.StorageClass_HDD,
+		Location:     testDriveLocation1,
+		NodeId:       testNode1Name,
+	}
+	testACTypeMeta = k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"}
+	testACName     = fmt.Sprintf("%s-%s", testApiAC.NodeId, testApiAC.Location)
+	testACCR       = accrd.AvailableCapacity{
+		TypeMeta:   testACTypeMeta,
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testACName, Namespace: testNs},
+		Spec:       testApiAC,
 	}
 
-	testDrive = drivecrd.Drive{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "Drive", APIVersion: "drive.dell.com/v1"},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
-		Spec: api.Drive{
-			UUID:         testUUID,
-			VID:          "testVID",
-			PID:          "testPID",
-			SerialNumber: "testSN",
-			Health:       0,
-			Type:         0,
-			Size:         1024 * 1024,
-			Status:       0,
+	testApiDrive = api.Drive{
+		UUID:         testUUID,
+		VID:          "testVID",
+		PID:          "testPID",
+		SerialNumber: "testSN",
+		Health:       0,
+		Type:         0,
+		Size:         1024 * 1024,
+		Status:       0,
+	}
+	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: "drive.dell.com/v1"}
+	testDriveCR = drivecrd.Drive{
+		TypeMeta:   testDriveTypeMeta,
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID, Namespace: testNs},
+		Spec: testApiDrive,
+	}
+
+	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"}
+	testApiVolume = api.Volume{
+		Id:       testID,
+		Owner:    "pod",
+		Size:     1000,
+		Type:     "Type",
+		Location: "location",
+	}
+	testVolumeCR = vcrd.Volume{
+		TypeMeta: testVolumeTypeMeta,
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testID,
+			Namespace:         testNs,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
 		},
+		Spec: testApiVolume,
+	}
+
+	testApiLVG = api.LogicalVolumeGroup{
+		UUID:                 testUUID,
+		Node:                 testNode1Name,
+		Locations:            []string{testDriveLocation1},
+		Size:                 1024,
+	}
+	testLVGName = fmt.Sprintf("lvg-%s", strings.ToLower(testApiLVG.Locations[0]))
+	testLVGCR = lvgcrd.LVG{
+		TypeMeta: k8smetav1.TypeMeta{
+			Kind:       "LVG",
+			APIVersion: "lvg.dell.com/v1",
+		},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:      testLVGName,
+			Namespace: testNs,
+		},
+		Spec: testApiLVG,
 	}
 )
 
@@ -70,13 +116,14 @@ func TestKubernetesClient(t *testing.T) {
 }
 
 var _ = Describe("Working with CRD", func() {
-	var k8sclient *KubeClient
-	var err error
+	var (
+		k8sclient *KubeClient
+		err error
+	)
+
 	BeforeEach(func() {
 		k8sclient, err = GetFakeKubeClient(testNs)
-		if err != nil {
-			panic(err)
-		}
+		Expect(err).To(BeNil())
 	})
 	AfterEach(func() {
 		removeAllCrds(k8sclient)
@@ -93,25 +140,25 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should create and read Available Capacity CR", func() {
-			err := k8sclient.CreateCR(testCtx, &testAC, testID)
+			err := k8sclient.CreateCR(testCtx, &testACCR, testACName)
 			Expect(err).To(BeNil())
 			rAC := &accrd.AvailableCapacity{}
-			err = k8sclient.ReadCR(testCtx, testID, rAC)
+			err = k8sclient.ReadCR(testCtx, testACName, rAC)
 			Expect(err).To(BeNil())
-			Expect(rAC.ObjectMeta.Name).To(Equal(testID))
+			Expect(rAC.ObjectMeta.Name).To(Equal(testACName))
 		})
 
 		It("Should create and read drive CR", func() {
-			err := k8sclient.CreateCR(testCtx, &testDrive, testID)
+			err := k8sclient.CreateCR(testCtx, &testDriveCR, testUUID)
 			Expect(err).To(BeNil())
 			rdrive := &drivecrd.Drive{}
-			err = k8sclient.ReadCR(testCtx, testID, rdrive)
+			err = k8sclient.ReadCR(testCtx, testUUID, rdrive)
 			Expect(err).To(BeNil())
-			Expect(rdrive.ObjectMeta.Name).To(Equal(testID))
+			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
 		})
 
 		It("Should read volumes CR List", func() {
-			err := k8sclient.CreateCR(context.Background(), &testVolume, testID)
+			err := k8sclient.CreateCR(context.Background(), &testVolume, testACName)
 			Expect(err).To(BeNil())
 
 			vList := &vcrd.VolumeList{}
@@ -122,7 +169,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should read drive CR List", func() {
-			err := k8sclient.CreateCR(testCtx, &testDrive, testID)
+			err := k8sclient.CreateCR(testCtx, &testDriveCR, testACName)
 			Expect(err).To(BeNil())
 
 			dList := &drivecrd.DriveList{}
@@ -144,36 +191,38 @@ var _ = Describe("Working with CRD", func() {
 
 	Context("Update CR instance", func() {
 		It("Should Available Capacity update successfully", func() {
-			err := k8sclient.CreateCR(testCtx, &testAC, testID)
+			acCR := testACCR
+			err := k8sclient.CreateCR(testCtx, &acCR, testACName)
 			Expect(err).To(BeNil())
 
 			newSize := int64(1024 * 105)
-			testAC.Spec.Size = newSize
+			acCR.Spec.Size = newSize
 
-			err = k8sclient.UpdateCR(testCtx, &testAC)
+			err = k8sclient.UpdateCR(testCtx, &acCR)
 			Expect(err).To(BeNil())
-			Expect(testAC.Spec.Size).To(Equal(newSize))
+			Expect(acCR.Spec.Size).To(Equal(newSize))
 
-			acCopy := testAC.DeepCopy()
-			err = k8sclient.Update(testCtx, &testAC)
+			acCopy := acCR.DeepCopy()
+			err = k8sclient.Update(testCtx, &acCR)
 			Expect(err).To(BeNil())
-			Expect(&testAC).To(Equal(acCopy))
+			Expect(&acCR).To(Equal(acCopy))
 		})
 
 		It("Should Drive update successfully", func() {
-			err := k8sclient.CreateCR(testCtx, &testDrive, testUUID)
+			driveCR := testDriveCR
+			err := k8sclient.CreateCR(testCtx, &driveCR, testUUID)
 			Expect(err).To(BeNil())
 
-			testDrive.Spec.Health = api.Health_BAD
+			driveCR.Spec.Health = api.Health_BAD
 
-			err = k8sclient.UpdateCR(testCtx, &testDrive)
+			err = k8sclient.UpdateCR(testCtx, &driveCR)
 			Expect(err).To(BeNil())
-			Expect(testDrive.Spec.Health).To(Equal(api.Health_BAD))
+			Expect(driveCR.Spec.Health).To(Equal(api.Health_BAD))
 
-			acCopy := testDrive.DeepCopy()
-			err = k8sclient.Update(testCtx, &testDrive)
+			driveCopy := driveCR.DeepCopy()
+			err = k8sclient.Update(testCtx, &driveCR)
 			Expect(err).To(BeNil())
-			Expect(&testDrive).To(Equal(acCopy))
+			Expect(&driveCR).To(Equal(driveCopy))
 		})
 
 		It("Update should fail", func() {
@@ -206,7 +255,7 @@ var _ = Describe("Working with CRD", func() {
 
 	Context("Delete CR", func() {
 		It("AC should be deleted", func() {
-			err := k8sclient.CreateCR(testCtx, &testAC, testUUID)
+			err := k8sclient.CreateCR(testCtx, &testACCR, testUUID)
 			Expect(err).To(BeNil())
 			acList := accrd.AvailableCapacityList{}
 
@@ -214,7 +263,7 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err).To(BeNil())
 			Expect(len(acList.Items)).To(Equal(1))
 
-			err = k8sclient.DeleteCR(testCtx, &testAC)
+			err = k8sclient.DeleteCR(testCtx, &testACCR)
 			Expect(err).To(BeNil())
 
 			err = k8sclient.ReadList(testCtx, &acList)
@@ -222,7 +271,7 @@ var _ = Describe("Working with CRD", func() {
 			Expect(len(acList.Items)).To(Equal(0))
 		})
 		It("Drive should be deleted", func() {
-			err := k8sclient.CreateCR(testCtx, &testDrive, testUUID)
+			err := k8sclient.CreateCR(testCtx, &testDriveCR, testUUID)
 			Expect(err).To(BeNil())
 			driveList := drivecrd.DriveList{}
 
@@ -230,7 +279,7 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err).To(BeNil())
 			Expect(len(driveList.Items)).To(Equal(1))
 
-			err = k8sclient.DeleteCR(testCtx, &testDrive)
+			err = k8sclient.DeleteCR(testCtx, &testDriveCR)
 			Expect(err).To(BeNil())
 
 			err = k8sclient.ReadList(testCtx, &driveList)
@@ -238,6 +287,60 @@ var _ = Describe("Working with CRD", func() {
 			Expect(len(driveList.Items)).To(Equal(0))
 		})
 
+	})
+})
+
+var _ = Describe("Constructor methods", func() {
+	var (
+		k8sclient *KubeClient
+		err error
+	)
+
+	BeforeEach(func() {
+		k8sclient, err = GetFakeKubeClient(testNs)
+		Expect(err).To(BeNil())
+	})
+
+	Context("ConstructACCR", func() {
+		It("Should return right AC CR", func() {
+			name := fmt.Sprintf("%s-%s", testApiAC.NodeId, testApiAC.Location)
+			constructedCR := k8sclient.ConstructACCR(name, testApiAC)
+			Expect(constructedCR.TypeMeta.Kind).To(Equal(testACCR.TypeMeta.Kind))
+			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testACCR.TypeMeta.APIVersion))
+			Expect(constructedCR.ObjectMeta.Name).To(Equal(testACCR.ObjectMeta.Name))
+			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testACCR.ObjectMeta.Namespace))
+			Expect(constructedCR.Spec).To(Equal(testACCR.Spec))
+		})
+	})
+	Context("ConstructDriveCR", func() {
+		It("Should return right Drive CR", func() {
+			constructedCR := k8sclient.ConstructDriveCR(testApiDrive.UUID, testApiDrive)
+			Expect(constructedCR.TypeMeta.Kind).To(Equal(testDriveCR.TypeMeta.Kind))
+			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testDriveCR.TypeMeta.APIVersion))
+			Expect(constructedCR.ObjectMeta.Name).To(Equal(testDriveCR.ObjectMeta.Name))
+			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testDriveCR.ObjectMeta.Namespace))
+			Expect(constructedCR.Spec).To(Equal(testDriveCR.Spec))
+		})
+	})
+	Context("ConstructVolumeCR", func() {
+		It("Should return right Volume CR", func() {
+			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testApiVolume)
+			Expect(constructedCR.TypeMeta.Kind).To(Equal(testVolumeCR.TypeMeta.Kind))
+			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testVolumeCR.TypeMeta.APIVersion))
+			Expect(constructedCR.ObjectMeta.Name).To(Equal(testVolumeCR.ObjectMeta.Name))
+			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testVolumeCR.ObjectMeta.Namespace))
+			Expect(constructedCR.Spec).To(Equal(testVolumeCR.Spec))
+		})
+	})
+	Context("ConstructLVGCR", func() {
+		It("Should return right LVG CR", func() {
+			constructedCR := k8sclient.ConstructLVGCR(testLVGName, testApiLVG)
+			Expect(constructedCR.TypeMeta.Kind).To(Equal(testLVGCR.TypeMeta.Kind))
+			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testLVGCR.TypeMeta.APIVersion))
+			Expect(constructedCR.ObjectMeta.Name).To(Equal(testLVGCR.ObjectMeta.Name))
+			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testLVGCR.ObjectMeta.Namespace))
+			Expect(constructedCR.Spec).To(Equal(testLVGCR.Spec))
+		})
 	})
 })
 

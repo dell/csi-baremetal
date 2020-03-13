@@ -81,6 +81,9 @@ rules:
   - apiGroups: ["volume.dell.com"]
     resources: ["*"]
     verbs: ["*"]
+  - apiGroups: ["lvg.dell.com"]
+    resources: ["*"]
+    verbs: ["*"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

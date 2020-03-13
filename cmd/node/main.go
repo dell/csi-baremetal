@@ -106,14 +106,13 @@ func main() {
 
 // TODO: implement logic for discover  AK8S-64
 func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
-	for {
-		err := c.Discover()
-		if err != nil {
+	var err error
+	for range time.Tick(30 * time.Second) {
+		if err = c.Discover(); err != nil {
 			logger.Infof("Discover finished with error: %v", err)
 		} else {
 			logger.Info("Discover finished successful")
 		}
-		time.Sleep(time.Second * 30)
 	}
 }
 

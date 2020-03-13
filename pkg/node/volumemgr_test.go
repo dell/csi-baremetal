@@ -150,8 +150,8 @@ func TestVolumeManager_DrivesNotInUse(t *testing.T) {
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, vmLogger, kubeClient, "nodeId")
 
-	vm.drivesCache["hdd1"] = vm.constructDriveCR(api.Drive{UUID: "hdd1", SerialNumber: "hdd1", Type: api.DriveType_HDD})
-	vm.drivesCache["nvme1"] = vm.constructDriveCR(api.Drive{UUID: "nvme1", SerialNumber: "nvme1", Type: api.DriveType_NVMe})
+	vm.drivesCache["hdd1"] = vm.k8sclient.ConstructDriveCR("hdd1", api.Drive{UUID: "hdd1", SerialNumber: "hdd1", Type: api.DriveType_HDD})
+	vm.drivesCache["nvme1"] = vm.k8sclient.ConstructDriveCR("nvme1", api.Drive{UUID: "nvme1", SerialNumber: "nvme1", Type: api.DriveType_NVMe})
 
 	volume := api.Volume{
 		LocationType: api.LocationType_Drive,
@@ -502,8 +502,8 @@ func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 
 func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	vol := &volCR.Spec
-	err := vm.CreateLocalVolume(context.Background(), vol)
+	vol := volCR.Spec
+	err := vm.CreateLocalVolume(context.Background(), &vol)
 	assert.Nil(t, err)
 }
 
@@ -568,7 +568,8 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 func TestVolumeManager_ReconcileCreateVolumeSuccess(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 
-	err := vm.k8sclient.CreateCR(context.Background(), &volCR, testID)
+	vol := volCR
+	err := vm.k8sclient.CreateCR(context.Background(), &vol, testID)
 	assert.Nil(t, err)
 
 	_, err = vm.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{
@@ -590,9 +591,9 @@ func TestVolumeManager_ReconcileCreateVolumeFail(t *testing.T) {
 
 	// Change VolumeCR size to large. Disk of that size doesn't exist.
 	// So CreateLocalVolume fails
-	volCRNotFound := &volCR
+	volCRNotFound := volCR
 	volCRNotFound.Spec.Size = 1024 * 1024 * 1024 * 1024
-	err := vm.k8sclient.CreateCR(context.Background(), volCRNotFound, testID)
+	err := vm.k8sclient.CreateCR(context.Background(), &volCRNotFound, testID)
 	assert.Nil(t, err)
 
 	_, err = vm.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{
@@ -675,12 +676,4 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	assert.False(t, resp3.Ok)
 	assert.Contains(t, err3.Error(), "failed to delete partition")
 	assert.Equal(t, api.OperationalStatus_FailToRemove, vm3.volumesCache[testID].Status)
-}
-
-func Test_constructDriveCR(t *testing.T) {
-	kubeClient, err := base.GetFakeKubeClient(testNs)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, logrus.New(), kubeClient, "nodeId")
-	driveCR := vm.constructDriveCR(*drive1)
-	assert.True(t, testDriveCr.Equals(&driveCR.Spec))
 }

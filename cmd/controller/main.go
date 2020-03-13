@@ -55,8 +55,9 @@ func main() {
 
 	logger.Infof("Wait %d seconds before start controller initialization in %d attempts",
 		timeoutBeforeInit, attemptsToInit)
+	ticker := time.NewTicker(timeoutBeforeInit * time.Second)
 	for i := 1; i <= attemptsToInit; i++ {
-		time.Sleep(timeoutBeforeInit * time.Second)
+		<-ticker.C
 		if err = controllerService.InitController(); err != nil {
 			if i == attemptsToInit {
 				logger.Fatal(err)
@@ -67,6 +68,7 @@ func main() {
 			break
 		}
 	}
+	ticker.Stop()
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version, true))
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)

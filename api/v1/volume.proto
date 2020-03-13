@@ -7,15 +7,15 @@ import "drive.proto";
 
 message Volume {
     string id = 1;
-    string owner = 2;
-    int64  size = 3;
-    string location = 4;
-    LocationType locationType = 5;
-    Mode mode = 6;
-    string type = 7;
-    v1api.Health health = 8;
-    OperationalStatus status = 9;
-    StorageClass storageClass = 10;
+    string location = 2;
+    LocationType locationType = 3;
+    StorageClass storageClass = 4;
+    string owner = 5;
+    int64  size = 6;
+    Mode mode = 7;
+    string type = 8;
+    v1api.Health health = 9;
+    OperationalStatus status = 10;
 }
 
 enum OperationalStatus {
@@ -59,8 +59,16 @@ enum StorageClass {
 }
 
 message AvailableCapacity {
-    int64 size = 1;
-    StorageClass  type = 2;
-    string location = 3;
-    string nodeId = 4;
+    string Location = 1;
+    string NodeId = 2;
+    StorageClass storageClass = 3;
+    int64 Size = 4;
+}
+
+message LogicalVolumeGroup {
+    string UUID = 1;
+    string Node = 2;
+    repeated string Locations = 3;
+    int64 size = 4;
+    v1api.Health health = 5;
 }

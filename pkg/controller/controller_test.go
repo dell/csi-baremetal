@@ -91,20 +91,20 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024 * 1024,
-			Type:     api.StorageClass_HDD,
-			Location: testDriveLocation1,
-			NodeId:   testNode1Name},
+			Size:         1024 * 1024 * 1024,
+			StorageClass: api.StorageClass_HDD,
+			Location:     testDriveLocation1,
+			NodeId:       testNode1Name},
 	}
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation2))
 	testAC2     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024 * 1024 * 1024,
-			Type:     api.StorageClass_HDD,
-			Location: testDriveLocation2,
-			NodeId:   testNode2Name,
+			Size:         1024 * 1024 * 1024 * 1024,
+			StorageClass: api.StorageClass_HDD,
+			Location:     testDriveLocation2,
+			NodeId:       testNode2Name,
 		},
 	}
 	testAC3Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation3))
@@ -112,10 +112,10 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024 * 1024 * 100,
-			Type:     api.StorageClass_HDD,
-			Location: testDriveLocation3,
-			NodeId:   testNode1Name,
+			Size:         1024 * 1024 * 1024 * 100,
+			StorageClass: api.StorageClass_HDD,
+			Location:     testDriveLocation3,
+			NodeId:       testNode1Name,
 		},
 	}
 	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
@@ -123,10 +123,10 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
-			Size:     1024 * 1024 * 1024 * 100,
-			Type:     api.StorageClass_HDDLVG,
-			Location: testDriveLocation4,
-			NodeId:   testNode2Name,
+			Size:         1024 * 1024 * 1024 * 100,
+			StorageClass: api.StorageClass_HDDLVG,
+			Location:     testDriveLocation4,
+			NodeId:       testNode2Name,
 		},
 	}
 )
@@ -151,12 +151,12 @@ var _ = Describe("CSIControllerService addition functions", func() {
 	Context("construct CR scenarios", func() {
 		It("Construct AvailableCapacity CR instance", func() {
 			capacity := api.AvailableCapacity{
-				Size:     1024 * 1024 * 1024,
-				Type:     api.StorageClass_HDD,
-				Location: testDriveLocation1,
-				NodeId:   testNode1Name,
+				Size:         1024 * 1024 * 1024,
+				StorageClass: api.StorageClass_HDD,
+				Location:     testDriveLocation1,
+				NodeId:       testNode1Name,
 			}
-			ac := svc.constructAvailableCapacityCR(testAC1Name, &capacity)
+			ac := svc.k8sclient.ConstructACCR(testAC1Name, capacity)
 			Expect(ac).To(Equal(&testAC1))
 		})
 	})
@@ -256,10 +256,10 @@ var _ = Describe("CSIControllerService addition functions", func() {
 			mc := &mocks.VolumeMgrClientMock{}
 			availableCapacity := make([]*api.AvailableCapacity, 0)
 			availableCapacity = append(availableCapacity, &api.AvailableCapacity{
-				Size:     1000,
-				Type:     api.StorageClass_ANY,
-				Location: "drive",
-				NodeId:   testNode4Name,
+				Size:         1000,
+				StorageClass: api.StorageClass_ANY,
+				Location:     "drive",
+				NodeId:       testNode4Name,
 			})
 			response := &api.AvailableCapacityResponse{
 				AvailableCapacity: availableCapacity,

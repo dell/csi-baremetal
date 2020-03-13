@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	apisV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/apps/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
@@ -18,6 +20,7 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 )
 
@@ -65,26 +68,23 @@ func (k *KubeClient) CreateCR(ctx context.Context, obj runtime.Object, name stri
 		"method":      "CreateCR",
 		"requestUUID": requestUUID.(string),
 	})
-	ll.Infof("Creating CR %s with name %s", obj.GetObjectKind().GroupVersionKind().Kind, name)
+
 	err := k.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 	if err != nil {
 		if k8sError.IsNotFound(err) {
-			e := k.Create(ctx, obj)
-			if e != nil {
-				return e
-			}
-		} else {
-			return err
+			ll.Infof("Creating CR %s with name %s", obj.GetObjectKind().GroupVersionKind().Kind, name)
+			return k.Create(ctx, obj)
 		}
+		ll.Infof("Unable to check whether CR %s exist or no", name)
+		return err
 	}
-	ll.Infof("CR with name %s was created successfully", name)
+	ll.Infof("CR %s has already exist", name)
 	return nil
 }
 
 func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
-	k.log.WithField("method", "ReadCR").Info("Read CR")
 
 	return k.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 }
@@ -132,6 +132,63 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 	return k.Delete(ctx, obj)
 }
 
+func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *accrd.AvailableCapacity {
+	return &accrd.AvailableCapacity{
+		TypeMeta: apisV1.TypeMeta{
+			Kind:       "AvailableCapacity",
+			APIVersion: "availablecapacity.dell.com/v1",
+		},
+		ObjectMeta: apisV1.ObjectMeta{
+			Name:      name,
+			Namespace: k.Namespace,
+		},
+		Spec: apiAC,
+	}
+}
+
+func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LVG {
+	return &lvgcrd.LVG{
+		TypeMeta: apisV1.TypeMeta{
+			Kind:       "LVG",
+			APIVersion: "lvg.dell.com/v1",
+		},
+		ObjectMeta: apisV1.ObjectMeta{
+			Name:      name,
+			Namespace: k.Namespace,
+		},
+		Spec: apiLVG,
+	}
+}
+
+func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volumecrd.Volume {
+	return &volumecrd.Volume{
+		TypeMeta: apisV1.TypeMeta{
+			Kind:       "Volume",
+			APIVersion: "volume.dell.com/v1",
+		},
+		ObjectMeta: apisV1.ObjectMeta{
+			Name:      name,
+			Namespace: k.Namespace,
+		},
+		Spec: apiVolume,
+	}
+}
+
+func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd.Drive {
+	return &drivecrd.Drive{
+		TypeMeta: apisV1.TypeMeta{
+			Kind:       "Drive",
+			APIVersion: "drive.dell.com/v1",
+		},
+		ObjectMeta: apisV1.ObjectMeta{
+			Name:      name,
+			Namespace: k.Namespace,
+		},
+		Spec: apiDrive,
+	}
+}
+
+// ChangeVolumeStatus changes Volume's CR status from current to newStatus with retries
 func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.OperationalStatus) error {
 	ll := k.log.WithFields(logrus.Fields{
 		"method":   "changeVolumeStatus",
@@ -220,8 +277,12 @@ func prepareScheme() (*runtime.Scheme, error) {
 	if err := accrd.AddToSchemeAvailableCapacity(scheme); err != nil {
 		return nil, err
 	}
-	//register available drive crd
+	//register drive crd
 	if err := drivecrd.AddToSchemeDrive(scheme); err != nil {
+		return nil, err
+	}
+	//register LVG crd
+	if err := lvgcrd.AddToSchemeLVG(scheme); err != nil {
 		return nil, err
 	}
 	return scheme, nil
