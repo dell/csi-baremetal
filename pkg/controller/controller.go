@@ -437,8 +437,7 @@ func (c *CSIControllerService) acNodeMapping(acs []accrd.AvailableCapacity) map[
 	return acNodeMap
 }
 
-func (c *CSIControllerService) DeleteVolume(ctx context.Context,
-	req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
 		"volumeID": req.GetVolumeId(),
@@ -469,6 +468,11 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 		}
 		ll.Errorf("Unable to read volume: %v", err)
 		return nil, fmt.Errorf("unable to find volume with ID %s", req.VolumeId)
+	}
+
+	if err := c.k8sclient.ChangeVolumeStatus(req.VolumeId, api.OperationalStatus_Removing); err != nil {
+		ll.Error(err.Error())
+		return nil, status.Errorf(codes.Internal, "unable to set status %s for %s", api.OperationalStatus_Removing, req.VolumeId)
 	}
 
 	node := volume.Spec.Owner //volume.NodeID
@@ -530,7 +534,6 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context,
 	if err := c.k8sclient.CreateCR(ctxT, cr, acName); err != nil {
 		ll.Errorf("Can't create AvailableCapacity CR %v error: %v", cr, err)
 	}
-
 	return &csi.DeleteVolumeResponse{}, nil
 }
 

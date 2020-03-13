@@ -73,7 +73,7 @@ void runTests() {
                         kubectl apply -f charts/baremetal-csi-plugin/crds/availablecapacity.dell.com_availablecapacities.yaml
                         kubectl apply -f charts/baremetal-csi-plugin/crds/volume.dell.com_volumes.yaml 
                     ''')
-                    String output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true);
+                    String output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true)
                     println(output)
                     if (!(output.contains("FAIL"))) {
                         testResultSuccess = true

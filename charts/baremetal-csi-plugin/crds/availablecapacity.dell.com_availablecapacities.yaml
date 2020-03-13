@@ -40,7 +40,7 @@ spec:
             Size:
               format: int64
               type: integer
-            Type:
+            storageClass:
               format: int32
               type: integer
           type: object

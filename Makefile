@@ -13,7 +13,7 @@ HEALTH_PROBE := health_probe
 #all: build image push
 
 # use in clear environment
-prepare-env: install-compile-proto install-hal install-controller-gen generate-deepcopy dependency
+prepare-env: install-compile-proto install-hal install-controller-gen dependency generate-api
 
 dependency:
 	GO111MODULE=on go mod download
@@ -143,3 +143,5 @@ generate-crd:
 	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
+
+generate-api: compile-proto generate-crd generate-deepcopy

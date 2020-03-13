@@ -572,8 +572,10 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(err).To(BeNil())
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
+
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
+
 			acList := accrd.AvailableCapacityList{}
 			err = svc.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
