@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -83,7 +82,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err := m.k8sclient.ReadCR(ctx, req.Name, volume)
 	if err != nil {
-		m.log.Errorf("Failed to read VolumeCR: %s", err.Error())
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -93,7 +91,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	ll.Info("Volume CR changes were detected")
+	ll.Info("Reconciling Volume")
 	switch volume.Spec.Status {
 	case api.OperationalStatus_Creating:
 		err := m.CreateLocalVolume(ctx, &volume.Spec)
@@ -125,18 +123,6 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&volumecrd.Volume{}).
 		Complete(m)
-}
-
-// GetLocalVolumes request return array of volumes on node
-func (m *VolumeManager) GetLocalVolumes(context.Context, *api.VolumeRequest) (*api.VolumeResponse, error) {
-	m.log.WithField("method", "GetLocalVolumes").Info("Processing ...")
-	volumes := make([]*api.Volume, len(m.volumesCache))
-	i := 0
-	for _, v := range m.volumesCache {
-		volumes[i] = v
-		i++
-	}
-	return &api.VolumeResponse{Volumes: volumes}, nil
 }
 
 // GetAvailableCapacity request return array of free capacity on node
@@ -247,7 +233,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 			m.drivesCache[d.Spec.UUID] = d.DeepCopy()
 		}
 	}
-	ll.Info("Current cache: ", m.drivesCache)
+	ll.Info("Current drives cache: ", m.drivesCache)
 }
 
 // updateVolumesCache updates volumes cache based on provided freeDrives
@@ -388,24 +374,17 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		return m.pullCreateLocalVolume(ctx, vol.Id)
 	}
 
-	var drive = &drivecrd.Drive{}
-	var err error
-	if vol.Location != "" {
-		ll.Infof("Info about drive location was provided, location is %s", vol.Location)
-		if err = m.k8sclient.ReadCR(ctx, vol.Location, drive); err != nil {
-			ll.Errorf("Failed to read crd with name %s, error %s", vol.Location, err.Error())
-			drive, err = m.searchFreeDrive(vol.Size)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		ll.Info("Location was not provided, search free drive ...")
-		drive, err = m.searchFreeDrive(vol.Size)
-		if err != nil {
-			return err
-		}
+	var (
+		drive     = &drivecrd.Drive{}
+		driveUUID = vol.Location
+		err       error
+	)
+	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
+	if err = m.k8sclient.ReadCR(ctx, driveUUID, drive); err != nil {
+		ll.Errorf("Failed to read crd with name %s, error %s", driveUUID, err.Error())
+		return err
 	}
+
 	ll.Infof("Search device file")
 	device, err := m.searchDrivePathBySN(drive.Spec.SerialNumber)
 	if err != nil {
@@ -495,29 +474,6 @@ func (m *VolumeManager) searchDrivePathBySN(sn string) (string, error) {
 	}
 
 	return device, nil
-}
-
-// searchFreeDrive search drive in drives cache with appropriate capacity
-func (m *VolumeManager) searchFreeDrive(capacity int64) (*drivecrd.Drive, error) {
-	m.log.WithField("method", "searchFreeDrive").Info("Processing ...")
-
-	m.dCacheMu.Lock()
-	defer m.dCacheMu.Unlock()
-	freeDrives := m.drivesAreNotUsed()
-	minSize := int64(math.MaxInt64)
-	var drive *drivecrd.Drive
-	for _, d := range freeDrives {
-		if d.Spec.Size >= capacity && d.Spec.Size < minSize {
-			drive = d
-			minSize = d.Spec.Size
-		}
-	}
-
-	if drive == nil {
-		return nil, fmt.Errorf("unable to find suitable drive with capacity %d", capacity)
-	}
-
-	return drive, nil
 }
 
 // setPartitionUUIDForDev creates partition and sets partition UUID, if some step fails

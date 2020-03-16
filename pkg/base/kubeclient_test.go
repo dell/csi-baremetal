@@ -66,14 +66,14 @@ var (
 		Status:       0,
 	}
 	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: "drive.dell.com/v1"}
-	testDriveCR = drivecrd.Drive{
+	testDriveCR       = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID, Namespace: testNs},
-		Spec: testApiDrive,
+		Spec:       testApiDrive,
 	}
 
 	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"}
-	testApiVolume = api.Volume{
+	testApiVolume      = api.Volume{
 		Id:       testID,
 		Owner:    "pod",
 		Size:     1000,
@@ -91,13 +91,13 @@ var (
 	}
 
 	testApiLVG = api.LogicalVolumeGroup{
-		UUID:                 testUUID,
-		Node:                 testNode1Name,
-		Locations:            []string{testDriveLocation1},
-		Size:                 1024,
+		UUID:      testUUID,
+		Node:      testNode1Name,
+		Locations: []string{testDriveLocation1},
+		Size:      1024,
 	}
 	testLVGName = fmt.Sprintf("lvg-%s", strings.ToLower(testApiLVG.Locations[0]))
-	testLVGCR = lvgcrd.LVG{
+	testLVGCR   = lvgcrd.LVG{
 		TypeMeta: k8smetav1.TypeMeta{
 			Kind:       "LVG",
 			APIVersion: "lvg.dell.com/v1",
@@ -118,7 +118,7 @@ func TestKubernetesClient(t *testing.T) {
 var _ = Describe("Working with CRD", func() {
 	var (
 		k8sclient *KubeClient
-		err error
+		err       error
 	)
 
 	BeforeEach(func() {
@@ -293,7 +293,7 @@ var _ = Describe("Working with CRD", func() {
 var _ = Describe("Constructor methods", func() {
 	var (
 		k8sclient *KubeClient
-		err error
+		err       error
 	)
 
 	BeforeEach(func() {

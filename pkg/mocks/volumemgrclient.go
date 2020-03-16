@@ -12,12 +12,6 @@ type VolumeMgrClientMock struct {
 	mock.Mock
 }
 
-func (m *VolumeMgrClientMock) GetLocalVolumes(ctx context.Context,
-	req *api.VolumeRequest, opts ...grpc.CallOption) (*api.VolumeResponse, error) {
-	args := m.Mock.Called(req)
-	return args.Get(0).(*api.VolumeResponse), args.Error(1)
-}
-
 func (m *VolumeMgrClientMock) GetAvailableCapacity(ctx context.Context,
 	req *api.AvailableCapacityRequest, opts ...grpc.CallOption) (*api.AvailableCapacityResponse, error) {
 	args := m.Mock.Called(req)

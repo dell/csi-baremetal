@@ -17,9 +17,11 @@ import (
 	// +kubebuilder:scaffold:imports
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
 )
 
@@ -36,18 +38,7 @@ var (
 func main() {
 	flag.Parse()
 
-	var logLevel logrus.Level
-	if *verboseLogs {
-		logLevel = logrus.DebugLevel
-	} else {
-		logLevel = logrus.InfoLevel
-	}
-
-	logger, err := base.InitLogger(*logPath, logLevel)
-	if err != nil {
-		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
-	}
-
+	logger := setupLogger()
 	logger.Info("Starting Node Service")
 
 	// gRPC client for communication with HWMgr via TCP socket
@@ -64,41 +55,34 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	kubeClient := base.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(clientToHwMgr, *nodeID, logger, kubeClient)
+	k8sClientForVolume := base.NewKubeClient(k8SClient, logger, *namespace)
+	k8sClientForLVG := base.NewKubeClient(k8SClient, logger, *namespace)
+	csiNodeService := node.NewCSINodeService(clientToHwMgr, *nodeID, logger, k8sClientForVolume)
 	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.2", true)
 
-	// Get CRD Controller Manager instance
-	mgr := prepareCRDControllerManager(logger)
-
-	// Try to bind CSINodeService's VolumeManager to Controller Manager
-	if err = csiNodeService.SetupWithManager(mgr); err != nil {
-		logger.Fatalf("unable to create controller: %s", err.Error())
-	}
+	mgr := prepareCRDControllerManagers(
+		csiNodeService,
+		lvm.NewLVGController(k8sClientForLVG, *nodeID, logger),
+		logger)
 
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
 
-	logger.Info("Starting VolumeManager server in go routine ...")
 	go func() {
 		if err := StartVolumeManagerServer(csiNodeService, logger); err != nil {
 			logger.Infof("VolumeManager server failed with error: %v", err)
 		}
 	}()
-	// TODO: implement logic for discover  AK8S-64
-	// logger.Info("Starting Discovering go routine ...")
-	go Discovering(csiNodeService, logger)
-
-	logger.Info("Starting CRD Controller Manager in go routine ...")
 	go func() {
+		logger.Info("Starting CRD Controller Manager ...")
 		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-			logger.Fatalf("CRD Controller Manager failed with error: %s", err.Error())
+			logger.Fatalf("CRD Controller Manager failed with error: %v", err)
 		}
 	}()
+	go Discovering(csiNodeService, logger)
 
-	logger.Info("Starting handle CSI calls in main thread ...")
-	// handle CSI calls
+	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil {
 		logger.Fatalf("fail to serve: %v", err)
 	}
@@ -118,6 +102,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 
 // StartVolumeManagerServer starts gRPC server to handle request from Controller Service
 func StartVolumeManagerServer(c *node.CSINodeService, logger *logrus.Logger) error {
+	logger.Info("Starting VolumeManager server ...")
 	// gRPC server that will serve requests from controller service via tcp socket
 	volumeMgrEndpoint := fmt.Sprintf("tcp://%s:%d", *volumeMgrIP, base.DefaultVolumeManagerPort)
 	volumeMgrTCPServer := base.NewServerRunner(nil, volumeMgrEndpoint, logger)
@@ -128,20 +113,58 @@ func StartVolumeManagerServer(c *node.CSINodeService, logger *logrus.Logger) err
 	return volumeMgrTCPServer.RunServer()
 }
 
-func prepareCRDControllerManager(logger *logrus.Logger) manager.Manager {
-	scheme := runtime.NewScheme()
+func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.LVGController,
+	logger *logrus.Logger) manager.Manager {
+	var (
+		ll     = logger.WithField("method", "prepareCRDControllerManagers")
+		scheme = runtime.NewScheme()
+		err    error
+	)
 
-	_ = clientgoscheme.AddToScheme(scheme)
-	//register volume crd
-	_ = volumecrd.AddToScheme(scheme)
+	if err = clientgoscheme.AddToScheme(scheme); err != nil {
+		logger.Fatal(err)
+	}
+	// register volume crd
+	if err = volumecrd.AddToScheme(scheme); err != nil {
+		logger.Fatal(err)
+	}
+	// register LVG crd
+	if err = lvgcrd.AddToSchemeLVG(scheme); err != nil {
+		logrus.Fatal(err)
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:    scheme,
 		Namespace: *namespace,
 	})
 	if err != nil {
-		logger.WithField("method", "prepareCRDControllerManager").Fatalf("Unable to create new"+
-			" CRD Controller Manager: %s", err.Error())
+		ll.Fatalf("Unable to create new CRD Controller Manager: %v", err)
 	}
+
+	// bind CSINodeService's VolumeManager to K8s Controller Manager as a controller for Volume CR
+	if err = volumeCtrl.SetupWithManager(mgr); err != nil {
+		logger.Fatalf("unable to create controller for volume: %v", err)
+	}
+
+	// bind LVMController to K8s Controller Manager as a controller for LVG CR
+	if err = lvgCtrl.SetupWithManager(mgr); err != nil {
+		logger.Fatalf("unable to create controller for LVG: %v", err)
+	}
+
 	return mgr
+}
+
+func setupLogger() *logrus.Logger {
+	var logLevel logrus.Level
+	if *verboseLogs {
+		logLevel = logrus.DebugLevel
+	} else {
+		logLevel = logrus.InfoLevel
+	}
+
+	logger, err := base.InitLogger(*logPath, logLevel)
+	if err != nil {
+		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
+	}
+	return logger
 }

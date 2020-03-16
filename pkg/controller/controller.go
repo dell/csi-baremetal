@@ -382,7 +382,13 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 			// create LVG CR based on that disk
 			var (
 				name   = fmt.Sprintf("lvg-%s", strings.ToLower(foundAC.Spec.NodeId))
-				apiLVG = api.LogicalVolumeGroup{UUID: name, Locations: []string{foundAC.Spec.Location}}
+				apiLVG = api.LogicalVolumeGroup{
+					UUID:      name,
+					Node:      foundAC.Spec.NodeId,
+					Locations: []string{foundAC.Spec.Location},
+					Health:    api.Health_UNKNOWN,
+					Size:      foundAC.Spec.Size,
+				}
 			)
 
 			lvg := c.k8sclient.ConstructLVGCR(name, apiLVG)

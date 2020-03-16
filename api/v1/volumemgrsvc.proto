@@ -30,7 +30,6 @@ message DeleteLocalVolumeResponse {
 }
 
 service VolumeManager {
-    rpc GetLocalVolumes(VolumeRequest) returns (VolumeResponse){};
     rpc GetAvailableCapacity(AvailableCapacityRequest) returns (AvailableCapacityResponse){};
     rpc DeleteLocalVolume(DeleteLocalVolumeRequest) returns (DeleteLocalVolumeResponse){};
 }
