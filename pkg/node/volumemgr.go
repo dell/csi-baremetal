@@ -69,6 +69,7 @@ func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
 	m.linuxUtils.SetLinuxUtilsExecutor(executor)
 }
 
+// Reconcile Volume CRD according to stasus which set by CSI Controller Service
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), CreateLocalVolumeTimeout)
 	defer cancelFn()
@@ -92,10 +93,10 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	ll.Info("Reconciling Volume")
+	var newStatus api.OperationalStatus
 	switch volume.Spec.Status {
 	case api.OperationalStatus_Creating:
 		err := m.CreateLocalVolume(ctx, &volume.Spec)
-		var newStatus api.OperationalStatus
 		if err != nil {
 			ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
 				" Set volume status to FailedToCreate", volume.Spec.Size, err, ctx.Err())
@@ -113,6 +114,21 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		// If we return err here, we'll call that reconcile one more time.
 		// But we set OperationalStatus as FailedToCreate. And CSI Controller handles with FailedToCreate.
+		return ctrl.Result{}, nil
+	case api.OperationalStatus_Removing:
+		err := m.DeleteLocalVolume(ctx, &volume.Spec)
+		if err != nil {
+			ll.Errorf("Failed to delete volume - %s. Error: %v. Context Error: %v. "+
+				"Set status FailToRemove", volume.Spec.Id, err, ctx.Err())
+			newStatus = api.OperationalStatus_FailToRemove
+		} else {
+			ll.Infof("Volume - %s was successfully deleted. Set status to Removed", volume.Spec.Id)
+			newStatus = api.OperationalStatus_Removed
+		}
+		if err = m.k8sclient.ChangeVolumeStatus(volume.Name, newStatus); err != nil {
+			ll.Error(err.Error())
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	default:
 		return ctrl.Result{}, nil
@@ -541,31 +557,28 @@ func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (roll
 	return rollBacked, err
 }
 
-func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.DeleteLocalVolumeRequest) (*api.DeleteLocalVolumeResponse, error) {
+func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volume) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "DeleteLocalVolume",
-		"volumeID": request.GetPvcUUID(),
+		"volumeID": volume.Id,
 	})
 
 	ll.Info("Processing request")
 
-	var (
-		volume *api.Volume
-		ok     bool
-	)
-	if volume, ok = m.getFromVolumeCache(request.PvcUUID); !ok {
-		return &api.DeleteLocalVolumeResponse{Ok: false}, errors.New("unable to find volume by PVC UUID in volume manager cache")
+	var ok bool
+
+	if volume, ok = m.getFromVolumeCache(volume.Id); !ok {
+		return errors.New("unable to find volume by PVC UUID in volume manager cache")
 	}
 
 	drive := m.drivesCache[volume.Location]
 	if drive == nil {
-		return &api.DeleteLocalVolumeResponse{Ok: false}, errors.New("unable to find drive by volume location")
+		return errors.New("unable to find drive by volume location")
 	}
 
 	device, err := m.searchDrivePathBySN(drive.Spec.SerialNumber)
 	if err != nil {
-		return &api.DeleteLocalVolumeResponse{Ok: false},
-			fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
+		return fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
 	}
 	ll.Infof("Found device %s", device)
 
@@ -573,8 +586,8 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 	if err != nil {
 		wErr := fmt.Errorf("failed to delete partition, error: %v", err)
 		ll.Errorf("%v, set operational status - fail to remove", wErr)
-		m.setVolumeStatus(request.PvcUUID, api.OperationalStatus_FailToRemove)
-		return &api.DeleteLocalVolumeResponse{Ok: false}, wErr
+		m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
+		return wErr
 	}
 	ll.Info("Partition was deleted")
 
@@ -585,15 +598,15 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, request *api.Dele
 	if err != nil {
 		wErr := fmt.Errorf("failed to wipefs device, error: %v", err)
 		ll.Errorf("%v, set operational status - fail to remove", wErr)
-		m.setVolumeStatus(request.PvcUUID, api.OperationalStatus_FailToRemove)
-		return &api.DeleteLocalVolumeResponse{Ok: false}, wErr
+		m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
+		return wErr
 	}
 	ll.Info("File system was deleted")
 
 	m.deleteFromVolumeCache(volume.Id)
 
 	ll.Infof("Volume was successfully deleted, return it: %v", volume)
-	return &api.DeleteLocalVolumeResponse{Ok: true, Volume: volume}, nil
+	return nil
 }
 
 // TODO: remove that methods when AK8S-170 will be closed

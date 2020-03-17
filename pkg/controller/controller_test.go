@@ -366,7 +366,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 			svc.communicators[NodeID(testNode1Name)] = mc
-			go simulateCreateLocalVolumeInReconcile(svc, "req1", api.OperationalStatus_FailedToCreate)
+			go simulateVolumeInReconcile(svc, "req1", api.OperationalStatus_FailedToCreate)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
@@ -417,7 +417,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 			svc.communicators[NodeID(testNode1Name)] = mc
-			go simulateCreateLocalVolumeInReconcile(svc, "req1", api.OperationalStatus_Created)
+			go simulateVolumeInReconcile(svc, "req1", api.OperationalStatus_Created)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(err).To(BeNil())
 			Expect(resp).ToNot(BeNil())
@@ -496,38 +496,27 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).To(Equal(status.Error(codes.InvalidArgument, "Volume ID must be provided")))
 		})
+		It("Node service mark volume as FailToRemove", func() {
+			var (
+				volumeCrd = &vcrd.Volume{}
+				err       error
+				mc        = &mocks.VolumeMgrClientMock{}
+			)
+			// create volume crd to delete
+			err = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
+			Expect(err).To(BeNil())
 
-		It("Communicator on DeleteLocalVolume returns error or false", func() {
-			mc := &mocks.VolumeMgrClientMock{}
-			// prepare communicator
-			svc.communicators[NodeID(node)] = mc
-			dlReq := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
-			dlResp := &api.DeleteLocalVolumeResponse{Ok: false}
-			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, errors.New("error")).Times(1)
-
-			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
-			Expect(resp).To(BeNil())
-			Expect(err).To(Equal(status.Errorf(codes.Internal, "unable to delete volume on node %s", node)))
-
-			// second time DeleteLocalVolume will return error nil, but ok is false
-			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
-			resp, err = svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
-			Expect(resp).To(BeNil())
-			Expect(err).To(Equal(status.Errorf(codes.Internal, "unable to delete volume on node %s", node)))
-		})
-
-		It("DeleteLocalVolume doesn't return local volume", func() {
-			mc := &mocks.VolumeMgrClientMock{}
-			// prepare communicator
-			svc.communicators[NodeID(node)] = mc
-			dlReq := &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
-
-			dlResp := &api.DeleteLocalVolumeResponse{Ok: true, Volume: nil}
-			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
+			svc.communicators[NodeID(testNode1Name)] = mc
+			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_FailToRemove)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
+
 			Expect(resp).To(BeNil())
-			Expect(err).To(Equal(status.Errorf(codes.Internal, "unable to delete volume on node %s", node)))
+			Expect(err.Error()).To(ContainSubstring("has FailToRemove status"))
+
+			err = svc.k8sclient.ReadCR(context.Background(), uuid, volumeCrd)
+			Expect(err).To(BeNil())
+			Expect(volumeCrd.Spec.Status).To(Equal(api.OperationalStatus_FailToRemove))
 		})
 	})
 
@@ -541,40 +530,38 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 		})
 		It("Volume is deleted successful, sc HDD", func() {
 			var (
-				localVolume = api.Volume{
-					Id:       uuid,
-					Owner:    node,
-					Location: testDriveLocation1,
-				}
 				volumeCrd = &vcrd.Volume{
 					TypeMeta: k8smetav1.TypeMeta{
 						Kind:       "Volume",
 						APIVersion: "volume.dell.com/v1",
 					},
 					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      localVolume.Id,
+						Name:      uuid,
 						Namespace: svc.k8sclient.Namespace,
 					},
-					Spec: localVolume,
+					Spec: api.Volume{
+						Id:       uuid,
+						Owner:    node,
+						Location: testDriveLocation1,
+					},
 				}
-				mc     = &mocks.VolumeMgrClientMock{}
-				dlReq  = &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
-				dlResp = &api.DeleteLocalVolumeResponse{Ok: true, Volume: &localVolume}
-				err    error
+				err error
+				mc  = &mocks.VolumeMgrClientMock{}
 			)
-
-			// prepare communicator
-			svc.communicators[NodeID(node)] = mc
-			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
-
 			// create volume crd to delete
 			err = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
 			Expect(err).To(BeNil())
 
-			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
+			svc.communicators[NodeID(testNode1Name)] = mc
+			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
 
+			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
+
+			err = svc.k8sclient.ReadCR(context.Background(), uuid, volumeCrd)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("not found"))
 
 			acList := accrd.AvailableCapacityList{}
 			err = svc.k8sclient.ReadList(context.Background(), &acList)
@@ -601,19 +588,17 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					Spec: volume,
 				}
 
-				mc     = &mocks.VolumeMgrClientMock{}
-				dlReq  = &api.DeleteLocalVolumeRequest{PvcUUID: uuid}
-				dlResp = &api.DeleteLocalVolumeResponse{Ok: true, Volume: &volume}
+				mc = &mocks.VolumeMgrClientMock{}
 			)
 			// create volume CR that should be deleted (created in BeforeEach)
-			err := svc.k8sclient.CreateCR(testCtx, &volumeCrd, volumeCrd.Name)
+			err := svc.k8sclient.CreateCR(testCtx, &volumeCrd, uuid)
 			Expect(err).To(BeNil())
 
 			// prepare communicator
 			svc.communicators[NodeID(testNode2Name)] = mc
-			mc.On("DeleteLocalVolume", dlReq).Return(dlResp, nil).Times(1)
+			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
 
-			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volume.Id})
+			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
 
@@ -754,13 +739,12 @@ func removeAllCrds(s *base.KubeClient) {
 	println("CRs were removed")
 }
 
-func simulateCreateLocalVolumeInReconcile(s *CSIControllerService, volId string, statusToSet api.OperationalStatus) {
+func simulateVolumeInReconcile(s *CSIControllerService, volId string, statusToSet api.OperationalStatus) {
 	for {
 		tmpVol := &vcrd.Volume{}
 		err := s.k8sclient.ReadCR(context.Background(), volId, tmpVol)
 		if err == nil {
 			_ = s.k8sclient.ChangeVolumeStatus(volId, statusToSet)
-			break
 		}
 	}
 }

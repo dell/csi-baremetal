@@ -147,8 +147,7 @@ func (c *CSIControllerService) updateCommunicators() error {
 	return nil
 }
 
-func (c *CSIControllerService) CreateVolume(ctx context.Context,
-	req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
@@ -481,28 +480,27 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		return nil, status.Errorf(codes.Internal, "unable to set status %s for %s", api.OperationalStatus_Removing, req.VolumeId)
 	}
 
+	ll.Info("Waiting until volume will reach Removed status")
+	reached, st := c.waitVCRStatus(ctx, req.VolumeId, api.OperationalStatus_FailToRemove, api.OperationalStatus_Removed)
+
+	if !reached {
+		return nil, fmt.Errorf("unable to delete volume with ID %s", req.VolumeId)
+	}
+
+	if st == api.OperationalStatus_FailToRemove {
+		return nil, status.Errorf(codes.Internal, "volume %s has FailToRemove status", req.VolumeId)
+	}
+
 	node := volume.Spec.Owner //volume.NodeID
 
-	ll.Infof("RPC on node %s", node)
-	resp, err := c.communicators[NodeID(node)].DeleteLocalVolume(ctxT, &api.DeleteLocalVolumeRequest{
-		PvcUUID: req.VolumeId,
-	})
-
-	if resp == nil || err != nil || !resp.Ok || resp.GetVolume() == nil {
-		ll.Errorf("failed to delete local volume, %v", err)
-		return nil, status.Errorf(codes.Internal, "unable to delete volume on node %s", node)
-	}
-	localVolume := resp.GetVolume()
-
-	ll.Infof("DeleteLocalVolume return Ok, Volume: %v", resp.GetVolume())
 	// remove volume CR
-	if err = c.k8sclient.DeleteCR(ctxT, volume); err != nil {
+	if err := c.k8sclient.DeleteCR(ctxT, volume); err != nil {
 		ll.Errorf("Delete volume CR with name %s failed, error: %v", req.VolumeId, err)
 		return nil, status.Errorf(codes.Internal, "can't delete volume CR: %s", err.Error())
 	}
 
 	var (
-		acName = node + "-" + strings.ToLower(localVolume.Location)
+		acName = node + "-" + strings.ToLower(volume.Spec.Location)
 		sc     = api.StorageClass_ANY
 	)
 
@@ -519,7 +517,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 			sc = volume.Spec.StorageClass
 		} else {
 			// AC was found, update it size
-			if err = c.updateACSizeOrDelete(ac, localVolume.Size); err != nil {
+			if err = c.updateACSizeOrDelete(ac, volume.Spec.Size); err != nil {
 				ll.Errorf("Unable to update AC %s size: %v", ac.Name, err)
 			}
 			return &csi.DeleteVolumeResponse{}, nil // volume was deleted
@@ -528,9 +526,9 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 
 	// create AC
 	ac := api.AvailableCapacity{
-		Size:         localVolume.Size,
+		Size:         volume.Spec.Size,
 		StorageClass: sc,
-		Location:     localVolume.Location,
+		Location:     volume.Spec.Location,
 		NodeId:       node,
 	}
 
@@ -540,6 +538,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	if err := c.k8sclient.CreateCR(ctxT, cr, acName); err != nil {
 		ll.Errorf("Can't create AvailableCapacity CR %v error: %v", cr, err)
 	}
+
 	return &csi.DeleteVolumeResponse{}, nil
 }
 

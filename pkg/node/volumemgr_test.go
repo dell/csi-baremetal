@@ -583,46 +583,39 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 	scImplMock.On("DeleteFileSystem", "/dev/sdb").Return(nil).Times(1)
 	vm.scMap[SCName("hdd")] = scImplMock
 
-	vm.volumesCache[testID] = &api.Volume{Id: testID, Location: drive2.UUID}
-
-	req := &api.DeleteLocalVolumeRequest{
-		PvcUUID: testID,
-	}
+	volume := &api.Volume{Id: testID, Location: drive2.UUID}
+	vm.volumesCache[testID] = volume
 
 	assert.Equal(t, 1, len(vm.volumesCache))
-	resp, err := vm.DeleteLocalVolume(context.Background(), req)
-	assert.NotNil(t, resp)
+	err := vm.DeleteLocalVolume(context.Background(), volume)
 	assert.Nil(t, err)
-	assert.True(t, resp.Ok)
 	assert.Equal(t, 0, len(vm.volumesCache))
 }
 
 func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	// expect: volume wasn't found in volumesCache
 	vm1 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	req1 := &api.DeleteLocalVolumeRequest{PvcUUID: testID}
+	volume := &api.Volume{Id: testID, Location: drive2.UUID}
 
-	resp1, err1 := vm1.DeleteLocalVolume(context.Background(), req1)
-	assert.NotNil(t, resp1)
+	err1 := vm1.DeleteLocalVolume(context.Background(), volume)
 	assert.NotNil(t, err1)
-	assert.False(t, resp1.Ok)
 	assert.Equal(t, errors.New("unable to find volume by PVC UUID in volume manager cache"), err1)
 
 	// expect searchDrivePathBySN return error
 	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 	location := "fail-here"
-	vm2.volumesCache[testID] = &api.Volume{Id: testID, Location: location}
-	req2 := &api.DeleteLocalVolumeRequest{PvcUUID: testID}
 
-	resp2, err2 := vm2.DeleteLocalVolume(context.Background(), req2)
-	assert.NotNil(t, resp2)
+	volume1 := &api.Volume{Id: testID, Location: location}
+	vm2.volumesCache[testID] = volume1
+
+	err2 := vm2.DeleteLocalVolume(context.Background(), volume1)
 	assert.NotNil(t, err2)
-	assert.False(t, resp2.Ok)
 	assert.Equal(t, "unable to find drive by volume location", err2.Error())
 
 	// expect DeletePartition was failed
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	vm3.volumesCache[testID] = &api.Volume{Id: testID, Location: drive1.UUID}
+	volume3 := &api.Volume{Id: testID, Location: drive1.UUID}
+	vm3.volumesCache[testID] = volume3
 	disk := "/dev/sda"
 	isPartitionExistCMD := fmt.Sprintf("partprobe -d -s %s", disk)
 	deletePartitionCMD := fmt.Sprintf("parted -s %s1 rm 1", disk)
@@ -634,12 +627,8 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	e3.SetSuccessIfNotFound(false)
 	vm3.linuxUtils = base.NewLinuxUtils(e3, vmLogger)
 
-	req3 := &api.DeleteLocalVolumeRequest{PvcUUID: testID}
-
-	resp3, err3 := vm3.DeleteLocalVolume(context.Background(), req3)
-	assert.NotNil(t, resp3)
+	err3 := vm3.DeleteLocalVolume(context.Background(), volume3)
 	assert.NotNil(t, err3)
-	assert.False(t, resp3.Ok)
 	assert.Contains(t, err3.Error(), "failed to delete partition")
 	assert.Equal(t, api.OperationalStatus_FailToRemove, vm3.volumesCache[testID].Status)
 }

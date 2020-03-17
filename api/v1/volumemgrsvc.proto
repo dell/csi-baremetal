@@ -20,16 +20,6 @@ message AvailableCapacityResponse {
     repeated AvailableCapacity availableCapacity = 1;
 }
 
-message DeleteLocalVolumeRequest {
-    string pvcUUID = 1;
-}
-
-message DeleteLocalVolumeResponse {
-    bool ok = 1;
-    Volume volume = 2;
-}
-
 service VolumeManager {
     rpc GetAvailableCapacity(AvailableCapacityRequest) returns (AvailableCapacityResponse){};
-    rpc DeleteLocalVolume(DeleteLocalVolumeRequest) returns (DeleteLocalVolumeResponse){};
 }
