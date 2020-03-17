@@ -7,7 +7,7 @@ require (
 	github.com/client9/misspell v0.3.4 // indirect
 	github.com/container-storage-interface/spec v1.1.0
 	github.com/golang/mock v1.3.1 // indirect
-	github.com/golang/protobuf v1.3.4
+	github.com/golang/protobuf v1.3.5
 	github.com/google/uuid v1.0.0
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0

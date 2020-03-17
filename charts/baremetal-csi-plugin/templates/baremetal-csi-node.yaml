@@ -54,7 +54,7 @@ spec:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
           - "--volumemgrip=$(MY_POD_IP)"
-          - "--namespace={{ .Release.Namespace }}"
+          - "--namespace=$(NAMESPACE)"
           {{- if .Values.logReceiver.create  }}
           - "--logpath=/var/log/csi.log"
           {{- end }}
@@ -89,6 +89,11 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
         securityContext:
           privileged: true
         volumeMounts:

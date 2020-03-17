@@ -77,9 +77,6 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return s.pullPublishStatus(ctx, v.Id)
 	}
 
-	ll.Info("Set status to Publishing")
-	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Publishing)
-
 	scImpl := s.getStorageClassImpl(v.StorageClass)
 	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
 
@@ -96,6 +93,21 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
 	}
 	partition := fmt.Sprintf("%s1", bdev)
+
+	if v.Status == api.OperationalStatus_ReadyToRemove {
+		ll.Info("File system already exists. Perform mount operation")
+		go func() {
+			if err := scImpl.Mount(partition, targetPath); err != nil {
+				s.setVolumeStatus(req.VolumeId, api.OperationalStatus_FailedToPublish)
+			} else {
+				s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Published)
+			}
+		}()
+		return s.pullPublishStatus(ctx, v.Id)
+	}
+
+	ll.Info("Set status to Publishing")
+	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Publishing)
 
 	ll.Info("Create file system and mount in background")
 	go func() {

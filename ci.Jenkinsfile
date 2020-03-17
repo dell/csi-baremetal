@@ -28,7 +28,7 @@ void runTests() {
 
             stage('Start Minikube') {
                 sh("""
-                    minikube start --vm-driver=none --kubernetes-version=1.13.5
+                    minikube start --vm-driver=none --kubernetes-version=1.15.0
                 """)
             }
 
@@ -71,7 +71,9 @@ void runTests() {
                 stage('E2E testing') {
                     sh('''
                         kubectl apply -f charts/baremetal-csi-plugin/crds/availablecapacity.dell.com_availablecapacities.yaml
-                        kubectl apply -f charts/baremetal-csi-plugin/crds/volume.dell.com_volumes.yaml 
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/volume.dell.com_volumes.yaml
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/drive.dell.com_drives.yaml
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/lvg.dell.com_lvgs.yaml
                     ''')
                     String output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true)
                     println(output)
