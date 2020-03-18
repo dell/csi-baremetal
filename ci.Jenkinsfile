@@ -23,7 +23,7 @@ void runTests() {
     final String RUN_MODE_CUSTOM = 'custom'
     boolean testResultSuccess = false
     final String registry = "10.244.120.194:8085/atlantic"  // asdrepo.isus.emc.com:8085/atlantic
-    common.node(label: 'ubuntu_build_hosts', time: 180) {
+    common.node(label: 'csi_test', time: 180) {
         try {
 
             stage('Start Minikube') {
@@ -75,9 +75,11 @@ void runTests() {
                         kubectl apply -f charts/baremetal-csi-plugin/crds/drive.dell.com_drives.yaml
                         kubectl apply -f charts/baremetal-csi-plugin/crds/lvg.dell.com_lvgs.yaml
                     ''')
-                    String output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config', returnStdout: true)
-                    println(output)
-                    if (!(output.contains("FAIL"))) {
+                    int output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config 2>&1 | tee log.txt', returnStatus: true)
+                    archiveArtifacts('log.txt')
+                    // This is temporary workaround until e2e tests run with 'go test' instead of 'go run'
+                    String results = sh(script: 'cat log.txt | grep 91mFAIL!', returnStdout: true)
+                    if (output == 0 && results == '') {
                         testResultSuccess = true
                     }
                 }
