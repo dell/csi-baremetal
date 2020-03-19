@@ -25,7 +25,7 @@ func initBaremetalDriver(name string) testsuites.TestDriver {
 	return &baremetalDriver{
 		driverInfo: testsuites.DriverInfo{
 			Name:        name,
-			MaxFileSize: testpatterns.FileSizeLarge,
+			MaxFileSize: testpatterns.FileSizeSmall,
 			Capabilities: map[testsuites.Capability]bool{
 				testsuites.CapPersistence: true,
 			},

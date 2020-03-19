@@ -99,6 +99,19 @@ lint-charts:
 test:
 	go test -race -cover ./... -coverprofile=coverage.out
 
+# Run tests for pr-validation with converting go test output to junit-style output.
+# Test are different (ginkgo, go testing, etc.) so can't use native ginkgo methods to print junit output.
+test-pr-validation:
+	go test -v -race -cover ./... -coverprofile=coverage.out 2>&1 | go-junit-report > report.xml
+
+# Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
+# Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.
+test-ci:
+	CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config -timeout=0 > log.txt
+
+install-junit-report:
+	go get -u github.com/jstemmer/go-junit-report
+
 coverage:
 	go tool cover -html=coverage.out -o coverage.html
 

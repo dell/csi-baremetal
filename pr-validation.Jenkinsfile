@@ -41,6 +41,7 @@ boolean validatePullRequest(String commit) {
                                         make install-controller-gen
                                         make generate-deepcopy
                                         make dependency
+                                        make install-junit-report
                                      ''', returnStatus: true)
                     if (depExitCode != 0) {
                         currentBuild.result = 'FAILURE'
@@ -87,7 +88,7 @@ boolean validatePullRequest(String commit) {
                         }
 
                         stage('Test and Coverage') {
-                            testExitCode = sh(script: 'make test', returnStatus: true)
+                            testExitCode = sh(script: 'make test-pr-validation', returnStatus: true)
                             //split because our make test fails and make coverage isn't invoked during sh()
                             coverageExitCode = sh(script: 'make coverage', returnStatus: true)
                             if ((testExitCode != 0) || (coverageExitCode != 0)) {
@@ -111,6 +112,7 @@ boolean validatePullRequest(String commit) {
                 sh('kind delete cluster')
                 // publish in Jenkins test results
                 archiveArtifacts('coverage.html')
+                common.parseJunitResults(searchPattern: 'report.xml')
             }
         }
 

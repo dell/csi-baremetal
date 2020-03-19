@@ -75,11 +75,10 @@ void runTests() {
                         kubectl apply -f charts/baremetal-csi-plugin/crds/drive.dell.com_drives.yaml
                         kubectl apply -f charts/baremetal-csi-plugin/crds/lvg.dell.com_lvgs.yaml
                     ''')
-                    String output = sh(script: 'go run test/e2e/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config 2>&1 | tee log.txt', returnStdout: true)
+                    testExitCode = sh(script: 'make test-ci', returnStatus: true)
                     archiveArtifacts('log.txt')
-                    println(output)
-                    // This is temporary workaround until e2e tests run with 'go test' instead of 'go run'
-                    if (!(output.contains("FAIL!"))) {
+                    common.parseJunitResults(searchPattern: 'test/e2e/report.xml')
+                    if ((testExitCode == 0)) {
                         testResultSuccess = true
                     }
                 }
