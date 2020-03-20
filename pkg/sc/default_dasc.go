@@ -19,8 +19,10 @@ const (
 	RMCmdTmpl         = "rm -rf %s"
 	MountpointCmdTmpl = "lsblk -d -n -o MOUNTPOINT %s"
 	MountCmdTmpl      = "mount %s %s"
+	BindMountCmdTmpl  = "mount -B %s %s"
 	UnmountCmdTmpl    = "umount %s"
 	ProcMountsFile    = "/proc/mounts"
+	MountpointCmd     = "mountpoint %s"
 )
 
 // DefaultDASC is a default implementation of StorageClassImplementer interface
@@ -118,9 +120,11 @@ func (d *DefaultDASC) IsMounted(partition string) (bool, error) {
 	return false, nil
 }
 
-func (d *DefaultDASC) Mount(device, dir string) error {
+func (d *DefaultDASC) BindMount(device, dir string, mountDevice bool) error {
 	cmd := fmt.Sprintf(MountCmdTmpl, device, dir)
-
+	if !mountDevice {
+		cmd = fmt.Sprintf(BindMountCmdTmpl, device, dir)
+	}
 	d.opMutex.Lock()
 	defer d.opMutex.Unlock()
 
@@ -146,6 +150,21 @@ func (d *DefaultDASC) Unmount(path string) error {
 		return err
 	}
 	return nil
+}
+
+func (d *DefaultDASC) IsMountPoint(path string) (bool, error) {
+	cmd := fmt.Sprintf(MountpointCmd, path)
+
+	d.opMutex.Lock()
+	defer d.opMutex.Unlock()
+
+	if stdout, _, err := d.executor.RunCmd(cmd); err != nil {
+		if strings.Contains(stdout, "not a mountpoint") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // PrepareVolume is a function for preparing a volume in NodePublish() call
@@ -175,7 +194,7 @@ func (d *DefaultDASC) PrepareVolume(device, targetPath string) (rollBacked bool,
 		return
 	}
 
-	err = d.Mount(device, targetPath)
+	err = d.BindMount(device, targetPath, true)
 	if err != nil {
 		err = d.DeleteTargetPath(targetPath)
 		if err != nil {

@@ -10,9 +10,10 @@ type StorageClassImplementer interface {
 	DeleteTargetPath(path string) error
 
 	IsMounted(device string) (bool, error)
-	Mount(device, dir string) error
+	BindMount(device, dir string, mountDevice bool) error
 	Unmount(path string) error
 
+	IsMountPoint(path string) (bool, error)
 	// atomic methods for using in NodePublish
 	PrepareVolume(device, targetPath string) (bool, error)
 }

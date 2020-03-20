@@ -33,14 +33,19 @@ func (m *ImplementerMock) IsMounted(device string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *ImplementerMock) Mount(device, dir string) error {
-	args := m.Mock.Called(device, dir)
+func (m *ImplementerMock) BindMount(device, dir string, mountDevice bool) error {
+	args := m.Mock.Called(device, dir, mountDevice)
 	return args.Error(0)
 }
 
 func (m *ImplementerMock) Unmount(path string) error {
 	args := m.Mock.Called(path)
 	return args.Error(0)
+}
+
+func (m *ImplementerMock) IsMountPoint(path string) (bool, error) {
+	args := m.Mock.Called(path)
+	return args.Bool(0), args.Error(1)
 }
 
 func (m *ImplementerMock) PrepareVolume(device, targetPath string) (bool, error) {

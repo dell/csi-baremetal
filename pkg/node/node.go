@@ -39,11 +39,116 @@ func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus
 }
 
 func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+	ll := s.log.WithFields(logrus.Fields{
+		"method":   "NodeStageVolume",
+		"volumeID": req.GetVolumeId(),
+	})
+
+	ll.Infof("Processing request: %v", req)
+
+	// Check arguments
+	if req.GetVolumeCapability() == nil {
+		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	}
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if len(req.GetStagingTargetPath()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
+	}
+
+	v, ok := s.getFromVolumeCache(req.VolumeId)
+	if !ok {
+		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
+	}
+
+	scImpl := s.getStorageClassImpl(v.StorageClass)
+	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
+
+	targetPath := req.StagingTargetPath
+	//TODO AK8S-380 Make drives cache thread safe
+	s.dCacheMu.Lock()
+	drive := s.drivesCache[v.Location]
+	s.dCacheMu.Unlock()
+	if drive == nil {
+		return nil, fmt.Errorf("drive with uuid %s wasn't found ", v.Location)
+	}
+	bdev, err := s.searchDrivePathBySN(drive.Spec.SerialNumber)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
+	}
+	partition := fmt.Sprintf("%s1", bdev)
+
+	//TODO AK8S-421 Provide operational status for Unstage request
+	if v.Status == api.OperationalStatus_ReadyToRemove {
+		ll.Info("File system already exists. Perform mount operation")
+		if err := scImpl.BindMount(partition, targetPath, true); err != nil {
+			ll.Errorf("Failed to stage volume %s, error: %v", v.Id, err)
+			return nil, fmt.Errorf("failed to stage volume %s", v.Id)
+		}
+		return &csi.NodeStageVolumeResponse{}, nil
+	}
+
+	ll.Info("Set status to Staging")
+	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Staging)
+	ll.Info("Create file system and mount")
+	rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
+	if err != nil {
+		ll.Infof("PrepareVolume failed: %v, set status to FailedToStage", err)
+		if !rollBacked {
+			ll.Error("Try to rollBack again")
+		}
+		ll.Errorf("Failed to stage volume %s", v.Id)
+		return nil, fmt.Errorf("failed to stage volume %s", v.Id)
+	}
+	ll.Info("PreparedVolume finished successfully, set status to Staged")
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
 func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+	ll := s.log.WithFields(logrus.Fields{
+		"method":   "NodeUnstageVolume",
+		"volumeID": req.GetVolumeId(),
+	})
+
+	ll.Infof("Processing request: %v", req)
+
+	// Check arguments
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if len(req.GetStagingTargetPath()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
+	}
+
+	if err := s.unmount(req.VolumeId, req.StagingTargetPath); err != nil {
+		return nil, err
+	}
+
 	return &csi.NodeUnstageVolumeResponse{}, nil
+}
+
+func (s *CSINodeService) unmount(volumeID string, path string) error {
+	ll := s.log.WithFields(logrus.Fields{
+		"method":   "unmount",
+		"volumeID": volumeID,
+	})
+	v, ok := s.getFromVolumeCache(volumeID)
+	if !ok {
+		return status.Error(codes.Internal, "Unable to find volume")
+	}
+
+	scImpl := s.getStorageClassImpl(v.StorageClass)
+	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
+
+	err := scImpl.Unmount(path)
+	if err != nil {
+		return status.Error(codes.Internal, "Unable to unmount")
+	}
+
+	s.setVolumeStatus(volumeID, api.OperationalStatus_ReadyToRemove)
+	ll.Infof("volume was successfully unmount from %s", path)
+	return nil
 }
 
 func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
@@ -64,66 +169,45 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	if len(req.GetTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
-
+	if len(req.GetStagingTargetPath()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Stage path missing in request")
+	}
 	v, ok := s.getFromVolumeCache(req.VolumeId)
 	if !ok {
 		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
 	}
 
-	// OperationalStatus_Created means that volumes was created (setPartitionUUID) but it is a first NodePublish reuest
-	if v.Status == api.OperationalStatus_Publishing ||
-		v.Status == api.OperationalStatus_Published ||
-		v.Status == api.OperationalStatus_FailedToCreate {
+	srcPath := req.GetStagingTargetPath()
+	path := req.GetTargetPath()
+
+	if v.Status == api.OperationalStatus_Published ||
+		v.Status == api.OperationalStatus_Publishing {
 		return s.pullPublishStatus(ctx, v.Id)
 	}
+	ll.Info("Set status to Publishing")
+	s.setVolumeStatus(v.Id, api.OperationalStatus_Publishing)
 
 	scImpl := s.getStorageClassImpl(v.StorageClass)
-	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
 
-	targetPath := req.TargetPath
-	//TODO AK8S-380 Make drives cache thread safe
-	s.dCacheMu.Lock()
-	drive := s.drivesCache[v.Location]
-	s.dCacheMu.Unlock()
-	if drive == nil {
-		return nil, fmt.Errorf("drive with uuid %s wasn't found ", v.Location)
-	}
-	bdev, err := s.searchDrivePathBySN(drive.Spec.SerialNumber)
+	mounted, err := scImpl.IsMountPoint(path)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
-	}
-	partition := fmt.Sprintf("%s1", bdev)
-
-	if v.Status == api.OperationalStatus_ReadyToRemove {
-		ll.Info("File system already exists. Perform mount operation")
-		go func() {
-			if err := scImpl.Mount(partition, targetPath); err != nil {
-				s.setVolumeStatus(req.VolumeId, api.OperationalStatus_FailedToPublish)
-			} else {
-				s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Published)
-			}
-		}()
+		ll.Infof("IsMountPoint failed: %v, set status to FailedToPublish", err)
+		s.setVolumeStatus(req.VolumeId, api.OperationalStatus_FailedToPublish)
 		return s.pullPublishStatus(ctx, v.Id)
 	}
-
-	ll.Info("Set status to Publishing")
-	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Publishing)
-
-	ll.Info("Create file system and mount in background")
 	go func() {
-		rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
-		if err != nil {
-			ll.Infof("PrepareVolume failed: %v, set status to FailedToPublish", err)
-			if !rollBacked {
-				ll.Error("Try to rollBack again")
-			}
-			s.setVolumeStatus(req.VolumeId, api.OperationalStatus_FailedToPublish)
-		} else {
-			ll.Info("PreparedVolume finished successfully, set status to Published")
-			s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Published)
+		newStatus := api.OperationalStatus_Published
+		if mounted {
+			ll.Infof("Mountpoint already exist, set status to Published")
+		} else if err := scImpl.CreateTargetPath(path); err != nil {
+			newStatus = api.OperationalStatus_FailedToPublish
+		} else if err := scImpl.BindMount(srcPath, path, false); err != nil {
+			_ = scImpl.DeleteTargetPath(path)
+			newStatus = api.OperationalStatus_FailedToPublish
 		}
+		ll.Infof("Set status to %s", newStatus)
+		s.setVolumeStatus(v.Id, newStatus)
 	}()
-
 	return s.pullPublishStatus(ctx, v.Id)
 }
 
@@ -134,7 +218,7 @@ func (s *CSINodeService) pullPublishStatus(ctx context.Context, volumeID string)
 	})
 
 	var vol, _ = s.getFromVolumeCache(volumeID)
-	ll.Infof("Current status: %s", api.OperationalStatus_name[int32(vol.Status)])
+	ll.Infof("Current status: %s", api.OperationalStatus_name[int32(s.getVolumeStatus(volumeID))])
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -176,21 +260,9 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	v, ok := s.getFromVolumeCache(req.VolumeId)
-	if !ok {
-		return nil, status.Error(codes.Internal, "Unable to find volume")
+	if err := s.unmount(req.GetVolumeId(), req.GetTargetPath()); err != nil {
+		return nil, err
 	}
-
-	scImpl := s.getStorageClassImpl(v.StorageClass)
-	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
-
-	err := scImpl.Unmount(req.TargetPath)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "Unable to unmount")
-	}
-
-	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_ReadyToRemove)
-	ll.Infof("volume was successfully unmount from %s", req.TargetPath)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
@@ -204,7 +276,15 @@ func (s *CSINodeService) NodeExpandVolume(ctx context.Context, req *csi.NodeExpa
 }
 
 func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	return &csi.NodeGetCapabilitiesResponse{}, nil
+	return &csi.NodeGetCapabilitiesResponse{Capabilities: []*csi.NodeServiceCapability{
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+				},
+			},
+		}},
+	}, nil
 }
 
 func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {

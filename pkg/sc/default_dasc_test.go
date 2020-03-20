@@ -25,6 +25,7 @@ var (
 	mountCmdTest      = fmt.Sprintf(MountCmdTmpl, deviceTest, targetPathTest)
 	rmCmdTest         = fmt.Sprintf(RMCmdTmpl, targetPathTest)
 	wipefsCmdTest     = fmt.Sprintf(WipeFSCmdTmpl, deviceTest)
+	mountPointCmdTest = fmt.Sprintf(MountpointCmd, targetPathTest)
 	errTest           = errors.New("error")
 )
 
@@ -95,12 +96,12 @@ func TestIsMountedFail(t *testing.T) {
 }
 
 func TestMount(t *testing.T) {
-	err := defaultDaSCSuccess.Mount("/dev/sda", targetPathTest)
+	err := defaultDaSCSuccess.BindMount("/dev/sda", targetPathTest, true)
 	assert.Nil(t, err)
 }
 
 func TestMountFail(t *testing.T) {
-	err := defaultDaSCFail.Mount("/dev/sda", targetPathTest)
+	err := defaultDaSCFail.BindMount("/dev/sda", targetPathTest, true)
 	assert.NotNil(t, err)
 }
 
@@ -111,6 +112,16 @@ func TestUnmountSuccess(t *testing.T) {
 
 func TestUnmountFail(t *testing.T) {
 	err := defaultDaSCFail.Unmount("/mnt/sda")
+	assert.NotNil(t, err)
+}
+
+func TestIsMountPoint(t *testing.T) {
+	_, err := defaultDaSCSuccess.IsMountPoint("/mnt/sda")
+	assert.Nil(t, err)
+}
+
+func TestIsMountPointFail(t *testing.T) {
+	_, err := defaultDaSCFail.IsMountPoint("/mnt/sda")
 	assert.NotNil(t, err)
 }
 

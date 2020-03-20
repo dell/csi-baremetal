@@ -64,7 +64,7 @@ void runTests() {
                 //E2E tests can't work with helm, so we need to provide prepared yaml files for it
                 stage('Prepare YAML for e2e tests') {
                     sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
-                            "--set global.registry=${registry} --set image.pullPolicy=IfNotPresent " +
+                            "--set global.registry=${registry} " +
                             "--set hwmgr.halOverride.iscsi=true")
                 }
 

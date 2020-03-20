@@ -31,11 +31,10 @@ enum OperationalStatus {
     Creating = 9;
     Created = 10;
     FailedToCreate = 11;
-    FailedToRemove = 13;
-    Publishing = 14;
-    Published = 15;
-    FailedToPublish = 16;
-    Unknown = 17;
+    Publishing = 12;
+    Published = 13;
+    FailedToPublish = 14;
+    Unknown = 15;
 }
 
 enum Mode {
