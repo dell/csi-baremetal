@@ -13,6 +13,7 @@ spec:
       labels:
         app: baremetal-csi-node
     spec:
+      hostIPC: True
       serviceAccountName: csi-node-sa
       containers:
       # ********************** DRIVER-REGISTRAR sidecar container definition **********************

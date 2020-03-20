@@ -31,10 +31,10 @@ enum OperationalStatus {
     Creating = 9;
     Created = 10;
     FailedToCreate = 11;
-    Publishing = 12;
-    Published = 13;
-    FailedToPublish = 14;
-    Unknown = 15;
+    Publishing = 14;
+    Published = 15;
+    FailedToPublish = 16;
+    Unknown = 17;
 }
 
 enum Mode {
@@ -49,12 +49,12 @@ enum LocationType {
 }
 
 enum StorageClass {
-    HDD = 0;
-    SSD = 1;
-    NVME = 2;
-    HDDLVG = 3;
-    SSDLVG = 4;
-    ANY = 5;
+    ANY = 0;
+    HDD = 1;
+    SSD = 2;
+    NVME = 3;
+    HDDLVG = 4;
+    SSDLVG = 5;
 }
 
 message AvailableCapacity {
@@ -65,9 +65,9 @@ message AvailableCapacity {
 }
 
 message LogicalVolumeGroup {
-    string UUID = 1;
+    string Name = 1;
     string Node = 2;
     repeated string Locations = 3;
     int64 size = 4;
-    v1api.Health health = 5;
+    OperationalStatus status = 5;
 }

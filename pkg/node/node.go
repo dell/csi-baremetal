@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
 // depending on SC and parameters in CreateVolumeRequest()
@@ -66,18 +65,27 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
 
 	targetPath := req.StagingTargetPath
-	//TODO AK8S-380 Make drives cache thread safe
-	s.dCacheMu.Lock()
-	drive := s.drivesCache[v.Location]
-	s.dCacheMu.Unlock()
-	if drive == nil {
-		return nil, fmt.Errorf("drive with uuid %s wasn't found ", v.Location)
+
+	var partition string
+	switch v.StorageClass {
+	case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
+		partition = fmt.Sprintf("/dev/%s/%s", v.Location, v.Id)
+	default:
+		//TODO AK8S-380 Make drives cache thread safe
+		s.dCacheMu.Lock()
+		drive := s.drivesCache[v.Location]
+		s.dCacheMu.Unlock()
+		if drive == nil {
+			return nil, fmt.Errorf("drive with uuid %s wasn't found ", v.Location)
+		}
+		bdev, err := s.linuxUtils.SearchDrivePathBySN(drive.Spec.SerialNumber)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
+		}
+		partition = fmt.Sprintf("%s1", bdev)
 	}
-	bdev, err := s.searchDrivePathBySN(drive.Spec.SerialNumber)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
-	}
-	partition := fmt.Sprintf("%s1", bdev)
+
+	ll.Infof("Work with partition %s", partition)
 
 	//TODO AK8S-421 Provide operational status for Unstage request
 	if v.Status == api.OperationalStatus_ReadyToRemove {

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -19,6 +21,7 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
@@ -31,9 +34,9 @@ const (
 	VolumeStatusAnnotationKey = "dell.emc.csi/volume-status"
 
 	// timeout for gRPC request(CreateLocalVolume) to the node service
-	CreateLocalVolumeRequestTimeout = 300 * time.Second
-	// timeout in which we expect that volume will be created (Volume CR status became created or failedToCreate)
-	CreateVolumeTimeout = 10 * time.Minute
+	GRPCTimeout = 300 * time.Second
+	// timeout in which we expect that any operation should be finished
+	DefaultTimeoutForOperations = 10 * time.Minute
 	// if AC size becomes lower then acSizeMinThresholdBytes controller decides that AC should be removed
 	acSizeMinThresholdBytes = 1024 * 1024 // 1MB
 )
@@ -91,7 +94,6 @@ func (c *CSIControllerService) updateAvailableCapacityCRs(ctx context.Context) e
 			wasError = true
 		}
 		availableCapacity := response.GetAvailableCapacity()
-		ll.Info("Current available capacity is: ", availableCapacity)
 		for _, acPtr := range availableCapacity {
 			//name of available capacity cr is node id + drive location
 			name := acPtr.NodeId + "-" + strings.ToLower(acPtr.Location)
@@ -166,14 +168,14 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		volumeCR = &volumecrd.Volume{}
 		err      error
 	)
-	// check whether volume CRD exist or no
+	// check whether volume CR exist or no
 	err = c.k8sclient.ReadCR(ctx, reqName, volumeCR)
 	switch {
 	case err == nil:
-		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(CreateVolumeTimeout)
+		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(DefaultTimeoutForOperations)
 		ll.Infof("Volume exists, current status: %s.", api.OperationalStatus_name[int32(volumeCR.Spec.Status)])
 		if expiredAt.Before(time.Now()) {
-			ll.Errorf("Timeout of %s for volume creation exceeded.", CreateVolumeTimeout)
+			ll.Errorf("Timeout of %s for volume creation exceeded.", DefaultTimeoutForOperations)
 			if err = c.k8sclient.ChangeVolumeStatus(req.GetName(), api.OperationalStatus_FailedToCreate); err != nil {
 				ll.Error(err.Error())
 			}
@@ -204,6 +206,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 			return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for request %s", req.GetName())
 		}
 		ll.Infof("AC %v was selected.", ac.Spec)
+		// if sc was parsed as an ANY then we can choose AC with any storage class and then should work with that SC
+		sc = ac.Spec.StorageClass
 
 		switch sc {
 		case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
@@ -380,13 +384,13 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 		if foundAC != nil {
 			// create LVG CR based on that disk
 			var (
-				name   = fmt.Sprintf("lvg-%s", strings.ToLower(foundAC.Spec.NodeId))
+				name   = uuid.New().String()
 				apiLVG = api.LogicalVolumeGroup{
-					UUID:      name,
 					Node:      foundAC.Spec.NodeId,
+					Name:      name,
 					Locations: []string{foundAC.Spec.Location},
-					Health:    api.Health_UNKNOWN,
 					Size:      foundAC.Spec.Size,
+					Status:    api.OperationalStatus_Creating,
 				}
 			)
 
@@ -395,8 +399,17 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 				ll.Errorf("Unable to create LVG CR: %v", err)
 				return nil
 			}
+			// here we should to wait until VG is reconciled by volumemgr
+			ctx, cancelFn := context.WithTimeout(context.Background(), DefaultTimeoutForOperations)
+			defer cancelFn()
+			var newAPILVG *api.LogicalVolumeGroup
+			if newAPILVG = c.waitUntilLVGWillBeCreated(ctx, name); newAPILVG == nil {
+				ll.Infof("LVG %v was not created during %s timeout", apiLVG, DefaultTimeoutForOperations)
+				return nil
+			}
+
 			// update AC
-			foundAC.Spec.Location = apiLVG.UUID
+			foundAC.Spec.Location = newAPILVG.Name
 			foundAC.Spec.StorageClass = storageClass
 			if err = c.k8sclient.UpdateCR(context.Background(), foundAC); err != nil {
 				ll.Errorf("Unable to update AC with LVG value: %v", err)
@@ -406,6 +419,37 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 	}
 
 	return foundAC
+}
+
+// waitUntilLVGWillBeCreated check LVG CR status
+// return LVG.Spec if LVG.Spec.Status == created, or return nil instead
+// check that during context timeout
+func (c *CSIControllerService) waitUntilLVGWillBeCreated(ctx context.Context, lvgName string) *api.LogicalVolumeGroup {
+	ll := c.log.WithFields(logrus.Fields{
+		"method":  "waitUntilLVGWillBeCreated",
+		"lvgName": lvgName,
+	})
+	ll.Infof("Pulling LVG")
+
+	var (
+		lvg = &lvgcrd.LVG{}
+		err error
+	)
+
+	for {
+		select {
+		case <-ctx.Done():
+			ll.Warnf("Context is done and LVG still not become created, consider that it was failed")
+			return nil
+		case <-time.After(2 * time.Second):
+			if err = c.k8sclient.ReadCR(ctx, lvgName, lvg); err != nil {
+				ll.Errorf("Unable to read LVG CR: %v", err)
+			} else if lvg.Spec.Status == api.OperationalStatus_Created {
+				ll.Infof("LVG %s were created", lvg.Name)
+				return &lvg.Spec
+			}
+		}
+	}
 }
 
 // updateACSizeOrDelete update size of AC or delete that AC if new size is low that some threshold
@@ -457,7 +501,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	var (
 		volume         = &volumecrd.Volume{}
 		ctxT, cancelFn = context.WithTimeout(context.WithValue(ctx, base.RequestUUID, req.GetVolumeId()),
-			CreateLocalVolumeRequestTimeout)
+			GRPCTimeout)
 	)
 
 	c.reqMu.Lock()

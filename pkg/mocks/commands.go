@@ -37,6 +37,8 @@ var DiskCommands = map[string]CmdOut{
 		Err:    errors.New("unable to check partition existence for /dev/sdd"),
 	},
 	"partprobe -d -s /dev/sde": EmptyOutSuccess,
+	"partprobe /dev/sde":       EmptyOutSuccess,
+	"partprobe /dev/sda":       EmptyOutSuccess,
 	"partprobe -d -s /dev/sdqwe": {
 		Stdout: "",
 		Stderr: "",

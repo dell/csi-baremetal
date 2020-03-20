@@ -100,7 +100,7 @@ func (p *Partition) CreatePartition(device string) error {
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
 		return err
 	}
-	if _, _, err := p.e.RunCmd(PartprobeCmdTmpl); err != nil {
+	if _, _, err := p.e.RunCmd(fmt.Sprintf("%s %s", PartprobeCmdTmpl, device)); err != nil {
 		return err
 	}
 
@@ -108,12 +108,11 @@ func (p *Partition) CreatePartition(device string) error {
 }
 
 func (p *Partition) DeletePartition(device string) error {
-	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device)
-
 	if exist, err := p.IsPartitionExists(device); err == nil && !exist {
 		return nil
 	}
 
+	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device)
 	p.opMutex.Lock()
 	defer p.opMutex.Unlock()
 

@@ -455,27 +455,6 @@ var _ = Describe("CSINodeService NodeGetCapabilities()", func() {
 	})
 })
 
-/*
-func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	ll := s.log.WithFields(logrus.Fields{
-		"method": "NodeGetInfo",
-	})
-
-	topology := csi.Topology{
-		Segments: map[string]string{
-			"baremetal-csi/nodeid": s.NodeID,
-		},
-	}
-
-	ll.Infof("NodeGetInfo created topology: %v", topology)
-
-	return &csi.NodeGetInfoResponse{
-		NodeId:             s.NodeID,
-		AccessibleTopology: &topology,
-	}, nil
-}
-*/
-
 var _ = Describe("CSINodeService Check()", func() {
 	It("Should return serving", func() {
 		node := newNodeService()

@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"errors"
 	"fmt"
 	"testing"
@@ -25,9 +26,11 @@ import (
 var vmLogger = logrus.New()
 
 const (
-	testNs = "default"
-	nodeId = "node"
-	testID = "uuid-1111"
+	testNs     = "default"
+	nodeId     = "node"
+	testID     = "uuid-1111"
+	volLVGName = "volume-lvg"
+	lvgName    = "lvg-cr-1"
 )
 
 var hwMgrRespDrives = []*api.Drive{
@@ -49,19 +52,8 @@ var hwMgrRespDrives = []*api.Drive{
 	},
 }
 var (
-	drive1      = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeId} // /dev/sda in LsblkTwoDevices
-	drive2      = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeId} // /dev/sdb in LsblkTwoDevices
-	testDriveCr = drivecrd.Drive{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "Drive",
-			APIVersion: "drive.dell.com/v1",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      drive1.UUID,
-			Namespace: testNs,
-		},
-		Spec: *drive1,
-	}
+	drive1 = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeId} // /dev/sda in LsblkTwoDevices
+	drive2 = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeId} // /dev/sdb in LsblkTwoDevices
 
 	volCR = vcrd.Volume{
 		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
@@ -75,6 +67,41 @@ var (
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: api.StorageClass_HDD,
 			Location:     "",
+			Status:       api.OperationalStatus_Creating,
+			Owner:        nodeId,
+		},
+	}
+
+	lvgCR = lvgcrd.LVG{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "LVG",
+			APIVersion: "lvg.dell.com/v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      lvgName,
+			Namespace: testNs,
+		},
+		Spec: api.LogicalVolumeGroup{
+			Name:      lvgName,
+			Node:      nodeId,
+			Locations: []string{drive1.UUID},
+			Size:      int64(1024 * 500 * base.GBYTE),
+			Status:    api.OperationalStatus_Created,
+		},
+	}
+
+	volCRLVG = vcrd.Volume{
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
+		ObjectMeta: v1.ObjectMeta{
+			Name:              volLVGName,
+			Namespace:         testNs,
+			CreationTimestamp: v1.Time{Time: time.Now()},
+		},
+		Spec: api.Volume{
+			Id:           volLVGName,
+			Size:         1024 * 1024 * 1024 * 150,
+			StorageClass: api.StorageClass_HDDLVG,
+			Location:     lvgCR.Name,
 			Status:       api.OperationalStatus_Creating,
 			Owner:        nodeId,
 		},
@@ -219,32 +246,6 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 
 }
 
-func TestVolumeManager_getDrivePathBySN(t *testing.T) {
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	kubeClient, err := base.GetFakeKubeClient(testNs)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, e1, vmLogger, kubeClient, "nodeId")
-
-	// success
-	dev, err := vm.searchDrivePathBySN("hdd1")
-	expectedDev := "/dev/sda"
-	assert.Nil(t, err)
-	assert.Equal(t, expectedDev, dev)
-
-	// fail: dev was not found
-	dev, err = vm.searchDrivePathBySN("hdd12341")
-	assert.Empty(t, dev)
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "unable to find drive path")
-
-	// fail: lsblk was failed
-	e2 := mocks.EmptyExecutorFail{}
-	vm = NewVolumeManager(nil, e2, vmLogger, kubeClient, "nodeId")
-	dev, err = vm.searchDrivePathBySN("hdd12341")
-	assert.Empty(t, dev)
-	assert.NotNil(t, err)
-}
-
 func TestVolumeManager_DiscoverAvailableCapacity(t *testing.T) {
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
@@ -363,7 +364,8 @@ func TestVolumeManager_setPartitionUUIDForDevFail(t *testing.T) {
 
 	partExistCMD := "partprobe -d -s /dev/sda"
 	lifecycleCMD := map[string]mocks.CmdOut{
-		partExistCMD: {"/dev/sda: gpt", "", nil},
+		partExistCMD:         {"/dev/sda: gpt", "", nil},
+		"partprobe /dev/sda": mocks.EmptyOutSuccess,
 	}
 
 	// unable check whether partition exist
@@ -461,7 +463,7 @@ func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
 	return nVM
 }
 
-func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
+func TestVolumeManager_CreateLocalVolumeHDDSuccess(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 	vol := volCR.Spec
 	// read Drives
@@ -472,9 +474,31 @@ func TestVolumeManager_CreateLocalVolumeSuccess(t *testing.T) {
 	vol.Location = dList.Items[0].Spec.UUID
 	err = vm.CreateLocalVolume(context.Background(), &vol)
 	assert.Nil(t, err)
+	assert.Equal(t, len(vm.volumesCache), 1)
 }
 
-func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
+func TestVolumeManager_CreateLocalVolumeLVGSuccess(t *testing.T) {
+	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+	e := &mocks.GoMockExecutor{}
+	vm.linuxUtils = base.NewLinuxUtils(e, vmLogger)
+	volume := volCRLVG.Spec
+	sizeStr := fmt.Sprintf("%.2fG", float64(volume.Size)/float64(base.GBYTE))
+	e.OnCommand(fmt.Sprintf("/sbin/lvm lvcreate --yes --name %s --size %s %s", volume.Id, sizeStr, volume.Location)).
+		Return("", "", nil)
+
+	err := vm.k8sclient.CreateCR(ctx, &lvgCR, lvgName)
+	assert.Nil(t, err)
+
+	err = vm.CreateLocalVolume(ctx, &volume)
+	assert.Equal(t, len(vm.volumesCache), 1)
+	assert.Equal(t, vm.volumesCache[volume.Id].Status, api.OperationalStatus_Created)
+	lvg := &lvgcrd.LVG{}
+	err = vm.k8sclient.ReadCR(ctx, volume.Location, lvg)
+	assert.Nil(t, err)
+	assert.Equal(t, lvg.Spec.Size, lvgCR.Spec.Size-volume.Size)
+}
+
+func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
 	// expect: setPartitionUUIDForDev fail but partition hadn't created (rollback is no needed)
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1})
 	dList := &drivecrd.DriveList{}
@@ -523,6 +547,32 @@ func TestVolumeManager_CreateLocalVolumeFail(t *testing.T) {
 	err4 := vm4.CreateLocalVolume(context.Background(), vol4)
 	assert.NotNil(t, err4)
 	assert.Contains(t, err4.Error(), fmt.Sprintf("unable to create local volume %s", vID))
+}
+
+func TestVolumeManager_CreateLocalVolumeLVGFail(t *testing.T) {
+	// LVG wasn't found
+	vm1 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+
+	err1 := vm1.CreateLocalVolume(ctx, &volCRLVG.Spec)
+	assert.NotNil(t, err1)
+	assert.Contains(t, err1.Error(), "not found")
+
+	// LVCReate was failed
+	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+	volume2 := volCRLVG.Spec
+	e2 := &mocks.GoMockExecutor{}
+	sizeStr2 := fmt.Sprintf("%.2fG", float64(volume2.Size)/float64(base.GBYTE))
+	expectedErr2 := errors.New("lvcreate failed in test")
+	e2.OnCommand(fmt.Sprintf("/sbin/lvm lvcreate --yes --name %s --size %s %s", volume2.Id, sizeStr2, volume2.Location)).
+		Return("", "", expectedErr2)
+	vm2.linuxUtils = base.NewLinuxUtils(e2, vmLogger)
+
+	err2 := vm2.k8sclient.CreateCR(ctx, &lvgCR, lvgName)
+	assert.Nil(t, err2)
+
+	err2 = vm2.CreateLocalVolume(ctx, &volume2)
+	assert.NotNil(t, err2)
+	assert.Equal(t, err2, expectedErr2)
 }
 
 func TestVolumeManager_ReconcileCreateVolumeSuccess(t *testing.T) {
@@ -583,38 +633,52 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 	scImplMock.On("DeleteFileSystem", "/dev/sdb").Return(nil).Times(1)
 	vm.scMap[SCName("hdd")] = scImplMock
 
-	volume := &api.Volume{Id: testID, Location: drive2.UUID}
-	vm.volumesCache[testID] = volume
+	v := &api.Volume{Id: testID, Location: drive2.UUID, StorageClass: api.StorageClass_HDD}
+	vm.volumesCache[testID] = v
 
-	assert.Equal(t, 1, len(vm.volumesCache))
-	err := vm.DeleteLocalVolume(context.Background(), volume)
+	err := vm.DeleteLocalVolume(context.Background(), v)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(vm.volumesCache))
+
+	// LVG SC
+	v = &api.Volume{Id: testID, Location: drive2.UUID, StorageClass: api.StorageClass_HDDLVG}
+	vm.volumesCache[testID] = v
+	lvDev := fmt.Sprintf("/dev/%s/%s", v.Location, v.Id)
+
+	scImplMock.On("DeleteFileSystem", lvDev).
+		Return(nil).Times(1)
+	mockExecutor := &mocks.GoMockExecutor{}
+	mockExecutor.OnCommand(fmt.Sprintf("/sbin/lvm lvremove --yes %s", lvDev)).
+		Return("", "", nil).Times(1)
+	vm.linuxUtils = base.NewLinuxUtils(mockExecutor, vmLogger)
+	err = vm.DeleteLocalVolume(context.Background(), v)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(vm.volumesCache))
 }
 
 func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
-	// expect: volume wasn't found in volumesCache
+	// Expect that scImpl wasn't found for volume's storage class
 	vm1 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	volume := &api.Volume{Id: testID, Location: drive2.UUID}
-
-	err1 := vm1.DeleteLocalVolume(context.Background(), volume)
+	volume1 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: -1}
+	err1 := vm1.DeleteLocalVolume(ctx, volume1)
 	assert.NotNil(t, err1)
-	assert.Equal(t, errors.New("unable to find volume by PVC UUID in volume manager cache"), err1)
+	assert.Contains(t, err1.Error(), "unable to determine storage class for volume")
 
-	// expect searchDrivePathBySN return error
+	// expect searchDrivePathBySN will fail
 	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	location := "fail-here"
 
-	volume1 := &api.Volume{Id: testID, Location: location}
-	vm2.volumesCache[testID] = volume1
+	e2 := &mocks.GoMockExecutor{}
+	e2.OnCommand(base.LsblkCmd).Return("{\"blockdevices\": []}", "", nil).Times(1)
+	vm2.linuxUtils = base.NewLinuxUtils(e2, vmLogger)
 
-	err2 := vm2.DeleteLocalVolume(context.Background(), volume1)
+	volume := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDD}
+	err2 := vm2.DeleteLocalVolume(ctx, volume)
 	assert.NotNil(t, err2)
-	assert.Equal(t, "unable to find drive by volume location", err2.Error())
+	assert.Equal(t, err2.Error(), fmt.Sprintf("unable to find device for drive with S/N %s", volume.Location))
 
 	// expect DeletePartition was failed
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	volume3 := &api.Volume{Id: testID, Location: drive1.UUID}
+	volume3 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDD}
 	vm3.volumesCache[testID] = volume3
 	disk := "/dev/sda"
 	isPartitionExistCMD := fmt.Sprintf("partprobe -d -s %s", disk)
@@ -631,4 +695,34 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	assert.NotNil(t, err3)
 	assert.Contains(t, err3.Error(), "failed to delete partition")
 	assert.Equal(t, api.OperationalStatus_FailToRemove, vm3.volumesCache[testID].Status)
+
+	// expect DeleteFileSystem was failed
+	vm4 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+	volume4 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDDLVG}
+	vm4.volumesCache[testID] = volume4
+	device4 := fmt.Sprintf("/dev/%s/%s", volume4.Location, volume4.Id)
+	scImplHdd4 := &sc.ImplementerMock{}
+	scImplHdd4.On("DeleteFileSystem", device4).Return(errors.New("DeleteFileSystem failed"))
+	vm4.scMap["hdd"] = scImplHdd4
+	err4 := vm4.DeleteLocalVolume(ctx, volume4)
+	assert.NotNil(t, err4)
+	assert.Contains(t, err4.Error(), "failed to wipefs device")
+	assert.Equal(t, vm4.volumesCache[volume4.Id].Status, api.OperationalStatus_FailToRemove)
+
+	// expect LVRemove fail for Volume with SC HDDLVG
+	vm5 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
+	volume5 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDDLVG}
+	vm5.volumesCache[testID] = volume5
+	device5 := fmt.Sprintf("/dev/%s/%s", volume5.Location, volume5.Id)
+	scImplHdd5 := &sc.ImplementerMock{}
+	scImplHdd5.On("DeleteFileSystem", device5).Return(nil)
+	vm5.scMap["hdd"] = scImplHdd5
+	e5 := &mocks.GoMockExecutor{}
+	e5.OnCommand(fmt.Sprintf("/sbin/lvm lvremove --yes %s", device5)).
+		Return("", "", errors.New("lvremove failed"))
+	vm5.linuxUtils = base.NewLinuxUtils(e5, vmLogger)
+	err5 := vm5.DeleteLocalVolume(ctx, volume5)
+	assert.NotNil(t, err5)
+	assert.Contains(t, err5.Error(), "unable to remove lv")
+	assert.Equal(t, vm5.volumesCache[volume5.Id].Status, api.OperationalStatus_FailToRemove)
 }

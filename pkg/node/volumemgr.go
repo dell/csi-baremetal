@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -43,8 +45,8 @@ type VolumeManager struct {
 }
 
 const (
-	DiscoverDrivesTimout     = 300 * time.Second
-	CreateLocalVolumeTimeout = 300 * time.Second
+	DiscoverDrivesTimout    = 300 * time.Second
+	VolumeOperationsTimeout = 300 * time.Second
 )
 
 // NewVolumeManager returns new instance ov VolumeManager
@@ -58,7 +60,8 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 		drivesCache:            make(map[string]*drivecrd.Drive),
 		availableCapacityCache: make(map[string]*api.AvailableCapacity),
 		nodeID:                 nodeID,
-		scMap: map[SCName]sc.StorageClassImplementer{"hdd": sc.GetHDDSCInstance(logger),
+		scMap: map[SCName]sc.StorageClassImplementer{
+			"hdd": sc.GetHDDSCInstance(logger),
 			"ssd": sc.GetSSDSCInstance(logger)},
 	}
 	vm.log = logger.WithField("component", "VolumeManager")
@@ -71,7 +74,7 @@ func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
 
 // Reconcile Volume CRD according to stasus which set by CSI Controller Service
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx, cancelFn := context.WithTimeout(context.Background(), CreateLocalVolumeTimeout)
+	ctx, cancelFn := context.WithTimeout(context.Background(), VolumeOperationsTimeout)
 	defer cancelFn()
 
 	ll := m.log.WithFields(logrus.Fields{
@@ -116,17 +119,16 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		// But we set OperationalStatus as FailedToCreate. And CSI Controller handles with FailedToCreate.
 		return ctrl.Result{}, nil
 	case api.OperationalStatus_Removing:
-		err := m.DeleteLocalVolume(ctx, &volume.Spec)
-		if err != nil {
+		if err = m.DeleteLocalVolume(ctx, &volume.Spec); err != nil {
 			ll.Errorf("Failed to delete volume - %s. Error: %v. Context Error: %v. "+
 				"Set status FailToRemove", volume.Spec.Id, err, ctx.Err())
 			newStatus = api.OperationalStatus_FailToRemove
 		} else {
-			ll.Infof("Volume - %s was successfully deleted. Set status to Removed", volume.Spec.Id)
+			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 			newStatus = api.OperationalStatus_Removed
 		}
 		if err = m.k8sclient.ChangeVolumeStatus(volume.Name, newStatus); err != nil {
-			ll.Error(err.Error())
+			ll.Errorf("Unable to set new status for volume: %v", err)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -239,7 +241,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 			}
 		}
 		if !exist {
-			ll.Warnf("Set status OFFLINE for drive with Vid/Pid/SN %s-%s-%s", d.Spec.VID, d.Spec.PID, d.Spec.SerialNumber)
+			ll.Warnf("Set status OFFLINE for drive with Vid/Pid/SN %s/%s/%s", d.Spec.VID, d.Spec.PID, d.Spec.SerialNumber)
 			d.Spec.Status = api.Status_OFFLINE
 			d.Spec.Health = api.Health_UNKNOWN
 			err := m.k8sclient.UpdateCR(ctx, d)
@@ -249,7 +251,6 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 			m.drivesCache[d.Spec.UUID] = d.DeepCopy()
 		}
 	}
-	ll.Info("Current drives cache: ", m.drivesCache)
 }
 
 // updateVolumesCache updates volumes cache based on provided freeDrives
@@ -385,55 +386,82 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 	ll.Infof("Creating volume: %v", vol)
 
 	// TODO: should read from Volume CRD AK8S-170
-	if vol, ok := m.getFromVolumeCache(vol.Id); ok {
-		ll.Infof("Found volume in cache with status: %s", api.OperationalStatus_name[int32(vol.Status)])
+	if v, ok := m.getFromVolumeCache(vol.Id); ok {
+		ll.Infof("Found volume in cache with status: %s", api.OperationalStatus_name[int32(v.Status)])
 		return m.pullCreateLocalVolume(ctx, vol.Id)
 	}
 
 	var (
-		drive     = &drivecrd.Drive{}
-		driveUUID = vol.Location
-		err       error
+		volLocation string
+		device      string
+		err         error
 	)
-	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
-	if err = m.k8sclient.ReadCR(ctx, driveUUID, drive); err != nil {
-		ll.Errorf("Failed to read crd with name %s, error %s", driveUUID, err.Error())
-		return err
-	}
-
-	ll.Infof("Search device file")
-	device, err := m.searchDrivePathBySN(drive.Spec.SerialNumber)
-	if err != nil {
-		return err
-	}
-
-	m.setVolumeCacheValue(vol.Id, vol)
-
-	ll.Infof("Create partition on device %s and set UUID in background", device)
-	go func() {
-		rollBacked, err := m.setPartitionUUIDForDev(device, vol.Id)
-		if err != nil {
-			if !rollBacked {
-				ll.Errorf("unable set partition uuid for dev %s, roll back failed too, set drive status to OFFLINE", device)
-				drive.Spec.Status = api.Status_OFFLINE
-				if err := m.k8sclient.UpdateCR(ctx, drive); err != nil {
-					ll.Errorf("Failed to update drive CRd with name %s, error %s", drive.Name, err.Error())
-				}
-			}
-			ll.Errorf("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
-			m.setVolumeStatus(vol.Id, api.OperationalStatus_FailedToCreate)
-		} else {
-			ll.Info("Partition UUID was set successfully, set volume status to Created")
-			m.setVolumeStatus(vol.Id, api.OperationalStatus_Created)
+	switch vol.StorageClass {
+	case api.StorageClass_SSDLVG, api.StorageClass_HDDLVG:
+		lvg := &lvgcrd.LVG{}
+		if err = m.k8sclient.ReadCR(ctx, vol.Location, lvg); err != nil {
+			ll.Errorf("Unable to read LVG: %v", err)
+			return err
 		}
-	}()
+		volLocation = lvg.Name
+		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(base.GBYTE))
+		// create lv with name /dev/VG_NAME/vol.Id
+		ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, volLocation)
+		if err = m.linuxUtils.LVCreate(vol.Id, sizeStr, volLocation); err != nil {
+			ll.Errorf("Unable to create LV: %v", err)
+			return err
+		}
+		// update LVG CR
+		lvg.Spec.Size -= vol.Size
+		if err = m.k8sclient.UpdateCR(ctx, lvg); err != nil {
+			ll.Errorf("Unable to decrease LVG's %s size on %d: %v", lvg.Name, vol.Size, err)
+		}
+		ll.Info("Lv was created.")
+		m.setVolumeCacheValue(vol.Id, vol)
+		m.setVolumeStatus(vol.Id, api.OperationalStatus_Created)
+		return nil
+	default: // assume that volume location is whole disk
+		drive := &drivecrd.Drive{}
+		volLocation = vol.Location
+		// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
+		if err = m.k8sclient.ReadCR(ctx, volLocation, drive); err != nil {
+			ll.Errorf("Failed to read crd with name %s, error %s", volLocation, err.Error())
+			return err
+		}
+
+		ll.Infof("Search device file for drive with S/N %s", drive.Spec.SerialNumber)
+		device, err = m.linuxUtils.SearchDrivePathBySN(drive.Spec.SerialNumber)
+		if err != nil {
+			return err
+		}
+
+		m.setVolumeCacheValue(vol.Id, vol)
+		go func() {
+			ll.Infof("Create partition on device %s and set UUID in background", device)
+			rollBacked, err := m.setPartitionUUIDForDev(device, vol.Id)
+			if err != nil {
+				if !rollBacked {
+					ll.Errorf("unable set partition uuid for dev %s, roll back failed too, set drive status to OFFLINE", device)
+					drive.Spec.Status = api.Status_OFFLINE
+					if err := m.k8sclient.UpdateCR(ctx, drive); err != nil {
+						ll.Errorf("Failed to update drive CRd with name %s, error %s", drive.Name, err.Error())
+					}
+				}
+				ll.Errorf("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
+				m.setVolumeStatus(vol.Id, api.OperationalStatus_FailedToCreate)
+			} else {
+				ll.Info("Partition UUID was set successfully, set volume status to Created")
+				m.setVolumeStatus(vol.Id, api.OperationalStatus_Created)
+			}
+		}()
+	}
 
 	return m.pullCreateLocalVolume(ctx, vol.Id)
 }
 
 func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID string) error {
 	ll := m.log.WithFields(logrus.Fields{
-		"method":   "pullCreatedLocalVolume",
+		"method":   "pullCreateLocalVolume",
 		"volumeID": volumeID,
 	})
 	ll.Infof("Pulling status, current: %s", api.OperationalStatus_name[int32(m.getVolumeStatus(volumeID))])
@@ -468,28 +496,6 @@ func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID stri
 			}
 		}
 	}
-}
-
-// searchDrivePathBySN returns drive path based on drive S/N
-func (m *VolumeManager) searchDrivePathBySN(sn string) (string, error) {
-	lsblkOut, err := m.linuxUtils.Lsblk("disk")
-	if err != nil {
-		return "", err
-	}
-
-	device := ""
-	for _, l := range *lsblkOut {
-		if strings.EqualFold(l.Serial, sn) {
-			device = l.Name
-			break
-		}
-	}
-
-	if device == "" {
-		return "", fmt.Errorf("unable to find drive path by S/N %s", sn)
-	}
-
-	return device, nil
 }
 
 // setPartitionUUIDForDev creates partition and sets partition UUID, if some step fails
@@ -565,37 +571,41 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 
 	ll.Info("Processing request")
 
-	var ok bool
+	var (
+		err    error
+		device string
+	)
+	switch volume.StorageClass {
+	case api.StorageClass_HDD, api.StorageClass_SSD:
+		m.dCacheMu.Lock()
+		drive := m.drivesCache[volume.Location]
+		m.dCacheMu.Unlock()
+		if drive == nil {
+			return errors.New("unable to find drive by volume location")
+		}
+		device, err = m.linuxUtils.SearchDrivePathBySN(drive.Spec.SerialNumber)
+		if err != nil {
+			return fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
+		}
 
-	if volume, ok = m.getFromVolumeCache(volume.Id); !ok {
-		return errors.New("unable to find volume by PVC UUID in volume manager cache")
+		err = m.linuxUtils.DeletePartition(device)
+		if err != nil {
+			wErr := fmt.Errorf("failed to delete partition, error: %v", err)
+			ll.Errorf("%v, set operational status - fail to remove", wErr)
+			m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
+			return wErr
+		}
+		ll.Info("Partition was deleted")
+	case api.StorageClass_SSDLVG, api.StorageClass_HDDLVG:
+		device = fmt.Sprintf("/dev/%s/%s", volume.Location, volume.Id) // /dev/VG_NAME/LV_NAME
+	default:
+		return fmt.Errorf("unable to determine storage class for volume %v", volume)
 	}
 
-	drive := m.drivesCache[volume.Location]
-	if drive == nil {
-		return errors.New("unable to find drive by volume location")
-	}
-
-	device, err := m.searchDrivePathBySN(drive.Spec.SerialNumber)
-	if err != nil {
-		return fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
-	}
-	ll.Infof("Found device %s", device)
-
-	err = m.linuxUtils.DeletePartition(device)
-	if err != nil {
-		wErr := fmt.Errorf("failed to delete partition, error: %v", err)
-		ll.Errorf("%v, set operational status - fail to remove", wErr)
-		m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
-		return wErr
-	}
-	ll.Info("Partition was deleted")
-
+	ll.Infof("Found device file %s", device)
 	scImpl := m.getStorageClassImpl(volume.StorageClass)
-	ll.Infof("Chosen StorageClass is %s", volume.StorageClass.String())
 
-	err = scImpl.DeleteFileSystem(device)
-	if err != nil {
+	if err = scImpl.DeleteFileSystem(device); err != nil {
 		wErr := fmt.Errorf("failed to wipefs device, error: %v", err)
 		ll.Errorf("%v, set operational status - fail to remove", wErr)
 		m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
@@ -603,9 +613,16 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 	}
 	ll.Info("File system was deleted")
 
+	if volume.StorageClass == api.StorageClass_HDDLVG || volume.StorageClass == api.StorageClass_SSDLVG {
+		ll.Info("Removing LV ...")
+		if err = m.linuxUtils.LVRemove(volume.Id, volume.Location); err != nil {
+			m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
+			return fmt.Errorf("unable to remove lv: %v", err)
+		}
+	}
 	m.deleteFromVolumeCache(volume.Id)
 
-	ll.Infof("Volume was successfully deleted, return it: %v", volume)
+	ll.Info("Volume was successfully deleted")
 	return nil
 }
 

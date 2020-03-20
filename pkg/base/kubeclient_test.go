@@ -91,7 +91,7 @@ var (
 	}
 
 	testApiLVG = api.LogicalVolumeGroup{
-		UUID:      testUUID,
+		Name:      testUUID,
 		Node:      testNode1Name,
 		Locations: []string{testDriveLocation1},
 		Size:      1024,

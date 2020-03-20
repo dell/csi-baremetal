@@ -73,7 +73,7 @@ func TestCreatePartitionFail(t *testing.T) {
 	assert.NotNil(t, err)
 
 	expectedError := errors.New("partprobe failed")
-	newCmd := "partprobe"
+	newCmd := "partprobe /dev/sde"
 	mocks.DiskCommands[newCmd] = mocks.CmdOut{
 		Stdout: "",
 		Stderr: "",
