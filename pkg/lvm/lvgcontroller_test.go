@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -114,6 +116,24 @@ var (
 			Status:    api.OperationalStatus_Created,
 		},
 	}
+
+	acCR1Name = "ac1"
+	acCR1     = accrd.AvailableCapacity{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "AvailableCapacity",
+			APIVersion: "availablecapacity.dell.com/v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      acCR1Name,
+			Namespace: ns,
+		},
+		Spec: api.AvailableCapacity{
+			Location:     lvg1Name,
+			NodeId:       node1ID,
+			StorageClass: api.StorageClass_HDDLVG,
+			Size:         int64(1024 * 300 * base.GBYTE),
+		},
+	}
 )
 
 func Test_NewLVGController(t *testing.T) {
@@ -121,7 +141,7 @@ func Test_NewLVGController(t *testing.T) {
 	assert.NotNil(t, c)
 }
 
-func Test_ReconcileSuccessAnotherNode(t *testing.T) {
+func TestReconcile_SuccessAnotherNode(t *testing.T) {
 	c := setup(t, node1ID)
 	defer teardown(t, c)
 	// request for resources on another node
@@ -131,7 +151,7 @@ func Test_ReconcileSuccessAnotherNode(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 }
 
-func Test_ReconcileSuccessNotFound(t *testing.T) {
+func TestReconcile_SuccessNotFound(t *testing.T) {
 	c := setup(t, node1ID)
 	defer teardown(t, c)
 
@@ -141,7 +161,7 @@ func Test_ReconcileSuccessNotFound(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 }
 
-func Test_ReconcileSuccessCreatingLVG(t *testing.T) {
+func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	var (
 		c   = setup(t, node1ID)
 		e   = &mocks.GoMockExecutor{}
@@ -167,9 +187,61 @@ func Test_ReconcileSuccessCreatingLVG(t *testing.T) {
 	res, err = c.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
+
+	currLVG := &lvgcrd.LVG{}
+	err = c.k8sClient.ReadCR(tCtx, req.Name, currLVG)
+	assert.Contains(t, currLVG.ObjectMeta.Finalizers, lvgFinalizer)
 }
 
-func Test_ReconcileFailedNoPVs(t *testing.T) {
+func TestReconcile_SuccessDeletion(t *testing.T) {
+	var (
+		c   = setup(t, node1ID)
+		e   = &mocks.GoMockExecutor{}
+		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+	)
+	defer teardown(t, c)
+
+	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+
+	lvgToDell := lvgCR1
+	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
+	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
+
+	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(base.VGRemoveCmdTmpl, lvgCR1.Name)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(base.PVsInVGCmdTmpl, base.EmptyName)).Return("", "", nil).Times(1)
+
+	res, err := c.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+}
+
+func TestReconcile_DeletionFailed(t *testing.T) {
+	var (
+		c   = setup(t, node1ID)
+		e   = &mocks.GoMockExecutor{}
+		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+	)
+	defer teardown(t, c)
+
+	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+
+	lvgToDell := lvgCR1
+	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
+	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
+
+	// expect that LVG still contains LV
+	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, lvgCR1.Name)).Return("lv1", "", nil)
+
+	res, err := c.Reconcile(req)
+	assert.Contains(t, err.Error(), "there are LVs in LVG")
+	assert.Equal(t, res, ctrl.Result{})
+	fmt.Println(err)
+}
+
+func TestReconcile_FailedNoPVs(t *testing.T) {
 	// expect that no one PVs were created
 	var (
 		c = setup(t, node1ID)
@@ -182,8 +254,7 @@ func Test_ReconcileFailedNoPVs(t *testing.T) {
 				"serial": "hdd1"
 				}]
 			}`
-		req         = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
-		expectedErr = errors.New("no one PVs were created")
+		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
 	defer teardown(t, c)
 
@@ -192,12 +263,15 @@ func Test_ReconcileFailedNoPVs(t *testing.T) {
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", errors.New("pvcreate failed"))
 
 	res, err := c.Reconcile(req)
-	assert.NotNil(t, err)
-	assert.Equal(t, err, expectedErr)
+	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
+
+	lvgCR := &lvgcrd.LVG{}
+	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
+	assert.Equal(t, api.OperationalStatus_FailedToCreate, lvgCR.Spec.Status)
 }
 
-func Test_ReconcileFailedVGCreate(t *testing.T) {
+func TestReconcile_FailedVGCreate(t *testing.T) {
 	var (
 		c           = setup(t, node1ID)
 		e           = &mocks.GoMockExecutor{}
@@ -214,11 +288,91 @@ func Test_ReconcileFailedVGCreate(t *testing.T) {
 		Return("", "", expectedErr)
 
 	res, err := c.Reconcile(req)
-	assert.NotNil(t, err)
-	assert.Equal(t, err, expectedErr)
+	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
+
+	lvgCR := &lvgcrd.LVG{}
+	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
+	assert.Equal(t, api.OperationalStatus_FailedToCreate, lvgCR.Spec.Status)
 }
 
+func Test_removeLVGArtifacts_Success(t *testing.T) {
+	var (
+		c   = setup(t, node1ID)
+		e   = &mocks.GoMockExecutor{}
+		vg  = lvgCR1.Name
+		err error
+	)
+	defer teardown(t, c)
+
+	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+
+	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(base.VGRemoveCmdTmpl, vg)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(base.PVsInVGCmdTmpl, base.EmptyName)).Return("", "", nil).Times(1)
+	err = c.removeLVGArtifacts(vg)
+	assert.Nil(t, err)
+
+	// expect that RemoveOrphanPVs failed and ignore it
+	e.OnCommand(fmt.Sprintf(base.PVsInVGCmdTmpl, base.EmptyName)).
+		Return("", "", errors.New("error")).Times(1)
+	err = c.removeLVGArtifacts(vg)
+	assert.Nil(t, err)
+}
+
+func Test_removeLVGArtifacts_Fail(t *testing.T) {
+	var (
+		c   = setup(t, node1ID)
+		e   = &mocks.GoMockExecutor{}
+		vg  = lvgCR1.Name
+		err error
+	)
+	defer teardown(t, c)
+
+	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+
+	// expect that VG contains LV
+	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, vg)).Return("some-lv1", "", nil).Times(1)
+	err = c.removeLVGArtifacts(vg)
+	assert.Equal(t, fmt.Errorf("there are LVs in LVG %s", vg), err)
+
+	// expect that VGRemove failed
+	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, vg)).Return("", "", nil).Times(1)
+	e.OnCommand(fmt.Sprintf(base.VGRemoveCmdTmpl, vg)).Return("", "", errors.New("error"))
+	err = c.removeLVGArtifacts(vg)
+	assert.Contains(t, err.Error(), "unable to remove LVG")
+}
+
+func Test_RemoveChildAC(t *testing.T) {
+	c := setup(t, node1ID)
+	defer teardown(t, c)
+
+	// add AC CR that point in LVGCR1
+	err := c.k8sClient.CreateCR(tCtx, &acCR1, acCR1Name)
+	assert.Nil(t, err)
+
+	c.removeChildAC(acCR1.Spec.Location)
+
+	// expect that there are no any AC CR
+	acList := &accrd.AvailableCapacityList{}
+	err = c.k8sClient.ReadList(tCtx, acList)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(acList.Items))
+
+	// add AC CR that point in lvgCR1
+	err = c.k8sClient.CreateCR(tCtx, &acCR1, acCR1Name)
+	assert.Nil(t, err)
+	// try to remove AC that point on lvgCR2
+	c.removeChildAC(lvgCR2.Name)
+
+	// expect that there are no any AC CR were removed
+	acList = &accrd.AvailableCapacityList{}
+	err = c.k8sClient.ReadList(tCtx, acList)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(acList.Items))
+}
+
+// setup creates drive CRs and LVG CRs and returns LVGController instance
 func setup(t *testing.T, node string) *LVGController {
 	k8sClient, err := base.GetFakeKubeClient(ns)
 	assert.Nil(t, err)
@@ -235,6 +389,7 @@ func setup(t *testing.T, node string) *LVGController {
 	return NewLVGController(k8sClient, node, testLogger)
 }
 
+// teardown removes drive CRs and LVG CRs
 func teardown(t *testing.T, c *LVGController) {
 	var (
 		driveList = &drivecrd.DriveList{}

@@ -207,7 +207,7 @@ func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.Operation
 
 	defer ticker.Stop()
 
-	ll.Infof("Try to set status to %s", newStatusStr)
+	ll.Infof("Try to set volume %s status to %s", volumeID, newStatusStr)
 
 	// read volume into v
 	for i := 0; i < attempts; i++ {

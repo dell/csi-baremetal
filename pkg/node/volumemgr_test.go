@@ -492,10 +492,6 @@ func TestVolumeManager_CreateLocalVolumeLVGSuccess(t *testing.T) {
 	err = vm.CreateLocalVolume(ctx, &volume)
 	assert.Equal(t, len(vm.volumesCache), 1)
 	assert.Equal(t, vm.volumesCache[volume.Id].Status, api.OperationalStatus_Created)
-	lvg := &lvgcrd.LVG{}
-	err = vm.k8sclient.ReadCR(ctx, volume.Location, lvg)
-	assert.Nil(t, err)
-	assert.Equal(t, lvg.Spec.Size, lvgCR.Spec.Size-volume.Size)
 }
 
 func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
@@ -550,13 +546,6 @@ func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
 }
 
 func TestVolumeManager_CreateLocalVolumeLVGFail(t *testing.T) {
-	// LVG wasn't found
-	vm1 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-
-	err1 := vm1.CreateLocalVolume(ctx, &volCRLVG.Spec)
-	assert.NotNil(t, err1)
-	assert.Contains(t, err1.Error(), "not found")
-
 	// LVCReate was failed
 	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 	volume2 := volCRLVG.Spec

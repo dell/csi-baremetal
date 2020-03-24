@@ -95,7 +95,6 @@ func (c *CSIControllerService) updateAvailableCapacityCRs(ctx context.Context) e
 		}
 		availableCapacity := response.GetAvailableCapacity()
 		for _, acPtr := range availableCapacity {
-			//name of available capacity cr is node id + drive location
 			name := acPtr.NodeId + "-" + strings.ToLower(acPtr.Location)
 			if err := c.k8sclient.ReadCR(context.WithValue(ctx, base.RequestUUID, name), name, &accrd.AvailableCapacity{}); err != nil {
 				if k8sError.IsNotFound(err) {
@@ -168,10 +167,13 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		volumeCR = &volumecrd.Volume{}
 		err      error
 	)
-	// check whether volume CR exist or no
+	// at first check whether volume CR exist or no
+	// on mutex because AC based on LVG may be in creating state and controller should wait until AC will be updated
+	c.reqMu.Lock()
 	err = c.k8sclient.ReadCR(ctx, reqName, volumeCR)
 	switch {
 	case err == nil:
+		// volume is exist, check that it have created state or time is over (for creating)
 		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(DefaultTimeoutForOperations)
 		ll.Infof("Volume exists, current status: %s.", api.OperationalStatus_name[int32(volumeCR.Spec.Status)])
 		if expiredAt.Before(time.Now()) {
@@ -179,14 +181,15 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 			if err = c.k8sclient.ChangeVolumeStatus(req.GetName(), api.OperationalStatus_FailedToCreate); err != nil {
 				ll.Error(err.Error())
 			}
+			c.reqMu.Unlock()
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
 	case !k8sError.IsNotFound(err):
-		ll.Errorf("unable to read volume CR: %v", err)
+		ll.Errorf("Unable to read volume CR: %v", err)
+		c.reqMu.Unlock()
 		return nil, status.Error(codes.Aborted, "unable to check volume existence")
 	default:
 		// create volume
-		c.reqMu.Lock()
 		var (
 			ctxWithID      = context.WithValue(ctx, base.RequestUUID, req.GetName())
 			sc             = base.ConvertStorageClass(req.Parameters["storageType"])
@@ -200,13 +203,14 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 			ll.Infof("Preferred node was provided: %s", preferredNode)
 		}
 
-		if ac = c.searchAvailableCapacity(preferredNode, requiredBytes, sc); ac == nil {
+		if ac = c.searchAvailableCapacity(ctxWithID, preferredNode, requiredBytes, sc); ac == nil {
 			c.reqMu.Unlock()
 			ll.Info("There is no suitable drive for volume")
 			return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for request %s", req.GetName())
 		}
 		ll.Infof("AC %v was selected.", ac.Spec)
-		// if sc was parsed as an ANY then we can choose AC with any storage class and then should work with that SC
+		// if sc was parsed as an ANY then we can choose AC with any storage class and then volume should be created
+		// with that particular SC
 		sc = ac.Spec.StorageClass
 
 		switch sc {
@@ -223,7 +227,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 			Size:         allocatedBytes,
 			Location:     ac.Spec.Location,
 			Status:       api.OperationalStatus_Creating,
-			StorageClass: ac.Spec.StorageClass,
+			StorageClass: sc,
 		}
 		volumeCR = c.k8sclient.ConstructVolumeCR(reqName, apiVolume)
 		volumeCR.ObjectMeta.Annotations = map[string]string{
@@ -246,7 +250,6 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		if err != nil {
 			ll.Errorf("Unable to modify/delete Available Capacity %s, error: %v", ac.Name, err)
 		}
-
 		c.reqMu.Unlock()
 	}
 
@@ -316,11 +319,14 @@ func (c *CSIControllerService) waitVCRStatus(ctx context.Context,
 	}
 }
 
-// searchAvailableCapacity search appropriate available capacity and remove it from cache
-func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, requiredBytes int64,
+// searchAvailableCapacity search appropriate available capacity and remove it's CR
+// if SC is in LVM and there is no AC with such SC then LVG should be created based
+// on non-LVM AC's and new AC should be created on point in LVG
+func (c *CSIControllerService) searchAvailableCapacity(ctx context.Context, preferredNode string, requiredBytes int64,
 	storageClass api.StorageClass) *accrd.AvailableCapacity {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":        "searchAvailableCapacity",
+		"volumeID":      ctx.Value(base.RequestUUID),
 		"requiredBytes": fmt.Sprintf("%.3fG", float64(requiredBytes)/float64(base.GBYTE)),
 	})
 
@@ -371,54 +377,96 @@ func (c *CSIControllerService) searchAvailableCapacity(preferredNode string, req
 		}
 	}
 
-	// if storageClass is related to LVG and there is no AC with that storageClass
-	// search drive with subclass on which LVG is being creating
-	if storageClass == api.StorageClass_HDDLVG || storageClass == api.StorageClass_SSDLVG && foundAC == nil {
+	if storageClass == api.StorageClass_HDDLVG || storageClass == api.StorageClass_SSDLVG {
+		if foundAC != nil {
+			// check whether LVG being deleted or no
+			lvgCR := &lvgcrd.LVG{}
+			err := c.k8sclient.ReadCR(context.Background(), foundAC.Spec.Location, lvgCR)
+			if err == nil && lvgCR.DeletionTimestamp.IsZero() {
+				return foundAC
+			}
+		}
+		// if storageClass is related to LVG and there is no AC with that storageClass
+		// search drive with subclass on which LVG is being creating
 		subSC := api.StorageClass_HDD
 		if storageClass == api.StorageClass_SSDLVG {
 			subSC = api.StorageClass_SSD
 		}
 		ll.Infof("StorageClass is in LVG, search AC with subStorageClass %s", subSC.String())
-		foundAC = c.searchAvailableCapacity(preferredNode, requiredBytes, subSC)
-		ll.Infof("Got AC %s", foundAC.Name)
-		if foundAC != nil {
-			// create LVG CR based on that disk
-			var (
-				name   = uuid.New().String()
-				apiLVG = api.LogicalVolumeGroup{
-					Node:      foundAC.Spec.NodeId,
-					Name:      name,
-					Locations: []string{foundAC.Spec.Location},
-					Size:      foundAC.Spec.Size,
-					Status:    api.OperationalStatus_Creating,
-				}
-			)
-
-			lvg := c.k8sclient.ConstructLVGCR(name, apiLVG)
-			if err := c.k8sclient.CreateCR(context.Background(), lvg, name); err != nil {
-				ll.Errorf("Unable to create LVG CR: %v", err)
-				return nil
-			}
-			// here we should to wait until VG is reconciled by volumemgr
-			ctx, cancelFn := context.WithTimeout(context.Background(), DefaultTimeoutForOperations)
-			defer cancelFn()
-			var newAPILVG *api.LogicalVolumeGroup
-			if newAPILVG = c.waitUntilLVGWillBeCreated(ctx, name); newAPILVG == nil {
-				ll.Infof("LVG %v was not created during %s timeout", apiLVG, DefaultTimeoutForOperations)
-				return nil
-			}
-
-			// update AC
-			foundAC.Spec.Location = newAPILVG.Name
-			foundAC.Spec.StorageClass = storageClass
-			if err = c.k8sclient.UpdateCR(context.Background(), foundAC); err != nil {
-				ll.Errorf("Unable to update AC with LVG value: %v", err)
-				return nil
-			}
+		foundAC = c.searchAvailableCapacity(ctx, preferredNode, requiredBytes, subSC)
+		if foundAC == nil {
+			return nil
 		}
+		ll.Infof("Got AC %v", foundAC)
+		return c.recreateACToLVG(storageClass, foundAC)
 	}
 
 	return foundAC
+}
+
+// recreateACToLVG creates LVG(based on ACs), ensure it become ready,
+// creates AC based on that LVG and removes provided list of ACs
+// returns created AC or nil
+func (c *CSIControllerService) recreateACToLVG(sc api.StorageClass, acs ...*accrd.AvailableCapacity) *accrd.AvailableCapacity {
+	ll := c.log.WithField("method", "recreateACToLVG")
+
+	lvgLocations := make([]string, len(acs))
+	var lvgSize int64
+	for i, ac := range acs {
+		lvgLocations[i] = ac.Spec.Location
+		lvgSize += ac.Spec.Size
+	}
+
+	// create LVG CR based on ACs
+	var (
+		err    error
+		name   = uuid.New().String()
+		apiLVG = api.LogicalVolumeGroup{
+			Node:      acs[0].Spec.NodeId, // all ACs from the same node
+			Name:      name,
+			Locations: lvgLocations,
+			Size:      lvgSize,
+			Status:    api.OperationalStatus_Creating,
+		}
+	)
+
+	lvg := c.k8sclient.ConstructLVGCR(name, apiLVG)
+	if err = c.k8sclient.CreateCR(context.Background(), lvg, name); err != nil {
+		ll.Errorf("Unable to create LVG CR: %v", err)
+		return nil
+	}
+	ll.Infof("LVG %v was created. Wait until it become ready.", apiLVG)
+	// here we should to wait until VG is reconciled by volumemgr
+	ctx, cancelFn := context.WithTimeout(context.Background(), DefaultTimeoutForOperations)
+	defer cancelFn()
+	var newAPILVG *api.LogicalVolumeGroup
+	if newAPILVG = c.waitUntilLVGWillBeCreated(ctx, name); newAPILVG == nil {
+		if err = c.k8sclient.DeleteCR(context.Background(), lvg); err != nil {
+			ll.Errorf("Unable to remove LVG %v: %v", lvg.Spec, err)
+		}
+		return nil
+	}
+
+	// create new AC
+	newACCRName := acs[0].Spec.NodeId + "-" + lvg.Name
+	newACCR := c.k8sclient.ConstructACCR(newACCRName, api.AvailableCapacity{
+		Location:     lvg.Name,
+		NodeId:       acs[0].Spec.NodeId,
+		StorageClass: sc,
+		Size:         newAPILVG.Size,
+	})
+	if err = c.k8sclient.CreateCR(context.Background(), newACCR, newACCRName); err != nil {
+		ll.Errorf("Unable to create AC %v, error: %v", newACCRName, err)
+		return nil
+	}
+	// remove ACs
+	for _, ac := range acs {
+		if err = c.k8sclient.DeleteCR(context.Background(), ac); err != nil {
+			ll.Errorf("Unable to remove AC %v, error: %v. At now that AC.Location has already in LVG AC.", ac, err)
+		}
+	}
+	ll.Infof("AC was created: %v", newACCR)
+	return newACCR
 }
 
 // waitUntilLVGWillBeCreated check LVG CR status
@@ -442,11 +490,16 @@ func (c *CSIControllerService) waitUntilLVGWillBeCreated(ctx context.Context, lv
 			ll.Warnf("Context is done and LVG still not become created, consider that it was failed")
 			return nil
 		case <-time.After(2 * time.Second):
-			if err = c.k8sclient.ReadCR(ctx, lvgName, lvg); err != nil {
+			err = c.k8sclient.ReadCR(ctx, lvgName, lvg)
+			switch {
+			case err != nil:
 				ll.Errorf("Unable to read LVG CR: %v", err)
-			} else if lvg.Spec.Status == api.OperationalStatus_Created {
-				ll.Infof("LVG %s were created", lvg.Name)
+			case lvg.Spec.Status == api.OperationalStatus_Created:
+				ll.Info("LVG was created")
 				return &lvg.Spec
+			case lvg.Spec.Status == api.OperationalStatus_FailedToCreate:
+				ll.Warn("LVG was reached FailedToCreate status")
+				return nil
 			}
 		}
 	}
@@ -521,7 +574,8 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 
 	if err := c.k8sclient.ChangeVolumeStatus(req.VolumeId, api.OperationalStatus_Removing); err != nil {
 		ll.Error(err.Error())
-		return nil, status.Errorf(codes.Internal, "unable to set status %s for %s", api.OperationalStatus_Removing, req.VolumeId)
+		return nil, status.Errorf(codes.Internal,
+			"unable to set status %s for volume %s", api.OperationalStatus_Removing, req.VolumeId)
 	}
 
 	ll.Info("Waiting until volume will reach Removed status")
@@ -535,8 +589,6 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		return nil, status.Errorf(codes.Internal, "volume %s has FailToRemove status", req.VolumeId)
 	}
 
-	node := volume.Spec.Owner //volume.NodeID
-
 	// remove volume CR
 	if err := c.k8sclient.DeleteCR(ctxT, volume); err != nil {
 		ll.Errorf("Delete volume CR with name %s failed, error: %v", req.VolumeId, err)
@@ -544,25 +596,30 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	}
 
 	var (
-		acName = node + "-" + strings.ToLower(volume.Spec.Location)
-		sc     = api.StorageClass_ANY
+		acName = volume.Spec.Owner + "-" + strings.ToLower(volume.Spec.Location)
+		sc     = volume.Spec.StorageClass
+		acList = &accrd.AvailableCapacityList{}
+		acCR   = accrd.AvailableCapacity{}
 	)
 
 	ll.Infof("Volume CR was deleted, going to create AC with name %s", acName)
 	// if SC is LVM - try to find AC with that LVM
 	if volume.Spec.StorageClass == api.StorageClass_HDDLVG || volume.Spec.StorageClass == api.StorageClass_SSDLVG {
-		ac := &accrd.AvailableCapacity{}
-		if err := c.k8sclient.ReadCR(context.Background(), acName, ac); err != nil {
-			if !k8sError.IsNotFound(err) {
-				ll.Errorf("Unable to check whether AC %s exist or no, error: %v", acName, err)
-				return nil, status.Error(codes.Internal, "unable to restore capacity")
+		if err := c.k8sclient.ReadList(context.Background(), acList); err != nil {
+			ll.Errorf("Volume was deleted but corresponding AC hadn't updated/created, unable to read list: %v", err)
+			return &csi.DeleteVolumeResponse{}, nil // volume was deleted
+		}
+
+		for _, a := range acList.Items {
+			if a.Spec.Location == volume.Spec.Location {
+				acCR = a
+				break
 			}
-			// AC wasn't found and going to be created with next sc
-			sc = volume.Spec.StorageClass
-		} else {
+		}
+		if acCR.Name != "" {
 			// AC was found, update it size
-			if err = c.updateACSizeOrDelete(ac, volume.Spec.Size); err != nil {
-				ll.Errorf("Unable to update AC %s size: %v", ac.Name, err)
+			if err := c.updateACSizeOrDelete(&acCR, volume.Spec.Size); err != nil {
+				ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
 			}
 			return &csi.DeleteVolumeResponse{}, nil // volume was deleted
 		}
@@ -573,7 +630,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		Size:         volume.Spec.Size,
 		StorageClass: sc,
 		Location:     volume.Spec.Location,
-		NodeId:       node,
+		NodeId:       volume.Spec.Owner,
 	}
 
 	ll.Infof("Creating AC %v, SC - %s", ac, api.StorageClass_name[int32(sc)])

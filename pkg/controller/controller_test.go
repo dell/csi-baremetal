@@ -195,30 +195,30 @@ var _ = Describe("CSIControllerService addition functions", func() {
 		It("Found AC with min size on preferred node", func() {
 			addAC(svc, &testAC1, &testAC3)
 			requiredCapacity := int64(900)
-			drive := svc.searchAvailableCapacity(testNode1Name, requiredCapacity, api.StorageClass_ANY)
+			drive := svc.searchAvailableCapacity(testCtx, testNode1Name, requiredCapacity, api.StorageClass_ANY)
 			Expect(testAC1.Spec.Location).To(Equal(drive.Spec.Location))
 		})
 		It("Found AC on node with maximum ACs (preferred node wasn't provided", func() {
 			addAC(svc, &testAC1, &testAC2, &testAC3)           // 2 ACs on node1 and 1 AC on node 3
 			requiredCapacity := int64(1024 * 1024 * 1024 * 50) // expect testAC3
-			ac := svc.searchAvailableCapacity("", requiredCapacity, api.StorageClass_ANY)
+			ac := svc.searchAvailableCapacity(testCtx, "", requiredCapacity, api.StorageClass_ANY)
 			Expect(ac).ToNot(BeNil())
 			Expect(ac.Spec.Location).To(Equal(testAC3.Spec.Location))
 		})
 		It("Found AC on preferred node with defined storage class", func() {
 			addAC(svc, &testAC2)
 			requiredCapacity := int64(2000)
-			ac := svc.searchAvailableCapacity(testNode2Name, requiredCapacity, api.StorageClass_HDD)
+			ac := svc.searchAvailableCapacity(testCtx, testNode2Name, requiredCapacity, api.StorageClass_HDD)
 			Expect(testAC2.Spec.Location).To(Equal(ac.Spec.Location))
 		})
 		It("Couldn't find any ac because of requiredCapacity", func() {
 			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity(testNode1Name, 1024*1024*1024*2048, api.StorageClass_ANY)
+			drive := svc.searchAvailableCapacity(testCtx, testNode1Name, 1024*1024*1024*2048, api.StorageClass_ANY)
 			Expect(drive).To(BeNil())
 		})
 		It("Couldn't find any ac because of non-existed preferred node", func() {
 			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity("node", 1024, api.StorageClass_ANY)
+			drive := svc.searchAvailableCapacity(testCtx, "node", 1024, api.StorageClass_ANY)
 			Expect(drive).To(BeNil())
 		})
 	})
@@ -426,7 +426,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.Status).To(Equal(api.OperationalStatus_Created))
 		})
-		It("Volume CR has already existed", func() {
+		It("Volume CR has already exists", func() {
 			uuid := "uuid-1234"
 			capacity := int64(1024 * 42)
 
@@ -742,9 +742,9 @@ func removeAllCrds(s *base.KubeClient) {
 func simulateVolumeInReconcile(s *CSIControllerService, volId string, statusToSet api.OperationalStatus) {
 	for {
 		tmpVol := &vcrd.Volume{}
-		err := s.k8sclient.ReadCR(context.Background(), volId, tmpVol)
-		if err == nil {
+		if err := s.k8sclient.ReadCR(context.Background(), volId, tmpVol); err == nil {
 			_ = s.k8sclient.ChangeVolumeStatus(volId, statusToSet)
 		}
+		<-time.After(200 * time.Millisecond)
 	}
 }

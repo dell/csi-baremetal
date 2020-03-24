@@ -124,3 +124,43 @@ func TestConvertDriveTypeToStorageClass(t *testing.T) {
 		}
 	}
 }
+
+func TestContainsString(t *testing.T) {
+	var containsStringScenarios = []struct {
+		slice  []string
+		str    string
+		result bool
+	}{
+		{[]string{}, "", false},
+		{[]string{}, "any", false},
+		{[]string{"one"}, "two", false},
+		{[]string{"one", "Two"}, "two", false},
+		{[]string{"one", "two"}, "two", true},
+	}
+
+	var res bool
+	for _, scenario := range containsStringScenarios {
+		res = ContainsString(scenario.slice, scenario.str)
+		assert.Equal(t, res, scenario.result)
+	}
+}
+
+func TestRemoveString(t *testing.T) {
+	var removeStringScenarios = []struct {
+		slice  []string
+		str    string
+		result []string
+	}{
+		{[]string{}, "", []string(nil)},
+		{[]string{}, "any", []string(nil)},
+		{[]string{"one"}, "two", []string{"one"}},
+		{[]string{"one", "Two"}, "two", []string{"one", "Two"}},
+		{[]string{"one", "two"}, "two", []string{"one"}},
+	}
+
+	var res []string
+	for _, scenario := range removeStringScenarios {
+		res = RemoveString(scenario.slice, scenario.str)
+		assert.Equal(t, res, scenario.result)
+	}
+}

@@ -35,15 +35,16 @@ const (
 	LsblkCmd       = "lsblk --paths --json --bytes --fs --output NAME,TYPE,SIZE,ROTA,SERIAL,WWN,VENDOR,MODEL,REV,MOUNTPOINT,FSTYPE"
 	LsblkOutputKey = "blockdevices"
 	IpmitoolCmd    = " ipmitool lan print"
-	lvm            = "/sbin/lvm"
-	pvcreate       = "pvcreate"
-	pvremove       = "pvremove"
-	vgcreate       = "vgcreate"
-	vgremove       = "vgremove"
-	lvcreate       = "lvcreate"
-	lvremove       = "lvremove"
-	LVsInVGCmdTmpl = "lvs --select vg_name=%s -o lv_name --noheadings"
-	PVsInVGCmdTmpl = "pvs --select vg_name=%s -o pv_name --noheadings"
+	// cmd templates related to LVM
+	LVsInVGCmdTmpl  = "/sbin/lvm lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
+	PVsInVGCmdTmpl  = "/sbin/lvm pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
+	EmptyName       = " "
+	PVCreateCmdTmpl = "/sbin/lvm pvcreate --yes %s"                     // add PV name
+	PVRemoveCmdTmpl = "/sbin/lvm pvremove --yes %s"                     // add PV name
+	VGCreateCmdTmpl = "/sbin/lvm vgcreate --yes %s %s"                  // add VG name and PV names
+	VGRemoveCmdTmpl = "/sbin/lvm vgremove --yes %s"                     // add VG name
+	LVCreateCmdTmpl = "/sbin/lvm lvcreate --yes --name %s --size %s %s" // add LV name, size and VG name
+	LVRemoveCmdTmpl = "/sbin/lvm lvremove --yes /dev/%s/%s"             // add VG name and LV name
 )
 
 // NewLinuxUtils returns new instance of LinuxUtils based on provided e
@@ -59,7 +60,7 @@ func NewLinuxUtils(e CmdExecutor, logger *logrus.Logger) *LinuxUtils {
 	return l
 }
 
-func (l *LinuxUtils) SetLinuxUtilsExecutor(executor CmdExecutor) {
+func (l *LinuxUtils) SetExecutor(executor CmdExecutor) {
 	l.e = executor
 }
 
@@ -145,48 +146,65 @@ func (l *LinuxUtils) SearchDrivePathBySN(sn string) (string, error) {
 
 // PVCreate creates physical volume based on provided device or partition
 func (l *LinuxUtils) PVCreate(dev string) error {
-	cmd := fmt.Sprintf("%s %s --yes %s", lvm, pvcreate, dev)
+	cmd := fmt.Sprintf(PVCreateCmdTmpl, dev)
 	_, _, err := l.e.RunCmd(cmd)
 	return err
 }
 
-// PVRemove removes physical volumes
+// PVRemove removes physical volumes, ignore error if PV doesn't exist
 func (l *LinuxUtils) PVRemove(name string) error {
-	cmd := fmt.Sprintf("%s %s --yes %s", lvm, pvremove, name)
-	_, _, err := l.e.RunCmd(cmd)
+	cmd := fmt.Sprintf(PVRemoveCmdTmpl, name)
+	_, stdErr, err := l.e.RunCmd(cmd)
+	if err != nil && strings.Contains(stdErr, "No PV label found") {
+		return nil
+	}
 	return err
 }
 
 // VGCreate creates volume group and based on provided physical volumes (pvs)
+// ignore error if VG already exists
 func (l *LinuxUtils) VGCreate(name string, pvs ...string) error {
-	cmd := fmt.Sprintf("%s %s --yes %s %s", lvm, vgcreate, name, strings.Join(pvs, " "))
-	_, _, err := l.e.RunCmd(cmd)
+	cmd := fmt.Sprintf(VGCreateCmdTmpl, name, strings.Join(pvs, " "))
+	_, stdErr, err := l.e.RunCmd(cmd)
+	if err != nil && strings.Contains(stdErr, "already exists") {
+		return nil
+	}
 	return err
 }
 
-// VGRemove removes volume group
+// VGRemove removes volume group, ignore error if VG doesn't exist
 func (l *LinuxUtils) VGRemove(name string) error {
-	cmd := fmt.Sprintf("%s %s --yes %s", lvm, vgremove, name)
-	_, _, err := l.e.RunCmd(cmd)
+	cmd := fmt.Sprintf(VGRemoveCmdTmpl, name)
+	_, stdErr, err := l.e.RunCmd(cmd)
+	if strings.Contains(stdErr, "not found") {
+		return nil
+	}
 	return err
 }
 
-// LVCreate created logical volume in volume group
+// LVCreate created logical volume in volume group, ignore error if LV already exists
 // size it is a string like 1.2G, 100M
 func (l *LinuxUtils) LVCreate(name, size, vgName string) error {
-	cmd := fmt.Sprintf("%s %s --yes --name %s --size %s %s", lvm, lvcreate, name, size, vgName)
-	_, _, err := l.e.RunCmd(cmd)
+	cmd := fmt.Sprintf(LVCreateCmdTmpl, name, size, vgName)
+	_, stdErr, err := l.e.RunCmd(cmd)
+	if err != nil && strings.Contains(stdErr, "already exists") {
+		return nil
+	}
 	return err
 }
 
-// LVRemove removes logical volume
+// LVRemove removes logical volume, ignore error if LV doesn't exist
 func (l *LinuxUtils) LVRemove(name, vgName string) error {
-	cmd := fmt.Sprintf("%s %s --yes /dev/%s/%s", lvm, lvremove, vgName, name)
-	_, _, err := l.e.RunCmd(cmd)
+	cmd := fmt.Sprintf(LVRemoveCmdTmpl, vgName, name)
+	_, stdErr, err := l.e.RunCmd(cmd)
+	if err != nil && strings.Contains(stdErr, "Failed to find logical volume") {
+		return nil
+	}
 	return err
 }
 
 // IsVGContainsLVs checks whether VG vgName contains any LVs or no
+// return true in case of error to prevent mistaken VG remove
 func (l *LinuxUtils) IsVGContainsLVs(vgName string) bool {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
 	stdout, _, err := l.e.RunCmd(cmd)
@@ -201,13 +219,16 @@ func (l *LinuxUtils) IsVGContainsLVs(vgName string) bool {
 
 // RemoveOrphanPVs removes PVs that do not have VG
 func (l *LinuxUtils) RemoveOrphanPVs() error {
-	pvsCmd := fmt.Sprintf(PVsInVGCmdTmpl, " ")
+	pvsCmd := fmt.Sprintf(PVsInVGCmdTmpl, EmptyName)
 	stdout, _, err := l.e.RunCmd(pvsCmd)
 	if err != nil {
 		return err
 	}
 	var wasError bool
 	for _, pv := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		if len(pv) == 0 {
+			continue
+		}
 		if err := l.PVRemove(pv); err != nil {
 			l.log.WithField("method", "RemoveOrphanPVs").Errorf("Unable to remove pv %s: %v", pv, err)
 			wasError = true

@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -69,7 +67,7 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 }
 
 func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
-	m.linuxUtils.SetLinuxUtilsExecutor(executor)
+	m.linuxUtils.SetExecutor(executor)
 }
 
 // Reconcile Volume CRD according to stasus which set by CSI Controller Service
@@ -392,18 +390,12 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 	}
 
 	var (
-		volLocation string
+		volLocation = vol.Location
 		device      string
 		err         error
 	)
 	switch vol.StorageClass {
 	case api.StorageClass_SSDLVG, api.StorageClass_HDDLVG:
-		lvg := &lvgcrd.LVG{}
-		if err = m.k8sclient.ReadCR(ctx, vol.Location, lvg); err != nil {
-			ll.Errorf("Unable to read LVG: %v", err)
-			return err
-		}
-		volLocation = lvg.Name
 		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(base.GBYTE))
 		// create lv with name /dev/VG_NAME/vol.Id
 		ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, volLocation)
@@ -411,18 +403,14 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 			ll.Errorf("Unable to create LV: %v", err)
 			return err
 		}
-		// update LVG CR
-		lvg.Spec.Size -= vol.Size
-		if err = m.k8sclient.UpdateCR(ctx, lvg); err != nil {
-			ll.Errorf("Unable to decrease LVG's %s size on %d: %v", lvg.Name, vol.Size, err)
-		}
-		ll.Info("Lv was created.")
+
+		ll.Info("LV was created.")
 		m.setVolumeCacheValue(vol.Id, vol)
 		m.setVolumeStatus(vol.Id, api.OperationalStatus_Created)
 		return nil
 	default: // assume that volume location is whole disk
 		drive := &drivecrd.Drive{}
-		volLocation = vol.Location
+
 		// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
 		if err = m.k8sclient.ReadCR(ctx, volLocation, drive); err != nil {
 			ll.Errorf("Failed to read crd with name %s, error %s", volLocation, err.Error())
@@ -614,7 +602,8 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 	ll.Info("File system was deleted")
 
 	if volume.StorageClass == api.StorageClass_HDDLVG || volume.StorageClass == api.StorageClass_SSDLVG {
-		ll.Info("Removing LV ...")
+		lvgName := volume.Location
+		ll.Infof("Removing LV %s from LVG %s", volume.Id, lvgName)
 		if err = m.linuxUtils.LVRemove(volume.Id, volume.Location); err != nil {
 			m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
 			return fmt.Errorf("unable to remove lv: %v", err)

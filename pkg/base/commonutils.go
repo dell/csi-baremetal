@@ -60,3 +60,24 @@ func ConvertDriveTypeToStorageClass(driveType api.DriveType) api.StorageClass {
 		return api.StorageClass_ANY
 	}
 }
+
+// ContainsString return true if slice contains string str
+func ContainsString(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveString removes string s from slice
+func RemoveString(slice []string, s string) (result []string) {
+	for _, item := range slice {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return
+}
