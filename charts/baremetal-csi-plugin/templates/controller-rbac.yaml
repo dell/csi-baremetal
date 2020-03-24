@@ -75,13 +75,7 @@ kind: ClusterRole
 metadata:
   name: controller
 rules:
-  - apiGroups: ["availablecapacity.dell.com"]
-    resources: ["*"]
-    verbs: ["*"]
-  - apiGroups: ["volume.dell.com"]
-    resources: ["*"]
-    verbs: ["*"]
-  - apiGroups: ["lvg.dell.com"]
+  - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["*"]
     verbs: ["*"]
 

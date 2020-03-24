@@ -49,7 +49,7 @@ kind: ClusterRole
 metadata:
   name: node
 rules:
-  - apiGroups: ["drive.dell.com"]
+  - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["*"]
     verbs: ["*"]
 

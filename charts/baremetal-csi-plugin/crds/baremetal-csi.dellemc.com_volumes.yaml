@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: volumes.volume.dell.com
+  name: volumes.baremetal-csi.dellemc.com
 spec:
-  group: volume.dell.com
+  group: baremetal-csi.dellemc.com
   names:
     kind: Volume
     listKind: VolumeList

@@ -6,11 +6,10 @@ import (
 	"sync"
 	"time"
 
-	apisV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/apps/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
+	apisV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -136,7 +136,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 	return &accrd.AvailableCapacity{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       "AvailableCapacity",
-			APIVersion: "availablecapacity.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -150,7 +150,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 	return &lvgcrd.LVG{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: "lvg.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -164,7 +164,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       "Volume",
-			APIVersion: "volume.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -178,7 +178,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	return &drivecrd.Drive{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: "drive.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,

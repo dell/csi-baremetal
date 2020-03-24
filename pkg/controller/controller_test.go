@@ -20,6 +20,7 @@ import (
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -71,7 +72,7 @@ var (
 	}
 
 	testVolume = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testID,
 			Namespace:         testNs,
@@ -88,7 +89,7 @@ var (
 
 	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation1))
 	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024,
@@ -98,7 +99,7 @@ var (
 	}
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation2))
 	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 1024,
@@ -109,7 +110,7 @@ var (
 	}
 	testAC3Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation3))
 	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
@@ -120,7 +121,7 @@ var (
 	}
 	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
 	testAC4     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
@@ -475,7 +476,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       "Volume",
-				APIVersion: "volume.dell.com/v1",
+				APIVersion: crdV1.APIV1Version,
 			},
 			Spec: api.Volume{
 				Id:    uuid,
@@ -533,7 +534,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				volumeCrd = &vcrd.Volume{
 					TypeMeta: k8smetav1.TypeMeta{
 						Kind:       "Volume",
-						APIVersion: "volume.dell.com/v1",
+						APIVersion: crdV1.APIV1Version,
 					},
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Name:      uuid,

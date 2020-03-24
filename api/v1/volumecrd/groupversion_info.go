@@ -14,18 +14,20 @@ limitations under the License.
 */
 
 // Package v1 contains API Schema definitions for the volume v1 API group
-// +groupName=volume.dell.com
+// +groupName=baremetal-csi.dellemc.com
 // +versionName=v1
 package volumecrd
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "volume.dell.com", Version: "v1"}
+	GroupVersion = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: "v1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

@@ -6,18 +6,21 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: lvgs.lvg.dell.com
+  name: availablecapacities.baremetal-csi.dellemc.com
 spec:
-  group: lvg.dell.com
+  group: baremetal-csi.dellemc.com
   names:
-    kind: LVG
-    listKind: LVGList
-    plural: lvgs
-    singular: lvg
+    kind: AvailableCapacity
+    listKind: AvailableCapacityList
+    plural: availablecapacities
+    singular: availablecapacity
+    shortNames:
+      - ac
+      - acs
   scope: ""
   validation:
     openAPIV3Schema:
-      description: LVG is the Schema for the LVGs API
+      description: AvailableCapacity is the Schema for the availablecapacities API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -33,19 +36,15 @@ spec:
           type: object
         spec:
           properties:
-            Locations:
-              items:
-                type: string
-              type: array
-            Node:
+            Location:
               type: string
-            UUID:
+            NodeId:
               type: string
-            health:
-              format: int32
-              type: integer
-            size:
+            Size:
               format: int64
+              type: integer
+            storageClass:
+              format: int32
               type: integer
           type: object
       type: object

@@ -6,21 +6,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: availablecapacities.availablecapacity.dell.com
+  name: drives.baremetal-csi.dellemc.com
 spec:
-  group: availablecapacity.dell.com
+  group: baremetal-csi.dellemc.com
   names:
-    kind: AvailableCapacity
-    listKind: AvailableCapacityList
-    plural: availablecapacities
-    singular: availablecapacity
-    shortNames:
-      - ac
-      - acs
+    kind: Drive
+    listKind: DriveList
+    plural: drives
+    singular: drive
   scope: ""
   validation:
     openAPIV3Schema:
-      description: AvailableCapacity is the Schema for the availablecapacities API
+      description: Drive is the Schema for the drives API kubebuilder:object:generate=false
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -36,14 +33,27 @@ spec:
           type: object
         spec:
           properties:
-            Location:
-              type: string
+            Health:
+              format: int32
+              type: integer
             NodeId:
               type: string
+            PID:
+              type: string
+            SerialNumber:
+              type: string
             Size:
+              description: size in bytes
               format: int64
               type: integer
-            storageClass:
+            Type:
+              format: int32
+              type: integer
+            UUID:
+              type: string
+            VID:
+              type: string
+            status:
               format: int32
               type: integer
           type: object

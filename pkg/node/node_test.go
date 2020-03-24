@@ -1,27 +1,25 @@
 package node
 
 import (
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"errors"
 	"fmt"
-
-	"github.com/google/uuid"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"testing"
 
-	"google.golang.org/grpc/health/grpc_health_v1"
-
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
 
 var (
@@ -519,7 +517,7 @@ func newNodeService() *CSINodeService {
 	node.drivesCache[disk1.UUID] = &drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: "drive.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      disk1.UUID,
@@ -530,7 +528,7 @@ func newNodeService() *CSINodeService {
 	node.drivesCache[disk2.UUID] = &drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: "drive.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      disk2.UUID,

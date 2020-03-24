@@ -14,6 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -60,7 +61,7 @@ var (
 	drive1CR = drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: "drive.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      drive1UUID,
@@ -72,7 +73,7 @@ var (
 	drive2CR = drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: "drive.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      drive2UUID,
@@ -84,7 +85,7 @@ var (
 	lvgCR1 = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: "lvg.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      lvg1Name,
@@ -102,7 +103,7 @@ var (
 	lvgCR2 = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: "lvg.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      lvg2Name,
@@ -121,7 +122,7 @@ var (
 	acCR1     = accrd.AvailableCapacity{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "AvailableCapacity",
-			APIVersion: "availablecapacity.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      acCR1Name,

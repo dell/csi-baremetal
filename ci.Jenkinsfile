@@ -70,10 +70,10 @@ void runTests() {
 
                 stage('E2E testing') {
                     sh('''
-                        kubectl apply -f charts/baremetal-csi-plugin/crds/availablecapacity.dell.com_availablecapacities.yaml
-                        kubectl apply -f charts/baremetal-csi-plugin/crds/volume.dell.com_volumes.yaml
-                        kubectl apply -f charts/baremetal-csi-plugin/crds/drive.dell.com_drives.yaml
-                        kubectl apply -f charts/baremetal-csi-plugin/crds/lvg.dell.com_lvgs.yaml
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_availablecapacities.yaml
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_volumes.yaml
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_drives.yaml
+                        kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_lvgs.yaml
                     ''')
                     testExitCode = sh(script: 'make test-ci', returnStatus: true)
                     archiveArtifacts('log.txt')

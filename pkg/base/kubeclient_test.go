@@ -2,7 +2,6 @@ package base
 
 import (
 	"context"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"fmt"
 	"strings"
 	"testing"
@@ -14,8 +13,10 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 )
 
@@ -30,7 +31,7 @@ var (
 	testCtx    = context.Background()
 	testUUID   = uuid.New().String()
 	testVolume = vcrd.Volume{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
 		Spec: api.Volume{
 			Id:       testID,
@@ -47,7 +48,7 @@ var (
 		Location:     testDriveLocation1,
 		NodeId:       testNode1Name,
 	}
-	testACTypeMeta = k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: "availablecapacity.dell.com/v1"}
+	testACTypeMeta = k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version}
 	testACName     = fmt.Sprintf("%s-%s", testApiAC.NodeId, testApiAC.Location)
 	testACCR       = accrd.AvailableCapacity{
 		TypeMeta:   testACTypeMeta,
@@ -65,14 +66,14 @@ var (
 		Size:         1024 * 1024,
 		Status:       0,
 	}
-	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: "drive.dell.com/v1"}
+	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: crdV1.APIV1Version}
 	testDriveCR       = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID, Namespace: testNs},
 		Spec:       testApiDrive,
 	}
 
-	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"}
+	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version}
 	testApiVolume      = api.Volume{
 		Id:       testID,
 		Owner:    "pod",
@@ -100,7 +101,7 @@ var (
 	testLVGCR   = lvgcrd.LVG{
 		TypeMeta: k8smetav1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: "lvg.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:      testLVGName,

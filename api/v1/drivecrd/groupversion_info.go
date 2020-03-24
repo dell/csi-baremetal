@@ -14,19 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1 contains API Schema definitions for the dell.com v1 API group
-// +groupName=drive.dell.com
+// Package v1 contains API Schema definitions for the drive v1 API group
+// +groupName=baremetal-csi.dellemc.com
 // +versionName=v1
 package drivecrd
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 var (
 	// GroupVersionDrive is group version used to register these objects
-	GroupVersionDrive = schema.GroupVersion{Group: "drive.dell.com", Version: "v1"}
+	GroupVersionDrive = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: "v1"}
 
 	// SchemeBuilderDrive is used to add go types to the GroupVersionKind scheme
 	SchemeBuilderDrive = &scheme.Builder{GroupVersion: GroupVersionDrive}

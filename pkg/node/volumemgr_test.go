@@ -2,7 +2,6 @@ package node
 
 import (
 	"context"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"errors"
 	"fmt"
 	"testing"
@@ -16,7 +15,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
@@ -56,7 +57,7 @@ var (
 	drive2 = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeId} // /dev/sdb in LsblkTwoDevices
 
 	volCR = vcrd.Volume{
-		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{
 			Name:              testID,
 			Namespace:         testNs,
@@ -75,7 +76,7 @@ var (
 	lvgCR = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: "lvg.dell.com/v1",
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      lvgName,
@@ -91,7 +92,7 @@ var (
 	}
 
 	volCRLVG = vcrd.Volume{
-		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: "volume.dell.com/v1"},
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{
 			Name:              volLVGName,
 			Namespace:         testNs,

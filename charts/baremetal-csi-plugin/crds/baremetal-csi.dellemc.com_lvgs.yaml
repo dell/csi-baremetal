@@ -6,18 +6,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: drives.drive.dell.com
+  name: lvgs.baremetal-csi.dellemc.com
 spec:
-  group: drive.dell.com
+  group: baremetal-csi.dellemc.com
   names:
-    kind: Drive
-    listKind: DriveList
-    plural: drives
-    singular: drive
+    kind: LVG
+    listKind: LVGList
+    plural: lvgs
+    singular: lvg
   scope: ""
   validation:
     openAPIV3Schema:
-      description: Drive is the Schema for the drives API kubebuilder:object:generate=false
+      description: LVG is the Schema for the LVGs API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -33,28 +33,19 @@ spec:
           type: object
         spec:
           properties:
-            Health:
-              format: int32
-              type: integer
-            NodeId:
+            Locations:
+              items:
+                type: string
+              type: array
+            Node:
               type: string
-            PID:
-              type: string
-            SerialNumber:
-              type: string
-            Size:
-              description: size in bytes
-              format: int64
-              type: integer
-            Type:
-              format: int32
-              type: integer
             UUID:
               type: string
-            VID:
-              type: string
-            status:
+            health:
               format: int32
+              type: integer
+            size:
+              format: int64
               type: integer
           type: object
       type: object
