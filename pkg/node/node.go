@@ -28,6 +28,8 @@ type CSINodeService struct {
 	grpc_health_v1.HealthServer
 }
 
+const PodNameKey = "csi.storage.k8s.io/pod.name"
+
 func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger, k8sclient *base.KubeClient) *CSINodeService {
 	s := &CSINodeService{
 		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger, k8sclient, nodeID),
@@ -129,6 +131,14 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
 
+	// This is a temporary solution to clear all owners during NodeUnstage
+	// because NodeUnpublishRequest doesn't contain info about pod
+	// TODO AK8S-466 Remove owner from Owners slice during Unpublish properly
+	// Not fail NodeUnstageRequest if can't clear owners
+	if err := s.clearVolumeOwners(req.GetVolumeId()); err != nil {
+		ll.Errorf("Failed to clear owners: %v", err)
+	}
+
 	if err := s.unmount(req.VolumeId, req.StagingTargetPath); err != nil {
 		return nil, err
 	}
@@ -183,6 +193,14 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	v, ok := s.getFromVolumeCache(req.VolumeId)
 	if !ok {
 		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
+	}
+
+	// Not fail NodePublishRequest if can't set owner
+	podName, ok := req.VolumeContext[PodNameKey]
+	if !ok {
+		ll.Infof("podInfoOnMound flag is not provided")
+	} else if err := s.addVolumeOwner(req.GetVolumeId(), podName); err != nil {
+		ll.Errorf("Failed to set owner %s: %v", podName, err)
 	}
 
 	srcPath := req.GetStagingTargetPath()

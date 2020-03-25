@@ -156,7 +156,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 			node.volumesCache["volume-id"] = &api.Volume{
 				Id:       volumeID,
-				Owner:    "test",
+				NodeId:   "test",
 				Location: disk1.UUID,
 			}
 
@@ -172,7 +172,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 			node.volumesCache["volume-id"] = &api.Volume{
 				Id:       volumeID,
-				Owner:    "test",
+				NodeId:   "test",
 				Location: disk1.UUID,
 			}
 
@@ -189,7 +189,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 			node.volumesCache["volume-id"] = &api.Volume{
 				Id:       volumeID,
-				Owner:    "test",
+				NodeId:   "test",
 				Location: disk1.UUID,
 			}
 
@@ -296,7 +296,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			req := getNodeStageRequest(volumeID, *volumeCap)
 			node.volumesCache["volume-id"] = &api.Volume{
 				Id:       volumeID,
-				Owner:    "test",
+				NodeId:   "test",
 				Location: disk1.UUID,
 			}
 
@@ -536,8 +536,8 @@ func newNodeService() *CSINodeService {
 		},
 		Spec: disk2,
 	}
-	node.volumesCache["volume-id"] = &api.Volume{Id: volumeID, Owner: "test", Location: disk1.UUID}
-	node.volumesCache["volume-id-2"] = &api.Volume{Id: volumeid2, Owner: "test", Location: ""}
-	node.volumesCache["volume-id-3"] = &api.Volume{Id: volumeid3, Owner: "test", Location: "hdd3"}
+	node.volumesCache["volume-id"] = &api.Volume{Id: volumeID, NodeId: "test", Location: disk1.UUID}
+	node.volumesCache["volume-id-2"] = &api.Volume{Id: volumeid2, NodeId: "test", Location: ""}
+	node.volumesCache["volume-id-3"] = &api.Volume{Id: volumeid3, NodeId: "test", Location: "hdd3"}
 	return node
 }

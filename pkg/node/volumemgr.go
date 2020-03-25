@@ -89,7 +89,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// Here we need to check that this VolumeCR corresponds to this node
 	// because we deploy VolumeCRD Controller as DaemonSet
-	if volume.Spec.Owner != m.nodeID {
+	if volume.Spec.NodeId != m.nodeID {
 		return ctrl.Result{}, nil
 	}
 
@@ -283,7 +283,6 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 				}
 				v := &api.Volume{
 					Id:           uuid,
-					Owner:        "", // TODO: need to search owner ??? CRD ???
 					Size:         size,
 					Location:     d.Spec.UUID,
 					LocationType: api.LocationType_Drive,
@@ -671,4 +670,69 @@ func (m *VolumeManager) getStorageClassImpl(storageClass api.StorageClass) sc.St
 	default:
 		return m.scMap[SCName("hdd")]
 	}
+}
+
+// addVolumeOwner tries to add owner to Volume's CR Owners slice with retries
+func (m *VolumeManager) addVolumeOwner(volumeID string, podName string) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "addVolumeOwner",
+		"volumeID": volumeID,
+	})
+
+	var (
+		v        = &volumecrd.Volume{}
+		attempts = 10
+	)
+
+	ll.Infof("Try to add owner as a pod name %s", podName)
+
+	if err := m.k8sclient.ReadVolumeCRWithAttempts(volumeID, v, attempts); err != nil {
+		ll.Errorf("failed to read volume cr after %d attempts", attempts)
+	}
+
+	owners := v.Spec.Owners
+
+	podNameExists := base.ContainsString(owners, podName)
+
+	if !podNameExists {
+		owners = append(owners, podName)
+		v.Spec.Owners = owners
+	}
+
+	if err := m.k8sclient.UpdateVolumeCRWithAttempts(v, attempts); err == nil {
+		return nil
+	}
+
+	ll.Warnf("Unable to update volume CR's owner %s.", podName)
+
+	return fmt.Errorf("unable to persist owner to %s for volume %s", podName, volumeID)
+}
+
+// clearVolumeOwners tries to clear owners slice in Volume's CR spec
+func (m *VolumeManager) clearVolumeOwners(volumeID string) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "ClearVolumeOwners",
+		"volumeID": volumeID,
+	})
+
+	var (
+		v        = &volumecrd.Volume{}
+		attempts = 10
+	)
+
+	ll.Infof("Try to clear owner fieild")
+
+	if err := m.k8sclient.ReadVolumeCRWithAttempts(volumeID, v, attempts); err != nil {
+		ll.Errorf("failed to read volume cr after %d attempts", attempts)
+	}
+
+	v.Spec.Owners = nil
+
+	if err := m.k8sclient.UpdateVolumeCRWithAttempts(v, attempts); err == nil {
+		return nil
+	}
+
+	ll.Warnf("Unable to clear volume CR's owners")
+
+	return fmt.Errorf("unable to clear volume CR's owners for volume %s", volumeID)
 }

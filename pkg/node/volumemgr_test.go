@@ -69,7 +69,7 @@ var (
 			StorageClass: api.StorageClass_HDD,
 			Location:     "",
 			Status:       api.OperationalStatus_Creating,
-			Owner:        nodeId,
+			NodeId:       nodeId,
 		},
 	}
 
@@ -104,7 +104,7 @@ var (
 			StorageClass: api.StorageClass_HDDLVG,
 			Location:     lvgCR.Name,
 			Status:       api.OperationalStatus_Creating,
-			Owner:        nodeId,
+			NodeId:       nodeId,
 		},
 	}
 )
@@ -285,7 +285,7 @@ func TestVolumeManager_DiscoverAvailableCapacityEmptyCache(t *testing.T) {
 	err = vm.Discover()
 	vm.volumesCache["id"] = &api.Volume{
 		Id:           "id",
-		Owner:        "pod",
+		NodeId:       "pod",
 		Size:         1000,
 		Location:     hwMgrRespDrives[0].UUID,
 		LocationType: api.LocationType_Drive,
@@ -715,4 +715,63 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	assert.NotNil(t, err5)
 	assert.Contains(t, err5.Error(), "unable to remove lv")
 	assert.Equal(t, vm5.volumesCache[volume5.Id].Status, api.OperationalStatus_FailToRemove)
+}
+
+func TestVolumeManager_addVolumeOwner(t *testing.T) {
+	vm := prepareSuccessVolumeManagerWithDrives(nil)
+
+	vol := volCR
+	err := vm.k8sclient.CreateCR(context.Background(), &vol, testID)
+	assert.Nil(t, err)
+
+	podName := "test-pod"
+
+	err = vm.addVolumeOwner(testID, podName)
+	assert.Nil(t, err)
+
+	rVolume := &vcrd.Volume{}
+	err = vm.k8sclient.ReadCR(context.Background(), testID, rVolume)
+	assert.Nil(t, err)
+	assert.Equal(t, []string{podName}, rVolume.Spec.Owners)
+
+	// Try to write the same pod name one more time
+	err = vm.addVolumeOwner(testID, podName)
+	assert.Nil(t, err)
+
+	rVolume = &vcrd.Volume{}
+	err = vm.k8sclient.ReadCR(context.Background(), testID, rVolume)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(rVolume.Spec.Owners))
+
+	// Should fail during add owner to Volume CR which doesn't exist
+	anotherVolumeID := "not-exist"
+	err = vm.addVolumeOwner(anotherVolumeID, podName)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unable to persist owner")
+}
+
+func TestVolumeManager_clearVolumeOwners(t *testing.T) {
+	vm := prepareSuccessVolumeManagerWithDrives(nil)
+
+	volWithOwners := volCR
+	volWithOwners.Spec.Owners = []string{"pod1", "pod2"}
+
+	err := vm.k8sclient.CreateCR(context.Background(), &volWithOwners, testID)
+	assert.Nil(t, err)
+
+	err = vm.clearVolumeOwners(testID)
+	assert.Nil(t, err)
+
+	rVolume := &vcrd.Volume{}
+	err = vm.k8sclient.ReadCR(context.Background(), testID, rVolume)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(rVolume.Spec.Owners))
+
+	//Should fail during clearing owners to Volume CR which doesn't exist
+	anotherVolumeID := "not-exist"
+
+	err = vm.clearVolumeOwners(anotherVolumeID)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unable to clear")
+
 }

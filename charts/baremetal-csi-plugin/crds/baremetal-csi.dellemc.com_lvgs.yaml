@@ -37,15 +37,15 @@ spec:
               items:
                 type: string
               type: array
+            Name:
+              type: string
             Node:
               type: string
-            UUID:
-              type: string
-            health:
-              format: int32
-              type: integer
             size:
               format: int64
+              type: integer
+            status:
+              format: int32
               type: integer
           type: object
       type: object

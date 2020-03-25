@@ -10,12 +10,13 @@ message Volume {
     string location = 2;
     LocationType locationType = 3;
     StorageClass storageClass = 4;
-    string owner = 5;
-    int64  size = 6;
-    Mode mode = 7;
-    string type = 8;
-    v1api.Health health = 9;
-    OperationalStatus status = 10;
+    string nodeId = 5;
+    repeated string owners = 6;
+    int64  size = 7;
+    Mode mode = 8;
+    string type = 9;
+    v1api.Health health = 10;
+    OperationalStatus status = 11;
 }
 
 enum OperationalStatus {

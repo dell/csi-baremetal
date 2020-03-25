@@ -35,7 +35,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
 		Spec: api.Volume{
 			Id:       testID,
-			Owner:    "pod",
+			NodeId:   "pod",
 			Size:     1000,
 			Type:     "Type",
 			Location: "location",
@@ -76,7 +76,7 @@ var (
 	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version}
 	testApiVolume      = api.Volume{
 		Id:       testID,
-		Owner:    "pod",
+		NodeId:   "pod",
 		Size:     1000,
 		Type:     "Type",
 		Location: "location",

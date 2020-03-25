@@ -46,8 +46,12 @@ spec:
             mode:
               format: int32
               type: integer
-            owner:
+            nodeId:
               type: string
+            owners:
+              items:
+                type: string
+              type: array
             size:
               format: int64
               type: integer

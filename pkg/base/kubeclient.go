@@ -28,14 +28,17 @@ import (
 type CtxKey string
 
 const (
-	//Constant for context request
+	// Constant for context request
 	RequestUUID CtxKey = "RequestUUID"
 
-	//To avoid linter error
+	// To avoid linter error
 	DefaultVolumeID = "Unknown"
 
-	//To update Volume CR's status
+	// To update Volume CR's status
 	VolumeStatusAnnotationKey = "dell.emc.csi/volume-status"
+
+	// Time between attempts to interact with Volume CR
+	TickerStep = 500 * time.Millisecond
 )
 
 type KubeClient struct {
@@ -191,31 +194,20 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 // ChangeVolumeStatus changes Volume's CR status from current to newStatus with retries
 func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.OperationalStatus) error {
 	ll := k.log.WithFields(logrus.Fields{
-		"method":   "changeVolumeStatus",
+		"method":   "ChangeVolumeStatus",
 		"volumeID": volumeID,
 	})
 
 	var (
-		err          error
-		newStatusStr = api.OperationalStatus_name[int32(newStatus)]
 		v            = &volumecrd.Volume{}
+		newStatusStr = api.OperationalStatus_name[int32(newStatus)]
 		attempts     = 10
-		timeout      = 500 * time.Millisecond
-		ctxV         = context.WithValue(context.Background(), RequestUUID, volumeID)
-		ticker       = time.NewTicker(timeout)
 	)
 
-	defer ticker.Stop()
+	ll.Infof("Try to set status to %s", newStatusStr)
 
-	ll.Infof("Try to set volume %s status to %s", volumeID, newStatusStr)
-
-	// read volume into v
-	for i := 0; i < attempts; i++ {
-		if err = k.ReadCR(ctxV, volumeID, v); err == nil {
-			break
-		}
-		ll.Warnf("Unable to read CR: %v. Attempt %d out of %d.", err, i, attempts)
-		<-ticker.C
+	if err := k.ReadVolumeCRWithAttempts(volumeID, v, attempts); err != nil {
+		ll.Errorf("failed to read volume cr after %d attempts", attempts)
 	}
 
 	// change status
@@ -225,17 +217,65 @@ func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.Operation
 	}
 	v.ObjectMeta.Annotations[VolumeStatusAnnotationKey] = newStatusStr
 
+	if err := k.UpdateVolumeCRWithAttempts(v, attempts); err == nil {
+		return nil
+	}
+
+	ll.Warnf("Unable to update volume CR's status %s.", api.OperationalStatus_name[int32(newStatus)])
+
+	return fmt.Errorf("unable to persist status to %s for volume %s", newStatusStr, volumeID)
+}
+
+func (k *KubeClient) ReadVolumeCRWithAttempts(volumeID string, vol *volumecrd.Volume, attempts int) error {
+	ll := k.log.WithFields(logrus.Fields{
+		"method":   "readVolumeCRWithAttempts",
+		"volumeID": volumeID,
+	})
+
+	var (
+		err    error
+		ticker = time.NewTicker(TickerStep)
+	)
+
+	defer ticker.Stop()
+
+	// read volume into v
 	for i := 0; i < attempts; i++ {
-		// update volume with new status
-		if err = k.UpdateCR(ctxV, v); err == nil {
+		if err = k.ReadCR(context.Background(), volumeID, vol); err == nil {
 			return nil
+		} else if k8sError.IsNotFound(err) {
+			return err
 		}
-		ll.Warnf("Unable to update volume CR (set status to %s). Attempt %d out of %d",
-			api.OperationalStatus_name[int32(newStatus)], i, attempts)
+		ll.Warnf("Unable to read CR: %v. Attempt %d out of %d.", err, i, attempts)
+		<-ticker.C
+	}
+	return err
+}
+
+func (k *KubeClient) UpdateVolumeCRWithAttempts(vol *volumecrd.Volume, attempts int) error {
+	ll := k.log.WithFields(logrus.Fields{
+		"method":   "updateVolumeCRWithAttempts",
+		"volumeID": vol.Spec.Id,
+	})
+
+	var (
+		err    error
+		ticker = time.NewTicker(TickerStep)
+	)
+
+	defer ticker.Stop()
+
+	for i := 0; i < attempts; i++ {
+		if err = k.UpdateCR(context.Background(), vol); err == nil {
+			return nil
+		} else if k8sError.IsNotFound(err) {
+			return err
+		}
+		ll.Warnf("Unable to update volume CR. Attempt %d out of %d with err %v", i, attempts, err)
 		<-ticker.C
 	}
 
-	return fmt.Errorf("unable to persist status to %s for volume %s", newStatusStr, volumeID)
+	return err
 }
 
 func GetK8SClient() (k8sClient.Client, error) {

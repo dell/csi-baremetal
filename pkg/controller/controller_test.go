@@ -80,7 +80,7 @@ var (
 		},
 		Spec: api.Volume{
 			Id:       testID,
-			Owner:    "pod",
+			NodeId:   "pod",
 			Size:     1000,
 			Type:     "Type",
 			Location: "location",
@@ -393,7 +393,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				Spec: api.Volume{
 					Id:     req.GetName(),
 					Size:   1024 * 60,
-					Owner:  testNode1Name,
+					NodeId: testNode1Name,
 					Status: api.OperationalStatus_Creating,
 				}}, req.GetName())
 			Expect(err).To(BeNil())
@@ -444,7 +444,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				Spec: api.Volume{
 					Id:     req.GetName(),
 					Size:   1024 * 60,
-					Owner:  testNode1Name,
+					NodeId: testNode1Name,
 					Status: api.OperationalStatus_Created,
 				}}, req.GetName())
 			Expect(err).To(BeNil())
@@ -479,8 +479,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				APIVersion: crdV1.APIV1Version,
 			},
 			Spec: api.Volume{
-				Id:    uuid,
-				Owner: node,
+				Id:     uuid,
+				NodeId: node,
 			}}, uuid)
 		Expect(err).To(BeNil())
 	})
@@ -542,7 +542,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					},
 					Spec: api.Volume{
 						Id:       uuid,
-						Owner:    node,
+						NodeId:   node,
 						Location: testDriveLocation1,
 					},
 				}
@@ -576,7 +576,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				capacity = int64(1024 * 101)
 				volume   = api.Volume{
 					Id:           uuid,
-					Owner:        testNode2Name,
+					NodeId:       testNode2Name,
 					Location:     testDriveLocation4, // testAC4
 					Size:         capacity,
 					StorageClass: api.StorageClass_HDDLVG,

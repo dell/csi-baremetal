@@ -223,7 +223,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		// create volume CR
 		apiVolume := api.Volume{
 			Id:           reqName,
-			Owner:        ac.Spec.NodeId,
+			NodeId:       ac.Spec.NodeId,
 			Size:         allocatedBytes,
 			Location:     ac.Spec.Location,
 			Status:       api.OperationalStatus_Creating,
@@ -263,10 +263,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 			return nil, status.Error(codes.Internal, "Unable to create volume on local node.")
 		}
 
-		ll.Infof("Construct response with owner: %s, size: %d", volumeCR.Spec.Owner, volumeCR.Spec.Size)
+		ll.Infof("Construct response with nodeId: %s, size: %d", volumeCR.Spec.NodeId, volumeCR.Spec.Size)
 
 		topologyList := []*csi.Topology{
-			{Segments: map[string]string{NodeIDTopologyKey: volumeCR.Spec.Owner}},
+			{Segments: map[string]string{NodeIDTopologyKey: volumeCR.Spec.NodeId}},
 		}
 
 		return &csi.CreateVolumeResponse{
@@ -596,7 +596,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	}
 
 	var (
-		acName = volume.Spec.Owner + "-" + strings.ToLower(volume.Spec.Location)
+		acName = volume.Spec.NodeId + "-" + strings.ToLower(volume.Spec.Location)
 		sc     = volume.Spec.StorageClass
 		acList = &accrd.AvailableCapacityList{}
 		acCR   = accrd.AvailableCapacity{}
@@ -630,7 +630,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		Size:         volume.Spec.Size,
 		StorageClass: sc,
 		Location:     volume.Spec.Location,
-		NodeId:       volume.Spec.Owner,
+		NodeId:       volume.Spec.NodeId,
 	}
 
 	ll.Infof("Creating AC %v, SC - %s", ac, api.StorageClass_name[int32(sc)])
