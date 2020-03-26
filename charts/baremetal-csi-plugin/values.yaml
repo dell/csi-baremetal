@@ -19,7 +19,7 @@ deploy:
   hwmgr: true
 
 image:
-  tag: green
+  tag: 0.0.3
   pullPolicy: Always
 
 controller:
