@@ -204,8 +204,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		}
 
 		if ac = c.searchAvailableCapacity(ctxWithID, preferredNode, requiredBytes, sc); ac == nil {
-			c.reqMu.Unlock()
 			ll.Info("There is no suitable drive for volume")
+			c.reqMu.Unlock()
 			return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for request %s", req.GetName())
 		}
 		ll.Infof("AC %v was selected.", ac.Spec)
@@ -250,8 +250,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		if err != nil {
 			ll.Errorf("Unable to modify/delete Available Capacity %s, error: %v", ac.Name, err)
 		}
-		c.reqMu.Unlock()
 	}
+	c.reqMu.Unlock()
 
 	ll.Info("Waiting until volume will reach Created status")
 	reached, st := c.waitVCRStatus(ctx, req.GetName(),
