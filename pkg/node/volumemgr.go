@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -210,6 +211,11 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 				exist = true
 				if !d.Equals(drivePtr) {
 					drivePtr.UUID = d.Spec.UUID
+					// If got from HWMgr drive's health is not equal to drive's health in cache then update appropriate
+					// resources
+					if drivePtr.Health != d.Spec.Health {
+						m.handleDriveStatusChange(ctx, drivePtr)
+					}
 					d.Spec = *drivePtr
 					if err := m.k8sclient.UpdateCR(ctx, d); err != nil {
 						ll.Errorf("Failed to update drive CR with Vid/Pid/SN %s-%s-%s, error %s", d.Spec.VID, d.Spec.PID, d.Spec.SerialNumber, err.Error())
@@ -735,4 +741,85 @@ func (m *VolumeManager) clearVolumeOwners(volumeID string) error {
 	ll.Warnf("Unable to clear volume CR's owners")
 
 	return fmt.Errorf("unable to clear volume CR's owners for volume %s", volumeID)
+}
+
+func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.Drive) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":  "handleDriveStatusChange",
+		"driveID": drive.UUID,
+	})
+
+	ll.Infof("The new drive status from HWMgr is %s", drive.Health.String())
+
+	// Handle resources without LVG
+	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
+	if drive.Health != api.Health_GOOD {
+		ac := m.getACByLocation(ctx, drive.UUID)
+		if ac != nil {
+			ll.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
+			if err := m.k8sclient.DeleteCR(ctx, ac); err != nil {
+				ll.Errorf("Failed to delete unhealthy available capacity CR: %v", err)
+			}
+		}
+	}
+
+	// Set disk's health status to volume CR
+	vol := m.getVolumeByLocation(ctx, drive.UUID)
+	if vol != nil {
+		ll.Infof("Setting updated status %s to volume %s", drive.Health.String(), vol.Name)
+		vol.Spec.Health = drive.Health
+		if err := m.k8sclient.UpdateCR(ctx, vol); err != nil {
+			ll.Errorf("Failed to update volume CR's health status: %v", err)
+		}
+	}
+
+	// Handle resources with LVG
+	// This is not work for the current moment because HAL doesn't monitor disks with LVM
+	// TODO AK8S-472 Handle disk health which are used by LVGs
+}
+
+func (m *VolumeManager) getACByLocation(ctx context.Context, location string) *accrd.AvailableCapacity {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "getACByLocation",
+		"location": location,
+	})
+
+	acList := &accrd.AvailableCapacityList{}
+	if err := m.k8sclient.ReadList(ctx, acList); err != nil {
+		ll.Errorf("Failed to get available capacity CR list, error %v", err)
+		return nil
+	}
+
+	for _, ac := range acList.Items {
+		if strings.EqualFold(ac.Spec.Location, location) {
+			return &ac
+		}
+	}
+
+	ll.Infof("Can't find AC assigned to provided location")
+
+	return nil
+}
+
+func (m *VolumeManager) getVolumeByLocation(ctx context.Context, location string) *volumecrd.Volume {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "getVolumeByLocation",
+		"location": location,
+	})
+
+	volList := &volumecrd.VolumeList{}
+	if err := m.k8sclient.ReadList(ctx, volList); err != nil {
+		ll.Errorf("Failed to get volume CR list, error %v", err)
+		return nil
+	}
+
+	for _, v := range volList.Items {
+		if strings.EqualFold(v.Spec.Location, location) {
+			return &v
+		}
+	}
+
+	ll.Infof("Can't find VolumeCR assigned to provided location")
+
+	return nil
 }

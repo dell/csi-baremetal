@@ -34,7 +34,7 @@ func (mgr *HALManager) convertDriveHealth(driveHealth C.DriveHealth) api.Health 
 		return api.Health_GOOD
 	case C.HEALTH_SUSPECT:
 		// If HAL C.DriveHealth enum is equal to "SUSPECT"
-		return api.Health_BAD
+		return api.Health_SUSPECT
 	case C.HEALTH_FAILED:
 		// If HAL C.DriveHealth enum is equal to "FAILED"
 		return api.Health_BAD

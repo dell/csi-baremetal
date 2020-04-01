@@ -16,6 +16,7 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
@@ -32,6 +33,7 @@ const (
 	testID     = "uuid-1111"
 	volLVGName = "volume-lvg"
 	lvgName    = "lvg-cr-1"
+	driveUUID  = "drive-uuid"
 )
 
 var hwMgrRespDrives = []*api.Drive{
@@ -106,6 +108,16 @@ var (
 			Status:       api.OperationalStatus_Creating,
 			NodeId:       nodeId,
 		},
+	}
+
+	acCR = accrd.AvailableCapacity{
+		TypeMeta:   v1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{Name: driveUUID, Namespace: testNs},
+		Spec: api.AvailableCapacity{
+			Size:         drive1.Size,
+			StorageClass: api.StorageClass_HDD,
+			Location:     "drive-uuid",
+			NodeId:       drive1.NodeId},
 	}
 )
 
@@ -774,4 +786,35 @@ func TestVolumeManager_clearVolumeOwners(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to clear")
 
+}
+
+func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
+	vm := prepareSuccessVolumeManagerWithDrives(nil)
+
+	ac := acCR
+	err := vm.k8sclient.CreateCR(context.Background(), &ac, ac.Name)
+	assert.Nil(t, err)
+
+	drive := drive1
+	drive.UUID = driveUUID
+	drive.Health = api.Health_BAD
+
+	// Check AC deletion
+	vm.handleDriveStatusChange(context.Background(), drive)
+	acList := &accrd.AvailableCapacityList{}
+	err = vm.k8sclient.ReadList(ctx, acList)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(acList.Items))
+
+	vol := volCR
+	vol.Spec.Location = driveUUID
+	err = vm.k8sclient.CreateCR(context.Background(), &vol, testID)
+	assert.Nil(t, err)
+
+	// Check volume's health change
+	vm.handleDriveStatusChange(context.Background(), drive)
+	rVolume := &vcrd.Volume{}
+	err = vm.k8sclient.ReadCR(context.Background(), testID, rVolume)
+	assert.Nil(t, err)
+	assert.Equal(t, api.Health_BAD, rVolume.Spec.Health)
 }
