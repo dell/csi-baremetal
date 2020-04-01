@@ -61,6 +61,10 @@ void runTests() {
                     custom_packaging.fingerprintVersionFile('bare-metal-csi', csiVersion)
                 }
 
+                stage('Get dependencies') {
+                    sh("make install-compile-proto")
+                }
+
                 //E2E tests can't work with helm, so we need to provide prepared yaml files for it
                 stage('Prepare YAML for e2e tests') {
                     sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
