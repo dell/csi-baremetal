@@ -33,35 +33,37 @@ spec:
           type: object
         spec:
           properties:
-            health:
+            CSIStatus:
+              type: string
+            Health:
               format: int32
               type: integer
-            id:
+            Id:
               type: string
-            location:
+            Location:
               type: string
-            locationType:
+            LocationType:
               format: int32
               type: integer
-            mode:
+            Mode:
               format: int32
               type: integer
-            nodeId:
+            NodeId:
               type: string
-            owners:
+            OperationalStatus:
+              format: int32
+              type: integer
+            Owners:
               items:
                 type: string
               type: array
-            size:
+            Size:
               format: int64
               type: integer
-            status:
+            StorageClass:
               format: int32
               type: integer
-            storageClass:
-              format: int32
-              type: integer
-            type:
+            Type:
               type: string
           type: object
       type: object

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
@@ -63,6 +64,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
 	}
 
+	if v.CSIStatus == apiV1.Failed {
+		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", v.Id)
+	}
+
 	scImpl := s.getStorageClassImpl(v.StorageClass)
 	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
 
@@ -89,29 +94,23 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	ll.Infof("Work with partition %s", partition)
 
-	//TODO AK8S-421 Provide operational status for Unstage request
-	if v.Status == api.OperationalStatus_ReadyToRemove {
-		ll.Info("File system already exists. Perform mount operation")
-		if err := scImpl.BindMount(partition, targetPath, true); err != nil {
-			ll.Errorf("Failed to stage volume %s, error: %v", v.Id, err)
-			return nil, fmt.Errorf("failed to stage volume %s", v.Id)
+	ll.Info("Create file system and mount in background")
+	go func() {
+		rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
+		newStatus := apiV1.VolumeReady
+		if err != nil {
+			ll.Infof("PrepareVolume failed: %v, set status to Failed", err)
+			if !rollBacked {
+				ll.Error("Try to rollBack again")
+			}
+			ll.Errorf("Failed to stage volume %s", v.Id)
+			newStatus = apiV1.Failed
 		}
-		return &csi.NodeStageVolumeResponse{}, nil
+		s.setVolumeStatus(req.VolumeId, newStatus)
+	}()
+	if err := s.pullStatus(ctx, v.Id, false); err != nil {
+		return nil, err
 	}
-
-	ll.Info("Set status to Staging")
-	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Staging)
-	ll.Info("Create file system and mount")
-	rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
-	if err != nil {
-		ll.Infof("PrepareVolume failed: %v, set status to FailedToStage", err)
-		if !rollBacked {
-			ll.Error("Try to rollBack again")
-		}
-		ll.Errorf("Failed to stage volume %s", v.Id)
-		return nil, fmt.Errorf("failed to stage volume %s", v.Id)
-	}
-	ll.Info("PreparedVolume finished successfully, set status to Staged")
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
@@ -139,14 +138,16 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		ll.Errorf("Failed to clear owners: %v", err)
 	}
 
-	if err := s.unmount(req.VolumeId, req.StagingTargetPath); err != nil {
+	if err := s.unmount(req.VolumeId, req.StagingTargetPath, apiV1.Created); err != nil {
 		return nil, err
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) unmount(volumeID string, path string) error {
+//We use unmount in Unstage/Unpublish requests, to set appropriate status for each request
+//(Unstage - Created, Unpublish - VolumeReady) and avoid duplicated code we use newStatus param
+func (s *CSINodeService) unmount(volumeID string, path string, newStatus string) error {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "unmount",
 		"volumeID": volumeID,
@@ -154,6 +155,10 @@ func (s *CSINodeService) unmount(volumeID string, path string) error {
 	v, ok := s.getFromVolumeCache(volumeID)
 	if !ok {
 		return status.Error(codes.Internal, "Unable to find volume")
+	}
+
+	if v.CSIStatus == apiV1.Failed {
+		return nil
 	}
 
 	scImpl := s.getStorageClassImpl(v.StorageClass)
@@ -164,7 +169,7 @@ func (s *CSINodeService) unmount(volumeID string, path string) error {
 		return status.Error(codes.Internal, "Unable to unmount")
 	}
 
-	s.setVolumeStatus(volumeID, api.OperationalStatus_ReadyToRemove)
+	s.setVolumeStatus(volumeID, newStatus)
 	ll.Infof("volume was successfully unmount from %s", path)
 	return nil
 }
@@ -206,65 +211,81 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	srcPath := req.GetStagingTargetPath()
 	path := req.GetTargetPath()
 
-	if v.Status == api.OperationalStatus_Published ||
-		v.Status == api.OperationalStatus_Publishing {
-		return s.pullPublishStatus(ctx, v.Id)
+	if v.CSIStatus == apiV1.Failed {
+		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", v.Id)
 	}
-	ll.Info("Set status to Publishing")
-	s.setVolumeStatus(v.Id, api.OperationalStatus_Publishing)
 
 	scImpl := s.getStorageClassImpl(v.StorageClass)
 
 	mounted, err := scImpl.IsMountPoint(path)
 	if err != nil {
-		ll.Infof("IsMountPoint failed: %v, set status to FailedToPublish", err)
-		s.setVolumeStatus(req.VolumeId, api.OperationalStatus_FailedToPublish)
-		return s.pullPublishStatus(ctx, v.Id)
+		ll.Infof("IsMountPoint failed: %v, set status to Failed", err)
+		s.setVolumeStatus(req.VolumeId, apiV1.Failed)
+		if err := s.pullStatus(ctx, v.Id, true); err != nil {
+			return nil, err
+		}
+		return &csi.NodePublishVolumeResponse{}, nil
 	}
 	go func() {
-		newStatus := api.OperationalStatus_Published
+		newStatus := apiV1.Published
 		if mounted {
 			ll.Infof("Mountpoint already exist, set status to Published")
 		} else if err := scImpl.CreateTargetPath(path); err != nil {
-			newStatus = api.OperationalStatus_FailedToPublish
+			newStatus = apiV1.Failed
 		} else if err := scImpl.BindMount(srcPath, path, false); err != nil {
 			_ = scImpl.DeleteTargetPath(path)
-			newStatus = api.OperationalStatus_FailedToPublish
+			newStatus = apiV1.Failed
 		}
 		ll.Infof("Set status to %s", newStatus)
 		s.setVolumeStatus(v.Id, newStatus)
 	}()
-	return s.pullPublishStatus(ctx, v.Id)
+	if err := s.pullStatus(ctx, v.Id, true); err != nil {
+		return nil, err
+	}
+	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) pullPublishStatus(ctx context.Context, volumeID string) (*csi.NodePublishVolumeResponse, error) {
+//To avoid duplicated code and linter error for pulling Stage and Publish statuses we one common function and publishRequest parameter to identify request
+func (s *CSINodeService) pullStatus(ctx context.Context, volumeID string, publishRequest bool) error {
 	ll := s.log.WithFields(logrus.Fields{
-		"method":   "pullPublishStatus",
+		"method":   "pullStatus",
 		"volumeID": volumeID,
 	})
 
 	var vol, _ = s.getFromVolumeCache(volumeID)
-	ll.Infof("Current status: %s", api.OperationalStatus_name[int32(s.getVolumeStatus(volumeID))])
+	ll.Infof("Current status: %s", s.getVolumeStatus(volumeID))
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			ll.Warnf("Context is done and volume still not become Published, current status %s",
-				api.OperationalStatus_name[int32(vol.Status)])
-			return nil, status.Error(codes.Internal, "volume is still publishing")
+			ll.Warnf("Context is done and volume still not become ReadyToPublish, current status %s",
+				s.getVolumeStatus(volumeID))
+			//Depends on request type (Stage/Publish) we return different error message
+			if publishRequest {
+				return status.Error(codes.Internal, "Volume is still publishing")
+			}
+			return status.Error(codes.Internal, "Volume is still staging")
 		case <-ticker.C:
 			vol, _ = s.getFromVolumeCache(volumeID)
-			switch vol.Status {
-			case api.OperationalStatus_Publishing:
+			switch vol.CSIStatus {
+			case apiV1.VolumeReady:
+				//If volume has this status in stage request, then we consider volume staged
+				if !publishRequest {
+					ll.Info("Volume was staged, return it")
+					return nil
+				}
+				//if volume has this status in publish request, then it means that volume is still publishing
 				<-ticker.C
-			case api.OperationalStatus_Published:
-				ll.Info("Volume was published, return it")
-				return &csi.NodePublishVolumeResponse{}, nil
-			case api.OperationalStatus_FailedToPublish:
-				ll.Errorf("Failed to publish volume %s", volumeID)
-				return nil, fmt.Errorf("failed to publish volume %s", volumeID)
+			case apiV1.Failed:
+				//Depending on request we return different error message
+				if publishRequest {
+					return fmt.Errorf("failed to publish volume %s", volumeID)
+				}
+				return fmt.Errorf("failed to stage volume %s", volumeID)
+			case apiV1.Published:
+				return nil
 			}
 		}
 	}
@@ -286,7 +307,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	if err := s.unmount(req.GetVolumeId(), req.GetTargetPath()); err != nil {
+	if err := s.unmount(req.GetVolumeId(), req.GetTargetPath(), apiV1.VolumeReady); err != nil {
 		return nil, err
 	}
 
