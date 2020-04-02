@@ -20,7 +20,6 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
@@ -176,13 +175,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	case err == nil:
 		// volume is exist, check that it have created state or time is over (for creating)
 		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(DefaultTimeoutForOperations)
-		ll.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
-		if volumeCR.Spec.CSIStatus == apiV1.Failed {
-			return nil, fmt.Errorf("corresponding volume CR %s reached failed status", volumeCR.Spec.Id)
-		}
+		ll.Infof("Volume exists, current status: %s.", api.OperationalStatus_name[int32(volumeCR.Spec.Status)])
 		if expiredAt.Before(time.Now()) {
 			ll.Errorf("Timeout of %s for volume creation exceeded.", DefaultTimeoutForOperations)
-			if err = c.k8sclient.ChangeVolumeStatus(req.GetName(), apiV1.Failed); err != nil {
+			if err = c.k8sclient.ChangeVolumeStatus(req.GetName(), api.OperationalStatus_FailedToCreate); err != nil {
 				ll.Error(err.Error())
 			}
 			c.reqMu.Unlock()
@@ -230,10 +226,13 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 			NodeId:       ac.Spec.NodeId,
 			Size:         allocatedBytes,
 			Location:     ac.Spec.Location,
-			CSIStatus:    apiV1.Creating,
+			Status:       api.OperationalStatus_Creating,
 			StorageClass: sc,
 		}
 		volumeCR = c.k8sclient.ConstructVolumeCR(reqName, apiVolume)
+		volumeCR.ObjectMeta.Annotations = map[string]string{
+			VolumeStatusAnnotationKey: api.OperationalStatus_name[int32(api.OperationalStatus_Creating)],
+		}
 
 		if err = c.k8sclient.CreateCR(ctxWithID, volumeCR, reqName); err != nil {
 			ll.Errorf("Unable to create CR, error: %v", err)
@@ -256,10 +255,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	ll.Info("Waiting until volume will reach Created status")
 	reached, st := c.waitVCRStatus(ctx, req.GetName(),
-		apiV1.Created, apiV1.Failed)
+		api.OperationalStatus_Created, api.OperationalStatus_FailedToCreate)
 
 	if reached {
-		if st == apiV1.Failed {
+		if st == api.OperationalStatus_FailedToCreate {
 			// this is should be a non-retryable error
 			return nil, status.Error(codes.Internal, "Unable to create volume on local node.")
 		}
@@ -288,7 +287,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 // also return status that had reached or -1
 func (c *CSIControllerService) waitVCRStatus(ctx context.Context,
 	volumeID string,
-	statuses ...string) (bool, string) {
+	statuses ...api.OperationalStatus) (bool, api.OperationalStatus) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "waitVCRStatus",
 		"volumeID": volumeID,
@@ -304,15 +303,15 @@ func (c *CSIControllerService) waitVCRStatus(ctx context.Context,
 		select {
 		case <-ctx.Done():
 			ll.Warnf("Context is done but volume still not become in expected state")
-			return false, ""
+			return false, -1
 		case <-time.After(time.Second):
 			if err = c.k8sclient.ReadCR(context.WithValue(ctx, base.RequestUUID, volumeID), volumeID, v); err != nil {
 				ll.Errorf("Unable to read volume CR and check status: %v", err)
 				continue
 			}
 			for _, s := range statuses {
-				if v.Spec.CSIStatus == s {
-					ll.Infof("Volume has reached %s state.", s)
+				if v.Spec.Status == s {
+					ll.Infof("Volume has reached %s state.", api.OperationalStatus_name[int32(s)])
 					return true, s
 				}
 			}
@@ -427,7 +426,7 @@ func (c *CSIControllerService) recreateACToLVG(sc api.StorageClass, acs ...*accr
 			Name:      name,
 			Locations: lvgLocations,
 			Size:      lvgSize,
-			Status:    apiV1.Creating,
+			Status:    api.OperationalStatus_Creating,
 		}
 	)
 
@@ -495,11 +494,11 @@ func (c *CSIControllerService) waitUntilLVGWillBeCreated(ctx context.Context, lv
 			switch {
 			case err != nil:
 				ll.Errorf("Unable to read LVG CR: %v", err)
-			case lvg.Spec.Status == apiV1.Created:
+			case lvg.Spec.Status == api.OperationalStatus_Created:
 				ll.Info("LVG was created")
 				return &lvg.Spec
-			case lvg.Spec.Status == apiV1.Failed:
-				ll.Warn("LVG was reached Failed status")
+			case lvg.Spec.Status == api.OperationalStatus_FailedToCreate:
+				ll.Warn("LVG was reached FailedToCreate status")
 				return nil
 			}
 		}
@@ -572,24 +571,22 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		ll.Errorf("Unable to read volume: %v", err)
 		return nil, fmt.Errorf("unable to find volume with ID %s", req.VolumeId)
 	}
-	if volume.Spec.CSIStatus == apiV1.Failed {
-		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", volume.Spec.Id)
-	}
-	if err := c.k8sclient.ChangeVolumeStatus(req.VolumeId, apiV1.Removing); err != nil {
+
+	if err := c.k8sclient.ChangeVolumeStatus(req.VolumeId, api.OperationalStatus_Removing); err != nil {
 		ll.Error(err.Error())
 		return nil, status.Errorf(codes.Internal,
-			"unable to set status %s for volume %s", apiV1.Removing, req.VolumeId)
+			"unable to set status %s for volume %s", api.OperationalStatus_Removing, req.VolumeId)
 	}
 
 	ll.Info("Waiting until volume will reach Removed status")
-	reached, st := c.waitVCRStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed)
+	reached, st := c.waitVCRStatus(ctx, req.VolumeId, api.OperationalStatus_FailToRemove, api.OperationalStatus_Removed)
 
 	if !reached {
 		return nil, fmt.Errorf("unable to delete volume with ID %s", req.VolumeId)
 	}
 
-	if st == apiV1.Failed {
-		return nil, status.Errorf(codes.Internal, "volume %s has Failed status", req.VolumeId)
+	if st == api.OperationalStatus_FailToRemove {
+		return nil, status.Errorf(codes.Internal, "volume %s has FailToRemove status", req.VolumeId)
 	}
 
 	// remove volume CR

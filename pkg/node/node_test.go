@@ -88,7 +88,6 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
-
 	})
 
 	Context("NodePublish() failure", func() {
@@ -133,13 +132,6 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Stage path missing in request"))
-		})
-		It("Should fail, because Volume has failed status", func() {
-			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
-			node.setVolumeStatus(volumeID, crdV1.Failed)
-			resp, err := node.NodePublishVolume(ctx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
 		})
 		It("Should fail with volume cache error", func() {
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
@@ -238,6 +230,15 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
+		It("Ready to remove status", func() {
+			scImplMock.On("BindMount", device, stagePath, true).Return(nil).Times(1)
+			node.scMap[SCName("hdd")] = scImplMock
+			req := getNodeStageRequest(volumeID, *volumeCap)
+			node.setVolumeStatus(volumeID, api.OperationalStatus_ReadyToRemove)
+			resp, err := node.NodeStageVolume(ctx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+		})
 	})
 
 	Context("NodeStage() failure", func() {
@@ -304,13 +305,6 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal(fmt.Sprintf("failed to stage volume %s", volumeID)))
 		})
-		It("Should fail, because Volume has failed status", func() {
-			req := getNodeStageRequest(volumeID, *volumeCap)
-			node.setVolumeStatus(volumeID, crdV1.Failed)
-			resp, err := node.NodeStageVolume(ctx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
 	})
 })
 
@@ -333,14 +327,6 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
-		It("Should succeeded, because Volume has failed status", func() {
-			req := getNodeUnpublishRequest(volumeID, targetPath)
-			node.setVolumeStatus(volumeID, crdV1.Failed)
-			resp, err := node.NodeUnpublishVolume(ctx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-		})
-
 	})
 
 	Context("NodeUnPublish() failure", func() {
@@ -394,13 +380,6 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 
 			req := getNodeUnstageRequest(volumeID, stagePath)
 
-			resp, err := node.NodeUnstageVolume(ctx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-		})
-		It("Should succeeded, because Volume has failed status", func() {
-			req := getNodeUnstageRequest(volumeID, targetPath)
-			node.setVolumeStatus(volumeID, crdV1.Failed)
 			resp, err := node.NodeUnstageVolume(ctx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())

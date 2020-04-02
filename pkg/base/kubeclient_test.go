@@ -231,7 +231,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should update Volume CR's status successfully", func() {
-			status := crdV1.Created
+			status := api.OperationalStatus_FailedToCreate
 			err := k8sclient.CreateCR(testCtx, &testVolume, testID)
 			Expect(err).To(BeNil())
 
@@ -241,7 +241,16 @@ var _ = Describe("Working with CRD", func() {
 			rVolume := &vcrd.Volume{}
 			err = k8sclient.ReadCR(testCtx, testID, rVolume)
 			Expect(err).To(BeNil())
-			Expect(rVolume.Spec.CSIStatus).To(Equal(status))
+			Expect(rVolume.Spec.Status).To(Equal(status))
+			Expect(rVolume.ObjectMeta.Annotations[VolumeStatusAnnotationKey]).To(Equal(api.OperationalStatus_name[int32(status)]))
+		})
+
+		It("Should fail during updating Volume CR's status which doesn't exist", func() {
+			status := api.OperationalStatus_FailedToCreate
+
+			err := k8sclient.ChangeVolumeStatus(testID, status)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unable to persist status"))
 		})
 	})
 

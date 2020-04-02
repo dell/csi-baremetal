@@ -96,7 +96,7 @@ var (
 			Node:      node1ID,
 			Locations: []string{apiDrive1.UUID, apiDrive2.UUID},
 			Size:      int64(1024 * 500 * base.GBYTE),
-			Status:    crdV1.Creating,
+			Status:    api.OperationalStatus_Creating,
 		},
 	}
 
@@ -114,7 +114,7 @@ var (
 			Node:      node2ID,
 			Locations: []string{},
 			Size:      0,
-			Status:    crdV1.Created,
+			Status:    api.OperationalStatus_Created,
 		},
 	}
 
@@ -182,7 +182,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 	err = c.k8sClient.ReadCR(tCtx, req.Name, lvg)
-	assert.Equal(t, lvg.Spec.Status, crdV1.Created)
+	assert.Equal(t, lvg.Spec.Status, api.OperationalStatus_Created)
 
 	// reconciled second time
 	res, err = c.Reconcile(req)
@@ -269,7 +269,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 
 	lvgCR := &lvgcrd.LVG{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
-	assert.Equal(t, crdV1.Failed, lvgCR.Spec.Status)
+	assert.Equal(t, api.OperationalStatus_FailedToCreate, lvgCR.Spec.Status)
 }
 
 func TestReconcile_FailedVGCreate(t *testing.T) {
@@ -294,7 +294,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 
 	lvgCR := &lvgcrd.LVG{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
-	assert.Equal(t, crdV1.Failed, lvgCR.Spec.Status)
+	assert.Equal(t, api.OperationalStatus_FailedToCreate, lvgCR.Spec.Status)
 }
 
 func Test_removeLVGArtifacts_Success(t *testing.T) {
