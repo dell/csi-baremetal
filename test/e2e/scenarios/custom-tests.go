@@ -54,8 +54,8 @@ func DefineCustomTestSuite(driver testsuites.TestDriver) {
 
 func healthCheckTest(driver testsuites.TestDriver) {
 	var (
-		pod         *corev1.Pod
-		pvc         *corev1.PersistentVolumeClaim
+		pod           *corev1.Pod
+		pvc           *corev1.PersistentVolumeClaim
 		driverCleanup func()
 	)
 

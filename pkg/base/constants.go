@@ -1,5 +1,7 @@
 package base
 
+import "time"
+
 const (
 	// gRPC endpoints settings
 	DefaultHWMgrEndpoint     = "tcp://localhost:8888"
@@ -10,4 +12,7 @@ const (
 	// Linux Utils and VolumeManager constants
 	DriveTypeDisk          = "disk"
 	DefaultDiscoverTimeout = 120
+
+	// timeout in which we expect that any operation should be finished
+	DefaultTimeoutForOperations = 10 * time.Minute
 )

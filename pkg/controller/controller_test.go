@@ -45,7 +45,6 @@ var (
 
 	testDriveLocation1 = "drive1-sn"
 	testDriveLocation2 = "drive2-sn"
-	testDriveLocation3 = "drive3-sn"
 	testDriveLocation4 = "drive4-sn"
 	testNode4Name      = "preferredNode"
 	// valid pod
@@ -108,21 +107,10 @@ var (
 			NodeId:       testNode2Name,
 		},
 	}
-	testAC3Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation3))
+	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
 	testAC3     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
-		Spec: api.AvailableCapacity{
-			Size:         1024 * 1024 * 1024 * 100,
-			StorageClass: api.StorageClass_HDD,
-			Location:     testDriveLocation3,
-			NodeId:       testNode1Name,
-		},
-	}
-	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
-	testAC4     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
 			StorageClass: api.StorageClass_HDDLVG,
@@ -189,38 +177,6 @@ var _ = Describe("CSIControllerService addition functions", func() {
 			err := svc.updateCommunicators()
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(errors.New("unable to initialize communicators")))
-		})
-	})
-
-	Context("searchAvailableCapacity scenarios", func() {
-		It("Found AC with min size on preferred node", func() {
-			addAC(svc, &testAC1, &testAC3)
-			requiredCapacity := int64(900)
-			drive := svc.searchAvailableCapacity(testCtx, testNode1Name, requiredCapacity, api.StorageClass_ANY)
-			Expect(testAC1.Spec.Location).To(Equal(drive.Spec.Location))
-		})
-		It("Found AC on node with maximum ACs (preferred node wasn't provided", func() {
-			addAC(svc, &testAC1, &testAC2, &testAC3)           // 2 ACs on node1 and 1 AC on node 3
-			requiredCapacity := int64(1024 * 1024 * 1024 * 50) // expect testAC3
-			ac := svc.searchAvailableCapacity(testCtx, "", requiredCapacity, api.StorageClass_ANY)
-			Expect(ac).ToNot(BeNil())
-			Expect(ac.Spec.Location).To(Equal(testAC3.Spec.Location))
-		})
-		It("Found AC on preferred node with defined storage class", func() {
-			addAC(svc, &testAC2)
-			requiredCapacity := int64(2000)
-			ac := svc.searchAvailableCapacity(testCtx, testNode2Name, requiredCapacity, api.StorageClass_HDD)
-			Expect(testAC2.Spec.Location).To(Equal(ac.Spec.Location))
-		})
-		It("Couldn't find any ac because of requiredCapacity", func() {
-			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity(testCtx, testNode1Name, 1024*1024*1024*2048, api.StorageClass_ANY)
-			Expect(drive).To(BeNil())
-		})
-		It("Couldn't find any ac because of non-existed preferred node", func() {
-			addAC(svc, &testAC1, &testAC2)
-			drive := svc.searchAvailableCapacity(testCtx, "node", 1024, api.StorageClass_ANY)
-			Expect(drive).To(BeNil())
 		})
 	})
 
@@ -344,14 +300,6 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 		})
 		It("There is no suitable Available Capacity (on all nodes)", func() {
 			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "")
-
-			resp, err := svc.CreateVolume(context.Background(), req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("there is no suitable drive for request"))
-		})
-		It("There is no suitable Available Capacity (on preferred node)", func() {
-			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "node1")
 
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
@@ -571,7 +519,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 		})
 		It("Volume is deleted successful, sc HDDLVG and AC size is increased", func() {
 			removeAllCrds(svc.k8sclient) // remove CRs that was created in BeforeEach()
-			addAC(svc, &testAC4)         // create AC CR, expect that size of that AC will be increased
+			addAC(svc, &testAC3)         // create AC CR, expect that size of that AC will be increased
 			var (
 				capacity = int64(1024 * 101)
 				volume   = api.Volume{
@@ -613,7 +561,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = svc.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
 			Expect(len(acList.Items)).To(Equal(1)) // expect that amount of AC was not increased
-			Expect(acList.Items[0].Spec.Size - capacity).To(Equal(testAC4.Spec.Size))
+			Expect(acList.Items[0].Spec.Size - capacity).To(Equal(testAC3.Spec.Size))
 		})
 	})
 })
