@@ -62,36 +62,54 @@ Installation depend weather you use Helm 2 or Helm 3. If you use Helm 2 you have
     
     ```
     $ kubectl get pods -o wide
-    NAME                            READY   STATUS    RESTARTS   AGE    IP            NODE               NOMINATED NODE   READINESS GATES
-    baremetal-csiplugin-8dxc5       3/3     Running   0          118s   10.244.2.14   shmelr-ubuntu-32   <none>           <none>
-    baremetal-csiplugin-cw6pw       3/3     Running   0          118s   10.244.1.21   shmelr-ubuntu-31   <none>           <none>
-    baremetal-csiplugin-j99gn       3/3     Running   0          118s   10.244.3.10   shmelr-ubuntu-33   <none>           <none>
-    baremetal-csiplugin-l2qjx       3/3     Running   0          118s   10.244.4.12   shmelr-ubuntu-34   <none>           <none>
-    csi-do-controller-0             5/5     Running   0          118s   10.244.1.22   shmelr-ubuntu-31   <none>           <none>
-    deployment-1-56f94b4c5c-br44b   1/1     Running   27         27h    10.244.2.13   shmelr-ubuntu-32   <none>           <none>
-    deployment-1-56f94b4c5c-h27m4   1/1     Running   27         27h    10.244.4.11   shmelr-ubuntu-34   <none>           <none>
+    NAME                         READY   STATUS    RESTARTS   AGE
+    baremetal-csi-controller-0   3/3     Running   0          179m
+    baremetal-csi-node-2hp2k     3/3     Running   0          179m
+    baremetal-csi-node-lz7xb     3/3     Running   0          179m
+    baremetal-csi-node-p7r7w     3/3     Running   0          179m
+    baremetal-csi-node-zjxzq     3/3     Running   0          179m   
     ```
     Check Storage Class
     
     ``` 
     $ kubectl get storageclass
-    NAME                         PROVISIONER     AGE
-    baremetal-csi-sc (default)   baremetal-csi   3m23s
+    NAME                         PROVISIONER     RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+    baremetal-csi-sc (default)   baremetal-csi   Delete          WaitForFirstConsumer   false                  3h
+    baremetal-csi-sc-hddlvg      baremetal-csi   Delete          WaitForFirstConsumer   false                  3h
     ```
 
 Usages
 ------
  
-Provide `baremetal-csi` storage class for PVC in PVC manifest or persistenVolumeClameTemapate section. 
+Provide `baremetal-csi-sc` storage class for PVC in PVC manifest or in persistenVolumeClameTemapate section if you need 
+to provision PVC based on HDD disk and that whole disk will be consumed by that PVC. In that case size of PVC will be 
+not less then you required and will be equal size of whole underlying HDD drive size.
 
-
+Provide `baremetal-csi-sc-hddlvg` storage class for PVC in PVC manifest or persistenVolumeClameTemapate section if you 
+need to provision PVC based on logical volume. In that case logical volume group is created on the system based on one 
+drive and there are could be multiple logical volumes associated with multiple PVCs from one logical volume group. 
+Size of PVC will be as is requested in manifest.
+  
 For developers
 ---------------------
 
 1. Compile proto files
-    1.1 There is make target 'compile-proto' that will generate GO code from proto files:
+    1.1 There is `make` target 'compile-proto' that will generate GO code from proto files:
     ```
     make compile-proto
     ``` 
-    Proto files located under `/api/API_VERSION/` folder. Generated GO files will be located under `/api/generated/API_VERSION` folder.
+    Proto files are located under `/api/API_VERSION/` folder. Generated GO files will be located under `/api/generated/API_VERSION` folder.
     Default API_VERSION is `v1`
+
+2. Generate CRDs manifests and code
+    2.1 There is `make` target 'generate-crd' that will generate CRD yaml manifests:
+    ```
+    make generate-crd
+    ```
+    Manifests are located under `charts/baremetal-csi-plugin/crds` folder.
+   
+    2.2 There is `make` target 'generate-deepcopy' that will generate GO deepcopy code for CRDs instances:
+    ```
+    make generate-deepcopy 
+    ```
+    Go files are located under `api/vi/SOME_CRD/` folder
