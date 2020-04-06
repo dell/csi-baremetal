@@ -11,8 +11,8 @@ HEALTH_PROBE := health_probe
 .PHONY: test build install-hal
 
 # print version
-version:
-    $(info CSI version="$(TAG)")
+#version:
+#    $(info CSI version="$(TAG)")
 
 #all: build image push
 
