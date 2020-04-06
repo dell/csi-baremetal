@@ -208,6 +208,7 @@ func convertDriveHealth(health string) api.Health {
 	switch health {
 	case "OK":
 		return api.Health_GOOD
+	// shouldn't it be SUSPECT?
 	case "Warning":
 		return api.Health_BAD
 	case "Critical":

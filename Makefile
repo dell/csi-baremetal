@@ -10,6 +10,10 @@ HEALTH_PROBE := health_probe
 
 .PHONY: test build install-hal
 
+# print version
+version:
+    $(info CSI version="$(TAG)")
+
 #all: build image push
 
 # use in clear environment
@@ -18,7 +22,7 @@ prepare-env: install-compile-proto install-hal install-controller-gen dependency
 dependency:
 	GO111MODULE=on go mod download
 
-build: build-hwmgr build-node build-controller
+build: compile-proto build-hwmgr build-node build-controller
 
 # NOTE: Output directory for binary file should be in Docker context.
 # So we can't use /baremetal-csi-plugin/build to build the image.
@@ -62,7 +66,7 @@ push-node:
 push-controller:
 	docker push ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
-clean: clean-hwmgr clean-node clean-controller
+clean: clean-hwmgr clean-node clean-controller clean-proto
 
 clean-hwmgr:
 	rm -rf ./build/${HW_MANAGER}/${HW_MANAGER}
@@ -72,6 +76,9 @@ clean-node:
 
 clean-controller:
 	rm -rf ./build/${CONTROLLER}/${CONTROLLER}
+
+clean-proto:
+	rm -rf ./api/generated/v1/*
 
 clean-image: clean-image-hwmgr clean-image-node # clean-image-controller
 

@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 )
 
 type LinuxUtils struct {
@@ -122,14 +124,23 @@ func (l *LinuxUtils) GetBmcIP() string {
 	return ip
 }
 
-// SearchDrivePathBySN returns drive path based on drive S/N
-func (l *LinuxUtils) SearchDrivePathBySN(sn string) (string, error) {
+// SearchDrivePath if not defined returns drive path based on drive S/N.
+// TODO AK8S-594 to check VID/PID as well
+func (l *LinuxUtils) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
+	// device path might be already set by hwmgr
+	device := drive.Spec.Path
+	if device != "" {
+		return device, nil
+	}
+
+	// try to find it with lsblk
 	lsblkOut, err := l.Lsblk("disk")
 	if err != nil {
 		return "", err
 	}
 
-	device := ""
+	// get drive serial number
+	sn := drive.Spec.SerialNumber
 	for _, l := range *lsblkOut {
 		if strings.EqualFold(l.Serial, sn) {
 			device = l.Name

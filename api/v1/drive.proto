@@ -32,5 +32,7 @@ message Drive {
     int64 Size = 7;
     Status status = 8;
     string NodeId = 9;
+    // path to the device. may not be set by hwmgr.
+    string Path = 10;
 }
 

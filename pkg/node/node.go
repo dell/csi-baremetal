@@ -80,7 +80,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		if drive == nil {
 			return nil, fmt.Errorf("drive with uuid %s wasn't found ", v.Location)
 		}
-		bdev, err := s.linuxUtils.SearchDrivePathBySN(drive.Spec.SerialNumber)
+
+		// get device path
+		bdev, err := s.linuxUtils.SearchDrivePath(drive)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
 		}

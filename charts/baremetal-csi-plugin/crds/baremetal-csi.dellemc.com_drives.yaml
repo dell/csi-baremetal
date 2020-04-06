@@ -40,6 +40,9 @@ spec:
               type: string
             PID:
               type: string
+            Path:
+              description: path to the device. may not be set by hwmgr.
+              type: string
             SerialNumber:
               type: string
             Size:

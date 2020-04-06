@@ -64,5 +64,6 @@ func (in *Drive) Equals(drive *api.Drive) bool {
 		in.Spec.Status == drive.Status &&
 		in.Spec.Health == drive.Health &&
 		in.Spec.Type == drive.Type &&
-		in.Spec.Size == drive.Size
+		in.Spec.Size == drive.Size &&
+		in.Spec.Path == drive.Path
 }

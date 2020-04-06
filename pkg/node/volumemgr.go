@@ -423,7 +423,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		}
 
 		ll.Infof("Search device file for drive with S/N %s", drive.Spec.SerialNumber)
-		device, err = m.linuxUtils.SearchDrivePathBySN(drive.Spec.SerialNumber)
+		device, err = m.linuxUtils.SearchDrivePath(drive)
 		if err != nil {
 			return err
 		}
@@ -576,7 +576,8 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 		if drive == nil {
 			return errors.New("unable to find drive by volume location")
 		}
-		device, err = m.linuxUtils.SearchDrivePathBySN(drive.Spec.SerialNumber)
+		// get device path
+		device, err = m.linuxUtils.SearchDrivePath(drive)
 		if err != nil {
 			return fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
 		}

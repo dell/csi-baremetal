@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"github.com/stretchr/testify/assert"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
 var luLogger = logrus.New()
@@ -88,21 +89,31 @@ func TestLinuxUtils_SearchDrivePathBySN(t *testing.T) {
 	e.OnCommand(LsblkCmd).Return(mocks.LsblkTwoDevicesStr, "", nil).Times(2)
 	l := NewLinuxUtils(e, luLogger)
 
-	// success
-	dev, err := l.SearchDrivePathBySN("hdd1")
+	// success when path is set by hwgmr
+	var drive = new(drivecrd.Drive)
 	expectedDev := "/dev/sda"
+	drive.Spec.Path = expectedDev
+	drive.Spec.SerialNumber = "hdd1"
+	dev, err := l.SearchDrivePath(drive)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedDev, dev)
+
+	// success when path is not set by hwmgr
+	drive.Spec.Path = ""
+	dev, err = l.SearchDrivePath(drive)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedDev, dev)
 
 	// fail: dev was not found
-	dev, err = l.SearchDrivePathBySN("hdd12341")
+	drive.Spec.SerialNumber = "hdd12341"
+	dev, err = l.SearchDrivePath(drive)
 	assert.Empty(t, dev)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to find drive path")
 
 	// fail: lsblk was failed
 	e.OnCommand(LsblkCmd).Return("", "", errors.New("error"))
-	dev, err = l.SearchDrivePathBySN("hdd12341")
+	dev, err = l.SearchDrivePath(drive)
 	assert.Empty(t, dev)
 	assert.NotNil(t, err)
 }

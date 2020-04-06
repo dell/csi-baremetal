@@ -247,7 +247,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 	var (
 		c = setup(t, node1ID)
 		e = &mocks.GoMockExecutor{}
-		// SearchDrivePathBySN failed for /dev/sdb
+		// SearchDrivePath failed for /dev/sdb
 		lsblkResp = `{
 			  "blockdevices":[{
 				"name": "/dev/sda",

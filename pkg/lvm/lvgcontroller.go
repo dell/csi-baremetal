@@ -134,8 +134,10 @@ func (c *LVGController) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, er
 			ll.Errorf("Unable to read drive %s, error: %v", driveUUID, err)
 			continue
 		}
+		// get serial number
 		sn := drive.Spec.SerialNumber
-		dev, err := c.linuxUtils.SearchDrivePathBySN(sn)
+		// get device path
+		dev, err := c.linuxUtils.SearchDrivePath(drive)
 		if err != nil {
 			ll.Error(err)
 			continue

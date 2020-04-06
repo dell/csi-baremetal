@@ -89,6 +89,7 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 			Size:         base.ToBytes(int64(drivesSliceHAL[i].capacity), base.GBYTE),
 			Health:       mgr.convertDriveHealth(drivesSliceHAL[i].driveHealth),
 			Type:         mgr.convertDriveType(drivesSliceHAL[i].storageClass),
+			Path:         C.GoString(&drivesSliceHAL[i].path[0]),
 		}
 		drivesSlice = append(drivesSlice, drive)
 	}
