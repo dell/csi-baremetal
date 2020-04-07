@@ -70,7 +70,7 @@ func main() {
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
 
 	go func() {
-		if err := StartVolumeManagerServer(csiNodeService, logger); err != nil {
+		if err := StartNodeHealthServer(csiNodeService, logger); err != nil {
 			logger.Infof("VolumeManager server failed with error: %v", err)
 		}
 	}()
@@ -100,17 +100,16 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	}
 }
 
-// StartVolumeManagerServer starts gRPC server to handle request from Controller Service
-func StartVolumeManagerServer(c *node.CSINodeService, logger *logrus.Logger) error {
-	logger.Info("Starting VolumeManager server ...")
-	// gRPC server that will serve requests from controller service via tcp socket
-	volumeMgrEndpoint := fmt.Sprintf("tcp://%s:%d", *volumeMgrIP, base.DefaultVolumeManagerPort)
-	volumeMgrTCPServer := base.NewServerRunner(nil, volumeMgrEndpoint, logger)
-	api.RegisterVolumeManagerServer(volumeMgrTCPServer.GRPCServer, c)
+// StartNodeHealthServer starts gRPC server to handle Health checking requests
+func StartNodeHealthServer(c health.HealthServer, logger *logrus.Logger) error {
+	logger.Info("Starting Node Health server ...")
+	// gRPC server that will serve requests for Node Health checking
+	nodeHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *volumeMgrIP, base.DefaultVolumeManagerPort)
+	nodeHealthServer := base.NewServerRunner(nil, nodeHealthEndpoint, logger)
 	// register Health checks
 	logger.Info("Registering Node service health check")
-	health.RegisterHealthServer(volumeMgrTCPServer.GRPCServer, c)
-	return volumeMgrTCPServer.RunServer()
+	health.RegisterHealthServer(nodeHealthServer.GRPCServer, c)
+	return nodeHealthServer.RunServer()
 }
 
 func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.LVGController,

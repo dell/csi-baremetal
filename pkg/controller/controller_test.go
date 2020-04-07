@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -24,7 +23,6 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
 var (
@@ -34,40 +32,64 @@ var (
 	testCtx       = context.Background()
 	testPod1Name  = fmt.Sprintf("%s-testPod1", NodeSvcPodsMask)
 	testPod2Name  = fmt.Sprintf("%s-testPod2", NodeSvcPodsMask)
-	testPod3Name  = fmt.Sprintf("%s-testPod3", NodeSvcPodsMask)
-	testPod4Name  = "SomeName"
+	testPod3Name  = "SomeName"
 	testPod1Ip    = "10.10.10.10"
 	testPod2Ip    = "10.10.10.11"
-	testPod3Ip    = "NOT AN IP"
 	testNode1Name = "node1"
 	testNode2Name = "node2"
-	testNode3Name = "node3"
 
 	testDriveLocation1 = "drive1-sn"
 	testDriveLocation2 = "drive2-sn"
 	testDriveLocation4 = "drive4-sn"
 	testNode4Name      = "preferredNode"
 	// valid pod
-	testPod1 = &coreV1.Pod{
+	testReadyPod1 = &coreV1.Pod{
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod1Name, Namespace: testNs},
 		Spec:       coreV1.PodSpec{NodeName: testNode1Name},
-		Status:     coreV1.PodStatus{PodIP: testPod1Ip},
+		Status: coreV1.PodStatus{
+			PodIP: testPod1Ip,
+			ContainerStatuses: []coreV1.ContainerStatus{
+				{
+					Name:  "hwmgr",
+					Ready: true,
+				},
+				{
+					Name:  "node",
+					Ready: true,
+				},
+				{
+					Name:  "sidecar",
+					Ready: true,
+				},
+			},
+		},
 	}
-	// valid pod
-	testPod2 = &coreV1.Pod{
+	// invalid pod, not all containers are ready
+	testUnreadyPod2 = &coreV1.Pod{
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod2Name, Namespace: testNs},
 		Spec:       coreV1.PodSpec{NodeName: testNode2Name},
-		Status:     coreV1.PodStatus{PodIP: testPod2Ip},
+		Status: coreV1.PodStatus{
+			PodIP: testPod2Ip,
+			ContainerStatuses: []coreV1.ContainerStatus{
+				{
+					Name:  "hwmgr",
+					Ready: true,
+				},
+				{
+					Name:  "node",
+					Ready: false,
+				},
+				{
+					Name:  "sidecar",
+					Ready: true,
+				},
+			},
+		},
 	}
-	// invalid pod, bad endpoint
-	testPod3 = &coreV1.Pod{
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod3Name, Namespace: testNs},
-		Spec:       coreV1.PodSpec{NodeName: testNode3Name},
-		Status:     coreV1.PodStatus{PodIP: testPod3Ip},
-	}
+
 	// invalid pod, bad testID
-	testPod4 = &coreV1.Pod{
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod4Name},
+	testPod3 = &coreV1.Pod{
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod3Name},
 	}
 
 	testVolume = vcrd.Volume{
@@ -149,90 +171,31 @@ var _ = Describe("CSIControllerService addition functions", func() {
 			Expect(ac).To(Equal(&testAC1))
 		})
 	})
-	Context("updateCommunicator success scenarios", func() {
-		It("updateCommunicator Success", func() {
-			createPods(svc, testPod1)
-			err := svc.updateCommunicators()
-			Expect(err).To(BeNil())
-			Expect(len(svc.communicators)).To(Equal(1))
-		})
-		It("create 3 pods and expect 2 communicators, 1 pod has incompatible testID", func() {
-			createPods(svc, testPod1, testPod2, testPod4)
-			err := svc.updateCommunicators()
-			Expect(err).To(BeNil())
-			Expect(len(svc.communicators)).To(Equal(2))
-		})
-		It("create 3 pods and expect 2 communicators, 1 pod has incompatible pod ip", func() {
-			createPods(svc, testPod1, testPod2, testPod3)
-			err := svc.updateCommunicators()
-			Expect(err).To(BeNil())
-			Expect(len(svc.communicators)).To(Equal(2))
-		})
-	})
 
-	Context("updateCommunicator fail scenarios", func() {
-		It("0 communicators were created", func() {
-			createPods(svc, testPod4)
-			svc.communicators = map[NodeID]api.VolumeManagerClient{}
-			err := svc.updateCommunicators()
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(errors.New("unable to initialize communicators")))
-		})
-	})
+	Context("InitController() scenarios", func() {
+		It("success scenario when there is ready Node pod", func() {
+			createPods(svc, testReadyPod1, testUnreadyPod2)
 
-	Context("updateAvailableCapacityCRs scenarios", func() {
-		It("Failed to create ac because of GetAvailableCapacity request error", func() {
-			mc := &mocks.VolumeMgrClientMock{}
-			mc.On("GetAvailableCapacity", &api.AvailableCapacityRequest{
-				// Prepare response from NodeService
-				NodeId: testNode1Name,
-			}).Return(&api.AvailableCapacityResponse{}, errors.New("error during GetAvailableCapacity request"))
-			svc.communicators[NodeID(testNode1Name)] = mc
-			err := svc.updateAvailableCapacityCRs(context.Background())
-			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring("not all available capacity were created"))
+			err := svc.InitController()
+			Expect(err).To(BeNil())
 		})
-		It("There are no AC on node, AC CRs shouldn't be created", func() {
-			mc := &mocks.VolumeMgrClientMock{}
-			response := &api.AvailableCapacityResponse{
-				AvailableCapacity: make([]*api.AvailableCapacity, 0),
-			}
-			mc.On("GetAvailableCapacity", &api.AvailableCapacityRequest{
-				// Prepare response from NodeService
-				NodeId: testNode4Name,
-			}).Return(response, nil)
-			svc.communicators[NodeID(testNode4Name)] = mc
-			err := svc.updateAvailableCapacityCRs(context.Background())
-			Expect(err).To(BeNil())
-			acList := accrd.AvailableCapacityList{}
-			err = svc.k8sclient.ReadList(context.Background(), &acList)
-			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(0))
+
+		It("failed scenario when there is no ready Node pod", func() {
+			createPods(svc, testUnreadyPod2)
+
+			err := svc.InitController()
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("there are no ready Node services"))
 		})
-		It("Create one AC CR", func() {
-			mc := &mocks.VolumeMgrClientMock{}
-			availableCapacity := make([]*api.AvailableCapacity, 0)
-			availableCapacity = append(availableCapacity, &api.AvailableCapacity{
-				Size:         1000,
-				StorageClass: api.StorageClass_ANY,
-				Location:     "drive",
-				NodeId:       testNode4Name,
-			})
-			response := &api.AvailableCapacityResponse{
-				AvailableCapacity: availableCapacity,
-			}
-			mc.On("GetAvailableCapacity", &api.AvailableCapacityRequest{
-				// Prepare response from NodeService
-				NodeId: testNode4Name,
-			}).Return(response, nil)
-			svc.communicators[NodeID(testNode4Name)] = mc
-			err := svc.updateAvailableCapacityCRs(context.Background())
-			Expect(err).To(BeNil())
-			acList := accrd.AvailableCapacityList{}
-			err = svc.k8sclient.ReadList(context.Background(), &acList)
-			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(1))
+
+		It("failed scenario when there is no Node pod", func() {
+			createPods(svc, testPod3)
+
+			err := svc.InitController()
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("there are no ready Node services"))
 		})
+
 	})
 
 	Context("waitVCRStatus scenarios", func() {
@@ -311,10 +274,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			var (
 				capacity = int64(1024 * 53)
 				req      = getCreateVolumeRequest("req1", capacity, testNode1Name)
-				mc       = &mocks.VolumeMgrClientMock{}
 				vol      = &vcrd.Volume{}
 			)
-			svc.communicators[NodeID(testNode1Name)] = mc
 			go simulateVolumeInReconcile(svc, "req1", api.OperationalStatus_FailedToCreate)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
@@ -329,8 +290,6 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			capacity := int64(1024 * 42)
 
 			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
-			mc := &mocks.VolumeMgrClientMock{}
-			svc.communicators[NodeID(testNode1Name)] = mc
 
 			err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -362,10 +321,9 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			var (
 				capacity = int64(1024 * 53)
 				req      = getCreateVolumeRequest("req1", capacity, testNode1Name)
-				mc       = &mocks.VolumeMgrClientMock{}
 				vol      = &vcrd.Volume{}
 			)
-			svc.communicators[NodeID(testNode1Name)] = mc
+
 			go simulateVolumeInReconcile(svc, "req1", api.OperationalStatus_Created)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(err).To(BeNil())
@@ -380,8 +338,6 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			capacity := int64(1024 * 42)
 
 			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
-			mc := &mocks.VolumeMgrClientMock{}
-			svc.communicators[NodeID(testNode1Name)] = mc
 
 			err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -449,13 +405,11 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			var (
 				volumeCrd = &vcrd.Volume{}
 				err       error
-				mc        = &mocks.VolumeMgrClientMock{}
 			)
 			// create volume crd to delete
 			err = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
 			Expect(err).To(BeNil())
 
-			svc.communicators[NodeID(testNode1Name)] = mc
 			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_FailToRemove)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
@@ -495,13 +449,11 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					},
 				}
 				err error
-				mc  = &mocks.VolumeMgrClientMock{}
 			)
 			// create volume crd to delete
 			err = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
 			Expect(err).To(BeNil())
 
-			svc.communicators[NodeID(testNode1Name)] = mc
 			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
@@ -511,11 +463,6 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = svc.k8sclient.ReadCR(context.Background(), uuid, volumeCrd)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("not found"))
-
-			acList := accrd.AvailableCapacityList{}
-			err = svc.k8sclient.ReadList(context.Background(), &acList)
-			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(1)) // expect that one AC will appear
 		})
 		It("Volume is deleted successful, sc HDDLVG and AC size is increased", func() {
 			removeAllCrds(svc.k8sclient) // remove CRs that was created in BeforeEach()
@@ -536,15 +483,11 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					},
 					Spec: volume,
 				}
-
-				mc = &mocks.VolumeMgrClientMock{}
 			)
 			// create volume CR that should be deleted (created in BeforeEach)
 			err := svc.k8sclient.CreateCR(testCtx, &volumeCrd, uuid)
 			Expect(err).To(BeNil())
 
-			// prepare communicator
-			svc.communicators[NodeID(testNode2Name)] = mc
 			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
@@ -562,6 +505,34 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(err).To(BeNil())
 			Expect(len(acList.Items)).To(Equal(1)) // expect that amount of AC was not increased
 			Expect(acList.Items[0].Spec.Size - capacity).To(Equal(testAC3.Spec.Size))
+		})
+		It("Volume is deleted successful, LVG AC recreated", func() {
+			removeAllCrds(svc.k8sclient) // remove CRs that was created in BeforeEach()
+			fullLVGsizeVolume := testVolume
+			fullLVGsizeVolume.Spec.StorageClass = api.StorageClass_HDDLVG
+			capacity := fullLVGsizeVolume.Spec.Size
+
+			// create volume CR that should be deleted
+			err := svc.k8sclient.CreateCR(testCtx, &fullLVGsizeVolume, testID)
+			Expect(err).To(BeNil())
+
+			go simulateVolumeInReconcile(svc, fullLVGsizeVolume.Spec.Id, api.OperationalStatus_Removed)
+
+			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: testID})
+			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
+			Expect(err).To(BeNil())
+
+			//// check that there are no any volume CR (was removed)
+			vList := vcrd.VolumeList{}
+			err = svc.k8sclient.ReadList(testCtx, &vList)
+			Expect(err).To(BeNil())
+			Expect(len(vList.Items)).To(Equal(0))
+			// check that AC size was recreated
+			acList := accrd.AvailableCapacityList{}
+			err = svc.k8sclient.ReadList(context.Background(), &acList)
+			Expect(err).To(BeNil())
+			Expect(len(acList.Items)).To(Equal(1))
+			Expect(acList.Items[0].Spec.Size).To(Equal(capacity))
 		})
 	})
 })

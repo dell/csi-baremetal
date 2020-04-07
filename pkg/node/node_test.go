@@ -456,15 +456,16 @@ var _ = Describe("CSINodeService NodeGetCapabilities()", func() {
 var _ = Describe("CSINodeService Check()", func() {
 	It("Should return serving", func() {
 		node := newNodeService()
+		node.initialized = true
 
 		resp, err := node.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.Status).To(Equal(grpc_health_v1.HealthCheckResponse_SERVING))
 	})
-	It("Should return  not serving", func() {
+	It("Should return not serving", func() {
 		node := newNodeService()
-		node.drivesCache = make(map[string]*drivecrd.Drive)
+
 		resp, err := node.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())

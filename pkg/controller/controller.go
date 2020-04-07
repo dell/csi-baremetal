@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -38,7 +37,6 @@ const (
 type CSIControllerService struct {
 	k8sclient *base.KubeClient
 
-	communicators map[NodeID]api.VolumeManagerClient
 	//mutex for csi request
 	reqMu sync.Mutex
 	log   *logrus.Entry
@@ -48,101 +46,44 @@ type CSIControllerService struct {
 
 func NewControllerService(k8sClient *base.KubeClient, logger *logrus.Logger) *CSIControllerService {
 	c := &CSIControllerService{
-		k8sclient:     k8sClient,
-		communicators: make(map[NodeID]api.VolumeManagerClient),
-		acProvider:    common.NewACOperationsImpl(k8sClient, logger),
+		k8sclient:  k8sClient,
+		acProvider: common.NewACOperationsImpl(k8sClient, logger),
 	}
 	c.log = logger.WithField("component", "CSIControllerService")
 	return c
 }
 
+// Waits for the first ready Node
 func (c *CSIControllerService) InitController() error {
 	ll := c.log.WithField("method", "InitController")
 
-	ll.Info("Initialize communicators ...")
-	if err := c.updateCommunicators(); err != nil {
-		return fmt.Errorf("unable to initialize communicators for node services: %v", err)
-	}
-
 	timeout := 240 * time.Second
-	ll.Infof("Initialize available capacity with timeout in %s", timeout)
+	ll.Infof("Wait for Node service's containers readiness with timeout in %s", timeout)
 	ctx, cancelFn := context.WithTimeout(context.Background(), timeout)
 	defer cancelFn()
 
-	if err := c.updateAvailableCapacityCRs(ctx); err != nil {
-		return fmt.Errorf("unable to initialize available capacity: %v", err)
-	}
-
-	return nil
-}
-
-func (c *CSIControllerService) updateAvailableCapacityCRs(ctx context.Context) error {
-	ll := c.log.WithFields(logrus.Fields{
-		"method": "updateAvailableCapacityCRs",
-	})
-	wasError := false
-	collected := 0
-	for nodeID, mgr := range c.communicators {
-		response, err := mgr.GetAvailableCapacity(ctx, &api.AvailableCapacityRequest{NodeId: string(nodeID)})
-		if err != nil {
-			ll.Errorf("Error during GetAvailableCapacity request to node %s: %v", nodeID, err)
-			wasError = true
-		} else {
-			collected++
-		}
-		availableCapacity := response.GetAvailableCapacity()
-		for _, acPtr := range availableCapacity {
-			name := acPtr.NodeId + "-" + strings.ToLower(acPtr.Location)
-			if err := c.k8sclient.ReadCR(context.WithValue(ctx, base.RequestUUID, name), name, &accrd.AvailableCapacity{}); err != nil {
-				if k8sError.IsNotFound(err) {
-					newAC := c.k8sclient.ConstructACCR(name, *acPtr)
-					if err := c.k8sclient.CreateCR(context.WithValue(ctx, base.RequestUUID, name), newAC, name); err != nil {
-						ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v", acPtr, err)
-						wasError = true
-					}
-				} else {
-					ll.Errorf("Unable to read Available Capacity %s, error: %v", name, err)
-					wasError = true
-				}
-			} else {
-				ll.Infof("Available Capacity %s already exist", name)
-			}
-		}
-	}
-
-	if wasError && collected == 0 {
-		return errors.New("not all available capacity were created")
-	}
-	return nil
-}
-
-// TODO: update communicators and available capacity in background AK8S-174
-func (c *CSIControllerService) updateCommunicators() error {
-	ll := c.log.WithField("method", "updateCommunicators")
-	pods, err := c.getPods(context.Background(), NodeSvcPodsMask)
+	pods, err := c.getPods(ctx, NodeSvcPodsMask)
 	if err != nil {
 		return err
 	}
 
-	ll.Infof("Found %d pods with node service", len(pods))
+	ll.Infof("Found %d pods with Node service", len(pods))
 
 	for _, pod := range pods {
-		endpoint := fmt.Sprintf("tcp://%s:%d", pod.Status.PodIP, base.DefaultVolumeManagerPort)
-		client, err := base.NewClient(nil, endpoint, c.log.Logger)
-		if err != nil {
-			c.log.Errorf("Unable to initialize gRPC client for communicating with pod %s, error: %v",
-				pod.Name, err)
-			continue
+		// Consider the Node pod is ready if all of its containers are ready.
+		// Not check Running state because Node can be in it even if all containers are not ready.
+		containersReady := true
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if !containerStatus.Ready {
+				containersReady = false
+			}
 		}
-		c.communicators[NodeID(pod.Spec.NodeName)] = api.NewVolumeManagerClient(client.GRPCClient)
-		ll.Infof("Add communicator for node %s on endpoint %s", pod.Spec.NodeName, endpoint)
+		if containersReady {
+			return nil
+		}
 	}
 
-	if len(c.communicators) == 0 {
-		return errors.New("unable to initialize communicators")
-	}
-
-	return nil
+	return fmt.Errorf("there are no ready Node services")
 }
 
 func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
@@ -396,21 +337,21 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 			}
 			return &csi.DeleteVolumeResponse{}, nil // volume was deleted
 		}
-	}
+		// Create AC for HDDLVG or SSDLVG if it was removed during CreateVolume by updateACSizeOrDelete.
+		// Creation after DeleteVolume for HDD or SSD SC performs in Node side.
+		ac := api.AvailableCapacity{
+			Size:         volume.Spec.Size,
+			StorageClass: sc,
+			Location:     volume.Spec.Location,
+			NodeId:       volume.Spec.NodeId,
+		}
 
-	// create AC
-	ac := api.AvailableCapacity{
-		Size:         volume.Spec.Size,
-		StorageClass: sc,
-		Location:     volume.Spec.Location,
-		NodeId:       volume.Spec.NodeId,
-	}
+		ll.Infof("Creating AC %v, SC - %s", ac, api.StorageClass_name[int32(sc)])
+		cr := c.k8sclient.ConstructACCR(acName, ac)
 
-	ll.Infof("Creating AC %v, SC - %s", ac, api.StorageClass_name[int32(sc)])
-	cr := c.k8sclient.ConstructACCR(acName, ac)
-
-	if err := c.k8sclient.CreateCR(ctxT, cr, acName); err != nil {
-		ll.Errorf("Can't create AvailableCapacity CR %v error: %v", cr, err)
+		if err := c.k8sclient.CreateCR(ctxT, cr, acName); err != nil {
+			ll.Errorf("Can't create AvailableCapacity CR %v error: %v", cr, err)
+		}
 	}
 
 	return &csi.DeleteVolumeResponse{}, nil

@@ -99,9 +99,9 @@ func healthCheckTest(driver testsuites.TestDriver) {
 		defer cleanup()
 
 		ns := f.Namespace.Name
-		// Temporary wait until AC will be created
-		// TODO AK8S-512. When creation of ACs will be moved to Node, we can just wait for Node readiness here
-		time.Sleep(90 * time.Second)
+
+		err := framework.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0, 90*time.Second, nil)
+		framework.ExpectNoError(err)
 
 		podList, err := framework.GetPodsInNamespace(f.ClientSet, ns, nil)
 		framework.ExpectNoError(err)
@@ -113,12 +113,12 @@ func healthCheckTest(driver testsuites.TestDriver) {
 		amountOfACBeforeDiskFailure := len(acUnstructuredList.Items)
 		e2elog.Logf("found %d ac", amountOfACBeforeDiskFailure)
 
-		// Get SN of the first driver to simulate its failure
+		// Get SN of drive from AC and set this drive to fail state
 		drivesUnstructuredList, _ := f.DynamicClient.Resource(driveGVR).List(metav1.ListOptions{})
-		sn, _, err := unstructured.NestedString(drivesUnstructuredList.Items[0].Object, "spec", "SerialNumber")
+		acToDelete, _, err := unstructured.NestedString(acUnstructuredList.Items[0].Object, "spec", "Location")
 		framework.ExpectNoError(err)
-
-		f.ExecShellInContainer(csiNode, "hwmgr", constructHALOverrideCmd(sn))
+		f.ExecShellInContainer(csiNode, "hwmgr",
+			constructHALOverrideCmd(findSNByDriveLocation(drivesUnstructuredList.Items, acToDelete)))
 
 		// Wait until VolumeManager's Discover will see changes from HWMgr
 		time.Sleep(30 * time.Second)

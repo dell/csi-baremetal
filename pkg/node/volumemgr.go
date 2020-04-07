@@ -11,12 +11,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
@@ -25,9 +27,7 @@ import (
 type VolumeManager struct {
 	k8sclient *base.KubeClient
 
-	availableCapacityCache map[string]*api.AvailableCapacity
-	drivesCache            map[string]*drivecrd.Drive
-	acCacheMu              sync.Mutex
+	drivesCache map[string]*drivecrd.Drive
 
 	hWMgrClient api.HWServiceClient
 	// stores volumes that actually is use, key - volume ID
@@ -41,6 +41,8 @@ type VolumeManager struct {
 	linuxUtils *base.LinuxUtils
 	log        *logrus.Entry
 	nodeID     string
+
+	initialized bool
 }
 
 const (
@@ -52,13 +54,12 @@ const (
 func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, logger *logrus.Logger, k8sclient *base.KubeClient, nodeID string) *VolumeManager {
 	vm := &VolumeManager{
 
-		k8sclient:              k8sclient,
-		hWMgrClient:            client,
-		volumesCache:           make(map[string]*api.Volume),
-		linuxUtils:             base.NewLinuxUtils(executor, logger),
-		drivesCache:            make(map[string]*drivecrd.Drive),
-		availableCapacityCache: make(map[string]*api.AvailableCapacity),
-		nodeID:                 nodeID,
+		k8sclient:    k8sclient,
+		hWMgrClient:  client,
+		volumesCache: make(map[string]*api.Volume),
+		linuxUtils:   base.NewLinuxUtils(executor, logger),
+		drivesCache:  make(map[string]*drivecrd.Drive),
+		nodeID:       nodeID,
 		scMap: map[SCName]sc.StorageClassImplementer{
 			"hdd": sc.GetHDDSCInstance(logger),
 			"ssd": sc.GetSSDSCInstance(logger)},
@@ -142,28 +143,8 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(m)
 }
 
-// GetAvailableCapacity request return array of free capacity on node
-func (m *VolumeManager) GetAvailableCapacity(ctx context.Context, req *api.AvailableCapacityRequest) (*api.AvailableCapacityResponse, error) {
-	m.log.WithField("method", "GetAvailableCapacity").Info("Processing ...")
-
-	// TODO Make CSI Controller wait til drives cache is empty AK8S-379
-	if len(m.drivesCache) == 0 {
-		return nil, fmt.Errorf("drives cache has not initialized yet")
-	}
-
-	if err := m.DiscoverAvailableCapacity(req.NodeId); err != nil {
-		return nil, err
-	}
-	ac := make([]*api.AvailableCapacity, len(m.availableCapacityCache))
-	i := 0
-	for _, item := range m.availableCapacityCache {
-		ac[i] = item
-		i++
-	}
-	return &api.AvailableCapacityResponse{AvailableCapacity: ac}, nil
-}
-
-// Discover inspects drives and create volume object if partition exist
+// Discover inspects drives and create volume object if partition exist.
+// Also this method creates AC CRs
 func (m *VolumeManager) Discover() error {
 	m.log.WithField("method", "Discover").Info("Processing")
 
@@ -177,7 +158,18 @@ func (m *VolumeManager) Discover() error {
 	m.updateDrivesCRs(ctx, drives)
 
 	freeDrives := m.drivesAreNotUsed()
-	return m.updateVolumesCache(freeDrives) // lock vCacheMu
+	if err = m.updateVolumesCache(freeDrives); err != nil {
+		return err
+	}
+
+	if err = m.discoverAvailableCapacity(ctx, m.nodeID); err != nil {
+		return err
+	}
+
+	if !m.initialized {
+		m.initialized = true
+	}
+	return nil
 }
 
 // updateDrivesCRs updates drives cache based on provided list of Drives
@@ -213,7 +205,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 					drivePtr.UUID = d.Spec.UUID
 					// If got from HWMgr drive's health is not equal to drive's health in cache then update appropriate
 					// resources
-					if drivePtr.Health != d.Spec.Health {
+					if drivePtr.Health != d.Spec.Health || drivePtr.Status != d.Spec.Status {
 						m.handleDriveStatusChange(ctx, drivePtr)
 					}
 					d.Spec = *drivePtr
@@ -305,28 +297,39 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 	return nil
 }
 
-// DiscoverAvailableCapacity inspect current available capacity on nodes and fill cache
-func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
+// DiscoverAvailableCapacity inspect current available capacity on nodes and fill AC CRs
+func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID string) error {
 	ll := m.log.WithFields(logrus.Fields{
-		"component": "VolumeManager",
-		"method":    "DiscoverAvailableCapacity",
+		"method": "discoverAvailableCapacity",
 	})
-	ll.Infof("Current available capacity cache is: %v", m.availableCapacityCache)
 
-	m.acCacheMu.Lock()
-	defer m.acCacheMu.Unlock()
+	ll.Infof("Starting discovering Available Capacity with %d drives in cache", len(m.drivesCache))
+
+	wasError := false
+
 	for _, drive := range m.drivesCache {
 		if drive.Spec.Health == api.Health_GOOD && drive.Spec.Status == api.Status_ONLINE {
 			removed := false
 			for _, volume := range m.volumesCache {
-				//if drive contains volume then available capacity for this drive will be removed
+				// if drive contains volume then available capacity for this drive shouldn't exist
 				if strings.EqualFold(volume.Location, drive.Spec.UUID) {
-					delete(m.availableCapacityCache, drive.Spec.UUID)
-					ll.Infof("Remove available capacity on node %s, because drive %s has volume", nodeID, drive.Spec.UUID)
+					ll.Infof("Drive %s is occupied by volume %s", drive.Spec.UUID, volume.Id)
 					removed = true
 				}
 			}
-			//if drive is empty
+			// Don't create ACs with devices which are used by LVG
+			lvgList := &lvgcrd.LVGList{}
+			if err := m.k8sclient.ReadList(ctx, lvgList); err != nil {
+				ll.Errorf("Failed to get LVG CR list, error %v", err)
+				wasError = true
+			} else {
+				for _, lvg := range lvgList.Items {
+					if base.ContainsString(lvg.Spec.Locations, drive.Spec.UUID) {
+						removed = true
+					}
+				}
+			}
+			// If drive isn't used by Volume then try to create AC from it
 			if !removed {
 				capacity := &api.AvailableCapacity{
 					Size:         drive.Spec.Size,
@@ -334,21 +337,33 @@ func (m *VolumeManager) DiscoverAvailableCapacity(nodeID string) error {
 					StorageClass: base.ConvertDriveTypeToStorageClass(drive.Spec.Type),
 					NodeId:       nodeID,
 				}
-				ll.Infof("Adding available capacity: %s-%s", capacity.NodeId, capacity.Location)
-				m.availableCapacityCache[capacity.Location] = capacity
-			}
-		} else {
-			//If drive is unhealthy or offline, remove available capacity
-			for _, ac := range m.availableCapacityCache {
-				if drive.Spec.UUID == ac.Location {
-					ll.Infof("Remove available capacity on node %s, because drive %s is not ready", ac.NodeId, ac.Location)
-					delete(m.availableCapacityCache, ac.Location)
-					break
+
+				name := capacity.NodeId + "-" + strings.ToLower(capacity.Location)
+
+				if err := m.k8sclient.ReadCR(context.WithValue(ctx, base.RequestUUID, name), name,
+					&accrd.AvailableCapacity{}); err != nil {
+					if k8sError.IsNotFound(err) {
+						newAC := m.k8sclient.ConstructACCR(name, *capacity)
+						ll.Infof("Creating Available Capacity %v", newAC)
+						if err := m.k8sclient.CreateCR(context.WithValue(ctx, base.RequestUUID, name),
+							newAC, name); err != nil {
+							ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v",
+								capacity, err)
+							wasError = true
+						}
+					} else {
+						ll.Errorf("Unable to read Available Capacity %s, error: %v", name, err)
+						wasError = true
+					}
 				}
 			}
 		}
 	}
-	ll.Info("Current available capacity cache: ", m.availableCapacityCache)
+
+	if wasError {
+		return errors.New("not all available capacity were created")
+	}
+
 	return nil
 }
 
@@ -754,7 +769,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 
 	// Handle resources without LVG
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
-	if drive.Health != api.Health_GOOD {
+	if drive.Health != api.Health_GOOD || drive.Status == api.Status_OFFLINE {
 		ac := m.getACByLocation(ctx, drive.UUID)
 		if ac != nil {
 			ll.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)

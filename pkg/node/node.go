@@ -341,13 +341,12 @@ func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCh
 		"method": "Check",
 	})
 
-	switch len(s.drivesCache) {
-	case 0:
+	if !s.initialized {
 		ll.Info("no drives in cache - Node service is not ready yet")
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
-	default:
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 	}
+
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 }
 
 // Watch is used by clients to receive updates when the service status changes.

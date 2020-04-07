@@ -155,24 +155,6 @@ func TestVolumeManager_SetLinuxUtilsExecutor(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestVolumeManager_GetAvailableCapacitySuccess(t *testing.T) {
-	kubeClient, err := base.GetFakeKubeClient(testNs)
-	assert.Nil(t, err)
-	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, "nodeId")
-	assert.Empty(t, vm.drivesCache)
-	err = vm.Discover()
-	assert.Nil(t, err)
-	ac, err := vm.GetAvailableCapacity(context.Background(), &api.AvailableCapacityRequest{NodeId: nodeId})
-	if ac != nil {
-		assert.NotNil(t, ac.GetAvailableCapacity())
-		assert.Equal(t, 2, len(ac.GetAvailableCapacity()))
-	}
-
-	assert.Nil(t, err)
-}
-
 func TestVolumeManager_DrivesNotInUse(t *testing.T) {
 	kubeClient, err := base.GetFakeKubeClient(testNs)
 	assert.Nil(t, err)
@@ -259,42 +241,60 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 
 }
 
-func TestVolumeManager_DiscoverAvailableCapacity(t *testing.T) {
-	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
 	kubeClient, err := base.GetFakeKubeClient(testNs)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, "nodeId")
+	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, nodeId)
+
 	err = vm.Discover()
 	assert.Nil(t, err)
-	assert.Empty(t, vm.availableCapacityCache)
-	err = vm.DiscoverAvailableCapacity(nodeId)
+
+	err = vm.discoverAvailableCapacity(context.Background(), nodeId)
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(vm.availableCapacityCache))
+
+	acList := &accrd.AvailableCapacityList{}
+	err = vm.k8sclient.ReadList(context.Background(), acList)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(acList.Items))
 }
+
 func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	//expected 1 available capacity because 1 drive is unhealthy
-	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	kubeClient, err := base.GetFakeKubeClient(testNs)
 	assert.Nil(t, err)
-	hwMgrRespDrives[1].Health = api.Health_BAD
-	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, "nodeId")
+	hwMgrDrivesWithBad := hwMgrRespDrives
+	hwMgrDrivesWithBad[1].Health = api.Health_BAD
+	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrDrivesWithBad)
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, nodeId)
+
 	err = vm.Discover()
 	assert.Nil(t, err)
-	err = vm.DiscoverAvailableCapacity(nodeId)
+
+	err = vm.discoverAvailableCapacity(context.Background(), nodeId)
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(vm.availableCapacityCache))
+
+	acList := &accrd.AvailableCapacityList{}
+	err = vm.k8sclient.ReadList(context.Background(), acList)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(acList.Items))
 }
-func TestVolumeManager_DiscoverAvailableCapacityEmptyCache(t *testing.T) {
-	//empty cache because 1 drive is unhealthy and another has volume
-	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+
+func TestVolumeManager_DiscoverAvailableCapacityNoFreeDrive(t *testing.T) {
+	//expected 0 available capacity because the drive has volume
 	kubeClient, err := base.GetFakeKubeClient(testNs)
-	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, "nodeId")
-	hwMgrRespDrives[1].Health = api.Health_BAD
-	hwMgrClient.SetDrives(hwMgrRespDrives)
-	err = vm.Discover()
+	assert.Nil(t, err)
+	hwMgrClient := mocks.NewMockHWMgrClient(nil)
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, nodeId)
+	vm.drivesCache["hasVolume"] = &drivecrd.Drive{
+		Spec: *hwMgrRespDrives[0],
+	}
+
 	vm.volumesCache["id"] = &api.Volume{
 		Id:           "id",
 		NodeId:       "pod",
@@ -306,10 +306,39 @@ func TestVolumeManager_DiscoverAvailableCapacityEmptyCache(t *testing.T) {
 		Health:       hwMgrRespDrives[0].Health,
 		Status:       api.OperationalStatus_Operative,
 	}
+
+	err = vm.discoverAvailableCapacity(context.Background(), nodeId)
 	assert.Nil(t, err)
-	err = vm.DiscoverAvailableCapacity(nodeId)
+
+	acList := &accrd.AvailableCapacityList{}
+	err = vm.k8sclient.ReadList(context.Background(), acList)
+
 	assert.Nil(t, err)
-	assert.Empty(t, vm.availableCapacityCache)
+	assert.Equal(t, 0, len(acList.Items))
+}
+
+func TestVolumeManager_DiscoverAvailableCapacityIgnoreLVG(t *testing.T) {
+	//expected 0 available capacity because the drive is used in LVG
+	kubeClient, err := base.GetFakeKubeClient(testNs)
+	assert.Nil(t, err)
+	hwMgrClient := mocks.NewMockHWMgrClient(nil)
+	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, nodeId)
+	vm.drivesCache["hasLVG"] = &drivecrd.Drive{
+		Spec: *drive1,
+	}
+
+	err = vm.k8sclient.CreateCR(context.Background(), &lvgCR, lvgName)
+	assert.Nil(t, err)
+
+	err = vm.discoverAvailableCapacity(context.Background(), nodeId)
+	assert.Nil(t, err)
+
+	acList := &accrd.AvailableCapacityList{}
+	err = vm.k8sclient.ReadList(context.Background(), acList)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(acList.Items))
 }
 
 func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
