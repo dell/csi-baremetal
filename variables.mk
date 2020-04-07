@@ -19,6 +19,7 @@ HAL_VERSION      := 3.4.0.0-1835.b1a54fa
 # registry
 REPO             := baremetal-csi-plugin
 REGISTRY         := 10.244.120.194:8085/atlantic
+HARBOR           := harbor.lss.emc.com/atlantic
 
 # paths
 CHARTS_PATH		 := charts/baremetal-csi-plugin

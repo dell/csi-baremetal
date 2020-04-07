@@ -40,15 +40,18 @@ image: image-hwmgr image-node image-controller
 image-hwmgr:
 	cp ./build/${HW_MANAGER}/${HW_MANAGER} ./pkg/${HW_MANAGER}/${HW_MANAGER}
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ./pkg/${HW_MANAGER}
+	docker tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
 
 image-node: download-grpc-health-probe
 	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
 	cp ./build/${HEALTH_PROBE} ./pkg/${NODE}/${HEALTH_PROBE}
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ./pkg/${NODE}
+	docker tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ${HARBOR}/${REPO}-${NODE}:${TAG}
 
 image-controller:
 	cp ./build/${CONTROLLER}/${CONTROLLER} ./pkg/${CONTROLLER}/${CONTROLLER}
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ./pkg/${CONTROLLER}
+	docker tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}
 
 push: push-hwmgr push-node push-controller
 
@@ -59,12 +62,15 @@ push-local:
 
 push-hwmgr:
 	docker push ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+	docker push ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
 
 push-node:
 	docker push ${REGISTRY}/${REPO}-${NODE}:${TAG}
+	docker push ${HARBOR}/${REPO}-${NODE}:${TAG}
 
 push-controller:
 	docker push ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
+	docker push ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}
 
 clean: clean-hwmgr clean-node clean-controller clean-proto
 
