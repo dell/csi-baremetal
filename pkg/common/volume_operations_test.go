@@ -231,7 +231,7 @@ func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
 	err := svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
-	ctx, closeFn := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer closeFn()
 
 	reached, st := svc.WaitStatus(ctx, v.Name, api.OperationalStatus_FailedToCreate, api.OperationalStatus_Created)
@@ -256,7 +256,7 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	err := svc.k8sClient.CreateCR(testCtx, testVolume1Name, &testVolume1)
 	assert.Nil(t, err)
 
-	ctx, closeFn := context.WithTimeout(context.Background(), time.Second)
+	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
 	closeFn()
 	ctx.Done()
 
