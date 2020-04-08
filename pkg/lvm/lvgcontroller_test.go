@@ -349,7 +349,7 @@ func Test_RemoveChildAC(t *testing.T) {
 	defer teardown(t, c)
 
 	// add AC CR that point in LVGCR1
-	err := c.k8sClient.CreateCR(tCtx, &acCR1, acCR1Name)
+	err := c.k8sClient.CreateCR(tCtx, acCR1Name, &acCR1)
 	assert.Nil(t, err)
 
 	c.removeChildAC(acCR1.Spec.Location)
@@ -361,7 +361,7 @@ func Test_RemoveChildAC(t *testing.T) {
 	assert.Equal(t, 0, len(acList.Items))
 
 	// add AC CR that point in lvgCR1
-	err = c.k8sClient.CreateCR(tCtx, &acCR1, acCR1Name)
+	err = c.k8sClient.CreateCR(tCtx, acCR1Name, &acCR1)
 	assert.Nil(t, err)
 	// try to remove AC that point on lvgCR2
 	c.removeChildAC(lvgCR2.Name)
@@ -378,14 +378,14 @@ func setup(t *testing.T, node string) *LVGController {
 	k8sClient, err := base.GetFakeKubeClient(ns)
 	assert.Nil(t, err)
 	// create Drive CRs
-	err = k8sClient.CreateCR(tCtx, &drive1CR, drive1CR.Name)
+	err = k8sClient.CreateCR(tCtx, drive1CR.Name, &drive1CR)
 	assert.Nil(t, err)
-	err = k8sClient.CreateCR(tCtx, &drive2CR, drive2CR.Name)
+	err = k8sClient.CreateCR(tCtx, drive2CR.Name, &drive2CR)
 	assert.Nil(t, err)
 	// create LVG CRs
-	err = k8sClient.CreateCR(tCtx, &lvgCR1, lvgCR1.Name)
+	err = k8sClient.CreateCR(tCtx, lvgCR1.Name, &lvgCR1)
 	assert.Nil(t, err)
-	err = k8sClient.CreateCR(tCtx, &lvgCR2, lvgCR2.Name)
+	err = k8sClient.CreateCR(tCtx, lvgCR2.Name, &lvgCR2)
 	assert.Nil(t, err)
 	return NewLVGController(k8sClient, node, testLogger)
 }

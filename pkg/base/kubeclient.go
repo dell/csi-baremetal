@@ -57,8 +57,7 @@ func NewKubeClient(k8sclient k8sClient.Client, logger *logrus.Logger, namespace 
 	}
 }
 
-//CreateCR return true if object already exist in cluster
-func (k *KubeClient) CreateCR(ctx context.Context, obj runtime.Object, name string) error {
+func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
 
@@ -92,13 +91,12 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object
 	return k.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 }
 
-//TODO AK8S-381 Add field selector to ReadList method
-func (k *KubeClient) ReadList(ctx context.Context, object runtime.Object) error {
+func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
 	k.log.WithField("method", "ReadList").Info("Reading list")
 
-	return k.List(ctx, object, k8sClient.InNamespace(k.Namespace))
+	return k.List(ctx, obj, k8sClient.InNamespace(k.Namespace))
 }
 
 func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
@@ -130,7 +128,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "DeleteCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Deleting CR %s", obj.GetObjectKind().GroupVersionKind().Kind)
+	}).Infof("Deleting CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 
 	return k.Delete(ctx, obj)
 }
@@ -202,11 +200,12 @@ func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.Operation
 		v            = &volumecrd.Volume{}
 		newStatusStr = api.OperationalStatus_name[int32(newStatus)]
 		attempts     = 10
+		ctx          = context.WithValue(context.Background(), RequestUUID, volumeID)
 	)
 
 	ll.Infof("Try to set status to %s", newStatusStr)
 
-	if err := k.ReadVolumeCRWithAttempts(volumeID, v, attempts); err != nil {
+	if err := k.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
 		ll.Errorf("failed to read volume cr after %d attempts", attempts)
 	}
 
@@ -217,7 +216,7 @@ func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.Operation
 	}
 	v.ObjectMeta.Annotations[VolumeStatusAnnotationKey] = newStatusStr
 
-	if err := k.UpdateVolumeCRWithAttempts(v, attempts); err == nil {
+	if err := k.UpdateCRWithAttempts(ctx, v, attempts); err == nil {
 		return nil
 	}
 
@@ -226,10 +225,10 @@ func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.Operation
 	return fmt.Errorf("unable to persist status to %s for volume %s", newStatusStr, volumeID)
 }
 
-func (k *KubeClient) ReadVolumeCRWithAttempts(volumeID string, vol *volumecrd.Volume, attempts int) error {
+func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempts int) error {
 	ll := k.log.WithFields(logrus.Fields{
-		"method":   "readVolumeCRWithAttempts",
-		"volumeID": volumeID,
+		"method":   "ReadCRWithAttempts",
+		"volumeID": name,
 	})
 
 	var (
@@ -241,7 +240,7 @@ func (k *KubeClient) ReadVolumeCRWithAttempts(volumeID string, vol *volumecrd.Vo
 
 	// read volume into v
 	for i := 0; i < attempts; i++ {
-		if err = k.ReadCR(context.Background(), volumeID, vol); err == nil {
+		if err = k.ReadCR(context.Background(), name, obj); err == nil {
 			return nil
 		} else if k8sError.IsNotFound(err) {
 			return err
@@ -252,11 +251,8 @@ func (k *KubeClient) ReadVolumeCRWithAttempts(volumeID string, vol *volumecrd.Vo
 	return err
 }
 
-func (k *KubeClient) UpdateVolumeCRWithAttempts(vol *volumecrd.Volume, attempts int) error {
-	ll := k.log.WithFields(logrus.Fields{
-		"method":   "updateVolumeCRWithAttempts",
-		"volumeID": vol.Spec.Id,
-	})
+func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Object, attempts int) error {
+	ll := k.log.WithField("method", "UpdateCRWithAttempts")
 
 	var (
 		err    error
@@ -266,7 +262,7 @@ func (k *KubeClient) UpdateVolumeCRWithAttempts(vol *volumecrd.Volume, attempts 
 	defer ticker.Stop()
 
 	for i := 0; i < attempts; i++ {
-		if err = k.UpdateCR(context.Background(), vol); err == nil {
+		if err = k.UpdateCR(ctx, obj); err == nil {
 			return nil
 		} else if k8sError.IsNotFound(err) {
 			return err

@@ -15,4 +15,5 @@ const (
 
 	// timeout in which we expect that any operation should be finished
 	DefaultTimeoutForOperations = 10 * time.Minute
+	DefaultTimeoutForCR         = 1 * time.Minute
 )

@@ -328,7 +328,7 @@ func TestVolumeManager_DiscoverAvailableCapacityIgnoreLVG(t *testing.T) {
 		Spec: *drive1,
 	}
 
-	err = vm.k8sclient.CreateCR(context.Background(), &lvgCR, lvgName)
+	err = vm.k8sclient.CreateCR(context.Background(), lvgName, &lvgCR)
 	assert.Nil(t, err)
 
 	err = vm.discoverAvailableCapacity(context.Background(), nodeId)
@@ -528,7 +528,7 @@ func TestVolumeManager_CreateLocalVolumeLVGSuccess(t *testing.T) {
 	e.OnCommand(fmt.Sprintf("/sbin/lvm lvcreate --yes --name %s --size %s %s", volume.Id, sizeStr, volume.Location)).
 		Return("", "", nil)
 
-	err := vm.k8sclient.CreateCR(ctx, &lvgCR, lvgName)
+	err := vm.k8sclient.CreateCR(ctx, lvgName, &lvgCR)
 	assert.Nil(t, err)
 
 	err = vm.CreateLocalVolume(ctx, &volume)
@@ -598,7 +598,7 @@ func TestVolumeManager_CreateLocalVolumeLVGFail(t *testing.T) {
 		Return("", "", expectedErr2)
 	vm2.linuxUtils = base.NewLinuxUtils(e2, vmLogger)
 
-	err2 := vm2.k8sclient.CreateCR(ctx, &lvgCR, lvgName)
+	err2 := vm2.k8sclient.CreateCR(ctx, lvgName, &lvgCR)
 	assert.Nil(t, err2)
 
 	err2 = vm2.CreateLocalVolume(ctx, &volume2)
@@ -616,7 +616,7 @@ func TestVolumeManager_ReconcileCreateVolumeSuccess(t *testing.T) {
 
 	vol := volCR
 	vol.Spec.Location = dList.Items[0].Spec.UUID
-	err = vm.k8sclient.CreateCR(context.Background(), &vol, testID)
+	err = vm.k8sclient.CreateCR(context.Background(), testID, &vol)
 	assert.Nil(t, err)
 
 	_, err = vm.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{
@@ -640,7 +640,7 @@ func TestVolumeManager_ReconcileCreateVolumeFail(t *testing.T) {
 	// So CreateLocalVolume fails
 	volCRNotFound := volCR
 	volCRNotFound.Spec.Size = 1024 * 1024 * 1024 * 1024
-	err := vm.k8sclient.CreateCR(context.Background(), &volCRNotFound, testID)
+	err := vm.k8sclient.CreateCR(context.Background(), testID, &volCRNotFound)
 	assert.Nil(t, err)
 
 	_, err = vm.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{
@@ -762,7 +762,7 @@ func TestVolumeManager_addVolumeOwner(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives(nil)
 
 	vol := volCR
-	err := vm.k8sclient.CreateCR(context.Background(), &vol, testID)
+	err := vm.k8sclient.CreateCR(context.Background(), testID, &vol)
 	assert.Nil(t, err)
 
 	podName := "test-pod"
@@ -797,7 +797,7 @@ func TestVolumeManager_clearVolumeOwners(t *testing.T) {
 	volWithOwners := volCR
 	volWithOwners.Spec.Owners = []string{"pod1", "pod2"}
 
-	err := vm.k8sclient.CreateCR(context.Background(), &volWithOwners, testID)
+	err := vm.k8sclient.CreateCR(context.Background(), testID, &volWithOwners)
 	assert.Nil(t, err)
 
 	err = vm.clearVolumeOwners(testID)
@@ -821,7 +821,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives(nil)
 
 	ac := acCR
-	err := vm.k8sclient.CreateCR(context.Background(), &ac, ac.Name)
+	err := vm.k8sclient.CreateCR(context.Background(), ac.Name, &ac)
 	assert.Nil(t, err)
 
 	drive := drive1
@@ -837,7 +837,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 
 	vol := volCR
 	vol.Spec.Location = driveUUID
-	err = vm.k8sclient.CreateCR(context.Background(), &vol, testID)
+	err = vm.k8sclient.CreateCR(context.Background(), testID, &vol)
 	assert.Nil(t, err)
 
 	// Check volume's health change

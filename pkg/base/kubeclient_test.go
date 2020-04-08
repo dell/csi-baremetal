@@ -132,7 +132,7 @@ var _ = Describe("Working with CRD", func() {
 
 	Context("Create and read CRDs (volume, AC and drive)", func() {
 		It("Should create and read Volume CR", func() {
-			err := k8sclient.CreateCR(testCtx, &testVolume, testID)
+			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
 			Expect(err).To(BeNil())
 			rVolume := &vcrd.Volume{}
 			err = k8sclient.ReadCR(testCtx, testID, rVolume)
@@ -141,7 +141,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should create and read Available Capacity CR", func() {
-			err := k8sclient.CreateCR(testCtx, &testACCR, testACName)
+			err := k8sclient.CreateCR(testCtx, testACName, &testACCR)
 			Expect(err).To(BeNil())
 			rAC := &accrd.AvailableCapacity{}
 			err = k8sclient.ReadCR(testCtx, testACName, rAC)
@@ -150,7 +150,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should create and read drive CR", func() {
-			err := k8sclient.CreateCR(testCtx, &testDriveCR, testUUID)
+			err := k8sclient.CreateCR(testCtx, testUUID, &testDriveCR)
 			Expect(err).To(BeNil())
 			rdrive := &drivecrd.Drive{}
 			err = k8sclient.ReadCR(testCtx, testUUID, rdrive)
@@ -159,7 +159,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should read volumes CR List", func() {
-			err := k8sclient.CreateCR(context.Background(), &testVolume, testACName)
+			err := k8sclient.CreateCR(context.Background(), testACName, &testVolume)
 			Expect(err).To(BeNil())
 
 			vList := &vcrd.VolumeList{}
@@ -170,7 +170,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should read drive CR List", func() {
-			err := k8sclient.CreateCR(testCtx, &testDriveCR, testACName)
+			err := k8sclient.CreateCR(testCtx, testACName, &testDriveCR)
 			Expect(err).To(BeNil())
 
 			dList := &drivecrd.DriveList{}
@@ -193,7 +193,7 @@ var _ = Describe("Working with CRD", func() {
 	Context("Update CR instance", func() {
 		It("Should Available Capacity update successfully", func() {
 			acCR := testACCR
-			err := k8sclient.CreateCR(testCtx, &acCR, testACName)
+			err := k8sclient.CreateCR(testCtx, testACName, &acCR)
 			Expect(err).To(BeNil())
 
 			newSize := int64(1024 * 105)
@@ -211,7 +211,7 @@ var _ = Describe("Working with CRD", func() {
 
 		It("Should Drive update successfully", func() {
 			driveCR := testDriveCR
-			err := k8sclient.CreateCR(testCtx, &driveCR, testUUID)
+			err := k8sclient.CreateCR(testCtx, testUUID, &driveCR)
 			Expect(err).To(BeNil())
 
 			driveCR.Spec.Health = api.Health_BAD
@@ -232,7 +232,7 @@ var _ = Describe("Working with CRD", func() {
 
 		It("Should update Volume CR's status successfully", func() {
 			status := api.OperationalStatus_FailedToCreate
-			err := k8sclient.CreateCR(testCtx, &testVolume, testID)
+			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
 			Expect(err).To(BeNil())
 
 			err = k8sclient.ChangeVolumeStatus(testID, status)
@@ -256,7 +256,7 @@ var _ = Describe("Working with CRD", func() {
 
 	Context("Delete CR", func() {
 		It("AC should be deleted", func() {
-			err := k8sclient.CreateCR(testCtx, &testACCR, testUUID)
+			err := k8sclient.CreateCR(testCtx, testUUID, &testACCR)
 			Expect(err).To(BeNil())
 			acList := accrd.AvailableCapacityList{}
 
@@ -272,7 +272,7 @@ var _ = Describe("Working with CRD", func() {
 			Expect(len(acList.Items)).To(Equal(0))
 		})
 		It("Drive should be deleted", func() {
-			err := k8sclient.CreateCR(testCtx, &testDriveCR, testUUID)
+			err := k8sclient.CreateCR(testCtx, testUUID, &testDriveCR)
 			Expect(err).To(BeNil())
 			driveList := drivecrd.DriveList{}
 

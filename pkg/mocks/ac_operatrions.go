@@ -22,7 +22,7 @@ func (a *ACOperationsMock) SearchAC(ctx context.Context, node string, requiredBy
 	return args.Get(0).(*accrd.AvailableCapacity)
 }
 
-func (a *ACOperationsMock) UpdateACSizeOrDelete(ac *accrd.AvailableCapacity, bytes int64) error {
-	args := a.Mock.Called(ac, bytes)
+func (a *ACOperationsMock) DeleteIfEmpty(ctx context.Context, acLocation string) error {
+	args := a.Mock.Called(ctx, acLocation)
 	return args.Error(0)
 }

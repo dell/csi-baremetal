@@ -1,6 +1,6 @@
 FROM alpine:3.10
 
-LABEL   description="Bare-metal CSI Node Service"
+LABEL   description="Bare-metal CSI Controller Service"
 
 ADD     controller controller
 

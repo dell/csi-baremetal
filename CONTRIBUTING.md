@@ -1,6 +1,17 @@
 # Baremetal CSI Plugin Contributing Guide
 
 ## Workflow overview
+
+### Code style convention
+1. Imports statement should be divided into 3 blocks each block is separated from others by empty line.
+ - First block should contain only imports from standard library. 
+ - Second - external libraries imports.
+ - Third - our internal imports that don't relate to that repository (baremetal-csi-plugin).
+ - Forth - internal imports that relates to that repository (baremetal-csi-plugin).
+If there are no imports from some block, that block should be omitted.
+
+2. If some structure have a field with logger, that field should be the last in the structure declaration.
+
 ### Before PR Creation
 1. If there is no JIRA issue for the problem you're going to solve, create one under []() project.
 2. The branch type should be **bugfix** or **feature** based on the JIRA issue type:

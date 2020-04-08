@@ -21,6 +21,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
 
@@ -41,6 +42,8 @@ type VolumeManager struct {
 	linuxUtils *base.LinuxUtils
 	log        *logrus.Entry
 	nodeID     string
+
+	acProvider common.AvailableCapacityOperations
 
 	initialized bool
 }
@@ -63,6 +66,7 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 		scMap: map[SCName]sc.StorageClassImplementer{
 			"hdd": sc.GetHDDSCInstance(logger),
 			"ssd": sc.GetSSDSCInstance(logger)},
+		acProvider: common.NewACOperationsImpl(k8sclient, logger),
 	}
 	vm.log = logger.WithField("component", "VolumeManager")
 	return vm
@@ -74,7 +78,9 @@ func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
 
 // Reconcile Volume CRD according to stasus which set by CSI Controller Service
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx, cancelFn := context.WithTimeout(context.Background(), VolumeOperationsTimeout)
+	ctx, cancelFn := context.WithTimeout(
+		context.WithValue(context.Background(), base.RequestUUID, req.Name),
+		VolumeOperationsTimeout)
 	defer cancelFn()
 
 	ll := m.log.WithFields(logrus.Fields{
@@ -109,14 +115,14 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			newStatus = api.OperationalStatus_Created
 		}
 
-		if err = m.k8sclient.ChangeVolumeStatus(volume.Name, newStatus); err != nil {
-			ll.Error(err.Error())
+		volume.Spec.Status = newStatus
+		if err = m.k8sclient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
 			// Here we can return error because Volume created successfully and we can try to change CR's status
 			// one more time
+			ll.Errorf("Unable to update volume status to %s: %v", newStatus.String(), err)
 			return ctrl.Result{}, err
 		}
-		// If we return err here, we'll call that reconcile one more time.
-		// But we set OperationalStatus as FailedToCreate. And CSI Controller handles with FailedToCreate.
+
 		return ctrl.Result{}, nil
 	case api.OperationalStatus_Removing:
 		if err = m.DeleteLocalVolume(ctx, &volume.Spec); err != nil {
@@ -127,8 +133,10 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 			newStatus = api.OperationalStatus_Removed
 		}
-		if err = m.k8sclient.ChangeVolumeStatus(volume.Name, newStatus); err != nil {
-			ll.Errorf("Unable to set new status for volume: %v", err)
+
+		volume.Spec.Status = newStatus
+		if err = m.k8sclient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
+			ll.Error("Unable to set new status for volume")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -221,7 +229,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 			//Drive CR is not exist, try to create it
 			drivePtr.UUID = uuid.New().String()
 			driveCR := m.k8sclient.ConstructDriveCR(drivePtr.UUID, *drivePtr)
-			if e := m.k8sclient.CreateCR(ctx, driveCR, drivePtr.UUID); e != nil {
+			if e := m.k8sclient.CreateCR(ctx, drivePtr.UUID, driveCR); e != nil {
 				ll.Errorf("Failed to create drive CR Vid/Pid/SN %s-%s-%s, error %s", driveCR.Spec.VID, driveCR.Spec.PID, driveCR.Spec.SerialNumber, e.Error())
 			}
 			m.drivesCache[driveCR.Spec.UUID] = driveCR
@@ -346,7 +354,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 						newAC := m.k8sclient.ConstructACCR(name, *capacity)
 						ll.Infof("Creating Available Capacity %v", newAC)
 						if err := m.k8sclient.CreateCR(context.WithValue(ctx, base.RequestUUID, name),
-							newAC, name); err != nil {
+							name, newAC); err != nil {
 							ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v",
 								capacity, err)
 							wasError = true
@@ -449,7 +457,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 			rollBacked, err := m.setPartitionUUIDForDev(device, vol.Id)
 			if err != nil {
 				if !rollBacked {
-					ll.Errorf("unable set partition uuid for dev %s, roll back failed too, set drive status to OFFLINE", device)
+					ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
 					drive.Spec.Status = api.Status_OFFLINE
 					if err := m.k8sclient.UpdateCR(ctx, drive); err != nil {
 						ll.Errorf("Failed to update drive CRd with name %s, error %s", drive.Name, err.Error())
@@ -704,11 +712,12 @@ func (m *VolumeManager) addVolumeOwner(volumeID string, podName string) error {
 	var (
 		v        = &volumecrd.Volume{}
 		attempts = 10
+		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	)
 
 	ll.Infof("Try to add owner as a pod name %s", podName)
 
-	if err := m.k8sclient.ReadVolumeCRWithAttempts(volumeID, v, attempts); err != nil {
+	if err := m.k8sclient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
 		ll.Errorf("failed to read volume cr after %d attempts", attempts)
 	}
 
@@ -721,7 +730,7 @@ func (m *VolumeManager) addVolumeOwner(volumeID string, podName string) error {
 		v.Spec.Owners = owners
 	}
 
-	if err := m.k8sclient.UpdateVolumeCRWithAttempts(v, attempts); err == nil {
+	if err := m.k8sclient.UpdateCRWithAttempts(ctx, v, attempts); err == nil {
 		return nil
 	}
 
@@ -740,17 +749,18 @@ func (m *VolumeManager) clearVolumeOwners(volumeID string) error {
 	var (
 		v        = &volumecrd.Volume{}
 		attempts = 10
+		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	)
 
 	ll.Infof("Try to clear owner fieild")
 
-	if err := m.k8sclient.ReadVolumeCRWithAttempts(volumeID, v, attempts); err != nil {
+	if err := m.k8sclient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
 		ll.Errorf("failed to read volume cr after %d attempts", attempts)
 	}
 
 	v.Spec.Owners = nil
 
-	if err := m.k8sclient.UpdateVolumeCRWithAttempts(v, attempts); err == nil {
+	if err := m.k8sclient.UpdateCRWithAttempts(ctx, v, attempts); err == nil {
 		return nil
 	}
 

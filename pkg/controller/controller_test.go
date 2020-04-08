@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -159,20 +158,7 @@ var _ = Describe("CSIControllerService addition functions", func() {
 		removeAllCrds(svc.k8sclient)
 	})
 
-	Context("construct CR scenarios", func() {
-		It("Construct AvailableCapacity CR instance", func() {
-			capacity := api.AvailableCapacity{
-				Size:         1024 * 1024 * 1024,
-				StorageClass: api.StorageClass_HDD,
-				Location:     testDriveLocation1,
-				NodeId:       testNode1Name,
-			}
-			ac := svc.k8sclient.ConstructACCR(testAC1Name, capacity)
-			Expect(ac).To(Equal(&testAC1))
-		})
-	})
-
-	Context("InitController() scenarios", func() {
+	Context("InitController scenarios", func() {
 		It("success scenario when there is ready Node pod", func() {
 			createPods(svc, testReadyPod1, testUnreadyPod2)
 
@@ -196,46 +182,6 @@ var _ = Describe("CSIControllerService addition functions", func() {
 			Expect(err.Error()).To(ContainSubstring("there are no ready Node services"))
 		})
 
-	})
-
-	Context("waitVCRStatus scenarios", func() {
-		BeforeEach(func() {
-			err := svc.k8sclient.CreateCR(context.Background(), &testVolume, testID)
-			Expect(err).To(BeNil())
-		})
-		AfterEach(func() {
-			err := svc.k8sclient.DeleteCR(context.Background(), &testVolume)
-			Expect(err).To(BeNil())
-		})
-
-		It("Context was closed", func() {
-			ctxT, cancelFn := context.WithTimeout(context.Background(), 10*time.Millisecond)
-			reached, statusCode := svc.waitVCRStatus(ctxT, testID)
-			cancelFn()
-			Expect(reached).To(BeFalse())
-			Expect(statusCode).To(Equal(api.OperationalStatus(-1)))
-		})
-		It("Status was reached", func() {
-			ctxT, cancelFn := context.WithTimeout(context.Background(), 1200*time.Millisecond)
-			var (
-				wg         sync.WaitGroup
-				reached    bool
-				statusCode api.OperationalStatus
-			)
-			wg.Add(1)
-			go func() {
-				reached, statusCode = svc.waitVCRStatus(ctxT, testID, api.OperationalStatus_FailedToCreate)
-				cancelFn()
-				wg.Done()
-			}()
-			testV2 := testVolume
-			testV2.Spec.Status = api.OperationalStatus_FailedToCreate
-			err := svc.k8sclient.UpdateCR(context.Background(), &testV2)
-			Expect(err).To(BeNil())
-			wg.Wait()
-			Expect(reached).To(BeTrue())
-			Expect(statusCode).To(Equal(api.OperationalStatus(11))) // 11 - OperationalStatus_FailedToCreate
-		})
 	})
 })
 
@@ -276,7 +222,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				req      = getCreateVolumeRequest("req1", capacity, testNode1Name)
 				vol      = &vcrd.Volume{}
 			)
-			go simulateVolumeInReconcile(svc, "req1", api.OperationalStatus_FailedToCreate)
+			go volumeReconcileImitation(svc.k8sclient, "req1", api.OperationalStatus_FailedToCreate)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
@@ -291,7 +237,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
 
-			err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
+			err := svc.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
 					Namespace:         "default",
@@ -302,7 +248,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Size:   1024 * 60,
 					NodeId: testNode1Name,
 					Status: api.OperationalStatus_Creating,
-				}}, req.GetName())
+				}})
 			Expect(err).To(BeNil())
 
 			resp, err := svc.CreateVolume(context.Background(), req)
@@ -324,7 +270,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 
-			go simulateVolumeInReconcile(svc, "req1", api.OperationalStatus_Created)
+			go volumeReconcileImitation(svc.k8sclient, "req1", api.OperationalStatus_Created)
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(err).To(BeNil())
 			Expect(resp).ToNot(BeNil())
@@ -339,7 +285,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
 
-			err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
+			err := svc.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
 					Namespace:         "default",
@@ -350,7 +296,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Size:   1024 * 60,
 					NodeId: testNode1Name,
 					Status: api.OperationalStatus_Created,
-				}}, req.GetName())
+				}})
 			Expect(err).To(BeNil())
 
 			resp, err := svc.CreateVolume(context.Background(), req)
@@ -373,7 +319,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 		svc = newSvc()
 		// prepare crd
 		println("BEFORE EACH CREATE CR")
-		err := svc.k8sclient.CreateCR(context.Background(), &vcrd.Volume{
+		err := svc.k8sclient.CreateCR(context.Background(), uuid, &vcrd.Volume{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name:      uuid,
 				Namespace: testNs,
@@ -385,7 +331,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Spec: api.Volume{
 				Id:     uuid,
 				NodeId: node,
-			}}, uuid)
+			}})
 		Expect(err).To(BeNil())
 	})
 
@@ -407,15 +353,15 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err       error
 			)
 			// create volume crd to delete
-			err = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
+			err = svc.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_FailToRemove)
+			go volumeReconcileImitation(svc.k8sclient, volumeCrd.Spec.Id, api.OperationalStatus_FailToRemove)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 
 			Expect(resp).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("has FailToRemove status"))
+			Expect(err.Error()).To(ContainSubstring("has reached FailToRemove status"))
 
 			err = svc.k8sclient.ReadCR(context.Background(), uuid, volumeCrd)
 			Expect(err).To(BeNil())
@@ -451,10 +397,10 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err error
 			)
 			// create volume crd to delete
-			err = svc.k8sclient.CreateCR(testCtx, volumeCrd, uuid)
+			err = svc.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
+			go volumeReconcileImitation(svc.k8sclient, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -485,10 +431,10 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				}
 			)
 			// create volume CR that should be deleted (created in BeforeEach)
-			err := svc.k8sclient.CreateCR(testCtx, &volumeCrd, uuid)
+			err := svc.k8sclient.CreateCR(testCtx, uuid, &volumeCrd)
 			Expect(err).To(BeNil())
 
-			go simulateVolumeInReconcile(svc, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
+			go volumeReconcileImitation(svc.k8sclient, volumeCrd.Spec.Id, api.OperationalStatus_Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -513,10 +459,10 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			capacity := fullLVGsizeVolume.Spec.Size
 
 			// create volume CR that should be deleted
-			err := svc.k8sclient.CreateCR(testCtx, &fullLVGsizeVolume, testID)
+			err := svc.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
 			Expect(err).To(BeNil())
 
-			go simulateVolumeInReconcile(svc, fullLVGsizeVolume.Spec.Id, api.OperationalStatus_Removed)
+			go volumeReconcileImitation(svc.k8sclient, fullLVGsizeVolume.Spec.Id, api.OperationalStatus_Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: testID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -572,10 +518,10 @@ func createPods(s *CSIControllerService, pods ...*coreV1.Pod) {
 	}
 }
 
-// add available capacity to svc cache
+// add available capacity
 func addAC(s *CSIControllerService, acs ...*accrd.AvailableCapacity) {
 	for _, ac := range acs {
-		if err := s.k8sclient.CreateCR(context.Background(), ac, ac.Name); err != nil {
+		if err := s.k8sclient.CreateCR(context.Background(), ac.Name, ac); err != nil {
 			Fail(fmt.Sprintf("uable to create ac %s, error: %v", ac.Name, err))
 		}
 	}
@@ -659,11 +605,12 @@ func removeAllCrds(s *base.KubeClient) {
 	println("CRs were removed")
 }
 
-func simulateVolumeInReconcile(s *CSIControllerService, volId string, statusToSet api.OperationalStatus) {
+// volumeReconcileImitation looking for volume CR with name volId and sets it's status to newStatus
+func volumeReconcileImitation(c *base.KubeClient, volId string, newStatus api.OperationalStatus) {
 	for {
 		tmpVol := &vcrd.Volume{}
-		if err := s.k8sclient.ReadCR(context.Background(), volId, tmpVol); err == nil {
-			_ = s.k8sclient.ChangeVolumeStatus(volId, statusToSet)
+		if err := c.ReadCR(context.Background(), volId, tmpVol); err == nil {
+			_ = c.ChangeVolumeStatus(volId, newStatus)
 		}
 		<-time.After(200 * time.Millisecond)
 	}

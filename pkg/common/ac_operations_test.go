@@ -2,102 +2,30 @@ package common
 
 import (
 	"context"
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
-	"strings"
 	"sync"
 	"testing"
 	"time"
-)
 
-var (
-	testNS = "default"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 
-	testCtx       = context.Background()
-	testNode1Name = "node1"
-	testNode2Name = "node2"
-
-	testDriveLocation1 = "drive1-sn"
-	testDriveLocation2 = "drive2-sn"
-	testDriveLocation3 = "drive3-sn"
-	testDriveLocation4 = "drive4-sn"
-
-	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation1))
-	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNS},
-		Spec: api.AvailableCapacity{
-			Size:         int64(base.GBYTE),
-			StorageClass: api.StorageClass_HDD,
-			Location:     testDriveLocation1,
-			NodeId:       testNode1Name},
-	}
-	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation2))
-	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
-		Spec: api.AvailableCapacity{
-			Size:         int64(base.GBYTE) * 100,
-			StorageClass: api.StorageClass_HDD,
-			Location:     testDriveLocation2,
-			NodeId:       testNode2Name,
-		},
-	}
-	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation3))
-	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
-		Spec: api.AvailableCapacity{
-			Size:         int64(base.TBYTE),
-			StorageClass: api.StorageClass_HDD,
-			Location:     testDriveLocation3,
-			NodeId:       testNode2Name,
-		},
-	}
-
-	testLVGName = "lvg-1"
-	testLVG     = lvgcrd.LVG{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "LVG", APIVersion: crdV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: testNS},
-		Spec: api.LogicalVolumeGroup{
-			Name:      testLVGName,
-			Node:      testNode2Name,
-			Locations: []string{testDriveLocation4},
-			Size:      int64(base.GBYTE) * 100,
-			Status:    api.OperationalStatus_Creating,
-		},
-	}
-	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
-	testAC4     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNS},
-		Spec: api.AvailableCapacity{
-			Size:         testLVG.Spec.Size,
-			StorageClass: api.StorageClass_HDDLVG,
-			Location:     testLVGName,
-			NodeId:       testNode2Name,
-		},
-	}
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
 func TestACOperationsImpl_SearchAC(t *testing.T) {
 	var (
-		acOp = setup(t, &testAC1, &testAC2, &testAC3, &testAC4)
+		acOp = setupACOperationsTest(t, &testAC1, &testAC2, &testAC3, &testAC4)
 		ac   *accrd.AvailableCapacity
 		err  error
 	)
 	// create LVG CR(with status Created) on which testAC4 is pointed
 	lvg := testLVG
 	lvg.Spec.Status = api.OperationalStatus_Created
-	err = acOp.k8sClient.CreateCR(testCtx, &lvg, lvg.Name)
+	err = acOp.k8sClient.CreateCR(testCtx, lvg.Name, &lvg)
 	assert.Nil(t, err)
 
 	// expect that testAC2 with size 100GB is choose
@@ -130,7 +58,7 @@ func TestACOperationsImpl_SearchAC(t *testing.T) {
 
 func TestNewACOperationsImpl_SearchAC_WithLVGCreationSuccess(t *testing.T) {
 	var (
-		acOp   = setup(t, &testAC1)
+		acOp   = setupACOperationsTest(t, &testAC1)
 		ac     *accrd.AvailableCapacity
 		err    error
 		acList = accrd.AvailableCapacityList{}
@@ -142,7 +70,8 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationSuccess(t *testing.T) {
 		ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.MBYTE)*500, api.StorageClass_HDDLVG)
 		wg.Done()
 	}()
-	lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_Created, t)
+	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_Created)
+	assert.Nil(t, err)
 	wg.Wait()
 	assert.NotNil(t, ac)
 	assert.Equal(t, testAC1.Spec.Size, ac.Spec.Size)
@@ -155,7 +84,7 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationSuccess(t *testing.T) {
 
 func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
 	var (
-		acOp   = setup(t, &testAC1)
+		acOp   = setupACOperationsTest(t, &testAC1)
 		ac     *accrd.AvailableCapacity
 		err    error
 		acList = accrd.AvailableCapacityList{}
@@ -167,7 +96,8 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
 		ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.MBYTE)*500, api.StorageClass_HDDLVG)
 		wg.Done()
 	}()
-	lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_FailedToCreate, t)
+	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_FailedToCreate)
+	assert.Nil(t, err)
 	wg.Wait()
 	assert.Nil(t, ac)
 
@@ -176,41 +106,41 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
 	assert.Equal(t, 0, len(acList.Items))
 }
 
-func TestACOperationsImpl_UpdateACSizeOrDelete(t *testing.T) {
+func TestACOperationsImpl_DeleteIfEmpty(t *testing.T) {
+	emptyAC := testAC1
+	emptyAC.Spec.Size = 0
 	var (
-		acOp   = setup(t, &testAC1, &testAC4)
+		acOp   = setupACOperationsTest(t, &emptyAC, &testAC4)
 		acList = accrd.AvailableCapacityList{}
 		err    error
 	)
 
-	// should remove testAC1 because of HDD SC
-	err = acOp.UpdateACSizeOrDelete(&testAC1, 0)
+	// should remove testAC1 because of size < acSizeMinThresholdBytes
+	err = acOp.DeleteIfEmpty(testCtx, emptyAC.Spec.Location)
 	assert.Nil(t, err)
 	err = acOp.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(acList.Items)) // expect that only testAC4 remain
 	assert.Equal(t, testAC4Name, acList.Items[0].Name)
 
-	// should increase testAC4 size
-	err = acOp.UpdateACSizeOrDelete(&testAC4, int64(base.GBYTE)*30)
+	// shouldn't remove AC4
+	err = acOp.DeleteIfEmpty(testCtx, testAC4.Spec.Location)
 	assert.Nil(t, err)
 	acList = accrd.AvailableCapacityList{}
 	err = acOp.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
-	assert.Equal(t, int64(base.GBYTE)*(100+30), acList.Items[0].Spec.Size)
+	assert.Equal(t, 1, len(acList.Items)) // expect that only testAC4 remain
+	assert.Equal(t, testAC4.Spec.Size, acList.Items[0].Spec.Size)
 
-	// should remove testAC4 because of size < acSizeMinThresholdBytes
-	acOp = setup(t, &testAC4)
-	err = acOp.UpdateACSizeOrDelete(&testAC4, -(testAC4.Spec.Size - 1024))
-	assert.Nil(t, err)
-	acList = accrd.AvailableCapacityList{}
-	err = acOp.k8sClient.ReadList(testCtx, &acList)
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(acList.Items))
+	// should return error because AC wan't found
+	err = acOp.DeleteIfEmpty(testCtx, "unknown-ac")
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unable to find AC by location")
+
 }
 
 func Test_recreateACToLVGSC_Success(t *testing.T) {
-	acOp := setup(t, &testAC2, &testAC3)
+	acOp := setupACOperationsTest(t, &testAC2, &testAC3)
 
 	// ensure that there are 2 ACs
 	acList := accrd.AvailableCapacityList{}
@@ -229,7 +159,8 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 		newAC = acOp.recreateACToLVGSC(api.StorageClass_HDDLVG, &testAC2, &testAC3)
 		wg.Done()
 	}()
-	lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_Created, t)
+	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_Created)
+	assert.Nil(t, err)
 	wg.Wait()
 	assert.NotNil(t, newAC)
 	assert.Equal(t, testAC2.Spec.Size+testAC3.Spec.Size, newAC.Spec.Size)
@@ -257,7 +188,7 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 }
 
 func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
-	acOp := setup(t, &testAC2, &testAC3)
+	acOp := setupACOperationsTest(t, &testAC2, &testAC3)
 
 	// ensure that there are 2 ACs
 	acList := accrd.AvailableCapacityList{}
@@ -276,7 +207,8 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 		newAC = acOp.recreateACToLVGSC(api.StorageClass_HDDLVG, &testAC2, &testAC3)
 		wg.Done()
 	}()
-	lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_FailedToCreate, t)
+	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_FailedToCreate)
+	assert.Nil(t, err)
 	wg.Wait()
 	assert.Nil(t, newAC)
 
@@ -287,11 +219,11 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 }
 
 func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
-	acOp := setup(t)
+	acOp := setupACOperationsTest(t)
 	lvgCR := testLVG
 	lvgCR.Spec.Status = api.OperationalStatus_Created
 
-	err := acOp.k8sClient.CreateCR(testCtx, &lvgCR, lvgCR.Name)
+	err := acOp.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR)
 	assert.Nil(t, err)
 
 	// lvgCR have Created status
@@ -327,7 +259,7 @@ func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
 }
 
 func TestACOperationsImpl_acNodeMapping(t *testing.T) {
-	acOp := setup(t)
+	acOp := setupACOperationsTest(t)
 	// AC1 locates on node1, AC2 and AC3 locate on node2
 	acList := []accrd.AvailableCapacity{testAC1, testAC2, testAC3}
 
@@ -343,7 +275,7 @@ func TestACOperationsImpl_acNodeMapping(t *testing.T) {
 }
 
 func TestACOperationsImpl_balanceAC(t *testing.T) {
-	acOp := setup(t, &testAC1, &testAC2, &testAC3)
+	acOp := setupACOperationsTest(t, &testAC1, &testAC2, &testAC3)
 
 	acNodeMap := acOp.acNodeMapping([]accrd.AvailableCapacity{testAC1, testAC2, testAC3})
 	balancedNode := acOp.balanceAC(acNodeMap, int64(base.MBYTE), api.StorageClass_HDD)
@@ -364,13 +296,13 @@ func TestACOperationsImpl_balanceAC(t *testing.T) {
 
 // creates fake k8s client and creates AC CRs based on provided acs
 // returns instance of ACOperationsImpl based on created k8s client
-func setup(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOperationsImpl {
+func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOperationsImpl {
 	k8sClient, err := base.GetFakeKubeClient(testNS)
 	assert.Nil(t, err)
 	assert.NotNil(t, k8sClient)
 
 	for _, ac := range acs {
-		err := k8sClient.CreateCR(testCtx, ac, ac.Name)
+		err := k8sClient.CreateCR(testCtx, ac.Name, ac)
 		assert.Nil(t, err)
 	}
 	return NewACOperationsImpl(k8sClient, logrus.New())
@@ -378,7 +310,7 @@ func setup(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOperationsImpl {
 
 // lvgReconcileImitation this is an Reconcile imitation, expect only 1 LVG is present
 // read LVG list until it size in not 1 and then set status to newStatus for LVG CR
-func lvgReconcileImitation(k8sClient *base.KubeClient, newStatus api.OperationalStatus, t *testing.T) {
+func lvgReconcileImitation(k8sClient *base.KubeClient, newStatus api.OperationalStatus) error {
 	var (
 		lvgCRList lvgcrd.LVGList
 		err       error
@@ -386,8 +318,10 @@ func lvgReconcileImitation(k8sClient *base.KubeClient, newStatus api.Operational
 	)
 	println("Reconciling ...")
 	for {
-		err = k8sClient.ReadList(testCtx, &lvgCRList)
-		assert.Nil(t, err)
+		if err = k8sClient.ReadList(context.Background(), &lvgCRList); err != nil {
+			return err
+		}
+
 		if len(lvgCRList.Items) == 1 {
 			break
 		}
@@ -395,5 +329,5 @@ func lvgReconcileImitation(k8sClient *base.KubeClient, newStatus api.Operational
 	}
 	ticker.Stop()
 	lvgCRList.Items[0].Spec.Status = newStatus
-	err = k8sClient.UpdateCR(testCtx, &lvgCRList.Items[0])
+	return k8sClient.UpdateCR(context.Background(), &lvgCRList.Items[0])
 }
