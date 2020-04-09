@@ -514,6 +514,9 @@ func TestVolumeManager_CreateLocalVolumeHDDSuccess(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, len(dList.Items) > 0)
 	vol.Location = dList.Items[0].Spec.UUID
+	scMock := &sc.ImplementerMock{}
+	scMock.On("CreateFileSystem", sc.XFS, "/dev/sda1").Return(nil).Times(1)
+	vm.scMap["hdd"] = scMock
 	err = vm.CreateLocalVolume(context.Background(), &vol)
 	assert.Nil(t, err)
 	assert.Equal(t, len(vm.volumesCache), 1)
@@ -613,7 +616,9 @@ func TestVolumeManager_ReconcileCreateVolumeSuccess(t *testing.T) {
 	err := vm.k8sclient.ReadList(context.Background(), dList)
 	assert.Nil(t, err)
 	assert.True(t, len(dList.Items) > 0)
-
+	scMock := &sc.ImplementerMock{}
+	scMock.On("CreateFileSystem", sc.XFS, "/dev/sda1").Return(nil).Times(1)
+	vm.scMap["hdd"] = scMock
 	vol := volCR
 	vol.Spec.Location = dList.Items[0].Spec.UUID
 	err = vm.k8sclient.CreateCR(context.Background(), testID, &vol)

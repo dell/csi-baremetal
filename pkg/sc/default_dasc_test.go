@@ -19,10 +19,11 @@ var (
 	eTest             = &mocks.GoMockExecutor{}
 	d                 = &DefaultDASC{executor: eTest, log: logrus.NewEntry(logrus.New())}
 	deviceTest        = "/dev/children1"
+	isFSExists        = fmt.Sprintf(FileSystemExistsTmpl, deviceTest)
 	mountpointCmdTest = fmt.Sprintf(MountpointCmdTmpl, deviceTest)
 	mkfsCmdTest       = fmt.Sprintf(MkFSCmdTmpl, deviceTest)
 	mkdirCmdTest      = fmt.Sprintf(MKdirCmdTmpl, targetPathTest)
-	mountCmdTest      = fmt.Sprintf(MountCmdTmpl, deviceTest, targetPathTest)
+	mountCmdTest      = fmt.Sprintf(MountCmdTmpl, "", deviceTest, targetPathTest)
 	rmCmdTest         = fmt.Sprintf(RMCmdTmpl, targetPathTest)
 	wipefsCmdTest     = fmt.Sprintf(WipeFSCmdTmpl, deviceTest)
 	mountPointCmdTest = fmt.Sprintf(MountpointCmd, targetPathTest)
@@ -96,12 +97,12 @@ func TestIsMountedFail(t *testing.T) {
 }
 
 func TestMount(t *testing.T) {
-	err := defaultDaSCSuccess.BindMount("/dev/sda", targetPathTest, true)
+	err := defaultDaSCSuccess.Mount("/dev/sda", targetPathTest)
 	assert.Nil(t, err)
 }
 
 func TestMountFail(t *testing.T) {
-	err := defaultDaSCFail.BindMount("/dev/sda", targetPathTest, true)
+	err := defaultDaSCFail.Mount("/dev/sda", targetPathTest)
 	assert.NotNil(t, err)
 }
 
@@ -135,6 +136,7 @@ var _ = Describe("Successful scenarios ", func() {
 		It("Should create volume", func() {
 			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
+			eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mountCmdTest).Return("", "", nil).Times(1)
 
@@ -144,16 +146,33 @@ var _ = Describe("Successful scenarios ", func() {
 		})
 
 		Context("Should rollback", func() {
-			It("On mount stage", func() {
-				newdeviceTest := "proc"
+			It("On filesystem exists", func() {
+				eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
+				eTest.On(mocks.RunCmd, isFSExists).Return("TYPE\nxfs", "", nil).Times(1)
 
-				rollBacked, err := d.PrepareVolume(newdeviceTest, targetPathTest)
+				eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", errTest).Times(1)
+				eTest.On(mocks.RunCmd, wipefsCmdTest).Return("", "", nil).Times(1)
+
+				rollBacked, err := d.PrepareVolume(deviceTest, targetPathTest)
+				Expect(rollBacked).To(BeTrue())
+				Expect(err).To(BeNil())
+			})
+
+			It("On filesystem not exists", func() {
+				eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
+				eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
+				eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
+				eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", errTest).Times(1)
+				eTest.On(mocks.RunCmd, wipefsCmdTest).Return("", "", nil).Times(1)
+
+				rollBacked, err := d.PrepareVolume(deviceTest, targetPathTest)
 				Expect(rollBacked).To(BeTrue())
 				Expect(err).To(BeNil())
 			})
 
 			It("On creating target path stage", func() {
 				eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
+				eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
 				eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
 
 				eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", errTest).Times(1)
@@ -168,7 +187,7 @@ var _ = Describe("Successful scenarios ", func() {
 				eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
 				eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
 				eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", nil).Times(1)
-
+				eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
 				eTest.On(mocks.RunCmd, mountCmdTest).Return("", "", errTest).Times(1)
 				eTest.On(mocks.RunCmd, rmCmdTest).Return("", "", nil).Times(1)
 				eTest.On(mocks.RunCmd, wipefsCmdTest).Return("", "", nil).Times(1)
@@ -185,7 +204,18 @@ var _ = Describe("Failure scenarios ", func() {
 	Context("CreateVolume() failure", func() {
 		It("Should fail with creating file system error", func() {
 			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
+			eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", errTest).Times(1)
+
+			rollBacked, err := d.PrepareVolume(deviceTest, targetPathTest)
+			Expect(rollBacked).To(BeFalse())
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("Should fail with file system exists function", func() {
+			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
+			eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
+			eTest.On(mocks.RunCmd, isFSExists).Return("", "", errTest).Times(1)
 
 			rollBacked, err := d.PrepareVolume(deviceTest, targetPathTest)
 			Expect(rollBacked).To(BeFalse())
@@ -195,7 +225,7 @@ var _ = Describe("Failure scenarios ", func() {
 		It("Should fail with creating target path system error", func() {
 			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
-
+			eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", errTest).Times(1)
 			eTest.On(mocks.RunCmd, wipefsCmdTest).Return("", "", errTest).Times(1)
 
@@ -208,7 +238,7 @@ var _ = Describe("Failure scenarios ", func() {
 			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", nil).Times(1)
-
+			eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mountCmdTest).Return("", "", errTest).Times(1)
 			eTest.On(mocks.RunCmd, rmCmdTest).Return("", "", errTest).Times(1)
 
@@ -221,7 +251,7 @@ var _ = Describe("Failure scenarios ", func() {
 			eTest.On(mocks.RunCmd, mountpointCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkfsCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mkdirCmdTest).Return("", "", nil).Times(1)
-
+			eTest.On(mocks.RunCmd, isFSExists).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, mountCmdTest).Return("", "", errTest).Times(1)
 			eTest.On(mocks.RunCmd, rmCmdTest).Return("", "", nil).Times(1)
 			eTest.On(mocks.RunCmd, wipefsCmdTest).Return("", "", errTest).Times(1)

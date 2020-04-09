@@ -13,16 +13,16 @@ import (
 )
 
 const (
-	MkFSCmdTmpl       = "mkfs.xfs -f %s"
-	WipeFSCmdTmpl     = "wipefs -af %s"
-	MKdirCmdTmpl      = "mkdir -p %s"
-	RMCmdTmpl         = "rm -rf %s"
-	MountpointCmdTmpl = "lsblk -d -n -o MOUNTPOINT %s"
-	MountCmdTmpl      = "mount %s %s"
-	BindMountCmdTmpl  = "mount -B %s %s"
-	UnmountCmdTmpl    = "umount %s"
-	ProcMountsFile    = "/proc/mounts"
-	MountpointCmd     = "mountpoint %s"
+	MkFSCmdTmpl          = "mkfs.xfs -f %s"
+	WipeFSCmdTmpl        = "wipefs -af %s"
+	MKdirCmdTmpl         = "mkdir -p %s"
+	RMCmdTmpl            = "rm -rf %s"
+	MountpointCmdTmpl    = "lsblk -d -n -o MOUNTPOINT %s"
+	MountCmdTmpl         = "mount %s %s %s"
+	UnmountCmdTmpl       = "umount %s"
+	ProcMountsFile       = "/proc/mounts"
+	MountpointCmd        = "mountpoint %s"
+	FileSystemExistsTmpl = "wipefs %s --output TYPE"
 )
 
 // DefaultDASC is a default implementation of StorageClassImplementer interface
@@ -50,6 +50,28 @@ func (d *DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
 	d.opMutex.Lock()
 	defer d.opMutex.Unlock()
 
+	cmdFSExist := fmt.Sprintf(FileSystemExistsTmpl, device)
+
+	var exist bool
+	/*output example
+	TYPE
+	ext4
+	*/
+	stdout, _, err := d.executor.RunCmd(cmdFSExist)
+	if err != nil {
+		return err
+	}
+	if len(stdout) != 0 {
+		if !strings.Contains(stdout, string(fsType)) {
+			return fmt.Errorf("partition has another fsType")
+		}
+		exist = true
+	}
+
+	if exist {
+		d.log.Infof("File system already exist for device %s", device)
+		return nil
+	}
 	if _, _, err := d.executor.RunCmd(cmd); err != nil {
 		d.log.Errorf("failed to create file system on %s", device)
 		return err
@@ -120,16 +142,13 @@ func (d *DefaultDASC) IsMounted(partition string) (bool, error) {
 	return false, nil
 }
 
-func (d *DefaultDASC) BindMount(device, dir string, mountDevice bool) error {
-	cmd := fmt.Sprintf(MountCmdTmpl, device, dir)
-	if !mountDevice {
-		cmd = fmt.Sprintf(BindMountCmdTmpl, device, dir)
-	}
+//opts are used for mount command for example --bind
+func (d *DefaultDASC) Mount(src, dir string, opts ...string) error {
+	cmd := fmt.Sprintf(MountCmdTmpl, strings.Join(opts, " "), src, dir)
 	d.opMutex.Lock()
 	defer d.opMutex.Unlock()
-
 	if _, _, err := d.executor.RunCmd(cmd); err != nil {
-		d.log.Errorf("failed to mount %s drive", device)
+		d.log.Errorf("failed to mount %s drive", src)
 		return err
 	}
 	return nil
@@ -172,14 +191,6 @@ func (d *DefaultDASC) IsMountPoint(path string) (bool, error) {
 func (d *DefaultDASC) PrepareVolume(device, targetPath string) (rollBacked bool, err error) {
 	rollBacked = true
 
-	mounted, err := d.IsMounted(device)
-
-	if err != nil || mounted {
-		// return true since mount is not successful and device should be ok after
-		// since PVC has own unique target path, mounted means that everything is ok
-		return
-	}
-
 	err = d.CreateFileSystem(XFS, device)
 	if err != nil {
 		return false, err
@@ -194,7 +205,7 @@ func (d *DefaultDASC) PrepareVolume(device, targetPath string) (rollBacked bool,
 		return
 	}
 
-	err = d.BindMount(device, targetPath, true)
+	err = d.Mount(device, targetPath)
 	if err != nil {
 		err = d.DeleteTargetPath(targetPath)
 		if err != nil {

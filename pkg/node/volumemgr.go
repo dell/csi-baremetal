@@ -50,7 +50,7 @@ type VolumeManager struct {
 
 const (
 	DiscoverDrivesTimout    = 300 * time.Second
-	VolumeOperationsTimeout = 300 * time.Second
+	VolumeOperationsTimeout = 600 * time.Second
 )
 
 // NewVolumeManager returns new instance ov VolumeManager
@@ -466,8 +466,22 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 				ll.Errorf("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
 				m.setVolumeStatus(vol.Id, api.OperationalStatus_FailedToCreate)
 			} else {
-				ll.Info("Partition UUID was set successfully, set volume status to Created")
-				m.setVolumeStatus(vol.Id, api.OperationalStatus_Created)
+				ll.Info("Partition UUID was set successfully")
+				scImpl := m.getStorageClassImpl(vol.StorageClass)
+				var partition string
+				switch vol.StorageClass {
+				case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
+					partition = fmt.Sprintf("/dev/%s/%s", vol.Location, vol.Id)
+				default:
+					partition = fmt.Sprintf("%s1", device)
+				}
+				newStatus := api.OperationalStatus_Created
+				// TODO AK8S-632 Make CreateFileSystem work with different type of file systems
+				if err := scImpl.CreateFileSystem(sc.XFS, partition); err != nil {
+					ll.Error("Failed to create file system, set volume status FailedToCreate", err)
+					newStatus = api.OperationalStatus_FailedToCreate
+				}
+				m.setVolumeStatus(vol.Id, newStatus)
 			}
 		}()
 	}

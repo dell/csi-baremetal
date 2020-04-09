@@ -23,7 +23,7 @@ type EmptyExecutorSuccess struct {
 }
 
 func (e EmptyExecutorSuccess) RunCmd(interface{}) (string, string, error) {
-	return "Stdout", "", nil
+	return "", "", nil
 }
 
 // Implements CmdExecutor interface, each command will finish with error

@@ -10,7 +10,7 @@ type StorageClassImplementer interface {
 	DeleteTargetPath(path string) error
 
 	IsMounted(device string) (bool, error)
-	BindMount(device, dir string, mountDevice bool) error
+	Mount(src, dir string, opts ...string) error
 	Unmount(path string) error
 
 	IsMountPoint(path string) (bool, error)

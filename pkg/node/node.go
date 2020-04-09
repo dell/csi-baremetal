@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
@@ -13,6 +12,7 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
 
 // depending on SC and parameters in CreateVolumeRequest()
@@ -91,29 +91,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	ll.Infof("Work with partition %s", partition)
 
-	//TODO AK8S-421 Provide operational status for Unstage request
-	if v.Status == api.OperationalStatus_ReadyToRemove {
-		ll.Info("File system already exists. Perform mount operation")
-		if err := scImpl.BindMount(partition, targetPath, true); err != nil {
-			ll.Errorf("Failed to stage volume %s, error: %v", v.Id, err)
-			return nil, fmt.Errorf("failed to stage volume %s", v.Id)
-		}
-		return &csi.NodeStageVolumeResponse{}, nil
+	if err := s.prepareAndPerformMount(partition, targetPath, scImpl); err != nil {
+		return nil, fmt.Errorf("failed to stage volume")
 	}
-
-	ll.Info("Set status to Staging")
-	s.setVolumeStatus(req.VolumeId, api.OperationalStatus_Staging)
-	ll.Info("Create file system and mount")
-	rollBacked, err := scImpl.PrepareVolume(partition, targetPath)
-	if err != nil {
-		ll.Infof("PrepareVolume failed: %v, set status to FailedToStage", err)
-		if !rollBacked {
-			ll.Error("Try to rollBack again")
-		}
-		ll.Errorf("Failed to stage volume %s", v.Id)
-		return nil, fmt.Errorf("failed to stage volume %s", v.Id)
-	}
-	ll.Info("PreparedVolume finished successfully, set status to Staged")
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
@@ -171,6 +151,31 @@ func (s *CSINodeService) unmount(volumeID string, path string) error {
 	return nil
 }
 
+// prepareAndPerformMount is used it in Stage/Publish requests to prepareAndPerformMount scrPath to targetPath, opts are used for prepareAndPerformMount commands
+func (s *CSINodeService) prepareAndPerformMount(srcPath, targetPath string, scImpl sc.StorageClassImplementer, opts ...string) error {
+	ll := s.log.WithFields(logrus.Fields{
+		"method": "prepareAndPerformMount",
+	})
+	if err := scImpl.CreateTargetPath(targetPath); err != nil {
+		return err
+	}
+	mounted, err := scImpl.IsMountPoint(targetPath)
+	if err != nil {
+		ll.Info("IsMountPoint failed: ", err)
+		_ = scImpl.DeleteTargetPath(targetPath)
+		return err
+	}
+	if mounted {
+		ll.Infof("Mount point already exist")
+		return nil
+	}
+	if err := scImpl.Mount(srcPath, targetPath, opts...); err != nil {
+		_ = scImpl.DeleteTargetPath(targetPath)
+		return err
+	}
+	return nil
+}
+
 func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodePublishVolume",
@@ -208,68 +213,19 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	srcPath := req.GetStagingTargetPath()
 	path := req.GetTargetPath()
 
-	if v.Status == api.OperationalStatus_Published ||
-		v.Status == api.OperationalStatus_Publishing {
-		return s.pullPublishStatus(ctx, v.Id)
-	}
 	ll.Info("Set status to Publishing")
 	s.setVolumeStatus(v.Id, api.OperationalStatus_Publishing)
 
 	scImpl := s.getStorageClassImpl(v.StorageClass)
 
-	mounted, err := scImpl.IsMountPoint(path)
-	if err != nil {
-		ll.Infof("IsMountPoint failed: %v, set status to FailedToPublish", err)
-		s.setVolumeStatus(req.VolumeId, api.OperationalStatus_FailedToPublish)
-		return s.pullPublishStatus(ctx, v.Id)
+	if err := s.prepareAndPerformMount(srcPath, path, scImpl, "--bind"); err != nil {
+		ll.Errorf("prepareAndPerformMount failed, set status to FailedToPublish")
+		s.setVolumeStatus(v.Id, api.OperationalStatus_FailedToPublish)
+		return nil, fmt.Errorf("failed to publish volume")
 	}
-	go func() {
-		newStatus := api.OperationalStatus_Published
-		if mounted {
-			ll.Infof("Mountpoint already exist, set status to Published")
-		} else if err := scImpl.CreateTargetPath(path); err != nil {
-			newStatus = api.OperationalStatus_FailedToPublish
-		} else if err := scImpl.BindMount(srcPath, path, false); err != nil {
-			_ = scImpl.DeleteTargetPath(path)
-			newStatus = api.OperationalStatus_FailedToPublish
-		}
-		ll.Infof("Set status to %s", newStatus)
-		s.setVolumeStatus(v.Id, newStatus)
-	}()
-	return s.pullPublishStatus(ctx, v.Id)
-}
-
-func (s *CSINodeService) pullPublishStatus(ctx context.Context, volumeID string) (*csi.NodePublishVolumeResponse, error) {
-	ll := s.log.WithFields(logrus.Fields{
-		"method":   "pullPublishStatus",
-		"volumeID": volumeID,
-	})
-
-	var vol, _ = s.getFromVolumeCache(volumeID)
-	ll.Infof("Current status: %s", api.OperationalStatus_name[int32(s.getVolumeStatus(volumeID))])
-
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			ll.Warnf("Context is done and volume still not become Published, current status %s",
-				api.OperationalStatus_name[int32(vol.Status)])
-			return nil, status.Error(codes.Internal, "volume is still publishing")
-		case <-ticker.C:
-			vol, _ = s.getFromVolumeCache(volumeID)
-			switch vol.Status {
-			case api.OperationalStatus_Publishing:
-				<-ticker.C
-			case api.OperationalStatus_Published:
-				ll.Info("Volume was published, return it")
-				return &csi.NodePublishVolumeResponse{}, nil
-			case api.OperationalStatus_FailedToPublish:
-				ll.Errorf("Failed to publish volume %s", volumeID)
-				return nil, fmt.Errorf("failed to publish volume %s", volumeID)
-			}
-		}
-	}
+	ll.Infof("Set status to %s", api.OperationalStatus_Published)
+	s.setVolumeStatus(v.Id, api.OperationalStatus_Published)
+	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {

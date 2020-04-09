@@ -33,8 +33,8 @@ func (m *ImplementerMock) IsMounted(device string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *ImplementerMock) BindMount(device, dir string, mountDevice bool) error {
-	args := m.Mock.Called(device, dir, mountDevice)
+func (m *ImplementerMock) Mount(src, dir string, opts ...string) error {
+	args := m.Mock.Called(src, dir, opts)
 	return args.Error(0)
 }
 

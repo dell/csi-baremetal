@@ -2,7 +2,6 @@ package node
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -69,8 +68,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 	Context("NodePublish() success", func() {
 		It("Should publish volume", func() {
 			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("BindMount", stagePath, targetPath, false).Return(nil).Times(1)
-			scImplMock.On("DeleteTargetPath", targetPath).Return(nil).Times(1)
+			scImplMock.On("Mount", stagePath, targetPath, []string{"--bind"}).Return(nil).Times(1)
 			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
@@ -80,6 +78,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).To(BeNil())
 		})
 		It("Target path already mounted", func() {
+			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
 			scImplMock.On("IsMountPoint", targetPath).Return(true, nil).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
@@ -150,8 +149,9 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).NotTo(BeNil())
 		})
 		It("Should fail with IsMountError error", func() {
+			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
 			scImplMock.On("IsMountPoint", targetPath).Return(false, errors.New("error")).Times(1)
-
+			scImplMock.On("DeleteTargetPath", targetPath).Return(nil).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 			node.volumesCache["volume-id"] = &api.Volume{
@@ -163,7 +163,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			resp, err := node.NodePublishVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal(fmt.Sprintf("failed to publish volume %s", volumeID)))
+			Expect(err.Error()).To(Equal("failed to publish volume"))
 		})
 		It("Should fail with CreateTargetPath error", func() {
 			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
@@ -179,12 +179,13 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			resp, err := node.NodePublishVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal(fmt.Sprintf("failed to publish volume %s", volumeID)))
+			Expect(err.Error()).To(Equal("failed to publish volume"))
 		})
-		It("Should fail with BindMount error", func() {
+		It("Should fail with Mount error", func() {
 			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
 			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("BindMount", stagePath, targetPath, false).Return(errors.New("error")).Times(1)
+			scImplMock.On("DeleteTargetPath", targetPath).Return(nil).Times(1)
+			scImplMock.On("Mount", stagePath, targetPath, []string{"--bind"}).Return(errors.New("error")).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 			node.volumesCache["volume-id"] = &api.Volume{
@@ -196,7 +197,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			resp, err := node.NodePublishVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal(fmt.Sprintf("failed to publish volume %s", volumeID)))
+			Expect(err.Error()).To(Equal("failed to publish volume"))
 		})
 	})
 })
@@ -222,19 +223,12 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 
 	Context("NodeStage() success", func() {
 		It("Should stage volume", func() {
-			scImplMock.On("PrepareVolume", device, stagePath).Return(false, nil).Times(1)
+			scImplMock.On("CreateTargetPath", stagePath).Return(nil).Times(1)
+			scImplMock.On("Mount", device, stagePath, []string(nil)).Return(nil).Times(1)
+			scImplMock.On("IsMountPoint", stagePath).Return(false, nil).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeStageRequest(volumeID, *volumeCap)
 
-			resp, err := node.NodeStageVolume(ctx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-		})
-		It("Ready to remove status", func() {
-			scImplMock.On("BindMount", device, stagePath, true).Return(nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodeStageRequest(volumeID, *volumeCap)
-			node.setVolumeStatus(volumeID, api.OperationalStatus_ReadyToRemove)
 			resp, err := node.NodeStageVolume(ctx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
@@ -288,10 +282,10 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
-		It("Should fail with PrepareVolume() error", func() {
-			scImplMock.On("PrepareVolume", device, stagePath).
-				Return(false, errors.New("error")).Times(1)
-
+		It("Should fail with IsMountError error", func() {
+			scImplMock.On("CreateTargetPath", stagePath).Return(nil).Times(1)
+			scImplMock.On("IsMountPoint", stagePath).Return(false, errors.New("error")).Times(1)
+			scImplMock.On("DeleteTargetPath", stagePath).Return(nil).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeStageRequest(volumeID, *volumeCap)
 			node.volumesCache["volume-id"] = &api.Volume{
@@ -303,7 +297,41 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			resp, err := node.NodeStageVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal(fmt.Sprintf("failed to stage volume %s", volumeID)))
+			Expect(err.Error()).To(Equal("failed to stage volume"))
+		})
+		It("Should fail with CreateTargetPath error", func() {
+			scImplMock.On("IsMountPoint", stagePath).Return(false, nil).Times(1)
+			scImplMock.On("CreateTargetPath", stagePath).Return(errors.New("error")).Times(1)
+			node.scMap[SCName("hdd")] = scImplMock
+			req := getNodeStageRequest(volumeID, *volumeCap)
+			node.volumesCache["volume-id"] = &api.Volume{
+				Id:       volumeID,
+				NodeId:   "test",
+				Location: disk1.UUID,
+			}
+
+			resp, err := node.NodeStageVolume(ctx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(Equal("failed to stage volume"))
+		})
+		It("Should fail with Mount error", func() {
+			scImplMock.On("IsMountPoint", stagePath).Return(false, nil).Times(1)
+			scImplMock.On("DeleteTargetPath", stagePath).Return(nil).Times(1)
+			scImplMock.On("CreateTargetPath", stagePath).Return(nil).Times(1)
+			scImplMock.On("Mount", device, stagePath, []string(nil)).Return(errors.New("error")).Times(1)
+			node.scMap[SCName("hdd")] = scImplMock
+			req := getNodeStageRequest(volumeID, *volumeCap)
+			node.volumesCache["volume-id"] = &api.Volume{
+				Id:       volumeID,
+				NodeId:   "test",
+				Location: disk1.UUID,
+			}
+
+			resp, err := node.NodeStageVolume(ctx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(Equal("failed to stage volume"))
 		})
 	})
 })
