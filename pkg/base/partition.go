@@ -2,6 +2,7 @@ package base
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -14,6 +15,7 @@ type Partitioner interface {
 	DeletePartition(device string) (err error)
 	SetPartitionUUID(device, pvcUUID string) (err error)
 	GetPartitionUUID(device string) (uuid string, err error)
+	GetPartitionNameByUUID(device, UUID string) (name string, err error)
 }
 
 const (
@@ -22,9 +24,10 @@ const (
 	PartprobeCmdTmpl            = "partprobe"
 	CreatePartitionTableCmdTmpl = "parted -s %s mklabel %s"
 	CreatePartitionCmdTmpl      = "parted -s %s mkpart --align optimal CSI 0%% 100%%"
-	DeletePartitionCmdTmpl      = "parted -s %s rm 1"
-	SetPartitionUUIDCmdTmpl     = "sgdisk %s --partition-guid=1:%s"
-	GetPartitionUUIDCmdTmpl     = "sgdisk %s --info=1"
+	// todo get rid of hardcoded partition numbers
+	DeletePartitionCmdTmpl  = "parted -s %s rm 1"
+	SetPartitionUUIDCmdTmpl = "sgdisk %s --partition-guid=1:%s"
+	GetPartitionUUIDCmdTmpl = "sgdisk %s --info=1"
 )
 
 type Partition struct {
@@ -157,4 +160,25 @@ func (p *Partition) GetPartitionUUID(device string) (string, error) {
 	}
 
 	return "", fmt.Errorf("unable to get partition GUID for device %s", device)
+}
+
+/*
+Get partition name (for example, /dev/sda1, /dev/nvme1p2, /dev/loopback0p3) by UUID
+*/
+func (p *Partition) GetPartitionNameByUUID(device, uuid string) (string, error) {
+	// todo AK8S-637 - find by partition UUID
+	if device == "" {
+		return "", fmt.Errorf("unable to find partition name by UUID %s for device %s", uuid, device)
+	}
+
+	partition := device
+	suffix := device[len(device)-1:]
+	// todo get rid of this code in AK8S-637
+	// sda -> sda1, loop1 -> loop1p1
+	if _, err := strconv.Atoi(suffix); err == nil {
+		partition += "p1"
+	} else {
+		partition += "1"
+	}
+	return partition, nil
 }

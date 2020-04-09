@@ -1,4 +1,4 @@
-# Baremetal CSI Plugin Contributing Guide
+# Baremetal CSI Plugin Contribution Guide
 
 ## Workflow overview
 
@@ -106,30 +106,28 @@ export DEVKIT_DOCKER_NETWORK_HOST_BOOL=true
 export DEVKIT_KIND_KERNEL_MODULE_SHARED_BOOL=true
 export DEVKIT_KIND_SRC_SHARED_BOOL=true
 export DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL=true
-export DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL=true
 export DEVKIT_USER_NAME=root
+export DEVKIT_DEVICES_SHARED_BOOL=true
+export DEVKIT_UDEV_SHARED_BOOL=true
 ```
 * Run devkit:
 ```
 devkit --hal no
 ```
-* Create kind cluster, optionally use config.yaml from baremetal-csi root directory and explicitly set path for kubeconfig:
+* Create kind (version >= v0.7.0) cluster with the specified config
 ```
-kind create cluster --kubeconfig <kubeconfig path> --config config.yaml
+kind create cluster --kubeconfig <kubeconfig path> --config  test/kind/kind.yaml
 ```
 * KIND can't pull images from remote repository, to load images to local docker repository on nodes:
 ```
-kind load docker-image 10.244.120.194:8085/csi-provisioner:v1.2.2
-kind load docker-image 10.244.120.194:8085/csi-attacher:v1.0.1
-kind load docker-image 10.244.120.194:8085/csi-cluster-driver-registrar:v1.0.1
+make kind-load-images
 kind load docker-image busybox:1.29
-kind load docker-image 10.244.120.194:8085/csi-node-driver-registrar:v1.0.1-gke.0
-kind load docker-image 10.244.120.194:8085/baremetal-csi-plugin:<csi-tag>
 ```
 * E2E tests need yaml files with baremetal-csi resources (plugin, controller, rbac). To create yaml files use helm command:
 ```
 helm template charts/baremetal-csi-plugin/ 
---output-dir /tmp --set image.tag=<csi-tag> 
+--output-dir /tmp --set image.tag=`make version`
+--set hwmgr.type=LOOPBACK // test with loopback hwmgr
 --set busybox.image.tag=1.29  // e2e tests need this busybox for testing pods
 --set image.pullPolicy=IfNotPresent /*KIND can't work with imagePullPolicy <Always> 
                                       because it can pull only from local repository*/

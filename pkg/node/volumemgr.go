@@ -455,7 +455,8 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		m.setVolumeCacheValue(vol.Id, vol)
 		go func() {
 			ll.Infof("Create partition on device %s and set UUID in background", device)
-			rollBacked, err := m.setPartitionUUIDForDev(device, vol.Id)
+			id := vol.Id
+			rollBacked, err := m.setPartitionUUIDForDev(device, id)
 			if err != nil {
 				if !rollBacked {
 					ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
@@ -472,9 +473,15 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 				var partition string
 				switch vol.StorageClass {
 				case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
-					partition = fmt.Sprintf("/dev/%s/%s", vol.Location, vol.Id)
+					partition = fmt.Sprintf("/dev/%s/%s", vol.Location, id)
 				default:
-					partition = fmt.Sprintf("%s1", device)
+					partition, err = m.linuxUtils.GetPartitionNameByUUID(device, id)
+					if err != nil {
+						ll.Errorf("Failed to get partition name for device %s UUID %s: %v, set volume status"+
+							" to FailedToCreate", device, id, err)
+						m.setVolumeStatus(id, apiV1.Failed)
+						return
+					}
 				}
 				newStatus := apiV1.Created
 				// TODO AK8S-632 Make CreateFileSystem work with different type of file systems
@@ -482,7 +489,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 					ll.Error("Failed to create file system, set volume status FailedToCreate", err)
 					newStatus = apiV1.Failed
 				}
-				m.setVolumeStatus(vol.Id, newStatus)
+				m.setVolumeStatus(id, newStatus)
 			}
 		}()
 	}
@@ -565,6 +572,7 @@ func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (roll
 	err = m.linuxUtils.CreatePartition(device)
 	if err != nil {
 		// try to delete partition
+		// todo get rid of this. might cause DL
 		exist, _ = m.linuxUtils.IsPartitionExists(device)
 		if exist {
 			if errDel := m.linuxUtils.DeletePartition(device); errDel != nil {

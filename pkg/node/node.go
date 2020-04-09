@@ -59,9 +59,12 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
 
-	v, ok := s.getFromVolumeCache(req.VolumeId)
+	volumeID := req.VolumeId
+	v, ok := s.getFromVolumeCache(volumeID)
 	if !ok {
-		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
+		message := fmt.Sprintf("No volume with ID %s found on node", volumeID)
+		ll.Error(message)
+		return nil, status.Error(codes.NotFound, message)
 	}
 
 	if v.CSIStatus == apiV1.Failed {
@@ -91,7 +94,11 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
 		}
-		partition = fmt.Sprintf("%s1", bdev)
+		// get partition name
+		partition, err = s.linuxUtils.GetPartitionNameByUUID(bdev, v.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if v.CSIStatus == apiV1.VolumeReady {

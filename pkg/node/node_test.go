@@ -146,6 +146,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			resp, err := node.NodePublishVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
+			// not a good ide to check error message. better to validate error code.
 			Expect(err.Error()).To(ContainSubstring("There is no volume with appropriate VolumeID"))
 		})
 		It("Should fail with search device by S/N error", func() {
@@ -289,7 +290,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			resp, err := node.NodeStageVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("There is no volume with appropriate VolumeID"))
+			Expect(err.Error()).To(ContainSubstring("No volume with ID " + volumeID + " found on node"))
 		})
 		It("Should fail with search device by S/N error", func() {
 			req := getNodeStageRequest("volume-id-3", *volumeCap)

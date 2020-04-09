@@ -8,11 +8,11 @@ HW_MANAGER   := hwmgr
 CONTROLLER   := controller
 HEALTH_PROBE := health_probe
 
-.PHONY: test build install-hal
+.PHONY: version test build install-hal
 
 # print version
-#version:
-#    $(info CSI version="$(TAG)")
+version:
+	@printf $(TAG)
 
 #all: build image push
 
@@ -71,6 +71,15 @@ push-node:
 push-controller:
 	docker push ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 	docker push ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}
+
+# todo how to handle tag change for sidecars in charts?
+kind-load-images:
+	kind load docker-image ${REGISTRY}/csi-provisioner:v1.2.2
+	kind load docker-image ${REGISTRY}/csi-node-driver-registrar:v1.0.1-gke.0
+	kind load docker-image ${REGISTRY}/csi-attacher:v1.0.1
+	kind load docker-image ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+	kind load docker-image ${REGISTRY}/${REPO}-${NODE}:${TAG}
+	kind load docker-image ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
 clean: clean-hwmgr clean-node clean-controller clean-proto
 

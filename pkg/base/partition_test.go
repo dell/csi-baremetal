@@ -122,3 +122,19 @@ func TestGetPartitionUUIDFail(t *testing.T) {
 	assert.Equal(t, "", uuid)
 	assert.Equal(t, errors.New("error"), err)
 }
+
+func TestGetPartitionNameByUUID(t *testing.T) {
+	name, err := partition.GetPartitionNameByUUID("/dev/sda", "64be631b-62a5-11e9-a756-00505680d67f")
+	assert.Equal(t, "/dev/sda1", name)
+	assert.Nil(t, err)
+
+	name, err = partition.GetPartitionNameByUUID("/dev/loop1", "64be631b-62a5-11e9-a756-00505680d67f")
+	assert.Equal(t, "/dev/loop1p1", name)
+	assert.Nil(t, err)
+}
+
+func TestGetPartitionNameByUUIDFail(t *testing.T) {
+	name, err := partition.GetPartitionNameByUUID("", "64be631b-62a5-11e9-a756-00505680d67f")
+	assert.Equal(t, "", name)
+	assert.NotNil(t, err)
+}
