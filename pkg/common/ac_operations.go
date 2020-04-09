@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -182,7 +183,7 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc api.StorageClass, acs ...*accrd.
 			Name:      name,
 			Locations: lvgLocations,
 			Size:      lvgSize,
-			Status:    api.OperationalStatus_Creating,
+			Status:    apiV1.Creating,
 		}
 	)
 
@@ -257,10 +258,10 @@ func (a *ACOperationsImpl) waitUntilLVGWillBeCreated(ctx context.Context, lvgNam
 			switch {
 			case err != nil:
 				ll.Errorf("Unable to read LVG CR: %v", err)
-			case lvg.Spec.Status == api.OperationalStatus_Created:
+			case lvg.Spec.Status == apiV1.Created:
 				ll.Info("LVG was created")
 				return &lvg.Spec
-			case lvg.Spec.Status == api.OperationalStatus_FailedToCreate:
+			case lvg.Spec.Status == apiV1.Failed:
 				ll.Warn("LVG was reached FailedToCreate status")
 				return nil
 			}

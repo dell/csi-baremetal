@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -102,39 +103,39 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	ll.Info("Reconciling Volume")
-	var newStatus api.OperationalStatus
-	switch volume.Spec.Status {
-	case api.OperationalStatus_Creating:
+	var newStatus string
+	switch volume.Spec.CSIStatus {
+	case apiV1.Creating:
 		err := m.CreateLocalVolume(ctx, &volume.Spec)
 		if err != nil {
 			ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
 				" Set volume status to FailedToCreate", volume.Spec.Size, err, ctx.Err())
-			newStatus = api.OperationalStatus_FailedToCreate
+			newStatus = apiV1.Failed
 		} else {
 			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
-			newStatus = api.OperationalStatus_Created
+			newStatus = apiV1.Created
 		}
 
-		volume.Spec.Status = newStatus
+		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sclient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
 			// Here we can return error because Volume created successfully and we can try to change CR's status
 			// one more time
-			ll.Errorf("Unable to update volume status to %s: %v", newStatus.String(), err)
+			ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
 			return ctrl.Result{}, err
 		}
 
 		return ctrl.Result{}, nil
-	case api.OperationalStatus_Removing:
+	case apiV1.Removing:
 		if err = m.DeleteLocalVolume(ctx, &volume.Spec); err != nil {
 			ll.Errorf("Failed to delete volume - %s. Error: %v. Context Error: %v. "+
 				"Set status FailToRemove", volume.Spec.Id, err, ctx.Err())
-			newStatus = api.OperationalStatus_FailToRemove
+			newStatus = apiV1.Failed
 		} else {
 			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
-			newStatus = api.OperationalStatus_Removed
+			newStatus = apiV1.Removed
 		}
 
-		volume.Spec.Status = newStatus
+		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sclient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
 			ll.Error("Unable to set new status for volume")
 			return ctrl.Result{}, err
@@ -295,7 +296,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 					Mode:         api.Mode_FS,
 					Type:         ld.FSType,
 					Health:       d.Spec.Health,
-					Status:       api.OperationalStatus_Operative,
+					CSIStatus:    "",
 				}
 				ll.Infof("Add in cache volume: %v", v)
 				m.volumesCache[v.Id] = v
@@ -413,7 +414,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 
 	// TODO: should read from Volume CRD AK8S-170
 	if v, ok := m.getFromVolumeCache(vol.Id); ok {
-		ll.Infof("Found volume in cache with status: %s", api.OperationalStatus_name[int32(v.Status)])
+		ll.Infof("Found volume in cache with status: %s", m.getVolumeStatus(v.CSIStatus))
 		return m.pullCreateLocalVolume(ctx, vol.Id)
 	}
 
@@ -434,7 +435,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 
 		ll.Info("LV was created.")
 		m.setVolumeCacheValue(vol.Id, vol)
-		m.setVolumeStatus(vol.Id, api.OperationalStatus_Created)
+		m.setVolumeStatus(vol.Id, apiV1.Created)
 		return nil
 	default: // assume that volume location is whole disk
 		drive := &drivecrd.Drive{}
@@ -463,8 +464,8 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 						ll.Errorf("Failed to update drive CRd with name %s, error %s", drive.Name, err.Error())
 					}
 				}
-				ll.Errorf("Failed to set partition UUID: %v, set volume status to FailedToCreate", err)
-				m.setVolumeStatus(vol.Id, api.OperationalStatus_FailedToCreate)
+				ll.Errorf("Failed to set partition UUID: %v, set volume status to Failed", err)
+				m.setVolumeStatus(vol.Id, apiV1.Failed)
 			} else {
 				ll.Info("Partition UUID was set successfully")
 				scImpl := m.getStorageClassImpl(vol.StorageClass)
@@ -475,11 +476,11 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 				default:
 					partition = fmt.Sprintf("%s1", device)
 				}
-				newStatus := api.OperationalStatus_Created
+				newStatus := apiV1.Created
 				// TODO AK8S-632 Make CreateFileSystem work with different type of file systems
 				if err := scImpl.CreateFileSystem(sc.XFS, partition); err != nil {
 					ll.Error("Failed to create file system, set volume status FailedToCreate", err)
-					newStatus = api.OperationalStatus_FailedToCreate
+					newStatus = apiV1.Failed
 				}
 				m.setVolumeStatus(vol.Id, newStatus)
 			}
@@ -494,35 +495,29 @@ func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID stri
 		"method":   "pullCreateLocalVolume",
 		"volumeID": volumeID,
 	})
-	ll.Infof("Pulling status, current: %s", api.OperationalStatus_name[int32(m.getVolumeStatus(volumeID))])
+	ll.Infof("Pulling status, current: %s", m.getVolumeStatus(volumeID))
 
 	var (
-		currStatus api.OperationalStatus
+		currStatus string
 		vol        *api.Volume
 	)
 	for {
 		select {
 		case <-ctx.Done():
 			ll.Errorf("Context was closed set volume %s status to FailedToCreate", vol.Location)
-			m.setVolumeStatus(volumeID, api.OperationalStatus_FailedToCreate)
+			m.setVolumeStatus(volumeID, apiV1.Failed)
 		case <-time.After(time.Second):
 			vol, _ = m.getFromVolumeCache(volumeID)
-			currStatus = vol.Status
+			currStatus = vol.CSIStatus
 			switch currStatus {
-			case api.OperationalStatus_Creating:
-				{
-					ll.Info("Volume is in Creating state, continue pulling")
-				}
-			case api.OperationalStatus_Created:
-				{
-					ll.Info("Volume was became Created, return it")
-					return nil
-				}
-			case api.OperationalStatus_FailedToCreate:
-				{
-					ll.Info("Volume was became FailedToCreate, return it and try to restrore.")
-					return fmt.Errorf("unable to create local volume %s size of %d", vol.Id, vol.Size)
-				}
+			case apiV1.Creating:
+				ll.Info("Volume is in Creating state, continue pulling")
+			case apiV1.Created:
+				ll.Info("Volume was became Created, return it")
+				return nil
+			case apiV1.Failed:
+				ll.Info("Volume was became failed, return it and try to restore.")
+				return fmt.Errorf("unable to create local volume %s size of %d", vol.Id, vol.Size)
 			}
 		}
 	}
@@ -622,8 +617,8 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 		err = m.linuxUtils.DeletePartition(device)
 		if err != nil {
 			wErr := fmt.Errorf("failed to delete partition, error: %v", err)
-			ll.Errorf("%v, set operational status - fail to remove", wErr)
-			m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
+			ll.Errorf("%v, set CSI status - failed", wErr)
+			m.setVolumeStatus(volume.Id, apiV1.Failed)
 			return wErr
 		}
 		ll.Info("Partition was deleted")
@@ -638,8 +633,8 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 
 	if err = scImpl.DeleteFileSystem(device); err != nil {
 		wErr := fmt.Errorf("failed to wipefs device, error: %v", err)
-		ll.Errorf("%v, set operational status - fail to remove", wErr)
-		m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
+		ll.Errorf("%v, set CSI status - failed", wErr)
+		m.setVolumeStatus(volume.Id, apiV1.Failed)
 		return wErr
 	}
 	ll.Info("File system was deleted")
@@ -648,7 +643,7 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 		lvgName := volume.Location
 		ll.Infof("Removing LV %s from LVG %s", volume.Id, lvgName)
 		if err = m.linuxUtils.LVRemove(volume.Id, volume.Location); err != nil {
-			m.setVolumeStatus(volume.Id, api.OperationalStatus_FailToRemove)
+			m.setVolumeStatus(volume.Id, apiV1.Failed)
 			return fmt.Errorf("unable to remove lv: %v", err)
 		}
 	}
@@ -679,19 +674,19 @@ func (m *VolumeManager) setVolumeCacheValue(key string, v *api.Volume) {
 	m.vCacheMu.Unlock()
 }
 
-func (m *VolumeManager) getVolumeStatus(key string) api.OperationalStatus {
+func (m *VolumeManager) getVolumeStatus(key string) string {
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()
 
 	v, ok := m.volumesCache[key]
 	if !ok {
 		m.log.WithField("method", "getVolumeStatus").Errorf("Unable to find volume with ID %s in cache", key)
-		return 17
+		return ""
 	}
-	return v.Status
+	return v.CSIStatus
 }
 
-func (m *VolumeManager) setVolumeStatus(key string, newStatus api.OperationalStatus) {
+func (m *VolumeManager) setVolumeStatus(key string, newStatus string) {
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()
 
@@ -700,7 +695,7 @@ func (m *VolumeManager) setVolumeStatus(key string, newStatus api.OperationalSta
 		m.log.WithField("method", "setVolumeStatus").Errorf("Unable to find volume with ID %s in cache", key)
 		return
 	}
-	v.Status = newStatus
+	v.CSIStatus = newStatus
 	m.volumesCache[key] = v
 }
 

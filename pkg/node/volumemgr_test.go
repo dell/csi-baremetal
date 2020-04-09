@@ -70,7 +70,7 @@ var (
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: api.StorageClass_HDD,
 			Location:     "",
-			Status:       api.OperationalStatus_Creating,
+			CSIStatus:    crdV1.Creating,
 			NodeId:       nodeId,
 		},
 	}
@@ -89,7 +89,7 @@ var (
 			Node:      nodeId,
 			Locations: []string{drive1.UUID},
 			Size:      int64(1024 * 500 * base.GBYTE),
-			Status:    api.OperationalStatus_Created,
+			Status:    crdV1.Created,
 		},
 	}
 
@@ -105,7 +105,7 @@ var (
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: api.StorageClass_HDDLVG,
 			Location:     lvgCR.Name,
-			Status:       api.OperationalStatus_Creating,
+			CSIStatus:    crdV1.Creating,
 			NodeId:       nodeId,
 		},
 	}
@@ -304,7 +304,7 @@ func TestVolumeManager_DiscoverAvailableCapacityNoFreeDrive(t *testing.T) {
 		Mode:         api.Mode_FS,
 		Type:         "xfs",
 		Health:       hwMgrRespDrives[0].Health,
-		Status:       api.OperationalStatus_Operative,
+		CSIStatus:    "",
 	}
 
 	err = vm.discoverAvailableCapacity(context.Background(), nodeId)
@@ -536,7 +536,7 @@ func TestVolumeManager_CreateLocalVolumeLVGSuccess(t *testing.T) {
 
 	err = vm.CreateLocalVolume(ctx, &volume)
 	assert.Equal(t, len(vm.volumesCache), 1)
-	assert.Equal(t, vm.volumesCache[volume.Id].Status, api.OperationalStatus_Created)
+	assert.Equal(t, vm.volumesCache[volume.Id].CSIStatus, crdV1.Created)
 }
 
 func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
@@ -635,7 +635,7 @@ func TestVolumeManager_ReconcileCreateVolumeSuccess(t *testing.T) {
 	err = vm.k8sclient.ReadCR(context.Background(), testID, volAfterReconcile)
 	assert.Nil(t, err)
 
-	assert.Equal(t, api.OperationalStatus_Created, volAfterReconcile.Spec.Status)
+	assert.Equal(t, crdV1.Created, volAfterReconcile.Spec.CSIStatus)
 }
 
 func TestVolumeManager_ReconcileCreateVolumeFail(t *testing.T) {
@@ -659,7 +659,7 @@ func TestVolumeManager_ReconcileCreateVolumeFail(t *testing.T) {
 	err = vm.k8sclient.ReadCR(context.Background(), testID, volAfterReconcile)
 	assert.Nil(t, err)
 
-	assert.Equal(t, api.OperationalStatus_FailedToCreate, volAfterReconcile.Spec.Status)
+	assert.Equal(t, crdV1.Failed, volAfterReconcile.Spec.CSIStatus)
 }
 
 func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
@@ -730,7 +730,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	err3 := vm3.DeleteLocalVolume(context.Background(), volume3)
 	assert.NotNil(t, err3)
 	assert.Contains(t, err3.Error(), "failed to delete partition")
-	assert.Equal(t, api.OperationalStatus_FailToRemove, vm3.volumesCache[testID].Status)
+	assert.Equal(t, crdV1.Failed, vm3.volumesCache[testID].CSIStatus)
 
 	// expect DeleteFileSystem was failed
 	vm4 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
@@ -743,7 +743,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	err4 := vm4.DeleteLocalVolume(ctx, volume4)
 	assert.NotNil(t, err4)
 	assert.Contains(t, err4.Error(), "failed to wipefs device")
-	assert.Equal(t, vm4.volumesCache[volume4.Id].Status, api.OperationalStatus_FailToRemove)
+	assert.Equal(t, vm4.volumesCache[volume4.Id].CSIStatus, crdV1.Failed)
 
 	// expect LVRemove fail for Volume with SC HDDLVG
 	vm5 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
@@ -760,7 +760,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	err5 := vm5.DeleteLocalVolume(ctx, volume5)
 	assert.NotNil(t, err5)
 	assert.Contains(t, err5.Error(), "unable to remove lv")
-	assert.Equal(t, vm5.volumesCache[volume5.Id].Status, api.OperationalStatus_FailToRemove)
+	assert.Equal(t, vm5.volumesCache[volume5.Id].CSIStatus, crdV1.Failed)
 }
 
 func TestVolumeManager_addVolumeOwner(t *testing.T) {

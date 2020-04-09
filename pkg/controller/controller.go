@@ -16,6 +16,7 @@ import (
 	k8s "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 )
@@ -125,11 +126,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, err
 	}
 
-	var newStatus = vol.Status
-	if vol.Status == api.OperationalStatus_Creating {
+	var newStatus = vol.CSIStatus
+	if vol.CSIStatus == apiV1.Creating {
 		ll.Info("Waiting until volume will reach Created or Failed status")
-		reached, st := c.svc.WaitStatus(ctx, req.GetName(),
-			api.OperationalStatus_Created, api.OperationalStatus_FailedToCreate)
+		reached, st := c.svc.WaitStatus(ctx, req.GetName(), apiV1.Created, apiV1.Failed)
 		if !reached {
 			return nil, status.Errorf(codes.Aborted, "CreateVolume is in progress")
 		}
@@ -140,8 +140,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		ll.Errorf("Unable to check AC size by location: %v", err)
 	}
 
-	if newStatus != api.OperationalStatus_Created {
-		ll.Errorf("Unable to create volume %v. Volume reached %s status", vol, newStatus.String())
+	if newStatus != apiV1.Created {
+		ll.Errorf("Unable to create volume %v. Volume reached %s status", vol, newStatus)
 		return nil, status.Error(codes.Internal, "Unable to create volume on local node.")
 	}
 
@@ -187,13 +187,13 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	}
 
 	ll.Info("Waiting until volume will reach Removed status")
-	reached, st := c.svc.WaitStatus(ctx, req.VolumeId, api.OperationalStatus_FailToRemove, api.OperationalStatus_Removed)
+	reached, st := c.svc.WaitStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed)
 
 	if !reached {
 		return nil, fmt.Errorf("unable to delete volume %s, still in removing state", req.VolumeId)
 	}
 
-	if st == api.OperationalStatus_FailToRemove {
+	if st == apiV1.Failed {
 		return nil, status.Error(codes.Internal, "volume has reached FailToRemove status")
 	}
 

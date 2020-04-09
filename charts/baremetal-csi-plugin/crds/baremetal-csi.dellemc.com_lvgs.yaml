@@ -41,12 +41,11 @@ spec:
               type: string
             Node:
               type: string
-            size:
+            Size:
               format: int64
               type: integer
-            status:
-              format: int32
-              type: integer
+            Status:
+              type: string
           type: object
       type: object
   version: v1

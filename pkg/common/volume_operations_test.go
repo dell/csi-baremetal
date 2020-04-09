@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -24,7 +25,7 @@ func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 	svc := setupVOOperationsTest(t)
 
 	v := testVolume1
-	v.Spec.Status = api.OperationalStatus_Created
+	v.Spec.CSIStatus = apiV1.Created
 	err := svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
@@ -57,7 +58,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 			StorageClass: expectedAC.Spec.StorageClass,
 			NodeId:       expectedAC.Spec.NodeId,
 			Size:         expectedAC.Spec.Size,
-			Status:       api.OperationalStatus_Creating,
+			CSIStatus:    apiV1.Creating,
 		}
 	)
 
@@ -111,7 +112,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		StorageClass: expectedAC.Spec.StorageClass,
 		NodeId:       expectedAC.Spec.NodeId,
 		Size:         requiredBytes,
-		Status:       api.OperationalStatus_Creating,
+		CSIStatus:    apiV1.Creating,
 	}
 	assert.Equal(t, expectedVolume, createdVolume)
 }
@@ -176,7 +177,7 @@ func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
 		err error
 	)
 
-	v.Spec.Status = api.OperationalStatus_FailToRemove
+	v.Spec.CSIStatus = apiV1.Failed
 	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
@@ -193,8 +194,8 @@ func TestVolumeOperationsImpl_DeleteVolume(t *testing.T) {
 		err error
 	)
 
-	for _, st := range []api.OperationalStatus{api.OperationalStatus_Removing, api.OperationalStatus_Removed} {
-		v.Spec.Status = st
+	for _, st := range []string{apiV1.Removing, apiV1.Removed} {
+		v.Spec.CSIStatus = st
 		err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 		assert.Nil(t, err)
 
@@ -211,7 +212,7 @@ func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
 		err        error
 	)
 
-	v.Spec.Status = api.OperationalStatus_ReadyToRemove
+	v.Spec.CSIStatus = apiV1.VolumeReady
 	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
@@ -220,23 +221,23 @@ func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
 
 	err = svc.k8sClient.ReadCR(testCtx, testVolume1Name, &updatedVol)
 	assert.Nil(t, err)
-	assert.Equal(t, api.OperationalStatus_Removing, updatedVol.Spec.Status)
+	assert.Equal(t, apiV1.Removing, updatedVol.Spec.CSIStatus)
 }
 
 func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
 	svc := setupVOOperationsTest(t)
 
 	v := testVolume1
-	v.Spec.Status = api.OperationalStatus_Created
+	v.Spec.CSIStatus = apiV1.Created
 	err := svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
 	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer closeFn()
 
-	reached, st := svc.WaitStatus(ctx, v.Name, api.OperationalStatus_FailedToCreate, api.OperationalStatus_Created)
+	reached, st := svc.WaitStatus(ctx, v.Name, apiV1.Failed, apiV1.Created)
 	assert.True(t, reached)
-	assert.Equal(t, api.OperationalStatus_Created, st)
+	assert.Equal(t, apiV1.Created, st)
 }
 
 func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
@@ -244,13 +245,13 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 
 	var (
 		reached bool
-		status  api.OperationalStatus
+		status  string
 	)
 
 	// volume CR wasn't found scenario
-	reached, status = svc.WaitStatus(testCtx, "unknown_name", api.OperationalStatus_Created)
+	reached, status = svc.WaitStatus(testCtx, "unknown_name", apiV1.Created)
 	assert.False(t, reached)
-	assert.Equal(t, api.OperationalStatus(-1), status)
+	assert.Equal(t, "", status)
 
 	// ctx is done scenario
 	err := svc.k8sClient.CreateCR(testCtx, testVolume1Name, &testVolume1)
@@ -261,9 +262,9 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	ctx.Done()
 
 	// volume CR wasn't found
-	reached, status = svc.WaitStatus(ctx, testVolume1Name, api.OperationalStatus_Created)
+	reached, status = svc.WaitStatus(ctx, testVolume1Name, apiV1.Created)
 	assert.False(t, reached)
-	assert.Equal(t, api.OperationalStatus(-1), status)
+	assert.Equal(t, "", status)
 }
 
 func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
@@ -334,11 +335,11 @@ func TestVolumeOperationsImpl_ReadVolumeAndChangeStatus(t *testing.T) {
 	var (
 		v             = testVolume1
 		updatedVolume = volumecrd.Volume{}
-		newStatus     = api.OperationalStatus_Created
+		newStatus     = apiV1.Created
 		err           error
 	)
 
-	v.Spec.Status = api.OperationalStatus_Creating
+	v.Spec.CSIStatus = apiV1.Creating
 	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
@@ -347,7 +348,7 @@ func TestVolumeOperationsImpl_ReadVolumeAndChangeStatus(t *testing.T) {
 
 	err = svc.k8sClient.ReadCR(testCtx, testVolume1Name, &updatedVolume)
 	assert.Nil(t, err)
-	assert.Equal(t, newStatus, updatedVolume.Spec.Status)
+	assert.Equal(t, newStatus, updatedVolume.Spec.CSIStatus)
 
 	// volume doesn't exist scenario
 	err = svc.ReadVolumeAndChangeStatus("notExisting", newStatus)

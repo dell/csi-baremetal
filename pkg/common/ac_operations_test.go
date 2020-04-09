@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -24,7 +25,7 @@ func TestACOperationsImpl_SearchAC(t *testing.T) {
 	)
 	// create LVG CR(with status Created) on which testAC4 is pointed
 	lvg := testLVG
-	lvg.Spec.Status = api.OperationalStatus_Created
+	lvg.Spec.Status = apiV1.Created
 	err = acOp.k8sClient.CreateCR(testCtx, lvg.Name, &lvg)
 	assert.Nil(t, err)
 
@@ -70,7 +71,7 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationSuccess(t *testing.T) {
 		ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.MBYTE)*500, api.StorageClass_HDDLVG)
 		wg.Done()
 	}()
-	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_Created)
+	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Created)
 	assert.Nil(t, err)
 	wg.Wait()
 	assert.NotNil(t, ac)
@@ -96,7 +97,7 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
 		ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.MBYTE)*500, api.StorageClass_HDDLVG)
 		wg.Done()
 	}()
-	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_FailedToCreate)
+	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Failed)
 	assert.Nil(t, err)
 	wg.Wait()
 	assert.Nil(t, ac)
@@ -159,7 +160,7 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 		newAC = acOp.recreateACToLVGSC(api.StorageClass_HDDLVG, &testAC2, &testAC3)
 		wg.Done()
 	}()
-	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_Created)
+	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Created)
 	assert.Nil(t, err)
 	wg.Wait()
 	assert.NotNil(t, newAC)
@@ -207,7 +208,7 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 		newAC = acOp.recreateACToLVGSC(api.StorageClass_HDDLVG, &testAC2, &testAC3)
 		wg.Done()
 	}()
-	err = lvgReconcileImitation(acOp.k8sClient, api.OperationalStatus_FailedToCreate)
+	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Failed)
 	assert.Nil(t, err)
 	wg.Wait()
 	assert.Nil(t, newAC)
@@ -221,7 +222,7 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
 	acOp := setupACOperationsTest(t)
 	lvgCR := testLVG
-	lvgCR.Spec.Status = api.OperationalStatus_Created
+	lvgCR.Spec.Status = apiV1.Created
 
 	err := acOp.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR)
 	assert.Nil(t, err)
@@ -232,7 +233,7 @@ func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
 	assert.Equal(t, lvgCR.Spec, *lvg)
 
 	// lvgCR have Failed status
-	lvgCR.Spec.Status = api.OperationalStatus_FailedToCreate
+	lvgCR.Spec.Status = apiV1.Failed
 	err = acOp.k8sClient.UpdateCR(testCtx, &lvgCR)
 	lvg = acOp.waitUntilLVGWillBeCreated(testCtx, lvgCR.Name)
 	assert.Nil(t, lvg)
@@ -244,7 +245,7 @@ func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
 		lvg2         *api.LogicalVolumeGroup
 	)
 	defer closeFn()
-	lvgCR.Spec.Status = api.OperationalStatus_Creating
+	lvgCR.Spec.Status = apiV1.Creating
 	err = acOp.k8sClient.UpdateCR(testCtx, &lvgCR)
 	assert.Nil(t, err)
 	wg.Add(1)
@@ -310,7 +311,7 @@ func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOpe
 
 // lvgReconcileImitation this is an Reconcile imitation, expect only 1 LVG is present
 // read LVG list until it size in not 1 and then set status to newStatus for LVG CR
-func lvgReconcileImitation(k8sClient *base.KubeClient, newStatus api.OperationalStatus) error {
+func lvgReconcileImitation(k8sClient *base.KubeClient, newStatus string) error {
 	var (
 		lvgCRList lvgcrd.LVGList
 		err       error

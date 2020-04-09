@@ -12,6 +12,7 @@ import (
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
@@ -21,8 +22,8 @@ type VolumeOperations interface {
 	CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error)
 	DeleteVolume(ctx context.Context, volumeID string) error
 	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string)
-	WaitStatus(ctx context.Context, volumeID string, statuses ...api.OperationalStatus) (bool, api.OperationalStatus)
-	ReadVolumeAndChangeStatus(volumeID string, newStatus api.OperationalStatus) error
+	WaitStatus(ctx context.Context, volumeID string, statuses ...string) (bool, string)
+	ReadVolumeAndChangeStatus(volumeID string, newStatus string) error
 }
 
 type VolumeOperationsImpl struct {
@@ -56,15 +57,15 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	err = vo.k8sClient.ReadCR(ctx, v.Id, volumeCR)
 	switch {
 	case err == nil:
-		ll.Infof("Volume exists, current status: %s.", volumeCR.Spec.Status.String())
-		if volumeCR.Spec.Status == api.OperationalStatus_FailedToCreate {
+		ll.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
+		if volumeCR.Spec.CSIStatus == apiV1.Failed {
 			return nil, fmt.Errorf("corresponding volume CR %s has failed status", volumeCR.Spec.Id)
 		}
 		// check that volume is in created state or time is over (for creating)
 		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForOperations)
 		if expiredAt.Before(time.Now()) {
 			ll.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForOperations)
-			volumeCR.Spec.Status = api.OperationalStatus_FailedToCreate
+			volumeCR.Spec.CSIStatus = apiV1.Failed
 			_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
@@ -102,7 +103,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			NodeId:       ac.Spec.NodeId,
 			Size:         allocatedBytes,
 			Location:     ac.Spec.Location,
-			Status:       api.OperationalStatus_Creating,
+			CSIStatus:    apiV1.Creating,
 			StorageClass: sc,
 		}
 		volumeCR = vo.k8sClient.ConstructVolumeCR(v.Id, apiVolume)
@@ -140,13 +141,13 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 		return err
 	}
 
-	switch volumeCR.Spec.Status {
-	case api.OperationalStatus_FailToRemove:
+	switch volumeCR.Spec.CSIStatus {
+	case apiV1.Failed:
 		return status.Error(codes.Internal, "volume has reached FailToRemove status")
-	case api.OperationalStatus_Removed, api.OperationalStatus_Removing:
+	case apiV1.Removed, apiV1.Removing:
 		return nil
 	default:
-		volumeCR.Spec.Status = api.OperationalStatus_Removing
+		volumeCR.Spec.CSIStatus = apiV1.Removing
 		return vo.k8sClient.UpdateCR(ctx, volumeCR)
 	}
 }
@@ -217,9 +218,8 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 
 // WaitStatus check volume status until it will be reached one of the statuses
 // return true if one of the status had reached, or return false instead
-// also return status that had reached or -1, pull status while context is active
-func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
-	statuses ...api.OperationalStatus) (bool, api.OperationalStatus) {
+// also return status that had reached or "", pull status while context is active
+func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string, statuses ...string) (bool, string) {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "WaitStatus",
 		"volumeID": volumeID,
@@ -237,19 +237,19 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 		select {
 		case <-ctx.Done():
 			ll.Warnf("Context is done but volume still not reach one of the expected state.")
-			return false, -1
+			return false, ""
 		case <-time.After(timeoutBetweenCheck):
 			if err = vo.k8sClient.ReadCR(ctx, volumeID, v); err != nil {
 				ll.Errorf("Unable to read volume CR: %v", err)
 				if k8sError.IsNotFound(err) {
 					ll.Error("Volume CR doesn't exist")
-					return false, -1
+					return false, ""
 				}
 				continue
 			}
 			for _, s := range statuses {
-				if v.Spec.Status == s {
-					ll.Infof("Volume has reached %s state.", s.String())
+				if v.Spec.CSIStatus == s {
+					ll.Infof("Volume has reached %s state.", s)
 					return true, s
 				}
 			}
@@ -257,11 +257,11 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 	}
 }
 
-func (vo *VolumeOperationsImpl) ReadVolumeAndChangeStatus(volumeID string, newStatus api.OperationalStatus) error {
+func (vo *VolumeOperationsImpl) ReadVolumeAndChangeStatus(volumeID string, newStatus string) error {
 	vo.log.WithFields(logrus.Fields{
 		"method":   "ReadVolumeAndChangeStatus",
 		"volumeID": volumeID,
-	}).Infof("Read volume and set status to %s", newStatus.String())
+	}).Infof("Read volume and set status to %s", newStatus)
 
 	var (
 		v        = &volumecrd.Volume{}
@@ -274,7 +274,7 @@ func (vo *VolumeOperationsImpl) ReadVolumeAndChangeStatus(volumeID string, newSt
 	}
 
 	// change status
-	v.Spec.Status = newStatus
+	v.Spec.CSIStatus = newStatus
 	if err := vo.k8sClient.UpdateCRWithAttempts(ctx, v, attempts); err != nil {
 		return err
 	}

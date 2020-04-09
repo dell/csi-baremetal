@@ -137,7 +137,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 		framework.ExpectNoError(err)
 
 		volumesUnstructuredList, _ := f.DynamicClient.Resource(volumeGVR).List(metav1.ListOptions{})
-		location, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "spec", "location")
+		location, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "spec", "Location")
 		volumeName, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "metadata", "name")
 		framework.ExpectNoError(err)
 
@@ -149,7 +149,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 
 		changedVolume, err := f.DynamicClient.Resource(volumeGVR).Namespace(ns).Get(volumeName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		health, _, err := unstructured.NestedInt64(changedVolume.Object, "spec", "health")
+		health, _, err := unstructured.NestedInt64(changedVolume.Object, "spec", "Health")
 
 		Expect(api.Health(health)).To(Equal(api.Health_BAD))
 	})

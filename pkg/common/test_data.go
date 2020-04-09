@@ -83,7 +83,7 @@ var (
 			Node:      testNode2Name,
 			Locations: []string{testDrive4UUID},
 			Size:      int64(base.GBYTE) * 100,
-			Status:    api.OperationalStatus_Creating,
+			Status:    crdV1.Creating,
 		},
 	}
 
@@ -102,7 +102,7 @@ var (
 			Size:         int64(base.GBYTE),
 			StorageClass: api.StorageClass_HDD,
 			Location:     testDrive1UUID,
-			Status:       api.OperationalStatus_Creating,
+			CSIStatus:    crdV1.Creating,
 		},
 	}
 )

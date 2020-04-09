@@ -34,9 +34,6 @@ const (
 	// To avoid linter error
 	DefaultVolumeID = "Unknown"
 
-	// To update Volume CR's status
-	VolumeStatusAnnotationKey = "dell.emc.csi/volume-status"
-
 	// Time between attempts to interact with Volume CR
 	TickerStep = 500 * time.Millisecond
 )
@@ -190,39 +187,33 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 }
 
 // ChangeVolumeStatus changes Volume's CR status from current to newStatus with retries
-func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus api.OperationalStatus) error {
+func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus string) error {
 	ll := k.log.WithFields(logrus.Fields{
 		"method":   "ChangeVolumeStatus",
 		"volumeID": volumeID,
 	})
 
 	var (
-		v            = &volumecrd.Volume{}
-		newStatusStr = api.OperationalStatus_name[int32(newStatus)]
-		attempts     = 10
-		ctx          = context.WithValue(context.Background(), RequestUUID, volumeID)
+		v        = &volumecrd.Volume{}
+		attempts = 10
+		ctx      = context.WithValue(context.Background(), RequestUUID, volumeID)
 	)
 
-	ll.Infof("Try to set status to %s", newStatusStr)
+	ll.Infof("Try to set status to %s", newStatus)
 
 	if err := k.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
 		ll.Errorf("failed to read volume cr after %d attempts", attempts)
 	}
 
 	// change status
-	v.Spec.Status = newStatus
-	if v.ObjectMeta.Annotations == nil {
-		v.ObjectMeta.Annotations = make(map[string]string, 1)
-	}
-	v.ObjectMeta.Annotations[VolumeStatusAnnotationKey] = newStatusStr
-
+	v.Spec.CSIStatus = newStatus
 	if err := k.UpdateCRWithAttempts(ctx, v, attempts); err == nil {
 		return nil
 	}
 
-	ll.Warnf("Unable to update volume CR's status %s.", api.OperationalStatus_name[int32(newStatus)])
+	ll.Warnf("Unable to update volume CR's status %s.", newStatus)
 
-	return fmt.Errorf("unable to persist status to %s for volume %s", newStatusStr, volumeID)
+	return fmt.Errorf("unable to persist status to %s for volume %s", newStatus, volumeID)
 }
 
 func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempts int) error {

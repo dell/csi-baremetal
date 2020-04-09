@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
@@ -63,6 +64,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, status.Error(codes.NotFound, "There is no volume with appropriate VolumeID")
 	}
 
+	if v.CSIStatus == apiV1.Failed {
+		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", v.Id)
+	}
+
 	scImpl := s.getStorageClassImpl(v.StorageClass)
 	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
 
@@ -89,11 +94,21 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		partition = fmt.Sprintf("%s1", bdev)
 	}
 
+	if v.CSIStatus == apiV1.VolumeReady {
+		ll.Info("Perform mount operation")
+		if err := scImpl.Mount(partition, targetPath); err != nil {
+			ll.Errorf("Failed to stage volume %s, error: %v", v.Id, err)
+			return nil, fmt.Errorf("failed to stage volume %s", v.Id)
+		}
+		return &csi.NodeStageVolumeResponse{}, nil
+	}
 	ll.Infof("Work with partition %s", partition)
 
 	if err := s.prepareAndPerformMount(partition, targetPath, scImpl); err != nil {
+		s.setVolumeStatus(req.VolumeId, apiV1.Failed)
 		return nil, fmt.Errorf("failed to stage volume")
 	}
+	s.setVolumeStatus(req.VolumeId, apiV1.VolumeReady)
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
@@ -112,6 +127,15 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
+	v, ok := s.getFromVolumeCache(req.GetVolumeId())
+	if !ok {
+		return nil, status.Error(codes.Internal, "Unable to find volume")
+	}
+
+	if v.CSIStatus == apiV1.Failed {
+		//Should we return error or nil?
+		return nil, status.Errorf(codes.Internal, "corresponding CR %s reached Failed status", v.Id)
+	}
 
 	// This is a temporary solution to clear all owners during NodeUnstage
 	// because NodeUnpublishRequest doesn't contain info about pod
@@ -121,32 +145,27 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		ll.Errorf("Failed to clear owners: %v", err)
 	}
 
-	if err := s.unmount(req.VolumeId, req.StagingTargetPath); err != nil {
+	if err := s.unmount(v.StorageClass, req.GetStagingTargetPath()); err != nil {
+		s.setVolumeStatus(v.Id, apiV1.Failed)
 		return nil, err
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (s *CSINodeService) unmount(volumeID string, path string) error {
+//We use unmount in Unstage/Unpublish requests to avoid duplicated code
+func (s *CSINodeService) unmount(storageClass api.StorageClass, path string) error {
 	ll := s.log.WithFields(logrus.Fields{
-		"method":   "unmount",
-		"volumeID": volumeID,
+		"method": "unmount",
 	})
-	v, ok := s.getFromVolumeCache(volumeID)
-	if !ok {
-		return status.Error(codes.Internal, "Unable to find volume")
-	}
-
-	scImpl := s.getStorageClassImpl(v.StorageClass)
-	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
+	scImpl := s.getStorageClassImpl(storageClass)
+	ll.Infof("Chosen StorageClass is %s", storageClass.String())
 
 	err := scImpl.Unmount(path)
 	if err != nil {
 		return status.Error(codes.Internal, "Unable to unmount")
 	}
 
-	s.setVolumeStatus(volumeID, api.OperationalStatus_ReadyToRemove)
 	ll.Infof("volume was successfully unmount from %s", path)
 	return nil
 }
@@ -213,18 +232,18 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	srcPath := req.GetStagingTargetPath()
 	path := req.GetTargetPath()
 
-	ll.Info("Set status to Publishing")
-	s.setVolumeStatus(v.Id, api.OperationalStatus_Publishing)
-
+	if v.CSIStatus == apiV1.Failed {
+		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", v.Id)
+	}
 	scImpl := s.getStorageClassImpl(v.StorageClass)
 
 	if err := s.prepareAndPerformMount(srcPath, path, scImpl, "--bind"); err != nil {
 		ll.Errorf("prepareAndPerformMount failed, set status to FailedToPublish")
-		s.setVolumeStatus(v.Id, api.OperationalStatus_FailedToPublish)
+		s.setVolumeStatus(v.Id, apiV1.Failed)
 		return nil, fmt.Errorf("failed to publish volume")
 	}
-	ll.Infof("Set status to %s", api.OperationalStatus_Published)
-	s.setVolumeStatus(v.Id, api.OperationalStatus_Published)
+	ll.Infof("Set status to %s", apiV1.Published)
+	s.setVolumeStatus(v.Id, apiV1.Published)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -244,10 +263,19 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	if err := s.unmount(req.GetVolumeId(), req.GetTargetPath()); err != nil {
+	v, ok := s.getFromVolumeCache(req.GetVolumeId())
+	if !ok {
+		return nil, status.Error(codes.Internal, "Unable to find volume")
+	}
+	if err := s.unmount(v.StorageClass, req.GetTargetPath()); err != nil {
+		s.setVolumeStatus(v.Id, apiV1.Failed)
 		return nil, err
 	}
-
+	//If volume has more than 1 owner pods then keep its status as Published
+	if len(v.Owners) > 1 {
+		return &csi.NodeUnpublishVolumeResponse{}, nil
+	}
+	s.setVolumeStatus(v.Id, apiV1.VolumeReady)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 

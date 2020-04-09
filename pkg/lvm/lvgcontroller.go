@@ -10,7 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -91,13 +91,13 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	if lvg.Spec.Status == api.OperationalStatus_Creating {
-		newStatus := api.OperationalStatus_Created
+	if lvg.Spec.Status == apiV1.Creating {
+		newStatus := apiV1.Created
 		var err error
 		var locations []string
 		if locations, err = c.createSystemLVG(lvg); err != nil {
 			ll.Errorf("Unable to create system LVG: %v", err)
-			newStatus = api.OperationalStatus_FailedToCreate
+			newStatus = apiV1.Failed
 		}
 
 		lvg.Spec.Status = newStatus
