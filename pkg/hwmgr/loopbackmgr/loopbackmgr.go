@@ -18,10 +18,11 @@ const (
 	tmpFolder         = "/tmp"
 	createFileCmdTmpl = "dd if=/dev/zero of=%s bs=1M count=%d"
 	// requires root privileges
-	losetupCmd                  = "losetup"
-	checkLoopBackDeviceCmdTmpl  = losetupCmd + " -j %s"
-	setupLoopBackDeviceCmdTmpl  = losetupCmd + " -fP %s"
-	detachLoopBackDeviceCmdTmpl = losetupCmd + " -d %s"
+	losetupCmd                      = "losetup"
+	checkLoopBackDeviceCmdTmpl      = losetupCmd + " -j %s"
+	setupLoopBackDeviceCmdTmpl      = losetupCmd + " -fP %s"
+	detachLoopBackDeviceCmdTmpl     = losetupCmd + " -d %s"
+	findUnusedLoopBackDeviceCmdTmpl = losetupCmd + " -f"
 )
 
 /*
@@ -102,6 +103,7 @@ func (mgr *LoopBackManager) Init() (err error) {
 		sizeMb := mgr.devices[i].sizeMb
 		// skip creation if file exists (manager restarted)
 		if _, err := os.Stat(file); err != nil {
+			// todo AK8S-654 need to check root FS space before creating next file
 			_, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(createFileCmdTmpl, file, sizeMb))
 			if errcode != nil {
 				mgr.log.Fatalf("Unable to create file %s with size %d MB: %s", file, sizeMb, stderr)
@@ -124,6 +126,12 @@ func (mgr *LoopBackManager) Init() (err error) {
 				// go to the next
 				continue
 			}
+		}
+
+		// check that system has unused device for troubleshooting purposes
+		_, _, err = mgr.exec.RunCmd(findUnusedLoopBackDeviceCmdTmpl)
+		if err != nil {
+			mgr.log.Error("System doesn't have unused loopback devices")
 		}
 
 		// create new device

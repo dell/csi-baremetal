@@ -143,8 +143,10 @@ spec:
         {{- if .Values.hwmgr.grpc.server.port }}
           - containerPort: {{ .Values.hwmgr.grpc.server.port }}
         {{- end }}
-        {{- if .Values.logReceiver.create  }}
         volumeMounts:
+        - name: host-dev
+          mountPath: /dev
+        {{- if .Values.logReceiver.create  }}
         - name: logs
           mountPath: /var/log/
         {{- end }}
