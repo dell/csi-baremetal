@@ -176,6 +176,10 @@ func (m *VolumeManager) Discover() error {
 	}
 
 	if !m.initialized {
+		err = m.discoverLVGOnSystemDrive()
+		if err != nil {
+			m.log.Errorf("discoverLVGOnSystemDrive finished with error: %v", err)
+		}
 		m.initialized = true
 	}
 	return nil
@@ -268,7 +272,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 	ll.Info("Processing")
 
 	// explore each drive from freeDrives
-	lsblk, err := m.linuxUtils.Lsblk(base.DriveTypeDisk)
+	lsblk, err := m.linuxUtils.Lsblk("")
 	if err != nil {
 		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
@@ -276,7 +280,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()
 	for _, d := range freeDrives {
-		for _, ld := range *lsblk {
+		for _, ld := range lsblk {
 			if strings.EqualFold(ld.Serial, d.Spec.SerialNumber) && len(ld.Children) > 0 {
 				uuid, err := m.linuxUtils.GetPartitionUUID(ld.Name)
 				if err != nil {
@@ -404,6 +408,100 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 	return drives
 }
 
+// discoverLVGOnSystemDrive discovers LVG configuration on system SSD drive
+// and creates LVG CR and AC CR, return nil in case of success
+// if system drive is not SSD or LVG CR that points in system VG is exists - return nil
+// if system VG free space is less then threshold - AC CR will not be created but LVG will
+// return error in case of error on any step
+func (m *VolumeManager) discoverLVGOnSystemDrive() error {
+	ll := m.log.WithField("method", "discoverLVGOnSystemDrive")
+
+	var (
+		lvgList = lvgcrd.LVGList{}
+		errTmpl = "unable to inspect system LVM, error: %v"
+		err     error
+	)
+
+	// at first check whether LVG on system drive exists or no
+	if err = m.k8sclient.ReadList(context.Background(), &lvgList); err != nil {
+		return fmt.Errorf(errTmpl, err)
+	}
+
+	for _, lvg := range lvgList.Items {
+		if lvg.Spec.Node == m.nodeID && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
+			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
+			return nil
+		}
+	}
+
+	var (
+		rootMountPoint, vgName string
+		vgFreeSpace            int64
+	)
+
+	if rootMountPoint, err = m.linuxUtils.FindMnt(base.KubeletRootPath); err != nil {
+		return fmt.Errorf(errTmpl, err)
+	}
+
+	// from container we expect here name like "VG_NAME[/var/lib/kubelet/pods]"
+	rootMountPoint = strings.Split(rootMountPoint, "[")[0]
+
+	// ensure that rootMountPoint is in SSD drive
+	devices, err := m.linuxUtils.Lsblk(rootMountPoint)
+	if err != nil {
+		return fmt.Errorf(errTmpl, err)
+	}
+
+	if devices[0].Rota != base.NonRotationalNum {
+		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
+		return nil
+	}
+
+	if vgName, err = m.linuxUtils.FindVgNameByLvName(rootMountPoint); err != nil {
+		return fmt.Errorf(errTmpl, err)
+	}
+
+	if vgFreeSpace, err = m.linuxUtils.GetVgFreeSpace(vgName); err != nil {
+		return fmt.Errorf(errTmpl, err)
+	}
+	if vgFreeSpace == 0 {
+		vgFreeSpace++ // if size is 0 it field will not display for CR
+	}
+
+	var (
+		vgCRName = uuid.New().String()
+		vg       = api.LogicalVolumeGroup{
+			Name:      vgName,
+			Node:      m.nodeID,
+			Locations: []string{base.SystemDriveAsLocation},
+			Size:      vgFreeSpace,
+			Status:    apiV1.Created,
+		}
+		vgCR = m.k8sclient.ConstructLVGCR(vgCRName, vg)
+		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
+	)
+	if err = m.k8sclient.CreateCR(ctx, vg.Name, vgCR); err != nil {
+		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
+	}
+
+	if vgFreeSpace > common.AcSizeMinThresholdBytes {
+		acName := uuid.New().String()
+		acCR := m.k8sclient.ConstructACCR(acName, api.AvailableCapacity{
+			Location:     vgCRName,
+			NodeId:       m.nodeID,
+			StorageClass: api.StorageClass_SSDLVG,
+			Size:         vgFreeSpace,
+		})
+		if err = m.k8sclient.CreateCR(ctx, acName, acCR); err != nil {
+			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
+		}
+		ll.Infof("AC %v was created based on system LVG", acCR)
+	}
+
+	ll.Infof("System LVM was inspected, LVG object was created")
+	return nil
+}
+
 func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "CreateLocalVolume",
@@ -420,23 +518,45 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 
 	var (
 		volLocation = vol.Location
+		newStatus   = apiV1.Created
+		scImpl      = m.getStorageClassImpl(vol.StorageClass)
 		device      string
 		err         error
 	)
 	switch vol.StorageClass {
 	case api.StorageClass_SSDLVG, api.StorageClass_HDDLVG:
 		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(base.GBYTE))
+		vgName := vol.Location
+
+		// Volume.Location is a LVG CR name and we use such name as a real VG name
+		// however for LVG based on system disk LVG CR name != VG name
+		// we need to read appropriate LVG CR and use LVG CR.Spec.Name in LVCreate command
+		if vol.StorageClass == api.StorageClass_SSDLVG {
+			vgName, err = m.k8sclient.GetVGNameByLVGCRName(ctx, volLocation)
+			if err != nil {
+				return fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
+			}
+		}
+
+		m.setVolumeCacheValue(vol.Id, vol)
+
 		// create lv with name /dev/VG_NAME/vol.Id
-		ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, volLocation)
-		if err = m.linuxUtils.LVCreate(vol.Id, sizeStr, volLocation); err != nil {
+		ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, vgName)
+		if err = m.linuxUtils.LVCreate(vol.Id, sizeStr, vgName); err != nil {
 			ll.Errorf("Unable to create LV: %v", err)
 			return err
 		}
 
 		ll.Info("LV was created.")
-		m.setVolumeCacheValue(vol.Id, vol)
-		m.setVolumeStatus(vol.Id, apiV1.Created)
-		return nil
+
+		go func() {
+			if err := scImpl.CreateFileSystem(sc.XFS, fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)); err != nil {
+				ll.Error("Failed to create file system, set volume status FailedToCreate", err)
+				newStatus = apiV1.Failed
+			}
+			m.setVolumeStatus(vol.Id, newStatus)
+		}()
+
 	default: // assume that volume location is whole disk
 		drive := &drivecrd.Drive{}
 
@@ -469,7 +589,6 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 				m.setVolumeStatus(vol.Id, apiV1.Failed)
 			} else {
 				ll.Info("Partition UUID was set successfully")
-				scImpl := m.getStorageClassImpl(vol.StorageClass)
 				var partition string
 				switch vol.StorageClass {
 				case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
@@ -631,7 +750,17 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 		}
 		ll.Info("Partition was deleted")
 	case api.StorageClass_SSDLVG, api.StorageClass_HDDLVG:
-		device = fmt.Sprintf("/dev/%s/%s", volume.Location, volume.Id) // /dev/VG_NAME/LV_NAME
+		vgName := volume.Location
+		var err error
+		// Volume.Location is a LVG CR however for LVG based on system disk LVG CR name != VG name
+		// we need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
+		if volume.StorageClass == api.StorageClass_SSDLVG {
+			vgName, err = m.k8sclient.GetVGNameByLVGCRName(ctx, volume.Location)
+			if err != nil {
+				return fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
+			}
+		}
+		device = fmt.Sprintf("/dev/%s/%s", vgName, volume.Id) // /dev/VG_NAME/LV_NAME
 	default:
 		return fmt.Errorf("unable to determine storage class for volume %v", volume)
 	}
@@ -650,7 +779,7 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 	if volume.StorageClass == api.StorageClass_HDDLVG || volume.StorageClass == api.StorageClass_SSDLVG {
 		lvgName := volume.Location
 		ll.Infof("Removing LV %s from LVG %s", volume.Id, lvgName)
-		if err = m.linuxUtils.LVRemove(volume.Id, volume.Location); err != nil {
+		if err = m.linuxUtils.LVRemove(device); err != nil {
 			m.setVolumeStatus(volume.Id, apiV1.Failed)
 			return fmt.Errorf("unable to remove lv: %v", err)
 		}

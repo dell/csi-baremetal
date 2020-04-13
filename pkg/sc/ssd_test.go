@@ -22,6 +22,6 @@ func TestGetSSDSCInstance(t *testing.T) {
 func TestSetSSDSCExecutor(t *testing.T) {
 	ssdSCInstanceTest := GetSSDSCInstance(loggerSSDSC)
 	executorNew := &base.Executor{}
-	ssdSCInstanceTest.SetSDDSCExecutor(*executorNew)
+	ssdSCInstanceTest.SetSDDSCExecutor(executorNew)
 	assert.Equal(t, executorNew, ssdSCInstanceTest.executor)
 }

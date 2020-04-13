@@ -21,8 +21,8 @@ type AvailableCapacityOperations interface {
 	DeleteIfEmpty(ctx context.Context, acLocation string) error
 }
 
-// if AC size becomes lower then acSizeMinThresholdBytes that AC should be deleted
-const acSizeMinThresholdBytes = int64(base.MBYTE) // 1MB
+// if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
+const AcSizeMinThresholdBytes = int64(base.MBYTE) // 1MB
 
 type ACOperationsImpl struct {
 	k8sClient *base.KubeClient
@@ -114,7 +114,7 @@ func (a *ACOperationsImpl) DeleteIfEmpty(ctx context.Context, acLocation string)
 
 	for _, ac := range acList.Items {
 		if ac.Spec.Location == acLocation {
-			if ac.Spec.Size < acSizeMinThresholdBytes {
+			if ac.Spec.Size < AcSizeMinThresholdBytes {
 				return a.k8sClient.DeleteCR(ctx, &ac)
 			}
 			return nil

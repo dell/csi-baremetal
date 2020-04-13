@@ -21,11 +21,6 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
 
-var (
-	node *CSINodeService
-	ctx  = context.Background()
-)
-
 const (
 	nodeID     = "fake-node"
 	device     = "/dev/sda1"
@@ -37,8 +32,9 @@ const (
 )
 
 var (
-	disk1 = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID}
-	disk2 = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID}
+	testCtx = context.Background()
+	disk1   = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID}
+	disk2   = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID}
 )
 
 func TestCSINodeService(t *testing.T) {
@@ -73,7 +69,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -83,7 +79,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -93,7 +89,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail with missing volume capabilities", func() {
 			req := &csi.NodePublishVolumeRequest{}
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume capability missing in request"))
@@ -104,7 +100,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 				VolumeCapability: volumeCap,
 			}
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume ID missing in request"))
@@ -115,7 +111,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 				VolumeCapability: volumeCap,
 			}
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Target Path missing in request"))
@@ -127,7 +123,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 				TargetPath:       targetPath,
 			}
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Stage path missing in request"))
@@ -135,7 +131,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail, because Volume has failed status", func() {
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 			node.setVolumeStatus(volumeID, crdV1.Failed)
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
@@ -143,7 +139,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
 			delete(node.volumesCache, volumeID)
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			// not a good ide to check error message. better to validate error code.
@@ -152,7 +148,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail with search device by S/N error", func() {
 			req := getNodePublishRequest("volume-id-3", targetPath, *volumeCap)
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
@@ -168,7 +164,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 				Location: disk1.UUID,
 			}
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal("failed to publish volume"))
@@ -184,7 +180,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 				Location: disk1.UUID,
 			}
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal("failed to publish volume"))
@@ -202,7 +198,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 				Location: disk1.UUID,
 			}
 
-			resp, err := node.NodePublishVolume(ctx, req)
+			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal("failed to publish volume"))
@@ -237,7 +233,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeStageRequest(volumeID, *volumeCap)
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -246,7 +242,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeStageRequest(volumeID, *volumeCap)
 			node.setVolumeStatus(volumeID, crdV1.VolumeReady)
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -256,7 +252,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		It("Should fail with missing volume capabilities", func() {
 			req := &csi.NodeStageVolumeRequest{}
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume capability missing in request"))
@@ -267,7 +263,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 				VolumeCapability:  volumeCap,
 			}
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume ID missing in request"))
@@ -278,7 +274,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 				VolumeCapability: volumeCap,
 			}
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Stage Path missing in request"))
@@ -287,7 +283,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			req := getNodeStageRequest(volumeID, *volumeCap)
 			delete(node.volumesCache, volumeID)
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("No volume with ID " + volumeID + " found on node"))
@@ -295,7 +291,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		It("Should fail with search device by S/N error", func() {
 			req := getNodeStageRequest("volume-id-3", *volumeCap)
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
@@ -311,7 +307,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 				Location: disk1.UUID,
 			}
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal("failed to stage volume"))
@@ -327,7 +323,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 				Location: disk1.UUID,
 			}
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal("failed to stage volume"))
@@ -345,7 +341,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 				Location: disk1.UUID,
 			}
 
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal("failed to stage volume"))
@@ -353,7 +349,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		It("Should fail, because Volume has failed status", func() {
 			req := getNodeStageRequest(volumeID, *volumeCap)
 			node.setVolumeStatus(volumeID, crdV1.Failed)
-			resp, err := node.NodeStageVolume(ctx, req)
+			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
@@ -375,7 +371,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 
 			req := getNodeUnpublishRequest(volumeID, targetPath)
 
-			resp, err := node.NodeUnpublishVolume(ctx, req)
+			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -385,7 +381,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			node.scMap[SCName("hdd")] = scImplMock
 			node.volumesCache[volumeID].Owners = append(node.volumesCache[volumeID].Owners, "pod-1")
 			node.volumesCache[volumeID].Owners = append(node.volumesCache[volumeID].Owners, "pod-2")
-			resp, err := node.NodeUnpublishVolume(ctx, req)
+			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -398,7 +394,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 				TargetPath: targetPath,
 			}
 
-			resp, err := node.NodeUnpublishVolume(ctx, req)
+			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume ID missing in request"))
@@ -408,7 +404,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 				VolumeId: volumeID,
 			}
 
-			resp, err := node.NodeUnpublishVolume(ctx, req)
+			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Target Path missing in request"))
@@ -420,7 +416,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeUnpublishRequest(volumeID, targetPath)
 
-			resp, err := node.NodeUnpublishVolume(ctx, req)
+			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Unable to unmount"))
@@ -428,7 +424,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 		It("Should failed, because Volume has failed status", func() {
 			req := getNodeUnpublishRequest(volumeID, targetPath)
 			node.setVolumeStatus(volumeID, crdV1.Failed)
-			resp, err := node.NodeUnpublishVolume(ctx, req)
+			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
@@ -450,7 +446,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 
 			req := getNodeUnstageRequest(volumeID, stagePath)
 
-			resp, err := node.NodeUnstageVolume(ctx, req)
+			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -462,7 +458,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 				StagingTargetPath: stagePath,
 			}
 
-			resp, err := node.NodeUnstageVolume(ctx, req)
+			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume ID missing in request"))
@@ -472,7 +468,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 				VolumeId: volumeID,
 			}
 
-			resp, err := node.NodeUnstageVolume(ctx, req)
+			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Stage Path missing in request"))
@@ -484,7 +480,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeUnstageRequest(volumeID, targetPath)
 
-			resp, err := node.NodeUnstageVolume(ctx, req)
+			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Unable to unmount"))
@@ -492,7 +488,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 		It("Should failed, because Volume has failed status", func() {
 			req := getNodeUnstageRequest(volumeID, targetPath)
 			node.setVolumeStatus(volumeID, crdV1.Failed)
-			resp, err := node.NodeUnstageVolume(ctx, req)
+			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
 		})
@@ -503,7 +499,7 @@ var _ = Describe("CSINodeService NodeGetInfo()", func() {
 	It("Should return topology key with Node ID", func() {
 		node := newNodeService()
 
-		resp, err := node.NodeGetInfo(ctx, &csi.NodeGetInfoRequest{})
+		resp, err := node.NodeGetInfo(testCtx, &csi.NodeGetInfoRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		val, ok := resp.AccessibleTopology.Segments["baremetal-csi/nodeid"]
@@ -516,7 +512,7 @@ var _ = Describe("CSINodeService NodeGetCapabilities()", func() {
 	It("Should return STAGE_UNSTAGE_VOLUME capabilities", func() {
 		node := newNodeService()
 
-		resp, err := node.NodeGetCapabilities(ctx, &csi.NodeGetCapabilitiesRequest{})
+		resp, err := node.NodeGetCapabilities(testCtx, &csi.NodeGetCapabilitiesRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		capabilities := resp.GetCapabilities()
@@ -535,7 +531,7 @@ var _ = Describe("CSINodeService Check()", func() {
 		node := newNodeService()
 		node.initialized = true
 
-		resp, err := node.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+		resp, err := node.Check(testCtx, &grpc_health_v1.HealthCheckRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.Status).To(Equal(grpc_health_v1.HealthCheckResponse_SERVING))
@@ -543,7 +539,7 @@ var _ = Describe("CSINodeService Check()", func() {
 	It("Should return not serving", func() {
 		node := newNodeService()
 
-		resp, err := node.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+		resp, err := node.Check(testCtx, &grpc_health_v1.HealthCheckRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.Status).To(Equal(grpc_health_v1.HealthCheckResponse_NOT_SERVING))
@@ -583,12 +579,12 @@ func getNodeUnstageRequest(volumeID, stagePath string) *csi.NodeUnstageVolumeReq
 
 func newNodeService() *CSINodeService {
 	client := mocks.NewMockHWMgrClient(mocks.HwMgrRespDrives)
-	executor := mocks.NewMockExecutor(map[string]mocks.CmdOut{base.LsblkCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	executor := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	kubeClient, err := base.GetFakeKubeClient(testNs)
 	if err != nil {
 		panic(err)
 	}
-	node = NewCSINodeService(client, nodeID, logrus.New(), kubeClient)
+	node := NewCSINodeService(client, nodeID, logrus.New(), kubeClient)
 
 	node.VolumeManager.SetExecutor(executor)
 

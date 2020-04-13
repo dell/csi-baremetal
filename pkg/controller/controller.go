@@ -24,12 +24,8 @@ import (
 type NodeID string
 
 const (
-	NodeSvcPodsMask           = "baremetal-csi-node"
-	NodeIDTopologyKey         = "baremetal-csi/nodeid"
-	VolumeStatusAnnotationKey = "dell.emc.csi/volume-status"
-
-	// timeout for gRPC request(CreateLocalVolume) to the node service
-	GRPCTimeout = 300 * time.Second
+	NodeSvcPodsMask   = "baremetal-csi-node"
+	NodeIDTopologyKey = "baremetal-csi/nodeid"
 )
 
 // interface implementation for ControllerServer

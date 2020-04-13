@@ -23,12 +23,13 @@ import (
 )
 
 var (
-	tCtx       = context.Background()
-	testLogger = logrus.New()
-	lvg1Name   = "lvg-cr-1"
-	lvg2Name   = "lvg-cr-2"
-	drive1UUID = "uuid-drive1"
-	drive2UUID = "uuid-drive2"
+	lsblkAllDevicesCmd = fmt.Sprintf(base.LsblkCmdTmpl, "")
+	tCtx               = context.Background()
+	testLogger         = logrus.New()
+	lvg1Name           = "lvg-cr-1"
+	lvg2Name           = "lvg-cr-2"
+	drive1UUID         = "uuid-drive1"
+	drive2UUID         = "uuid-drive2"
 
 	ns      = "default"
 	node1ID = "node1"
@@ -172,7 +173,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	defer teardown(t, c)
 
 	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
-	e.OnCommand(base.LsblkCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
+	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sdb").Return("", "", nil)
 	e.OnCommand(fmt.Sprintf("/sbin/lvm vgcreate --yes %s /dev/sda /dev/sdb", req.Name)).
@@ -260,7 +261,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 	defer teardown(t, c)
 
 	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
-	e.OnCommand(base.LsblkCmd).Return(lsblkResp, "", nil)
+	e.OnCommand(lsblkAllDevicesCmd).Return(lsblkResp, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", errors.New("pvcreate failed"))
 
 	res, err := c.Reconcile(req)
@@ -282,7 +283,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 	defer teardown(t, c)
 
 	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
-	e.OnCommand(base.LsblkCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
+	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sdb").Return("", "", nil)
 	e.OnCommand(fmt.Sprintf("/sbin/lvm vgcreate --yes %s /dev/sda /dev/sdb", req.Name)).

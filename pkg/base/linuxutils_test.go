@@ -13,7 +13,10 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
-var luLogger = logrus.New()
+var (
+	luLogger           = logrus.New()
+	lsblkAllDevicesCmd = fmt.Sprintf(LsblkCmdTmpl, "")
+)
 
 func TestLinuxUtils_SetLinuxeUtilsExecutor(t *testing.T) {
 	e1 := new(Executor)
@@ -30,13 +33,13 @@ func TestLinuxUtils_SetLinuxeUtilsExecutor(t *testing.T) {
 func TestLinuxUtils_LsblkSuccess(t *testing.T) {
 
 	e := &mocks.GoMockExecutor{}
-	e.On("RunCmd", LsblkCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
+	e.On("RunCmd", lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	l := NewLinuxUtils(e, luLogger)
 
-	out, err := l.Lsblk(DriveTypeDisk)
+	out, err := l.Lsblk("")
 	assert.Nil(t, err)
 	assert.NotNil(t, out)
-	assert.Equal(t, 2, len(*out))
+	assert.Equal(t, 2, len(out))
 
 }
 
@@ -44,21 +47,21 @@ func TestLinuxUtils_LsblkFail(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewLinuxUtils(e, luLogger)
 
-	e.On(mocks.RunCmd, LsblkCmd).Return("not a json", "", nil).Times(1)
-	out, err := l.Lsblk(DriveTypeDisk)
+	e.On(mocks.RunCmd, lsblkAllDevicesCmd).Return("not a json", "", nil).Times(1)
+	out, err := l.Lsblk("")
 	assert.Nil(t, out)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to unmarshal output to LsblkOutput instance")
 
 	expectedError := errors.New("lsblk failed")
-	e.On(mocks.RunCmd, LsblkCmd).Return("", "", expectedError).Times(1)
-	out, err = l.Lsblk(DriveTypeDisk)
+	e.On(mocks.RunCmd, lsblkAllDevicesCmd).Return("", "", expectedError).Times(1)
+	out, err = l.Lsblk("")
 	assert.Nil(t, out)
 	assert.NotNil(t, err)
 	assert.Equal(t, expectedError, err)
 
-	e.On(mocks.RunCmd, LsblkCmd).Return(mocks.NoLsblkKeyStr, "", nil).Times(1)
-	out, err = l.Lsblk(DriveTypeDisk)
+	e.On(mocks.RunCmd, lsblkAllDevicesCmd).Return(mocks.NoLsblkKeyStr, "", nil).Times(1)
+	out, err = l.Lsblk("")
 	assert.Nil(t, out)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unexpected lsblk output format")
@@ -86,7 +89,7 @@ func Test_GetBmcIP(t *testing.T) {
 
 func TestLinuxUtils_SearchDrivePathBySN(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
-	e.OnCommand(LsblkCmd).Return(mocks.LsblkTwoDevicesStr, "", nil).Times(2)
+	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil).Times(2)
 	l := NewLinuxUtils(e, luLogger)
 
 	// success when path is set by hwgmr
@@ -112,7 +115,7 @@ func TestLinuxUtils_SearchDrivePathBySN(t *testing.T) {
 	assert.Contains(t, err.Error(), "unable to find drive path")
 
 	// fail: lsblk was failed
-	e.OnCommand(LsblkCmd).Return("", "", errors.New("error"))
+	e.OnCommand(lsblkAllDevicesCmd).Return("", "", errors.New("error"))
 	dev, err = l.SearchDrivePath(drive)
 	assert.Empty(t, dev)
 	assert.NotNil(t, err)
@@ -236,21 +239,22 @@ func TestLinuxUtils_LVRemove(t *testing.T) {
 		l           = NewLinuxUtils(e, luLogger)
 		lv          = "test-lv"
 		vg          = "test-lvg"
-		cmd         = fmt.Sprintf(LVRemoveCmdTmpl, vg, lv)
+		fullLVName  = fmt.Sprintf("/dev/%s/%s", vg, lv)
+		cmd         = fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
 		err         error
 		expectedErr = errors.New("error")
 	)
 
 	e.OnCommand(cmd).Return("", "", nil).Times(1)
-	err = l.LVRemove(lv, vg)
+	err = l.LVRemove(fullLVName)
 	assert.Nil(t, err)
 
 	e.OnCommand(cmd).Return("", "Failed to find logical volume", expectedErr).Times(1)
-	err = l.LVRemove(lv, vg)
+	err = l.LVRemove(fullLVName)
 	assert.Nil(t, err)
 
 	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
-	err = l.LVRemove(lv, vg)
+	err = l.LVRemove(fullLVName)
 	assert.Equal(t, expectedErr, err)
 }
 
@@ -305,5 +309,91 @@ func TestLinuxUtils_RemoveOrphanPVs(t *testing.T) {
 
 	e.OnCommand(cmd).Return(dev1, "", expectedErr).Times(1)
 	err = l.RemoveOrphanPVs()
+	assert.Equal(t, expectedErr, err)
+}
+
+func TestLinuxUtils_FindVgNameByLvName(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLinuxUtils(e, luLogger)
+		lvName      = "/dev/mapper/lv-1"
+		cmd         = fmt.Sprintf(VGByLVCmdTmpl, lvName)
+		expectedVG  = "vg-1"
+		expectedErr = errors.New("error here")
+		currentVG   string
+		err         error
+	)
+
+	// expect success (tabs and new line were trim)
+	e.OnCommand(cmd).Return(fmt.Sprintf("\t%s   \t\n", expectedVG), "", nil).Times(1)
+	currentVG, err = l.FindVgNameByLvName(lvName)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedVG, currentVG)
+
+	// expect error
+	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
+	currentVG, err = l.FindVgNameByLvName(lvName)
+	assert.Equal(t, "", currentVG)
+	assert.Equal(t, expectedErr, err)
+
+}
+
+func TestLinuxUtils_GetVgFreeSpace(t *testing.T) {
+	var (
+		e            = &mocks.GoMockExecutor{}
+		l            = NewLinuxUtils(e, luLogger)
+		vgName       = "vg-1"
+		cmd          = fmt.Sprintf(VGFreeSpaceCmdTmpl, vgName)
+		expectedSize = int64(1000)
+		expectedErr  = errors.New("error here")
+		currentSize  int64
+		err          error
+	)
+
+	// expected success (tabs and new line were trim)
+	e.OnCommand(cmd).Return(fmt.Sprintf("\t\t %dB \n", expectedSize), "", nil).Times(1)
+	currentSize, err = l.GetVgFreeSpace(vgName)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedSize, currentSize)
+
+	// expected error in cmd
+	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
+	currentSize, err = l.GetVgFreeSpace(vgName)
+	assert.Equal(t, expectedErr, err)
+	assert.Equal(t, int64(-1), currentSize)
+
+	// empty string, expected err
+	currentSize, err = l.GetVgFreeSpace("")
+	assert.Equal(t, int64(-1), currentSize)
+	assert.Equal(t, errors.New("VG name shouldn't be an empty string"), err)
+
+	// empty string, unable to convert to int
+	e.OnCommand(cmd).Return(fmt.Sprintf("\t\t %d \n", expectedSize), "", nil).Times(1)
+	currentSize, err = l.GetVgFreeSpace(vgName)
+	assert.Equal(t, int64(-1), currentSize)
+	assert.Contains(t, err.Error(), "unknown size unit")
+}
+
+func TestLinuxUtils_FindMnt(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLinuxUtils(e, luLogger)
+		target      = "/some/path"
+		cmd         = fmt.Sprintf(FindMntCmdTmpl, target)
+		expectedRes = "/dev/mapper/lv-1"
+		expectedErr = errors.New("error here")
+		currentRes  string
+		err         error
+	)
+
+	// success
+	e.OnCommand(cmd).Return(expectedRes, "", nil).Times(1)
+	currentRes, err = l.FindMnt(target)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedRes, currentRes)
+
+	// expect error
+	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
+	currentRes, err = l.FindMnt(target)
 	assert.Equal(t, expectedErr, err)
 }

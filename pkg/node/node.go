@@ -79,7 +79,19 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	var partition string
 	switch v.StorageClass {
 	case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
-		partition = fmt.Sprintf("/dev/%s/%s", v.Location, v.Id)
+		vgName := v.Location
+		var err error
+
+		// for LVG based on system disk LVG CR name != VG name
+		// need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
+		if v.StorageClass == api.StorageClass_SSDLVG {
+			vgName, err = s.k8sclient.GetVGNameByLVGCRName(ctx, v.Location)
+			if err != nil {
+				return nil, fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
+			}
+		}
+
+		partition = fmt.Sprintf("/dev/%s/%s", vgName, v.Id)
 	default:
 		//TODO AK8S-380 Make drives cache thread safe
 		s.dCacheMu.Lock()
@@ -166,7 +178,6 @@ func (s *CSINodeService) unmount(storageClass api.StorageClass, path string) err
 		"method": "unmount",
 	})
 	scImpl := s.getStorageClassImpl(storageClass)
-	ll.Infof("Chosen StorageClass is %s", storageClass.String())
 
 	err := scImpl.Unmount(path)
 	if err != nil {
@@ -177,7 +188,8 @@ func (s *CSINodeService) unmount(storageClass api.StorageClass, path string) err
 	return nil
 }
 
-// prepareAndPerformMount is used it in Stage/Publish requests to prepareAndPerformMount scrPath to targetPath, opts are used for prepareAndPerformMount commands
+// prepareAndPerformMount is used it in Stage/Publish requests to prepare and perform mount scrPath to targetPath,
+// opts are used as an opts in mount command
 func (s *CSINodeService) prepareAndPerformMount(srcPath, targetPath string, scImpl sc.StorageClassImplementer, opts ...string) error {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "prepareAndPerformMount",

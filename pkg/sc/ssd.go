@@ -31,6 +31,6 @@ func GetSSDSCInstance(logger *logrus.Logger) *SsdSC {
 	return ssdSCInstance
 }
 
-func (s *SsdSC) SetSDDSCExecutor(executor base.Executor) {
-	s.executor = &executor
+func (s *SsdSC) SetSDDSCExecutor(executor base.CmdExecutor) {
+	s.executor = executor
 }

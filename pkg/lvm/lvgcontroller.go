@@ -76,10 +76,14 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if base.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
 			// remove AC that point on that LVG
 			c.removeChildAC(lvg.Name)
-			// cleanup LVM artifacts
-			if err := c.removeLVGArtifacts(lvg.Name); err != nil {
-				ll.Errorf("Unable to cleanup LVM artifacts: %v", err)
-				return ctrl.Result{}, err
+
+			// if LVG points in system VG, VG and PVs won't be removed
+			if lvg.Spec.Locations[0] != base.SystemDriveAsLocation {
+				// cleanup LVM artifacts
+				if err := c.removeLVGArtifacts(lvg.Name); err != nil {
+					ll.Errorf("Unable to cleanup LVM artifacts: %v", err)
+					return ctrl.Result{}, err
+				}
 			}
 
 			lvg.ObjectMeta.Finalizers = base.RemoveString(lvg.ObjectMeta.Finalizers, lvgFinalizer)

@@ -222,7 +222,9 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				req      = getCreateVolumeRequest("req1", capacity, testNode1Name)
 				vol      = &vcrd.Volume{}
 			)
-			go volumeReconcileImitation(svc.k8sclient, "req1", crdV1.Failed)
+
+			go volumeReconcileImitation(svc, "req1", crdV1.Failed)
+
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
@@ -270,7 +272,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 
-			go volumeReconcileImitation(svc.k8sclient, "req1", crdV1.Created)
+			go volumeReconcileImitation(svc, "req1", crdV1.Created)
+
 			resp, err := svc.CreateVolume(context.Background(), req)
 			Expect(err).To(BeNil())
 			Expect(resp).ToNot(BeNil())
@@ -356,7 +359,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = svc.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go volumeReconcileImitation(svc.k8sclient, volumeCrd.Spec.Id, crdV1.Failed)
+			go volumeReconcileImitation(svc, volumeCrd.Spec.Id, crdV1.Failed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 
@@ -400,7 +403,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = svc.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go volumeReconcileImitation(svc.k8sclient, volumeCrd.Spec.Id, crdV1.Removed)
+			go volumeReconcileImitation(svc, volumeCrd.Spec.Id, crdV1.Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -434,7 +437,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err := svc.k8sclient.CreateCR(testCtx, uuid, &volumeCrd)
 			Expect(err).To(BeNil())
 
-			go volumeReconcileImitation(svc.k8sclient, volumeCrd.Spec.Id, crdV1.Removed)
+			go volumeReconcileImitation(svc, volumeCrd.Spec.Id, crdV1.Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -462,7 +465,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err := svc.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
 			Expect(err).To(BeNil())
 
-			go volumeReconcileImitation(svc.k8sclient, fullLVGsizeVolume.Spec.Id, crdV1.Removed)
+			go volumeReconcileImitation(svc, fullLVGsizeVolume.Spec.Id, crdV1.Removed)
 
 			resp, err := svc.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: testID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -606,11 +609,11 @@ func removeAllCrds(s *base.KubeClient) {
 }
 
 // volumeReconcileImitation looking for volume CR with name volId and sets it's status to newStatus
-func volumeReconcileImitation(c *base.KubeClient, volId string, newStatus string) {
+func volumeReconcileImitation(c *CSIControllerService, volId string, newStatus string) {
 	for {
 		tmpVol := &vcrd.Volume{}
-		if err := c.ReadCR(context.Background(), volId, tmpVol); err == nil {
-			_ = c.ChangeVolumeStatus(volId, newStatus)
+		if err := c.k8sclient.ReadCR(context.Background(), volId, tmpVol); err == nil {
+			_ = c.svc.ReadVolumeAndChangeStatus(volId, newStatus)
 		}
 		<-time.After(200 * time.Millisecond)
 	}

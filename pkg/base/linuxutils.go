@@ -34,20 +34,28 @@ type LsblkOutput struct {
 }
 
 const (
-	LsblkCmd       = "lsblk --paths --json --bytes --fs --output NAME,TYPE,SIZE,ROTA,SERIAL,WWN,VENDOR,MODEL,REV,MOUNTPOINT,FSTYPE"
+	// add device name, if add empty string - command will print info about all devices
+	LsblkCmdTmpl   = "lsblk %s --paths --json --bytes --fs --output NAME,TYPE,SIZE,ROTA,SERIAL,WWN,VENDOR,MODEL,REV,MOUNTPOINT,FSTYPE"
 	LsblkOutputKey = "blockdevices"
 	IpmitoolCmd    = " ipmitool lan print"
 	// cmd templates related to LVM
-	LVsInVGCmdTmpl  = "/sbin/lvm lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
-	PVsInVGCmdTmpl  = "/sbin/lvm pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
-	EmptyName       = " "
-	PVCreateCmdTmpl = "/sbin/lvm pvcreate --yes %s"                     // add PV name
-	PVRemoveCmdTmpl = "/sbin/lvm pvremove --yes %s"                     // add PV name
-	VGCreateCmdTmpl = "/sbin/lvm vgcreate --yes %s %s"                  // add VG name and PV names
-	VGRemoveCmdTmpl = "/sbin/lvm vgremove --yes %s"                     // add VG name
-	LVCreateCmdTmpl = "/sbin/lvm lvcreate --yes --name %s --size %s %s" // add LV name, size and VG name
-	LVRemoveCmdTmpl = "/sbin/lvm lvremove --yes /dev/%s/%s"             // add VG name and LV name
+	LVsInVGCmdTmpl     = "/sbin/lvm lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
+	PVsInVGCmdTmpl     = "/sbin/lvm pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
+	EmptyName          = " "
+	PVCreateCmdTmpl    = "/sbin/lvm pvcreate --yes %s"                      // add PV name
+	PVRemoveCmdTmpl    = "/sbin/lvm pvremove --yes %s"                      // add PV name
+	VGCreateCmdTmpl    = "/sbin/lvm vgcreate --yes %s %s"                   // add VG name and PV names
+	VGRemoveCmdTmpl    = "/sbin/lvm vgremove --yes %s"                      // add VG name
+	LVCreateCmdTmpl    = "/sbin/lvm lvcreate --yes --name %s --size %s %s"  // add LV name, size and VG name
+	LVRemoveCmdTmpl    = "/sbin/lvm lvremove --yes %s"                      // add full LV name
+	FindMntCmdTmpl     = "findmnt --target %s --output SOURCE --noheadings" // add target path
+	VGByLVCmdTmpl      = "lvs %s --options vg_name --noheadings"            // add LV name
+	VGFreeSpaceCmdTmpl = "vgs %s --options vg_free --units b --noheadings"  // add VG name
 )
+
+func (l *LinuxUtils) GetE() CmdExecutor {
+	return l.e
+}
 
 // NewLinuxUtils returns new instance of LinuxUtils based on provided e
 func NewLinuxUtils(e CmdExecutor, logger *logrus.Logger) *LinuxUtils {
@@ -66,8 +74,11 @@ func (l *LinuxUtils) SetExecutor(executor CmdExecutor) {
 	l.e = executor
 }
 
-func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
-	strOut, strErr, err := l.e.RunCmd(LsblkCmd)
+// Lsblk run os lsblk command for device and construct LsblkOutput struct
+// based on output, if device is empty string, info about all devices will be collected
+func (l *LinuxUtils) Lsblk(device string) ([]LsblkOutput, error) {
+	cmd := fmt.Sprintf(LsblkCmdTmpl, device)
+	strOut, strErr, err := l.e.RunCmd(cmd)
 	if err != nil {
 		l.log.Errorf("lsblk failed, stdErr: %s, Error: %v", strErr, err)
 		return nil, err
@@ -87,11 +98,11 @@ func (l *LinuxUtils) Lsblk(devType string) (*[]LsblkOutput, error) {
 		return nil, fmt.Errorf("unexpected lsblk output format")
 	}
 	for _, d := range devs {
-		if d.Type == devType {
+		if d.Type != RomDeviceType {
 			res = append(res, d)
 		}
 	}
-	return &res, nil
+	return res, nil
 }
 
 func (l *LinuxUtils) GetBmcIP() string {
@@ -134,14 +145,14 @@ func (l *LinuxUtils) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	}
 
 	// try to find it with lsblk
-	lsblkOut, err := l.Lsblk("disk")
+	lsblkOut, err := l.Lsblk("")
 	if err != nil {
 		return "", err
 	}
 
 	// get drive serial number
 	sn := drive.Spec.SerialNumber
-	for _, l := range *lsblkOut {
+	for _, l := range lsblkOut {
 		if strings.EqualFold(l.Serial, sn) {
 			device = l.Name
 			break
@@ -205,8 +216,8 @@ func (l *LinuxUtils) LVCreate(name, size, vgName string) error {
 }
 
 // LVRemove removes logical volume, ignore error if LV doesn't exist
-func (l *LinuxUtils) LVRemove(name, vgName string) error {
-	cmd := fmt.Sprintf(LVRemoveCmdTmpl, vgName, name)
+func (l *LinuxUtils) LVRemove(fullLVName string) error {
+	cmd := fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
 	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "Failed to find logical volume") {
 		return nil
@@ -249,4 +260,63 @@ func (l *LinuxUtils) RemoveOrphanPVs() error {
 		return errors.New("not all PVs were removed")
 	}
 	return nil
+}
+
+// FindVgNameByLvName search VG name by LV name, LV name should be full
+// returns VG name or empty string and error
+func (l *LinuxUtils) FindVgNameByLvName(lvName string) (string, error) {
+	/*
+		Example of output:
+		root@provo-goop:~# lvs /dev/mapper/unassigned--hostname--vg-root --options vg_name --noheadings
+			  unassigned-hostname-vg
+	*/
+	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
+	strOut, _, err := l.e.RunCmd(cmd)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(strOut), nil
+}
+
+// GetVgFreeSpace returns VG free space in bytes
+// returns -1 in case of error and error
+func (l *LinuxUtils) GetVgFreeSpace(vgName string) (int64, error) {
+	/*
+		Example of output:
+		root@provo-goop:~# vgs --options vg_free unassigned-hostname-vg --units b --nosuffix --noheadings
+			      0
+	*/
+
+	if vgName == "" {
+		return -1, errors.New("VG name shouldn't be an empty string")
+	}
+
+	cmd := fmt.Sprintf(VGFreeSpaceCmdTmpl, vgName)
+	strOut, _, err := l.e.RunCmd(cmd)
+	if err != nil {
+		return -1, err
+	}
+
+	bytes, err := StrToBytes(strings.TrimSpace(strOut))
+	if err != nil {
+		return -1, err
+	}
+
+	return bytes, nil
+}
+
+// FindMnt returns source of mount point for target
+// returns mount point or empty string and error
+func (l *LinuxUtils) FindMnt(target string) (string, error) {
+	/*
+		Example of output:
+		root@provo-goop:~# findmnt --target / --output SOURCE --noheadings
+		/dev/mapper/unassigned--hostname--vg-root
+	*/
+	cmd := fmt.Sprintf(FindMntCmdTmpl, target)
+	strOut, _, err := l.e.RunCmd(cmd)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(strOut), nil
 }

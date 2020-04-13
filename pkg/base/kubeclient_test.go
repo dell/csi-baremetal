@@ -225,24 +225,6 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err).To(BeNil())
 			Expect(&driveCR).To(Equal(driveCopy))
 		})
-
-		It("Update should fail", func() {
-
-		})
-
-		It("Should update Volume CR's status successfully", func() {
-			status := crdV1.Failed
-			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
-			Expect(err).To(BeNil())
-
-			err = k8sclient.ChangeVolumeStatus(testID, status)
-			Expect(err).To(BeNil())
-
-			rVolume := &vcrd.Volume{}
-			err = k8sclient.ReadCR(testCtx, testID, rVolume)
-			Expect(err).To(BeNil())
-			Expect(rVolume.Spec.CSIStatus).To(Equal(status))
-		})
 	})
 
 	Context("Delete CR", func() {

@@ -116,7 +116,7 @@ func TestACOperationsImpl_DeleteIfEmpty(t *testing.T) {
 		err    error
 	)
 
-	// should remove testAC1 because of size < acSizeMinThresholdBytes
+	// should remove testAC1 because of size < AcSizeMinThresholdBytes
 	err = acOp.DeleteIfEmpty(testCtx, emptyAC.Spec.Location)
 	assert.Nil(t, err)
 	err = acOp.k8sClient.ReadList(testCtx, &acList)

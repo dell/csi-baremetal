@@ -2,7 +2,6 @@ package base
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -186,36 +185,6 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
-// ChangeVolumeStatus changes Volume's CR status from current to newStatus with retries
-func (k *KubeClient) ChangeVolumeStatus(volumeID string, newStatus string) error {
-	ll := k.log.WithFields(logrus.Fields{
-		"method":   "ChangeVolumeStatus",
-		"volumeID": volumeID,
-	})
-
-	var (
-		v        = &volumecrd.Volume{}
-		attempts = 10
-		ctx      = context.WithValue(context.Background(), RequestUUID, volumeID)
-	)
-
-	ll.Infof("Try to set status to %s", newStatus)
-
-	if err := k.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
-		ll.Errorf("failed to read volume cr after %d attempts", attempts)
-	}
-
-	// change status
-	v.Spec.CSIStatus = newStatus
-	if err := k.UpdateCRWithAttempts(ctx, v, attempts); err == nil {
-		return nil
-	}
-
-	ll.Warnf("Unable to update volume CR's status %s.", newStatus)
-
-	return fmt.Errorf("unable to persist status to %s for volume %s", newStatus, volumeID)
-}
-
 func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempts int) error {
 	ll := k.log.WithFields(logrus.Fields{
 		"method":   "ReadCRWithAttempts",
@@ -263,6 +232,17 @@ func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Objec
 	}
 
 	return err
+}
+
+// GetVGNameByLVGCRName read LVG CR with name lvgCRName and returns LVG CR.Spec.Name
+// method is used for LVG based on system VG because system VG name != LVG CR name
+// in case of error returns empty string and error
+func (k *KubeClient) GetVGNameByLVGCRName(ctx context.Context, lvgCRName string) (string, error) {
+	lvgCR := lvgcrd.LVG{}
+	if err := k.ReadCR(ctx, lvgCRName, &lvgCR); err != nil {
+		return "", err
+	}
+	return lvgCR.Spec.Name, nil
 }
 
 func GetK8SClient() (k8sClient.Client, error) {
