@@ -157,7 +157,7 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 			SerialNumber: mgr.devices[i].serialNumber,
 			Health:       api.Health_GOOD,
 			Type:         api.DriveType_HDD,
-			Size:         mgr.devices[i].sizeMb * 1000 * 1000,
+			Size:         mgr.devices[i].sizeMb * 1024 * 1024,
 			Status:       api.Status_ONLINE,
 			Path:         mgr.devices[i].devicePath,
 		}

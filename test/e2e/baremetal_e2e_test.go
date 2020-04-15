@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	ginkgo "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
-	gomega "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/test/e2e/framework"
 
 	_ "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/test/e2e/scenarios"

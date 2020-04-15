@@ -345,7 +345,7 @@ func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCh
 	})
 
 	if !s.initialized {
-		ll.Info("no drives in cache - Node service is not ready yet")
+		ll.Info("Node service is not ready yet")
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
 	}
 

@@ -17,15 +17,15 @@ nodes:
     containerPath: /dev
   - hostPath: /run/udev
     containerPath: /run/udev
-- role: worker
-  extraMounts:
-  - hostPath: /dev
-    containerPath: /dev
-  - hostPath: /run/udev
-    containerPath: /run/udev
-- role: worker
-  extraMounts:
-  - hostPath: /dev
-    containerPath: /dev
-  - hostPath: /run/udev
-    containerPath: /run/udev
+#- role: worker
+#  extraMounts:
+#  - hostPath: /dev
+#    containerPath: /dev
+#  - hostPath: /run/udev
+#    containerPath: /run/udev
+#- role: worker
+#  extraMounts:
+#  - hostPath: /dev
+#    containerPath: /dev
+#  - hostPath: /run/udev
+#    containerPath: /run/udev

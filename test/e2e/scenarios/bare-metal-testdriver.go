@@ -16,7 +16,7 @@ type baremetalDriver struct {
 }
 
 func (n *baremetalDriver) GetClaimSize() string {
-	return "1Gi"
+	return "100Mi"
 }
 
 var BaremetalDriver = InitBaremetalDriver

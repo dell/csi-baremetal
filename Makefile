@@ -80,6 +80,17 @@ kind-load-images:
 	kind load docker-image ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
 	kind load docker-image ${REGISTRY}/${REPO}-${NODE}:${TAG}
 	kind load docker-image ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
+	kind load docker-image busybox:1.29
+
+kind-pull-images:
+	docker pull ${REGISTRY}/csi-provisioner:v1.2.2
+	docker pull ${REGISTRY}/csi-node-driver-registrar:v1.0.1-gke.0
+	docker pull busybox:1.29
+	docker pull ${REGISTRY}/csi-attacher:v1.0.1
+	docker pull ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+	docker pull ${REGISTRY}/${REPO}-${NODE}:${TAG}
+	docker pull ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
+
 
 clean: clean-hwmgr clean-node clean-controller clean-proto
 

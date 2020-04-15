@@ -2,7 +2,7 @@
   and definition of e2e test suites with ginkgo library
   main file for e2e tests is in cmd/tests directory
   we can run defined test suites with following command:
-  go run cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=<kubeconfig>
+  go test cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=<kubeconfig>
 */
 package scenarios
 
@@ -20,7 +20,8 @@ import (
 var CSITestSuites = []func() testsuites.TestSuite{
 	testsuites.InitVolumesTestSuite,
 	testsuites.InitVolumeIOTestSuite,
-	testsuites.InitProvisioningTestSuite,
+	//Comment this test suite because it contains test for multi node access to volume
+	//testsuites.InitProvisioningTestSuite,
 }
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
@@ -29,7 +30,8 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	curDriver := BaremetalDriver()
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
-		DefineCustomTestSuite(curDriver)
+		//Comment custom test because it works with hal
+		//DefineCustomTestSuite(curDriver)
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
 	})
 })
