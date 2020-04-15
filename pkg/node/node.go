@@ -284,7 +284,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 
 	v, ok := s.getFromVolumeCache(req.GetVolumeId())
 	if !ok {
-		return nil, status.Error(codes.Internal, "Unable to find volume")
+		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 	if err := s.unmount(v.StorageClass, req.GetTargetPath()); err != nil {
 		s.setVolumeStatus(v.Id, apiV1.Failed)

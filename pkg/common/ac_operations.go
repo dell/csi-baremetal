@@ -150,7 +150,7 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 		if len(acs) > maxLen {
 			// ensure that there is at least one AC with size not less than requiredBytes and with the same SC
 			for _, ac := range acs {
-				if ac.Spec.Size >= size && ac.Spec.StorageClass == sc {
+				if ac.Spec.Size >= size && (ac.Spec.StorageClass == sc || sc == api.StorageClass_ANY) {
 					node = nodeID
 					maxLen = len(acs)
 					break

@@ -28,6 +28,13 @@ boolean validatePullRequest(String commit) {
     int chartsLintExitCode = 0
     int chartsInstallExitCode = 0
     common.node(label: 'ubuntu_build_hosts', time: 180) {
+
+        stage('Docker cleanup') {
+            // Cleanup docker here because finally block performs inside devkit container
+            common.wipeDockerContainers()
+            common.wipeDockerImages()
+        }
+
         common.withInfraDevkitContainerKind() {
             try {
                 stage('Git Clone') {
@@ -97,6 +104,14 @@ boolean validatePullRequest(String commit) {
                             }
                         }
 
+                        stage('Sanity tests') {
+                            sanityExitCode = sh(script: 'make test-sanity', returnStatus: true)
+                            if (sanityExitCode != 0) {
+                                currentBuild.result = 'FAILURE'
+                                throw new Exception("Sanity tests stage failed, check logs")
+                            }
+                        }
+
                     }
                 )
                 stage('Make image') {
@@ -113,6 +128,7 @@ boolean validatePullRequest(String commit) {
                 // publish in Jenkins test results
                 archiveArtifacts('coverage.html')
                 common.parseJunitResults(searchPattern: 'report.xml')
+                common.parseJunitResults(searchPattern: 'test/sanity/report.xml')
             }
         }
 

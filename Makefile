@@ -125,6 +125,17 @@ test-pr-validation:
 test-ci:
 	CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config -timeout=0 > log.txt
 
+# Run commnity sanity tests for CSI.
+# TODO AK8S-651 Must fix tests "Node Service should be idempotent" and "Node Service should work"
+test-sanity:
+	SANITY=true go test test/sanity/sanity_test.go -ginkgo.skip \
+	"ValidateVolumeCapabilities|\
+	should fail when the node does not exist|\
+	should fail when requesting to create a volume with already existing name and different capacity|\
+	should not fail when requesting to create a volume with already existing name and same capacity|\
+	should be idempotent|\
+	Node Service should work" -ginkgo.v -timeout=0
+
 install-junit-report:
 	go get -u github.com/jstemmer/go-junit-report
 
@@ -137,7 +148,7 @@ prepare-protoc:  # TODO: temporary solution while we build all in common devkit 
 	unzip protoc-3.11.0-linux-x86_64.zip -d proto_3.11.0/ && \
 	sudo mv proto_3.11.0/bin/protoc /usr/bin/protoc && \
 	protoc --version; rm -rf proto_3.11.0; rm protoc-*
-	go get -u github.com/golang/protobuf/protoc-gen-go
+	go get -u github.com/golang/protobuf/protoc-gen-go@v1.3.5
 
 compile-proto:
 	mkdir -p api/generated/v1/

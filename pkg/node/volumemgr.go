@@ -995,3 +995,7 @@ func (m *VolumeManager) getVolumeByLocation(ctx context.Context, location string
 
 	return nil
 }
+
+func (m *VolumeManager) SetSCImplementer(scName string, implementer sc.StorageClassImplementer) {
+	m.scMap[SCName(scName)] = implementer
+}

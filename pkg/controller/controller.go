@@ -17,6 +17,7 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 )
@@ -99,7 +100,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}
 
 	preferredNode := ""
-	if req.GetAccessibilityRequirements() != nil {
+	if req.GetAccessibilityRequirements() != nil && len(req.GetAccessibilityRequirements().Preferred) > 0 {
 		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[NodeIDTopologyKey]
 		ll.Infof("Preferred node was provided: %s", preferredNode)
 	}
@@ -114,7 +115,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		Id:           req.Name,
 		StorageClass: base.ConvertStorageClass(req.Parameters["storageType"]),
 		NodeId:       preferredNode,
-		Size:         req.CapacityRange.RequiredBytes,
+		Size:         req.GetCapacityRange().GetRequiredBytes(),
 	})
 	c.reqMu.Unlock()
 
@@ -202,20 +203,50 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 
 func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	c.log.WithFields(logrus.Fields{
+	ll := c.log.WithFields(logrus.Fields{
 		"method":   "ControllerPublishVolume",
 		"volumeID": req.GetVolumeId(),
-	}).Info("Return empty response, ok.")
+	})
+
+	if req.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Node ID must be provided")
+	}
+
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume ID must be provided")
+	}
+
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume capabilities"+
+			" must be provided")
+	}
+
+	vol := &volumecrd.Volume{}
+	if err := c.k8sclient.ReadCR(ctx, req.VolumeId, vol); err != nil {
+		if k8sError.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, "Volume is not found")
+		}
+		ll.Errorf("k8s client can't read volume CR: %v", err)
+		return nil, status.Error(codes.Unavailable, "Something went wrong with k8s client")
+	}
+
+	ll.Info("Return empty response, ok.")
 
 	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
 func (c *CSIControllerService) ControllerUnpublishVolume(ctx context.Context,
 	req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	c.log.WithFields(logrus.Fields{
+	ll := c.log.WithFields(logrus.Fields{
 		"method":   "ControllerUnpublishVolume",
 		"volumeID": req.GetVolumeId(),
-	}).Info("Return empty response, ok")
+	})
+
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume ID must be provided")
+	}
+
+	ll.Info("Return empty response, ok")
 
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
