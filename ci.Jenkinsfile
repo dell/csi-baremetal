@@ -121,7 +121,6 @@ void runTests() {
             }
             common.wipeDockerContainers()
             common.wipeDockerImages()
-            sh("losetup -D")
             common.slackSend(channel: args.slackChannel)
         }
     }

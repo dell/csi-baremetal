@@ -51,3 +51,15 @@ func TestLoopBackManager_getLoopBackDeviceName_Fail(t *testing.T) {
 	assert.Equal(t, "", device)
 	assert.Equal(t, error, err)
 }
+
+func TestLoopBackManager_CleanupLoopDevices(t *testing.T) {
+	var mockexec = &mocks.GoMockExecutor{}
+	var manager = NewLoopBackManager(mockexec, logger)
+
+	for _, device := range manager.devices {
+		mockexec.On("RunCmd", fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath)).
+			Return("", "", nil)
+	}
+
+	manager.CleanupLoopDevices()
+}

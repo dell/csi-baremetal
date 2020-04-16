@@ -44,7 +44,6 @@ func main() {
 	serverRunner := base.NewServerRunner(nil, *endpoint, logger)
 
 	hwManager, err := chooseHWManager(logger)
-
 	if err != nil {
 		logger.Fatalf("Failed to create HW manager: %s", err.Error())
 	}

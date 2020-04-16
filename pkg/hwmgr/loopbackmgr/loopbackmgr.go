@@ -3,7 +3,9 @@ package loopbackmgr
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 
@@ -92,8 +94,18 @@ func NewLoopBackManager(exec base.CmdExecutor, logger *logrus.Logger) *LoopBackM
 /*
 Create files and register them as loopback devices
 */
-// todo AK8S-636 need to detach loopback devices on SIGTERM
 func (mgr *LoopBackManager) Init() (err error) {
+	// clean loop devices after hwmgr deletion
+	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
+	// kubernetes sends SIGTERM signal to containers for pods terminating
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		mgr.CleanupLoopDevices()
+		os.Exit(0)
+	}()
+
 	var device string
 
 	// go through the list of devices and register if needed
@@ -113,7 +125,7 @@ func (mgr *LoopBackManager) Init() (err error) {
 			device, _ = mgr.GetLoopBackDeviceName(file)
 			if device != "" {
 				// try to detach
-				_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, file))
+				_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device))
 				if err != nil {
 					mgr.log.Errorf("Unable to detach loopback device %s for file %s", device, file)
 				}
@@ -185,4 +197,14 @@ func (mgr *LoopBackManager) GetLoopBackDeviceName(file string) (string, error) {
 	}
 
 	return "", nil
+}
+
+func (mgr *LoopBackManager) CleanupLoopDevices() {
+	for _, device := range mgr.devices {
+		_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath))
+		if err != nil {
+			mgr.log.WithField("method", "CleanupLoopDevices").
+				Errorf("Unable to detach loopback device %v", device)
+		}
+	}
 }
