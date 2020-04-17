@@ -146,7 +146,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err.Error()).To(ContainSubstring("There is no volume with appropriate VolumeID"))
 		})
 		It("Should fail with search device by S/N error", func() {
-			req := getNodePublishRequest("volume-id-3", targetPath, *volumeCap)
+			req := getNodePublishRequest(volumeid3, targetPath, *volumeCap)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
@@ -158,7 +158,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			scImplMock.On("DeleteTargetPath", targetPath).Return(nil).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
-			node.volumesCache["volume-id"] = &api.Volume{
+			node.volumesCache[volumeID] = &api.Volume{
 				Id:       volumeID,
 				NodeId:   "test",
 				Location: disk1.UUID,
@@ -174,7 +174,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			scImplMock.On("CreateTargetPath", targetPath).Return(errors.New("error")).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
-			node.volumesCache["volume-id"] = &api.Volume{
+			node.volumesCache[volumeID] = &api.Volume{
 				Id:       volumeID,
 				NodeId:   "test",
 				Location: disk1.UUID,
@@ -192,7 +192,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			scImplMock.On("Mount", stagePath, targetPath, []string{"--bind"}).Return(errors.New("error")).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodePublishRequest(volumeID, targetPath, *volumeCap)
-			node.volumesCache["volume-id"] = &api.Volume{
+			node.volumesCache[volumeID] = &api.Volume{
 				Id:       volumeID,
 				NodeId:   "test",
 				Location: disk1.UUID,
@@ -289,7 +289,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(err.Error()).To(ContainSubstring("No volume with ID " + volumeID + " found on node"))
 		})
 		It("Should fail with search device by S/N error", func() {
-			req := getNodeStageRequest("volume-id-3", *volumeCap)
+			req := getNodeStageRequest(volumeid3, *volumeCap)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
@@ -301,7 +301,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			scImplMock.On("DeleteTargetPath", stagePath).Return(nil).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeStageRequest(volumeID, *volumeCap)
-			node.volumesCache["volume-id"] = &api.Volume{
+			node.volumesCache[volumeID] = &api.Volume{
 				Id:       volumeID,
 				NodeId:   "test",
 				Location: disk1.UUID,
@@ -317,7 +317,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			scImplMock.On("CreateTargetPath", stagePath).Return(errors.New("error")).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeStageRequest(volumeID, *volumeCap)
-			node.volumesCache["volume-id"] = &api.Volume{
+			node.volumesCache[volumeID] = &api.Volume{
 				Id:       volumeID,
 				NodeId:   "test",
 				Location: disk1.UUID,
@@ -335,7 +335,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			scImplMock.On("Mount", device, stagePath, []string(nil)).Return(errors.New("error")).Times(1)
 			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeStageRequest(volumeID, *volumeCap)
-			node.volumesCache["volume-id"] = &api.Volume{
+			node.volumesCache[volumeID] = &api.Volume{
 				Id:       volumeID,
 				NodeId:   "test",
 				Location: disk1.UUID,
@@ -579,7 +579,15 @@ func getNodeUnstageRequest(volumeID, stagePath string) *csi.NodeUnstageVolumeReq
 
 func newNodeService() *CSINodeService {
 	client := mocks.NewMockHWMgrClient(mocks.HwMgrRespDrives)
-	executor := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	// todo get rid of code duplicates
+	// create map of commands which must be mocked
+	cmds := make(map[string]mocks.CmdOut)
+	// list of all devices
+	cmds[lsblkAllDevicesCmd] = mocks.CmdOut{Stdout: mocks.LsblkTwoDevicesStr}
+	// list partitions of specific device
+	cmds[lsblkSingleDeviceCmd] = mocks.CmdOut{Stdout: mocks.LsblkListPartitionsStr}
+	executor := mocks.NewMockExecutor(cmds)
+
 	kubeClient, err := base.GetFakeKubeClient(testNs)
 	if err != nil {
 		panic(err)
@@ -610,8 +618,8 @@ func newNodeService() *CSINodeService {
 		},
 		Spec: disk2,
 	}
-	node.volumesCache["volume-id"] = &api.Volume{Id: volumeID, NodeId: "test", Location: disk1.UUID}
-	node.volumesCache["volume-id-2"] = &api.Volume{Id: volumeid2, NodeId: "test", Location: ""}
-	node.volumesCache["volume-id-3"] = &api.Volume{Id: volumeid3, NodeId: "test", Location: "hdd3"}
+	node.volumesCache[volumeID] = &api.Volume{Id: volumeID, NodeId: "test", Location: disk1.UUID}
+	node.volumesCache[volumeid2] = &api.Volume{Id: volumeid2, NodeId: "test", Location: ""}
+	node.volumesCache[volumeid3] = &api.Volume{Id: volumeid3, NodeId: "test", Location: "hdd3"}
 	return node
 }

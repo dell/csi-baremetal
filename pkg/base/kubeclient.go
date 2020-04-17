@@ -260,6 +260,7 @@ func GetK8SClient() (k8sClient.Client, error) {
 	return cl, err
 }
 
+// todo test code shouldn't be in base package
 func GetFakeKubeClient(testNs string) (*KubeClient, error) {
 	scheme, err := prepareScheme()
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
 
@@ -106,8 +107,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", v.Location)
 		}
+		// todo get rid of code duplicates
+		volumeUUID, _ := util.GetVolumeUUID(v.Id)
 		// get partition name
-		partition, err = s.linuxUtils.GetPartitionNameByUUID(bdev, v.Id)
+		partition, err = s.linuxUtils.GetPartitionNameByUUID(bdev, volumeUUID)
 		if err != nil {
 			return nil, err
 		}

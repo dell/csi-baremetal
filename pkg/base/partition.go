@@ -2,7 +2,6 @@ package base
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -15,13 +14,14 @@ type Partitioner interface {
 	DeletePartition(device string) (err error)
 	SetPartitionUUID(device, pvcUUID string) (err error)
 	GetPartitionUUID(device string) (uuid string, err error)
-	GetPartitionNameByUUID(device, UUID string) (name string, err error)
+	SyncPartitionTable(string) error
 }
 
 const (
 	PartitionGPT                = "gpt"
-	PartprobeDeviceCmdTmpl      = "partprobe -d -s %s"
-	PartprobeCmdTmpl            = "partprobe"
+	PartprobeCmd                = "partprobe"
+	PartprobeDeviceCmdTmpl      = PartprobeCmd + " -d -s %s"
+	PartprobeCmdTmpl            = PartprobeCmd + " %s"
 	CreatePartitionTableCmdTmpl = "parted -s %s mklabel %s"
 	CreatePartitionCmdTmpl      = "parted -s %s mkpart --align optimal CSI 0%% 100%%"
 	// todo get rid of hardcoded partition numbers
@@ -103,7 +103,7 @@ func (p *Partition) CreatePartition(device string) error {
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
 		return err
 	}
-	if _, _, err := p.e.RunCmd(fmt.Sprintf("%s %s", PartprobeCmdTmpl, device)); err != nil {
+	if _, _, err := p.e.RunCmd(fmt.Sprintf(PartprobeCmdTmpl, device)); err != nil {
 		return err
 	}
 
@@ -163,22 +163,18 @@ func (p *Partition) GetPartitionUUID(device string) (string, error) {
 }
 
 /*
-Get partition name (for example, /dev/sda1, /dev/nvme1p2, /dev/loopback0p3) by UUID
+Sync partition table for specific device
 */
-func (p *Partition) GetPartitionNameByUUID(device, uuid string) (string, error) {
-	// todo AK8S-637 - find by partition UUID
-	if device == "" {
-		return "", fmt.Errorf("unable to find partition name by UUID %s for device %s", uuid, device)
+func (p *Partition) SyncPartitionTable(device string) error {
+	cmd := fmt.Sprintf(PartprobeCmdTmpl, device)
+
+	p.opMutex.Lock()
+	_, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
+
+	if err != nil {
+		return err
 	}
 
-	partition := device
-	suffix := device[len(device)-1:]
-	// todo get rid of this code in AK8S-637
-	// sda -> sda1, loop1 -> loop1p1
-	if _, err := strconv.Atoi(suffix); err == nil {
-		partition += "p1"
-	} else {
-		partition += "1"
-	}
-	return partition, nil
+	return nil
 }

@@ -105,6 +105,15 @@ var LsblkTwoDevicesStr = `{
 				}]
 			}`
 
+var LsblkListPartitionsStr = `{
+			  "blockdevices":[{
+				"name": "/dev/sda",
+				"type": "disk",
+				"serial": "hdd1",
+				"children": [{"name": "/dev/sda1", "mountpoint":"", "partuuid":"volume-id"}]
+				}]
+			}`
+
 var LsblkDevWithChildren = CmdOut{
 	Stdout: `{
 			  "blockdevices":[{

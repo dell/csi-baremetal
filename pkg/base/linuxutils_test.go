@@ -397,3 +397,84 @@ func TestLinuxUtils_FindMnt(t *testing.T) {
 	currentRes, err = l.FindMnt(target)
 	assert.Equal(t, expectedErr, err)
 }
+
+func TestLinuxUtils_GetPartitionNameByUUID(t *testing.T) {
+	var (
+		e        = &mocks.GoMockExecutor{}
+		l        = NewLinuxUtils(e, luLogger)
+		device   = "/dev/loop25"
+		partName = "/dev/loop25p1"
+		partUUID = "19ad3d36-38fa-4688-a57c-aa74961aa126"
+		cmd      = fmt.Sprintf(LsblkCmdTmpl, device)
+		output   = "{\"blockdevices\": [{\"name\":\"/dev/loop25\",\"partuuid\":null,\"children\":[{\"name\":\"" +
+			partName + "\",\"partuuid\":\"" + partUUID + "\"}]}]}"
+	)
+
+	e.OnCommand(cmd).Return(output, "", nil)
+	name, err := l.GetPartitionNameByUUID(device, partUUID)
+	assert.Equal(t, name, partName)
+	assert.Nil(t, err)
+}
+
+func TestLinuxUtils_GetPartitionNameByUUIDNameNotPresent(t *testing.T) {
+	var (
+		e        = &mocks.GoMockExecutor{}
+		l        = NewLinuxUtils(e, luLogger)
+		device   = "/dev/loop25"
+		partUUID = "19ad3d36-38fa-4688-a57c-aa74961aa126"
+		cmd      = fmt.Sprintf(LsblkCmdTmpl, device)
+		output   = "{\"blockdevices\": [{\"name\":\"/dev/loop25\",\"partuuid\":null,\"children\":[{\"partuuid\":\"" +
+			partUUID + "\"}]}]}"
+	)
+
+	e.OnCommand(cmd).Return(output, "", nil)
+	name, err := l.GetPartitionNameByUUID(device, partUUID)
+	assert.Empty(t, name)
+	assert.NotNil(t, err)
+}
+
+func TestLinuxUtils_GetPartitionNameByUUIDNotFound(t *testing.T) {
+	var (
+		e         = &mocks.GoMockExecutor{}
+		l         = NewLinuxUtils(e, luLogger)
+		device    = "/dev/loop25"
+		partName  = "/dev/loop25p1"
+		partUUID  = "19ad3d36-38fa-4688-a57c-aa74961aa126"
+		partUUID2 = "19ad3d36-38fa-4688-a57c-aa74961aa127"
+		cmd       = fmt.Sprintf(LsblkCmdTmpl, device)
+		output    = "{\"blockdevices\": [{\"name\":\"/dev/loop25\",\"partuuid\":null,\"children\":[{\"name\":\"" +
+			partName + "\",\"partuuid\":\"" + partUUID2 + "\"}]}]}"
+	)
+
+	e.OnCommand(cmd).Return(output, "", nil)
+	name, err := l.GetPartitionNameByUUID(device, partUUID)
+	assert.Empty(t, name)
+	assert.NotNil(t, err)
+}
+
+func TestLinuxUtils_GetPartitionNameByUUIDFail(t *testing.T) {
+	var (
+		e        = &mocks.GoMockExecutor{}
+		l        = NewLinuxUtils(e, luLogger)
+		device   = "/dev/loop25"
+		partUUID = "19ad3d36-38fa-4688-a57c-aa74961aa126"
+		cmd      = fmt.Sprintf(LsblkCmdTmpl, device)
+	)
+
+	name, err := l.GetPartitionNameByUUID("", partUUID)
+	assert.Empty(t, name)
+	assert.NotNil(t, err)
+
+	name, err = l.GetPartitionNameByUUID(device, "")
+	assert.Empty(t, name)
+	assert.NotNil(t, err)
+
+	name, err = l.GetPartitionNameByUUID("", "")
+	assert.Empty(t, name)
+	assert.NotNil(t, err)
+
+	e.OnCommand(cmd).Return("", "", errors.New("error"))
+	name, err = l.GetPartitionNameByUUID(device, partUUID)
+	assert.Empty(t, name)
+	assert.NotNil(t, err)
+}

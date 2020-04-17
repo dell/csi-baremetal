@@ -22,6 +22,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
@@ -50,8 +51,10 @@ type VolumeManager struct {
 }
 
 const (
-	DiscoverDrivesTimout    = 300 * time.Second
-	VolumeOperationsTimeout = 600 * time.Second
+	DiscoverDrivesTimeout              = 300 * time.Second
+	VolumeOperationsTimeout            = 600 * time.Second
+	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
+	NumberOfRetriesToSyncPartTable     = 3
 )
 
 // NewVolumeManager returns new instance ov VolumeManager
@@ -157,7 +160,7 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 func (m *VolumeManager) Discover() error {
 	m.log.WithField("method", "Discover").Info("Processing")
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), DiscoverDrivesTimout)
+	ctx, cancelFn := context.WithTimeout(context.Background(), DiscoverDrivesTimeout)
 	defer cancelFn()
 	drivesResponse, err := m.hWMgrClient.GetDrivesList(ctx, &api.DrivesRequest{NodeId: m.nodeID})
 	if err != nil {
@@ -576,7 +579,12 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		go func() {
 			ll.Infof("Create partition on device %s and set UUID in background", device)
 			id := vol.Id
-			rollBacked, err := m.setPartitionUUIDForDev(device, id)
+
+			// since volume ID starts with 'pvc-' prefix we need to remove it.
+			// otherwise partition UUID won't be set correctly
+			// todo can we guarantee that e2e test has 'pvc-' prefix
+			volumeUUID, _ := util.GetVolumeUUID(id)
+			partition, rollBacked, err := m.createPartitionAndSetUUID(device, volumeUUID)
 			if err != nil {
 				if !rollBacked {
 					ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
@@ -588,20 +596,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 				ll.Errorf("Failed to set partition UUID: %v, set volume status to Failed", err)
 				m.setVolumeStatus(vol.Id, apiV1.Failed)
 			} else {
-				ll.Info("Partition UUID was set successfully")
-				var partition string
-				switch vol.StorageClass {
-				case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
-					partition = fmt.Sprintf("/dev/%s/%s", vol.Location, id)
-				default:
-					partition, err = m.linuxUtils.GetPartitionNameByUUID(device, id)
-					if err != nil {
-						ll.Errorf("Failed to get partition name for device %s UUID %s: %v, set volume status"+
-							" to FailedToCreate", device, id, err)
-						m.setVolumeStatus(id, apiV1.Failed)
-						return
-					}
-				}
+				ll.Info("Partition was created successfully")
 				newStatus := apiV1.Created
 				// TODO AK8S-632 Make CreateFileSystem work with different type of file systems
 				if err := scImpl.CreateFileSystem(sc.XFS, partition); err != nil {
@@ -649,12 +644,12 @@ func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID stri
 	}
 }
 
-// setPartitionUUIDForDev creates partition and sets partition UUID, if some step fails
+// createPartitionAndSetUUID creates partition and sets partition UUID, if some step fails
 // will try to rollback operation, returns error and roll back operation status (bool)
 // if error occurs, status value will show whether device has roll back to the initial state
-func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (rollBacked bool, err error) {
+func (m *VolumeManager) createPartitionAndSetUUID(device string, uuid string) (partName string, rollBacked bool, err error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"method": "setPartitionUUIDForDev",
+		"method": "createPartitionAndSetUUID",
 		"uuid":   uuid,
 	})
 	ll.Infof("Processing for device %s", device)
@@ -672,13 +667,13 @@ func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (roll
 		currUUID, err := m.linuxUtils.GetPartitionUUID(device)
 		if err != nil {
 			ll.Errorf("Partition has already exist but fail to get it UUID: %v", err)
-			return false, fmt.Errorf("partition has already exist on device %s", device)
+			return "", false, fmt.Errorf("partition has already exist on device %s", device)
 		}
 		if currUUID == uuid {
 			ll.Infof("Partition has already set.")
-			return true, nil
+			return "", true, nil
 		}
-		return false, fmt.Errorf("partition has already exist on device %s", device)
+		return "", false, fmt.Errorf("partition has already exist on device %s", device)
 	}
 
 	// create partition table
@@ -712,7 +707,37 @@ func (m *VolumeManager) setPartitionUUIDForDev(device string, uuid string) (roll
 		}
 		return
 	}
-	return rollBacked, err
+
+	// get partition name
+	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
+		partName, err = m.linuxUtils.GetPartitionNameByUUID(device, uuid)
+		if err != nil {
+			// sync partition table and try one more time
+			err = m.linuxUtils.SyncPartitionTable(device)
+			if err != nil {
+				// log and ignore error
+				ll.Warningf("Unable to sync partition table for device %s", device)
+			}
+			time.Sleep(SleepBetweenRetriesToSyncPartTable)
+			continue
+		}
+		break
+	}
+
+	if partName == "" {
+		// delete partition
+		// todo https://jira.cec.lab.emc.com:8443/browse/AK8S-719 need to refactor this method to avoid code duplicates
+		errDel := m.linuxUtils.DeletePartition(device)
+		if errDel != nil {
+			rollBacked = false
+			err = errDel
+			return
+		}
+		err = fmt.Errorf("unable to obtain partition name for device %s", device)
+		return
+	}
+
+	return partName, false, nil
 }
 
 func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volume) error {

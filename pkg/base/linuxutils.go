@@ -30,12 +30,14 @@ type LsblkOutput struct {
 	Rev        string        `json:"rev,omitempty"`
 	MountPoint string        `json:"mountpoint,omitempty"`
 	FSType     string        `json:"fstype,omitempty"`
+	PartUUID   string        `json:"partuuid,omitempty"`
 	Children   []LsblkOutput `json:"children,omitempty"`
 }
 
 const (
 	// add device name, if add empty string - command will print info about all devices
-	LsblkCmdTmpl   = "lsblk %s --paths --json --bytes --fs --output NAME,TYPE,SIZE,ROTA,SERIAL,WWN,VENDOR,MODEL,REV,MOUNTPOINT,FSTYPE"
+	LsblkCmdTmpl = "lsblk %s --paths --json --bytes --fs " +
+		"--output NAME,TYPE,SIZE,ROTA,SERIAL,WWN,VENDOR,MODEL,REV,MOUNTPOINT,FSTYPE,PARTUUID"
 	LsblkOutputKey = "blockdevices"
 	IpmitoolCmd    = " ipmitool lan print"
 	// cmd templates related to LVM
@@ -319,4 +321,37 @@ func (l *LinuxUtils) FindMnt(target string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(strOut), nil
+}
+
+/*
+Get partition name (for example, /dev/sda1, /dev/nvme1p2, /dev/loopback0p3) by UUID
+*/
+func (l *LinuxUtils) GetPartitionNameByUUID(device, uuid string) (string, error) {
+	if device == "" {
+		return "", fmt.Errorf("unable to find partition name by UUID %s - device name is empty", uuid)
+	}
+
+	if uuid == "" {
+		return "", fmt.Errorf("unable to find partition name for device %s partition UUID is empty", device)
+	}
+
+	// list partitions
+	blockdevices, err := l.Lsblk(device)
+	if err != nil {
+		return "", err
+	}
+
+	// try to find partition name
+	for _, id := range blockdevices[0].Children {
+		// ignore cases
+		if strings.EqualFold(uuid, id.PartUUID) {
+			// partition name not detected
+			if id.Name == "" {
+				return "", fmt.Errorf("partition %s for device %s found but name is not present", uuid, device)
+			}
+			return id.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s", uuid, device)
 }
