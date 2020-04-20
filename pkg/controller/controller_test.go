@@ -158,28 +158,26 @@ var _ = Describe("CSIControllerService addition functions", func() {
 		removeAllCrds(svc.k8sclient)
 	})
 
-	Context("InitController scenarios", func() {
+	Context("WaitNodeServices scenarios", func() {
 		It("success scenario when there is ready Node pod", func() {
 			createPods(svc, testReadyPod1, testUnreadyPod2)
 
-			err := svc.InitController()
-			Expect(err).To(BeNil())
+			res := svc.WaitNodeServices()
+			Expect(res).To(BeTrue())
 		})
 
 		It("failed scenario when there is no ready Node pod", func() {
 			createPods(svc, testUnreadyPod2)
 
-			err := svc.InitController()
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("there are no ready Node services"))
+			res := svc.WaitNodeServices()
+			Expect(res).To(BeFalse())
 		})
 
 		It("failed scenario when there is no Node pod", func() {
 			createPods(svc, testPod3)
 
-			err := svc.InitController()
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("there are no ready Node services"))
+			res := svc.WaitNodeServices()
+			Expect(res).To(BeFalse())
 		})
 
 	})

@@ -24,7 +24,6 @@ const (
 	driverName        = "baremetal-csi"
 	version           = "0.0.3"
 	timeoutBeforeInit = 30
-	attemptsToInit    = 5
 )
 
 func main() {
@@ -53,18 +52,15 @@ func main() {
 	kubeClient := base.NewKubeClient(k8SClient, logger, *namespace)
 	controllerService := controller.NewControllerService(kubeClient, logger)
 
-	logger.Infof("Wait %d seconds before start controller initialization in %d attempts",
-		timeoutBeforeInit, attemptsToInit)
 	ticker := time.NewTicker(timeoutBeforeInit * time.Second)
-	for i := 1; i <= attemptsToInit; i++ {
+	for i := 1; ; i++ {
 		<-ticker.C
-		if err = controllerService.InitController(); err != nil {
-			if i == attemptsToInit {
-				logger.Fatal(err)
-			}
-			logger.Errorf("Failed to Init Controller: %v, attempt %d out of %d", err, i, attemptsToInit)
+		// check whether there is any ready pod with node service or no
+		// controller will start  when at least one ready node service will be detected
+		if !controllerService.WaitNodeServices() {
+			logger.Warnf("There are no ready node services, attempt %d. Wait %d seconds and retry.", i, timeoutBeforeInit)
 		} else {
-			logger.Info("Controller was initialized.")
+			logger.Info("Ready node service detected")
 			break
 		}
 	}

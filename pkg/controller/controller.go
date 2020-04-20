@@ -51,19 +51,20 @@ func NewControllerService(k8sClient *base.KubeClient, logger *logrus.Logger) *CS
 	return c
 }
 
-// Waits for the first ready Node
-func (c *CSIControllerService) InitController() error {
-	ll := c.log.WithField("method", "InitController")
+// WaitNodeServices waits for the first ready Node
+// return true in case of ready node service and false instead
+func (c *CSIControllerService) WaitNodeServices() bool {
+	ll := c.log.WithField("method", "WaitNodeServices")
 
 	timeout := 240 * time.Second
-	ll.Infof("Wait for Node service's containers readiness with timeout in %s", timeout)
 	ctx, cancelFn := context.WithTimeout(context.Background(), timeout)
 	defer cancelFn()
 
 	pods, err := c.getPods(ctx, NodeSvcPodsMask)
 
 	if err != nil {
-		return err
+		ll.Infof("Unable to detect pods with node service: %v", err)
+		return false
 	}
 
 	ll.Infof("Found %d pods with Node service", len(pods))
@@ -78,11 +79,11 @@ func (c *CSIControllerService) InitController() error {
 			}
 		}
 		if containersReady {
-			return nil
+			return true
 		}
 	}
 
-	return fmt.Errorf("there are no ready Node services")
+	return false
 }
 
 func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
