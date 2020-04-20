@@ -393,11 +393,10 @@ func TestVolumeManager_createPartitionAndSetUUIDSuccess(t *testing.T) {
 
 	// todo refactor these UTs - https://jira.cec.lab.emc.com:8443/browse/AK8S-724
 	// get rid of hardcoded values
-	partName, rollBacked, err := vm.createPartitionAndSetUUID("/dev/sda", testID)
+	partName, _, err := vm.createPartitionAndSetUUID("/dev/sda", testID)
 
 	assert.Equal(t, partName, "/dev/sda1")
 	assert.Nil(t, err)
-	assert.True(t, rollBacked)
 }
 
 func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
