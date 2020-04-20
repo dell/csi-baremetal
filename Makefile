@@ -126,10 +126,15 @@ lint-charts:
 test:
 	go test -race -cover ./... -coverprofile=coverage.out
 
-# Run tests for pr-validation with converting go test output to junit-style output.
+# Run tests for pr-validation with writing output to log file
 # Test are different (ginkgo, go testing, etc.) so can't use native ginkgo methods to print junit output.
 test-pr-validation:
-	go test -v -race -cover ./... -coverprofile=coverage.out 2>&1 | go-junit-report > report.xml
+	go test -v -race -cover ./... -coverprofile=coverage.out > log.txt
+
+# Convert go test output from log.txt to junit-style output. Split these steps because no matter if test fails,
+# junit output must be collected
+pr-validation-junit:
+	cat log.txt >&1 | go-junit-report > report.xml
 
 # Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
 # Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.

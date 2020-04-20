@@ -96,9 +96,11 @@ boolean validatePullRequest(String commit) {
 
                         stage('Test and Coverage') {
                             testExitCode = sh(script: 'make test-pr-validation', returnStatus: true)
+                            //split because our make test fails and creating junit output isn't invoked during sh()
+                            junitExitCode = sh(script: 'make pr-validation-junit', returnStatus: true)
                             //split because our make test fails and make coverage isn't invoked during sh()
                             coverageExitCode = sh(script: 'make coverage', returnStatus: true)
-                            if ((testExitCode != 0) || (coverageExitCode != 0)) {
+                            if ((testExitCode != 0) || (coverageExitCode != 0) || (junitExitCode != 0)) {
                                 currentBuild.result = 'FAILURE'
                                 throw new Exception("Test and Coverage stage failed, check logs")
                             }
