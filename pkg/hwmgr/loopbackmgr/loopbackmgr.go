@@ -16,6 +16,7 @@ import (
 const (
 	// todo AK8S-635 number of devices and other settings must be set via config map in runtime
 	numberOfDevices   = 3
+	threshold         = "1Gi"
 	defaultFileName   = "loopback"
 	tmpFolder         = "/tmp"
 	createFileCmdTmpl = "dd if=/dev/zero of=%s bs=1M count=%d"
@@ -108,6 +109,7 @@ func (mgr *LoopBackManager) Init() (err error) {
 
 	var device string
 
+	rfutils := base.NewRootFsUtils(mgr.exec)
 	// go through the list of devices and register if needed
 	for i := 0; i < numberOfDevices; i++ {
 		// wil create files in home dir. we might need to store them on host to test FI
@@ -115,7 +117,17 @@ func (mgr *LoopBackManager) Init() (err error) {
 		sizeMb := mgr.devices[i].sizeMb
 		// skip creation if file exists (manager restarted)
 		if _, err := os.Stat(file); err != nil {
-			// todo AK8S-654 need to check root FS space before creating next file
+			freeBytes, err := rfutils.CheckRootFsSpace()
+			if err != nil {
+				mgr.log.Fatal("Failed to check root fs space")
+			}
+			bytes, err := base.StrToBytes(threshold)
+			if err != nil {
+				mgr.log.Fatalf("Parsing threshold %s failed", threshold)
+			}
+			if freeBytes < bytes {
+				mgr.log.Fatal("Not enough space on root fs")
+			}
 			_, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(createFileCmdTmpl, file, sizeMb))
 			if errcode != nil {
 				mgr.log.Fatalf("Unable to create file %s with size %d MB: %s", file, sizeMb, stderr)

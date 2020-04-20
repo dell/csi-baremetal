@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var sizeStrFmt = regexp.MustCompile(`(\d+)\s*(\S+)`)
+var sizeStrFmt = regexp.MustCompile(`(\d+(\.\d+)?)\s*(\S+)`)
 
 type SizeUnit int64
 
@@ -25,9 +25,9 @@ func StrToBytes(str string) (int64, error) {
 	if matches == nil {
 		return 0, fmt.Errorf("unparseable size definition: %v", str)
 	}
-	value, _ := strconv.Atoi(matches[0][1]) //We don't expect error here, because number is validated by regex
+	value, _ := strconv.ParseFloat(matches[0][1], 64) //We don't expect error here, because number is validated by regex
 	var mod int64
-	switch strings.ToLower(matches[0][2]) {
+	switch strings.ToLower(matches[0][3]) {
 	case "t", "tb", "ti", "tib", "e12":
 		mod = int64(TBYTE)
 	case "g", "gb", "gi", "gib", "e9":
@@ -41,7 +41,7 @@ func StrToBytes(str string) (int64, error) {
 	default:
 		return 0, fmt.Errorf("unknown size unit %v in supplied value %v", matches[0][2], str)
 	}
-	return mod * int64(value), nil
+	return int64(float64(mod) * value), nil
 }
 
 // Convert value from specified size unit to another unit. Returns error if conversion leads to precision loss.
