@@ -304,29 +304,6 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	err = svc1.k8sClient.ReadCR(testCtx, testAC4Name, updatedAC)
 	assert.Nil(t, err)
 	assert.Equal(t, testAC4.Spec.Size+v1.Spec.Size, updatedAC.Spec.Size)
-
-	// 2. volume with HDDLVG SC, corresponding AC is not exist and should be created, volume CR should be removed
-	svc2 := setupVOOperationsTest(t)
-	// Create Volume and LVG
-	v2 := testVolume1
-	v2.Spec.StorageClass = api.StorageClass_HDDLVG
-	err = svc2.k8sClient.CreateCR(testCtx, testVolume1Name, &v2)
-	assert.Nil(t, err)
-	err = svc2.k8sClient.CreateCR(testCtx, testLVGName, &testLVG)
-
-	svc2.UpdateCRsAfterVolumeDeletion(testCtx, testVolume1Name)
-	// check that Volume was removed
-	err = svc2.k8sClient.ReadCR(testCtx, testVolume1Name, &volumecrd.Volume{})
-	assert.True(t, k8sError.IsNotFound(err))
-	// check that AC CR was created
-	var acList = &accrd.AvailableCapacityList{}
-	err = svc2.k8sClient.ReadList(testCtx, acList)
-	assert.Equal(t, 1, len(acList.Items))
-	ac := acList.Items[0]
-	assert.Equal(t, v2.Spec.Location, ac.Spec.Location)
-	assert.Equal(t, v2.Spec.Size, ac.Spec.Size)
-	assert.Equal(t, v2.Spec.NodeId, ac.Spec.NodeId)
-	assert.Equal(t, v2.Spec.StorageClass, ac.Spec.StorageClass)
 }
 
 func TestVolumeOperationsImpl_ReadVolumeAndChangeStatus(t *testing.T) {

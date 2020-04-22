@@ -73,6 +73,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 		}
 	} else {
+		ll.Infof("Removing LVG")
 		if base.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
 			// remove AC that point on that LVG
 			c.removeChildAC(lvg.Name)
@@ -194,6 +195,7 @@ func (c *LVGController) removeChildAC(lvgName string) {
 		"method":  "removeChildAC",
 		"lvgName": lvgName,
 	})
+
 	acList := &accrd.AvailableCapacityList{}
 	if err := c.k8sClient.ReadList(context.Background(), acList); err != nil {
 		ll.Errorf("Unable to list ACs: %v", err)
@@ -201,8 +203,9 @@ func (c *LVGController) removeChildAC(lvgName string) {
 	for _, ac := range acList.Items {
 		if ac.Spec.Location == lvgName {
 			acToRemove := ac
-			if err := c.k8sClient.DeleteCR(context.Background(), &acToRemove); err != nil {
-				ll.Errorf("Unable to remove AC %v, error: %v", ac, err)
+			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, lvgName)
+			if err := c.k8sClient.DeleteCR(ctxWithID, &acToRemove); err != nil {
+				ll.Errorf("Unable to remove AC %v, error: %v", acToRemove, err)
 			}
 		}
 	}

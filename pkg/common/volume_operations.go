@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -173,7 +172,8 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		return
 	}
 
-	// if volume is in LVG - update corresponding AC
+	// if volume is in LVG - update corresponding AC size
+	// if such AC isn't exist - do nothing (AC should be recreated by VolumeMgr)
 	if volumeCR.Spec.StorageClass == api.StorageClass_HDDLVG || volumeCR.Spec.StorageClass == api.StorageClass_SSDLVG {
 		var (
 			acCR   = accrd.AvailableCapacity{}
@@ -195,18 +195,6 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 			acCR.Spec.Size += volumeCR.Spec.Size
 			if err = vo.k8sClient.UpdateCRWithAttempts(ctx, &acCR, 5); err != nil {
 				ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
-			}
-		} else {
-			// recreate AC based on LVG with size == volume.Size
-			newACName := volumeCR.Spec.NodeId + "-" + strings.ToLower(volumeCR.Spec.Location)
-			newAC := vo.k8sClient.ConstructACCR(newACName, api.AvailableCapacity{
-				Location:     volumeCR.Spec.Location,
-				NodeId:       volumeCR.Spec.NodeId,
-				StorageClass: volumeCR.Spec.StorageClass,
-				Size:         volumeCR.Spec.Size,
-			})
-			if err = vo.k8sClient.CreateCR(ctx, newACName, newAC); err != nil {
-				ll.Errorf("Unable to create AC %v, error: %v", newAC, err)
 			}
 		}
 	}

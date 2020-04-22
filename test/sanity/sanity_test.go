@@ -140,8 +140,7 @@ func newNodeSvc(kubeClient *base.KubeClient, nodeReady chan<- bool) {
 // prepareNodeMock prepares instance of Node service with mocked hwmgr and mocked executor
 func prepareNodeMock(kubeClient *base.KubeClient, log *logrus.Logger) *node.CSINodeService {
 	c := mocks.NewMockHWMgrClient(testDrives)
-	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(base.LsblkCmdTmpl, ""):
-		{Stdout: mocks.LsblkTwoDevicesStr}})
+	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(base.LsblkCmdTmpl, ""): {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
 
 	nodeService := node.NewCSINodeService(nil, nodeId, log, kubeClient)

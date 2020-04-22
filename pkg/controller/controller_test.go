@@ -457,7 +457,6 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			removeAllCrds(svc.k8sclient) // remove CRs that was created in BeforeEach()
 			fullLVGsizeVolume := testVolume
 			fullLVGsizeVolume.Spec.StorageClass = api.StorageClass_HDDLVG
-			capacity := fullLVGsizeVolume.Spec.Size
 
 			// create volume CR that should be deleted
 			err := svc.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
@@ -469,17 +468,16 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
 
-			//// check that there are no any volume CR (was removed)
+			// check that there are no any volume CR (was removed)
 			vList := vcrd.VolumeList{}
 			err = svc.k8sclient.ReadList(testCtx, &vList)
 			Expect(err).To(BeNil())
 			Expect(len(vList.Items)).To(Equal(0))
-			// check that AC size was recreated
+			// check that AC size still not exist
 			acList := accrd.AvailableCapacityList{}
 			err = svc.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(1))
-			Expect(acList.Items[0].Spec.Size).To(Equal(capacity))
+			Expect(len(acList.Items)).To(Equal(0))
 		})
 	})
 })
