@@ -25,6 +25,8 @@ type ServerRunner struct {
 }
 
 // NewServerRunner returns ServerRunner object based on parameters that had provided
+// Receives credentials for connection, connection endpoint (for example 'tcp://localhost:8888') and logrus logger
+// Returns an instance of ServerRunner struct
 func NewServerRunner(creds credentials.TransportCredentials, endpoint string, logger *logrus.Logger) *ServerRunner {
 	sr := &ServerRunner{
 		Creds:    creds,
@@ -37,11 +39,13 @@ func NewServerRunner(creds credentials.TransportCredentials, endpoint string, lo
 	return sr
 }
 
+// SetLogger sets logrus logger to ServerRunner struct
+// Receives logrus logger
 func (sr *ServerRunner) SetLogger(logger *logrus.Logger) {
 	sr.log = logger.WithField("component", "ServerRunner")
 }
 
-// init creates Listener for ServerRunner and initialized GRPCServer
+// init initializes GRPCServer field of ServerRunner struct
 func (sr *ServerRunner) init() {
 	if sr.Creds != nil {
 		sr.GRPCServer = grpc.NewServer(grpc.Creds(sr.Creds))
@@ -50,7 +54,8 @@ func (sr *ServerRunner) init() {
 	}
 }
 
-// RunServer starts gRPC server in gorutine
+// RunServer creates Listener and starts gRPC server on endpoint
+// Receives error if error occurred during Listener creation or during GRPCServer.Serve
 func (sr *ServerRunner) RunServer() error {
 	var err error
 	endpoint, socket := sr.GetEndpoint()
@@ -73,7 +78,8 @@ func (sr *ServerRunner) StopServer() {
 	sr.GRPCServer.GracefulStop()
 }
 
-// GetEndpoint returns endpoint representation based on hostTCP and port
+// GetEndpoint returns endpoint representation
+// Returns url.Path if Scheme is unix or url.Host otherwise
 func (sr *ServerRunner) GetEndpoint() (string, string) {
 	u, _ := url.Parse(sr.Endpoint)
 

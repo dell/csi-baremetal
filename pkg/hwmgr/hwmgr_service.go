@@ -11,11 +11,16 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 )
 
+// HWServiceServerImpl is the implementation of gRPC server that gives possibility to invoke HWManager's methods
+// remotely
 type HWServiceServerImpl struct {
 	mgr HWManager
 	log *logrus.Entry
 }
 
+// NewHWServer is the constructor for HWServiceServerImpl struct
+// Receives logrus logger and implementation of HWManager as parameters
+// Returns an instance of HWServiceServerImpl
 func NewHWServer(logger *logrus.Logger, manager HWManager) HWServiceServerImpl {
 	hwService := HWServiceServerImpl{
 		log: logger.WithField("component", "HWServiceServerImpl"),
@@ -24,6 +29,9 @@ func NewHWServer(logger *logrus.Logger, manager HWManager) HWServiceServerImpl {
 	return hwService
 }
 
+// GetDrivesList invokes HWManager's GetDrivesList() and sends the response over gRPC
+// Receives go context and DrivesRequest which contains node id
+// Returns DrivesResponse with slice of api.Drives structs
 func (svc *HWServiceServerImpl) GetDrivesList(ctx context.Context, req *api.DrivesRequest) (*api.DrivesResponse, error) {
 	drives, err := svc.mgr.GetDrivesList()
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
+// HddSC is StorageClass implementation for HDD drives
 type HddSC struct {
 	DefaultDASC
 }
@@ -17,6 +18,9 @@ var (
 	hddSCInstance *HddSC
 )
 
+// GetHDDSCInstance singleton instance getter for HddSC
+// Receives logrus logger
+// Returns instance of HddSC
 func GetHDDSCInstance(logger *logrus.Logger) *HddSC {
 	if hddSCInstance == nil {
 		hddMU.Lock()
@@ -31,6 +35,8 @@ func GetHDDSCInstance(logger *logrus.Logger) *HddSC {
 	return hddSCInstance
 }
 
+// SetHDDSCExecutor sets cmd executor to HddSC
+// Receives cmd executor
 func (h *HddSC) SetHDDSCExecutor(executor base.Executor) {
 	h.executor = &executor
 }

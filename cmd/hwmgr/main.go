@@ -1,3 +1,4 @@
+// Package for main function of HWManager
 package main
 
 import (
@@ -57,9 +58,7 @@ func main() {
 	}
 }
 
-/*
-Pick HW manager implementation based on environment variable.
-*/
+// chooseHWManager picks HW manager implementation based on environment variable.
 func chooseHWManager(logger *logrus.Logger) (hwmgr.HWManager, error) {
 	e := &base.Executor{}
 	e.SetLogger(logger)

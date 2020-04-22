@@ -1,3 +1,4 @@
+// Package controller contains implementation of CSI Controller component
 package controller
 
 import (
@@ -22,14 +23,17 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 )
 
+// NodeID is the type for node hostname
 type NodeID string
 
 const (
-	NodeSvcPodsMask   = "baremetal-csi-node"
+	// NodeSvcPodsMask mask to find Node pods
+	NodeSvcPodsMask = "baremetal-csi-node"
+	// NodeIDTopologyKey to read topology values created by NodeGetInfo
 	NodeIDTopologyKey = "baremetal-csi/nodeid"
 )
 
-// interface implementation for ControllerServer
+// CSIControllerService is the implementation of ControllerServer interface from GO CSI specification
 type CSIControllerService struct {
 	k8sclient *base.KubeClient
 
@@ -41,6 +45,9 @@ type CSIControllerService struct {
 	acProvider common.AvailableCapacityOperations
 }
 
+// NewControllerService is the constructor for CSIControllerService struct
+// Receives an instance of base.KubeClient and logrus logger
+// Returns an instance of CSIControllerService
 func NewControllerService(k8sClient *base.KubeClient, logger *logrus.Logger) *CSIControllerService {
 	c := &CSIControllerService{
 		k8sclient:  k8sClient,
@@ -51,8 +58,8 @@ func NewControllerService(k8sClient *base.KubeClient, logger *logrus.Logger) *CS
 	return c
 }
 
-// WaitNodeServices waits for the first ready Node
-// return true in case of ready node service and false instead
+// WaitNodeServices waits for the first ready Node. Node readiness means that all Node containers are in Ready state
+// Returns true in case of ready node service and false instead
 func (c *CSIControllerService) WaitNodeServices() bool {
 	ll := c.log.WithField("method", "WaitNodeServices")
 
@@ -86,6 +93,12 @@ func (c *CSIControllerService) WaitNodeServices() bool {
 	return false
 }
 
+// CreateVolume is the implementation of CSI Spec CreateVolume. If k8s SC of driver is set to WaitForFirstConsumer then
+// preferred node chosen by k8s Scheduler would be used for Volume otherwise node would be chosen by balanceAC method.
+// k8s StorageClass contains parameters field. This field can contain storage type where the Volume will be based.
+// For example storageType: HDD, storageType: HDDLVG. If this field is not set then storage type would be ANY.
+// Receives golang context and CSI Spec CreateVolumeRequest
+// Returns CSI Spec CreateVolumeResponse or error if something went wrong
 func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "CreateVolume",
@@ -158,6 +171,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}, nil
 }
 
+// DeleteVolume is the implementation of CSI Spec DeleteVolume. This method sets Volume CR's Spec.CSIStatus to Removing.
+// And waits for Volume to be removed by Reconcile loop of appropriate Node.
+// Receives golang context and CSI Spec DeleteVolumeRequest
+// Returns CSI Spec DeleteVolumeResponse or error if something went wrong
 func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
@@ -202,6 +219,10 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
+// ControllerPublishVolume is the implementation of CSI Spec ControllerPublishVolume. This method just checks existence
+// of provided Volume CR and returns success response if the Volume CR exists.
+// Receives golang context and CSI Spec ControllerPublishVolumeRequest
+// Returns CSI Spec ControllerPublishVolumeResponse or error if something went wrong
 func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
@@ -236,6 +257,10 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
+// ControllerUnpublishVolume is the implementation of CSI Spec ControllerUnpublishVolume.
+// This method just returns empty response.
+// Receives golang context and CSI Spec ControllerUnpublishVolumeRequest
+// Returns CSI Spec ControllerUnpublishVolumeResponse or error if Volume ID is not provided in request
 func (c *CSIControllerService) ControllerUnpublishVolume(ctx context.Context,
 	req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
@@ -252,18 +277,25 @@ func (c *CSIControllerService) ControllerUnpublishVolume(ctx context.Context,
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
+// ValidateVolumeCapabilities is not implemented yet
 func (c *CSIControllerService) ValidateVolumeCapabilities(context.Context, *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// ListVolumes is not implemented yet
 func (c *CSIControllerService) ListVolumes(context.Context, *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// GetCapacity is not implemented yet
 func (c *CSIControllerService) GetCapacity(context.Context, *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// ControllerGetCapabilities is the implementation of CSI Spec ControllerGetCapabilities.
+// Provides Controller capabilities of CSI driver to k8s. CREATE/DELETE Volume and PUBLISH/UNPUBLISH Volume for now.
+// Receives golang context and CSI Spec ControllerGetCapabilitiesRequest
+// Returns CSI Spec ControllerGetCapabilitiesResponse and nil error
 func (c *CSIControllerService) ControllerGetCapabilities(context.Context, *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method": "ControllerGetCapabilities",
@@ -296,22 +328,29 @@ func (c *CSIControllerService) ControllerGetCapabilities(context.Context, *csi.C
 	return resp, nil
 }
 
+// CreateSnapshot is not implemented yet
 func (c *CSIControllerService) CreateSnapshot(context.Context, *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// DeleteSnapshot is not implemented yet
 func (c *CSIControllerService) DeleteSnapshot(context.Context, *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// ListSnapshots is not implemented yet
 func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// ControllerExpandVolume is not implemented yet
 func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// getPods returns list of pods which names contain mask
+// Receives golang context and mask for pods filtering
+// Returns slice of coreV1.Pod or error if something went wrong
 func (c *CSIControllerService) getPods(ctx context.Context, mask string) ([]*coreV1.Pod, error) {
 	pods := coreV1.PodList{}
 

@@ -7,8 +7,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Attempt to init logrus logger with output path passed in the parameter
-// If path is incorrect then init logger with stdout
+// InitLogger attempts to init logrus logger with output path passed in the parameter
+// If path is incorrect or "" then init logger with stdout
+// Receives logPath which is the file to write logs and logrus.Level which is level of logging (For example DEBUG, INFO)
+// Returns created logrus.Logger or error if something went wrong
 func InitLogger(logPath string, logLevel logrus.Level) (*logrus.Logger, error) {
 	logger := logrus.New()
 	if os.Getenv("LOG_FORMAT") == "text" {

@@ -1,3 +1,4 @@
+// Package sc provides methods to bind volumes with real storage devices
 package sc
 
 // StorageClassImplementer is an interface with different methods for a volume creation depending on Storage Class

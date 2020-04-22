@@ -5,17 +5,23 @@ import (
 	"strings"
 )
 
+// CheckSpaceCmdImpl check free space on system drive in unit of --block-size
 const CheckSpaceCmdImpl = "df --output=target,avail --block-size=%s"
 
+// RootFsUtils is the struct to interact with root file system
 type RootFsUtils struct {
 	e CmdExecutor
 }
 
+// NewRootFsUtils is the constructor for RootFsUtils struct
+// Receives an instance of CmdExecutor
+// Returns an instance of RootFsUtils
 func NewRootFsUtils(e CmdExecutor) *RootFsUtils {
 	return &RootFsUtils{e: e}
 }
 
-//checkRootFsSpace calls df command and check available space on root fs
+// CheckRootFsSpace calls df command and check available space on root fs
+// Returns free bytes on root fs as int64 or error if something went wrong
 func (rf *RootFsUtils) CheckRootFsSpace() (int64, error) {
 	/*Example output
 	Mounted on                       Avail

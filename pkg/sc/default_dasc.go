@@ -13,15 +13,25 @@ import (
 )
 
 const (
-	MkFSCmdTmpl          = "mkfs.xfs -f %s"
-	WipeFSCmdTmpl        = "wipefs -af %s"
-	MKdirCmdTmpl         = "mkdir -p %s"
-	RMCmdTmpl            = "rm -rf %s"
-	MountpointCmdTmpl    = "lsblk -d -n -o MOUNTPOINT %s"
-	MountCmdTmpl         = "mount %s %s %s"
-	UnmountCmdTmpl       = "umount %s"
-	ProcMountsFile       = "/proc/mounts"
-	MountpointCmd        = "mountpoint %s"
+	// MkFSCmdTmpl mkfs template
+	MkFSCmdTmpl = "mkfs.xfs -f %s"
+	// WipeFSCmdTmpl wipefs template
+	WipeFSCmdTmpl = "wipefs -af %s"
+	// MKdirCmdTmpl mkdir template
+	MKdirCmdTmpl = "mkdir -p %s"
+	// RMCmdTmpl rm template
+	RMCmdTmpl = "rm -rf %s"
+	// MountpointCmdTmpl lsblk mount point of device template
+	MountpointCmdTmpl = "lsblk -d -n -o MOUNTPOINT %s"
+	// MountCmdTmpl mount "from" "to" "opts" template
+	MountCmdTmpl = "mount %s %s %s"
+	// UnmountCmdTmpl unmount path template
+	UnmountCmdTmpl = "umount %s"
+	// ProcMountsFile "/proc/mounts" path
+	ProcMountsFile = "/proc/mounts"
+	//MountpointCmd mountpoint template
+	MountpointCmd = "mountpoint %s"
+	//FileSystemExistsTmpl checks file system with wipefs template
 	FileSystemExistsTmpl = "wipefs %s --output TYPE"
 )
 
@@ -33,10 +43,15 @@ type DefaultDASC struct {
 	opMutex  sync.Mutex
 }
 
+// SetLogger sets logrus logger to a DefaultDASC struct
+// Receives logrus logger and component name (SSD, HDD) to use it in logrus.WithField
 func (d *DefaultDASC) SetLogger(logger *logrus.Logger, componentName string) {
 	d.log = logger.WithField("component", componentName)
 }
 
+// CreateFileSystem creates specified file system on the provided device using mkfs
+// Receives file system as a var of FileSystem type and path of the device as a string
+// Returns error if something went wrong
 // TODO: do not return error here
 func (d *DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
 	var cmd string
@@ -79,6 +94,9 @@ func (d *DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
 	return nil
 }
 
+// DeleteFileSystem deletes file system from the provided device using wipefs
+// Receives file path of the device as a string
+// Returns error if something went wrong
 func (d *DefaultDASC) DeleteFileSystem(device string) error {
 	d.opMutex.Lock()
 	defer d.opMutex.Unlock()
@@ -90,6 +108,9 @@ func (d *DefaultDASC) DeleteFileSystem(device string) error {
 	return nil
 }
 
+// CreateTargetPath creates specified path using mkdir if it doesn't exist
+// Receives directory path to create as a string
+// Returns error if something went wrong
 func (d *DefaultDASC) CreateTargetPath(path string) error {
 	cmd := fmt.Sprintf(MKdirCmdTmpl, path)
 
@@ -103,6 +124,9 @@ func (d *DefaultDASC) CreateTargetPath(path string) error {
 	return nil
 }
 
+// DeleteTargetPath deletes specified path using rm
+// Receives directory path to delete as a string
+// Returns error if something went wrong
 func (d *DefaultDASC) DeleteTargetPath(path string) error {
 	cmd := fmt.Sprintf(RMCmdTmpl, path)
 
@@ -116,6 +140,9 @@ func (d *DefaultDASC) DeleteTargetPath(path string) error {
 	return nil
 }
 
+// IsMounted checks if the partition of device mounted
+// Receives partition path as a string
+// Returns bool that represents mount status or error if something went wrong
 func (d *DefaultDASC) IsMounted(partition string) (bool, error) {
 	ll := d.log.WithField("method", "IsMounted")
 
@@ -142,7 +169,9 @@ func (d *DefaultDASC) IsMounted(partition string) (bool, error) {
 	return false, nil
 }
 
-//opts are used for mount command for example --bind
+// Mount mounts source path to the destination directory
+// Receives source path and destination dir and also opts parameters that are used for mount command for example --bind
+// Returns error if something went wrong
 func (d *DefaultDASC) Mount(src, dir string, opts ...string) error {
 	cmd := fmt.Sprintf(MountCmdTmpl, strings.Join(opts, " "), src, dir)
 	d.opMutex.Lock()
@@ -154,6 +183,9 @@ func (d *DefaultDASC) Mount(src, dir string, opts ...string) error {
 	return nil
 }
 
+// Unmount unmounts device from the specified path
+// Receives path where the device is mounted
+// Returns error if something went wrong
 func (d *DefaultDASC) Unmount(path string) error {
 	cmd := fmt.Sprintf(UnmountCmdTmpl, path)
 
@@ -171,6 +203,9 @@ func (d *DefaultDASC) Unmount(path string) error {
 	return nil
 }
 
+// IsMountPoint checks if the specified path is mount point
+// Receives path that should be checked
+// Returns bool that is true if path is the mount point and error if something went wrong
 func (d *DefaultDASC) IsMountPoint(path string) (bool, error) {
 	cmd := fmt.Sprintf(MountpointCmd, path)
 
@@ -187,7 +222,8 @@ func (d *DefaultDASC) IsMountPoint(path string) (bool, error) {
 }
 
 // PrepareVolume is a function for preparing a volume in NodePublish() call
-// if error occurs, then we try to rollback successful steps
+// Receives device that the volume should be based on and a targetPath where the device should be mounted
+// Returns rollBacked status (if error occurs, then we try to rollback successful steps). Returns (false, nil) if success
 func (d *DefaultDASC) PrepareVolume(device, targetPath string) (rollBacked bool, err error) {
 	rollBacked = true
 

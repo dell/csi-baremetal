@@ -1,3 +1,4 @@
+// Package util is the subpackage of base that contains utilities for CSI-specific tasks
 package util
 
 import (
@@ -7,10 +8,8 @@ import (
 
 const prefix = "pvc-"
 
-/*
-Extract UUID from volume ID: pvc-<UUID>
-Method will remove prefix `pvc-` and return UUID
-*/
+// GetVolumeUUID extracts UUID from volume ID: pvc-<UUID>
+// Method will remove prefix `pvc-` and return UUID
 func GetVolumeUUID(volumeID string) (string, error) {
 	// check that volume ID is correct
 	if volumeID == "" {

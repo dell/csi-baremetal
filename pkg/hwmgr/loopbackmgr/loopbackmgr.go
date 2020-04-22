@@ -1,3 +1,4 @@
+// Package loopbackmgr contains HWManager for test purposes based on loop devices
 package loopbackmgr
 
 import (
@@ -29,12 +30,11 @@ const (
 )
 
 /*
-Loopback Manager is created for testing purposes only!
+LoopBackManager is created for testing purposes only!
 It allows to deploy CSI driver on your laptop with minikube or kind.
 Developer can simulate different number of drives, their type (HDD, SSD, NVMe, etc.), health, size,
 topology (accessibility), etc.
 */
-
 type LoopBackManager struct {
 	log      *logrus.Entry
 	exec     base.CmdExecutor
@@ -42,6 +42,7 @@ type LoopBackManager struct {
 	devices  [numberOfDevices]LoopBackDevice
 }
 
+// LoopBackDevice struct contains fields to describe a loop device bound with a file
 type LoopBackDevice struct {
 	fileName     string
 	vendorID     string
@@ -53,6 +54,9 @@ type LoopBackDevice struct {
 	devicePath string
 }
 
+// NewLoopBackManager is the constructor for LoopBackManager
+// Receives CmdExecutor to execute os commands such as 'losetup' and logrus logger
+// Returns an instance of LoopBackManager
 func NewLoopBackManager(exec base.CmdExecutor, logger *logrus.Logger) *LoopBackManager {
 	var devices [numberOfDevices]LoopBackDevice
 
@@ -92,9 +96,8 @@ func NewLoopBackManager(exec base.CmdExecutor, logger *logrus.Logger) *LoopBackM
 	}
 }
 
-/*
-Create files and register them as loopback devices
-*/
+// Init creates files and register them as loopback devices
+// Returns error if something went wrong
 func (mgr *LoopBackManager) Init() (err error) {
 	// clean loop devices after hwmgr deletion
 	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
@@ -169,9 +172,8 @@ func (mgr *LoopBackManager) Init() (err error) {
 	return nil
 }
 
-/**
-Return list of loopback devices
-*/
+// GetDrivesList returns list of loopback devices as *api.Drive slice
+// Returns *api.Drive slice or error if something went wrong
 func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 	drives := make([]*api.Drive, 0)
 	for i := 0; i < numberOfDevices; i++ {
@@ -190,9 +192,9 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 	return drives, nil
 }
 
-/*
-Check whether device registered for file or not
-*/
+// GetLoopBackDeviceName checks whether device registered for file or not
+// Receives file path as a string
+// Returns device path or or empty string if the file is not bounded to any loop device
 func (mgr *LoopBackManager) GetLoopBackDeviceName(file string) (string, error) {
 	// check that loopback device exists
 	stdout, stderr, err := mgr.exec.RunCmd(fmt.Sprintf(checkLoopBackDeviceCmdTmpl, file))
@@ -211,6 +213,7 @@ func (mgr *LoopBackManager) GetLoopBackDeviceName(file string) (string, error) {
 	return "", nil
 }
 
+// CleanupLoopDevices detaches loop devices that are occupied by LoopBackManager
 func (mgr *LoopBackManager) CleanupLoopDevices() {
 	for _, device := range mgr.devices {
 		_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath))

@@ -12,12 +12,14 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 )
 
+// LinuxUtils is the struct that unites linux commands for CSI purposes
 type LinuxUtils struct {
 	Partitioner
 	e   CmdExecutor
 	log *logrus.Entry
 }
 
+// LsblkOutput is the struct that represents output of lsblk command for a device
 type LsblkOutput struct {
 	Name       string        `json:"name,omitempty"`
 	Type       string        `json:"type,omitempty"`
@@ -35,31 +37,47 @@ type LsblkOutput struct {
 }
 
 const (
-	// add device name, if add empty string - command will print info about all devices
+	// LsblkCmdTmpl adds device name, if add empty string - command will print info about all devices
 	LsblkCmdTmpl = "lsblk %s --paths --json --bytes --fs " +
 		"--output NAME,TYPE,SIZE,ROTA,SERIAL,WWN,VENDOR,MODEL,REV,MOUNTPOINT,FSTYPE,PARTUUID"
+	// LsblkOutputKey is the key to find block devices in lsblk json output
 	LsblkOutputKey = "blockdevices"
-	IpmitoolCmd    = " ipmitool lan print"
-	// cmd templates related to LVM
-	LVsInVGCmdTmpl     = "/sbin/lvm lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
-	PVsInVGCmdTmpl     = "/sbin/lvm pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
-	EmptyName          = " "
-	PVCreateCmdTmpl    = "/sbin/lvm pvcreate --yes %s"                      // add PV name
-	PVRemoveCmdTmpl    = "/sbin/lvm pvremove --yes %s"                      // add PV name
-	VGCreateCmdTmpl    = "/sbin/lvm vgcreate --yes %s %s"                   // add VG name and PV names
-	VGRemoveCmdTmpl    = "/sbin/lvm vgremove --yes %s"                      // add VG name
-	LVCreateCmdTmpl    = "/sbin/lvm lvcreate --yes --name %s --size %s %s"  // add LV name, size and VG name
-	LVRemoveCmdTmpl    = "/sbin/lvm lvremove --yes %s"                      // add full LV name
-	FindMntCmdTmpl     = "findmnt --target %s --output SOURCE --noheadings" // add target path
-	VGByLVCmdTmpl      = "lvs %s --options vg_name --noheadings"            // add LV name
-	VGFreeSpaceCmdTmpl = "vgs %s --options vg_free --units b --noheadings"  // add VG name
+	// IpmitoolCmd print bmc ip cmd with ipmitool
+	IpmitoolCmd = " ipmitool lan print"
+	// LVsInVGCmdTmpl print LVs in VG cmd
+	LVsInVGCmdTmpl = "/sbin/lvm lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
+	// PVsInVGCmdTmpl print PVs in VG cmd
+	PVsInVGCmdTmpl = "/sbin/lvm pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
+	// EmptyName for PVs in VG
+	EmptyName = " "
+	// PVCreateCmdTmpl create PV cmd
+	PVCreateCmdTmpl = "/sbin/lvm pvcreate --yes %s" // add PV name
+	// PVRemoveCmdTmpl remove PV cmd
+	PVRemoveCmdTmpl = "/sbin/lvm pvremove --yes %s" // add PV name
+	// VGCreateCmdTmpl create VG on provided PVs cmd
+	VGCreateCmdTmpl = "/sbin/lvm vgcreate --yes %s %s" // add VG name and PV names
+	// VGRemoveCmdTmpl remove VG cmd
+	VGRemoveCmdTmpl = "/sbin/lvm vgremove --yes %s" // add VG name
+	// LVCreateCmdTmpl create LV on provided VG cmd
+	LVCreateCmdTmpl = "/sbin/lvm lvcreate --yes --name %s --size %s %s" // add LV name, size and VG name
+	// LVRemoveCmdTmpl remove LV cmd
+	LVRemoveCmdTmpl = "/sbin/lvm lvremove --yes %s" // add full LV name
+	// FindMntCmdTmpl find source device for target mount path cmd
+	FindMntCmdTmpl = "findmnt --target %s --output SOURCE --noheadings" // add target path
+	// VGByLVCmdTmpl find VG by LV cmd
+	VGByLVCmdTmpl = "lvs %s --options vg_name --noheadings" // add LV name
+	// VGFreeSpaceCmdTmpl check VG free space cmd
+	VGFreeSpaceCmdTmpl = "vgs %s --options vg_free --units b --noheadings" // add VG name
 )
 
+// GetE returns CmdExecutor field from LinuxUtils
 func (l *LinuxUtils) GetE() CmdExecutor {
 	return l.e
 }
 
-// NewLinuxUtils returns new instance of LinuxUtils based on provided e
+// NewLinuxUtils returns new instance of LinuxUtils based on provided executor
+// Receives cmdExecutor instance and logrus logger
+// Returns an instance of LinuxUtils
 func NewLinuxUtils(e CmdExecutor, logger *logrus.Logger) *LinuxUtils {
 	l := &LinuxUtils{
 		Partitioner: &Partition{e: e},
@@ -72,12 +90,15 @@ func NewLinuxUtils(e CmdExecutor, logger *logrus.Logger) *LinuxUtils {
 	return l
 }
 
+// SetExecutor sets provided CmdExecutor to LinuxUtils
+// Receives CmdExecutor
 func (l *LinuxUtils) SetExecutor(executor CmdExecutor) {
 	l.e = executor
 }
 
-// Lsblk run os lsblk command for device and construct LsblkOutput struct
-// based on output, if device is empty string, info about all devices will be collected
+// Lsblk run os lsblk command for device and construct LsblkOutput struct based on output
+// Receives device path. If device is empty string, info about all devices will be collected
+// Returns slice of LsblkOutput structs or error if something went wrong
 func (l *LinuxUtils) Lsblk(device string) ([]LsblkOutput, error) {
 	cmd := fmt.Sprintf(LsblkCmdTmpl, device)
 	strOut, strErr, err := l.e.RunCmd(cmd)
@@ -107,6 +128,7 @@ func (l *LinuxUtils) Lsblk(device string) ([]LsblkOutput, error) {
 	return res, nil
 }
 
+// GetBmcIP returns BMC IP using IPMI
 func (l *LinuxUtils) GetBmcIP() string {
 	/* Sample output
 	IP Address Source       : DHCP Address
@@ -138,6 +160,8 @@ func (l *LinuxUtils) GetBmcIP() string {
 }
 
 // SearchDrivePath if not defined returns drive path based on drive S/N.
+// Receives an instance of drivecrd.Drive struct
+// Returns drive's path based on provided drivecrd.Drive or error if something went wrong
 // TODO AK8S-594 to check VID/PID as well
 func (l *LinuxUtils) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	// device path might be already set by hwmgr
@@ -169,6 +193,8 @@ func (l *LinuxUtils) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 }
 
 // PVCreate creates physical volume based on provided device or partition
+// Receives device path
+// Returns error if something went wrong
 func (l *LinuxUtils) PVCreate(dev string) error {
 	cmd := fmt.Sprintf(PVCreateCmdTmpl, dev)
 	_, _, err := l.e.RunCmd(cmd)
@@ -176,6 +202,8 @@ func (l *LinuxUtils) PVCreate(dev string) error {
 }
 
 // PVRemove removes physical volumes, ignore error if PV doesn't exist
+// Receives name of a physical volume to delete
+// Returns error if something went wrong
 func (l *LinuxUtils) PVRemove(name string) error {
 	cmd := fmt.Sprintf(PVRemoveCmdTmpl, name)
 	_, stdErr, err := l.e.RunCmd(cmd)
@@ -185,8 +213,9 @@ func (l *LinuxUtils) PVRemove(name string) error {
 	return err
 }
 
-// VGCreate creates volume group and based on provided physical volumes (pvs)
-// ignore error if VG already exists
+// VGCreate creates volume group and based on provided physical volumes (pvs). Ignore error if VG already exists
+// Receives name of VG to create and names of physical volumes which VG should based on
+// Returns error if something went wrong
 func (l *LinuxUtils) VGCreate(name string, pvs ...string) error {
 	cmd := fmt.Sprintf(VGCreateCmdTmpl, name, strings.Join(pvs, " "))
 	_, stdErr, err := l.e.RunCmd(cmd)
@@ -197,6 +226,8 @@ func (l *LinuxUtils) VGCreate(name string, pvs ...string) error {
 }
 
 // VGRemove removes volume group, ignore error if VG doesn't exist
+// Receives name of VG to remove
+// Returns error if something went wrong
 func (l *LinuxUtils) VGRemove(name string) error {
 	cmd := fmt.Sprintf(VGRemoveCmdTmpl, name)
 	_, stdErr, err := l.e.RunCmd(cmd)
@@ -207,7 +238,8 @@ func (l *LinuxUtils) VGRemove(name string) error {
 }
 
 // LVCreate created logical volume in volume group, ignore error if LV already exists
-// size it is a string like 1.2G, 100M
+// Receives name of created LV, size which is a string like 1.2G, 100M and name of VG which LV should be based on
+// Returns error if something went wrong
 func (l *LinuxUtils) LVCreate(name, size, vgName string) error {
 	cmd := fmt.Sprintf(LVCreateCmdTmpl, name, size, vgName)
 	_, stdErr, err := l.e.RunCmd(cmd)
@@ -218,6 +250,8 @@ func (l *LinuxUtils) LVCreate(name, size, vgName string) error {
 }
 
 // LVRemove removes logical volume, ignore error if LV doesn't exist
+// Receives fullLVName that is a path to LV
+// Returns error if something went wrong
 func (l *LinuxUtils) LVRemove(fullLVName string) error {
 	cmd := fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
 	_, stdErr, err := l.e.RunCmd(cmd)
@@ -228,7 +262,8 @@ func (l *LinuxUtils) LVRemove(fullLVName string) error {
 }
 
 // IsVGContainsLVs checks whether VG vgName contains any LVs or no
-// return true in case of error to prevent mistaken VG remove
+// Receives Volume Group name to check
+// Returns true in case of error to prevent mistaken VG remove
 func (l *LinuxUtils) IsVGContainsLVs(vgName string) bool {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
 	stdout, _, err := l.e.RunCmd(cmd)
@@ -242,6 +277,7 @@ func (l *LinuxUtils) IsVGContainsLVs(vgName string) bool {
 }
 
 // RemoveOrphanPVs removes PVs that do not have VG
+// Returns error if something went wrong
 func (l *LinuxUtils) RemoveOrphanPVs() error {
 	pvsCmd := fmt.Sprintf(PVsInVGCmdTmpl, EmptyName)
 	stdout, _, err := l.e.RunCmd(pvsCmd)
@@ -265,7 +301,8 @@ func (l *LinuxUtils) RemoveOrphanPVs() error {
 }
 
 // FindVgNameByLvName search VG name by LV name, LV name should be full
-// returns VG name or empty string and error
+// Receives LV name to find its VG
+// Returns VG name or empty string and error
 func (l *LinuxUtils) FindVgNameByLvName(lvName string) (string, error) {
 	/*
 		Example of output:
@@ -281,7 +318,8 @@ func (l *LinuxUtils) FindVgNameByLvName(lvName string) (string, error) {
 }
 
 // GetVgFreeSpace returns VG free space in bytes
-// returns -1 in case of error and error
+// Receives VG name to count ints free space
+// Returns -1 in case of error and error
 func (l *LinuxUtils) GetVgFreeSpace(vgName string) (int64, error) {
 	/*
 		Example of output:
@@ -308,7 +346,8 @@ func (l *LinuxUtils) GetVgFreeSpace(vgName string) (int64, error) {
 }
 
 // FindMnt returns source of mount point for target
-// returns mount point or empty string and error
+// Receives path of a mount point as target
+// Returns mount point or empty string and error
 func (l *LinuxUtils) FindMnt(target string) (string, error) {
 	/*
 		Example of output:
@@ -323,9 +362,9 @@ func (l *LinuxUtils) FindMnt(target string) (string, error) {
 	return strings.TrimSpace(strOut), nil
 }
 
-/*
-Get partition name (for example, /dev/sda1, /dev/nvme1p2, /dev/loopback0p3) by UUID
-*/
+// GetPartitionNameByUUID gets partition name (for example, /dev/sda1, /dev/nvme1p2, /dev/loopback0p3) by UUID
+// Receives a device path and uuid of partition to find
+// Returns a partition path or error if something went wrong
 func (l *LinuxUtils) GetPartitionNameByUUID(device, uuid string) (string, error) {
 	if device == "" {
 		return "", fmt.Errorf("unable to find partition name by UUID %s - device name is empty", uuid)

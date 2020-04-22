@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-//Client encapsulates logic for new gRPC clint
+// Client encapsulates logic for new gRPC clint
 type Client struct {
 	GRPCClient *grpc.ClientConn
 	Creds      credentials.TransportCredentials
@@ -17,7 +17,9 @@ type Client struct {
 	log        *logrus.Entry
 }
 
-//NewClient creates new Client object with hostTCP, port, creds and calls init function
+// NewClient creates new Client object with hostTCP, port, creds and calls init function
+// Receives credentials for connection, connection endpoint (for example 'tcp://localhost:8888') and logrus logger
+// Returns an instance of Client struct or error if initClient() function failed
 func NewClient(creds credentials.TransportCredentials, endpoint string, logger *logrus.Logger) (*Client, error) {
 	client := &Client{
 		Creds:    creds,
@@ -31,11 +33,14 @@ func NewClient(creds credentials.TransportCredentials, endpoint string, logger *
 	return client, nil
 }
 
+// SetLogger sets logrus logger to Client struct
+// Receives logrus logger
 func (c *Client) SetLogger(logger *logrus.Logger) {
 	c.log = logger.WithField("component", "Client")
 }
 
-//initClient defines ClientConn field in Client struct
+// initClient defines ClientConn field in Client struct
+// Returns error if client's endpoint is incorrect or grpc.Dial() failed
 func (c *Client) initClient() error {
 	endpoint, err := c.GetEndpoint()
 	if err != nil {
@@ -54,12 +59,14 @@ func (c *Client) initClient() error {
 	return nil
 }
 
-//Close function calls Close method in ClientConn
+// Close function calls Close method in ClientConn
+// Returns error if something went wrong
 func (c *Client) Close() error {
 	return c.GRPCClient.Close()
 }
 
 // GetEndpoint returns endpoint representation
+// Returns url.Path if Scheme is unix or url.Host otherwise
 func (c *Client) GetEndpoint() (string, error) {
 	u, err := url.Parse(c.Endpoint)
 	if err != nil {

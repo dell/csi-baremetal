@@ -1,3 +1,4 @@
+// Package common is for common operations with CSI resources such as AvailableCapacity or Volume
 package common
 
 import (
@@ -17,6 +18,8 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
+// VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
+// without code duplication
 type VolumeOperations interface {
 	CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error)
 	DeleteVolume(ctx context.Context, volumeID string) error
@@ -25,6 +28,7 @@ type VolumeOperations interface {
 	ReadVolumeAndChangeStatus(volumeID string, newStatus string) error
 }
 
+// VolumeOperationsImpl is the basic implementation of VolumeOperations interface
 type VolumeOperationsImpl struct {
 	acProvider AvailableCapacityOperations
 	k8sClient  *base.KubeClient
@@ -32,6 +36,9 @@ type VolumeOperationsImpl struct {
 	log *logrus.Entry
 }
 
+// NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
+// Receives an instance of base.KubeClient and logrus logger
+// Returns an instance of VolumeOperationsImpl
 func NewVolumeOperationsImpl(k8sClient *base.KubeClient, logger *logrus.Logger) *VolumeOperationsImpl {
 	return &VolumeOperationsImpl{
 		k8sClient:  k8sClient,
@@ -40,7 +47,9 @@ func NewVolumeOperationsImpl(k8sClient *base.KubeClient, logger *logrus.Logger) 
 	}
 }
 
-// CreateVolume search AC and create volume CR or returns existed volume CR
+// CreateVolume searches AC and creates volume CR or returns existed volume CR
+// Receives golang context and api.Volume which is Spec of Volume CR to create
+// Returns api.Volume instance that took the place of chosen by SearchAC method AvailableCapacity CR
 func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error) {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "CreateVolume",
@@ -123,7 +132,9 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 }
 
 // DeleteVolume changes volume CR state and updates it,
-// if volume CR doesn't exists return Not found error and that error should be handled by caller
+// if volume CR doesn't exists return Not found error and that error should be handled by caller.
+// Receives golang context and a volume ID to delete
+// Returns error if something went wrong or Volume with volumeID wasn't found
 func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID string) error {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
@@ -245,6 +256,9 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 	}
 }
 
+// ReadVolumeAndChangeStatus reads Volume CR (10 attempts) and updates it with newStatus (10 attempts)
+// Receives volumeID of a Volume CR which should be modified and Spec.CSIStatus - newStatus for that Volume CR
+// Returns error if something went wrong
 func (vo *VolumeOperationsImpl) ReadVolumeAndChangeStatus(volumeID string, newStatus string) error {
 	vo.log.WithFields(logrus.Fields{
 		"method":   "ReadVolumeAndChangeStatus",

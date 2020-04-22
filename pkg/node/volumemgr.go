@@ -27,6 +27,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
 
+// VolumeManager is the struct to perform volume operations on node side with real storage devices
 type VolumeManager struct {
 	k8sclient *base.KubeClient
 
@@ -51,13 +52,20 @@ type VolumeManager struct {
 }
 
 const (
-	DiscoverDrivesTimeout              = 300 * time.Second
-	VolumeOperationsTimeout            = 600 * time.Second
+	// DiscoverDrivesTimeout is the timeout for Discover method
+	DiscoverDrivesTimeout = 300 * time.Second
+	// VolumeOperationsTimeout is the timeout for local Volume creation/deletion
+	VolumeOperationsTimeout = 600 * time.Second
+	// SleepBetweenRetriesToSyncPartTable is the interval between syncing of partition table
 	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
-	NumberOfRetriesToSyncPartTable     = 3
+	// NumberOfRetriesToSyncPartTable is the amount of retries for partprobe of a particular device
+	NumberOfRetriesToSyncPartTable = 3
 )
 
-// NewVolumeManager returns new instance ov VolumeManager
+// NewVolumeManager is the constructor for VolumeManager struct
+// Receives an instance of HWServiceClient to interact with HWManager, CmdExecutor to execute linux commands,
+// logrus logger, base.KubeClient and ID of a node where VolumeManager works
+// Returns an instance of VolumeManager
 func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, logger *logrus.Logger, k8sclient *base.KubeClient, nodeID string) *VolumeManager {
 	vm := &VolumeManager{
 
@@ -76,11 +84,15 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 	return vm
 }
 
+// SetExecutor sets provided CmdExecutor to LinuxUtils field of VolumeManager
 func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
 	m.linuxUtils.SetExecutor(executor)
 }
 
-// Reconcile Volume CRD according to stasus which set by CSI Controller Service
+// Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
+// VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
+// Volume.Spec.CSIStatus is Removing.
+// Returns reconcile result as ctrl.Result or error if something went wrong
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx, cancelFn := context.WithTimeout(
 		context.WithValue(context.Background(), base.RequestUUID, req.Name),
@@ -149,14 +161,17 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 }
 
+// SetupWithManager registers VolumeManager to ControllerManager
 func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&volumecrd.Volume{}).
 		Complete(m)
 }
 
-// Discover inspects drives and create volume object if partition exist.
-// Also this method creates AC CRs
+// Discover inspects actual drives structs from HWManager and create volume object if partition exist on some of them
+// (in case of VolumeManager restart). Updates Drives CRs based on gathered from HWManager information.
+// Also this method creates AC CRs. Performs at some intervals in a goroutine
+// Returns error if something went wrong during discovering
 func (m *VolumeManager) Discover() error {
 	m.log.WithField("method", "Discover").Info("Processing")
 
@@ -188,7 +203,9 @@ func (m *VolumeManager) Discover() error {
 	return nil
 }
 
-// updateDrivesCRs updates drives cache based on provided list of Drives
+// updateDrivesCRs updates drives cache and Drives CRs based on provided list of Drives. Tries to fill drivesCache in
+// case of VolumeManager restart from Drives CRs.
+// Receives golang context and slice of discovered api.Drive structs usually got from HWManager
 func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []*api.Drive) {
 	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
@@ -265,9 +282,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 	}
 }
 
-// updateVolumesCache updates volumes cache based on provided freeDrives
-// search drives in freeDrives that are not have volume and if there are
-// some partitions on them - try to read partition uuid and create volume object
+// updateVolumesCache updates volumes cache based on provided freeDrives.
+// searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
+// partition uuid and create volume object
 func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "updateVolumesCache",
@@ -313,7 +330,10 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 	return nil
 }
 
-// DiscoverAvailableCapacity inspect current available capacity on nodes and fill AC CRs
+// DiscoverAvailableCapacity inspect current available capacity on nodes and fill AC CRs. This method manages only
+// hardware available capacity such as HDD or SSD. If drive is healthy and online and also it is not used in LVGs
+// and it doesn't contain volume then this drive is in AvailableCapacity CRs.
+// Returns error if at least one drive from cache was handled badly
 func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID string) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "discoverAvailableCapacity",
@@ -384,6 +404,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 }
 
 // drivesAreNotUsed search drives in drives cache that isn't have any volumes
+// Returns slice of drivecrd.Drive structs
 func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "drivesAreNotUsed",
@@ -411,11 +432,10 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 	return drives
 }
 
-// discoverLVGOnSystemDrive discovers LVG configuration on system SSD drive
-// and creates LVG CR and AC CR, return nil in case of success
-// if system drive is not SSD or LVG CR that points in system VG is exists - return nil
-// if system VG free space is less then threshold - AC CR will not be created but LVG will
-// return error in case of error on any step
+// discoverLVGOnSystemDrive discovers LVG configuration on system SSD drive and creates LVG CR and AC CR,
+// return nil in case of success. If system drive is not SSD or LVG CR that points in system VG is exists - return nil.
+// If system VG free space is less then threshold - AC CR will not be created but LVG will.
+// Returns error in case of error on any step
 func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	ll := m.log.WithField("method", "discoverLVGOnSystemDrive")
 
@@ -505,6 +525,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	return nil
 }
 
+// CreateLocalVolume performs linux operations on the node to create specified volume on hardware drives.
+// If StorageClass of provided api.Volume is LVG then it creates LV based on the VG and creates file system on this LV.
+// If StorageClass of provided api.Volume is HDD or SSD then it creates partition on drive and creates file system on
+// this partition. api.Volume.Location must be set for correct working of this method
+// Returns error if something went wrong
 func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "CreateLocalVolume",
@@ -611,6 +636,9 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 	return m.pullCreateLocalVolume(ctx, vol.Id)
 }
 
+// pullCreateLocalVolume pulls volume's CSIStatus each second. Waits for Created or Failed state. Uses for non-blocking
+// execution of CreateLocalVolume.
+// Returns error if volume's CSIStatus became Failed or if provided context was done
 func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID string) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "pullCreateLocalVolume",
@@ -740,6 +768,11 @@ func (m *VolumeManager) createPartitionAndSetUUID(device string, uuid string) (p
 	return partName, false, nil
 }
 
+// DeleteLocalVolume performs linux operations on the node to delete specified volume from hardware drives.
+// If StorageClass of provided api.Volume is LVG then it deletes file system from the LV that based on the VG and
+// then deletes the LV. If StorageClass of provided api.Volume is HDD or SSD then it deletes file system from the
+// partition of Volume's drive and then it deletes this partition.
+// Returns error if something went wrong
 func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volume) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "DeleteLocalVolume",
@@ -815,6 +848,8 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 	return nil
 }
 
+// getFromVolumeCache returns api.Volume from volumeCache of VolumeManager by a provided key
+// Returns an instance of api.Volume struct and bool that shows the existence of volume in cache
 // TODO: remove that methods when AK8S-170 will be closed
 func (m *VolumeManager) getFromVolumeCache(key string) (*api.Volume, bool) {
 	m.vCacheMu.Lock()
@@ -824,18 +859,23 @@ func (m *VolumeManager) getFromVolumeCache(key string) (*api.Volume, bool) {
 	return v, ok
 }
 
+// deleteFromVolumeCache deletes api.Volume from volumeCache of VolumeManager by a provided key
 func (m *VolumeManager) deleteFromVolumeCache(key string) {
 	m.vCacheMu.Lock()
 	delete(m.volumesCache, key)
 	m.vCacheMu.Unlock()
 }
 
+// setVolumeCacheValue sets api.Volume from volumeCache of VolumeManager by a provided key
+// Receives key which is volumeID and api.Volume that would be set as value for that key
 func (m *VolumeManager) setVolumeCacheValue(key string, v *api.Volume) {
 	m.vCacheMu.Lock()
 	m.volumesCache[key] = v
 	m.vCacheMu.Unlock()
 }
 
+// getVolumeStatus returns CSIStatus of the volume from volumeCache of VolumeManager by a provided key
+// Returns CSIStatus of the volume as a string
 func (m *VolumeManager) getVolumeStatus(key string) string {
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()
@@ -848,6 +888,8 @@ func (m *VolumeManager) getVolumeStatus(key string) string {
 	return v.CSIStatus
 }
 
+// setVolumeStatus sets CSIStatus of the volume from volumeCache of VolumeManager by a provided key
+// Receives key which is volume ID and newStatus which is CSIStatus
 func (m *VolumeManager) setVolumeStatus(key string, newStatus string) {
 	m.vCacheMu.Lock()
 	defer m.vCacheMu.Unlock()
@@ -861,7 +903,7 @@ func (m *VolumeManager) setVolumeStatus(key string, newStatus string) {
 	m.volumesCache[key] = v
 }
 
-// Return appropriate StorageClass implementation from VolumeManager scMap field
+// getStorageClassImpl returns appropriate StorageClass implementation from VolumeManager scMap field
 func (m *VolumeManager) getStorageClassImpl(storageClass api.StorageClass) sc.StorageClassImplementer {
 	switch storageClass {
 	case api.StorageClass_HDD:
@@ -874,6 +916,8 @@ func (m *VolumeManager) getStorageClassImpl(storageClass api.StorageClass) sc.St
 }
 
 // addVolumeOwner tries to add owner to Volume's CR Owners slice with retries
+// Receives volumeID of the volume where the owner should be added and a podName that will be used as owner
+// Returns error if something went wrong
 func (m *VolumeManager) addVolumeOwner(volumeID string, podName string) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "addVolumeOwner",
@@ -911,6 +955,8 @@ func (m *VolumeManager) addVolumeOwner(volumeID string, podName string) error {
 }
 
 // clearVolumeOwners tries to clear owners slice in Volume's CR spec
+// Receives volumeID whose owners must be cleared
+// Returns error if something went wrong
 func (m *VolumeManager) clearVolumeOwners(volumeID string) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "ClearVolumeOwners",
@@ -940,6 +986,9 @@ func (m *VolumeManager) clearVolumeOwners(volumeID string) error {
 	return fmt.Errorf("unable to clear volume CR's owners for volume %s", volumeID)
 }
 
+// handleDriveStatusChange removes AC that is based on unhealthy drive, returns AC if drive returned to healthy state,
+// mark volumes of the unhealthy drive as unhealthy.
+// Receives golang context and api.Drive that should be handled
 func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.Drive) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":  "handleDriveStatusChange",
@@ -975,6 +1024,9 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// TODO AK8S-472 Handle disk health which are used by LVGs
 }
 
+// getACByLocation reads the whole list of AC CRs from a cluster and searches the AC with provided location
+// Receive golang context and location name which should be equal to AvailableCapacity.Spec.Location
+// Returns an instance of accrd.AvailableCapacity
 func (m *VolumeManager) getACByLocation(ctx context.Context, location string) *accrd.AvailableCapacity {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "getACByLocation",
@@ -998,6 +1050,9 @@ func (m *VolumeManager) getACByLocation(ctx context.Context, location string) *a
 	return nil
 }
 
+// getVolumeByLocation reads the whole list of Volume CRs from a cluster and searches the volume with provided location
+// Receive golang context and location name which should be equal to Volume.Spec.Location
+// Returns an instance of volumecrd.Volume
 func (m *VolumeManager) getVolumeByLocation(ctx context.Context, location string) *volumecrd.Volume {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "getVolumeByLocation",
@@ -1021,6 +1076,8 @@ func (m *VolumeManager) getVolumeByLocation(ctx context.Context, location string
 	return nil
 }
 
+// SetSCImplementer sets sc.StorageClassImplementer implementation to scMap of VolumeManager
+// Receives scName which uses as a key and an instance of sc.StorageClassImplementer
 func (m *VolumeManager) SetSCImplementer(scName string, implementer sc.StorageClassImplementer) {
 	m.scMap[SCName(scName)] = implementer
 }

@@ -195,7 +195,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	vm.hWMgrClient = mocks.MockHWMgrClientFail{}
 	err = vm.Discover()
 	assert.NotNil(t, err)
-	assert.Equal(t, "MockHWMgrClientFail: Error", err.Error())
+	assert.Equal(t, "hwmgr error", err.Error())
 
 	// expect: lsblk fail with error
 	vm = NewVolumeManager(mocks.MockHWMgrClient{}, mocks.EmptyExecutorFail{}, vmLogger, kubeClient, "nodeId")

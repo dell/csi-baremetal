@@ -1,3 +1,4 @@
+// Package node contains implementation of CSI Node component
 package node
 
 import (
@@ -17,12 +18,14 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
 
-// depending on SC and parameters in CreateVolumeRequest()
+// SCName type means that depending on SC and parameters in CreateVolumeRequest()
 // here we should use different SC implementations for creating required volumes
 // the same principle we can use in Controller Server or read from a CRD instance
 // store storage class name
 type SCName string
 
+// CSINodeService is the implementation of NodeServer interface from GO CSI specification.
+// Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
 	NodeID string
 	log    *logrus.Entry
@@ -30,8 +33,13 @@ type CSINodeService struct {
 	grpc_health_v1.HealthServer
 }
 
+// PodNameKey to read pod name from PodInfoOnMount feature
 const PodNameKey = "csi.storage.k8s.io/pod.name"
 
+// NewCSINodeService is the constructor for CSINodeService struct
+// Receives an instance of HWServiceClient to interact with HWManager, ID of a node where it works, logrus logger
+// and base.KubeClient
+// Returns an instance of CSINodeService
 func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger, k8sclient *base.KubeClient) *CSINodeService {
 	s := &CSINodeService{
 		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger, k8sclient, nodeID),
@@ -41,6 +49,10 @@ func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus
 	return s
 }
 
+// NodeStageVolume is the implementation of CSI Spec NodeStageVolume. Performs when the first pod consumes a volume.
+// This method mounts volume with appropriate VolumeID into the StagingTargetPath from request.
+// Receives golang context and CSI Spec NodeStageVolumeRequest
+// Returns CSI Spec NodeStageVolumeResponse or error if something went wrong
 func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodeStageVolume",
@@ -134,6 +146,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
+// NodeUnstageVolume is the implementation of CSI Spec NodeUnstageVolume. Performs when the last pod stops consume
+// a volume. This method unmounts volume with appropriate VolumeID from the StagingTargetPath from request.
+// Receives golang context and CSI Spec NodeUnstageVolumeRequest
+// Returns CSI Spec NodeUnstageVolumeResponse or error if something went wrong
 func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodeUnstageVolume",
@@ -175,7 +191,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-//We use unmount in Unstage/Unpublish requests to avoid duplicated code
+// unmount uses in Unstage/Unpublish requests to avoid duplicated code
 func (s *CSINodeService) unmount(storageClass api.StorageClass, path string) error {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "unmount",
@@ -217,6 +233,10 @@ func (s *CSINodeService) prepareAndPerformMount(srcPath, targetPath string, scIm
 	return nil
 }
 
+// NodePublishVolume is the implementation of CSI Spec NodePublishVolume. Performs each time pod starts consume
+// a volume. This method perform bind mount of volume with appropriate VolumeID from the StagingTargetPath to TargetPath.
+// Receives golang context and CSI Spec NodePublishVolumeRequest
+// Returns CSI Spec NodePublishVolumeResponse or error if something went wrong
 func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodePublishVolume",
@@ -269,6 +289,10 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
+// NodeUnpublishVolume is the implementation of CSI Spec NodePublishVolume. Performs each time pod stops consume a volume.
+// This method unmounts volume with appropriate VolumeID from the TargetPath.
+// Receives golang context and CSI Spec NodeUnpublishVolumeRequest
+// Returns CSI Spec NodeUnpublishVolumeResponse or error if something went wrong
 func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodeUnpublishVolume",
@@ -301,14 +325,20 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
+// NodeGetVolumeStats returns empty response
 func (s *CSINodeService) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
 	return &csi.NodeGetVolumeStatsResponse{}, nil
 }
 
+// NodeExpandVolume returns empty response
 func (s *CSINodeService) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	return &csi.NodeExpandVolumeResponse{}, nil
 }
 
+// NodeGetCapabilities is the implementation of CSI Spec NodeGetCapabilities.
+// Provides Node capabilities of CSI driver to k8s. STAGE/UNSTAGE Volume for now.
+// Receives golang context and CSI Spec NodeGetCapabilitiesRequest
+// Returns CSI Spec NodeGetCapabilitiesResponse and nil error
 func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	return &csi.NodeGetCapabilitiesResponse{Capabilities: []*csi.NodeServiceCapability{
 		{
@@ -321,6 +351,10 @@ func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeG
 	}, nil
 }
 
+// NodeGetInfo is the implementation of CSI Spec NodeGetInfo. It plays a role in CSI Topology feature when Controller
+// chooses a node where to deploy a volume.
+// Receives golang context and CSI Spec NodeGetInfoRequest
+// Returns CSI Spec NodeGetInfoResponse with topology "baremetal-csi/nodeid": NodeID and nil error
 func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "NodeGetInfo",

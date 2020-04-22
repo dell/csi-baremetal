@@ -2,12 +2,17 @@ package mocks
 
 import "errors"
 
+// Err var of type error for test purposes
 var Err = errors.New("error")
+
+// EmptyOutSuccess var of type CmdOut for test purposes
 var EmptyOutSuccess = CmdOut{
 	Stdout: "",
 	Stderr: "",
 	Err:    nil,
 }
+
+// EmptyOutFail var of type CmdOut for test purposes
 var EmptyOutFail = CmdOut{
 	Stdout: "",
 	Stderr: "",
@@ -91,8 +96,10 @@ Partition name: 'CSI'`,
 	"sgdisk /dev/sdc --info=1": EmptyOutFail,
 }
 
+// NoLsblkKeyStr imitates lsblk output without normal key
 var NoLsblkKeyStr = `{"anotherKey": [{"name": "/dev/sda", "type": "disk"}]}`
 
+// LsblkTwoDevicesStr imitates lsblk output with two block devices
 var LsblkTwoDevicesStr = `{
 			  "blockdevices":[{
 				"name": "/dev/sda",
@@ -105,6 +112,7 @@ var LsblkTwoDevicesStr = `{
 				}]
 			}`
 
+// LsblkListPartitionsStr imitates lsblk output with block device that has partition
 var LsblkListPartitionsStr = `{
 			  "blockdevices":[{
 				"name": "/dev/sda",
@@ -114,6 +122,7 @@ var LsblkListPartitionsStr = `{
 				}]
 			}`
 
+// LsblkDevWithChildren imitates lsblk output with two block devices with children
 var LsblkDevWithChildren = CmdOut{
 	Stdout: `{
 			  "blockdevices":[{

@@ -2,6 +2,7 @@ package mocks
 
 import api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 
+// HwMgrRespDrives are the drives for mock GetAllDrives call of HWManager
 var HwMgrRespDrives = []*api.Drive{
 	{
 		SerialNumber: "hdd1",

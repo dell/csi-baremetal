@@ -27,16 +27,17 @@ import (
 type CtxKey string
 
 const (
-	// Constant for context request
+	// RequestUUID is the constant for context request
 	RequestUUID CtxKey = "RequestUUID"
 
-	// To avoid linter error
+	// DefaultVolumeID is the constant to avoid linter error
 	DefaultVolumeID = "Unknown"
 
-	// Time between attempts to interact with Volume CR
+	// TickerStep is the time between attempts to interact with Volume CR
 	TickerStep = 500 * time.Millisecond
 )
 
+// KubeClient is the extension of k8s client which supports CSI custom recources
 type KubeClient struct {
 	k8sClient.Client
 	log *logrus.Entry
@@ -45,6 +46,9 @@ type KubeClient struct {
 	sync.Mutex
 }
 
+// NewKubeClient is the constructor for KubeClient struct
+// Receives basic k8s client from controller-runtime, logrus logger and namespace where to work
+// Returns an instance of KubeClient struct
 func NewKubeClient(k8sclient k8sClient.Client, logger *logrus.Logger, namespace string) *KubeClient {
 	return &KubeClient{
 		Client:    k8sclient,
@@ -53,6 +57,9 @@ func NewKubeClient(k8sclient k8sClient.Client, logger *logrus.Logger, namespace 
 	}
 }
 
+// CreateCR creates provided resource on k8s cluster with checking its existence before
+// Receives golang context, name of the created object, and object that implements k8s runtime.Object interface
+// Returns error if something went wrong
 func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
@@ -80,6 +87,9 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 	return nil
 }
 
+// ReadCR reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
+// Receives golang context, name of the read object, and object pointer where to read
+// Returns error if something went wrong
 func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
@@ -87,6 +97,9 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object
 	return k.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 }
 
+// ReadList reads a list of specified resources into k8s resource List struct (for example v1.PodList)
+// Receives golang context, and List object pointer where to read
+// Returns error if something went wrong
 func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
@@ -95,6 +108,9 @@ func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 	return k.List(ctx, obj, k8sClient.InNamespace(k.Namespace))
 }
 
+// UpdateCR updates provided resource on k8s cluster
+// Receives golang context and updated object that implements k8s runtime.Object interface
+// Returns error if something went wrong
 func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
@@ -112,6 +128,9 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	return k.Update(ctx, obj)
 }
 
+// DeleteCR deletes provided resource from k8s cluster
+// Receives golang context and removable object that implements k8s runtime.Object interface
+// Returns error if something went wrong
 func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
@@ -129,6 +148,9 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 	return k.Delete(ctx, obj)
 }
 
+// ConstructACCR constructs AvailableCapacity custom resource from api.AvailableCapacity struct
+// Receives a name for k8s ObjectMeta and an instance of api.AvailableCapacity struct
+// Returns an instance of AvailableCapacity CR struct
 func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *accrd.AvailableCapacity {
 	return &accrd.AvailableCapacity{
 		TypeMeta: apisV1.TypeMeta{
@@ -143,6 +165,9 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 	}
 }
 
+// ConstructLVGCR constructs LVG custom resource from api.LogicalVolumeGroup struct
+// Receives a name for k8s ObjectMeta and an instance of api.LogicalVolumeGroup struct
+// Returns an instance of LVG CR struct
 func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LVG {
 	return &lvgcrd.LVG{
 		TypeMeta: apisV1.TypeMeta{
@@ -157,6 +182,9 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 	}
 }
 
+// ConstructVolumeCR constructs Volume custom resource from api.Volume struct
+// Receives a name for k8s ObjectMeta and an instance of api.Volume struct
+// Returns an instance of Volume CR struct
 func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
@@ -171,6 +199,9 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 	}
 }
 
+// ConstructDriveCR constructs Drive custom resource from api.Drive struct
+// Receives a name for k8s ObjectMeta and an instance of api.Drive struct
+// Returns an instance of Drive CR struct
 func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd.Drive {
 	return &drivecrd.Drive{
 		TypeMeta: apisV1.TypeMeta{
@@ -185,6 +216,10 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
+// ReadCRWithAttempts reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
+// with specified amount of attempts. Fails right away if resource is not found
+// Receives golang context, name of the read object, and object pointer where to read
+// Returns error if something went wrong
 func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempts int) error {
 	ll := k.log.WithFields(logrus.Fields{
 		"method":   "ReadCRWithAttempts",
@@ -211,6 +246,10 @@ func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempt
 	return err
 }
 
+// UpdateCRWithAttempts updates provided resource on k8s cluster with specified amount of attempts
+// Fails right away if resource is not found
+// Receives golang context and updated object that implements k8s runtime.Object interface
+// Returns error if something went wrong
 func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Object, attempts int) error {
 	ll := k.log.WithField("method", "UpdateCRWithAttempts")
 
@@ -245,6 +284,8 @@ func (k *KubeClient) GetVGNameByLVGCRName(ctx context.Context, lvgCRName string)
 	return lvgCR.Spec.Name, nil
 }
 
+// GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources
+// Returns controller-runtime/pkg/Client which can work with CSI CRs or error if something went wrong
 func GetK8SClient() (k8sClient.Client, error) {
 	scheme, err := prepareScheme()
 	if err != nil {
@@ -260,6 +301,9 @@ func GetK8SClient() (k8sClient.Client, error) {
 	return cl, err
 }
 
+// GetFakeKubeClient returns fake KubeClient  for test purposes
+// Receives namespace to work
+// Returns instance of mocked KubeClient or error if something went wrong
 // todo test code shouldn't be in base package
 func GetFakeKubeClient(testNs string) (*KubeClient, error) {
 	scheme, err := prepareScheme()
@@ -269,6 +313,8 @@ func GetFakeKubeClient(testNs string) (*KubeClient, error) {
 	return NewKubeClient(fake.NewFakeClientWithScheme(scheme), logrus.New(), testNs), nil
 }
 
+// prepareScheme registers CSI custom resources to runtime.Scheme
+// Returns modified runtime.Scheme or error if something went wrong
 func prepareScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 	if err := v1.AddToScheme(scheme); err != nil {

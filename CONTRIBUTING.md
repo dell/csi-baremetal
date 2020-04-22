@@ -61,6 +61,23 @@ To revert a commit, perform the following:
   Baremetal CSI Plugin is written in Golang. Our plugin uses common Golang code style.
   For auto-detecting code style inconsistencies we use [golangci-lint](https://github.com/golangci/golangci-lint).
   Run `make lint` if you want to check your changes.
+  
+  Ensure that your code has reasonable comments. 
+  * For functions: 
+    ```
+    // Name of the method, its purpose
+    // Description of specific input parameters
+    // Description of returned values
+    ```
+  * For structs, interfaces, constants, variables:
+    ```
+    // Name of the struct/interface/constant/variable , its purpose
+    ```
+  * At least one file in package should have package comment like:
+    ```
+    // Package "package name" ...
+    ```
+  
 
 ### Source code overview
 TODO - Add after changing project structure

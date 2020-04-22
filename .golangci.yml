@@ -10,6 +10,12 @@ linters-settings:
     statements: 70
   gocognit:
     min-complexity: 60
+  golint:
+    # godoc says that one of files from a package should contain package comment.
+    # but golint has constraint that checks package comment in every file of the package.
+    # golint developers mention that this is imperfection. https://github.com/golang/lint/blob/master/lint.go#L376
+    # To prevent this checking set min-confidence level to 0.3
+    min-confidence: 0.3
 
 linters:
   # please, do not use `enable-all`: it is deprecated and will be removed soon.
@@ -41,7 +47,6 @@ linters:
     - scopelint
     - staticcheck
     - structcheck
-    - stylecheck
     - typecheck
     - unconvert
     - unparam
@@ -57,6 +62,7 @@ linters:
   # - gochecknoglobals Because of NodeAllocatedDisks map
   # - godox CSI now has a lot TODOs in source code
   # - wsl
+  # - stylecheck because it is similar to golint and there is conflict between them
 
 run:
   deadline: 15m
@@ -69,3 +75,7 @@ run:
   skip-files:
     - .*_test.go
     - .*.pb.go
+
+# golint is disabled by default in golang-ci because of golang community
+issues:
+  exclude-use-default: false

@@ -1,3 +1,4 @@
+// Package for main function of Node
 package main
 
 import (
@@ -88,6 +89,7 @@ func main() {
 	}
 }
 
+// Discovering performs Discover method of the Node each 30 seconds
 // TODO: implement logic for discover  AK8S-64
 func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	var err error
@@ -112,6 +114,7 @@ func StartNodeHealthServer(c health.HealthServer, logger *logrus.Logger) error {
 	return nodeHealthServer.RunServer()
 }
 
+// prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources
 func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.LVGController,
 	logger *logrus.Logger) manager.Manager {
 	var (
@@ -153,6 +156,7 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.
 	return mgr
 }
 
+// setupLogger initialize logrus logger according to provided flags
 func setupLogger() *logrus.Logger {
 	var logLevel logrus.Level
 	if *verboseLogs {

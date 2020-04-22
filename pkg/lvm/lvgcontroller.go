@@ -19,6 +19,7 @@ import (
 
 const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 
+// LVGController is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
 type LVGController struct {
 	k8sClient  *base.KubeClient
 	node       string
@@ -28,6 +29,9 @@ type LVGController struct {
 	log *logrus.Entry
 }
 
+// NewLVGController is the constructor for LVGController struct
+// Receives an instance of base.KubeClient, ID of a node where it works and logrus logger
+// Returns an instance of LVGController
 func NewLVGController(k8sClient *base.KubeClient, nodeID string, log *logrus.Logger) *LVGController {
 	e := &base.Executor{}
 	e.SetLogger(log)
@@ -40,6 +44,10 @@ func NewLVGController(k8sClient *base.KubeClient, nodeID string, log *logrus.Log
 	}
 }
 
+// Reconcile is the main Reconcile loop of LVGController. This loop handles creation of VG matched to LVG CR on
+// LVGController's node if LVG.Spec.Status is Creating. Also this loop handles VG deletion on the node if
+// LVG.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
+// Returns reconcile result as ctrl.Result or error if something went wrong
 func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancelFn()
@@ -115,6 +123,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager registers LVGController to ControllerManager
 func (c *LVGController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lvgcrd.LVG{}).

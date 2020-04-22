@@ -1,4 +1,5 @@
 //nolint:unparam
+// Package halmgr provides HAL based implementation of HWManager
 package halmgr
 
 // #cgo LDFLAGS: -L/opt/emc/hal/lib64 -lhalHelper -lviprhal
@@ -19,14 +20,21 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 )
 
+// NewHALManager is the constructor of HALManager
+// Receives only logrus logger
+// Returns an instance of HALManager
 func NewHALManager(logger *logrus.Logger) *HALManager {
 	return &HALManager{Log: logger.WithField("component", "HALManager")}
 }
 
+// HALManager struct that implements HWManager interface using HAL and cgo
 type HALManager struct {
 	Log *logrus.Entry
 }
 
+// convertDriveHealth converts C.DriveHealth enum got from HAL to api.Health var
+// Receives var of enum C.DriveHealth type
+// Returns var of api.Health type (GOOD, SUSPECT, BAD, UNKNOWN)
 func (mgr *HALManager) convertDriveHealth(driveHealth C.DriveHealth) api.Health {
 	switch driveHealth {
 	case C.HEALTH_GOOD:
@@ -43,7 +51,9 @@ func (mgr *HALManager) convertDriveHealth(driveHealth C.DriveHealth) api.Health 
 	}
 }
 
-// Converts C_HAL enum StorageClass_t var to api.DriveType to fill api.Drive struct.
+// convertDriveType converts HAL enum StorageClass_t var to api.DriveType to fill api.Drive struct
+// Receives var of enum StorageClass_t type
+// Returns var of api.DriveType type (HDD, SSD, NVMe)
 func (mgr *HALManager) convertDriveType(storageClass C.StorageClass_t) api.DriveType {
 	switch storageClass {
 	case C.HDD:
@@ -58,6 +68,8 @@ func (mgr *HALManager) convertDriveType(storageClass C.StorageClass_t) api.Drive
 	}
 }
 
+// GetDrivesList returns slice of *api.Drive created from HAL C.HalDisk
+// Returns slice of *api.Drives struct or error if something went wrong
 func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 	var drivesHAL *C.HalDisk
 

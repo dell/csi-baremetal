@@ -1,3 +1,4 @@
+// Package common is for common operations with CSI resources such as AvailableCapacity or Volume
 package common
 
 import (
@@ -16,19 +17,24 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
+// AvailableCapacityOperations is the interface for interact with AvailableCapacity CRs from Controller
 type AvailableCapacityOperations interface {
 	SearchAC(ctx context.Context, node string, requiredBytes int64, sc api.StorageClass) *accrd.AvailableCapacity
 	DeleteIfEmpty(ctx context.Context, acLocation string) error
 }
 
-// if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
+// AcSizeMinThresholdBytes means that if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
 const AcSizeMinThresholdBytes = int64(base.MBYTE) // 1MB
 
+// ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
 type ACOperationsImpl struct {
 	k8sClient *base.KubeClient
 	log       *logrus.Entry
 }
 
+// NewACOperationsImpl is the constructor for ACOperationsImpl struct
+// Receives an instance of base.KubeClient and logrus logger
+// Returns an instance of ACOperationsImpl
 func NewACOperationsImpl(k8sClient *base.KubeClient, l *logrus.Logger) *ACOperationsImpl {
 	return &ACOperationsImpl{
 		k8sClient: k8sClient,
@@ -36,10 +42,13 @@ func NewACOperationsImpl(k8sClient *base.KubeClient, l *logrus.Logger) *ACOperat
 	}
 }
 
-// searchAvailableCapacity search appropriate available capacity and remove it's CR
+// SearchAC searches appropriate available capacity and remove it's CR
 // if SC is in LVM and there is no AC with such SC then LVG should be created based
 // on non-LVM AC's and new AC should be created on point in LVG
-// method shouldn't be used in separate goroutines without synchronizations
+// method shouldn't be used in separate goroutines without synchronizations.
+// Receives golang context, node string which means the node where to find AC, required bytes for volume
+// and storage class for created volume (For example HDD, HDDLVG, SSD, SSDLVG).
+// Returns found AvailableCapacity CR instance
 func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	node string, requiredBytes int64, sc api.StorageClass) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
@@ -108,6 +117,8 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 }
 
 // DeleteIfEmpty search AC by it's location and remove if it size is less then threshold
+// Receives golang context and AC Location as a string (For example Location could be Drive uuid in case of HDD SC)
+// Returns error if something went wrong
 func (a *ACOperationsImpl) DeleteIfEmpty(ctx context.Context, acLocation string) error {
 	var acList = accrd.AvailableCapacityList{}
 	_ = a.k8sClient.ReadList(ctx, &acList)
@@ -124,7 +135,9 @@ func (a *ACOperationsImpl) DeleteIfEmpty(ctx context.Context, acLocation string)
 	return fmt.Errorf("unable to find AC by location %s", acLocation)
 }
 
-// acNodeMapping constructs map with key - nodeID(hostname), value - AC instance
+// acNodeMapping constructs map with key - nodeID(hostname), value - AC CRs based on Spec.NodeID field of AC
+// Receives slice of AvailableCapacity custom resources
+// Returns map of AvailableCapacities where key is nodeID
 func (a *ACOperationsImpl) acNodeMapping(acs []accrd.AvailableCapacity) map[string][]*accrd.AvailableCapacity {
 	var (
 		acNodeMap = make(map[string][]*accrd.AvailableCapacity)
@@ -143,6 +156,8 @@ func (a *ACOperationsImpl) acNodeMapping(acs []accrd.AvailableCapacity) map[stri
 }
 
 // balanceAC looks for a node with appropriate AC and choose node with maximum AC, return node
+// Receives acNodeMap gathered from acNodeMapping method, size requested by a volume, and appropriate storage class
+// Returns the most unloaded node according to input parameters
 func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapacity,
 	size int64, sc api.StorageClass) (node string) {
 	maxLen := 0
@@ -163,8 +178,9 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 }
 
 // recreateACToLVGSC creates LVG(based on ACs), ensure it become ready,
-// creates AC based on that LVG and removes provided ACs
-// returns created AC or nil
+// creates AC based on that LVG and removes provided ACs.
+// Receives sc as api.StorageClass (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
+// Returns created AC or nil
 func (a *ACOperationsImpl) recreateACToLVGSC(sc api.StorageClass, acs ...*accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithField("method", "recreateACToLVGSC")
 
@@ -233,9 +249,9 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc api.StorageClass, acs ...*accrd.
 	return newACCR
 }
 
-// waitUntilLVGWillBeCreated checks LVG CR status
-// return LVG.Spec if LVG.Spec.Status == created, or return nil instead
-// check that during context timeout
+// waitUntilLVGWillBeCreated checks LVG CR status during timeout provided in context
+// Receives golang context with timeout and name of LVG
+// Returns LVG.Spec if LVG.Spec.Status == created, or return nil instead
 func (a *ACOperationsImpl) waitUntilLVGWillBeCreated(ctx context.Context, lvgName string) *api.LogicalVolumeGroup {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":  "waitUntilLVGWillBeCreated",
