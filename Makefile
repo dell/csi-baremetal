@@ -20,7 +20,7 @@ version:
 prepare-env: install-compile-proto install-hal install-controller-gen dependency generate-api
 
 dependency:
-	GO111MODULE=on go mod download
+	GO111MODULE=on GOPRIVATE=eos2git.cec.lab.emc.com/* go mod download
 
 build: compile-proto build-hwmgr build-node build-controller
 
