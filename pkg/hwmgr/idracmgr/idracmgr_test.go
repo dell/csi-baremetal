@@ -1,36 +1,38 @@
 package idracmgr
 
 import (
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 var logger = logrus.New()
 
 func Test_convertMediaType(t *testing.T) {
 	mediaType := convertMediaType("SSD")
-	assert.Equal(t, api.DriveType_SSD, mediaType)
+	assert.Equal(t, api.DriveTypeSSD, mediaType)
 	mediaType = convertMediaType("HDD")
-	assert.Equal(t, api.DriveType_HDD, mediaType)
+	assert.Equal(t, api.DriveTypeHDD, mediaType)
 	mediaType = convertMediaType("default")
-	assert.Equal(t, api.DriveType_HDD, mediaType)
+	assert.Equal(t, api.DriveTypeHDD, mediaType)
 }
 
 func Test_convertDriveHealth(t *testing.T) {
 	health := convertDriveHealth("OK")
-	assert.Equal(t, api.Health_GOOD, health)
+	assert.Equal(t, api.HealthGood, health)
 	health = convertDriveHealth("Warning")
-	assert.Equal(t, api.Health_BAD, health)
+	assert.Equal(t, api.HealthBad, health)
 	health = convertDriveHealth("default")
-	assert.Equal(t, api.Health_UNKNOWN, health)
+	assert.Equal(t, api.HealthUnknown, health)
 	health = convertDriveHealth("Critical")
-	assert.Equal(t, api.Health_BAD, health)
+	assert.Equal(t, api.HealthBad, health)
 }
 
 func TestNewIDRACManager(t *testing.T) {

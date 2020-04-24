@@ -9,6 +9,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -35,7 +36,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(base.GBYTE),
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive1UUID,
 			NodeId:       testNode1Name},
 	}
@@ -45,7 +46,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(base.GBYTE) * 100,
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive2UUID,
 			NodeId:       testNode2Name,
 		},
@@ -56,7 +57,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(base.TBYTE),
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive3UUID,
 			NodeId:       testNode2Name,
 		},
@@ -67,7 +68,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         testLVG.Spec.Size,
-			StorageClass: api.StorageClass_HDDLVG,
+			StorageClass: apiV1.StorageClassHDDLVG,
 			Location:     testLVGName,
 			NodeId:       testNode2Name,
 		},
@@ -100,7 +101,7 @@ var (
 			Id:           testVolume1Name,
 			NodeId:       testNode1Name,
 			Size:         int64(base.GBYTE),
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive1UUID,
 			CSIStatus:    crdV1.Creating,
 		},

@@ -85,19 +85,19 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	scImpl := s.getStorageClassImpl(v.StorageClass)
-	ll.Infof("Chosen StorageClass is %s", v.StorageClass.String())
+	ll.Infof("Chosen StorageClass is %s", v.StorageClass)
 
 	targetPath := req.StagingTargetPath
 
 	var partition string
 	switch v.StorageClass {
-	case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
+	case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
 		vgName := v.Location
 		var err error
 
 		// for LVG based on system disk LVG CR name != VG name
 		// need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
-		if v.StorageClass == api.StorageClass_SSDLVG {
+		if v.StorageClass == apiV1.StorageClassSSDLVG {
 			vgName, err = s.k8sclient.GetVGNameByLVGCRName(ctx, v.Location)
 			if err != nil {
 				return nil, fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
@@ -192,7 +192,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 }
 
 // unmount uses in Unstage/Unpublish requests to avoid duplicated code
-func (s *CSINodeService) unmount(storageClass api.StorageClass, path string) error {
+func (s *CSINodeService) unmount(storageClass string, path string) error {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "unmount",
 	})

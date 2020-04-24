@@ -36,23 +36,19 @@ spec:
             CSIStatus:
               type: string
             Health:
-              format: int32
-              type: integer
+              type: string
             Id:
               type: string
             Location:
               type: string
             LocationType:
-              format: int32
-              type: integer
+              type: string
             Mode:
-              format: int32
-              type: integer
+              type: string
             NodeId:
               type: string
             OperationalStatus:
-              format: int32
-              type: integer
+              type: string
             Owners:
               items:
                 type: string
@@ -61,8 +57,7 @@ spec:
               format: int64
               type: integer
             StorageClass:
-              format: int32
-              type: integer
+              type: string
             Type:
               type: string
           type: object

@@ -13,6 +13,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
@@ -44,7 +45,7 @@ var (
 
 	testApiAC = api.AvailableCapacity{
 		Size:         1024 * 1024,
-		StorageClass: api.StorageClass_HDD,
+		StorageClass: apiV1.StorageClassHDD,
 		Location:     testDriveLocation1,
 		NodeId:       testNode1Name,
 	}
@@ -61,10 +62,10 @@ var (
 		VID:          "testVID",
 		PID:          "testPID",
 		SerialNumber: "testSN",
-		Health:       0,
-		Type:         0,
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
 		Size:         1024 * 1024,
-		Status:       0,
+		Status:       apiV1.DriveStatusOnline,
 	}
 	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: crdV1.APIV1Version}
 	testDriveCR       = drivecrd.Drive{
@@ -214,11 +215,11 @@ var _ = Describe("Working with CRD", func() {
 			err := k8sclient.CreateCR(testCtx, testUUID, &driveCR)
 			Expect(err).To(BeNil())
 
-			driveCR.Spec.Health = api.Health_BAD
+			driveCR.Spec.Health = apiV1.HealthBad
 
 			err = k8sclient.UpdateCR(testCtx, &driveCR)
 			Expect(err).To(BeNil())
-			Expect(driveCR.Spec.Health).To(Equal(api.Health_BAD))
+			Expect(driveCR.Spec.Health).To(Equal(apiV1.HealthBad))
 
 			driveCopy := driveCR.DeepCopy()
 			err = k8sclient.Update(testCtx, &driveCR)

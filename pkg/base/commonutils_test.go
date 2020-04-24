@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"github.com/stretchr/testify/assert"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 const tmpMounts = "/tmp/mounts"
@@ -83,15 +84,15 @@ func TestConsistentReadFail(t *testing.T) {
 
 var strToSC = []struct {
 	strSC string
-	check api.StorageClass
+	check string
 }{
-	{"hdd", api.StorageClass_HDD},
-	{"ssd", api.StorageClass_SSD},
-	{"nvme", api.StorageClass_NVME},
-	{"hddlvg", api.StorageClass_HDDLVG},
-	{"ssdlvg", api.StorageClass_SSDLVG},
-	{"any", api.StorageClass_ANY},
-	{"random", api.StorageClass_ANY},
+	{"hdd", api.StorageClassHDD},
+	{"ssd", api.StorageClassSSD},
+	{"nvme", api.StorageClassNVMe},
+	{"hddlvg", api.StorageClassHDDLVG},
+	{"ssdlvg", api.StorageClassSSDLVG},
+	{"any", api.StorageClassAny},
+	{"random", api.StorageClassAny},
 }
 
 func TestConvertStorageClass(t *testing.T) {
@@ -99,19 +100,19 @@ func TestConvertStorageClass(t *testing.T) {
 		got := ConvertStorageClass(test.strSC)
 		if got != test.check {
 			t.Errorf("Unexpected conversion between stringSC and api.StorageClass, expected %s, got %s",
-				test.strSC, test.check.String())
+				test.strSC, test.check)
 		}
 	}
 }
 
 var driveTypeToSC = []struct {
-	driveType api.DriveType
-	check     api.StorageClass
+	driveType string
+	check     string
 }{
-	{api.DriveType_HDD, api.StorageClass_HDD},
-	{api.DriveType_SSD, api.StorageClass_SSD},
-	{api.DriveType_NVMe, api.StorageClass_NVME},
-	{api.DriveType(5), api.StorageClass_ANY}, // random drive type
+	{api.DriveTypeHDD, api.StorageClassHDD},
+	{api.DriveTypeSSD, api.StorageClassSSD},
+	{api.DriveTypeNVMe, api.StorageClassNVMe},
+	{"random", api.StorageClassAny}, // random drive type
 }
 
 // Test byte value parsing from strings containing correct values
@@ -120,7 +121,7 @@ func TestConvertDriveTypeToStorageClass(t *testing.T) {
 		got := ConvertDriveTypeToStorageClass(test.driveType)
 		if got != test.check {
 			t.Errorf("Unexpected conversion between api.DriveType and api.StorageClass, expected %s, got %s",
-				test.driveType.String(), test.check.String())
+				test.driveType, test.check)
 		}
 	}
 }

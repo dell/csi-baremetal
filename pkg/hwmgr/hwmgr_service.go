@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 // HWServiceServerImpl is the implementation of gRPC server that gives possibility to invoke HWManager's methods
@@ -41,7 +42,7 @@ func (svc *HWServiceServerImpl) GetDrivesList(ctx context.Context, req *api.Driv
 	// All drives are ONLINE by default
 	for _, drive := range drives {
 		drive.NodeId = req.NodeId
-		drive.Status = api.Status_ONLINE
+		drive.Status = apiV1.DriveStatusOnline
 	}
 	return &api.DrivesResponse{
 		Disks: drives,

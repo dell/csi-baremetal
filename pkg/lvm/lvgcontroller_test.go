@@ -14,6 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
@@ -40,10 +41,10 @@ var (
 		VID:          "vid-drive1",
 		PID:          "pid-drive1",
 		SerialNumber: "hdd1", // depend on commands.LsblkTwoDevicesStr - /dev/sda
-		Health:       api.Health_GOOD,
-		Type:         api.DriveType_HDD,
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
 		Size:         int64(1000 * base.GBYTE),
-		Status:       api.Status_ONLINE,
+		Status:       apiV1.DriveStatusOnline,
 		NodeId:       node1ID,
 	}
 
@@ -52,10 +53,10 @@ var (
 		VID:          "vid-drive2",
 		PID:          "pid-drive2",
 		SerialNumber: "hdd2", // depend on commands.LsblkTwoDevicesStr - /dev/sdb
-		Health:       api.Health_GOOD,
-		Type:         api.DriveType_HDD,
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
 		Size:         int64(333 * base.GBYTE),
-		Status:       api.Status_ONLINE,
+		Status:       apiV1.DriveStatusOnline,
 		NodeId:       node1ID,
 	}
 
@@ -132,7 +133,7 @@ var (
 		Spec: api.AvailableCapacity{
 			Location:     lvg1Name,
 			NodeId:       node1ID,
-			StorageClass: api.StorageClass_HDDLVG,
+			StorageClass: apiV1.StorageClassHDDLVG,
 			Size:         int64(1024 * 300 * base.GBYTE),
 		},
 	}

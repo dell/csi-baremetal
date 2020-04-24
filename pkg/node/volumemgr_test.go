@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
@@ -41,18 +42,20 @@ var hwMgrRespDrives = []*api.Drive{
 	{
 		UUID:         uuid.New().String(),
 		SerialNumber: "hdd1",
-		Health:       api.Health_GOOD,
-		Type:         api.DriveType_HDD,
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
 		Size:         1024 * 1024 * 1024 * 50,
 		NodeId:       nodeId,
+		Status:       apiV1.DriveStatusOnline,
 	},
 	{
 		UUID:         uuid.New().String(),
 		SerialNumber: "hdd2",
-		Health:       api.Health_GOOD,
-		Type:         api.DriveType_HDD,
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
 		Size:         1024 * 1024 * 1024 * 150,
 		NodeId:       nodeId,
+		Status:       apiV1.DriveStatusOnline,
 	},
 }
 var (
@@ -60,8 +63,10 @@ var (
 	// todo don't hardcode device name
 	lsblkSingleDeviceCmd = fmt.Sprintf(base.LsblkCmdTmpl, "/dev/sda")
 
-	drive1 = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeId} // /dev/sda in LsblkTwoDevices
-	drive2 = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeId} // /dev/sdb in LsblkTwoDevices
+	drive1 = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeId,
+		Status: apiV1.DriveStatusOnline} // /dev/sda in LsblkTwoDevices
+	drive2 = &api.Drive{SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeId,
+		Status: apiV1.DriveStatusOnline} // /dev/sdb in LsblkTwoDevices
 
 	volCR = vcrd.Volume{
 		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
@@ -73,7 +78,7 @@ var (
 		Spec: api.Volume{
 			Id:           testID,
 			Size:         1024 * 1024 * 1024 * 150,
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     "",
 			CSIStatus:    crdV1.Creating,
 			NodeId:       nodeId,
@@ -108,7 +113,7 @@ var (
 		Spec: api.Volume{
 			Id:           volLVGName,
 			Size:         1024 * 1024 * 1024 * 150,
-			StorageClass: api.StorageClass_HDDLVG,
+			StorageClass: apiV1.StorageClassHDDLVG,
 			Location:     lvgCR.Name,
 			CSIStatus:    crdV1.Creating,
 			NodeId:       nodeId,
@@ -120,7 +125,7 @@ var (
 		ObjectMeta: v1.ObjectMeta{Name: driveUUID, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         drive1.Size,
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     "drive-uuid",
 			NodeId:       drive1.NodeId},
 	}
@@ -165,11 +170,11 @@ func TestVolumeManager_DrivesNotInUse(t *testing.T) {
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, vmLogger, kubeClient, "nodeId")
 
-	vm.drivesCache["hdd1"] = vm.k8sclient.ConstructDriveCR("hdd1", api.Drive{UUID: "hdd1", SerialNumber: "hdd1", Type: api.DriveType_HDD})
-	vm.drivesCache["nvme1"] = vm.k8sclient.ConstructDriveCR("nvme1", api.Drive{UUID: "nvme1", SerialNumber: "nvme1", Type: api.DriveType_NVMe})
+	vm.drivesCache["hdd1"] = vm.k8sclient.ConstructDriveCR("hdd1", api.Drive{UUID: "hdd1", SerialNumber: "hdd1", Type: apiV1.DriveTypeHDD})
+	vm.drivesCache["nvme1"] = vm.k8sclient.ConstructDriveCR("nvme1", api.Drive{UUID: "nvme1", SerialNumber: "nvme1", Type: apiV1.DriveTypeNVMe})
 
 	volume := api.Volume{
-		LocationType: api.LocationType_Drive,
+		LocationType: apiV1.LocationTypeDrive,
 		Location:     "hdd1",
 	}
 
@@ -271,7 +276,7 @@ func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	kubeClient, err := base.GetFakeKubeClient(testNs)
 	assert.Nil(t, err)
 	hwMgrDrivesWithBad := hwMgrRespDrives
-	hwMgrDrivesWithBad[1].Health = api.Health_BAD
+	hwMgrDrivesWithBad[1].Health = apiV1.HealthBad
 	hwMgrClient := mocks.NewMockHWMgrClient(hwMgrDrivesWithBad)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(*hwMgrClient, e1, vmLogger, kubeClient, nodeId)
@@ -305,8 +310,8 @@ func TestVolumeManager_DiscoverAvailableCapacityNoFreeDrive(t *testing.T) {
 		NodeId:       "pod",
 		Size:         1000,
 		Location:     hwMgrRespDrives[0].UUID,
-		LocationType: api.LocationType_Drive,
-		Mode:         api.Mode_FS,
+		LocationType: apiV1.LocationTypeDrive,
+		Mode:         apiV1.ModeFS,
 		Type:         "xfs",
 		Health:       hwMgrRespDrives[0].Health,
 		CSIStatus:    "",
@@ -358,16 +363,16 @@ func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(vm.drivesCache), 2)
 
-	hwMgrRespDrives[0].Health = api.Health_BAD
+	hwMgrRespDrives[0].Health = apiV1.HealthBad
 	vm.updateDrivesCRs(ctx, hwMgrRespDrives)
 	assert.Nil(t, err)
-	assert.Equal(t, vm.drivesCache[hwMgrRespDrives[0].UUID].Spec.Health, api.Health_BAD)
+	assert.Equal(t, vm.drivesCache[hwMgrRespDrives[0].UUID].Spec.Health, apiV1.HealthBad)
 
 	drives := hwMgrRespDrives[1:]
 	vm.updateDrivesCRs(ctx, drives)
 	assert.Nil(t, err)
-	assert.Equal(t, vm.drivesCache[hwMgrRespDrives[0].UUID].Spec.Health, api.Health_UNKNOWN)
-	assert.Equal(t, vm.drivesCache[hwMgrRespDrives[0].UUID].Spec.Status, api.Status_OFFLINE)
+	assert.Equal(t, vm.drivesCache[hwMgrRespDrives[0].UUID].Spec.Health, apiV1.HealthUnknown)
+	assert.Equal(t, vm.drivesCache[hwMgrRespDrives[0].UUID].Spec.Status, apiV1.DriveStatusOffline)
 
 	vm = NewVolumeManager(hwMgrClient, nil, vmLogger, kubeClient, nodeId)
 	assert.Nil(t, err)
@@ -378,8 +383,8 @@ func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
 	hwMgrRespDrives = append(hwMgrRespDrives, &api.Drive{
 		UUID:         uuid.New().String(),
 		SerialNumber: "hdd3",
-		Health:       api.Health_GOOD,
-		Type:         api.DriveType_HDD,
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
 		Size:         1024 * 1024 * 1024 * 150,
 		NodeId:       nodeId,
 	})
@@ -565,7 +570,7 @@ func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
 	vol3 := &api.Volume{
 		Id:           testID,
 		Size:         1024 * 1024 * 1024 * 45,
-		StorageClass: api.StorageClass_HDD,
+		StorageClass: apiV1.StorageClassHDD,
 		Location:     dList.Items[0].Spec.UUID,
 	}
 	err3 := vm3.CreateLocalVolume(context.Background(), vol3)
@@ -591,7 +596,7 @@ func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
 	vol4 := &api.Volume{
 		Id:           vID,
 		Size:         1024 * 1024 * 1024 * 45,
-		StorageClass: api.StorageClass_HDD,
+		StorageClass: apiV1.StorageClassHDD,
 		Location:     dList2.Items[0].Spec.UUID,
 	}
 	err4 := vm4.CreateLocalVolume(context.Background(), vol4)
@@ -678,7 +683,7 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 	scImplMock.On("DeleteFileSystem", "/dev/sdb").Return(nil).Times(1)
 	vm.scMap[SCName("hdd")] = scImplMock
 
-	v := &api.Volume{Id: testID, Location: drive2.UUID, StorageClass: api.StorageClass_HDD}
+	v := &api.Volume{Id: testID, Location: drive2.UUID, StorageClass: apiV1.StorageClassHDD}
 	vm.volumesCache[testID] = v
 
 	err := vm.DeleteLocalVolume(context.Background(), v)
@@ -686,7 +691,7 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 	assert.Equal(t, 0, len(vm.volumesCache))
 
 	// LVG SC
-	v = &api.Volume{Id: testID, Location: drive2.UUID, StorageClass: api.StorageClass_HDDLVG}
+	v = &api.Volume{Id: testID, Location: drive2.UUID, StorageClass: apiV1.StorageClassHDDLVG}
 	vm.volumesCache[testID] = v
 	lvDev := fmt.Sprintf("/dev/%s/%s", v.Location, v.Id)
 
@@ -704,7 +709,7 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	// Expect that scImpl wasn't found for volume's storage class
 	vm1 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	volume1 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: -1}
+	volume1 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: "random"}
 	err1 := vm1.DeleteLocalVolume(testCtx, volume1)
 	assert.NotNil(t, err1)
 	assert.Contains(t, err1.Error(), "unable to determine storage class for volume")
@@ -716,14 +721,14 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	e2.OnCommand(lsblkAllDevicesCmd).Return("{\"blockdevices\": []}", "", nil).Times(1)
 	vm2.linuxUtils = base.NewLinuxUtils(e2, vmLogger)
 
-	volume := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDD}
+	volume := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: apiV1.StorageClassHDD}
 	err2 := vm2.DeleteLocalVolume(testCtx, volume)
 	assert.NotNil(t, err2)
 	assert.Equal(t, err2.Error(), fmt.Sprintf("unable to find device for drive with S/N %s", volume.Location))
 
 	// expect DeletePartition was failed
 	vm3 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	volume3 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDD}
+	volume3 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: apiV1.StorageClassHDD}
 	vm3.volumesCache[testID] = volume3
 	disk := "/dev/sda"
 	isPartitionExistCMD := fmt.Sprintf("partprobe -d -s %s", disk)
@@ -743,7 +748,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 
 	// expect DeleteFileSystem was failed
 	vm4 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	volume4 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDDLVG}
+	volume4 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: apiV1.StorageClassHDDLVG}
 	vm4.volumesCache[testID] = volume4
 	device4 := fmt.Sprintf("/dev/%s/%s", volume4.Location, volume4.Id)
 	scImplHdd4 := &sc.ImplementerMock{}
@@ -756,7 +761,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 
 	// expect LVRemove fail for Volume with SC HDDLVG
 	vm5 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
-	volume5 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: api.StorageClass_HDDLVG}
+	volume5 := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: apiV1.StorageClassHDDLVG}
 	vm5.volumesCache[testID] = volume5
 	device5 := fmt.Sprintf("/dev/%s/%s", volume5.Location, volume5.Id)
 	scImplHdd5 := &sc.ImplementerMock{}
@@ -840,7 +845,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 
 	drive := drive1
 	drive.UUID = driveUUID
-	drive.Health = api.Health_BAD
+	drive.Health = apiV1.HealthBad
 
 	// Check AC deletion
 	vm.handleDriveStatusChange(context.Background(), drive)
@@ -859,7 +864,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	rVolume := &vcrd.Volume{}
 	err = vm.k8sclient.ReadCR(context.Background(), testID, rVolume)
 	assert.Nil(t, err)
-	assert.Equal(t, api.Health_BAD, rVolume.Spec.Health)
+	assert.Equal(t, apiV1.HealthBad, rVolume.Spec.Health)
 }
 
 func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
@@ -913,7 +918,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	assert.Equal(t, 1, len(acList.Items))
 	ac := acList.Items[0]
 	assert.Equal(t, lvg.Name, ac.Spec.Location)
-	assert.Equal(t, api.StorageClass_SSDLVG, ac.Spec.StorageClass)
+	assert.Equal(t, apiV1.StorageClassSSDLVG, ac.Spec.StorageClass)
 	assert.Equal(t, lvg.Spec.Size, ac.Spec.Size)
 }
 

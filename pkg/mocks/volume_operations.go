@@ -39,15 +39,15 @@ func (vo *VolumeOperationsMock) UpdateCRsAfterVolumeDeletion(ctx context.Context
 
 // WaitStatus is the mock implementation of WaitStatus. Simulates waiting of Volume to be reached one of provided
 // statuses
-func (vo *VolumeOperationsMock) WaitStatus(ctx context.Context, volumeID string, statuses ...api.OperationalStatus) (bool, api.OperationalStatus) {
+func (vo *VolumeOperationsMock) WaitStatus(ctx context.Context, volumeID string, statuses ...string) (bool, string) {
 	args := vo.Mock.Called(ctx, volumeID, statuses)
 
-	return args.Bool(0), args.Get(1).(api.OperationalStatus)
+	return args.Bool(0), args.Get(1).(string)
 }
 
 // ReadVolumeAndChangeStatus is the mock implementation of ReadVolumeAndChangeStatus. Simulates updating of Volume CR
 // with newStatus
-func (vo *VolumeOperationsMock) ReadVolumeAndChangeStatus(volumeID string, newStatus api.OperationalStatus) error {
+func (vo *VolumeOperationsMock) ReadVolumeAndChangeStatus(volumeID string, newStatus string) error {
 	args := vo.Mock.Called(volumeID, newStatus)
 
 	return args.Error(0)

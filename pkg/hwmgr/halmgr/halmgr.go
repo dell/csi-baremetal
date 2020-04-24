@@ -18,6 +18,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 // NewHALManager is the constructor of HALManager
@@ -34,37 +35,37 @@ type HALManager struct {
 
 // convertDriveHealth converts C.DriveHealth enum got from HAL to api.Health var
 // Receives var of enum C.DriveHealth type
-// Returns var of api.Health type (GOOD, SUSPECT, BAD, UNKNOWN)
-func (mgr *HALManager) convertDriveHealth(driveHealth C.DriveHealth) api.Health {
+// Returns var of string type (GOOD, SUSPECT, BAD, UNKNOWN)
+func (mgr *HALManager) convertDriveHealth(driveHealth C.DriveHealth) string {
 	switch driveHealth {
 	case C.HEALTH_GOOD:
 		// If HAL C.DriveHealth enum is equal to "GOOD"
-		return api.Health_GOOD
+		return apiV1.HealthGood
 	case C.HEALTH_SUSPECT:
 		// If HAL C.DriveHealth enum is equal to "SUSPECT"
-		return api.Health_SUSPECT
+		return apiV1.HealthSuspect
 	case C.HEALTH_FAILED:
 		// If HAL C.DriveHealth enum is equal to "FAILED"
-		return api.Health_BAD
+		return apiV1.HealthBad
 	default:
-		return api.Health_UNKNOWN
+		return apiV1.HealthUnknown
 	}
 }
 
-// convertDriveType converts HAL enum StorageClass_t var to api.DriveType to fill api.Drive struct
+// convertDriveType converts HAL enum StorageClass_t var to string drive type to fill api.Drive struct
 // Receives var of enum StorageClass_t type
-// Returns var of api.DriveType type (HDD, SSD, NVMe)
-func (mgr *HALManager) convertDriveType(storageClass C.StorageClass_t) api.DriveType {
+// Returns string var of drive type (HDD, SSD, NVMe)
+func (mgr *HALManager) convertDriveType(storageClass C.StorageClass_t) string {
 	switch storageClass {
 	case C.HDD:
-		return api.DriveType_HDD
+		return apiV1.DriveTypeHDD
 	case C.SSD:
-		return api.DriveType_SSD
+		return apiV1.DriveTypeSSD
 	case C.NVME:
-		return api.DriveType_NVMe
+		return apiV1.DriveTypeNVMe
 	default:
 		mgr.Log.Errorf("Can't recognize type of the drive. Use HDD as default value")
-		return api.DriveType_HDD
+		return apiV1.DriveTypeHDD
 	}
 }
 

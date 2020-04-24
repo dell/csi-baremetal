@@ -16,7 +16,7 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
@@ -151,7 +151,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 		framework.ExpectNoError(err)
 		health, _, err := unstructured.NestedInt64(changedVolume.Object, "spec", "Health")
 
-		Expect(api.Health(health)).To(Equal(api.Health_BAD))
+		Expect(health).To(Equal(apiV1.HealthGood))
 	})
 }
 

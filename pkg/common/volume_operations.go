@@ -85,8 +85,9 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		var (
 			ctxWithID      = context.WithValue(ctx, base.RequestUUID, v.Id)
 			ac             *accrd.AvailableCapacity
-			sc             api.StorageClass
+			sc             string
 			allocatedBytes int64
+			locationType   string
 		)
 
 		if ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, v.Size, v.StorageClass); ac == nil {
@@ -99,20 +100,25 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		sc = ac.Spec.StorageClass
 
 		switch sc {
-		case api.StorageClass_HDDLVG, api.StorageClass_SSDLVG:
+		case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
 			allocatedBytes = v.Size
+			locationType = apiV1.LocationTypeLVM
 		default:
 			allocatedBytes = ac.Spec.Size
+			locationType = apiV1.LocationTypeDrive
 		}
 
 		// create volume CR
 		apiVolume := api.Volume{
-			Id:           v.Id,
-			NodeId:       ac.Spec.NodeId,
-			Size:         allocatedBytes,
-			Location:     ac.Spec.Location,
-			CSIStatus:    apiV1.Creating,
-			StorageClass: sc,
+			Id:                v.Id,
+			NodeId:            ac.Spec.NodeId,
+			Size:              allocatedBytes,
+			Location:          ac.Spec.Location,
+			CSIStatus:         apiV1.Creating,
+			StorageClass:      sc,
+			Health:            apiV1.HealthGood,
+			LocationType:      locationType,
+			OperationalStatus: apiV1.OperationalStatusOperative,
 		}
 		volumeCR = vo.k8sClient.ConstructVolumeCR(v.Id, apiVolume)
 
@@ -185,14 +191,14 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 
 	// if volume is in LVG - update corresponding AC size
 	// if such AC isn't exist - do nothing (AC should be recreated by VolumeMgr)
-	if volumeCR.Spec.StorageClass == api.StorageClass_HDDLVG || volumeCR.Spec.StorageClass == api.StorageClass_SSDLVG {
+	if volumeCR.Spec.StorageClass == apiV1.StorageClassHDDLVG || volumeCR.Spec.StorageClass == apiV1.StorageClassSSDLVG {
 		var (
 			acCR   = accrd.AvailableCapacity{}
 			acList = accrd.AvailableCapacityList{}
 		)
 		if err = vo.k8sClient.ReadList(ctx, &acList); err != nil {
 			ll.Errorf("Volume was deleted but corresponding AC with SC %s hadn't updated, unable to read list: %v",
-				volumeCR.Spec.StorageClass.String(), err)
+				volumeCR.Spec.StorageClass, err)
 		}
 
 		for _, a := range acList.Items {

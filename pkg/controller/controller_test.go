@@ -18,6 +18,7 @@ import (
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
@@ -113,7 +114,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024,
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDriveLocation1,
 			NodeId:       testNode1Name},
 	}
@@ -123,7 +124,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 1024,
-			StorageClass: api.StorageClass_HDD,
+			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDriveLocation2,
 			NodeId:       testNode2Name,
 		},
@@ -134,7 +135,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
-			StorageClass: api.StorageClass_HDDLVG,
+			StorageClass: apiV1.StorageClassHDDLVG,
 			Location:     testDriveLocation4,
 			NodeId:       testNode2Name,
 		},
@@ -421,7 +422,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					NodeId:       testNode2Name,
 					Location:     testDriveLocation4, // testAC4
 					Size:         capacity,
-					StorageClass: api.StorageClass_HDDLVG,
+					StorageClass: apiV1.StorageClassHDDLVG,
 				}
 				volumeCrd = vcrd.Volume{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -456,7 +457,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 		It("Volume is deleted successful, LVG AC recreated", func() {
 			removeAllCrds(svc.k8sclient) // remove CRs that was created in BeforeEach()
 			fullLVGsizeVolume := testVolume
-			fullLVGsizeVolume.Spec.StorageClass = api.StorageClass_HDDLVG
+			fullLVGsizeVolume.Spec.StorageClass = apiV1.StorageClassHDDLVG
 
 			// create volume CR that should be deleted
 			err := svc.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)

@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 )
 
@@ -18,7 +17,7 @@ type ACOperationsMock struct {
 // SearchAC is the mock implementation of SearchAC method from AvailableCapacityOperations made for simulating
 // searching AvailableCapacity on a cluster.
 // Returns a fake AvailableCapacity instance
-func (a *ACOperationsMock) SearchAC(ctx context.Context, node string, requiredBytes int64, sc api.StorageClass) *accrd.AvailableCapacity {
+func (a *ACOperationsMock) SearchAC(ctx context.Context, node string, requiredBytes int64, sc string) *accrd.AvailableCapacity {
 	args := a.Mock.Called(ctx, node, requiredBytes, sc)
 
 	if args.Get(0) == nil {

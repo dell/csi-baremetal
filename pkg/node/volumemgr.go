@@ -271,8 +271,8 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		}
 		if !exist {
 			ll.Warnf("Set status OFFLINE for drive with Vid/Pid/SN %s/%s/%s", d.Spec.VID, d.Spec.PID, d.Spec.SerialNumber)
-			d.Spec.Status = api.Status_OFFLINE
-			d.Spec.Health = api.Health_UNKNOWN
+			d.Spec.Status = apiV1.DriveStatusOffline
+			d.Spec.Health = apiV1.HealthUnknown
 			err := m.k8sclient.UpdateCR(ctx, d)
 			if err != nil {
 				ll.Errorf("Failed to update drive CR %s, error %s", d.Name, err.Error())
@@ -316,8 +316,8 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 					Id:           uuid,
 					Size:         size,
 					Location:     d.Spec.UUID,
-					LocationType: api.LocationType_Drive,
-					Mode:         api.Mode_FS,
+					LocationType: apiV1.LocationTypeDrive,
+					Mode:         apiV1.ModeFS,
 					Type:         ld.FSType,
 					Health:       d.Spec.Health,
 					CSIStatus:    "",
@@ -344,7 +344,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 	wasError := false
 
 	for _, drive := range m.drivesCache {
-		if drive.Spec.Health == api.Health_GOOD && drive.Spec.Status == api.Status_ONLINE {
+		if drive.Spec.Health == apiV1.HealthGood && drive.Spec.Status == apiV1.DriveStatusOnline {
 			removed := false
 			for _, volume := range m.volumesCache {
 				// if drive contains volume then available capacity for this drive shouldn't exist
@@ -416,8 +416,8 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 		isUsed := false
 		for _, v := range m.volumesCache {
 			// expect only Drive LocationType, for Drive LocationType Location will be a UUID of the drive
-			if d.Spec.Type != api.DriveType_NVMe &&
-				v.LocationType == api.LocationType_Drive &&
+			if d.Spec.Type != apiV1.DriveTypeNVMe &&
+				v.LocationType == apiV1.LocationTypeDrive &&
 				strings.EqualFold(d.Spec.UUID, v.Location) {
 				isUsed = true
 				ll.Infof("Found volume with ID \"%s\" in cache for drive with UUID \"%s\"",
@@ -512,7 +512,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		acCR := m.k8sclient.ConstructACCR(acName, api.AvailableCapacity{
 			Location:     vgCRName,
 			NodeId:       m.nodeID,
-			StorageClass: api.StorageClass_SSDLVG,
+			StorageClass: apiV1.StorageClassSSDLVG,
 			Size:         vgFreeSpace,
 		})
 		if err = m.k8sclient.CreateCR(ctx, acName, acCR); err != nil {
@@ -552,14 +552,14 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		err         error
 	)
 	switch vol.StorageClass {
-	case api.StorageClass_SSDLVG, api.StorageClass_HDDLVG:
+	case apiV1.StorageClassSSDLVG, apiV1.StorageClassHDDLVG:
 		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(base.GBYTE))
 		vgName := vol.Location
 
 		// Volume.Location is a LVG CR name and we use such name as a real VG name
 		// however for LVG based on system disk LVG CR name != VG name
 		// we need to read appropriate LVG CR and use LVG CR.Spec.Name in LVCreate command
-		if vol.StorageClass == api.StorageClass_SSDLVG {
+		if vol.StorageClass == apiV1.StorageClassSSDLVG {
 			vgName, err = m.k8sclient.GetVGNameByLVGCRName(ctx, volLocation)
 			if err != nil {
 				return fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
@@ -613,7 +613,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 			if err != nil {
 				if !rollBacked {
 					ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
-					drive.Spec.Status = api.Status_OFFLINE
+					drive.Spec.Status = apiV1.DriveStatusOffline
 					if err := m.k8sclient.UpdateCR(ctx, drive); err != nil {
 						ll.Errorf("Failed to update drive CRd with name %s, error %s", drive.Name, err.Error())
 					}
@@ -786,7 +786,7 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 		device string
 	)
 	switch volume.StorageClass {
-	case api.StorageClass_HDD, api.StorageClass_SSD:
+	case apiV1.StorageClassHDD, apiV1.StorageClassSSD:
 		m.dCacheMu.Lock()
 		drive := m.drivesCache[volume.Location]
 		m.dCacheMu.Unlock()
@@ -807,12 +807,12 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 			return wErr
 		}
 		ll.Info("Partition was deleted")
-	case api.StorageClass_SSDLVG, api.StorageClass_HDDLVG:
+	case apiV1.StorageClassSSDLVG, apiV1.StorageClassHDDLVG:
 		vgName := volume.Location
 		var err error
 		// Volume.Location is a LVG CR however for LVG based on system disk LVG CR name != VG name
 		// we need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
-		if volume.StorageClass == api.StorageClass_SSDLVG {
+		if volume.StorageClass == apiV1.StorageClassSSDLVG {
 			vgName, err = m.k8sclient.GetVGNameByLVGCRName(ctx, volume.Location)
 			if err != nil {
 				return fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
@@ -834,7 +834,7 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 	}
 	ll.Info("File system was deleted")
 
-	if volume.StorageClass == api.StorageClass_HDDLVG || volume.StorageClass == api.StorageClass_SSDLVG {
+	if volume.StorageClass == apiV1.StorageClassHDDLVG || volume.StorageClass == apiV1.StorageClassSSDLVG {
 		lvgName := volume.Location
 		ll.Infof("Removing LV %s from LVG %s", volume.Id, lvgName)
 		if err = m.linuxUtils.LVRemove(device); err != nil {
@@ -904,11 +904,11 @@ func (m *VolumeManager) setVolumeStatus(key string, newStatus string) {
 }
 
 // getStorageClassImpl returns appropriate StorageClass implementation from VolumeManager scMap field
-func (m *VolumeManager) getStorageClassImpl(storageClass api.StorageClass) sc.StorageClassImplementer {
+func (m *VolumeManager) getStorageClassImpl(storageClass string) sc.StorageClassImplementer {
 	switch storageClass {
-	case api.StorageClass_HDD:
+	case apiV1.StorageClassHDD:
 		return m.scMap[SCName("hdd")]
-	case api.StorageClass_SSD:
+	case apiV1.StorageClassSSD:
 		return m.scMap[SCName("ssd")]
 	default:
 		return m.scMap[SCName("hdd")]
@@ -995,11 +995,11 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		"driveID": drive.UUID,
 	})
 
-	ll.Infof("The new drive status from HWMgr is %s", drive.Health.String())
+	ll.Infof("The new drive status from HWMgr is %s", drive.Health)
 
 	// Handle resources without LVG
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
-	if drive.Health != api.Health_GOOD || drive.Status == api.Status_OFFLINE {
+	if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
 		ac := m.getACByLocation(ctx, drive.UUID)
 		if ac != nil {
 			ll.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
@@ -1012,7 +1012,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// Set disk's health status to volume CR
 	vol := m.getVolumeByLocation(ctx, drive.UUID)
 	if vol != nil {
-		ll.Infof("Setting updated status %s to volume %s", drive.Health.String(), vol.Name)
+		ll.Infof("Setting updated status %s to volume %s", drive.Health, vol.Name)
 		vol.Spec.Health = drive.Health
 		if err := m.k8sclient.UpdateCR(ctx, vol); err != nil {
 			ll.Errorf("Failed to update volume CR's health status: %v", err)

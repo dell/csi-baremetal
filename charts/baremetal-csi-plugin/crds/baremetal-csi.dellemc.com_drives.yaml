@@ -34,8 +34,7 @@ spec:
         spec:
           properties:
             Health:
-              format: int32
-              type: integer
+              type: string
             NodeId:
               type: string
             PID:
@@ -50,15 +49,13 @@ spec:
               format: int64
               type: integer
             Type:
-              format: int32
-              type: integer
+              type: string
             UUID:
               type: string
             VID:
               type: string
             status:
-              format: int32
-              type: integer
+              type: string
           type: object
       type: object
   version: v1

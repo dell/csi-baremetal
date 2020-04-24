@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
@@ -181,10 +182,10 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 			VID:          mgr.devices[i].vendorID,
 			PID:          mgr.devices[i].productID,
 			SerialNumber: mgr.devices[i].serialNumber,
-			Health:       api.Health_GOOD,
-			Type:         api.DriveType_HDD,
+			Health:       apiV1.HealthGood,
+			Type:         apiV1.DriveTypeHDD,
 			Size:         mgr.devices[i].sizeMb * 1024 * 1024,
-			Status:       api.Status_ONLINE,
+			Status:       apiV1.DriveStatusOnline,
 			Path:         mgr.devices[i].devicePath,
 		}
 		drives = append(drives, drive)

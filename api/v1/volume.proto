@@ -3,60 +3,25 @@ syntax = "proto3";
 package node;
 option go_package="v1api";
 
-import "drive.proto";
-
 message Volume {
     string Id = 1;
     string Location = 2;
-    LocationType LocationType = 3;
-    StorageClass StorageClass = 4;
+    string LocationType = 3;
+    string StorageClass = 4;
     string NodeId = 5;
     repeated string Owners = 6;
     int64 Size = 7;
-    Mode Mode = 8;
+    string Mode = 8;
     string Type = 9;
-    v1api.Health Health = 10;
-    OperationalStatus OperationalStatus = 11;
+    string Health = 10;
+    string OperationalStatus = 11;
     string CSIStatus = 12;
-}
-
-enum OperationalStatus {
-    Operative = 0;
-    Inoperative = 1;
-    Staging = 2;
-    Missing = 3;
-    Removing = 4;
-    ReadyToRemove = 5;
-    FailToRemove = 6;
-    Maintenance = 7;
-    Removed = 8;
-    Unknown = 9;
-}
-
-enum Mode {
-    RAW = 0;
-    FS = 1;
-}
-
-enum LocationType {
-    Drive = 0;
-    LVM = 1;
-    nVME = 2;
-}
-
-enum StorageClass {
-    ANY = 0;
-    HDD = 1;
-    SSD = 2;
-    NVME = 3;
-    HDDLVG = 4;
-    SSDLVG = 5;
 }
 
 message AvailableCapacity {
     string Location = 1;
     string NodeId = 2;
-    StorageClass storageClass = 3;
+    string storageClass = 3;
     int64 Size = 4;
 }
 

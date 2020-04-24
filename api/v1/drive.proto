@@ -3,34 +3,16 @@ syntax = "proto3";
 package v1api;
 option go_package="v1api";
 
-enum DriveType {
-    HDD = 0;
-    SSD = 1;
-    NVMe = 2;
-}
-
-enum Health {
-    UNKNOWN = 0;
-    GOOD = 1;
-    SUSPECT = 2;
-    BAD = 3;
-}
-
-enum Status {
-    ONLINE = 0;
-    OFFLINE = 1;
-}
-
 message Drive {
     string UUID = 1;
     string VID = 2;
     string PID = 3;
     string SerialNumber = 4;
-    Health Health = 5;
-    DriveType Type = 6;
+    string Health = 5;
+    string Type = 6;
     // size in bytes
     int64 Size = 7;
-    Status status = 8;
+    string status = 8;
     string NodeId = 9;
     // path to the device. may not be set by hwmgr.
     string Path = 10;

@@ -42,7 +42,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 		volumeID      = "pvc-aaaa-bbbb"
 		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
-		requiredSC    = api.StorageClass_HDD
+		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(base.GBYTE)
 		expectedAC    = &accrd.AvailableCapacity{
 			Spec: api.AvailableCapacity{
@@ -59,6 +59,9 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 			NodeId:       expectedAC.Spec.NodeId,
 			Size:         expectedAC.Spec.Size,
 			CSIStatus:    apiV1.Creating,
+			Health:       apiV1.HealthGood,
+			LocationType: apiV1.LocationTypeDrive,
+			OperationalStatus: apiV1.OperationalStatusOperative,
 		}
 	)
 
@@ -84,13 +87,13 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		volumeID      = "pvc-aaaa-bbbb"
 		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
-		requiredSC    = api.StorageClass_HDD
+		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(base.GBYTE)
 		expectedAC    = &accrd.AvailableCapacity{
 			Spec: api.AvailableCapacity{
 				Location:     testDrive1UUID,
 				NodeId:       testNode1Name,
-				StorageClass: api.StorageClass_HDDLVG,
+				StorageClass: apiV1.StorageClassHDDLVG,
 				Size:         int64(base.GBYTE) * 42,
 			},
 		}
@@ -113,6 +116,9 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		NodeId:       expectedAC.Spec.NodeId,
 		Size:         requiredBytes,
 		CSIStatus:    apiV1.Creating,
+		Health:       apiV1.HealthGood,
+		LocationType: apiV1.LocationTypeLVM,
+		OperationalStatus: apiV1.OperationalStatusOperative,
 	}
 	assert.Equal(t, expectedVolume, createdVolume)
 }
@@ -143,7 +149,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 		volumeID      = "pvc-aaaa-bbbb"
 		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
-		requiredSC    = api.StorageClass_HDD
+		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(base.GBYTE)
 	)
 
@@ -288,7 +294,7 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	assert.Nil(t, err)
 	err = svc1.k8sClient.CreateCR(testCtx, testLVGName, &testLVG)
 	assert.Nil(t, err)
-	v1.Spec.StorageClass = api.StorageClass_HDDLVG
+	v1.Spec.StorageClass = apiV1.StorageClassHDDLVG
 	v1.Spec.Location = testLVGName
 	err = svc1.k8sClient.CreateCR(testCtx, testVolume1Name, &v1)
 	assert.Nil(t, err)

@@ -10,8 +10,10 @@ import (
 	"net/http"
 	"time"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"github.com/sirupsen/logrus"
+
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 const (
@@ -180,9 +182,9 @@ func (mgr *IDRACManager) getDrive(driveURL string) *api.Drive {
 		mgr.log.Errorf("Fail to convert to IDRACDrive struct, err: %v", err)
 		return nil
 	}
-	var diskType api.DriveType
+	var diskType string
 	if drive.Protocol == "NVMe" {
-		diskType = api.DriveType_NVMe
+		diskType = apiV1.DriveTypeNVMe
 	} else {
 		diskType = convertMediaType(drive.MediaType)
 	}
@@ -193,7 +195,7 @@ func (mgr *IDRACManager) getDrive(driveURL string) *api.Drive {
 		Health:       convertDriveHealth(drive.Status["Health"]),
 		Type:         diskType,
 		Size:         drive.CapacityBytes,
-		Status:       api.Status_ONLINE,
+		Status:       apiV1.DriveStatusOnline,
 	}
 	return apiDrive
 }
@@ -216,33 +218,33 @@ func (mgr *IDRACManager) doRequest(url string) (*http.Response, error) {
 	return response, err
 }
 
-// convertDriveHealth converts iDRAC drives's health string to api.Health var
+// convertDriveHealth converts iDRAC drives's health string to apiV1 Health string
 // Receives iDRAC drives's health string
-// Returns variable of type api.Health (GOOD, BAD, UNKNOWN)
-func convertDriveHealth(health string) api.Health {
+// Returns string variable (GOOD, BAD, UNKNOWN)
+func convertDriveHealth(health string) string {
 	switch health {
 	case "OK":
-		return api.Health_GOOD
+		return apiV1.HealthGood
 	// shouldn't it be SUSPECT?
 	case "Warning":
-		return api.Health_BAD
+		return apiV1.HealthBad
 	case "Critical":
-		return api.Health_BAD
+		return apiV1.HealthBad
 	default:
-		return api.Health_UNKNOWN
+		return apiV1.HealthUnknown
 	}
 }
 
-// convertMediaType converts iDRAC drive's media type to api.DriveType var
+// convertMediaType converts iDRAC drive's media type to drive type string var
 // Receives iDRAC drive's media type
-// Returns variable of type api.DriveType (HDD, SSD)
-func convertMediaType(mediaType string) api.DriveType {
+// Returns string variable of drive type (HDD, SSD)
+func convertMediaType(mediaType string) string {
 	switch mediaType {
 	case "HDD":
-		return api.DriveType_HDD
+		return apiV1.DriveTypeHDD
 	case "SSD":
-		return api.DriveType_SSD
+		return apiV1.DriveTypeSSD
 	default:
-		return api.DriveType_HDD
+		return apiV1.DriveTypeHDD
 	}
 }

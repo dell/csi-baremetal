@@ -19,7 +19,7 @@ import (
 
 // AvailableCapacityOperations is the interface for interact with AvailableCapacity CRs from Controller
 type AvailableCapacityOperations interface {
-	SearchAC(ctx context.Context, node string, requiredBytes int64, sc api.StorageClass) *accrd.AvailableCapacity
+	SearchAC(ctx context.Context, node string, requiredBytes int64, sc string) *accrd.AvailableCapacity
 	DeleteIfEmpty(ctx context.Context, acLocation string) error
 }
 
@@ -50,7 +50,7 @@ func NewACOperationsImpl(k8sClient *base.KubeClient, l *logrus.Logger) *ACOperat
 // and storage class for created volume (For example HDD, HDDLVG, SSD, SSDLVG).
 // Returns found AvailableCapacity CR instance
 func (a *ACOperationsImpl) SearchAC(ctx context.Context,
-	node string, requiredBytes int64, sc api.StorageClass) *accrd.AvailableCapacity {
+	node string, requiredBytes int64, sc string) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":        "SearchAC",
 		"volumeID":      ctx.Value(base.RequestUUID),
@@ -79,17 +79,17 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	}
 
 	ll.Infof("Search AvailableCapacity on node %s with size not less %d bytes with storage class %s",
-		node, requiredBytes, sc.String())
+		node, requiredBytes, sc)
 
 	for _, ac := range acNodeMap[node] {
 		if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes &&
-			(sc == api.StorageClass_ANY || sc == ac.Spec.StorageClass) {
+			(sc == apiV1.StorageClassAny || sc == ac.Spec.StorageClass) {
 			foundAC = ac
 			allocatedCapacity = ac.Spec.Size
 		}
 	}
 
-	if sc == api.StorageClass_HDDLVG || sc == api.StorageClass_SSDLVG {
+	if sc == apiV1.StorageClassHDDLVG || sc == apiV1.StorageClassSSDLVG {
 		if foundAC != nil {
 			// check whether LVG being deleted or no
 			lvgCR := &lvgcrd.LVG{}
@@ -100,11 +100,11 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 		}
 		// if storageClass is related to LVG and there is no AC with that storageClass
 		// search drive with subclass on which LVG will be creating
-		subSC := api.StorageClass_HDD
-		if sc == api.StorageClass_SSDLVG {
-			subSC = api.StorageClass_SSD
+		subSC := apiV1.StorageClassHDD
+		if sc == apiV1.StorageClassSSDLVG {
+			subSC = apiV1.StorageClassSSD
 		}
-		ll.Infof("StorageClass is in LVG, search AC with subStorageClass %s", subSC.String())
+		ll.Infof("StorageClass is in LVG, search AC with subStorageClass %s", subSC)
 		foundAC = a.SearchAC(ctx, node, requiredBytes, subSC)
 		if foundAC == nil {
 			return nil
@@ -159,13 +159,13 @@ func (a *ACOperationsImpl) acNodeMapping(acs []accrd.AvailableCapacity) map[stri
 // Receives acNodeMap gathered from acNodeMapping method, size requested by a volume, and appropriate storage class
 // Returns the most unloaded node according to input parameters
 func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapacity,
-	size int64, sc api.StorageClass) (node string) {
+	size int64, sc string) (node string) {
 	maxLen := 0
 	for nodeID, acs := range acNodeMap {
 		if len(acs) > maxLen {
 			// ensure that there is at least one AC with size not less than requiredBytes and with the same SC
 			for _, ac := range acs {
-				if ac.Spec.Size >= size && (ac.Spec.StorageClass == sc || sc == api.StorageClass_ANY) {
+				if ac.Spec.Size >= size && (ac.Spec.StorageClass == sc || sc == apiV1.StorageClassAny) {
 					node = nodeID
 					maxLen = len(acs)
 					break
@@ -179,9 +179,9 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 
 // recreateACToLVGSC creates LVG(based on ACs), ensure it become ready,
 // creates AC based on that LVG and removes provided ACs.
-// Receives sc as api.StorageClass (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
+// Receives sc as string (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
-func (a *ACOperationsImpl) recreateACToLVGSC(sc api.StorageClass, acs ...*accrd.AvailableCapacity) *accrd.AvailableCapacity {
+func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...*accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithField("method", "recreateACToLVGSC")
 
 	lvgLocations := make([]string, len(acs))

@@ -3,8 +3,6 @@ package sanity_test
 import (
 	"context"
 	"fmt"
-
-	//"k8s.io/kubernetes/pkg/volume"
 	"os"
 	"sync"
 	"testing"
@@ -40,19 +38,19 @@ var (
 			UUID:         "uuid-1",
 			SerialNumber: "hdd1",
 			Size:         1024 * 1024 * 1024 * 500,
-			Health:       api.Health_GOOD,
-			Status:       api.Status_ONLINE,
+			Health:       apiV1.HealthGood,
+			Status:       apiV1.DriveStatusOnline,
 			Path:         "/dev/sda",
-			Type:         api.DriveType_HDD,
+			Type:         apiV1.DriveTypeHDD,
 		},
 		{
 			UUID:         "uuid-2",
 			SerialNumber: "hdd2",
 			Size:         1024 * 1024 * 1024 * 200,
-			Health:       api.Health_GOOD,
-			Status:       api.Status_ONLINE,
+			Health:       apiV1.HealthGood,
+			Status:       apiV1.DriveStatusOnline,
 			Path:         "/dev/sdb",
-			Type:         api.DriveType_HDD,
+			Type:         apiV1.DriveTypeHDD,
 		},
 	}
 )
