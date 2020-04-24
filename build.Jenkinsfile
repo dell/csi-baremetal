@@ -19,7 +19,7 @@ void runJob() {
     currentBuild.description = ''
 
     try {
-        common.node(label: common.JENKINS_LABELS.FLEX_CI, time: 180) {
+        common.node(label: 'ubuntu_build_hosts', time: 180) {
             /*
              * IMPORTANT: all sh() commands must be performed from common.withInfraDevkitContainer() block
              */
