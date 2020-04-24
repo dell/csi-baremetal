@@ -16,6 +16,7 @@ message Volume {
     string Health = 10;
     string OperationalStatus = 11;
     string CSIStatus = 12;
+    bool Ephemeral = 13;
 }
 
 message AvailableCapacity {

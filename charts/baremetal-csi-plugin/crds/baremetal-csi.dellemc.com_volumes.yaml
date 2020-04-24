@@ -35,6 +35,8 @@ spec:
           properties:
             CSIStatus:
               type: string
+            Ephemeral:
+              type: boolean
             Health:
               type: string
             Id:

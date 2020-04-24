@@ -21,13 +21,14 @@ func skipIfNotCI(t *testing.T) {
 }
 
 func init() {
-	framework.HandleFlags()
-	framework.AfterReadingAllFlags(&framework.TestContext)
+	framework.RegisterCommonFlags(flag.CommandLine)
+	framework.RegisterClusterFlags(flag.CommandLine)
 }
 
 func Test(t *testing.T) {
 	skipIfNotCI(t)
 	flag.Parse()
+	framework.AfterReadingAllFlags(&framework.TestContext)
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	junitReporter := reporters.NewJUnitReporter("report.xml")
 	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "CSI Suite", []ginkgo.Reporter{junitReporter})

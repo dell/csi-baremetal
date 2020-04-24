@@ -398,7 +398,7 @@ func TestVolumeManager_createPartitionAndSetUUIDSuccess(t *testing.T) {
 
 	// todo refactor these UTs - https://jira.cec.lab.emc.com:8443/browse/AK8S-724
 	// get rid of hardcoded values
-	partName, _, err := vm.createPartitionAndSetUUID("/dev/sda", testID)
+	partName, _, err := vm.createPartitionAndSetUUID("/dev/sda", testID, false)
 
 	assert.Equal(t, partName, "/dev/sda1")
 	assert.Nil(t, err)
@@ -426,7 +426,7 @@ func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
 	kubeClient, err := base.GetFakeKubeClient(testNs)
 	assert.Nil(t, err)
 	vm = NewVolumeManager(nil, mocks.EmptyExecutorFail{}, vmLogger, kubeClient, "nodeId")
-	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid)
+	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid, false)
 	assert.Empty(t, partName)
 	assert.True(t, rollBacked)
 	assert.NotNil(t, err)
@@ -437,7 +437,7 @@ func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
 		"partprobe -d -s /dev/sda": cmdRes,
 		"sgdisk /dev/sda --info=1": {Stdout: fmt.Sprintf("Partition unique GUID: %s", uuid)}})
 	vm = NewVolumeManager(nil, e, vmLogger, kubeClient, "nodeId")
-	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid)
+	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid, false)
 	assert.Empty(t, partName)
 	assert.True(t, rollBacked)
 	assert.Nil(t, err)
@@ -448,7 +448,7 @@ func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
 	lifecycleCMD[createPTCMD] = mocks.CmdOut{Stdout: "", Stderr: "", Err: errors.New("create partition table failed")}
 	e = mocks.NewMockExecutor(lifecycleCMD)
 	vm = NewVolumeManager(nil, e, vmLogger, kubeClient, "nodeId")
-	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid)
+	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid, false)
 	assert.Empty(t, partName)
 	assert.True(t, rollBacked)
 	assert.NotNil(t, err)
@@ -461,7 +461,7 @@ func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
 	lifecycleCMD[createPartCMD] = mocks.CmdOut{Stdout: "", Stderr: "", Err: errors.New("create partition failed")}
 	e = mocks.NewMockExecutor(lifecycleCMD)
 	vm = NewVolumeManager(nil, e, vmLogger, kubeClient, "nodeId")
-	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid)
+	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid, false)
 	assert.Empty(t, partName)
 	assert.True(t, rollBacked)
 	assert.Equal(t, errors.New("create partition failed"), err)
@@ -473,7 +473,7 @@ func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
 	// second time show that partition exist
 	e.AddSecondRun(partExistCMD, mocks.CmdOut{Stdout: "/dev/sda: gpt partitions 1"})
 	vm = NewVolumeManager(nil, e, vmLogger, kubeClient, "nodeId")
-	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid)
+	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid, false)
 	assert.Empty(t, partName)
 	assert.False(t, rollBacked)
 	assert.NotNil(t, err)
@@ -488,7 +488,7 @@ func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
 	e = mocks.NewMockExecutor(lifecycleCMD)
 	e.AddSecondRun(partExistCMD, mocks.CmdOut{Stdout: "/dev/sda: gpt partitions 1"})
 	vm = NewVolumeManager(nil, e, vmLogger, kubeClient, "nodeId")
-	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid)
+	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid, false)
 	assert.Empty(t, partName)
 	assert.False(t, false)
 	assert.NotNil(t, err)
@@ -501,7 +501,7 @@ func TestVolumeManager_createPartitionAndSetUUIDFail(t *testing.T) {
 	lifecycleCMD[deletePartCMD] = emptyCmdOk
 	e = mocks.NewMockExecutor(lifecycleCMD)
 	vm = NewVolumeManager(nil, e, vmLogger, kubeClient, "nodeId")
-	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid)
+	partName, rollBacked, err = vm.createPartitionAndSetUUID(dev, uuid, false)
 	assert.Empty(t, partName)
 	assert.True(t, rollBacked)
 	assert.NotNil(t, err)

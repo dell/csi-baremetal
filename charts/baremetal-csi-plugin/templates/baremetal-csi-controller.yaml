@@ -21,7 +21,11 @@ spec:
       containers:
       # ********************** EXTERNAL-PROVISIONER sidecar container definition **********************
       - name: csi-provisioner
+        {{- if .Values.env.test  }}
+        image: csi-provisioner:{{ .Values.provisioner.image.tag }}
+        {{- else }}
         image: {{ .Values.global.registry }}/csi-provisioner:{{ .Values.provisioner.image.tag }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - "--csi-address=$(ADDRESS)"
@@ -37,7 +41,11 @@ spec:
           mountPath: /csi
       # ********************** EXTERNAL_ATTACHER sidecar container definition **********************
       - name: csi-attacher
+        {{- if .Values.env.test  }}
+        image: csi-attacher:{{ .Values.attacher.image.tag }}
+        {{- else }}
         image: {{ .Values.global.registry }}/csi-attacher:{{ .Values.attacher.image.tag }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - "--v=5"
@@ -51,10 +59,10 @@ spec:
       # ********************** baremetal-csi-controller container definition **********************
       # TODO: Make CSI containers name smaller - AK8S-57
       - name: controller
-        {{- if .Values.controller.image.tag }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ .Values.controller.image.tag }}
+        {{- if .Values.env.test  }}
+        image: baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
         {{- else }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ .Values.image.tag }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:

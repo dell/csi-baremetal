@@ -18,7 +18,11 @@ spec:
       containers:
       # ********************** DRIVER-REGISTRAR sidecar container definition **********************
       - name: csi-node-driver-registrar
+        {{- if .Values.env.test  }}
+        image: csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
+        {{- else }}
         image: {{ .Values.global.registry }}/csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
           - "--v=5"
@@ -45,10 +49,10 @@ spec:
             mountPath: /registration
       # ********************** baremetal-csi-node container definition **********************
       - name: node
-        {{- if .Values.node.image.tag }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ .Values.node.image.tag }}
+        {{- if .Values.env.test  }}
+        image: baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
         {{- else }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ .Values.image.tag }}
+        image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
@@ -118,7 +122,11 @@ spec:
       # ********************** baremetal-csi-hwmgr container definition **********************
       # TODO: FABRIC-8595 Replace HWManager to DaemonSet
       - name: hwmgr
+        {{- if .Values.env.test  }}
+        image: {{ .Values.hwmgr.image.repository }}:{{ default .Values.image.tag .Values.hwmgr.image.tag }}
+        {{- else }}
         image: {{ .Values.global.registry }}/{{ .Values.hwmgr.image.repository }}:{{ default .Values.image.tag .Values.hwmgr.image.tag }}
+        {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
     {{- if eq .Values.hwmgr.halOverride.iscsi true }}

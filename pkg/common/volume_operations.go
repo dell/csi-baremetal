@@ -24,7 +24,7 @@ type VolumeOperations interface {
 	CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error)
 	DeleteVolume(ctx context.Context, volumeID string) error
 	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string)
-	WaitStatus(ctx context.Context, volumeID string, statuses ...string) (bool, string)
+	WaitStatus(ctx context.Context, volumeID string, statuses ...string) error
 	ReadVolumeAndChangeStatus(volumeID string, newStatus string) error
 }
 
@@ -116,6 +116,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			Location:          ac.Spec.Location,
 			CSIStatus:         apiV1.Creating,
 			StorageClass:      sc,
+			Ephemeral:         v.Ephemeral,
 			Health:            apiV1.HealthGood,
 			LocationType:      locationType,
 			OperationalStatus: apiV1.OperationalStatusOperative,
@@ -222,9 +223,8 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 }
 
 // WaitStatus check volume status until it will be reached one of the statuses
-// return true if one of the status had reached, or return false instead
-// also return status that had reached or "", pull status while context is active
-func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string, statuses ...string) (bool, string) {
+// return error if context is done or volume reaches failed status, return nil if reached status != failed
+func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string, statuses ...string) error {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "WaitStatus",
 		"volumeID": volumeID,
@@ -237,25 +237,26 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 		timeoutBetweenCheck = time.Second
 		err                 error
 	)
-
 	for {
 		select {
 		case <-ctx.Done():
 			ll.Warnf("Context is done but volume still not reach one of the expected state.")
-			return false, ""
+			return fmt.Errorf("volume context is done")
 		case <-time.After(timeoutBetweenCheck):
 			if err = vo.k8sClient.ReadCR(ctx, volumeID, v); err != nil {
 				ll.Errorf("Unable to read volume CR: %v", err)
 				if k8sError.IsNotFound(err) {
 					ll.Error("Volume CR doesn't exist")
-					return false, ""
+					return fmt.Errorf("volume isn't found")
 				}
 				continue
 			}
 			for _, s := range statuses {
 				if v.Spec.CSIStatus == s {
-					ll.Infof("Volume has reached %s state.", s)
-					return true, s
+					if s == apiV1.Failed {
+						return fmt.Errorf("volume has reached Failed status")
+					}
+					return nil
 				}
 			}
 		}

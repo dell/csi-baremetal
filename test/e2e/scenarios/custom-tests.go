@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -72,7 +73,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 		ns := f.Namespace.Name
 
 		if pod != nil {
-			_ = framework.DeletePodWithWait(f, f.ClientSet, pod)
+			_ = pode2e.DeletePodWithWait(f.ClientSet, pod)
 		}
 
 		if pvc != nil {
@@ -100,10 +101,10 @@ func healthCheckTest(driver testsuites.TestDriver) {
 
 		ns := f.Namespace.Name
 
-		err := framework.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0, 90*time.Second, nil)
+		err := pode2e.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0, 90*time.Second, nil)
 		framework.ExpectNoError(err)
 
-		podList, err := framework.GetPodsInNamespace(f.ClientSet, ns, nil)
+		podList, err := pode2e.GetPodsInNamespace(f.ClientSet, ns, nil)
 		framework.ExpectNoError(err)
 		csiNode := findPodNameBySubstring(podList, "baremetal-csi-node")
 
@@ -132,7 +133,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 			Create(constructPVC(driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), ns))
 		framework.ExpectNoError(err)
 
-		pod, err = framework.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err = pode2e.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 

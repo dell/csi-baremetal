@@ -52,29 +52,32 @@ void runTests() {
                     //E2E tests can't work with helm, so we need to provide prepared yaml files for it
                     stage('Prepare YAML for e2e tests') {
                         sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
-                                "--set global.registry=${registry} " +
+                                "--set env.test=true " +
                                 "--set hwmgr.type=LOOPBACK " +
                                 "--set image.pullPolicy=IfNotPresent")
                     }
                     stage('Start Kind') {
                         sh("""
-                           kind create cluster --kubeconfig /root/.kube/config --config test/kind/kind.yaml
+                          kind create cluster --kubeconfig /root/.kube/config --config test/kind/kind.yaml
                         """)
                     }
                     stage('Prepare images for Kind') {
                         sh("""
-                           make kind-pull-images TAG=${csiVersion} REGISTRY=${registry}
-                           make kind-load-images TAG=${csiVersion} REGISTRY=${registry}
+                          make kind-pull-images TAG=${csiVersion} REGISTRY=${registry}
+                          make kind-tag-images TAG=${csiVersion} REGISTRY=${registry}
+                          make kind-load-images TAG=${csiVersion} REGISTRY=${registry}
                         """)
                     }
+
                     stage('E2E testing') {
                         sh('''
                             kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_availablecapacities.yaml
                             kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_volumes.yaml
                             kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_drives.yaml
                             kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_lvgs.yaml
+                            kubectl apply -f charts/baremetal-csi-plugin/templates/csidriver.yaml
                         ''')
-                        testExitCode = sh(script: 'make test-ci', returnStatus: true)
+                        testExitCode = sh(script: "make test-ci", returnStatus: true)
                         archiveArtifacts('log.txt')
                         common.parseJunitResults(searchPattern: 'test/e2e/report.xml')
                         if ((testExitCode == 0)) {

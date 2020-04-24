@@ -552,6 +552,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		err         error
 	)
 	switch vol.StorageClass {
+	//TODO AK8S-762 Use createPartitionAndSetUUID for SSDLVG, HDDLVG SC in CreateLocalVolume
 	case apiV1.StorageClassSSDLVG, apiV1.StorageClassHDDLVG:
 		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(base.GBYTE))
 		vgName := vol.Location
@@ -609,7 +610,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 			// otherwise partition UUID won't be set correctly
 			// todo can we guarantee that e2e test has 'pvc-' prefix
 			volumeUUID, _ := util.GetVolumeUUID(id)
-			partition, rollBacked, err := m.createPartitionAndSetUUID(device, volumeUUID)
+			partition, rollBacked, err := m.createPartitionAndSetUUID(device, volumeUUID, vol.Ephemeral)
 			if err != nil {
 				if !rollBacked {
 					ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
@@ -632,7 +633,6 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 			}
 		}()
 	}
-
 	return m.pullCreateLocalVolume(ctx, vol.Id)
 }
 
@@ -675,7 +675,7 @@ func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID stri
 // createPartitionAndSetUUID creates partition and sets partition UUID, if some step fails
 // will try to rollback operation, returns error and roll back operation status (bool)
 // if error occurs, status value will show whether device has roll back to the initial state
-func (m *VolumeManager) createPartitionAndSetUUID(device string, uuid string) (partName string, rollBacked bool, err error) {
+func (m *VolumeManager) createPartitionAndSetUUID(device string, uuid string, ephemeral bool) (partName string, rollBacked bool, err error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "createPartitionAndSetUUID",
 		"uuid":   uuid,
@@ -735,7 +735,14 @@ func (m *VolumeManager) createPartitionAndSetUUID(device string, uuid string) (p
 		}
 		return
 	}
-
+	//TODO temporary solution because of ephemeral volumes volume id https://jira.cec.lab.emc.com:8443/browse/AK8S-749
+	if ephemeral {
+		uuid, err = m.linuxUtils.GetPartitionUUID(device)
+		if err != nil {
+			ll.Errorf("Partition has already exist but fail to get it UUID: %v", err)
+			return "", false, fmt.Errorf("partition has already exist on device %s", device)
+		}
+	}
 	// get partition name
 	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
 		partName, err = m.linuxUtils.GetPartitionNameByUUID(device, uuid)

@@ -207,7 +207,7 @@ var _ = Describe("Working with CRD", func() {
 			acCopy := acCR.DeepCopy()
 			err = k8sclient.Update(testCtx, &acCR)
 			Expect(err).To(BeNil())
-			Expect(&acCR).To(Equal(acCopy))
+			Expect(acCR.Spec).To(Equal(acCopy.Spec))
 		})
 
 		It("Should Drive update successfully", func() {
@@ -224,7 +224,7 @@ var _ = Describe("Working with CRD", func() {
 			driveCopy := driveCR.DeepCopy()
 			err = k8sclient.Update(testCtx, &driveCR)
 			Expect(err).To(BeNil())
-			Expect(&driveCR).To(Equal(driveCopy))
+			Expect(driveCR.Spec).To(Equal(driveCopy.Spec))
 		})
 	})
 

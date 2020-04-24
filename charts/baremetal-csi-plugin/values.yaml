@@ -2,6 +2,9 @@
 global:
   registry: 10.244.120.194:8085/atlantic  # asdrepo.isus.emc.com:8085/atlantic
 
+env:
+ test: false
+
 #format of logs
 log:
   format: text

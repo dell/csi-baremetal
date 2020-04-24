@@ -20,8 +20,8 @@ import (
 var CSITestSuites = []func() testsuites.TestSuite{
 	testsuites.InitVolumesTestSuite,
 	testsuites.InitVolumeIOTestSuite,
-	//Comment this test suite because it contains test for multi node access to volume
-	//testsuites.InitProvisioningTestSuite,
+	testsuites.InitEphemeralTestSuite,
+	testsuites.InitProvisioningTestSuite,
 }
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {

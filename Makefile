@@ -74,12 +74,12 @@ push-controller:
 
 # todo how to handle tag change for sidecars in charts?
 kind-load-images:
-	kind load docker-image ${REGISTRY}/csi-provisioner:v1.2.2
-	kind load docker-image ${REGISTRY}/csi-node-driver-registrar:v1.0.1-gke.0
-	kind load docker-image ${REGISTRY}/csi-attacher:v1.0.1
-	kind load docker-image ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
-	kind load docker-image ${REGISTRY}/${REPO}-${NODE}:${TAG}
-	kind load docker-image ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
+	kind load docker-image csi-provisioner:v1.2.2
+	kind load docker-image csi-node-driver-registrar:v1.0.1-gke.0
+	kind load docker-image csi-attacher:v1.0.1
+	kind load docker-image ${REPO}-${HW_MANAGER}:${TAG}
+	kind load docker-image ${REPO}-${NODE}:${TAG}
+	kind load docker-image ${REPO}-${CONTROLLER}:${TAG}
 	kind load docker-image busybox:1.29
 
 kind-pull-images:
@@ -91,6 +91,13 @@ kind-pull-images:
 	docker pull ${REGISTRY}/${REPO}-${NODE}:${TAG}
 	docker pull ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
+kind-tag-images:
+	docker tag ${REGISTRY}/csi-provisioner:v1.2.2 csi-provisioner:v1.2.2
+	docker tag ${REGISTRY}/csi-node-driver-registrar:v1.0.1-gke.0 csi-node-driver-registrar:v1.0.1-gke.0
+	docker tag ${REGISTRY}/csi-attacher:v1.0.1 csi-attacher:v1.0.1
+	docker tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ${REPO}-${HW_MANAGER}:${TAG}
+	docker tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ${REPO}-${NODE}:${TAG}
+	docker tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ${REPO}-${CONTROLLER}:${TAG}
 
 clean: clean-hwmgr clean-node clean-controller clean-proto
 
@@ -139,7 +146,7 @@ pr-validation-junit:
 # Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
 # Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.
 test-ci:
-	CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress --kubeconfig=/root/.kube/config -timeout=0 > log.txt
+	CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=/root/.kube/config -timeout=0 > log.txt
 
 # Run commnity sanity tests for CSI.
 # TODO AK8S-651 Must fix tests "Node Service should be idempotent" and "Node Service should work"

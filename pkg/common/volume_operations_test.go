@@ -241,26 +241,18 @@ func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
 	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer closeFn()
 
-	reached, st := svc.WaitStatus(ctx, v.Name, apiV1.Failed, apiV1.Created)
-	assert.True(t, reached)
-	assert.Equal(t, apiV1.Created, st)
+	err = svc.WaitStatus(ctx, v.Name, apiV1.Failed, apiV1.Created)
+	assert.Nil(t, err)
 }
 
 func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	svc := setupVOOperationsTest(t)
 
-	var (
-		reached bool
-		status  string
-	)
-
 	// volume CR wasn't found scenario
-	reached, status = svc.WaitStatus(testCtx, "unknown_name", apiV1.Created)
-	assert.False(t, reached)
-	assert.Equal(t, "", status)
-
+	err := svc.WaitStatus(testCtx, "unknown_name", apiV1.Created)
+	assert.NotNil(t, err)
 	// ctx is done scenario
-	err := svc.k8sClient.CreateCR(testCtx, testVolume1Name, &testVolume1)
+	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &testVolume1)
 	assert.Nil(t, err)
 
 	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
@@ -268,9 +260,8 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	ctx.Done()
 
 	// volume CR wasn't found
-	reached, status = svc.WaitStatus(ctx, testVolume1Name, apiV1.Created)
-	assert.False(t, reached)
-	assert.Equal(t, "", status)
+	err = svc.WaitStatus(ctx, testVolume1Name, apiV1.Created)
+	assert.NotNil(t, err)
 }
 
 func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {

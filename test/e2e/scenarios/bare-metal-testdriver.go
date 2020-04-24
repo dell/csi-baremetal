@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/onsi/ginkgo"
 	v12 "k8s.io/api/storage/v1"
@@ -42,6 +43,7 @@ func InitBaremetalDriver() testsuites.TestDriver {
 
 var _ testsuites.TestDriver = &baremetalDriver{}
 var _ testsuites.DynamicPVTestDriver = &baremetalDriver{}
+var _ testsuites.EphemeralTestDriver = &baremetalDriver{}
 
 func (n *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 	return &n.driverInfo
@@ -76,6 +78,8 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 			Prefix:    "baremetal",
 			Framework: f,
 		}, func() {
+			//wait until ephemeral volume will be deleted
+			time.Sleep(time.Minute)
 			ginkgo.By("uninstalling baremetal driver")
 			cleanup()
 			cancelLogging()
@@ -89,4 +93,15 @@ func (n *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 	delayedBinding := v12.VolumeBindingWaitForFirstConsumer
 
 	return testsuites.GetStorageClass(provisioner, map[string]string{}, &delayedBinding, ns, suffix)
+}
+
+func (n *baremetalDriver) GetVolume(config *testsuites.PerTestConfig, volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
+	attributes = make(map[string]string)
+	attributes["size"] = n.GetClaimSize()
+	attributes["storageType"] = "HDD"
+	return attributes, false, false
+}
+
+func (n *baremetalDriver) GetCSIDriverName(config *testsuites.PerTestConfig) string {
+	return n.GetDriverInfo().Name
 }

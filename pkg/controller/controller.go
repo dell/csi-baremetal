@@ -3,7 +3,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -137,23 +136,15 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, err
 	}
 
-	var newStatus = vol.CSIStatus
 	if vol.CSIStatus == apiV1.Creating {
-		ll.Info("Waiting until volume will reach Created or Failed status")
-		reached, st := c.svc.WaitStatus(ctx, req.GetName(), apiV1.Created, apiV1.Failed)
-		if !reached {
-			return nil, status.Errorf(codes.Aborted, "CreateVolume is in progress")
+		ll.Info("Waiting until volume will reach Created status")
+		if err := c.svc.WaitStatus(ctx, vol.Id, apiV1.Failed, apiV1.Created); err != nil {
+			return nil, status.Error(codes.Internal, "Unable to create volume")
 		}
-		newStatus = st
 	}
 
 	if err = c.acProvider.DeleteIfEmpty(ctx, vol.Location); err != nil {
 		ll.Errorf("Unable to check AC size by location: %v", err)
-	}
-
-	if newStatus != apiV1.Created {
-		ll.Errorf("Unable to create volume %v. Volume reached %s status", vol, newStatus)
-		return nil, status.Error(codes.Internal, "Unable to create volume on local node.")
 	}
 
 	ll.Infof("Construct response based on volume: %v", vol)
@@ -200,16 +191,8 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		ll.Errorf("Unable to delete volume: %v", err)
 		return nil, err
 	}
-
-	ll.Info("Waiting until volume will reach Removed status")
-	reached, st := c.svc.WaitStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed)
-
-	if !reached {
-		return nil, fmt.Errorf("unable to delete volume %s, still in removing state", req.VolumeId)
-	}
-
-	if st == apiV1.Failed {
-		return nil, status.Error(codes.Internal, "volume has reached FailToRemove status")
+	if err = c.svc.WaitStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed); err != nil {
+		return nil, status.Error(codes.Internal, "Unable to delete volume")
 	}
 
 	c.reqMu.Lock()
