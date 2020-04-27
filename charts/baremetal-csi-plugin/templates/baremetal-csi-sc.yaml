@@ -9,3 +9,4 @@ reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 parameters:
   storageType: HDD
+  fsType: xfs

@@ -1,7 +1,6 @@
 package sc
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,7 +13,9 @@ import (
 
 const (
 	// MkFSCmdTmpl mkfs template
-	MkFSCmdTmpl = "mkfs.xfs -f %s"
+	MkFSCmdTmpl = "mkfs.%s %s" // add fs type and device
+	// SpeedUpFsCreationOpts options that could be used for speeds up creation of ext3 and ext4 FS
+	SpeedUpFsCreationOpts = " -E lazy_journal_init=1,lazy_itable_init=1,discard"
 	// WipeFSCmdTmpl wipefs template
 	WipeFSCmdTmpl = "wipefs -af %s"
 	// MKdirCmdTmpl mkdir template
@@ -57,9 +58,11 @@ func (d *DefaultDASC) CreateFileSystem(fsType FileSystem, device string) error {
 	var cmd string
 	switch fsType {
 	case XFS:
-		cmd = fmt.Sprintf(MkFSCmdTmpl, device)
+		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device)
+	case EXT3, EXT4:
+		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device) + SpeedUpFsCreationOpts
 	default:
-		return errors.New("unknown file system")
+		return fmt.Errorf("unsupported file system %v", fsType)
 	}
 
 	d.opMutex.Lock()
