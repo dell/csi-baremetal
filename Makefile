@@ -8,6 +8,8 @@ HW_MANAGER   := hwmgr
 CONTROLLER   := controller
 HEALTH_PROBE := health_probe
 
+GO_ENV_VARS  := GO111MODULE=on GOPRIVATE=eos2git.cec.lab.emc.com/* GOPROXY=http://asdrepo.isus.emc.com/artifactory/api/go/ecs-go-build,https://proxy.golang.org,direct
+
 .PHONY: version test build install-hal
 
 # print version
@@ -20,7 +22,7 @@ version:
 prepare-env: install-compile-proto install-hal install-controller-gen dependency generate-api
 
 dependency:
-	GO111MODULE=on GOPRIVATE=eos2git.cec.lab.emc.com/* go mod download
+	${GO_ENV_VARS} go mod download
 
 build: compile-proto build-hwmgr build-node build-controller
 
@@ -125,7 +127,7 @@ clean-image-controller:
 	docker rmi ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
 lint:
-	golangci-lint run ./...
+	golangci-lint -v run ./...
 
 lint-charts:
 	helm lint ./${CHARTS_PATH}
@@ -146,7 +148,7 @@ pr-validation-junit:
 # Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
 # Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.
 test-ci:
-	CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=/root/.kube/config -timeout=0 > log.txt
+	CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=~/.kube/config -timeout=0 > log.txt
 
 # Run commnity sanity tests for CSI.
 # TODO AK8S-651 Must fix tests "Node Service should be idempotent" and "Node Service should work"
@@ -186,7 +188,7 @@ install-hal:
 
 install-controller-gen:
 	# Generate deepcopy functions for Volume
-	GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
+	${GO_ENV_VARS} go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
 
 download-grpc-health-probe:
 	curl -OJL http://asdrepo.isus.emc.com:8081/artifactory/ecs-build/com/github/grpc-ecosystem/grpc-health-probe/0.3.1/grpc_health_probe-linux-amd64

@@ -58,7 +58,7 @@ void runTests() {
                     }
                     stage('Start Kind') {
                         sh("""
-                          kind create cluster --kubeconfig /root/.kube/config --config test/kind/kind.yaml
+                          kind create cluster --config test/kind/kind.yaml
                         """)
                     }
                     stage('Prepare images for Kind') {

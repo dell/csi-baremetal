@@ -59,7 +59,7 @@ boolean validatePullRequest(String commit) {
                 parallel(
                     'charts': {
                         stage('Create Kind Cluster') {
-                            sh('kind create cluster --kubeconfig /root/.kube/config --config config.yaml')
+                            sh('kind create cluster --config test/kind/kind.yaml')
                         }
                         stage('Lint') {
                             chartsLintExitCode = sh(script: 'make lint-charts', returnStatus: true)
@@ -69,8 +69,7 @@ boolean validatePullRequest(String commit) {
                             }
                         }
                         stage('Install Charts') {
-                            chartsInstallExitCode = sh(script: 'helm install csi ' +
-                                '--kubeconfig=/root/.kube/config ./charts/baremetal-csi-plugin', returnStatus: true)
+                            chartsInstallExitCode = sh(script: "helm install csi ./charts/baremetal-csi-plugin", returnStatus: true)
                             if (chartsInstallExitCode != 0) {
                                 currentBuild.result = 'FAILURE'
                                 throw new Exception("Install charts stage failed, check logs")
