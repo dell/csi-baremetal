@@ -108,7 +108,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	if req.GetName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
 	}
-	if req.GetVolumeCapabilities() == nil || len(req.GetVolumeCapabilities()) == 0 {
+	if req.GetVolumeCapabilities() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
 	}
 
@@ -119,16 +119,9 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}
 
 	var (
-		fsType = "None"
-		err    error
-		mode   string
-		vol    *api.Volume
+		err error
+		vol *api.Volume
 	)
-
-	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
-		fsType = strings.ToLower(accessType.Mount.FsType) // ext4 by default (from request)
-		mode = apiV1.ModeFS
-	}
 
 	c.reqMu.Lock()
 	vol, err = c.svc.CreateVolume(ctx, api.Volume{
@@ -136,8 +129,6 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		StorageClass: base.ConvertStorageClass(req.Parameters["storageType"]),
 		NodeId:       preferredNode,
 		Size:         req.GetCapacityRange().GetRequiredBytes(),
-		Mode:         mode,
-		Type:         fsType,
 	})
 	c.reqMu.Unlock()
 

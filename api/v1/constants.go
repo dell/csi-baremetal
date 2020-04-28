@@ -13,45 +13,46 @@ const (
 
 	// Health statuses
 	HealthUnknown = "UNKNOWN"
-	HealthGood    = "GOOD"
+	HealthGood = "GOOD"
 	HealthSuspect = "SUSPECT"
-	HealthBad     = "BAD"
+	HealthBad = "BAD"
 
 	// Drive status
-	DriveStatusOnline  = "ONLINE"
+	DriveStatusOnline = "ONLINE"
 	DriveStatusOffline = "OFFLINE"
 
 	// Drive type
-	DriveTypeHDD  = "HDD"
-	DriveTypeSSD  = "SSD"
+	DriveTypeHDD = "HDD"
+	DriveTypeSSD = "SSD"
 	DriveTypeNVMe = "NVME"
 
 	// Volume operational status
-	OperationalStatusOperative     = "OPERATIVE"
-	OperationalStatusInoperative   = "INOPERATIVE"
-	OperationalStatusStaging       = "STAGING"
-	OperationalStatusMissing       = "MISSING"
-	OperationalStatusRemoving      = "REMOVING"
+	OperationalStatusOperative = "OPERATIVE"
+	OperationalStatusInoperative = "INOPERATIVE"
+	OperationalStatusStaging = "STAGING"
+	OperationalStatusMissing = "MISSING"
+	OperationalStatusRemoving = "REMOVING"
 	OperationalStatusReadyToRemove = "READY_TO_REMOVE"
-	OperationalStatusFailToRemove  = "FAIL_TO_REMOVE"
-	OperationalStatusMaintenance   = "MAINTENANCE"
-	OperationalStatusRemoved       = "REMOVED"
-	OperationalStatusUnknown       = "UNKNOWN"
+	OperationalStatusFailToRemove = "FAIL_TO_REMOVE"
+	OperationalStatusMaintenance = "MAINTENANCE"
+	OperationalStatusRemoved = "REMOVED"
+	OperationalStatusUnknown = "UNKNOWN"
 
 	// Volume mode
 	ModeRAW = "RAW"
-	ModeFS  = "FS"
+	ModeFS = "FS"
 
 	// Volume location type
 	LocationTypeDrive = "DRIVE"
-	LocationTypeLVM   = "LVM"
-	LocationTypeNVMe  = "NVME"
+	LocationTypeLVM = "LVM"
+	LocationTypeNVMe = "NVME"
 
 	// CSI StorageClass
-	StorageClassAny    = "ANY"
-	StorageClassHDD    = "HDD"
-	StorageClassSSD    = "SSD"
-	StorageClassNVMe   = "NVME"
+	StorageClassAny = "ANY"
+	StorageClassHDD = "HDD"
+	StorageClassSSD = "SSD"
+	StorageClassNVMe = "NVME"
 	StorageClassHDDLVG = "HDDLVG"
 	StorageClassSSDLVG = "SSDLVG"
+
 )

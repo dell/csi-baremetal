@@ -24,7 +24,5 @@ type FileSystem string
 
 // Filesystem which can be used for CSI
 const (
-	XFS  FileSystem = "xfs"
-	EXT4 FileSystem = "ext4"
-	EXT3 FileSystem = "ext3"
+	XFS FileSystem = "xfs"
 )

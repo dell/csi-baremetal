@@ -82,8 +82,6 @@ var (
 			Location:     "",
 			CSIStatus:    crdV1.Creating,
 			NodeId:       nodeId,
-			Mode:         apiV1.ModeFS,
-			Type:         string(sc.XFS),
 		},
 	}
 
@@ -119,8 +117,6 @@ var (
 			Location:     lvgCR.Name,
 			CSIStatus:    crdV1.Creating,
 			NodeId:       nodeId,
-			Mode:         apiV1.ModeFS,
-			Type:         string(sc.XFS),
 		},
 	}
 
@@ -522,7 +518,7 @@ func TestVolumeManager_CreateLocalVolumeHDDSuccess(t *testing.T) {
 	assert.True(t, len(dList.Items) > 0)
 	vol.Location = dList.Items[0].Spec.UUID
 	scMock := &sc.ImplementerMock{}
-	scMock.On("CreateFileSystem", sc.FileSystem(vol.Type), "/dev/sda1").Return(nil).Times(1)
+	scMock.On("CreateFileSystem", sc.XFS, "/dev/sda1").Return(nil).Times(1)
 	vm.scMap["hdd"] = scMock
 	err = vm.CreateLocalVolume(context.Background(), &vol)
 	assert.Nil(t, err)
@@ -547,7 +543,7 @@ func TestVolumeManager_CreateLocalVolumeLVGSuccess(t *testing.T) {
 	e.OnCommand(fmt.Sprintf("/sbin/lvm lvcreate --yes --name %s --size %s %s", volume.Id, sizeStr, volume.Location)).
 		Return("", "", nil)
 	e.OnCommand(fmt.Sprintf(sc.FileSystemExistsTmpl, fullPath)).Return("", "", nil)
-	e.OnCommand(fmt.Sprintf(sc.MkFSCmdTmpl, sc.XFS, fullPath)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(sc.MkFSCmdTmpl, fullPath)).Return("", "", nil)
 
 	err := vm.k8sclient.CreateCR(testCtx, lvgName, &lvgCR)
 	assert.Nil(t, err)

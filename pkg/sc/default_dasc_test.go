@@ -21,7 +21,7 @@ var (
 	deviceTest        = "/dev/children1"
 	isFSExists        = fmt.Sprintf(FileSystemExistsTmpl, deviceTest)
 	mountpointCmdTest = fmt.Sprintf(MountpointCmdTmpl, deviceTest)
-	mkfsCmdTest       = fmt.Sprintf(MkFSCmdTmpl, XFS, deviceTest)
+	mkfsCmdTest       = fmt.Sprintf(MkFSCmdTmpl, deviceTest)
 	mkdirCmdTest      = fmt.Sprintf(MKdirCmdTmpl, targetPathTest)
 	mountCmdTest      = fmt.Sprintf(MountCmdTmpl, "", deviceTest, targetPathTest)
 	rmCmdTest         = fmt.Sprintf(RMCmdTmpl, targetPathTest)

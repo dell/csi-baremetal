@@ -2,7 +2,6 @@ package scenarios
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -15,7 +14,6 @@ import (
 
 type baremetalDriver struct {
 	driverInfo testsuites.DriverInfo
-	scManifest map[string]string
 }
 
 func (n *baremetalDriver) GetClaimSize() string {
@@ -31,13 +29,9 @@ func initBaremetalDriver(name string) testsuites.TestDriver {
 			MaxFileSize: testpatterns.FileSizeSmall,
 			Capabilities: map[testsuites.Capability]bool{
 				testsuites.CapPersistence: true,
-				testsuites.CapExec:        true,
 			},
 			SupportedFsType: sets.NewString(
 				"", // Default fsType
-				"xfs",
-				"ext4",
-				"ext3",
 			),
 		},
 	}
@@ -70,7 +64,7 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		"node-rbac.yaml",
 		"baremetal-csi-controller.yaml",
 		"baremetal-csi-node.yaml",
-		// "baremetal-csi-sc.yaml",
+		"baremetal-csi-sc.yaml",
 	}
 
 	cleanup, err := f.CreateFromManifests(nil, manifests...)
@@ -93,23 +87,12 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 }
 
 func (n *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTestConfig, fsType string) *v12.StorageClass {
-	var scFsType string
-	switch strings.ToLower(fsType) {
-	case "", "xfs":
-		scFsType = "xfs"
-	default:
-		scFsType = fsType
-	}
 	ns := config.Framework.Namespace.Name
 	provisioner := n.driverInfo.Name
 	suffix := fmt.Sprintf("%s-sc", n.driverInfo.Name)
 	delayedBinding := v12.VolumeBindingWaitForFirstConsumer
-	scParams := map[string]string{
-		"storageType": "HDD",
-		"fsType":      scFsType,
-	}
 
-	return testsuites.GetStorageClass(provisioner, scParams, &delayedBinding, ns, suffix)
+	return testsuites.GetStorageClass(provisioner, map[string]string{}, &delayedBinding, ns, suffix)
 }
 
 func (n *baremetalDriver) GetVolume(config *testsuites.PerTestConfig, volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
