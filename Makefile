@@ -127,7 +127,7 @@ clean-image-controller:
 	docker rmi ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
 lint:
-	golangci-lint -v run ./...
+	${GO_ENV_VARS} golangci-lint -v --timeout 2m run ./...
 
 lint-charts:
 	helm lint ./${CHARTS_PATH}
