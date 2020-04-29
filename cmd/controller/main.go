@@ -23,7 +23,7 @@ var (
 
 const (
 	driverName        = "baremetal-csi"
-	version           = "0.0.3"
+	version           = "0.0.4"
 	timeoutBeforeInit = 30
 )
 

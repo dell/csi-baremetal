@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.0.3
+appVersion: 0.0.4
 description: Bare-metal CSI plugin
 name: baremetal-csi-plugin
-version: 0.0.3
+version: 0.0.4
