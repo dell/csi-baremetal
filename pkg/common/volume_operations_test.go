@@ -53,14 +53,14 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 			},
 		}
 		expectedVolume = &api.Volume{
-			Id:           volumeID,
-			Location:     expectedAC.Spec.Location,
-			StorageClass: expectedAC.Spec.StorageClass,
-			NodeId:       expectedAC.Spec.NodeId,
-			Size:         expectedAC.Spec.Size,
-			CSIStatus:    apiV1.Creating,
-			Health:       apiV1.HealthGood,
-			LocationType: apiV1.LocationTypeDrive,
+			Id:                volumeID,
+			Location:          expectedAC.Spec.Location,
+			StorageClass:      expectedAC.Spec.StorageClass,
+			NodeId:            expectedAC.Spec.NodeId,
+			Size:              expectedAC.Spec.Size,
+			CSIStatus:         apiV1.Creating,
+			Health:            apiV1.HealthGood,
+			LocationType:      apiV1.LocationTypeDrive,
 			OperationalStatus: apiV1.OperationalStatusOperative,
 		}
 	)
@@ -110,14 +110,14 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	expectedVolume := &api.Volume{
-		Id:           volumeID,
-		Location:     expectedAC.Spec.Location,
-		StorageClass: expectedAC.Spec.StorageClass,
-		NodeId:       expectedAC.Spec.NodeId,
-		Size:         requiredBytes,
-		CSIStatus:    apiV1.Creating,
-		Health:       apiV1.HealthGood,
-		LocationType: apiV1.LocationTypeLVM,
+		Id:                volumeID,
+		Location:          expectedAC.Spec.Location,
+		StorageClass:      expectedAC.Spec.StorageClass,
+		NodeId:            expectedAC.Spec.NodeId,
+		Size:              requiredBytes,
+		CSIStatus:         apiV1.Creating,
+		Health:            apiV1.HealthGood,
+		LocationType:      apiV1.LocationTypeLVM,
 		OperationalStatus: apiV1.OperationalStatusOperative,
 	}
 	assert.Equal(t, expectedVolume, createdVolume)

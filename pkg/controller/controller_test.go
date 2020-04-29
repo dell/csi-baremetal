@@ -23,6 +23,7 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/testutils"
 )
 
@@ -104,8 +105,9 @@ var (
 			Id:       testID,
 			NodeId:   "pod",
 			Size:     1000,
-			Type:     "Type",
+			Type:     string(sc.XFS),
 			Location: "location",
+			Mode:     apiV1.ModeFS,
 		},
 	}
 
@@ -550,9 +552,21 @@ func removeAllPods(s *CSIControllerService) {
 // return CreateVolumeRequest based on provided parameters
 func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.CreateVolumeRequest {
 	req := &csi.CreateVolumeRequest{
-		Name:               name,
-		CapacityRange:      &csi.CapacityRange{RequiredBytes: cap},
-		VolumeCapabilities: make([]*csi.VolumeCapability, 0),
+		Name:          name,
+		CapacityRange: &csi.CapacityRange{RequiredBytes: cap},
+		VolumeCapabilities: []*csi.VolumeCapability{
+			{
+				AccessType: &csi.VolumeCapability_Mount{
+					Mount: &csi.VolumeCapability_MountVolume{
+						FsType:     string(sc.XFS),
+						MountFlags: nil,
+					},
+				},
+				AccessMode: &csi.VolumeCapability_AccessMode{
+					Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+				},
+			},
+		},
 	}
 
 	if preferredNode != "" {

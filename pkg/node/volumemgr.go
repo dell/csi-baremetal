@@ -420,8 +420,7 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 				v.LocationType == apiV1.LocationTypeDrive &&
 				strings.EqualFold(d.Spec.UUID, v.Location) {
 				isUsed = true
-				ll.Infof("Found volume with ID \"%s\" in cache for drive with UUID \"%s\"",
-					v.Id, d.Spec.UUID)
+				ll.Infof("Found volume with ID \"%s\" in cache for drive with UUID \"%s\"", v.Id, d.Spec.UUID)
 				break
 			}
 		}
@@ -579,8 +578,10 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 		ll.Info("LV was created.")
 
 		go func() {
-			if err := scImpl.CreateFileSystem(sc.XFS, fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)); err != nil {
-				ll.Error("Failed to create file system, set volume status FailedToCreate", err)
+			lv := fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
+			err := scImpl.CreateFileSystem(sc.FileSystem(vol.Type), lv)
+			if err != nil {
+				ll.Errorf("Failed to create file system: %v, set volume status FailedToCreate", err)
 				newStatus = apiV1.Failed
 			}
 			m.setVolumeStatus(vol.Id, newStatus)
@@ -624,9 +625,9 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 			} else {
 				ll.Info("Partition was created successfully")
 				newStatus := apiV1.Created
-				// TODO AK8S-632 Make CreateFileSystem work with different type of file systems
-				if err := scImpl.CreateFileSystem(sc.XFS, partition); err != nil {
-					ll.Error("Failed to create file system, set volume status FailedToCreate", err)
+				err := scImpl.CreateFileSystem(sc.FileSystem(vol.Type), partition)
+				if err != nil {
+					ll.Errorf("Failed to create file system: %v, set volume status FailedToCreate", err)
 					newStatus = apiV1.Failed
 				}
 				m.setVolumeStatus(id, newStatus)

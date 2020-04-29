@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -252,12 +253,13 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 			}
 		}
 	}
+
 	//For prepareAndPerformMount function
 	bind := true
 	volumeID := req.GetVolumeId()
 	//Inline volume has the same cycle as usual volume, but k8s calls only Publish/Unpulish methods so we need to call CreateVolume before publish it
 	if inline {
-		vol, err := s.createInlineVolume(ctx, volumeID, req.GetVolumeContext())
+		vol, err := s.createInlineVolume(ctx, volumeID, req)
 		if err != nil {
 			ll.Error("failed to create inline volume, error: ", err)
 			return nil, status.Error(codes.Internal, "failed to publish volume")
@@ -299,24 +301,50 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 }
 
 //createInlineVolume encapsulate logic for creating inline volumes
-func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string, volumeContext map[string]string) (*api.Volume, error) {
+func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string, req *csi.NodePublishVolumeRequest) (*api.Volume, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "createInlineVolume",
 		"volumeID": volumeID,
 	})
-	reqBytes := volumeContext["size"]
-	bytes, err := base.StrToBytes(reqBytes)
-	if err != nil {
-		ll.Errorf("Failed to parse value %v to bytes", reqBytes)
+
+	var (
+		volumeContext = req.GetVolumeContext() // verified in NodePublishVolume method
+		bytesStr      = volumeContext[base.SizeKey]
+		fsType        = "None"
+		mode          string
+		sc            string
+		bytes         int64
+		err           error
+	)
+
+	if bytes, err = base.StrToBytes(bytesStr); err != nil {
+		ll.Errorf("Failed to parse value %v to bytes", bytesStr)
 		return nil, err
 	}
+
+	if accessType, ok := req.GetVolumeCapability().AccessType.(*csi.VolumeCapability_Mount); ok {
+		fsType = strings.ToLower(accessType.Mount.FsType)
+		if fsType == "" {
+			fsType = base.DefaultFsType
+			ll.Infof("FS type wasn't provide. Will use %s as a default value", fsType)
+		}
+		mode = apiV1.ModeFS
+	}
+
+	sc = base.ConvertStorageClass(volumeContext[base.StorageTypeKey])
+	if sc == apiV1.StorageClassAny {
+		sc = apiV1.StorageClassHDD // do not use sc ANY for inline volumes
+	}
+
 	s.reqMu.Lock()
 	vol, err := s.svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
-		StorageClass: base.ConvertStorageClass(volumeContext["storageType"]),
+		StorageClass: sc,
 		NodeId:       s.NodeID,
 		Size:         bytes,
 		Ephemeral:    true,
+		Mode:         mode,
+		Type:         fsType,
 	})
 	s.reqMu.Unlock()
 	if err != nil {

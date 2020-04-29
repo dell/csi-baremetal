@@ -120,6 +120,8 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			Health:            apiV1.HealthGood,
 			LocationType:      locationType,
 			OperationalStatus: apiV1.OperationalStatusOperative,
+			Mode:              v.Mode,
+			Type:              v.Type,
 		}
 		volumeCR = vo.k8sClient.ConstructVolumeCR(v.Id, apiVolume)
 
