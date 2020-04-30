@@ -70,12 +70,17 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 	// construct log message based on output and error
 	if len(errStr) > 0 {
 		stdErrPart = fmt.Sprintf(", stderr: %s", errStr)
+		level = logrus.WarnLevel
 	}
 	if err != nil {
 		errPart = fmt.Sprintf(", Error: %v", err)
 		level = logrus.ErrorLevel
 	}
-	e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
-		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
+
+	if err != nil || errStr != "" {
+		e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
+			Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
+	}
+
 	return outStr, errStr, err
 }

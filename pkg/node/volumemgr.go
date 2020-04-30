@@ -173,8 +173,6 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 // Also this method creates AC CRs. Performs at some intervals in a goroutine
 // Returns error if something went wrong during discovering
 func (m *VolumeManager) Discover() error {
-	m.log.WithField("method", "Discover").Info("Processing")
-
 	ctx, cancelFn := context.WithTimeout(context.Background(), DiscoverDrivesTimeout)
 	defer cancelFn()
 	drivesResponse, err := m.hWMgrClient.GetDrivesList(ctx, &api.DrivesRequest{NodeId: m.nodeID})
@@ -196,7 +194,8 @@ func (m *VolumeManager) Discover() error {
 	if !m.initialized {
 		err = m.discoverLVGOnSystemDrive()
 		if err != nil {
-			m.log.Errorf("discoverLVGOnSystemDrive finished with error: %v", err)
+			m.log.WithField("method", "Discover").
+				Errorf("unable to inspect system LVG: %v", err)
 		}
 		m.initialized = true
 	}
@@ -211,7 +210,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		"component": "VolumeManager",
 		"method":    "updateDrivesCRs",
 	})
-	ll.Info("Processing ...")
+
 	m.dCacheMu.Lock()
 	defer m.dCacheMu.Unlock()
 	// If cache is empty try to fill it with cr from ReadList filtering by NodeID
@@ -289,7 +288,6 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "updateVolumesCache",
 	})
-	ll.Info("Processing")
 
 	// explore each drive from freeDrives
 	lsblk, err := m.linuxUtils.Lsblk("")
@@ -302,7 +300,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 	for _, d := range freeDrives {
 		for _, ld := range lsblk {
 			if strings.EqualFold(ld.Serial, d.Spec.SerialNumber) && len(ld.Children) > 0 {
-				uuid, err := m.linuxUtils.GetPartitionUUID(ld.Name)
+				partUUID, err := m.linuxUtils.GetPartitionUUID(ld.Name)
 				if err != nil {
 					ll.Warnf("Unable to determine partition UUID for device %s, error: %v", ld.Name, err)
 					continue
@@ -313,7 +311,7 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 					continue
 				}
 				v := &api.Volume{
-					Id:           uuid,
+					Id:           partUUID,
 					Size:         size,
 					Location:     d.Spec.UUID,
 					LocationType: apiV1.LocationTypeDrive,
@@ -322,7 +320,6 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 					Health:       d.Spec.Health,
 					CSIStatus:    "",
 				}
-				ll.Infof("Add in cache volume: %v", v)
 				m.volumesCache[v.Id] = v
 			}
 		}
@@ -349,14 +346,13 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 			for _, volume := range m.volumesCache {
 				// if drive contains volume then available capacity for this drive shouldn't exist
 				if strings.EqualFold(volume.Location, drive.Spec.UUID) {
-					ll.Infof("Drive %s is occupied by volume %s", drive.Spec.UUID, volume.Id)
 					removed = true
 				}
 			}
 			// Don't create ACs with devices which are used by LVG
 			lvgList := &lvgcrd.LVGList{}
 			if err := m.k8sclient.ReadList(ctx, lvgList); err != nil {
-				ll.Errorf("Failed to get LVG CR list, error %v", err)
+				ll.Errorf("Failed to get LVG CRs list, error %v", err)
 				wasError = true
 			} else {
 				for _, lvg := range lvgList.Items {
@@ -406,10 +402,6 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 // drivesAreNotUsed search drives in drives cache that isn't have any volumes
 // Returns slice of drivecrd.Drive structs
 func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
-	ll := m.log.WithFields(logrus.Fields{
-		"method": "drivesAreNotUsed",
-	})
-	ll.Info("Processing")
 	// search drives that don't have parent volume
 	drives := make([]*drivecrd.Drive, 0)
 	for _, d := range m.drivesCache {
@@ -420,7 +412,6 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 				v.LocationType == apiV1.LocationTypeDrive &&
 				strings.EqualFold(d.Spec.UUID, v.Location) {
 				isUsed = true
-				ll.Infof("Found volume with ID \"%s\" in cache for drive with UUID \"%s\"", v.Id, d.Spec.UUID)
 				break
 			}
 		}
@@ -538,8 +529,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 	ll.Infof("Creating volume: %v", vol)
 
 	// TODO: should read from Volume CRD AK8S-170
-	if v, ok := m.getFromVolumeCache(vol.Id); ok {
-		ll.Infof("Found volume in cache with status: %s", m.getVolumeStatus(v.CSIStatus))
+	if _, ok := m.getFromVolumeCache(vol.Id); ok {
 		return m.pullCreateLocalVolume(ctx, vol.Id)
 	}
 
@@ -661,7 +651,7 @@ func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID stri
 			currStatus = vol.CSIStatus
 			switch currStatus {
 			case apiV1.Creating:
-				ll.Info("Volume is in Creating state, continue pulling")
+				continue
 			case apiV1.Created:
 				ll.Info("Volume was became Created, return it")
 				return nil
