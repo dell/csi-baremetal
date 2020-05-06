@@ -103,7 +103,6 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object
 func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
-	k.log.WithField("method", "ReadList").Info("Reading list")
 
 	return k.List(ctx, obj, k8sClient.InNamespace(k.Namespace))
 }

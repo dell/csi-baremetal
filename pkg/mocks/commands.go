@@ -118,7 +118,7 @@ var LsblkListPartitionsStr = `{
 				"name": "/dev/sda",
 				"type": "disk",
 				"serial": "hdd1",
-				"children": [{"name": "/dev/sda1", "mountpoint":"", "partuuid":"volume-id"}]
+				"children": [{"name": "/dev/sda1", "mountpoint":"", "partuuid":"volume-1-id"}]
 				}]
 			}`
 

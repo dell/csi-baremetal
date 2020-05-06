@@ -44,6 +44,8 @@ type CSINodeService struct {
 const (
 	// PodNameKey to read pod name from PodInfoOnMount feature
 	PodNameKey = "csi.storage.k8s.io/pod.name"
+	// UnknownPodName is used when pod name isn't provided in request
+	UnknownPodName = "UNKNOWN"
 	// EphemeralKey in volume context means that in node publish request we need to create ephemeral volume
 	EphemeralKey = "csi.storage.k8s.io/ephemeral"
 )
@@ -86,44 +88,55 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	volumeID := req.VolumeId
-	v, ok := s.getFromVolumeCache(volumeID)
-	if !ok {
+	volumeCR := s.getVolumeCRByName(volumeID)
+	if volumeCR == nil {
 		message := fmt.Sprintf("No volume with ID %s found on node", volumeID)
 		ll.Error(message)
 		return nil, status.Error(codes.NotFound, message)
 	}
 
-	if v.CSIStatus == apiV1.Failed {
-		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", v.Id)
+	if volumeCR.Spec.CSIStatus == apiV1.Failed {
+		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", volumeCR.Spec.Id)
 	}
 
-	scImpl := s.getStorageClassImpl(v.StorageClass)
-	ll.Infof("Chosen StorageClass is %s", v.StorageClass)
+	scImpl := s.getStorageClassImpl(volumeCR.Spec.StorageClass)
 
 	targetPath := req.StagingTargetPath
 
-	partition, err := s.constructPartition(v)
+	partition, err := s.constructPartition(&volumeCR.Spec)
 	if err != nil {
 		ll.Error("failed to get partition, error: ", err)
-		return nil, status.Error(codes.Internal, "failed to publish volume")
+		return nil, status.Error(codes.Internal, "failed to stage volume: partition error")
 	}
 
-	if v.CSIStatus == apiV1.VolumeReady {
+	if volumeCR.Spec.CSIStatus == apiV1.VolumeReady {
 		ll.Info("Perform mount operation")
 		if err := scImpl.Mount(partition, targetPath); err != nil {
-			ll.Errorf("Failed to stage volume %s, error: %v", v.Id, err)
-			return nil, fmt.Errorf("failed to stage volume %s", v.Id)
+			ll.Errorf("Failed to stage volume %s, error: %v", volumeCR.Spec.Id, err)
+			return nil, fmt.Errorf("failed to stage volume %s", volumeCR.Spec.Id)
 		}
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 	ll.Infof("Work with partition %s", partition)
 
+	var (
+		resp        = &csi.NodeStageVolumeResponse{}
+		errToReturn error
+		newStatus   = apiV1.VolumeReady
+	)
 	if err := s.prepareAndPerformMount(partition, targetPath, scImpl, false); err != nil {
-		s.setVolumeStatus(req.VolumeId, apiV1.Failed)
-		return nil, fmt.Errorf("failed to stage volume")
+		ll.Errorf("Unable to prepare and mount: %v. Going to set volumes status to failed", err)
+		newStatus = apiV1.Failed
+		resp, errToReturn = nil, fmt.Errorf("failed to stage volume")
 	}
-	s.setVolumeStatus(req.VolumeId, apiV1.VolumeReady)
-	return &csi.NodeStageVolumeResponse{}, nil
+
+	volumeCR.Spec.CSIStatus = newStatus
+	if err = s.updateVolumeCRSpec(volumeCR.Name, volumeCR.Spec); err != nil {
+		ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
+		resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
+	}
+
+	return resp, errToReturn
 }
 
 // NodeUnstageVolume is the implementation of CSI Spec NodeUnstageVolume. Performs when the last pod stops consume
@@ -145,30 +158,35 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	v, ok := s.getFromVolumeCache(req.GetVolumeId())
-	if !ok {
+	volumeCR := s.getVolumeCRByName(req.GetVolumeId())
+	if volumeCR == nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
 
-	if v.CSIStatus == apiV1.Failed {
-		//Should we return error or nil?
-		return nil, status.Errorf(codes.Internal, "corresponding CR %s reached Failed status", v.Id)
+	if volumeCR.Spec.CSIStatus == apiV1.Failed {
+		return nil, status.Errorf(codes.Internal, "corresponding CR %s reached Failed status", volumeCR.Spec.Id)
 	}
 
 	// This is a temporary solution to clear all owners during NodeUnstage
 	// because NodeUnpublishRequest doesn't contain info about pod
 	// TODO AK8S-466 Remove owner from Owners slice during Unpublish properly
-	// Not fail NodeUnstageRequest if can't clear owners
-	if err := s.clearVolumeOwners(req.GetVolumeId()); err != nil {
-		ll.Errorf("Failed to clear owners: %v", err)
+	volumeCR.Spec.Owners = nil
+
+	var (
+		resp        = &csi.NodeUnstageVolumeResponse{}
+		errToReturn error
+	)
+	if errToReturn = s.unmount(volumeCR.Spec.StorageClass, req.GetStagingTargetPath()); errToReturn != nil {
+		volumeCR.Spec.CSIStatus = apiV1.Failed
+		resp = nil
 	}
 
-	if err := s.unmount(v.StorageClass, req.GetStagingTargetPath()); err != nil {
-		s.setVolumeStatus(v.Id, apiV1.Failed)
-		return nil, err
+	if updateErr := s.k8sclient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
+		ll.Errorf("Unable to update volume CR: %v", updateErr)
+		resp, errToReturn = nil, fmt.Errorf("failed to unstage volume: update volume CR error")
 	}
 
-	return &csi.NodeUnstageVolumeResponse{}, nil
+	return resp, errToReturn
 }
 
 // unmount uses in Unstage/Unpublish requests to avoid duplicated code
@@ -228,6 +246,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 
 	ll.Infof("Processing request: %v", req)
 
+	// TODO: add lock for each volume
+
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -262,42 +282,61 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		vol, err := s.createInlineVolume(ctx, volumeID, req)
 		if err != nil {
 			ll.Error("failed to create inline volume, error: ", err)
-			return nil, status.Error(codes.Internal, "failed to publish volume")
+			return nil, status.Error(codes.Internal, "unable to create inline volume")
 		}
 		srcPath, err = s.constructPartition(vol)
 		if err != nil {
 			ll.Error("failed to get partition, error: ", err)
-			return nil, status.Error(codes.Internal, "failed to publish volume")
+			return nil, status.Error(codes.Internal, "failed to publish inline volume: partition error")
 		}
 		//For inline volume mount is performed without options
 		bind = false
 	} else if len(srcPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Staging Path missing in request")
 	}
-	v, ok := s.getFromVolumeCache(volumeID)
-	if !ok {
+	volumeCR := s.getVolumeCRByName(volumeID)
+	if volumeCR == nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
-	// Not fail NodePublishRequest if can't set owner
-	podName, ok := req.VolumeContext[PodNameKey]
-	if !ok {
-		ll.Infof("podInfoOnMound flag is not provided")
-	} else if err := s.addVolumeOwner(volumeID, podName); err != nil {
-		ll.Errorf("Failed to set owner %s: %v", podName, err)
+
+	if volumeCR.Spec.CSIStatus == apiV1.Failed {
+		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", volumeCR.Spec.Id)
 	}
-	if v.CSIStatus == apiV1.Failed {
-		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", v.Id)
-	}
-	scImpl := s.getStorageClassImpl(v.StorageClass)
+	scImpl := s.getStorageClassImpl(volumeCR.Spec.StorageClass)
+
+	var (
+		resp        = &csi.NodePublishVolumeResponse{}
+		errToReturn error
+		newStatus   = apiV1.Published
+	)
 
 	if err := s.prepareAndPerformMount(srcPath, path, scImpl, bind); err != nil {
-		ll.Errorf("prepareAndPerformMount failed, set status to %s", apiV1.Failed)
-		s.setVolumeStatus(v.Id, apiV1.Failed)
-		return nil, fmt.Errorf("failed to publish volume")
+		ll.Errorf("prepareAndPerformMount failed: %v", err)
+		newStatus = apiV1.Failed
+		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
 	}
-	ll.Infof("Set status to %s", apiV1.Published)
-	s.setVolumeStatus(v.Id, apiV1.Published)
-	return &csi.NodePublishVolumeResponse{}, nil
+
+	// add volume owner info
+	var podName string
+	podName, ok := req.VolumeContext[PodNameKey]
+	if !ok {
+		podName = UnknownPodName
+		ll.Warnf("flag podInfoOnMount isn't provided will add %s for volume owners", podName)
+	}
+
+	owners := volumeCR.Spec.Owners
+	if !base.ContainsString(owners, podName) { // check whether podName name already in owners or no
+		owners = append(owners, podName)
+		volumeCR.Spec.Owners = owners
+	}
+
+	ll.Infof("Set CSIStatus to %s", newStatus)
+	volumeCR.Spec.CSIStatus = newStatus
+	if err = s.k8sclient.UpdateCR(context.Background(), volumeCR); err != nil {
+		ll.Errorf("Unable to update volume CR to %v, error: %v", volumeCR, err)
+		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: update volume CR error")
+	}
+	return resp, errToReturn
 }
 
 //createInlineVolume encapsulate logic for creating inline volumes
@@ -435,25 +474,24 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	v, ok := s.getFromVolumeCache(req.GetVolumeId())
-	if !ok {
+	volumeCR := s.getVolumeCRByName(req.GetVolumeId())
+	if volumeCR == nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
-	if err := s.unmount(v.StorageClass, req.GetTargetPath()); err != nil {
-		s.setVolumeStatus(v.Id, apiV1.Failed)
+	if err := s.unmount(volumeCR.Spec.StorageClass, req.GetTargetPath()); err != nil {
+		volumeCR.Spec.CSIStatus = apiV1.Failed
+		if updateErr := s.k8sclient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
+			ll.Errorf("Unable to set volume CR status to failed: %v", updateErr)
+		}
 		return nil, err
 	}
 	//If volume has more than 1 owner pods then keep its status as Published
-	if len(v.Owners) > 1 {
+	if len(volumeCR.Spec.Owners) > 1 {
 		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
-	s.setVolumeStatus(v.Id, apiV1.VolumeReady)
-	volume, ok := s.getFromVolumeCache(req.GetVolumeId())
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "Volume not found")
-	}
+
 	//k8s dosn't call DeleteVolume for inline volumes, so we perform DeleteVolume operation in Unpublish request
-	if volume.Ephemeral {
+	if volumeCR.Spec.Ephemeral {
 		s.reqMu.Lock()
 		err := s.svc.DeleteVolume(ctx, req.GetVolumeId())
 		s.reqMu.Unlock()
@@ -472,7 +510,13 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		s.reqMu.Lock()
 		s.svc.UpdateCRsAfterVolumeDeletion(ctx, req.VolumeId)
 		s.reqMu.Unlock()
+	} else {
+		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
+		if updateErr := s.k8sclient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
+			ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
+		}
 	}
+
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 

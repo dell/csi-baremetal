@@ -1,6 +1,6 @@
 module eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git
 
-go 1.12
+go 1.14
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.3
@@ -9,6 +9,7 @@ require (
 	github.com/golang/protobuf v1.3.5
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/uuid v1.1.1
+	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/kubernetes-csi/csi-test/v3 v3.1.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.7.1

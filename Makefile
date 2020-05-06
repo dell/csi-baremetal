@@ -151,7 +151,7 @@ test-ci:
 	${GO_ENV_VARS} CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=${HOME}/.kube/config -timeout=0 > log.txt
 
 # Run commnity sanity tests for CSI.
-# TODO AK8S-651 Must fix tests "Node Service should be idempotent" and "Node Service should work"
+# TODO AK8S-640 Must fix tests "Node Service should be idempotent" and "Node Service should work"
 test-sanity:
 	${GO_ENV_VARS} SANITY=true go test test/sanity/sanity_test.go -ginkgo.skip \
 	"ValidateVolumeCapabilities|\

@@ -31,14 +31,11 @@ import (
 type VolumeManager struct {
 	k8sclient *base.KubeClient
 
-	drivesCache map[string]*drivecrd.Drive
-
 	hWMgrClient api.HWServiceClient
-	// stores volumes that actually is use, key - volume ID
-	volumesCache map[string]*api.Volume
-	vCacheMu     sync.Mutex
+
 	// stores drives that had discovered on previous steps, key - S/N
-	dCacheMu sync.Mutex
+	drivesCache map[string]*drivecrd.Drive
+	dCacheMu    sync.Mutex
 
 	scMap map[SCName]sc.StorageClassImplementer
 
@@ -55,7 +52,7 @@ const (
 	// DiscoverDrivesTimeout is the timeout for Discover method
 	DiscoverDrivesTimeout = 300 * time.Second
 	// VolumeOperationsTimeout is the timeout for local Volume creation/deletion
-	VolumeOperationsTimeout = 600 * time.Second
+	VolumeOperationsTimeout = 900 * time.Second
 	// SleepBetweenRetriesToSyncPartTable is the interval between syncing of partition table
 	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
 	// NumberOfRetriesToSyncPartTable is the amount of retries for partprobe of a particular device
@@ -69,12 +66,11 @@ const (
 func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, logger *logrus.Logger, k8sclient *base.KubeClient, nodeID string) *VolumeManager {
 	vm := &VolumeManager{
 
-		k8sclient:    k8sclient,
-		hWMgrClient:  client,
-		volumesCache: make(map[string]*api.Volume),
-		linuxUtils:   base.NewLinuxUtils(executor, logger),
-		drivesCache:  make(map[string]*drivecrd.Drive),
-		nodeID:       nodeID,
+		k8sclient:   k8sclient,
+		hWMgrClient: client,
+		linuxUtils:  base.NewLinuxUtils(executor, logger),
+		drivesCache: make(map[string]*drivecrd.Drive),
+		nodeID:      nodeID,
 		scMap: map[SCName]sc.StorageClassImplementer{
 			"hdd": sc.GetHDDSCInstance(logger),
 			"ssd": sc.GetSSDSCInstance(logger)},
@@ -101,7 +97,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "Reconcile",
-		"volumeID": req.Name,
+		"testV1ID": req.Name,
 	})
 
 	volume := &volumecrd.Volume{}
@@ -183,7 +179,7 @@ func (m *VolumeManager) Discover() error {
 	m.updateDrivesCRs(ctx, drives)
 
 	freeDrives := m.drivesAreNotUsed()
-	if err = m.updateVolumesCache(freeDrives); err != nil {
+	if err = m.discoverVolumeCRs(freeDrives); err != nil {
 		return err
 	}
 
@@ -281,12 +277,12 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 	}
 }
 
-// updateVolumesCache updates volumes cache based on provided freeDrives.
+// discoverVolumeCRs updates volumes cache based on provided freeDrives.
 // searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
 // partition uuid and create volume object
-func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
+func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	ll := m.log.WithFields(logrus.Fields{
-		"method": "updateVolumesCache",
+		"method": "discoverVolumeCRs",
 	})
 
 	// explore each drive from freeDrives
@@ -295,8 +291,6 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
 
-	m.vCacheMu.Lock()
-	defer m.vCacheMu.Unlock()
 	for _, d := range freeDrives {
 		for _, ld := range lsblk {
 			if strings.EqualFold(ld.Serial, d.Spec.SerialNumber) && len(ld.Children) > 0 {
@@ -310,7 +304,8 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 					ll.Warnf("Unable parse string %s to int, for device %s, error: %v", ld.Size, ld.Name, err)
 					continue
 				}
-				v := &api.Volume{
+
+				volumeCR := m.k8sclient.ConstructVolumeCR(partUUID, api.Volume{
 					Id:           partUUID,
 					Size:         size,
 					Location:     d.Spec.UUID,
@@ -319,8 +314,11 @@ func (m *VolumeManager) updateVolumesCache(freeDrives []*drivecrd.Drive) error {
 					Type:         ld.FSType,
 					Health:       d.Spec.Health,
 					CSIStatus:    "",
+				})
+				ll.Infof("Creating volume CR: %v", volumeCR)
+				if err = m.k8sclient.CreateCR(context.Background(), partUUID, volumeCR); err != nil {
+					ll.Errorf("Unable to create volume CR %s: %v", partUUID, err)
 				}
-				m.volumesCache[v.Id] = v
 			}
 		}
 	}
@@ -343,9 +341,9 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 	for _, drive := range m.drivesCache {
 		if drive.Spec.Health == apiV1.HealthGood && drive.Spec.Status == apiV1.DriveStatusOnline {
 			removed := false
-			for _, volume := range m.volumesCache {
+			for _, volume := range m.getVolumeCRs() {
 				// if drive contains volume then available capacity for this drive shouldn't exist
-				if strings.EqualFold(volume.Location, drive.Spec.UUID) {
+				if strings.EqualFold(volume.Spec.Location, drive.Spec.UUID) {
 					removed = true
 				}
 			}
@@ -406,11 +404,11 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 	drives := make([]*drivecrd.Drive, 0)
 	for _, d := range m.drivesCache {
 		isUsed := false
-		for _, v := range m.volumesCache {
+		for _, v := range m.getVolumeCRs() {
 			// expect only Drive LocationType, for Drive LocationType Location will be a UUID of the drive
 			if d.Spec.Type != apiV1.DriveTypeNVMe &&
-				v.LocationType == apiV1.LocationTypeDrive &&
-				strings.EqualFold(d.Spec.UUID, v.Location) {
+				v.Spec.LocationType == apiV1.LocationTypeDrive &&
+				strings.EqualFold(d.Spec.UUID, v.Spec.Location) {
 				isUsed = true
 				break
 			}
@@ -523,21 +521,15 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "CreateLocalVolume",
-		"volumeID": vol.Id,
+		"testV1ID": vol.Id,
 	})
 
 	ll.Infof("Creating volume: %v", vol)
 
-	// TODO: should read from Volume CRD AK8S-170
-	if _, ok := m.getFromVolumeCache(vol.Id); ok {
-		return m.pullCreateLocalVolume(ctx, vol.Id)
-	}
-
 	var (
 		volLocation = vol.Location
-		newStatus   = apiV1.Created
 		scImpl      = m.getStorageClassImpl(vol.StorageClass)
-		device      string
+		deviceFile  string
 		err         error
 	)
 	switch vol.StorageClass {
@@ -556,111 +548,56 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 			}
 		}
 
-		m.setVolumeCacheValue(vol.Id, vol)
-
 		// create lv with name /dev/VG_NAME/vol.Id
 		ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, vgName)
 		if err = m.linuxUtils.LVCreate(vol.Id, sizeStr, vgName); err != nil {
-			ll.Errorf("Unable to create LV: %v", err)
-			return err
+			return fmt.Errorf("unable to create LV: %v", err)
 		}
 
 		ll.Info("LV was created.")
-
-		go func() {
-			lv := fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
-			err := scImpl.CreateFileSystem(sc.FileSystem(vol.Type), lv)
-			if err != nil {
-				ll.Errorf("Failed to create file system: %v, set volume status FailedToCreate", err)
-				newStatus = apiV1.Failed
-			}
-			m.setVolumeStatus(vol.Id, newStatus)
-		}()
-
+		deviceFile = fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
 	default: // assume that volume location is whole disk
 		drive := &drivecrd.Drive{}
 
 		// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
 		if err = m.k8sclient.ReadCR(ctx, volLocation, drive); err != nil {
-			ll.Errorf("Failed to read crd with name %s, error %s", volLocation, err.Error())
-			return err
+			return fmt.Errorf("failed to read drive CR with name %s, error %v", volLocation, err)
 		}
 
 		ll.Infof("Search device file for drive with S/N %s", drive.Spec.SerialNumber)
-		device, err = m.linuxUtils.SearchDrivePath(drive)
+		device, err := m.linuxUtils.SearchDrivePath(drive)
 		if err != nil {
 			return err
 		}
 
-		m.setVolumeCacheValue(vol.Id, vol)
-		go func() {
-			ll.Infof("Create partition on device %s and set UUID in background", device)
-			id := vol.Id
+		ll.Infof("Create partition on device %s and set UUID in background", device)
+		id := vol.Id
 
-			// since volume ID starts with 'pvc-' prefix we need to remove it.
-			// otherwise partition UUID won't be set correctly
-			// todo can we guarantee that e2e test has 'pvc-' prefix
-			volumeUUID, _ := util.GetVolumeUUID(id)
-			partition, rollBacked, err := m.createPartitionAndSetUUID(device, volumeUUID, vol.Ephemeral)
-			if err != nil {
-				if !rollBacked {
-					ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
-					drive.Spec.Status = apiV1.DriveStatusOffline
-					if err := m.k8sclient.UpdateCR(ctx, drive); err != nil {
-						ll.Errorf("Failed to update drive CRd with name %s, error %s", drive.Name, err.Error())
-					}
+		// since volume ID starts with 'pvc-' prefix we need to remove it.
+		// otherwise partition UUID won't be set correctly
+		// todo can we guarantee that e2e test has 'pvc-' prefix
+		volumeUUID, _ := util.GetVolumeUUID(id)
+		partition, rollBacked, err := m.createPartitionAndSetUUID(device, volumeUUID, vol.Ephemeral)
+		if err != nil {
+			if !rollBacked {
+				ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
+				drive.Spec.Status = apiV1.DriveStatusOffline
+				if err := m.k8sclient.UpdateCR(ctx, drive); err != nil {
+					ll.Errorf("Failed to update drive CRd with name %s, error %s", drive.Name, err.Error())
 				}
-				ll.Errorf("Failed to set partition UUID: %v, set volume status to Failed", err)
-				m.setVolumeStatus(vol.Id, apiV1.Failed)
-			} else {
-				ll.Info("Partition was created successfully")
-				newStatus := apiV1.Created
-				err := scImpl.CreateFileSystem(sc.FileSystem(vol.Type), partition)
-				if err != nil {
-					ll.Errorf("Failed to create file system: %v, set volume status FailedToCreate", err)
-					newStatus = apiV1.Failed
-				}
-				m.setVolumeStatus(id, newStatus)
 			}
-		}()
-	}
-	return m.pullCreateLocalVolume(ctx, vol.Id)
-}
-
-// pullCreateLocalVolume pulls volume's CSIStatus each second. Waits for Created or Failed state. Uses for non-blocking
-// execution of CreateLocalVolume.
-// Returns error if volume's CSIStatus became Failed or if provided context was done
-func (m *VolumeManager) pullCreateLocalVolume(ctx context.Context, volumeID string) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method":   "pullCreateLocalVolume",
-		"volumeID": volumeID,
-	})
-	ll.Infof("Pulling status, current: %s", m.getVolumeStatus(volumeID))
-
-	var (
-		currStatus string
-		vol        *api.Volume
-	)
-	for {
-		select {
-		case <-ctx.Done():
-			ll.Errorf("Context was closed set volume %s status to FailedToCreate", vol.Location)
-			m.setVolumeStatus(volumeID, apiV1.Failed)
-		case <-time.After(time.Second):
-			vol, _ = m.getFromVolumeCache(volumeID)
-			currStatus = vol.CSIStatus
-			switch currStatus {
-			case apiV1.Creating:
-				continue
-			case apiV1.Created:
-				ll.Info("Volume was became Created, return it")
-				return nil
-			case apiV1.Failed:
-				ll.Info("Volume was became failed, return it and try to restore.")
-				return fmt.Errorf("unable to create local volume %s size of %d", vol.Id, vol.Size)
-			}
+			return fmt.Errorf("failed to set partition UUID: %v", err)
 		}
+		deviceFile = partition
+		ll.Info("Partition was created successfully")
 	}
+
+	if err = scImpl.CreateFileSystem(sc.FileSystem(vol.Type), deviceFile); err != nil {
+		return fmt.Errorf("failed to create file system: %v, set volume status FailedToCreate", err)
+	}
+
+	ll.Info("Local volume was created successfully")
+	return nil
 }
 
 // createPartitionAndSetUUID creates partition and sets partition UUID, if some step fails
@@ -774,14 +711,14 @@ func (m *VolumeManager) createPartitionAndSetUUID(device string, uuid string, ep
 func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volume) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "DeleteLocalVolume",
-		"volumeID": volume.Id,
+		"testV1ID": volume.Id,
 	})
 
 	ll.Info("Processing request")
 
 	var (
-		err    error
-		device string
+		err        error
+		deviceFile string
 	)
 	switch volume.StorageClass {
 	case apiV1.StorageClassHDD, apiV1.StorageClassSSD:
@@ -791,20 +728,17 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 		if drive == nil {
 			return errors.New("unable to find drive by volume location")
 		}
-		// get device path
-		device, err = m.linuxUtils.SearchDrivePath(drive)
+		// get deviceFile path
+		deviceFile, err = m.linuxUtils.SearchDrivePath(drive)
 		if err != nil {
 			return fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
 		}
 
-		err = m.linuxUtils.DeletePartition(device)
+		err = m.linuxUtils.DeletePartition(deviceFile)
 		if err != nil {
-			wErr := fmt.Errorf("failed to delete partition, error: %v", err)
-			ll.Errorf("%v, set CSI status - failed", wErr)
-			m.setVolumeStatus(volume.Id, apiV1.Failed)
-			return wErr
+			return fmt.Errorf("failed to delete partition, error: %v", err)
 		}
-		ll.Info("Partition was deleted")
+		ll.Info("Partition was deleted successfully")
 	case apiV1.StorageClassSSDLVG, apiV1.StorageClassHDDLVG:
 		vgName := volume.Location
 		var err error
@@ -816,89 +750,28 @@ func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volum
 				return fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
 			}
 		}
-		device = fmt.Sprintf("/dev/%s/%s", vgName, volume.Id) // /dev/VG_NAME/LV_NAME
+		deviceFile = fmt.Sprintf("/dev/%s/%s", vgName, volume.Id) // /dev/VG_NAME/LV_NAME
 	default:
 		return fmt.Errorf("unable to determine storage class for volume %v", volume)
 	}
 
-	ll.Infof("Found device file %s", device)
+	ll.Infof("Found device file %s", deviceFile)
 	scImpl := m.getStorageClassImpl(volume.StorageClass)
 
-	if err = scImpl.DeleteFileSystem(device); err != nil {
-		wErr := fmt.Errorf("failed to wipefs device, error: %v", err)
-		ll.Errorf("%v, set CSI status - failed", wErr)
-		m.setVolumeStatus(volume.Id, apiV1.Failed)
-		return wErr
+	if err = scImpl.DeleteFileSystem(deviceFile); err != nil {
+		return fmt.Errorf("failed to wipefs deviceFile, error: %v", err)
 	}
-	ll.Info("File system was deleted")
 
 	if volume.StorageClass == apiV1.StorageClassHDDLVG || volume.StorageClass == apiV1.StorageClassSSDLVG {
 		lvgName := volume.Location
 		ll.Infof("Removing LV %s from LVG %s", volume.Id, lvgName)
-		if err = m.linuxUtils.LVRemove(device); err != nil {
-			m.setVolumeStatus(volume.Id, apiV1.Failed)
+		if err = m.linuxUtils.LVRemove(deviceFile); err != nil {
 			return fmt.Errorf("unable to remove lv: %v", err)
 		}
 	}
-	m.deleteFromVolumeCache(volume.Id)
 
-	ll.Info("Volume was successfully deleted")
+	ll.Info("Local  volume was removed successfully")
 	return nil
-}
-
-// getFromVolumeCache returns api.Volume from volumeCache of VolumeManager by a provided key
-// Returns an instance of api.Volume struct and bool that shows the existence of volume in cache
-// TODO: remove that methods when AK8S-170 will be closed
-func (m *VolumeManager) getFromVolumeCache(key string) (*api.Volume, bool) {
-	m.vCacheMu.Lock()
-	defer m.vCacheMu.Unlock()
-
-	v, ok := m.volumesCache[key]
-	return v, ok
-}
-
-// deleteFromVolumeCache deletes api.Volume from volumeCache of VolumeManager by a provided key
-func (m *VolumeManager) deleteFromVolumeCache(key string) {
-	m.vCacheMu.Lock()
-	delete(m.volumesCache, key)
-	m.vCacheMu.Unlock()
-}
-
-// setVolumeCacheValue sets api.Volume from volumeCache of VolumeManager by a provided key
-// Receives key which is volumeID and api.Volume that would be set as value for that key
-func (m *VolumeManager) setVolumeCacheValue(key string, v *api.Volume) {
-	m.vCacheMu.Lock()
-	m.volumesCache[key] = v
-	m.vCacheMu.Unlock()
-}
-
-// getVolumeStatus returns CSIStatus of the volume from volumeCache of VolumeManager by a provided key
-// Returns CSIStatus of the volume as a string
-func (m *VolumeManager) getVolumeStatus(key string) string {
-	m.vCacheMu.Lock()
-	defer m.vCacheMu.Unlock()
-
-	v, ok := m.volumesCache[key]
-	if !ok {
-		m.log.WithField("method", "getVolumeStatus").Errorf("Unable to find volume with ID %s in cache", key)
-		return ""
-	}
-	return v.CSIStatus
-}
-
-// setVolumeStatus sets CSIStatus of the volume from volumeCache of VolumeManager by a provided key
-// Receives key which is volume ID and newStatus which is CSIStatus
-func (m *VolumeManager) setVolumeStatus(key string, newStatus string) {
-	m.vCacheMu.Lock()
-	defer m.vCacheMu.Unlock()
-
-	v, ok := m.volumesCache[key]
-	if !ok {
-		m.log.WithField("method", "setVolumeStatus").Errorf("Unable to find volume with ID %s in cache", key)
-		return
-	}
-	v.CSIStatus = newStatus
-	m.volumesCache[key] = v
 }
 
 // getStorageClassImpl returns appropriate StorageClass implementation from VolumeManager scMap field
@@ -913,75 +786,26 @@ func (m *VolumeManager) getStorageClassImpl(storageClass string) sc.StorageClass
 	}
 }
 
-// addVolumeOwner tries to add owner to Volume's CR Owners slice with retries
-// Receives volumeID of the volume where the owner should be added and a podName that will be used as owner
-// Returns error if something went wrong
-func (m *VolumeManager) addVolumeOwner(volumeID string, podName string) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method":   "addVolumeOwner",
-		"volumeID": volumeID,
-	})
-
-	var (
-		v        = &volumecrd.Volume{}
-		attempts = 10
-		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
-	)
-
-	ll.Infof("Try to add owner as a pod name %s", podName)
-
-	if err := m.k8sclient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
-		ll.Errorf("failed to read volume cr after %d attempts", attempts)
-	}
-
-	owners := v.Spec.Owners
-
-	podNameExists := base.ContainsString(owners, podName)
-
-	if !podNameExists {
-		owners = append(owners, podName)
-		v.Spec.Owners = owners
-	}
-
-	if err := m.k8sclient.UpdateCRWithAttempts(ctx, v, attempts); err == nil {
-		return nil
-	}
-
-	ll.Warnf("Unable to update volume CR's owner %s.", podName)
-
-	return fmt.Errorf("unable to persist owner to %s for volume %s", podName, volumeID)
+// SetSCImplementer sets sc.StorageClassImplementer implementation to scMap of VolumeManager
+// Receives scName which uses as a key and an instance of sc.StorageClassImplementer
+func (m *VolumeManager) SetSCImplementer(scName string, implementer sc.StorageClassImplementer) {
+	m.scMap[SCName(scName)] = implementer
 }
 
-// clearVolumeOwners tries to clear owners slice in Volume's CR spec
-// Receives volumeID whose owners must be cleared
-// Returns error if something went wrong
-func (m *VolumeManager) clearVolumeOwners(volumeID string) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method":   "ClearVolumeOwners",
-		"volumeID": volumeID,
-	})
-
+// updateVolumeCRSpec reads volume CR with name volName and update it's spec to newSpec
+// returns nil or error in case of error
+func (m *VolumeManager) updateVolumeCRSpec(volName string, newSpec api.Volume) error {
 	var (
-		v        = &volumecrd.Volume{}
-		attempts = 10
-		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
+		volumeCR = &volumecrd.Volume{}
+		err      error
 	)
 
-	ll.Infof("Try to clear owner fieild")
-
-	if err := m.k8sclient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
-		ll.Errorf("failed to read volume cr after %d attempts", attempts)
+	if err = m.k8sclient.ReadCR(context.Background(), volName, volumeCR); err != nil {
+		return err
 	}
 
-	v.Spec.Owners = nil
-
-	if err := m.k8sclient.UpdateCRWithAttempts(ctx, v, attempts); err == nil {
-		return nil
-	}
-
-	ll.Warnf("Unable to clear volume CR's owners")
-
-	return fmt.Errorf("unable to clear volume CR's owners for volume %s", volumeID)
+	volumeCR.Spec = newSpec
+	return m.k8sclient.UpdateCR(context.Background(), volumeCR)
 }
 
 // handleDriveStatusChange removes AC that is based on unhealthy drive, returns AC if drive returned to healthy state,
@@ -1024,7 +848,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 
 // getACByLocation reads the whole list of AC CRs from a cluster and searches the AC with provided location
 // Receive golang context and location name which should be equal to AvailableCapacity.Spec.Location
-// Returns an instance of accrd.AvailableCapacity
+// Returns a pointer to the instance of accrd.AvailableCapacity or nil
 func (m *VolumeManager) getACByLocation(ctx context.Context, location string) *accrd.AvailableCapacity {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "getACByLocation",
@@ -1049,8 +873,8 @@ func (m *VolumeManager) getACByLocation(ctx context.Context, location string) *a
 }
 
 // getVolumeByLocation reads the whole list of Volume CRs from a cluster and searches the volume with provided location
-// Receive golang context and location name which should be equal to Volume.Spec.Location
-// Returns an instance of volumecrd.Volume
+// Receives golang context and location name which should be equal to Volume.Spec.Location
+// Returns a pointer to the instance of volumecrd.Volume or nil
 func (m *VolumeManager) getVolumeByLocation(ctx context.Context, location string) *volumecrd.Volume {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "getVolumeByLocation",
@@ -1074,8 +898,35 @@ func (m *VolumeManager) getVolumeByLocation(ctx context.Context, location string
 	return nil
 }
 
-// SetSCImplementer sets sc.StorageClassImplementer implementation to scMap of VolumeManager
-// Receives scName which uses as a key and an instance of sc.StorageClassImplementer
-func (m *VolumeManager) SetSCImplementer(scName string, implementer sc.StorageClassImplementer) {
-	m.scMap[SCName(scName)] = implementer
+// getVolumeCRByName reads volume CR by name volName and returns pointer onto it or nil
+func (m *VolumeManager) getVolumeCRByName(volName string) *volumecrd.Volume {
+	for _, v := range m.getVolumeCRs() {
+		if v.Spec.Id == volName {
+			return &v
+		}
+	}
+
+	m.log.WithFields(logrus.Fields{
+		"method":   "getVolumeCRByName",
+		"testV1ID": volName,
+	}).Infof("Volume CR isn't exist")
+	return nil
+}
+
+// getVolumeCRs returns volume CRs slice
+// if error occurs - return nil
+func (m *VolumeManager) getVolumeCRs() []volumecrd.Volume {
+	var (
+		vList   = &volumecrd.VolumeList{}
+		ctx, fn = context.WithTimeout(context.Background(), 60*time.Second) // add as a default
+		err     error
+	)
+	defer fn()
+
+	if err = m.k8sclient.ReadList(ctx, vList); err != nil {
+		m.log.WithField("method", "getVolumeCRs").
+			Errorf("Unable to read volume CRs list: %v", err)
+		return nil
+	}
+	return vList.Items
 }
