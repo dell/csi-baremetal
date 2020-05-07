@@ -60,10 +60,9 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	ll.Info("Search appropriate available ac")
 
 	var (
-		allocatedCapacity int64 = math.MaxInt64
-		foundAC           *accrd.AvailableCapacity
-		acList            = &accrd.AvailableCapacityList{}
-		acNodeMap         map[string][]*accrd.AvailableCapacity
+		foundAC   *accrd.AvailableCapacity
+		acList    = &accrd.AvailableCapacityList{}
+		acNodeMap map[string][]*accrd.AvailableCapacity
 	)
 
 	err := a.k8sClient.ReadList(context.Background(), acList)
@@ -81,14 +80,17 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	ll.Infof("Search AvailableCapacity on node %s with size not less %d bytes with storage class %s",
 		node, requiredBytes, sc)
 
-	for _, ac := range acNodeMap[node] {
-		if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes &&
-			(sc == apiV1.StorageClassAny || sc == ac.Spec.StorageClass) {
-			foundAC = ac
-			allocatedCapacity = ac.Spec.Size
+	if sc == apiV1.StorageClassAny {
+		//First try to find AC with hdd, then AC with ssd, if we couldn't find AC with HDD or SSD, try to find AC with any StorageCLass
+		for _, sc := range []string{apiV1.StorageClassHDD, apiV1.StorageClassSSD, ""} {
+			foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
+			if foundAC != nil {
+				break
+			}
 		}
+	} else {
+		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 	}
-
 	if sc == apiV1.StorageClassHDDLVG || sc == apiV1.StorageClassSSDLVG {
 		if foundAC != nil {
 			// check whether LVG being deleted or no
@@ -283,4 +285,27 @@ func (a *ACOperationsImpl) waitUntilLVGWillBeCreated(ctx context.Context, lvgNam
 			}
 		}
 	}
+}
+
+//tryToFindAC is used to find proper AvailableCapacity based on provided storageClass and requiredBytes
+//If storageClass = "" then we search for AvailableCapacity with any storageClass
+func (a *ACOperationsImpl) tryToFindAC(acNodeMap []*accrd.AvailableCapacity, storageClass string, requiredBytes int64) *accrd.AvailableCapacity {
+	var (
+		allocatedCapacity int64 = math.MaxInt64
+		foundAC           *accrd.AvailableCapacity
+	)
+	for _, ac := range acNodeMap {
+		if storageClass != "" {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass {
+				foundAC = ac
+				allocatedCapacity = ac.Spec.Size
+			}
+		} else {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes {
+				foundAC = ac
+				allocatedCapacity = ac.Spec.Size
+			}
+		}
+	}
+	return foundAC
 }

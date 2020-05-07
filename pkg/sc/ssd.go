@@ -28,8 +28,8 @@ func GetSSDSCInstance(logger *logrus.Logger) *SsdSC {
 
 		if ssdSCInstance == nil {
 			ssdSCInstance = &SsdSC{DefaultDASC{executor: &base.Executor{}}}
-			hddSCInstance.executor.SetLogger(logger)
-			hddSCInstance.SetLogger(logger, "SSDSC")
+			ssdSCInstance.executor.SetLogger(logger)
+			ssdSCInstance.SetLogger(logger, "SSDSC")
 		}
 	}
 	return ssdSCInstance

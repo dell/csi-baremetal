@@ -17,8 +17,8 @@ RUN     zypper --no-gpg-checks --non-interactive addrepo http://asdrepo.isus.emc
 
 ADD     iscsi_entrypoint.sh /iscsi_entrypoint.sh
 RUN     chmod 777 /iscsi_entrypoint.sh
-# Set active template as ecs_generic
-RUN     cp /opt/emc/hal/etc/ecs_generic.xml /opt/emc/hal/etc/active_template.xml
+# Set active template as halmgr/active_template/active_template.xml
+COPY    halmgr/active_template/active_template.xml /opt/emc/hal/etc/active_template.xml
 
 ADD     hwmgr hw-manager
 
