@@ -145,11 +145,48 @@ kind load docker-image busybox:1.29
 helm template charts/baremetal-csi-plugin/ 
 --output-dir /tmp --set image.tag=`make version`
 --set hwmgr.type=LOOPBACK // test with loopback hwmgr
+--set hwmgr.deployConfig=true // deploy config for loopback hwmgr
 --set busybox.image.tag=1.29  // e2e tests need this busybox for testing pods
 --set image.pullPolicy=IfNotPresent /*KIND can't work with imagePullPolicy <Always> 
                                       because it can pull only from local repository*/
 ``` 
-If you set `--output-dir` to another directory, you should change this line in [code](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/blob/feature-FABRIC-8422-implement-base-csi-e2e-tests-with-Kind/test/test/csi-volume.go#L22) to your directory, so framework can find yaml files. 
+If you set `--output-dir` to another directory, you should change this line in [code](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/blob/feature-FABRIC-8422-implement-base-csi-e2e-tests-with-Kind/test/test/csi-volume.go#L22) to your directory, so framework can find yaml files.
+
+You can configure Loopback HWManager's devices through ConfigMap. The default one is in charts.
+For example:
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: default
+  name: loopback-config
+  labels:
+    app: baremetal-csi-node
+data:
+  config.yaml: |-
+    defaultDrivePerNodeCount: 8
+    nodes:
+    - nodeID: layton-oil.ecs.lab.emc.com
+      driveCount: 10
+      drives:
+        - serialNumber: LOOPBACK1318634239
+          size: 200Mi
+        - serialNumber: RANDOMDEVICE
+          vid: vid
+        - serialNumber: LOOPBACK1462456734
+          removed: true
+```
+
+Because of HWManager is deployed on each node, if you want to set configuration of specified HWManager, you need to
+add its NodeID to `nodes` field of configuration. Loopback HWManager is able to update devices according to
+ configuration in runtime. If `drives` field contains existing drive (check by serialNumber) then configuration of this
+drive will be updated and missing fields will be filled with defaults. If `drives` field contains new drive then this 
+drive will be appended to HWManager if it has free slot. It means that if HWManager already has `driveCount` devices
+then the new drive won't be appended without increasing of `driveCount`. If you increase `driveCount` in runtime then
+HWManager will add missing devices from default or specified drives. If you decrease `driveCount` in runtime then nothing
+will happen because it's not known which of devices should be deleted (some of them can hold volumes/LVG). To fail
+specified drive you can set `removed` field as true (See the example above). This drive will be shown as `Offline`.
+ 
 * Set kubernetes context to kind:
 ```
 kubectl config set-context "kind-kind"

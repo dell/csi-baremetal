@@ -1,0 +1,13 @@
+{{- if eq .Values.hwmgr.deployConfig true }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: loopback-config
+  labels:
+    app: baremetal-csi-node
+data:
+  config.yaml: |-
+    defaultDrivePerNodeCount: 3
+{{- end }}
+

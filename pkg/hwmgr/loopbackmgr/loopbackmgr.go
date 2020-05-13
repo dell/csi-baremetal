@@ -3,12 +3,15 @@ package loopbackmgr
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -18,18 +21,26 @@ import (
 )
 
 const (
-	// todo AK8S-635 number of devices and other settings must be set via config map in runtime
-	numberOfDevices   = 3
+	defaultNumberOfDevices = 3
+	defaultVID             = "Test"
+	defaultPID             = "Loopback"
+	defaultSize            = "100Mi"
+	defaultHealth          = apiV1.HealthGood
+	defaultDriveType       = apiV1.DriveTypeHDD
+
 	threshold         = "1Gi"
 	defaultFileName   = "loopback"
 	tmpFolder         = "/tmp"
 	createFileCmdTmpl = "dd if=/dev/zero of=%s bs=1M count=%d"
+	deleteFileCmdTmpl = "rm -rf %s"
 	// requires root privileges
 	losetupCmd                      = "losetup"
 	checkLoopBackDeviceCmdTmpl      = losetupCmd + " -j %s"
 	setupLoopBackDeviceCmdTmpl      = losetupCmd + " -fP %s"
 	detachLoopBackDeviceCmdTmpl     = losetupCmd + " -d %s"
 	findUnusedLoopBackDeviceCmdTmpl = losetupCmd + " -f"
+
+	configPath = "/etc/config/config.yaml"
 )
 
 /*
@@ -42,27 +53,43 @@ type LoopBackManager struct {
 	log      *logrus.Entry
 	exec     command.CmdExecutor
 	hostname string
-	devices  [numberOfDevices]LoopBackDevice
+	nodeID   string
+	devices  []*LoopBackDevice
+	config   *Config
 }
 
 // LoopBackDevice struct contains fields to describe a loop device bound with a file
 type LoopBackDevice struct {
-	fileName     string
-	vendorID     string
-	productID    string
-	serialNumber string
-	// need to have unit64
-	sizeMb int64
+	VendorID     string `yaml:"vid"`
+	ProductID    string `yaml:"pid"`
+	SerialNumber string `yaml:"serialNumber"`
+	Size         string `yaml:"size"`
+	Removed      bool   `yaml:"removed"`
+	Health       string `yaml:"health"`
+	DriveType    string `yaml:"driveType"`
+
+	fileName string
 	// for example, /dev/loop0
 	devicePath string
+}
+
+// Node struct represents particular configuration of LoopBackManager for specified node
+type Node struct {
+	NodeID     string            `yaml:"nodeID"`
+	DriveCount int               `yaml:"driveCount"`
+	Drives     []*LoopBackDevice `yaml:"drives"`
+}
+
+// Config struct is the configuration for LoopBackManager. It contains default settings and settings for each node
+type Config struct {
+	DefaultDriveCount int     `yaml:"defaultDrivePerNodeCount"`
+	Nodes             []*Node `yaml:"nodes"`
 }
 
 // NewLoopBackManager is the constructor for LoopBackManager
 // Receives CmdExecutor to execute os commands such as 'losetup' and logrus logger
 // Returns an instance of LoopBackManager
 func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBackManager {
-	var devices [numberOfDevices]LoopBackDevice
-
 	// read hostname variable - this is pod's name.
 	// since pod might restart and change name better to user real hostname
 	hostname := os.Getenv("HOSTNAME")
@@ -78,30 +105,17 @@ func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBa
 		hostname = defaultFileName
 	}
 
-	for i := 0; i < numberOfDevices; i++ {
-		// file names must be different for every hwmgr instance
-		devices[i].fileName = fmt.Sprintf(tmpFolder+"/%s-%d.img", hostname, i)
-		devices[i].vendorID = "Test"
-		devices[i].productID = "Loopback"
-		// todo is it ok so have same SN on different nodes?
-		devices[i].serialNumber = fmt.Sprintf("LOOPBACK%d", i)
-		devices[i].sizeMb = 100 //100 MB
-		devices[i].devicePath = fmt.Sprintf("/dev/loop%d", i)
-	}
-
-	// are there any other ways to mock executor?
-	exec.SetLogger(logger)
-	return &LoopBackManager{
+	mgr := &LoopBackManager{
 		log:      logger.WithField("component", "LoopBackManager"),
 		exec:     exec,
 		hostname: hostname,
-		devices:  devices,
+		nodeID:   os.Getenv("KUBE_NODE_NAME"),
 	}
-}
 
-// Init creates files and register them as loopback devices
-// Returns error if something went wrong
-func (mgr *LoopBackManager) Init() (err error) {
+	mgr.updateDevicesFromConfig()
+
+	exec.SetLogger(logger)
+
 	// clean loop devices after hwmgr deletion
 	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
 	// kubernetes sends SIGTERM signal to containers for pods terminating
@@ -113,30 +127,216 @@ func (mgr *LoopBackManager) Init() (err error) {
 		os.Exit(0)
 	}()
 
+	return mgr
+}
+
+// Equals checks if device is equal to provided one. Equals doesn't compare fileName and devicePath fields and compares
+// only drive specification of devices.
+// Receives *LoopBackDevice to check equality
+func (d *LoopBackDevice) Equals(device *LoopBackDevice) bool {
+	return d.Removed == device.Removed && d.DriveType == device.DriveType &&
+		d.Health == device.Health && d.Size == device.Size &&
+		d.SerialNumber == device.SerialNumber && d.ProductID == device.ProductID &&
+		d.VendorID == device.VendorID
+}
+
+// fillEmptyFieldsWithDefaults fills fields of LoopBackDevice which are not provided in configuration with defaults
+func (d *LoopBackDevice) fillEmptyFieldsWithDefaults() {
+	if d.Health == "" {
+		d.Health = defaultHealth //apiV1.HealthGood
+	}
+	if d.VendorID == "" {
+		d.VendorID = defaultVID
+	}
+	if d.ProductID == "" {
+		d.ProductID = defaultPID
+	}
+	if d.DriveType == "" {
+		d.DriveType = defaultDriveType //apiV1.DriveTypeHDD
+	}
+	if d.Size == "" {
+		d.Size = defaultSize
+	}
+}
+
+// readAndSetConfig reads config from path and tries to unmarshall it. If unmarshall performs successfully then
+// the methods sets the config to LoopBackManager
+func (mgr *LoopBackManager) readAndSetConfig(path string) {
+	ll := mgr.log.WithField("method", "readAndSetConfig")
+
+	configData, err := ioutil.ReadFile(path)
+	if err != nil {
+		ll.Errorf("failed to read config file %s: %v", configData, err)
+	} else {
+		c := &Config{}
+		err = yaml.Unmarshal(configData, c)
+		if err != nil {
+			ll.Errorf("failed to unmarshall config: %v", err)
+		} else {
+			mgr.config = c
+		}
+	}
+}
+
+// updateDevicesFromConfig reads a config with readAndSetConfig method and updates LoopBackManager's slice of devices
+// according to this config. If manager's devices weren't initialized and config is empty then the method initializes
+// them with local default settings.
+func (mgr *LoopBackManager) updateDevicesFromConfig() {
+	ll := mgr.log.WithField("method", "updateDevicesFromConfig")
+
+	mgr.readAndSetConfig(configPath)
+
+	if mgr.config == nil {
+		ll.Info("ConfigMap wasn't read. Update devices based on local settings")
+		// If config.yaml wasn't created then initialize devices with default config
+		if mgr.devices == nil {
+			mgr.createDefaultDevices(defaultNumberOfDevices)
+		}
+		return
+	}
+
+	// If config was read from the configPath file and unmarshalled
+	ll.Info("update devices based on ConfigMap")
+	driveCount := mgr.config.DefaultDriveCount
+	var drives []*LoopBackDevice
+	for _, node := range mgr.config.Nodes {
+		// If config contains node config for LoopBackManager's node then use values from it
+		if node.NodeID == mgr.nodeID {
+			// Node's config may not contain driveCount field. Then use mgr.config.DefaultDriveCount
+			if node.DriveCount > 0 {
+				driveCount = node.DriveCount
+			}
+			drives = node.Drives
+		}
+	}
+	// If mgr.devices is empty when fill it with (default devices - specified devices). Specified drives will be
+	// appended to the end of mgr.devices later
+	if mgr.devices == nil {
+		mgr.createDefaultDevices(driveCount - len(drives))
+	}
+	// If specified drives for this manager are set then override or append them
+	if drives != nil {
+		mgr.overrideDevicesFromNodeConfig(driveCount, drives)
+	}
+	// If driveCount for specified node was increased but drives are not specified then add default devices
+	mgr.createDefaultDevices(driveCount - len(mgr.devices))
+}
+
+// overrideDevicesFromNodeConfig overrides existing devices with provided as a parameter. If manager already has the
+// device with same serialNumber then override its fields with read from config and fill empty fields with defaults.
+// If manager doesn't have the device then append it to manager if there is free space for it.
+// Receives deviceCount which represents what amount of devices manager should have and slice of devices to override
+func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devices []*LoopBackDevice) {
+	ll := mgr.log.WithField("method", "overrideDevicesFromNodeConfig")
+
+	for _, device := range devices {
+		overrode := false
+		for i, mgrDevice := range mgr.devices {
+			// If manager contains device with serialNumber which is equal to provided then override it
+			if strings.EqualFold(mgrDevice.SerialNumber, device.SerialNumber) {
+				ll.Infof("Found device with serial number %s in manager. Override it", mgrDevice.SerialNumber)
+				overrode = true
+				// If drive specification of mgr device is not equal to provided (vid, pid, size...) then override it
+				if !mgrDevice.Equals(device) {
+					// If mgr device is already bound to loop device then check if provided configuration changes size.
+					// If not then we may not rebind device and save existing devicePath
+					if mgrDevice.devicePath != "" {
+						// If size changed when we need to detach loop device and delete appropriate file
+						if device.Size != mgrDevice.Size && device.Size != "" {
+							ll.Infof("Size of device changes from %s to %s", mgrDevice.Size, device.Size)
+							_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, mgrDevice.devicePath))
+							if err != nil {
+								ll.Errorf("Unable to detach loopback device %s", mgrDevice.devicePath)
+							}
+							_, _, err = mgr.exec.RunCmd(fmt.Sprintf(deleteFileCmdTmpl, mgrDevice.fileName))
+							if err != nil {
+								ll.Errorf("Unable to delete file %s", mgrDevice.fileName)
+							}
+							device.fileName = mgrDevice.fileName
+						} else {
+							device.fileName = mgrDevice.fileName
+							device.devicePath = mgrDevice.devicePath
+						}
+					}
+					device.fillEmptyFieldsWithDefaults()
+					mgr.devices[i] = device
+				}
+			}
+		}
+		// If provided device wasn't overrode it means that it is the new device. Try to append it
+		if !overrode {
+			// If mgr already has deviceCount of devices and user tries to provide new one in config then don't append it
+			// and print warning because it is not known which device should be deleted
+			if len(mgr.devices) >= deviceCount {
+				ll.Warnf("There is no space for devices that doesn't match to existing ones. Increase driveCount")
+			} else {
+				deviceID := uuid.New().ID()
+				// If serial number of device is not provided then generate it
+				if device.SerialNumber == "" {
+					device.SerialNumber = fmt.Sprintf("LOOPBACK%d", deviceID)
+				}
+				device.fileName = fmt.Sprintf(tmpFolder+"/%s-%d.img", mgr.hostname, deviceID)
+				device.fillEmptyFieldsWithDefaults()
+				mgr.devices = append(mgr.devices, device)
+			}
+		}
+	}
+}
+
+// createDefaultDevices initialized LoopBackManager's devices with default devices
+// Receives deviceCount that represents amount of devices to create
+func (mgr *LoopBackManager) createDefaultDevices(deviceCount int) {
+	if mgr.devices == nil {
+		mgr.devices = make([]*LoopBackDevice, 0)
+	}
+	for i := 0; i < deviceCount; i++ {
+		deviceID := uuid.New().ID()
+		device := &LoopBackDevice{
+			SerialNumber: fmt.Sprintf("LOOPBACK%d", deviceID),
+			fileName:     fmt.Sprintf(tmpFolder+"/%s-%d.img", mgr.hostname, deviceID),
+		}
+		device.fillEmptyFieldsWithDefaults()
+		mgr.devices = append(mgr.devices, device)
+	}
+}
+
+// Init creates files and register them as loopback devices
+// Returns error if something went wrong
+func (mgr *LoopBackManager) Init() (err error) {
+	ll := mgr.log.WithField("method", "Init")
 	var device string
 
 	rfAgent := rootfs.NewRootFsAgent(mgr.exec)
 	// go through the list of devices and register if needed
-	for i := 0; i < numberOfDevices; i++ {
+	for i := 0; i < len(mgr.devices); i++ {
+		// If device has devicePath it means that it already bounded to loop device. Skip it.
+		if mgr.devices[i].devicePath != "" {
+			continue
+		}
 		// wil create files in home dir. we might need to store them on host to test FI
 		file := mgr.devices[i].fileName
-		sizeMb := mgr.devices[i].sizeMb
+		sizeBytes, err := util.StrToBytes(mgr.devices[i].Size)
+		if err != nil {
+			ll.Errorf("Failed to convert device size to bytes. Continue for next device")
+			continue
+		}
+		sizeMb, _ := util.ToSizeUnit(sizeBytes, util.BYTE, util.MBYTE)
 		// skip creation if file exists (manager restarted)
 		if _, err := os.Stat(file); err != nil {
 			freeBytes, err := rfAgent.GetRootFsSpace()
 			if err != nil {
-				mgr.log.Fatal("Failed to check root fs space")
+				ll.Fatal("Failed to check root fs space")
 			}
 			bytes, err := util.StrToBytes(threshold)
 			if err != nil {
-				mgr.log.Fatalf("Parsing threshold %s failed", threshold)
+				ll.Fatalf("Parsing threshold %s failed", threshold)
 			}
 			if freeBytes < bytes {
-				mgr.log.Fatal("Not enough space on root fs")
+				ll.Fatal("Not enough space on root fs")
 			}
 			_, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(createFileCmdTmpl, file, sizeMb))
 			if errcode != nil {
-				mgr.log.Fatalf("Unable to create file %s with size %d MB: %s", file, sizeMb, stderr)
+				ll.Fatalf("Unable to create file %s with size %d MB: %s", file, sizeMb, stderr)
 			}
 
 			// check that loopback device exists. ignore error here
@@ -145,7 +345,7 @@ func (mgr *LoopBackManager) Init() (err error) {
 				// try to detach
 				_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device))
 				if err != nil {
-					mgr.log.Errorf("Unable to detach loopback device %s for file %s", device, file)
+					ll.Errorf("Unable to detach loopback device %s for file %s", device, file)
 				}
 			}
 		} else {
@@ -161,13 +361,13 @@ func (mgr *LoopBackManager) Init() (err error) {
 		// check that system has unused device for troubleshooting purposes
 		_, _, err = mgr.exec.RunCmd(findUnusedLoopBackDeviceCmdTmpl)
 		if err != nil {
-			mgr.log.Error("System doesn't have unused loopback devices")
+			ll.Error("System doesn't have unused loopback devices")
 		}
 
 		// create new device
 		_, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(setupLoopBackDeviceCmdTmpl, file))
 		if errcode != nil {
-			mgr.log.Fatalf("Unable to create loopback device for %s: %s", file, stderr)
+			ll.Fatalf("Unable to create loopback device for %s: %s", file, stderr)
 		}
 		device, _ = mgr.GetLoopBackDeviceName(file)
 		mgr.devices[i].devicePath = device
@@ -178,18 +378,32 @@ func (mgr *LoopBackManager) Init() (err error) {
 // GetDrivesList returns list of loopback devices as *api.Drive slice
 // Returns *api.Drive slice or error if something went wrong
 func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
+	ll := mgr.log.WithField("method", "GetDrivesList")
+	// TODO AK8S-896 Make process of config updating asynchronous
+	mgr.updateDevicesFromConfig()
+	if err := mgr.Init(); err != nil {
+		ll.Errorf("Failed to init devices: %v", err)
+	}
 	drives := make([]*api.Drive, 0)
-	for i := 0; i < numberOfDevices; i++ {
+	for i := 0; i < len(mgr.devices); i++ {
+		var driveStatus string
+		if mgr.devices[i].Removed {
+			driveStatus = apiV1.DriveStatusOffline
+		} else {
+			driveStatus = apiV1.DriveStatusOnline
+		}
+		sizeBytes, _ := util.StrToBytes(mgr.devices[i].Size)
 		drive := &api.Drive{
-			VID:          mgr.devices[i].vendorID,
-			PID:          mgr.devices[i].productID,
-			SerialNumber: mgr.devices[i].serialNumber,
-			Health:       apiV1.HealthGood,
-			Type:         apiV1.DriveTypeHDD,
-			Size:         mgr.devices[i].sizeMb * 1024 * 1024,
-			Status:       apiV1.DriveStatusOnline,
+			VID:          mgr.devices[i].VendorID,
+			PID:          mgr.devices[i].ProductID,
+			SerialNumber: mgr.devices[i].SerialNumber,
+			Health:       strings.ToUpper(mgr.devices[i].Health),
+			Type:         strings.ToUpper(mgr.devices[i].DriveType),
+			Size:         sizeBytes,
+			Status:       driveStatus,
 			Path:         mgr.devices[i].devicePath,
 		}
+		ll.Infof("drive: %v", drive)
 		drives = append(drives, drive)
 	}
 	return drives, nil

@@ -49,6 +49,7 @@ hwmgr:
   halOverride:
     iscsi: false
   type: HAL
+  deployConfig: false
 
 # CSI Sidecars parameters
 provisioner:

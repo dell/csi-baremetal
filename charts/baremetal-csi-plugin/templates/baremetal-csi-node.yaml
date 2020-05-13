@@ -147,6 +147,11 @@ spec:
           value: {{ .Values.log.format }}
         - name: HW_MANAGER
           value: {{ .Values.hwmgr.type }}
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
         ports:
         {{- if .Values.hwmgr.grpc.server.port }}
           - containerPort: {{ .Values.hwmgr.grpc.server.port }}
@@ -154,6 +159,10 @@ spec:
         volumeMounts:
         - name: host-dev
           mountPath: /dev
+        {{- if eq .Values.hwmgr.deployConfig true }}
+        - name: drive-config
+          mountPath: /etc/config
+        {{- end }}
         {{- if .Values.logReceiver.create  }}
         - name: logs
           mountPath: /var/log/
@@ -201,4 +210,9 @@ spec:
         hostPath:
           path: /var/lib/kubelet/pods
           type: Directory
+      {{- if eq .Values.hwmgr.deployConfig true }}
+      - name: drive-config
+        configMap:
+          name: loopback-config
+      {{- end }}
 {{- end }}
