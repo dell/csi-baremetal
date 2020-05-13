@@ -1,12 +1,11 @@
 package sc
 
 import (
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 )
 
 var loggerHDDSC = logrus.New()
@@ -21,7 +20,7 @@ func TestGetHDDSCInstance(t *testing.T) {
 
 func TestSetHDDSCExecutor(t *testing.T) {
 	hddSCInstanceTest := GetHDDSCInstance(loggerHDDSC)
-	executorNew := &base.Executor{}
+	executorNew := &command.Executor{}
 	hddSCInstanceTest.SetHDDSCExecutor(*executorNew)
 	assert.Equal(t, executorNew, hddSCInstanceTest.executor)
 }

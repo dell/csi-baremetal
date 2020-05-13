@@ -1,4 +1,4 @@
-package base
+package rpc
 
 import (
 	"net"

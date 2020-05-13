@@ -1,28 +1,31 @@
-package base
+package rootfs
 
 import (
 	"fmt"
 	"strings"
+
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 // CheckSpaceCmdImpl check free space on system drive in unit of --block-size
 const CheckSpaceCmdImpl = "df --output=target,avail --block-size=%s"
 
-// RootFsUtils is the struct to interact with root file system
-type RootFsUtils struct {
-	e CmdExecutor
+// Agent is the struct to interact with root file system
+type Agent struct {
+	e command.CmdExecutor
 }
 
-// NewRootFsUtils is the constructor for RootFsUtils struct
+// NewRootFsAgent is the constructor for Agent struct
 // Receives an instance of CmdExecutor
-// Returns an instance of RootFsUtils
-func NewRootFsUtils(e CmdExecutor) *RootFsUtils {
-	return &RootFsUtils{e: e}
+// Returns an instance of Agent
+func NewRootFsAgent(e command.CmdExecutor) *Agent {
+	return &Agent{e: e}
 }
 
-// CheckRootFsSpace calls df command and check available space on root fs
+// GetRootFsSpace calls df command and check available space on root fs
 // Returns free bytes on root fs as int64 or error if something went wrong
-func (rf *RootFsUtils) CheckRootFsSpace() (int64, error) {
+func (rf *Agent) GetRootFsSpace() (int64, error) {
 	/*Example output
 	Mounted on                       Avail
 	/dev                             2413M
@@ -41,7 +44,7 @@ func (rf *RootFsUtils) CheckRootFsSpace() (int64, error) {
 			if strings.Contains(output[0], "/") && len(output[0]) == 1 {
 				//Try to get size from string, e.g. "/    10283M", size has the last index in the string
 				sizeIdx := len(output) - 1
-				freeBytes, err := StrToBytes(output[sizeIdx])
+				freeBytes, err := util.StrToBytes(output[sizeIdx])
 				if err != nil {
 					return 0, err
 				}

@@ -12,7 +12,9 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/rootfs"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 const (
@@ -38,7 +40,7 @@ topology (accessibility), etc.
 */
 type LoopBackManager struct {
 	log      *logrus.Entry
-	exec     base.CmdExecutor
+	exec     command.CmdExecutor
 	hostname string
 	devices  [numberOfDevices]LoopBackDevice
 }
@@ -58,7 +60,7 @@ type LoopBackDevice struct {
 // NewLoopBackManager is the constructor for LoopBackManager
 // Receives CmdExecutor to execute os commands such as 'losetup' and logrus logger
 // Returns an instance of LoopBackManager
-func NewLoopBackManager(exec base.CmdExecutor, logger *logrus.Logger) *LoopBackManager {
+func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBackManager {
 	var devices [numberOfDevices]LoopBackDevice
 
 	// read hostname variable - this is pod's name.
@@ -113,7 +115,7 @@ func (mgr *LoopBackManager) Init() (err error) {
 
 	var device string
 
-	rfutils := base.NewRootFsUtils(mgr.exec)
+	rfAgent := rootfs.NewRootFsAgent(mgr.exec)
 	// go through the list of devices and register if needed
 	for i := 0; i < numberOfDevices; i++ {
 		// wil create files in home dir. we might need to store them on host to test FI
@@ -121,11 +123,11 @@ func (mgr *LoopBackManager) Init() (err error) {
 		sizeMb := mgr.devices[i].sizeMb
 		// skip creation if file exists (manager restarted)
 		if _, err := os.Stat(file); err != nil {
-			freeBytes, err := rfutils.CheckRootFsSpace()
+			freeBytes, err := rfAgent.GetRootFsSpace()
 			if err != nil {
 				mgr.log.Fatal("Failed to check root fs space")
 			}
-			bytes, err := base.StrToBytes(threshold)
+			bytes, err := util.StrToBytes(threshold)
 			if err != nil {
 				mgr.log.Fatalf("Parsing threshold %s failed", threshold)
 			}

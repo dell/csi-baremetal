@@ -19,6 +19,7 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
@@ -56,7 +57,7 @@ const (
 // Returns an instance of CSINodeService
 func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger, k8sclient *base.KubeClient) *CSINodeService {
 	s := &CSINodeService{
-		VolumeManager: *NewVolumeManager(client, &base.Executor{}, logger, k8sclient, nodeID),
+		VolumeManager: *NewVolumeManager(client, &command.Executor{}, logger, k8sclient, nodeID),
 		NodeID:        nodeID,
 		svc:           common.NewVolumeOperationsImpl(k8sclient, logger),
 	}
@@ -325,7 +326,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	owners := volumeCR.Spec.Owners
-	if !base.ContainsString(owners, podName) { // check whether podName name already in owners or no
+	if !util.ContainsString(owners, podName) { // check whether podName name already in owners or no
 		owners = append(owners, podName)
 		volumeCR.Spec.Owners = owners
 	}
@@ -356,7 +357,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 		err           error
 	)
 
-	if bytes, err = base.StrToBytes(bytesStr); err != nil {
+	if bytes, err = util.StrToBytes(bytesStr); err != nil {
 		ll.Errorf("Failed to parse value %v to bytes", bytesStr)
 		return nil, err
 	}
@@ -370,7 +371,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 		mode = apiV1.ModeFS
 	}
 
-	sc = base.ConvertStorageClass(volumeContext[base.StorageTypeKey])
+	sc = util.ConvertStorageClass(volumeContext[base.StorageTypeKey])
 	if sc == apiV1.StorageClassAny {
 		sc = apiV1.StorageClassHDD // do not use sc ANY for inline volumes
 	}

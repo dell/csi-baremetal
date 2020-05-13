@@ -2,6 +2,7 @@ package sanity_test
 
 import (
 	"context"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 	"fmt"
 	"os"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
@@ -94,7 +96,7 @@ func newControllerSvc(kubeClient *base.KubeClient) {
 
 	controllerService := controller.NewControllerService(kubeClient, ll)
 
-	csiControllerServer := base.NewServerRunner(nil, controllerEndpoint, ll)
+	csiControllerServer := rpc.NewServerRunner(nil, controllerEndpoint, ll)
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version, true))
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
@@ -112,7 +114,7 @@ func newNodeSvc(kubeClient *base.KubeClient, nodeReady chan<- bool) {
 	csiNodeService := prepareNodeMock(kubeClient, ll)
 	csiIdentityService := controller.NewIdentityServer(driverName, version, true)
 
-	csiUDSServer := base.NewServerRunner(nil, nodeEndpoint, ll)
+	csiUDSServer := rpc.NewServerRunner(nil, nodeEndpoint, ll)
 
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
@@ -138,7 +140,7 @@ func newNodeSvc(kubeClient *base.KubeClient, nodeReady chan<- bool) {
 // prepareNodeMock prepares instance of Node service with mocked hwmgr and mocked executor
 func prepareNodeMock(kubeClient *base.KubeClient, log *logrus.Logger) *node.CSINodeService {
 	c := mocks.NewMockHWMgrClient(testDrives)
-	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(base.LsblkCmdTmpl, ""): {Stdout: mocks.LsblkTwoDevicesStr}})
+	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(lsblk.CmdTmpl, ""): {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
 
 	nodeService := node.NewCSINodeService(nil, nodeId, log, kubeClient)

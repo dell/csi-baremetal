@@ -8,7 +8,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 const (
@@ -39,7 +40,7 @@ const (
 // DefaultDASC is a default implementation of StorageClassImplementer interface
 // for directly attached drives like HDD and SSD
 type DefaultDASC struct {
-	executor base.CmdExecutor
+	executor command.CmdExecutor
 	log      *logrus.Entry
 	opMutex  sync.Mutex
 }
@@ -149,7 +150,7 @@ func (d *DefaultDASC) DeleteTargetPath(path string) error {
 func (d *DefaultDASC) IsMounted(partition string) (bool, error) {
 	ll := d.log.WithField("method", "IsMounted")
 
-	procMounts, err := base.ConsistentRead(ProcMountsFile, 5, time.Millisecond)
+	procMounts, err := util.ConsistentRead(ProcMountsFile, 5, time.Millisecond)
 	if err != nil || len(procMounts) == 0 {
 		if err != nil {
 			ll.Errorf("%s is not consistent, error: %v", ProcMountsFile, err)

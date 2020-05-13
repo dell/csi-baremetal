@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	// +kubebuilder:scaffold:imports
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// +kubebuilder:scaffold:imports
 )
 
 var (
@@ -44,7 +46,7 @@ func main() {
 
 	logger.Info("Starting controller ...")
 
-	csiControllerServer := base.NewServerRunner(nil, *endpoint, logger)
+	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, logger)
 
 	k8SClient, err := base.GetK8SClient()
 	if err != nil {

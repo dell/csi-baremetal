@@ -5,7 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 )
 
 // SsdSC is StorageClass implementation for SSD drives
@@ -27,7 +27,7 @@ func GetSSDSCInstance(logger *logrus.Logger) *SsdSC {
 		defer ssdMU.Unlock()
 
 		if ssdSCInstance == nil {
-			ssdSCInstance = &SsdSC{DefaultDASC{executor: &base.Executor{}}}
+			ssdSCInstance = &SsdSC{DefaultDASC{executor: &command.Executor{}}}
 			ssdSCInstance.executor.SetLogger(logger)
 			ssdSCInstance.SetLogger(logger, "SSDSC")
 		}
@@ -37,6 +37,6 @@ func GetSSDSCInstance(logger *logrus.Logger) *SsdSC {
 
 // SetSDDSCExecutor sets cmd executor to SsdSC
 // Receives cmd executor
-func (s *SsdSC) SetSDDSCExecutor(executor base.CmdExecutor) {
+func (s *SsdSC) SetSDDSCExecutor(executor command.CmdExecutor) {
 	s.executor = executor
 }

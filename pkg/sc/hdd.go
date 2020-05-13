@@ -5,7 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 )
 
 // HddSC is StorageClass implementation for HDD drives
@@ -27,7 +27,7 @@ func GetHDDSCInstance(logger *logrus.Logger) *HddSC {
 		defer hddMU.Unlock()
 
 		if hddSCInstance == nil {
-			hddSCInstance = &HddSC{DefaultDASC{executor: &base.Executor{}}}
+			hddSCInstance = &HddSC{DefaultDASC{executor: &command.Executor{}}}
 			hddSCInstance.executor.SetLogger(logger)
 			hddSCInstance.SetLogger(logger, "HDDSC")
 		}
@@ -37,6 +37,6 @@ func GetHDDSCInstance(logger *logrus.Logger) *HddSC {
 
 // SetHDDSCExecutor sets cmd executor to HddSC
 // Receives cmd executor
-func (h *HddSC) SetHDDSCExecutor(executor base.Executor) {
+func (h *HddSC) SetHDDSCExecutor(executor command.Executor) {
 	h.executor = &executor
 }

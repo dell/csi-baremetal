@@ -6,13 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
-var executor = mocks.NewMockExecutor(mocks.DiskCommands)
-
 var partition = &Partition{
-	e: executor,
+	helper: ph.NewPartition(
+		mocks.NewMockExecutor(mocks.DiskCommands)),
 }
 
 func TestIsPartitionExists(t *testing.T) {
@@ -29,7 +29,7 @@ func TestIsPartitionExists(t *testing.T) {
 func TestIsPartitionExistsFail(t *testing.T) {
 	exists, err := partition.IsPartitionExists("/dev/sdd")
 	assert.Equal(t, false, exists)
-	assert.Equal(t, errors.New("unable to check partition existence for /dev/sdd"), err)
+	assert.NotNil(t, err)
 }
 
 func TestCreatePartitionTable(t *testing.T) {
@@ -72,16 +72,15 @@ func TestCreatePartitionFail(t *testing.T) {
 	err := partition.CreatePartition("/dev/sdf")
 	assert.NotNil(t, err)
 
-	expectedError := errors.New("partprobe failed")
 	newCmd := "partprobe /dev/sde"
 	mocks.DiskCommands[newCmd] = mocks.CmdOut{
 		Stdout: "",
 		Stderr: "",
-		Err:    expectedError,
+		Err:    errors.New("error"),
 	}
 	err = partition.CreatePartition("/dev/sde")
 	assert.NotNil(t, err)
-	assert.Equal(t, expectedError, err)
+	assert.NotNil(t, err)
 	delete(mocks.DiskCommands, newCmd)
 
 }

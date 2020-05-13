@@ -14,7 +14,7 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
-			Size:         int64(base.GBYTE),
+			Size:         int64(util.GBYTE),
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive1UUID,
 			NodeId:       testNode1Name},
@@ -45,7 +45,7 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
-			Size:         int64(base.GBYTE) * 100,
+			Size:         int64(util.GBYTE) * 100,
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive2UUID,
 			NodeId:       testNode2Name,
@@ -56,7 +56,7 @@ var (
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
-			Size:         int64(base.TBYTE),
+			Size:         int64(util.TBYTE),
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive3UUID,
 			NodeId:       testNode2Name,
@@ -83,7 +83,7 @@ var (
 			Name:      testLVGName,
 			Node:      testNode2Name,
 			Locations: []string{testDrive4UUID},
-			Size:      int64(base.GBYTE) * 100,
+			Size:      int64(util.GBYTE) * 100,
 			Status:    crdV1.Creating,
 		},
 	}
@@ -100,7 +100,7 @@ var (
 		Spec: api.Volume{
 			Id:           testVolume1Name,
 			NodeId:       testNode1Name,
-			Size:         int64(base.GBYTE),
+			Size:         int64(util.GBYTE),
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive1UUID,
 			CSIStatus:    crdV1.Creating,

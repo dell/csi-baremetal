@@ -22,6 +22,8 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
@@ -39,7 +41,7 @@ type VolumeManager struct {
 
 	scMap map[SCName]sc.StorageClassImplementer
 
-	linuxUtils *base.LinuxUtils
+	linuxUtils *linuxutils.LinuxUtils
 	log        *logrus.Entry
 	nodeID     string
 
@@ -63,12 +65,12 @@ const (
 // Receives an instance of HWServiceClient to interact with HWManager, CmdExecutor to execute linux commands,
 // logrus logger, base.KubeClient and ID of a node where VolumeManager works
 // Returns an instance of VolumeManager
-func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, logger *logrus.Logger, k8sclient *base.KubeClient, nodeID string) *VolumeManager {
+func NewVolumeManager(client api.HWServiceClient, executor command.CmdExecutor, logger *logrus.Logger, k8sclient *base.KubeClient, nodeID string) *VolumeManager {
 	vm := &VolumeManager{
 
 		k8sclient:   k8sclient,
 		hWMgrClient: client,
-		linuxUtils:  base.NewLinuxUtils(executor, logger),
+		linuxUtils:  linuxutils.NewLinuxUtils(executor, logger),
 		drivesCache: make(map[string]*drivecrd.Drive),
 		nodeID:      nodeID,
 		scMap: map[SCName]sc.StorageClassImplementer{
@@ -81,7 +83,7 @@ func NewVolumeManager(client api.HWServiceClient, executor base.CmdExecutor, log
 }
 
 // SetExecutor sets provided CmdExecutor to LinuxUtils field of VolumeManager
-func (m *VolumeManager) SetExecutor(executor base.CmdExecutor) {
+func (m *VolumeManager) SetExecutor(executor command.CmdExecutor) {
 	m.linuxUtils.SetExecutor(executor)
 }
 
@@ -286,7 +288,7 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	})
 
 	// explore each drive from freeDrives
-	lsblk, err := m.linuxUtils.Lsblk("")
+	lsblk, err := m.linuxUtils.GetBlockDevices("")
 	if err != nil {
 		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
@@ -354,7 +356,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 				wasError = true
 			} else {
 				for _, lvg := range lvgList.Items {
-					if base.ContainsString(lvg.Spec.Locations, drive.Spec.UUID) {
+					if util.ContainsString(lvg.Spec.Locations, drive.Spec.UUID) {
 						removed = true
 					}
 				}
@@ -364,7 +366,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 				capacity := &api.AvailableCapacity{
 					Size:         drive.Spec.Size,
 					Location:     drive.Spec.UUID,
-					StorageClass: base.ConvertDriveTypeToStorageClass(drive.Spec.Type),
+					StorageClass: util.ConvertDriveTypeToStorageClass(drive.Spec.Type),
 					NodeId:       nodeID,
 				}
 
@@ -458,7 +460,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	rootMountPoint = strings.Split(rootMountPoint, "[")[0]
 
 	// ensure that rootMountPoint is in SSD drive
-	devices, err := m.linuxUtils.Lsblk(rootMountPoint)
+	devices, err := m.linuxUtils.GetBlockDevices(rootMountPoint)
 	if err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
@@ -535,7 +537,7 @@ func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) 
 	switch vol.StorageClass {
 	//TODO AK8S-762 Use createPartitionAndSetUUID for SSDLVG, HDDLVG SC in CreateLocalVolume
 	case apiV1.StorageClassSSDLVG, apiV1.StorageClassHDDLVG:
-		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(base.GBYTE))
+		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(util.GBYTE))
 		vgName := vol.Location
 
 		// Volume.Location is a LVG CR name and we use such name as a real VG name

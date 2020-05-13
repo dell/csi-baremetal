@@ -17,6 +17,8 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/testutils"
@@ -663,7 +665,7 @@ func newNodeService() *CSINodeService {
 	cmds[lsblkAllDevicesCmd] = mocks.CmdOut{Stdout: mocks.LsblkTwoDevicesStr}
 	// list partitions of specific device
 	cmds[lsblkSingleDeviceCmd] = mocks.CmdOut{Stdout: mocks.LsblkListPartitionsStr}
-	partUUID := fmt.Sprintf(fmt.Sprintf(base.GetPartitionUUIDCmdTmpl, "/dev/sda"))
+	partUUID := fmt.Sprintf(fmt.Sprintf(ph.GetPartitionUUIDCmdTmpl, "/dev/sda", "1"))
 	cmds[partUUID] = mocks.CmdOut{Stdout: "Partition unique GUID: volume-id"}
 	executor := mocks.NewMockExecutor(cmds)
 	kubeClient, err := base.GetFakeKubeClient(testNs)
@@ -672,7 +674,7 @@ func newNodeService() *CSINodeService {
 	}
 	node := NewCSINodeService(client, nodeID, logrus.New(), kubeClient)
 	node.VolumeManager.SetExecutor(executor)
-	node.linuxUtils = base.NewLinuxUtils(executor, node.log.Logger)
+	node.linuxUtils = linuxutils.NewLinuxUtils(executor, node.log.Logger)
 
 	node.drivesCache[disk1.UUID] = &drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{

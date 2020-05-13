@@ -15,6 +15,9 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
@@ -23,8 +26,8 @@ const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 type LVGController struct {
 	k8sClient  *base.KubeClient
 	node       string
-	linuxUtils *base.LinuxUtils
-	e          base.CmdExecutor
+	linuxUtils *linuxutils.LinuxUtils
+	e          command.CmdExecutor
 
 	log *logrus.Entry
 }
@@ -33,14 +36,14 @@ type LVGController struct {
 // Receives an instance of base.KubeClient, ID of a node where it works and logrus logger
 // Returns an instance of LVGController
 func NewLVGController(k8sClient *base.KubeClient, nodeID string, log *logrus.Logger) *LVGController {
-	e := &base.Executor{}
+	e := &command.Executor{}
 	e.SetLogger(log)
 	return &LVGController{
 		k8sClient:  k8sClient,
 		node:       nodeID,
 		log:        log.WithField("component", "LVGController"),
 		e:          e,
-		linuxUtils: base.NewLinuxUtils(e, log),
+		linuxUtils: linuxutils.NewLinuxUtils(e, log),
 	}
 }
 
@@ -73,7 +76,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll.Infof("Reconciling LVG: %v", lvg)
 	if lvg.ObjectMeta.DeletionTimestamp.IsZero() {
 		// append finalizer if LVG doesn't contain it
-		if !base.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
+		if !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
 			lvg.ObjectMeta.Finalizers = append(lvg.ObjectMeta.Finalizers, lvgFinalizer)
 			if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
 				ll.Errorf("Unable to append finalizer %s to LVG, error: %v.", lvgFinalizer, err)
@@ -82,12 +85,15 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	} else {
 		ll.Infof("Removing LVG")
-		if base.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
+		if util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
 			// remove AC that point on that LVG
 			c.removeChildAC(lvg.Name)
 
 			// if LVG points in system VG, VG and PVs won't be removed
-			if lvg.Spec.Locations[0] != base.SystemDriveAsLocation {
+			// TODO: here for debug
+			if len(lvg.Spec.Locations) == 0 {
+				ll.Errorf("THERE IS NO LOCATIONS FOR LVG !!!")
+			} else if lvg.Spec.Locations[0] != base.SystemDriveAsLocation {
 				// cleanup LVM artifacts
 				if err := c.removeLVGArtifacts(lvg.Name); err != nil {
 					ll.Errorf("Unable to cleanup LVM artifacts: %v", err)
@@ -95,7 +101,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				}
 			}
 
-			lvg.ObjectMeta.Finalizers = base.RemoveString(lvg.ObjectMeta.Finalizers, lvgFinalizer)
+			lvg.ObjectMeta.Finalizers = util.RemoveString(lvg.ObjectMeta.Finalizers, lvgFinalizer)
 			if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
 				ll.Errorf("Unable to update LVG's finalizers: %v", err)
 				return ctrl.Result{}, err

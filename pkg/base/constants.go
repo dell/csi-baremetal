@@ -10,9 +10,6 @@ const (
 	DefaultVMMgrIP = "127.0.0.1"
 	// DefaultVolumeManagerPort is the default gRPC port for VolumeManager
 	DefaultVolumeManagerPort = 9999
-
-	// RomDeviceType is the constant that represents rom devices to exclude them from lsblk output
-	RomDeviceType = "rom"
 	// KubeletRootPath is the pods' path on the node
 	KubeletRootPath = "/var/lib/kubelet/pods"
 	// NonRotationalNum points on SSD drive

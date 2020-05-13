@@ -15,6 +15,7 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 func TestACOperationsImpl_SearchAC(t *testing.T) {
@@ -30,30 +31,30 @@ func TestACOperationsImpl_SearchAC(t *testing.T) {
 	assert.Nil(t, err)
 
 	// expect that testAC2 with size 100GB is choose
-	ac = acOp.SearchAC(testCtx, "", int64(base.GBYTE)*50, apiV1.StorageClassHDD)
+	ac = acOp.SearchAC(testCtx, "", int64(util.GBYTE)*50, apiV1.StorageClassHDD)
 	assert.NotNil(t, ac)
 	assert.Equal(t, testAC2.Name, ac.Name)
 
 	// expect that testAC3 with size 1Tb is choose
-	ac = acOp.SearchAC(testCtx, testNode2Name, int64(base.GBYTE)*133, apiV1.StorageClassHDD)
+	ac = acOp.SearchAC(testCtx, testNode2Name, int64(util.GBYTE)*133, apiV1.StorageClassHDD)
 	assert.NotNil(t, ac)
 	assert.Equal(t, testAC3.Name, ac.Name)
 
 	// expect that testAC4 is choose
-	ac = acOp.SearchAC(testCtx, testNode2Name, int64(base.GBYTE), apiV1.StorageClassHDDLVG)
+	ac = acOp.SearchAC(testCtx, testNode2Name, int64(util.GBYTE), apiV1.StorageClassHDDLVG)
 	assert.NotNil(t, ac)
 	assert.Equal(t, testAC4.Name, ac.Name)
 
 	// expect that there is no suitable AC because of size
-	ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.TBYTE), apiV1.StorageClassHDD)
+	ac = acOp.SearchAC(testCtx, testNode1Name, int64(util.TBYTE), apiV1.StorageClassHDD)
 	assert.Nil(t, ac)
 
 	// expect that there is no suitable AC because of storage class (SSD)
-	ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.GBYTE), apiV1.StorageClassSSD)
+	ac = acOp.SearchAC(testCtx, testNode1Name, int64(util.GBYTE), apiV1.StorageClassSSD)
 	assert.Nil(t, ac)
 
 	// expect that there is no suitable AC because of node
-	ac = acOp.SearchAC(testCtx, "some-another-node", int64(base.GBYTE), apiV1.StorageClassHDD)
+	ac = acOp.SearchAC(testCtx, "some-another-node", int64(util.GBYTE), apiV1.StorageClassHDD)
 	assert.Nil(t, ac)
 }
 
@@ -68,7 +69,7 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationSuccess(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.MBYTE)*500, apiV1.StorageClassHDDLVG)
+		ac = acOp.SearchAC(testCtx, testNode1Name, int64(util.MBYTE)*500, apiV1.StorageClassHDDLVG)
 		wg.Done()
 	}()
 	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Created)
@@ -94,7 +95,7 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		ac = acOp.SearchAC(testCtx, testNode1Name, int64(base.MBYTE)*500, apiV1.StorageClassHDDLVG)
+		ac = acOp.SearchAC(testCtx, testNode1Name, int64(util.MBYTE)*500, apiV1.StorageClassHDDLVG)
 		wg.Done()
 	}()
 	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Failed)
@@ -279,19 +280,19 @@ func TestACOperationsImpl_balanceAC(t *testing.T) {
 	acOp := setupACOperationsTest(t, &testAC1, &testAC2, &testAC3)
 
 	acNodeMap := acOp.acNodeMapping([]accrd.AvailableCapacity{testAC1, testAC2, testAC3})
-	balancedNode := acOp.balanceAC(acNodeMap, int64(base.MBYTE), apiV1.StorageClassHDD)
+	balancedNode := acOp.balanceAC(acNodeMap, int64(util.MBYTE), apiV1.StorageClassHDD)
 	assert.Equal(t, testNode2Name, balancedNode)
 
 	// should return empty string if there are no AC with appropriate size
-	balancedNode = acOp.balanceAC(acNodeMap, int64(base.TBYTE)*100, apiV1.StorageClassHDD)
+	balancedNode = acOp.balanceAC(acNodeMap, int64(util.TBYTE)*100, apiV1.StorageClassHDD)
 	assert.Equal(t, "", balancedNode)
 
 	// should return empty string if there are no AC with appropriate SC
-	balancedNode = acOp.balanceAC(acNodeMap, int64(base.TBYTE)*100, apiV1.StorageClassHDDLVG)
+	balancedNode = acOp.balanceAC(acNodeMap, int64(util.TBYTE)*100, apiV1.StorageClassHDDLVG)
 	assert.Equal(t, "", balancedNode)
 
 	// should return empty is acNodeMap is empty
-	balancedNode = acOp.balanceAC(map[string][]*accrd.AvailableCapacity{}, int64(base.TBYTE)*100, apiV1.StorageClassHDD)
+	balancedNode = acOp.balanceAC(map[string][]*accrd.AvailableCapacity{}, int64(util.TBYTE)*100, apiV1.StorageClassHDD)
 	assert.Equal(t, "", balancedNode)
 }
 

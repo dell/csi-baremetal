@@ -15,10 +15,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 // NewHALManager is the constructor of HALManager
@@ -99,7 +98,7 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 			VID:          C.GoString(&drivesSliceHAL[i].vid[0]),
 			PID:          C.GoString(&drivesSliceHAL[i].pid[0]),
 			SerialNumber: strings.ToUpper(C.GoString(&drivesSliceHAL[i].serialNumber[0])),
-			Size:         base.ToBytes(int64(drivesSliceHAL[i].capacity), base.GBYTE),
+			Size:         util.ToBytes(int64(drivesSliceHAL[i].capacity), util.GBYTE),
 			Health:       mgr.convertDriveHealth(drivesSliceHAL[i].driveHealth),
 			Type:         mgr.convertDriveType(drivesSliceHAL[i].storageClass),
 			Path:         C.GoString(&drivesSliceHAL[i].path[0]),

@@ -13,6 +13,9 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/halmgr"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/idracmgr"
@@ -42,7 +45,7 @@ func main() {
 
 	logger.Info("Start HWManager")
 	// Server is insecure for now because credentials are nil
-	serverRunner := base.NewServerRunner(nil, *endpoint, logger)
+	serverRunner := rpc.NewServerRunner(nil, *endpoint, logger)
 
 	hwManager, err := chooseHWManager(logger)
 	if err != nil {
@@ -60,12 +63,12 @@ func main() {
 
 // chooseHWManager picks HW manager implementation based on environment variable.
 func chooseHWManager(logger *logrus.Logger) (hwmgr.HWManager, error) {
-	e := &base.Executor{}
+	e := &command.Executor{}
 	e.SetLogger(logger)
 
 	switch os.Getenv("HW_MANAGER") {
 	case hwmgr.REDFISH:
-		linuxUtils := base.NewLinuxUtils(e, logger)
+		linuxUtils := linuxutils.NewLinuxUtils(e, logger)
 		ip := linuxUtils.GetBmcIP()
 		if ip == "" {
 			return nil, status.Error(codes.Internal, "IDRAC IP is not found")

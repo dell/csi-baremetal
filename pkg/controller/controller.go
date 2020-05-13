@@ -19,6 +19,7 @@ import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 )
 
@@ -133,7 +134,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	c.reqMu.Lock()
 	vol, err = c.svc.CreateVolume(ctx, api.Volume{
 		Id:           req.Name,
-		StorageClass: base.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
+		StorageClass: util.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
 		NodeId:       preferredNode,
 		Size:         req.GetCapacityRange().GetRequiredBytes(),
 		Mode:         mode,

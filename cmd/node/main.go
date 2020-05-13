@@ -21,6 +21,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
@@ -43,14 +44,14 @@ func main() {
 	logger.Info("Starting Node Service")
 
 	// gRPC client for communication with HWMgr via TCP socket
-	gRPCClient, err := base.NewClient(nil, *hwMgrEndpoint, logger)
+	gRPCClient, err := rpc.NewClient(nil, *hwMgrEndpoint, logger)
 	if err != nil {
 		logger.Fatalf("fail to create grpc client for endpoint %s, error: %v", *hwMgrEndpoint, err)
 	}
 	clientToHwMgr := api.NewHWServiceClient(gRPCClient.GRPCClient)
 
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
-	csiUDSServer := base.NewServerRunner(nil, *csiEndpoint, logger)
+	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, logger)
 
 	k8SClient, err := base.GetK8SClient()
 	if err != nil {
@@ -107,7 +108,7 @@ func StartNodeHealthServer(c health.HealthServer, logger *logrus.Logger) error {
 	logger.Info("Starting Node Health server ...")
 	// gRPC server that will serve requests for Node Health checking
 	nodeHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *volumeMgrIP, base.DefaultVolumeManagerPort)
-	nodeHealthServer := base.NewServerRunner(nil, nodeHealthEndpoint, logger)
+	nodeHealthServer := rpc.NewServerRunner(nil, nodeHealthEndpoint, logger)
 	// register Health checks
 	logger.Info("Registering Node service health check")
 	health.RegisterHealthServer(nodeHealthServer.GRPCServer, c)

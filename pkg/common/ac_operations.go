@@ -15,6 +15,7 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
 // AvailableCapacityOperations is the interface for interact with AvailableCapacity CRs from Controller
@@ -24,7 +25,7 @@ type AvailableCapacityOperations interface {
 }
 
 // AcSizeMinThresholdBytes means that if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
-const AcSizeMinThresholdBytes = int64(base.MBYTE) // 1MB
+const AcSizeMinThresholdBytes = int64(util.MBYTE) // 1MB
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
 type ACOperationsImpl struct {
@@ -54,7 +55,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	ll := a.log.WithFields(logrus.Fields{
 		"method":        "SearchAC",
 		"volumeID":      ctx.Value(base.RequestUUID),
-		"requiredBytes": fmt.Sprintf("%.3fG", float64(requiredBytes)/float64(base.GBYTE)),
+		"requiredBytes": fmt.Sprintf("%.3fG", float64(requiredBytes)/float64(util.GBYTE)),
 	})
 
 	ll.Info("Search appropriate available ac")

@@ -2,6 +2,8 @@ package node
 
 import (
 	"context"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
 	"errors"
 	"fmt"
 	"testing"
@@ -22,6 +24,9 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
@@ -29,6 +34,8 @@ import (
 // todo refactor these UTs - https://jira.cec.lab.emc.com:8443/browse/AK8S-724
 
 var (
+	lsblkAllDevicesCmd = fmt.Sprintf(lsblk.CmdTmpl, "")
+
 	hwMgrRespDrives = []*api.Drive{
 		{
 			UUID:         uuid.New().String(),
@@ -50,9 +57,8 @@ var (
 		},
 	}
 
-	lsblkAllDevicesCmd = fmt.Sprintf(base.LsblkCmdTmpl, "")
 	// todo don't hardcode device name
-	lsblkSingleDeviceCmd = fmt.Sprintf(base.LsblkCmdTmpl, "/dev/sda")
+	lsblkSingleDeviceCmd = fmt.Sprintf(lsblk.CmdTmpl, "/dev/sda")
 
 	drive1 = &api.Drive{SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID,
 		Status: apiV1.DriveStatusOnline} // /dev/sda in LsblkTwoDevices
@@ -91,7 +97,7 @@ var (
 			Name:      lvgName,
 			Node:      nodeID,
 			Locations: []string{drive1.UUID},
-			Size:      int64(1024 * 500 * base.GBYTE),
+			Size:      int64(1024 * 500 * util.GBYTE),
 			Status:    crdV1.Created,
 		},
 	}
@@ -140,7 +146,7 @@ func TestNewVolumeManager_SetExecutor(t *testing.T) {
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{}, logrus.New(), kubeClient, nodeID)
 	vm.SetExecutor(mocks.EmptyExecutorFail{})
-	res, err := vm.linuxUtils.Lsblk("")
+	res, err := vm.linuxUtils.GetBlockDevices("")
 	assert.Nil(t, res)
 	assert.NotNil(t, err)
 }
@@ -151,7 +157,7 @@ func TestVolumeManager_SetLinuxUtilsExecutor(t *testing.T) {
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	vm := NewVolumeManager(nil, e, testLogger, kubeClient, nodeID)
 
-	out, err := vm.linuxUtils.Lsblk("")
+	out, err := vm.linuxUtils.GetBlockDevices("")
 	assert.NotNil(t, out)
 	if out != nil {
 		assert.Equal(t, len(out), 2)
@@ -522,11 +528,12 @@ func TestVolumeManager_CreateLocalVolumeLVGSuccess(t *testing.T) {
 		vm       = prepareSuccessVolumeManager()
 		e        = &mocks.GoMockExecutor{}
 		volume   = volCRLVG.Spec
-		sizeStr  = fmt.Sprintf("%.2fG", float64(volume.Size)/float64(base.GBYTE))
+		sizeStr  = fmt.Sprintf("%.2fG", float64(volume.Size)/float64(util.GBYTE))
 		fullPath = fmt.Sprintf("/dev/%s/%s", volume.Location, volume.Id)
 		hddlvgSC = sc.GetSSDSCInstance(testLogger)
 	)
-	vm.linuxUtils = base.NewLinuxUtils(e, testLogger)
+
+	vm.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 	hddlvgSC.SetSDDSCExecutor(e)
 	vm.scMap = map[SCName]sc.StorageClassImplementer{
 		"hdd": hddlvgSC,
@@ -552,7 +559,7 @@ func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
 	e3 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr},
 		fmt.Sprintf("partprobe -d -s /dev/sda"): {Err: errors.New("partprobe -d -s /dev/sda failed")}})
 	e3.SetSuccessIfNotFound(false)
-	vm3.linuxUtils = base.NewLinuxUtils(e3, testLogger)
+	vm3.linuxUtils = linuxutils.NewLinuxUtils(e3, testLogger)
 	err = vm3.Discover()
 	assert.Nil(t, err)
 	vol3 := &api.Volume{
@@ -579,7 +586,7 @@ func TestVolumeManager_CreateLocalVolumeHDDFail(t *testing.T) {
 		deletePartCMD: mocks.EmptyOutFail}
 	e4 := mocks.NewMockExecutor(eMap)
 	e4.SetSuccessIfNotFound(true)
-	vm4.linuxUtils = base.NewLinuxUtils(e4, testLogger)
+	vm4.linuxUtils = linuxutils.NewLinuxUtils(e4, testLogger)
 
 	vol4 := &api.Volume{
 		Id:           vID,
@@ -597,12 +604,12 @@ func TestVolumeManager_CreateLocalVolumeLVGFail(t *testing.T) {
 	vm2 := prepareSuccessVolumeManagerWithDrives([]*api.Drive{drive1, drive2})
 	volume2 := volCRLVG.Spec
 	e2 := &mocks.GoMockExecutor{}
-	sizeStr2 := fmt.Sprintf("%.2fG", float64(volume2.Size)/float64(base.GBYTE))
+	sizeStr2 := fmt.Sprintf("%.2fG", float64(volume2.Size)/float64(util.GBYTE))
 	expectedErr2 := errors.New("lvcreate failed in test")
 	e2.OnCommand(fmt.Sprintf("/sbin/lvm lvcreate --yes --name %s --size %s %s", volume2.Id, sizeStr2, volume2.Location)).
 		Return("", "", expectedErr2)
-	vm2.linuxUtils = base.NewLinuxUtils(e2, testLogger)
 
+	vm2.linuxUtils = linuxutils.NewLinuxUtils(e2, testLogger)
 	err2 := vm2.k8sclient.CreateCR(testCtx, lvgName, &lvgCR)
 	assert.Nil(t, err2)
 
@@ -688,7 +695,8 @@ func TestVolumeManager_DeleteLocalVolumeSuccess(t *testing.T) {
 	mockExecutor := &mocks.GoMockExecutor{}
 	mockExecutor.OnCommand(fmt.Sprintf("/sbin/lvm lvremove --yes %s", lvDev)).
 		Return("", "", nil).Times(1)
-	vm.linuxUtils = base.NewLinuxUtils(mockExecutor, testLogger)
+
+	vm.linuxUtils = linuxutils.NewLinuxUtils(mockExecutor, testLogger)
 	err = vm.DeleteLocalVolume(context.Background(), &v)
 	assert.Nil(t, err)
 }
@@ -706,7 +714,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 
 	e2 := &mocks.GoMockExecutor{}
 	e2.OnCommand(lsblkAllDevicesCmd).Return("{\"blockdevices\": []}", "", nil).Times(1)
-	vm2.linuxUtils = base.NewLinuxUtils(e2, testLogger)
+	vm2.linuxUtils = linuxutils.NewLinuxUtils(e2, testLogger)
 
 	volume := &api.Volume{Id: testID, Location: drive1.UUID, StorageClass: apiV1.StorageClassHDD}
 	err2 := vm2.DeleteLocalVolume(testCtx, volume)
@@ -728,7 +736,7 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 		deletePartitionCMD:  mocks.EmptyOutFail,
 	})
 	e3.SetSuccessIfNotFound(false)
-	vm3.linuxUtils = base.NewLinuxUtils(e3, testLogger)
+	vm3.linuxUtils = linuxutils.NewLinuxUtils(e3, testLogger)
 
 	err3 := vm3.DeleteLocalVolume(context.Background(), &volume3)
 	assert.NotNil(t, err3)
@@ -761,7 +769,8 @@ func TestVolumeManager_DeleteLocalVolumeFail(t *testing.T) {
 	e5 := &mocks.GoMockExecutor{}
 	e5.OnCommand(fmt.Sprintf("/sbin/lvm lvremove --yes %s", device5)).
 		Return("", "", errors.New("lvremove failed"))
-	vm5.linuxUtils = base.NewLinuxUtils(e5, testLogger)
+
+	vm5.linuxUtils = linuxutils.NewLinuxUtils(e5, testLogger)
 	err5 := vm5.DeleteLocalVolume(testCtx, &volume5)
 	assert.NotNil(t, err5)
 	assert.Contains(t, err5.Error(), "unable to remove lv")
@@ -854,15 +863,15 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 }
 
 // returns LinuxUtils and Executor that prepared for discovering system LVG imitation
-func getLinuxUtilsThatDiscoverLVG() (*base.LinuxUtils, base.CmdExecutor) {
+func getLinuxUtilsThatDiscoverLVG() (*linuxutils.LinuxUtils, command.CmdExecutor) {
 	var (
-		cmdFindMnt     = fmt.Sprintf(base.FindMntCmdTmpl, base.KubeletRootPath)
+		cmdFindMnt     = fmt.Sprintf(linuxutils.FindMntCmdTmpl, base.KubeletRootPath)
 		findMntRes     = "/dev/mapper/root--vg-lv_var"
-		cmdLsblkDev    = fmt.Sprintf(base.LsblkCmdTmpl, findMntRes)
+		cmdLsblkDev    = fmt.Sprintf(lsblk.CmdTmpl, findMntRes)
 		LsblkDevRes    = `{ "blockdevices": [{"name": "/dev/mapper/root--vg-lv_var", "type": "lvm", "size": "102399737856", "rota": "0"}]}`
-		cmdFindVGByLV  = fmt.Sprintf(base.VGByLVCmdTmpl, findMntRes)
+		cmdFindVGByLV  = fmt.Sprintf(lvm.VGByLVCmdTmpl, findMntRes)
 		findVGByLVRes  = "root-vg"
-		cmdVGFreeSpace = fmt.Sprintf(base.VGFreeSpaceCmdTmpl, findVGByLVRes)
+		cmdVGFreeSpace = fmt.Sprintf(lvm.VGFreeSpaceCmdTmpl, findVGByLVRes)
 		VGFreeSpaceRes = "102399737856B"
 
 		e = &mocks.GoMockExecutor{}
@@ -872,7 +881,7 @@ func getLinuxUtilsThatDiscoverLVG() (*base.LinuxUtils, base.CmdExecutor) {
 	e.OnCommand(cmdFindVGByLV).Return(findVGByLVRes, "", nil)
 	e.OnCommand(cmdVGFreeSpace).Return(VGFreeSpaceRes, "", nil)
 
-	return base.NewLinuxUtils(e, logrus.New()), e
+	return linuxutils.NewLinuxUtils(e, logrus.New()), e
 }
 
 func prepareSuccessVolumeManager() *VolumeManager {

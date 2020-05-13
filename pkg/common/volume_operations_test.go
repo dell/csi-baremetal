@@ -17,6 +17,7 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
@@ -43,13 +44,13 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
-		requiredBytes = int64(base.GBYTE)
+		requiredBytes = int64(util.GBYTE)
 		expectedAC    = &accrd.AvailableCapacity{
 			Spec: api.AvailableCapacity{
 				Location:     testDrive1UUID,
 				NodeId:       testNode1Name,
 				StorageClass: requiredSC,
-				Size:         int64(base.GBYTE) * 42,
+				Size:         int64(util.GBYTE) * 42,
 			},
 		}
 		expectedVolume = &api.Volume{
@@ -88,13 +89,13 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
-		requiredBytes = int64(base.GBYTE)
+		requiredBytes = int64(util.GBYTE)
 		expectedAC    = &accrd.AvailableCapacity{
 			Spec: api.AvailableCapacity{
 				Location:     testDrive1UUID,
 				NodeId:       testNode1Name,
 				StorageClass: apiV1.StorageClassHDDLVG,
-				Size:         int64(base.GBYTE) * 42,
+				Size:         int64(util.GBYTE) * 42,
 			},
 		}
 	)
@@ -150,7 +151,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
-		requiredBytes = int64(base.GBYTE)
+		requiredBytes = int64(util.GBYTE)
 	)
 
 	svc.acProvider = acProvider

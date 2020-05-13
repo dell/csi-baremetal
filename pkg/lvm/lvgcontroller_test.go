@@ -2,6 +2,8 @@ package lvm
 
 import (
 	"context"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
 	"errors"
 	"fmt"
 	"testing"
@@ -20,11 +22,13 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
 
 var (
-	lsblkAllDevicesCmd = fmt.Sprintf(base.LsblkCmdTmpl, "")
+	lsblkAllDevicesCmd = fmt.Sprintf(lsblk.CmdTmpl, "")
 	tCtx               = context.Background()
 	testLogger         = logrus.New()
 	lvg1Name           = "lvg-cr-1"
@@ -43,7 +47,7 @@ var (
 		SerialNumber: "hdd1", // depend on commands.LsblkTwoDevicesStr - /dev/sda
 		Health:       apiV1.HealthGood,
 		Type:         apiV1.DriveTypeHDD,
-		Size:         int64(1000 * base.GBYTE),
+		Size:         int64(1000 * util.GBYTE),
 		Status:       apiV1.DriveStatusOnline,
 		NodeId:       node1ID,
 	}
@@ -55,7 +59,7 @@ var (
 		SerialNumber: "hdd2", // depend on commands.LsblkTwoDevicesStr - /dev/sdb
 		Health:       apiV1.HealthGood,
 		Type:         apiV1.DriveTypeHDD,
-		Size:         int64(333 * base.GBYTE),
+		Size:         int64(333 * util.GBYTE),
 		Status:       apiV1.DriveStatusOnline,
 		NodeId:       node1ID,
 	}
@@ -97,7 +101,7 @@ var (
 			Name:      lvg1Name,
 			Node:      node1ID,
 			Locations: []string{apiDrive1.UUID, apiDrive2.UUID},
-			Size:      int64(1024 * 500 * base.GBYTE),
+			Size:      int64(1024 * 500 * util.GBYTE),
 			Status:    crdV1.Creating,
 		},
 	}
@@ -134,7 +138,7 @@ var (
 			Location:     lvg1Name,
 			NodeId:       node1ID,
 			StorageClass: apiV1.StorageClassHDDLVG,
-			Size:         int64(1024 * 300 * base.GBYTE),
+			Size:         int64(1024 * 300 * util.GBYTE),
 		},
 	}
 )
@@ -173,7 +177,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sdb").Return("", "", nil)
@@ -204,16 +208,16 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 
 	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
 	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
 
-	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
-	e.OnCommand(fmt.Sprintf(base.VGRemoveCmdTmpl, lvgCR1.Name)).Return("", "", nil)
-	e.OnCommand(fmt.Sprintf(base.PVsInVGCmdTmpl, base.EmptyName)).Return("", "", nil).Times(1)
+	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(lvm.VGRemoveCmdTmpl, lvgCR1.Name)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(lvm.PVsInVGCmdTmpl, lvm.EmptyName)).Return("", "", nil).Times(1)
 
 	res, err := c.Reconcile(req)
 	assert.Nil(t, err)
@@ -228,7 +232,7 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 
 	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
@@ -236,7 +240,7 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
 
 	// expect that LVG still contains LV
-	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, lvgCR1.Name)).Return("lv1", "", nil)
+	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("lv1", "", nil)
 
 	res, err := c.Reconcile(req)
 	assert.Contains(t, err.Error(), "there are LVs in LVG")
@@ -261,7 +265,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 	e.OnCommand(lsblkAllDevicesCmd).Return(lsblkResp, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", errors.New("pvcreate failed"))
 
@@ -283,7 +287,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sdb").Return("", "", nil)
@@ -308,16 +312,16 @@ func Test_removeLVGArtifacts_Success(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 
-	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
-	e.OnCommand(fmt.Sprintf(base.VGRemoveCmdTmpl, vg)).Return("", "", nil)
-	e.OnCommand(fmt.Sprintf(base.PVsInVGCmdTmpl, base.EmptyName)).Return("", "", nil).Times(1)
+	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(lvm.VGRemoveCmdTmpl, vg)).Return("", "", nil)
+	e.OnCommand(fmt.Sprintf(lvm.PVsInVGCmdTmpl, lvm.EmptyName)).Return("", "", nil).Times(1)
 	err = c.removeLVGArtifacts(vg)
 	assert.Nil(t, err)
 
 	// expect that RemoveOrphanPVs failed and ignore it
-	e.OnCommand(fmt.Sprintf(base.PVsInVGCmdTmpl, base.EmptyName)).
+	e.OnCommand(fmt.Sprintf(lvm.PVsInVGCmdTmpl, lvm.EmptyName)).
 		Return("", "", errors.New("error")).Times(1)
 	err = c.removeLVGArtifacts(vg)
 	assert.Nil(t, err)
@@ -332,16 +336,16 @@ func Test_removeLVGArtifacts_Fail(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = base.NewLinuxUtils(e, testLogger)
+	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
 
 	// expect that VG contains LV
-	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, vg)).Return("some-lv1", "", nil).Times(1)
+	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, vg)).Return("some-lv1", "", nil).Times(1)
 	err = c.removeLVGArtifacts(vg)
 	assert.Equal(t, fmt.Errorf("there are LVs in LVG %s", vg), err)
 
 	// expect that VGRemove failed
-	e.OnCommand(fmt.Sprintf(base.LVsInVGCmdTmpl, vg)).Return("", "", nil).Times(1)
-	e.OnCommand(fmt.Sprintf(base.VGRemoveCmdTmpl, vg)).Return("", "", errors.New("error"))
+	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, vg)).Return("", "", nil).Times(1)
+	e.OnCommand(fmt.Sprintf(lvm.VGRemoveCmdTmpl, vg)).Return("", "", errors.New("error"))
 	err = c.removeLVGArtifacts(vg)
 	assert.Contains(t, err.Error(), "unable to remove LVG")
 }
