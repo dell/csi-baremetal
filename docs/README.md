@@ -100,8 +100,11 @@ For developers
     ``` 
     Proto files are located under `/api/API_VERSION/` folder. Generated GO files will be located under `/api/generated/API_VERSION` folder.
     Default API_VERSION is `v1`
-
-2. Generate CRDs manifests and code
+2. Installs controller-gen tool
+    ```
+   make install-controller-gen
+    ```
+3. Generate CRDs manifests and code
     2.1 There is `make` target 'generate-crd' that will generate CRD yaml manifests:
     ```
     make generate-crd
