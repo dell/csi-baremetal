@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -16,6 +17,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/halmgr"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/idracmgr"
@@ -47,7 +49,8 @@ func main() {
 	// Server is insecure for now because credentials are nil
 	serverRunner := rpc.NewServerRunner(nil, *endpoint, logger)
 
-	hwManager, err := chooseHWManager(logger)
+	hwManager, cleanup, err := chooseHWManager(logger)
+
 	if err != nil {
 		logger.Fatalf("Failed to create HW manager: %s", err.Error())
 	}
@@ -56,13 +59,23 @@ func main() {
 
 	api.RegisterHWServiceServer(serverRunner.GRPCServer, &hwServiceServer)
 
-	if err := serverRunner.RunServer(); err != nil {
+	go util.SetupSignalHandler(serverRunner)
+
+	if err := serverRunner.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("Failed to serve on %s. Error: %s", *endpoint, err.Error())
+	}
+
+	logger.Info("Got SIGTERM signal")
+	// clean loop devices after hwmgr deletion
+	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
+	// kubernetes sends SIGTERM signal to containers for pods terminating
+	if cleanup != nil {
+		cleanup()
 	}
 }
 
 // chooseHWManager picks HW manager implementation based on environment variable.
-func chooseHWManager(logger *logrus.Logger) (hwmgr.HWManager, error) {
+func chooseHWManager(logger *logrus.Logger) (hwmgr.HWManager, func(), error) {
 	e := &command.Executor{}
 	e.SetLogger(logger)
 
@@ -71,20 +84,21 @@ func chooseHWManager(logger *logrus.Logger) (hwmgr.HWManager, error) {
 		linuxUtils := linuxutils.NewLinuxUtils(e, logger)
 		ip := linuxUtils.GetBmcIP()
 		if ip == "" {
-			return nil, status.Error(codes.Internal, "IDRAC IP is not found")
+			return nil, nil, status.Error(codes.Internal, "IDRAC IP is not found")
 		}
-		return idracmgr.NewIDRACManager(logger, 10*time.Second, "root", "passwd", ip), nil
+		return idracmgr.NewIDRACManager(logger, 10*time.Second, "root", "passwd", ip), nil, nil
 	case hwmgr.TEST:
 		hwManager := loopbackmgr.NewLoopBackManager(e, logger)
 		// initialize
 		err := hwManager.Init()
 		if err != nil {
 			logger.Errorf("Failed to initialize HW manager: %s", err.Error())
-			return nil, err
+			return nil, nil, err
 		}
-		return hwManager, nil
+		cleanup := hwManager.CleanupLoopDevices
+		return hwManager, cleanup, nil
 	default:
 		// use HAL manager by default
-		return halmgr.NewHALManager(logger), nil
+		return halmgr.NewHALManager(logger), nil, nil
 	}
 }

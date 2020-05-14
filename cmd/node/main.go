@@ -8,6 +8,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -22,6 +23,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
@@ -71,6 +73,8 @@ func main() {
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
 
+	go util.SetupSignalHandler(csiUDSServer)
+
 	go func() {
 		if err := StartNodeHealthServer(csiNodeService, logger); err != nil {
 			logger.Infof("VolumeManager server failed with error: %v", err)
@@ -85,20 +89,26 @@ func main() {
 	go Discovering(csiNodeService, logger)
 
 	logger.Info("Starting handle CSI calls ...")
-	if err := csiUDSServer.RunServer(); err != nil {
+	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("fail to serve: %v", err)
 	}
+
+	logger.Info("Got SIGTERM signal")
 }
 
 // Discovering performs Discover method of the Node each 30 seconds
 // TODO: implement logic for discover  AK8S-64
 func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	var err error
-	for range time.Tick(30 * time.Second) {
+	discoveringWaitTime := 10 * time.Second
+	for {
+		time.Sleep(discoveringWaitTime)
 		if err = c.Discover(); err != nil {
 			logger.Infof("Discover finished with error: %v", err)
 		} else {
 			logger.Info("Discover finished successful")
+			//Increase wait time, because we don't need to call API often after node initialization
+			discoveringWaitTime = 30 * time.Second
 		}
 	}
 }

@@ -1,9 +1,7 @@
-FROM alpine:3.10
+FROM    controller:base
 
 LABEL   description="Bare-metal CSI Controller Service"
 
 ADD     controller controller
-
-RUN     apk add curl util-linux parted xfsprogs-extra lvm2 sgdisk
 
 ENTRYPOINT ["/controller"]

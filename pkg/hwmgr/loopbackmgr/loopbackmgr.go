@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -115,17 +113,6 @@ func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBa
 	mgr.updateDevicesFromConfig()
 
 	exec.SetLogger(logger)
-
-	// clean loop devices after hwmgr deletion
-	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
-	// kubernetes sends SIGTERM signal to containers for pods terminating
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		mgr.CleanupLoopDevices()
-		os.Exit(0)
-	}()
 
 	return mgr
 }

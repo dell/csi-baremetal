@@ -116,8 +116,9 @@ boolean validatePullRequest(String commit) {
                     }
                 )
                 stage('Make image') {
+                    baseImageExitCode = sh(script: 'make base-image', returnStatus: true)
                     imageExitCode = sh(script: 'make image', returnStatus: true)
-                    if (imageExitCode != 0) {
+                    if ((imageExitCode != 0) || (baseImageExitCode != 0)) {
                         currentBuild.result = 'FAILURE'
                         throw new Exception("Image stage failed, check logs")
                     }

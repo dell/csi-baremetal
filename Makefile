@@ -39,14 +39,25 @@ build-controller:
 
 image: image-hwmgr image-node image-controller
 
+base-image: base-image-hwmgr base-image-node base-image-controller
+
+base-image-hwmgr:
+	docker build --network host --force-rm --file ./pkg/${HW_MANAGER}/Dockerfile.build --tag ${HW_MANAGER}:base ./pkg/${HW_MANAGER}
+
+base-image-node: download-grpc-health-probe
+	cp ./build/${HEALTH_PROBE} ./pkg/${NODE}/${HEALTH_PROBE}
+	docker build --network host --force-rm --file ./pkg/${NODE}/Dockerfile.build --tag ${NODE}:base ./pkg/${NODE}
+
+base-image-controller:
+	docker build --network host --force-rm --file ./pkg/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./pkg/${CONTROLLER}
+
 image-hwmgr:
 	cp ./build/${HW_MANAGER}/${HW_MANAGER} ./pkg/${HW_MANAGER}/${HW_MANAGER}
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ./pkg/${HW_MANAGER}
 	docker tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
 
-image-node: download-grpc-health-probe
+image-node:
 	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
-	cp ./build/${HEALTH_PROBE} ./pkg/${NODE}/${HEALTH_PROBE}
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ./pkg/${NODE}
 	docker tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ${HARBOR}/${REPO}-${NODE}:${TAG}
 

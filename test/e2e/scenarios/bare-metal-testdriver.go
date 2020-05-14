@@ -84,7 +84,7 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 			Framework: f,
 		}, func() {
 			//wait until ephemeral volume will be deleted
-			time.Sleep(time.Minute)
+			time.Sleep(time.Second * 30)
 			ginkgo.By("uninstalling baremetal driver")
 			cleanup()
 			cancelLogging()

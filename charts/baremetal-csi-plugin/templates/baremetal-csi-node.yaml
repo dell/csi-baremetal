@@ -15,6 +15,7 @@ spec:
     spec:
       hostIPC: True
       serviceAccountName: csi-node-sa
+      terminationGracePeriodSeconds: 10
       containers:
       # ********************** DRIVER-REGISTRAR sidecar container definition **********************
       - name: csi-node-driver-registrar

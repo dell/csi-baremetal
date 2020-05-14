@@ -5,15 +5,17 @@ import (
 	"flag"
 	"time"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	// +kubebuilder:scaffold:imports
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
-	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
 var (
@@ -54,6 +56,7 @@ func main() {
 	}
 	kubeClient := base.NewKubeClient(k8SClient, logger, *namespace)
 	controllerService := controller.NewControllerService(kubeClient, logger)
+	go util.SetupSignalHandler(csiControllerServer)
 
 	ticker := time.NewTicker(timeoutBeforeInit * time.Second)
 	for i := 1; ; i++ {
@@ -68,12 +71,11 @@ func main() {
 		}
 	}
 	ticker.Stop()
-
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version, true))
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
-
 	logger.Info("Starting CSIControllerService")
-	if err := csiControllerServer.RunServer(); err != nil {
+	if err := csiControllerServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("fail to serve, error: %v", err)
 	}
+	logger.Info("Got SIGTERM signal")
 }

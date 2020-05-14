@@ -77,7 +77,10 @@ void runJob() {
                 }
 
                 stage('Image') {
-                    sh('make image')
+                    sh('''
+                    make base-image
+                    make image
+                    ''')
                 }
 
                 stage('Push image') {

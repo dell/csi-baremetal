@@ -18,6 +18,7 @@ spec:
         role: csi-do
     spec:
       serviceAccount: csi-controller-sa
+      terminationGracePeriodSeconds: 10
       containers:
       # ********************** EXTERNAL-PROVISIONER sidecar container definition **********************
       - name: csi-provisioner
