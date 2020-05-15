@@ -23,6 +23,8 @@ void runJob() {
             /*
              * IMPORTANT: all sh() commands must be performed from common.withInfraDevkitContainer() block
              */
+            // clean all images to use "latest" devkit image
+            common.wipeDockerImages()
             common.withInfraDevkitContainer() {
 
                 stage('Git clone') {
