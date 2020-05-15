@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
-	coreV1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/storage/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
@@ -24,10 +22,7 @@ func (n *baremetalDriver) GetClaimSize() string {
 	return "100Mi"
 }
 
-var (
-	BaremetalDriver = InitBaremetalDriver
-	cmName          = "loopback-config"
-)
+var BaremetalDriver = InitBaremetalDriver
 
 func initBaremetalDriver(name string) testsuites.TestDriver {
 	return &baremetalDriver{
@@ -77,11 +72,6 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		"baremetal-csi-node.yaml",
 	}
 
-	// CreateFromManifests doesn't support ConfigMaps so deploy it from framework's client
-	ns := f.Namespace.Name
-	_, err := f.ClientSet.CoreV1().ConfigMaps(ns).Create(n.constructDefaultLoopbackConfig(ns))
-	framework.ExpectNoError(err)
-
 	cleanup, err := f.CreateFromManifests(nil, manifests...)
 
 	if err != nil {
@@ -130,22 +120,4 @@ func (n *baremetalDriver) GetVolume(config *testsuites.PerTestConfig, volumeNumb
 
 func (n *baremetalDriver) GetCSIDriverName(config *testsuites.PerTestConfig) string {
 	return n.GetDriverInfo().Name
-}
-
-// constructDefaultLoopbackConfig constructs default ConfigMap for LoopBackManager
-// Receives namespace where cm should be deployed
-func (n *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *coreV1.ConfigMap {
-	cm := coreV1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cmName,
-			Namespace: namespace,
-		},
-		Data: map[string]string{
-			"config.yaml": "\n" +
-				"defaultDrivePerNodeCount: 3\n" +
-				"nodes:\n",
-		},
-	}
-
-	return &cm
 }
