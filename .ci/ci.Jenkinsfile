@@ -54,7 +54,8 @@ void runTests() {
                         sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
                                 "--set env.test=true " +
                                 "--set hwmgr.type=LOOPBACK " +
-                                "--set image.pullPolicy=IfNotPresent")
+                                "--set image.pullPolicy=IfNotPresent " +
+                                "--set hwmgr.deployConfig=true")
                     }
                     stage('Start Kind') {
                         sh("""

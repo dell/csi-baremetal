@@ -2,12 +2,12 @@ package scenarios
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	v12 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,7 +17,6 @@ import (
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
@@ -40,10 +39,11 @@ var (
 		Resource: "volumes",
 	}
 
-	storageClassPrefix = "baremetal-csi-sc"
 	pvcName            = "baremetal-csi-pvc"
+	configKey          = "config.yaml"
 )
 
+// DefineCustomTestSuite defines custom baremetal-csi e2e tests
 func DefineCustomTestSuite(driver testsuites.TestDriver) {
 	ginkgo.Context("Baremetal-csi custom tests", func() {
 		// It consists of two steps. 1) Set random drive to Failed state and see that amount of ACs reduced by 1.
@@ -53,17 +53,24 @@ func DefineCustomTestSuite(driver testsuites.TestDriver) {
 	})
 }
 
+// healthCheckTest test checks behavior of driver when drives change health from GOOD to BAD
 func healthCheckTest(driver testsuites.TestDriver) {
 	var (
 		pod           *corev1.Pod
 		pvc           *corev1.PersistentVolumeClaim
+		sc            *v12.StorageClass
 		driverCleanup func()
 	)
 
 	f := framework.NewDefaultFramework("health")
 
 	init := func() {
-		_, driverCleanup = driver.PrepareTest(f)
+		var perTestConf *testsuites.PerTestConfig
+		perTestConf, driverCleanup = driver.PrepareTest(f)
+		sc = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
+		var err error
+		sc, err = f.ClientSet.StorageV1().StorageClasses().Create(sc)
+		framework.ExpectNoError(err)
 	}
 
 	// This function deletes pod if it was installed during test. And waits for its correct deletion to perform
@@ -101,63 +108,85 @@ func healthCheckTest(driver testsuites.TestDriver) {
 
 		ns := f.Namespace.Name
 
+		// Wait for csi pods to be running and ready
 		err := pode2e.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0, 90*time.Second, nil)
 		framework.ExpectNoError(err)
 
-		podList, err := pode2e.GetPodsInNamespace(f.ClientSet, ns, nil)
-		framework.ExpectNoError(err)
-		csiNode := findPodNameBySubstring(podList, "baremetal-csi-node")
-
-		acUnstructuredList, err := f.DynamicClient.Resource(acGVR).List(metav1.ListOptions{})
+		// Get ACs from the cluster
+		acUnstructuredList, err := f.DynamicClient.Resource(acGVR).Namespace(ns).List(metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
+		// Save amount of ACs before drive's health changing
 		amountOfACBeforeDiskFailure := len(acUnstructuredList.Items)
 		e2elog.Logf("found %d ac", amountOfACBeforeDiskFailure)
 
-		// Get SN of drive from AC and set this drive to fail state
-		drivesUnstructuredList, _ := f.DynamicClient.Resource(driveGVR).List(metav1.ListOptions{})
+		// Prepare variables to find serialNumber of drive which should be unhealthy
+		drivesUnstructuredList, _ := f.DynamicClient.Resource(driveGVR).Namespace(ns).List(metav1.ListOptions{})
 		acToDelete, _, err := unstructured.NestedString(acUnstructuredList.Items[0].Object, "spec", "Location")
 		framework.ExpectNoError(err)
-		f.ExecShellInContainer(csiNode, "hwmgr",
-			constructHALOverrideCmd(findSNByDriveLocation(drivesUnstructuredList.Items, acToDelete)))
-
-		// Wait until VolumeManager's Discover will see changes from HWMgr
-		time.Sleep(30 * time.Second)
-
-		acUnstructuredList, err = f.DynamicClient.Resource(acGVR).List(metav1.ListOptions{})
+		nodeOfAC, _, err := unstructured.NestedString(acUnstructuredList.Items[0].Object, "spec", "NodeId")
 		framework.ExpectNoError(err)
 
+		// Get current loopback-config from the cluster
+		cm, err := f.ClientSet.CoreV1().ConfigMaps(ns).Get(cmName, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		// Append bad-health drive to this config and update config on the cluster side
+		appendBadHealthDriveToConfig(cm, findSNByDriveLocation(drivesUnstructuredList.Items, acToDelete), nodeOfAC)
+		cm, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(cm)
+		framework.ExpectNoError(err)
+
+		// k8s docs say that time from updating ConfigMap to receiving updated ConfigMap in the pod where it's mounted
+		// could last 1 minute by default
+		time.Sleep(time.Minute)
+
+		// Read ACs one more time
+		acUnstructuredList, err = f.DynamicClient.Resource(acGVR).Namespace(ns).List(metav1.ListOptions{})
+		framework.ExpectNoError(err)
+
+		// Check that amount of ACs reduced by one
 		Expect(len(acUnstructuredList.Items)).To(Equal(amountOfACBeforeDiskFailure - 1))
 
+		// Create test pvc on the cluster
 		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
-			Create(constructPVC(driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), ns))
+			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), sc.Name))
 		framework.ExpectNoError(err)
 
+		// Create test pod that consumes the pvc
 		pod, err = pode2e.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
+		// Get Volume CRs and save variables to identify on which drive the pod's Volume based on
 		volumesUnstructuredList, _ := f.DynamicClient.Resource(volumeGVR).List(metav1.ListOptions{})
 		location, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "spec", "Location")
+		framework.ExpectNoError(err)
 		volumeName, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "metadata", "name")
 		framework.ExpectNoError(err)
+		nodeOfVolume, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "spec", "NodeId")
+		framework.ExpectNoError(err)
 
-		f.ExecShellInContainer(csiNode, "hwmgr",
-			constructHALOverrideCmd(findSNByDriveLocation(drivesUnstructuredList.Items, location)))
+		// Make the drive of the Volume unhealthy
+		appendBadHealthDriveToConfig(cm, findSNByDriveLocation(drivesUnstructuredList.Items, location), nodeOfVolume)
+		cm, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(cm)
+		framework.ExpectNoError(err)
 
-		// Wait until VolumeManager's Discover will see changes from HWMgr
-		time.Sleep(30 * time.Second)
+		// k8s docs say that time from updating ConfigMap to receiving updated ConfigMap in the pod where it's mounted
+		// could last 1 minute by default
+		time.Sleep(time.Minute)
 
+		// Read Volume one more time
 		changedVolume, err := f.DynamicClient.Resource(volumeGVR).Namespace(ns).Get(volumeName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		health, _, err := unstructured.NestedInt64(changedVolume.Object, "spec", "Health")
+		health, _, err := unstructured.NestedString(changedVolume.Object, "spec", "Health")
 
-		Expect(health).To(Equal(apiV1.HealthGood))
+		// Check that Volume is marked as unhealthy
+		Expect(health).To(Equal(v1.HealthBad))
 	})
 }
 
-func constructPVC(claimSize string, ns string) *corev1.PersistentVolumeClaim {
-	storageClassName := storageClassPrefix + "-" + ns
+// constructPVC constructs pvc for test purposes
+// Receives PVC size and namespace
+func constructPVC(ns string, claimSize string, storageClass string) *corev1.PersistentVolumeClaim {
 	claim := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -172,30 +201,24 @@ func constructPVC(claimSize string, ns string) *corev1.PersistentVolumeClaim {
 					corev1.ResourceStorage: resource.MustParse(claimSize),
 				},
 			},
-			StorageClassName: &storageClassName,
+			StorageClassName: &storageClass,
 		},
 	}
 
 	return &claim
 }
 
-func findPodNameBySubstring(pods []*corev1.Pod, substring string) string {
-	for _, pod := range pods {
-		if strings.Contains(pod.Name, substring) {
-			return pod.Name
-		}
-	}
-	return ""
+// appendBadHealthDriveToConfig appends spec of bad-health drive to LoopBackMgr's ConfigMap
+// Receives current state of ConfigMap, serialNumber of drive to make it unhealthy, nodeID where the drive is placed
+func appendBadHealthDriveToConfig(cm *corev1.ConfigMap, serialNumber string, nodeID string) {
+	cm.Data[configKey] = cm.Data[configKey] + fmt.Sprintf("- nodeID: %s\n", nodeID) +
+		"  drives:\n" +
+		fmt.Sprintf("  - serialNumber: %s\n", serialNumber) +
+		"    health: BAD\n"
 }
 
-// Function to simulate drive failure
-func constructHALOverrideCmd(serialNumber string) string {
-	return fmt.Sprintf("cat >> /opt/emc/hal/etc/.hal_override << EOF\n"+
-		"disk_status=%s,Failed\n"+
-		"EOF", serialNumber)
-}
-
-// Finds SerialNumber of the drive which is used by the volume
+// findSNByDriveLocation finds SerialNumber of the drive which is used by the volume using its location
+// Receives unstructured list of drives and location
 func findSNByDriveLocation(driveList []unstructured.Unstructured, driveLocation string) string {
 	for _, unstrDrive := range driveList {
 		name, _, _ := unstructured.NestedString(unstrDrive.Object, "metadata", "name")
