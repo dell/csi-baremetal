@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"time"
@@ -10,10 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health/grpc_health_v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	// +kubebuilder:scaffold:imports
@@ -59,14 +62,20 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
+
+	nodeUID, err := getNodeUID(k8SClient, *nodeID)
+	if err != nil {
+		logger.Fatalf("fail to get uid of k8s Node object: %v", err)
+	}
+
 	k8sClientForVolume := base.NewKubeClient(k8SClient, logger, *namespace)
 	k8sClientForLVG := base.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(clientToHwMgr, *nodeID, logger, k8sClientForVolume)
+	csiNodeService := node.NewCSINodeService(clientToHwMgr, nodeUID, logger, k8sClientForVolume)
 	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.5", true)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvm.NewLVGController(k8sClientForLVG, *nodeID, logger),
+		lvm.NewLVGController(k8sClientForLVG, nodeUID, logger),
 		logger)
 
 	// register CSI calls handler
@@ -181,4 +190,12 @@ func setupLogger() *logrus.Logger {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
 	return logger
+}
+
+func getNodeUID(client k8sClient.Client, nodeName string) (string, error) {
+	k8sNode := corev1.Node{}
+	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
+		return "", err
+	}
+	return string(k8sNode.UID), nil
 }
