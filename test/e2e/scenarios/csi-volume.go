@@ -32,8 +32,7 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	curDriver := BaremetalDriver()
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
-		//Comment custom test because it works with hal
-		//DefineCustomTestSuite(curDriver)
+		DefineCustomTestSuite(curDriver)
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
 	})
 })
