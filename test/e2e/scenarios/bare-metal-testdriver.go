@@ -30,8 +30,11 @@ func initBaremetalDriver(name string) testsuites.TestDriver {
 			Name:        name,
 			MaxFileSize: testpatterns.FileSizeSmall,
 			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence: true,
-				testsuites.CapExec:        true,
+				testsuites.CapPersistence:      true,
+				testsuites.CapExec:             true,
+				testsuites.CapMultiPODs:        true,
+				testsuites.CapFsGroup:          true,
+				testsuites.CapSingleNodeVolume: true,
 			},
 			SupportedFsType: sets.NewString(
 				"", // Default fsType
