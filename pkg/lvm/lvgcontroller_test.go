@@ -2,8 +2,6 @@ package lvm
 
 import (
 	"context"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
 	"errors"
 	"fmt"
 	"testing"
@@ -21,8 +19,10 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
@@ -381,7 +381,7 @@ func Test_RemoveChildAC(t *testing.T) {
 
 // setup creates drive CRs and LVG CRs and returns LVGController instance
 func setup(t *testing.T, node string) *LVGController {
-	k8sClient, err := base.GetFakeKubeClient(ns)
+	k8sClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)
 	// create Drive CRs
 	err = k8sClient.CreateCR(tCtx, drive1CR.Name, &drive1CR)

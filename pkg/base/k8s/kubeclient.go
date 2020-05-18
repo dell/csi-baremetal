@@ -1,4 +1,4 @@
-package base
+package k8s
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -39,7 +39,7 @@ const (
 
 // KubeClient is the extension of k8s client which supports CSI custom recources
 type KubeClient struct {
-	k8sClient.Client
+	k8sCl.Client
 	log *logrus.Entry
 	//mutex for crd request
 	Namespace string
@@ -49,7 +49,7 @@ type KubeClient struct {
 // NewKubeClient is the constructor for KubeClient struct
 // Receives basic k8s client from controller-runtime, logrus logger and namespace where to work
 // Returns an instance of KubeClient struct
-func NewKubeClient(k8sclient k8sClient.Client, logger *logrus.Logger, namespace string) *KubeClient {
+func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, namespace string) *KubeClient {
 	return &KubeClient{
 		Client:    k8sclient,
 		log:       logger.WithField("component", "KubeClient"),
@@ -74,7 +74,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 		"requestUUID": requestUUID.(string),
 	})
 
-	err := k.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+	err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 	if err != nil {
 		if k8sError.IsNotFound(err) {
 			ll.Infof("Creating CR %s with name %s", obj.GetObjectKind().GroupVersionKind().Kind, name)
@@ -94,7 +94,7 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object
 	k.Lock()
 	defer k.Unlock()
 
-	return k.Get(ctx, k8sClient.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 }
 
 // ReadList reads a list of specified resources into k8s resource List struct (for example v1.PodList)
@@ -104,7 +104,7 @@ func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 	k.Lock()
 	defer k.Unlock()
 
-	return k.List(ctx, obj, k8sClient.InNamespace(k.Namespace))
+	return k.List(ctx, obj, k8sCl.InNamespace(k.Namespace))
 }
 
 // UpdateCR updates provided resource on k8s cluster
@@ -255,12 +255,13 @@ func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Objec
 	var (
 		err    error
 		ticker = time.NewTicker(TickerStep)
+		ctxVal = context.WithValue(context.Background(), RequestUUID, ctx.Value(RequestUUID))
 	)
 
 	defer ticker.Stop()
 
 	for i := 0; i < attempts; i++ {
-		if err = k.UpdateCR(ctx, obj); err == nil {
+		if err = k.UpdateCR(ctxVal, obj); err == nil {
 			return nil
 		} else if k8sError.IsNotFound(err) {
 			return err
@@ -272,25 +273,14 @@ func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Objec
 	return err
 }
 
-// GetVGNameByLVGCRName read LVG CR with name lvgCRName and returns LVG CR.Spec.Name
-// method is used for LVG based on system VG because system VG name != LVG CR name
-// in case of error returns empty string and error
-func (k *KubeClient) GetVGNameByLVGCRName(ctx context.Context, lvgCRName string) (string, error) {
-	lvgCR := lvgcrd.LVG{}
-	if err := k.ReadCR(ctx, lvgCRName, &lvgCR); err != nil {
-		return "", err
-	}
-	return lvgCR.Spec.Name, nil
-}
-
 // GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources
 // Returns controller-runtime/pkg/Client which can work with CSI CRs or error if something went wrong
-func GetK8SClient() (k8sClient.Client, error) {
+func GetK8SClient() (k8sCl.Client, error) {
 	scheme, err := prepareScheme()
 	if err != nil {
 		return nil, err
 	}
-	cl, err := k8sClient.New(ctrl.GetConfigOrDie(), k8sClient.Options{
+	cl, err := k8sCl.New(ctrl.GetConfigOrDie(), k8sCl.Options{
 		Scheme: scheme,
 	})
 	if err != nil {
@@ -304,12 +294,12 @@ func GetK8SClient() (k8sClient.Client, error) {
 // Receives namespace to work
 // Returns instance of mocked KubeClient or error if something went wrong
 // todo test code shouldn't be in base package
-func GetFakeKubeClient(testNs string) (*KubeClient, error) {
+func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error) {
 	scheme, err := prepareScheme()
 	if err != nil {
 		return nil, err
 	}
-	return NewKubeClient(fake.NewFakeClientWithScheme(scheme), logrus.New(), testNs), nil
+	return NewKubeClient(fake.NewFakeClientWithScheme(scheme), logger, testNs), nil
 }
 
 // prepareScheme registers CSI custom resources to runtime.Scheme

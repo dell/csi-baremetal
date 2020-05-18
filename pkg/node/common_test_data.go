@@ -16,7 +16,7 @@ import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 )
 
 // here locates variables that used in UTs for CSINodeService and VolumeMgr
@@ -97,11 +97,11 @@ var (
 )
 
 // assertLenVListItemsEqualsTo read volumes CR List and assert it len is equals to expected, used t for asserting
-func assertLenVListItemsEqualsTo(t *testing.T, k8sClient *base.KubeClient, expected int) {
+func assertLenVListItemsEqualsTo(t *testing.T, k8sClient *k8s.KubeClient, expected int) {
 	assert.Equal(t, expected, len(getVolumeCRsListItems(t, k8sClient)))
 }
 
-func getVolumeCRsListItems(t *testing.T, k8sClient *base.KubeClient) []vcrd.Volume {
+func getVolumeCRsListItems(t *testing.T, k8sClient *k8s.KubeClient) []vcrd.Volume {
 	vList := &vcrd.VolumeList{}
 	err := k8sClient.ReadList(testCtx, vList)
 	assert.Nil(t, err)

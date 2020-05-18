@@ -13,6 +13,7 @@ import (
 	// +kubebuilder:scaffold:imports
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
@@ -50,11 +51,11 @@ func main() {
 
 	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, logger)
 
-	k8SClient, err := base.GetK8SClient()
+	k8SClient, err := k8s.GetK8SClient()
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	kubeClient := base.NewKubeClient(k8SClient, logger, *namespace)
+	kubeClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	controllerService := controller.NewControllerService(kubeClient, logger)
 	go util.SetupSignalHandler(csiControllerServer)
 

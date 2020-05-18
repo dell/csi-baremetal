@@ -22,14 +22,15 @@ import (
 	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/testutils"
 )
 
 var (
-	testID = "someID"
-	testNs = "default"
+	testLogger = logrus.New()
+	testID     = "someID"
+	testNs     = "default"
 
 	testCtx       = context.Background()
 	testPod1Name  = fmt.Sprintf("%s-testPod1", NodeSvcPodsMask)
@@ -526,11 +527,11 @@ func createPods(s *CSIControllerService, pods ...*coreV1.Pod) {
 
 // create and instance of CSIControllerService with scheme for working with CRD
 func newSvc() *CSIControllerService {
-	kubeclient, err := base.GetFakeKubeClient(testNs)
+	kubeclient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	if err != nil {
 		panic(err)
 	}
-	nSvc := NewControllerService(kubeclient, logrus.New())
+	nSvc := NewControllerService(kubeclient, testLogger)
 	return nSvc
 }
 
@@ -582,7 +583,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.C
 }
 
 // remove all crds (volume and ac)
-func removeAllCrds(s *base.KubeClient) {
+func removeAllCrds(s *k8s.KubeClient) {
 	var (
 		vList  = &vcrd.VolumeList{}
 		acList = &accrd.AvailableCapacityList{}

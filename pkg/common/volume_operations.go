@@ -16,6 +16,7 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
@@ -31,7 +32,7 @@ type VolumeOperations interface {
 // VolumeOperationsImpl is the basic implementation of VolumeOperations interface
 type VolumeOperationsImpl struct {
 	acProvider AvailableCapacityOperations
-	k8sClient  *base.KubeClient
+	k8sClient  *k8s.KubeClient
 
 	log *logrus.Entry
 }
@@ -39,7 +40,7 @@ type VolumeOperationsImpl struct {
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of VolumeOperationsImpl
-func NewVolumeOperationsImpl(k8sClient *base.KubeClient, logger *logrus.Logger) *VolumeOperationsImpl {
+func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger) *VolumeOperationsImpl {
 	return &VolumeOperationsImpl{
 		k8sClient:  k8sClient,
 		acProvider: NewACOperationsImpl(k8sClient, logger),
@@ -83,7 +84,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	default:
 		// create volume
 		var (
-			ctxWithID      = context.WithValue(ctx, base.RequestUUID, v.Id)
+			ctxWithID      = context.WithValue(ctx, k8s.RequestUUID, v.Id)
 			ac             *accrd.AvailableCapacity
 			sc             string
 			allocatedBytes int64
@@ -177,7 +178,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
 	ll := logrus.WithFields(logrus.Fields{
 		"method":   "UpdateCRsAfterVolumeDeletion",
-		"volumeID": ctx.Value(base.RequestUUID),
+		"volumeID": ctx.Value(k8s.RequestUUID),
 	})
 
 	var (
@@ -277,7 +278,7 @@ func (vo *VolumeOperationsImpl) ReadVolumeAndChangeStatus(volumeID string, newSt
 	var (
 		v        = &volumecrd.Volume{}
 		attempts = 10
-		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
+		ctx      = context.WithValue(context.Background(), k8s.RequestUUID, volumeID)
 	)
 
 	if err := vo.k8sClient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {

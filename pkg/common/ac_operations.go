@@ -15,6 +15,7 @@ import (
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
@@ -29,14 +30,14 @@ const AcSizeMinThresholdBytes = int64(util.MBYTE) // 1MB
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
 type ACOperationsImpl struct {
-	k8sClient *base.KubeClient
+	k8sClient *k8s.KubeClient
 	log       *logrus.Entry
 }
 
 // NewACOperationsImpl is the constructor for ACOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of ACOperationsImpl
-func NewACOperationsImpl(k8sClient *base.KubeClient, l *logrus.Logger) *ACOperationsImpl {
+func NewACOperationsImpl(k8sClient *k8s.KubeClient, l *logrus.Logger) *ACOperationsImpl {
 	return &ACOperationsImpl{
 		k8sClient: k8sClient,
 		log:       l.WithField("component", "ACOperations"),
@@ -54,7 +55,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	node string, requiredBytes int64, sc string) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":        "SearchAC",
-		"volumeID":      ctx.Value(base.RequestUUID),
+		"volumeID":      ctx.Value(k8s.RequestUUID),
 		"requiredBytes": fmt.Sprintf("%.3fG", float64(requiredBytes)/float64(util.GBYTE)),
 	})
 

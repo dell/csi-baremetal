@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -18,7 +19,8 @@ import (
 )
 
 var (
-	testNS = "default"
+	testLogger = logrus.New()
+	testNS     = "default"
 
 	testCtx       = context.Background()
 	testNode1Name = "node1"

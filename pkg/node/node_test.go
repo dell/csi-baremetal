@@ -11,12 +11,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
 	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
@@ -119,7 +117,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sclient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -128,7 +126,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		})
 		It("Should fail, because of volume CR isn't exist", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-			err := node.k8sclient.DeleteCR(testCtx, &testVolumeCR1)
+			err := node.k8sClient.DeleteCR(testCtx, &testVolumeCR1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -220,7 +218,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			req := getNodeStageRequest(testV1ID, *volumeCap)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.VolumeReady
-			err := node.k8sclient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -261,13 +259,13 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		})
 		It("Should fail, because of volume CR isn't exist", func() {
 			req := getNodeStageRequest(testV1ID, *volumeCap)
-			err := node.k8sclient.DeleteCR(testCtx, &testVolumeCR1)
+			err := node.k8sClient.DeleteCR(testCtx, &testVolumeCR1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("No volume with ID " + testV1ID + " found on node"))
+			Expect(err.Error()).To(ContainSubstring("Unable to find volume with ID " + testV1ID))
 		})
 		It("Should fail with search device by S/N error", func() {
 			req := getNodeStageRequest(testV3ID, *volumeCap)
@@ -316,7 +314,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			req := getNodeStageRequest(testV1ID, *volumeCap)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sclient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -352,7 +350,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 
 			vol1 := testVolumeCR1
 			vol1.Spec.Owners = []string{"pod-1", "pod-2"}
-			err := node.k8sclient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
@@ -399,7 +397,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sclient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
@@ -469,7 +467,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			req := getNodeUnstageRequest(testV1ID, targetPath)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sclient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
@@ -565,7 +563,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
 			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
 			req.VolumeContext["size"] = "50Gi"
-			err := testutils.AddAC(node.k8sclient, &testAC1, &testAC2)
+			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
 			Expect(err).To(BeNil())
 			go testutils.VolumeReconcileImitation(node.svc, testV1ID, apiV1.Created)
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -600,7 +598,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			req.StagingTargetPath = ""
 			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
 			req.VolumeContext["size"] = "50Gi"
-			err := testutils.AddAC(node.k8sclient, &testAC1, &testAC2)
+			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
 			Expect(err).To(BeNil())
 			go testutils.VolumeReconcileImitation(node.svc, testV1ID, apiV1.Created)
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -614,7 +612,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
 			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
 			req.VolumeContext["size"] = "50Gi"
-			err := testutils.AddAC(node.k8sclient, &testAC1, &testAC2)
+			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
 			Expect(err).To(BeNil())
 			go testutils.VolumeReconcileImitation(node.svc, testV1ID, apiV1.Created)
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -668,7 +666,7 @@ func newNodeService() *CSINodeService {
 	partUUID := fmt.Sprintf(fmt.Sprintf(ph.GetPartitionUUIDCmdTmpl, "/dev/sda", "1"))
 	cmds[partUUID] = mocks.CmdOut{Stdout: "Partition unique GUID: volume-id"}
 	executor := mocks.NewMockExecutor(cmds)
-	kubeClient, err := base.GetFakeKubeClient(testNs)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	if err != nil {
 		panic(err)
 	}
@@ -676,35 +674,16 @@ func newNodeService() *CSINodeService {
 	node.VolumeManager.SetExecutor(executor)
 	node.linuxUtils = linuxutils.NewLinuxUtils(executor, node.log.Logger)
 
-	node.drivesCache[disk1.UUID] = &drivecrd.Drive{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "Drive",
-			APIVersion: apiV1.APIV1Version,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      disk1.UUID,
-			Namespace: "default",
-		},
-		Spec: disk1,
-	}
-	node.drivesCache[disk2.UUID] = &drivecrd.Drive{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "Drive",
-			APIVersion: apiV1.APIV1Version,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      disk2.UUID,
-			Namespace: "default",
-		},
-		Spec: disk2,
-	}
+	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)
+	driveCR2 := node.k8sClient.ConstructDriveCR(disk2.UUID, disk2)
+	addDriveCRs(node.k8sClient, driveCR1, driveCR2)
 
-	addVolumeCRs(node.k8sclient, testVolumeCR1, testVolumeCR2, testVolumeCR3)
+	addVolumeCRs(node.k8sClient, testVolumeCR1, testVolumeCR2, testVolumeCR3)
 
 	return node
 }
 
-func addVolumeCRs(k8sClient *base.KubeClient, volumes ...vcrd.Volume) {
+func addVolumeCRs(k8sClient *k8s.KubeClient, volumes ...vcrd.Volume) {
 	for _, v := range volumes {
 		if err := k8sClient.CreateCR(context.Background(), v.Name, &v); err != nil {
 			panic(err)

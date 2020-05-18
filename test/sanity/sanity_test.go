@@ -2,7 +2,6 @@ package sanity_test
 
 import (
 	"context"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 	"fmt"
 	"os"
 	"sync"
@@ -18,6 +17,8 @@ import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
@@ -67,7 +68,7 @@ func TestDriverWithSanity(t *testing.T) {
 	skipIfNotSanity(t)
 
 	// Node and Controller must share Fake k8s client because sanity tests don't run under k8s env.
-	kubeClient, err := base.GetFakeKubeClient(testNs)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, logrus.New())
 	if err != nil {
 		panic(err)
 	}
@@ -91,7 +92,7 @@ func TestDriverWithSanity(t *testing.T) {
 	sanity.Test(t, config)
 }
 
-func newControllerSvc(kubeClient *base.KubeClient) {
+func newControllerSvc(kubeClient *k8s.KubeClient) {
 	ll, _ := base.InitLogger("", logrus.InfoLevel)
 
 	controllerService := controller.NewControllerService(kubeClient, ll)
@@ -108,7 +109,7 @@ func newControllerSvc(kubeClient *base.KubeClient) {
 	}
 }
 
-func newNodeSvc(kubeClient *base.KubeClient, nodeReady chan<- bool) {
+func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 	ll, _ := base.InitLogger("", logrus.InfoLevel)
 
 	csiNodeService := prepareNodeMock(kubeClient, ll)
@@ -122,7 +123,10 @@ func newNodeSvc(kubeClient *base.KubeClient, nodeReady chan<- bool) {
 	go func() {
 		var doOnce sync.Once
 		for range time.Tick(10 * time.Second) {
-			_ = csiNodeService.Discover()
+			err := csiNodeService.Discover()
+			if err != nil {
+				ll.Fatalf("Discover failed: %v", err)
+			}
 			doOnce.Do(func() {
 				nodeReady <- true
 			})
@@ -138,7 +142,7 @@ func newNodeSvc(kubeClient *base.KubeClient, nodeReady chan<- bool) {
 }
 
 // prepareNodeMock prepares instance of Node service with mocked hwmgr and mocked executor
-func prepareNodeMock(kubeClient *base.KubeClient, log *logrus.Logger) *node.CSINodeService {
+func prepareNodeMock(kubeClient *k8s.KubeClient, log *logrus.Logger) *node.CSINodeService {
 	c := mocks.NewMockHWMgrClient(testDrives)
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(lsblk.CmdTmpl, ""): {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
@@ -163,7 +167,7 @@ func prepareNodeMock(kubeClient *base.KubeClient, log *logrus.Logger) *node.CSIN
 }
 
 // imitateVolumeManagerReconcile imitates working of VolumeManager's Reconcile loop under not k8s env.
-func imitateVolumeManagerReconcile(kubeClient *base.KubeClient) {
+func imitateVolumeManagerReconcile(kubeClient *k8s.KubeClient) {
 	for range time.Tick(10 * time.Second) {
 		volumes := &vcrd.VolumeList{}
 		_ = kubeClient.ReadList(context.Background(), volumes)

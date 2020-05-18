@@ -5,7 +5,7 @@ import (
 	"time"
 
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 )
 
@@ -21,7 +21,7 @@ func VolumeReconcileImitation(svc common.VolumeOperations, volID string, newStat
 }
 
 // AddAC create test AvailableCapacities
-func AddAC(k8sClient *base.KubeClient, acs ...*accrd.AvailableCapacity) error {
+func AddAC(k8sClient *k8s.KubeClient, acs ...*accrd.AvailableCapacity) error {
 	for _, ac := range acs {
 		if err := k8sClient.CreateCR(context.Background(), ac.Name, ac); err != nil {
 			return err

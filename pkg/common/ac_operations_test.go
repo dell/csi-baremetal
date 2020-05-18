@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
@@ -299,7 +298,7 @@ func TestACOperationsImpl_balanceAC(t *testing.T) {
 // creates fake k8s client and creates AC CRs based on provided acs
 // returns instance of ACOperationsImpl based on created k8s client
 func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOperationsImpl {
-	k8sClient, err := base.GetFakeKubeClient(testNS)
+	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 	assert.NotNil(t, k8sClient)
 
@@ -307,12 +306,12 @@ func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOpe
 		err := k8sClient.CreateCR(testCtx, ac.Name, ac)
 		assert.Nil(t, err)
 	}
-	return NewACOperationsImpl(k8sClient, logrus.New())
+	return NewACOperationsImpl(k8sClient, testLogger)
 }
 
 // lvgReconcileImitation this is an Reconcile imitation, expect only 1 LVG is present
 // read LVG list until it size in not 1 and then set status to newStatus for LVG CR
-func lvgReconcileImitation(k8sClient *base.KubeClient, newStatus string) error {
+func lvgReconcileImitation(k8sClient *k8s.KubeClient, newStatus string) error {
 	var (
 		lvgCRList lvgcrd.LVGList
 		err       error

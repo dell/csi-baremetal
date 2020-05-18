@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,7 +15,7 @@ import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
 )
@@ -41,7 +40,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 		svc           = setupVOOperationsTest(t)
 		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
+		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(util.GBYTE)
@@ -86,7 +85,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		svc           = setupVOOperationsTest(t)
 		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
+		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(util.GBYTE)
@@ -148,7 +147,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 		svc           = setupVOOperationsTest(t)
 		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
+		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(util.GBYTE)
@@ -334,9 +333,9 @@ func TestVolumeOperationsImpl_ReadVolumeAndChangeStatus(t *testing.T) {
 // creates fake k8s client and creates AC CRs based on provided acs
 // returns instance of ACOperationsImpl based on created k8s client
 func setupVOOperationsTest(t *testing.T) *VolumeOperationsImpl {
-	k8sClient, err := base.GetFakeKubeClient(testNS)
+	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 	assert.NotNil(t, k8sClient)
 
-	return NewVolumeOperationsImpl(k8sClient, logrus.New())
+	return NewVolumeOperationsImpl(k8sClient, testLogger)
 }

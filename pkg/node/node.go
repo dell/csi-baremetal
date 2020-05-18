@@ -20,6 +20,7 @@ import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
@@ -55,7 +56,7 @@ const (
 // Receives an instance of HWServiceClient to interact with HWManager, ID of a node where it works, logrus logger
 // and base.KubeClient
 // Returns an instance of CSINodeService
-func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger, k8sclient *base.KubeClient) *CSINodeService {
+func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger, k8sclient *k8s.KubeClient) *CSINodeService {
 	s := &CSINodeService{
 		VolumeManager: *NewVolumeManager(client, &command.Executor{}, logger, k8sclient, nodeID),
 		NodeID:        nodeID,
@@ -89,9 +90,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	volumeID := req.VolumeId
-	volumeCR := s.getVolumeCRByName(volumeID)
+	volumeCR := s.crHelper.GetVolumeByID(volumeID)
 	if volumeCR == nil {
-		message := fmt.Sprintf("No volume with ID %s found on node", volumeID)
+		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
 		ll.Error(message)
 		return nil, status.Error(codes.NotFound, message)
 	}
@@ -159,7 +160,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	volumeCR := s.getVolumeCRByName(req.GetVolumeId())
+	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
 	if volumeCR == nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
@@ -182,7 +183,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		resp = nil
 	}
 
-	if updateErr := s.k8sclient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
+	if updateErr := s.k8sClient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
 		ll.Errorf("Unable to update volume CR: %v", updateErr)
 		resp, errToReturn = nil, fmt.Errorf("failed to unstage volume: update volume CR error")
 	}
@@ -295,7 +296,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	} else if len(srcPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Staging Path missing in request")
 	}
-	volumeCR := s.getVolumeCRByName(volumeID)
+	volumeCR := s.crHelper.GetVolumeByID(volumeID)
 	if volumeCR == nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
@@ -333,7 +334,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 
 	ll.Infof("Set CSIStatus to %s", newStatus)
 	volumeCR.Spec.CSIStatus = newStatus
-	if err = s.k8sclient.UpdateCR(context.Background(), volumeCR); err != nil {
+	if err = s.k8sClient.UpdateCR(context.Background(), volumeCR); err != nil {
 		ll.Errorf("Unable to update volume CR to %v, error: %v", volumeCR, err)
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: update volume CR error")
 	}
@@ -352,7 +353,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 		bytesStr      = volumeContext[base.SizeKey]
 		fsType        = "None"
 		mode          string
-		sc            string
+		scl           string
 		bytes         int64
 		err           error
 	)
@@ -371,15 +372,15 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 		mode = apiV1.ModeFS
 	}
 
-	sc = util.ConvertStorageClass(volumeContext[base.StorageTypeKey])
-	if sc == apiV1.StorageClassAny {
-		sc = apiV1.StorageClassHDD // do not use sc ANY for inline volumes
+	scl = util.ConvertStorageClass(volumeContext[base.StorageTypeKey])
+	if scl == apiV1.StorageClassAny {
+		scl = apiV1.StorageClassHDD // do not use sc ANY for inline volumes
 	}
 
 	s.reqMu.Lock()
 	vol, err := s.svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
-		StorageClass: sc,
+		StorageClass: scl,
 		NodeId:       s.NodeID,
 		Size:         bytes,
 		Ephemeral:    true,
@@ -416,7 +417,7 @@ func (s *CSINodeService) constructPartition(volume *api.Volume) (string, error) 
 		// for LVG based on system disk LVG CR name != VG name
 		// need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
 		if volume.StorageClass == apiV1.StorageClassSSDLVG {
-			vgName, err = s.k8sclient.GetVGNameByLVGCRName(context.Background(), volume.Location)
+			vgName, err = s.crHelper.GetVGNameByLVGCRName(volume.Location)
 			if err != nil {
 				return "", err
 			}
@@ -424,10 +425,7 @@ func (s *CSINodeService) constructPartition(volume *api.Volume) (string, error) 
 
 		partition = fmt.Sprintf("/dev/%s/%s", vgName, volume.Id)
 	default:
-		//TODO AK8S-380 Make drives cache thread safe
-		s.dCacheMu.Lock()
-		drive := s.drivesCache[volume.Location]
-		s.dCacheMu.Unlock()
+		drive := s.crHelper.GetDriveCRByUUID(volume.Location)
 		if drive == nil {
 			return "", fmt.Errorf("drive with uuid %s wasn't found ", volume.Location)
 		}
@@ -438,7 +436,7 @@ func (s *CSINodeService) constructPartition(volume *api.Volume) (string, error) 
 			return "", status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", volume.Location)
 		}
 		uuid, _ := util.GetVolumeUUID(volume.Id)
-		//TODO temporary solution because of ephemeral volumes volume id https://jira.cec.lab.emc.com:8443/browse/AK8S-749
+		// TODO temporary solution because of ephemeral volumes volume id AK8S-749
 		if volume.Ephemeral {
 			uuid, err = s.linuxUtils.GetPartitionUUID(bdev)
 			if err != nil {
@@ -475,13 +473,13 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	volumeCR := s.getVolumeCRByName(req.GetVolumeId())
+	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
 	if volumeCR == nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 	if err := s.unmount(volumeCR.Spec.StorageClass, req.GetTargetPath()); err != nil {
 		volumeCR.Spec.CSIStatus = apiV1.Failed
-		if updateErr := s.k8sclient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
+		if updateErr := s.k8sClient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
 			ll.Errorf("Unable to set volume CR status to failed: %v", updateErr)
 		}
 		return nil, err
@@ -513,7 +511,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		s.reqMu.Unlock()
 	} else {
 		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
-		if updateErr := s.k8sclient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
+		if updateErr := s.k8sClient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
 			ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
 		}
 	}

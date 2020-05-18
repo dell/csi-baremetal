@@ -25,6 +25,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
@@ -58,7 +59,7 @@ func main() {
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, logger)
 
-	k8SClient, err := base.GetK8SClient()
+	k8SClient, err := k8s.GetK8SClient()
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
@@ -68,9 +69,10 @@ func main() {
 		logger.Fatalf("fail to get uid of k8s Node object: %v", err)
 	}
 
-	k8sClientForVolume := base.NewKubeClient(k8SClient, logger, *namespace)
-	k8sClientForLVG := base.NewKubeClient(k8SClient, logger, *namespace)
+	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(clientToHwMgr, nodeUID, logger, k8sClientForVolume)
+
 	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.5", true)
 
 	mgr := prepareCRDControllerManagers(

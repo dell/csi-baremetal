@@ -16,6 +16,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
@@ -24,7 +25,7 @@ const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 
 // LVGController is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
 type LVGController struct {
-	k8sClient  *base.KubeClient
+	k8sClient  *k8s.KubeClient
 	node       string
 	linuxUtils *linuxutils.LinuxUtils
 	e          command.CmdExecutor
@@ -35,7 +36,7 @@ type LVGController struct {
 // NewLVGController is the constructor for LVGController struct
 // Receives an instance of base.KubeClient, ID of a node where it works and logrus logger
 // Returns an instance of LVGController
-func NewLVGController(k8sClient *base.KubeClient, nodeID string, log *logrus.Logger) *LVGController {
+func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger) *LVGController {
 	e := &command.Executor{}
 	e.SetLogger(log)
 	return &LVGController{
@@ -218,7 +219,7 @@ func (c *LVGController) removeChildAC(lvgName string) {
 	for _, ac := range acList.Items {
 		if ac.Spec.Location == lvgName {
 			acToRemove := ac
-			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, lvgName)
+			ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, lvgName)
 			if err := c.k8sClient.DeleteCR(ctxWithID, &acToRemove); err != nil {
 				ll.Errorf("Unable to remove AC %v, error: %v", acToRemove, err)
 			}

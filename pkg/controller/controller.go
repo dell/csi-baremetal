@@ -13,12 +13,13 @@ import (
 	"google.golang.org/grpc/status"
 	coreV1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	k8s "sigs.k8s.io/controller-runtime/pkg/client"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
 )
@@ -35,7 +36,7 @@ const (
 
 // CSIControllerService is the implementation of ControllerServer interface from GO CSI specification
 type CSIControllerService struct {
-	k8sclient *base.KubeClient
+	k8sclient *k8s.KubeClient
 
 	//mutex for csi request
 	reqMu sync.Mutex
@@ -48,7 +49,7 @@ type CSIControllerService struct {
 // NewControllerService is the constructor for CSIControllerService struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of CSIControllerService
-func NewControllerService(k8sClient *base.KubeClient, logger *logrus.Logger) *CSIControllerService {
+func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger) *CSIControllerService {
 	c := &CSIControllerService{
 		k8sclient:  k8sClient,
 		acProvider: common.NewACOperationsImpl(k8sClient, logger),
@@ -187,7 +188,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
-	ctx = context.WithValue(ctx, base.RequestUUID, req.VolumeId)
+	ctx = context.WithValue(ctx, k8s.RequestUUID, req.VolumeId)
 
 	c.reqMu.Lock()
 	err := c.svc.DeleteVolume(ctx, req.GetVolumeId())
@@ -286,7 +287,7 @@ func (c *CSIControllerService) GetCapacity(context.Context, *csi.GetCapacityRequ
 }
 
 // ControllerGetCapabilities is the implementation of CSI Spec ControllerGetCapabilities.
-// Provides Controller capabilities of CSI driver to k8s. CREATE/DELETE Volume and PUBLISH/UNPUBLISH Volume for now.
+// Provides Controller capabilities of CSI driver to k8s CREATE/DELETE Volume and PUBLISH/UNPUBLISH Volume for now.
 // Receives golang context and CSI Spec ControllerGetCapabilitiesRequest
 // Returns CSI Spec ControllerGetCapabilitiesResponse and nil error
 func (c *CSIControllerService) ControllerGetCapabilities(context.Context, *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
@@ -347,7 +348,7 @@ func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.Cont
 func (c *CSIControllerService) getPods(ctx context.Context, mask string) ([]*coreV1.Pod, error) {
 	pods := coreV1.PodList{}
 
-	if err := c.k8sclient.List(ctx, &pods, k8s.InNamespace(c.k8sclient.Namespace)); err != nil {
+	if err := c.k8sclient.List(ctx, &pods, k8sCl.InNamespace(c.k8sclient.Namespace)); err != nil {
 		return nil, err
 	}
 	p := make([]*coreV1.Pod, 0)

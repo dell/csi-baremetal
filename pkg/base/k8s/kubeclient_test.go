@@ -1,4 +1,4 @@
-package base
+package k8s
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -29,6 +30,7 @@ const (
 )
 
 var (
+	testLogger = logrus.New()
 	testCtx    = context.Background()
 	testUUID   = uuid.New().String()
 	testVolume = vcrd.Volume{
@@ -62,6 +64,7 @@ var (
 		VID:          "testVID",
 		PID:          "testPID",
 		SerialNumber: "testSN",
+		NodeId:       testNode1Name,
 		Health:       apiV1.HealthGood,
 		Type:         apiV1.DriveTypeHDD,
 		Size:         1024 * 1024,
@@ -77,7 +80,7 @@ var (
 	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version}
 	testApiVolume      = api.Volume{
 		Id:       testID,
-		NodeId:   "pod",
+		NodeId:   testNode1Name,
 		Size:     1000,
 		Type:     "Type",
 		Location: "location",
@@ -124,7 +127,7 @@ var _ = Describe("Working with CRD", func() {
 	)
 
 	BeforeEach(func() {
-		k8sclient, err = GetFakeKubeClient(testNs)
+		k8sclient, err = GetFakeKubeClient(testNs, testLogger)
 		Expect(err).To(BeNil())
 	})
 	AfterEach(func() {
@@ -272,7 +275,7 @@ var _ = Describe("Constructor methods", func() {
 	)
 
 	BeforeEach(func() {
-		k8sclient, err = GetFakeKubeClient(testNs)
+		k8sclient, err = GetFakeKubeClient(testNs, testLogger)
 		Expect(err).To(BeNil())
 	})
 

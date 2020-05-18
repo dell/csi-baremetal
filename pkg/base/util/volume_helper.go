@@ -1,4 +1,4 @@
-// Package util is the subpackage of base that contains utilities for CSI-specific tasks
+// Package util contains common utilities
 package util
 
 import (
