@@ -33,7 +33,18 @@ spec:
           type: object
         spec:
           properties:
+            Bay:
+              type: string
+            Enclosure:
+              type: string
+            Endurance:
+              format: int64
+              type: integer
+            Firmware:
+              type: string
             Health:
+              type: string
+            LEDState:
               type: string
             NodeId:
               type: string
@@ -48,13 +59,15 @@ spec:
               description: size in bytes
               format: int64
               type: integer
+            Slot:
+              type: string
+            Status:
+              type: string
             Type:
               type: string
             UUID:
               type: string
             VID:
-              type: string
-            status:
               type: string
           type: object
       type: object
