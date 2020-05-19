@@ -34,7 +34,7 @@ void runTests() {
                         args.runMode = (scmData.GIT_BRANCH == 'origin/master') ? RUN_MODE_MASTER : RUN_MODE_CUSTOM
                         if (args.runMode == RUN_MODE_MASTER) {
                             args += [
-                                    slackChannel: common.SLACK_CHANNEL.ECS_BARE_METAL_K8S_CI,
+                                    slackChannel: common.SLACK_CHANNEL.ECS_BARE_METAL_CSI,
                             ]
                         } else if (args.runMode == RUN_MODE_CUSTOM) {
                             args += [

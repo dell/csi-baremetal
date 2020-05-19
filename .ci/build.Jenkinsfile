@@ -37,7 +37,7 @@ void runJob() {
                     if (args.runMode == RUN_MODE_MASTER) {
                         args += [
                             bareMetalCsiRepoBranchName: 'master',
-                            slackChannel              : common.SLACK_CHANNEL.ECS_BARE_METAL_K8S_CI,
+                            slackChannel              : common.SLACK_CHANNEL.ECS_BARE_METAL_CSI,
                         ]
                     } else if (args.runMode == RUN_MODE_CUSTOM) {
                         args += [
