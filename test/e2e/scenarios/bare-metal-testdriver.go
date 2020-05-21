@@ -2,10 +2,12 @@ package scenarios
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo"
+	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +15,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	"sigs.k8s.io/yaml"
 )
 
 type baremetalDriver struct {
@@ -76,13 +79,22 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	manifests := []string{
 		"controller-rbac.yaml",
 		"node-rbac.yaml",
-		"baremetal-csi-controller.yaml",
 		"baremetal-csi-node.yaml",
 	}
+	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/baremetal-csi-controller.yaml")
+	framework.ExpectNoError(err)
+
+	deployment := &v1.Deployment{}
+	err = yaml.Unmarshal(file, deployment)
+	framework.ExpectNoError(err)
+
+	ns := f.Namespace.Name
+	f.PatchNamespace(&deployment.ObjectMeta.Namespace)
+	_, err = f.ClientSet.AppsV1().Deployments(ns).Create(deployment)
+	framework.ExpectNoError(err)
 
 	// CreateFromManifests doesn't support ConfigMaps so deploy it from framework's client
-	ns := f.Namespace.Name
-	_, err := f.ClientSet.CoreV1().ConfigMaps(ns).Create(n.constructDefaultLoopbackConfig(ns))
+	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(n.constructDefaultLoopbackConfig(ns))
 	framework.ExpectNoError(err)
 
 	cleanup, err := f.CreateFromManifests(nil, manifests...)
@@ -97,7 +109,9 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 			Framework: f,
 		}, func() {
 			//wait until ephemeral volume will be deleted
-			time.Sleep(time.Second * 30)
+			time.Sleep(time.Second * 20)
+			err = f.ClientSet.AppsV1().Deployments(ns).Delete(deployment.Name, &metav1.DeleteOptions{})
+			framework.ExpectNoError(err)
 			ginkgo.By("uninstalling baremetal driver")
 			cleanup()
 			cancelLogging()

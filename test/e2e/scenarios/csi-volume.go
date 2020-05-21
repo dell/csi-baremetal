@@ -34,5 +34,6 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		DefineCustomTestSuite(curDriver)
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
+		DefineNodeFailTestSuite(curDriver)
 	})
 })

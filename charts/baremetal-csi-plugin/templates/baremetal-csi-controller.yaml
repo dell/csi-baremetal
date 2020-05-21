@@ -1,11 +1,10 @@
 {{- if eq .Values.deploy.controller true }}
-kind: StatefulSet
+kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: baremetal-csi-controller
   namespace: {{ .Release.Namespace }}
 spec:
-  serviceName: "csi-do"
   replicas: 1
   selector:
     matchLabels:
