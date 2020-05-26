@@ -113,6 +113,21 @@ void runTests() {
                     println('Skip pushing Docker images...')
                 }
             }
+            stage('Push artifacts to artifactory') {
+                 if (args.runMode != RUN_MODE_CUSTOM && testResultSuccess) {
+                    load('.ci/pipeline_variables.groovy')
+                    common.withInfraDevkitContainerKind() {
+                        this.publishCSIArtifactsToArtifactory([
+                            version: csiVersion,
+                        ])
+                    }
+                     permalink = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/latest"
+                     artifactRepo = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/${csiVersion}"
+                     common.publishPermalinkToArtifactory(permalink, artifactRepo, ARTIFACTORY_NAME)
+                } else {
+                    println('Skip pushing artifacts..')
+                }
+            }
         }
         catch (any) {
             println any
@@ -128,6 +143,74 @@ void runTests() {
             common.slackSend(channel: args.slackChannel)
         }
     }
+}
+
+private String getArtifactsJson(final Map<String, Object> args) {
+    List<Object> artifacts = []
+    List<String>  images = [
+            "baremetal-csi-plugin-node",
+            "baremetal-csi-plugin-hwmgr",
+            "baremetal-csi-plugin-controller",
+    ]
+    images.each { image ->
+        artifacts.add([
+                "componentName": COMPONENT_NAME,
+                "version": args.version,
+                "type": "docker-image",
+                "endpoint": "{{ ASD_REGISTRY }}",
+                "path": "atlantic/${image}"
+        ])
+    }
+    artifacts.add([
+            "componentName": COMPONENT_NAME,
+            "version": ATTACHER_VERSION,
+            "type": "docker-image",
+            "endpoint": "{{ ASD_REGISTRY }}",
+            "path": "atlantic/csi-attacher"
+
+    ])
+    artifacts.add([
+            "componentName": COMPONENT_NAME,
+            "version": PROVISION_VERSION,
+            "type": "docker-image",
+            "endpoint": "{{ ASD_REGISTRY }}",
+            "path": "atlantic/csi-provisioner"
+    ])
+    artifacts.add([
+            "componentName": COMPONENT_NAME,
+            "version": NODE_REGISTRAR_VERSION,
+            "type": "docker-image",
+            "endpoint": "{{ ASD_REGISTRY }}",
+            "path": "atlantic/csi-node-driver-registrar",
+    ])
+    artifacts.add([
+            "componentName": COMPONENT_NAME,
+            "version": args.version,
+            "type": "helm-chart",
+            "endpoint": "{{ ASD_REPO }}",
+            "path": args.chartsPath
+    ])
+    return common.toJSON(["componentVersion": args.version, "componentArtifacts": artifacts], true)
+}
+
+void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
+    final String chartsBuildPath = "build/charts"
+    sh("""
+        helm package charts/baremetal-csi-plugin/ --set image.tag=${args.version} --version ${args.version} --destination ${chartsBuildPath}
+    """)
+    final String file = common.findFiles("${chartsBuildPath}/*.tgz")[0].getName()
+    final String chartsPathToPublish = "${ARTIFACTORY_FULL_CHARTS_PATH}/${args.version}"
+    common.publishFileToArtifactory(file, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
+    final String text = this.getArtifactsJson([
+            version: args.version,
+            chartsPath: "${ARTIFACTORY_CHARTS_PATH}/${args.version}/${file}"
+    ])
+
+    writeFile(file: "artifacts.json",
+            text: text)
+
+    final String pathToPublish = "${ARTIFACTORY_COMPONENT_PATH}/${args.version}"
+    common.publishFileToArtifactory("artifacts.json", pathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
 }
 
 this
