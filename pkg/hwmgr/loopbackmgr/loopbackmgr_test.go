@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -188,4 +189,63 @@ func TestLoopBackManager_GetDrivesList(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, defaultNumberOfDevices, len(drives))
 	assert.Equal(t, apiV1.DriveStatusOffline, drives[indexOfDriveToOffline].Status)
+}
+
+func TestLoopBackManager_attemptToRecoverDevices(t *testing.T) {
+	testImagesPath := "/tmp/images"
+	err := os.Mkdir(testImagesPath, 0777)
+	assert.Nil(t, err)
+	defer func() {
+		// cleanup fake images
+		_ = os.RemoveAll(testImagesPath)
+	}()
+
+	var mockexec = &mocks.GoMockExecutor{}
+	var manager = NewLoopBackManager(mockexec, logger)
+	// Clean devices after default initialization in constructor
+	manager.devices = make([]*LoopBackDevice, 0)
+
+	// image file that should be ignored during recovery
+	ignoredImage := fmt.Sprintf("%s/%s", testImagesPath, "random.img")
+	_, err = os.Create(ignoredImage)
+	mockexec.On("RunCmd", fmt.Sprintf(deleteFileCmdTmpl, ignoredImage)).Return("", "", nil)
+	assert.Nil(t, err)
+
+	// image of device that should be recovered from default config
+	testSerialNumber1 := "12345"
+	_, err = os.Create(fmt.Sprintf("%s/%s-%s.img", testImagesPath, manager.hostname, testSerialNumber1))
+	assert.Nil(t, err)
+
+	// image of device that should be recovered from node config
+	testSerialNumber2 := "56789"
+	nonDefaultVID := "non-default-VID"
+	_, err = os.Create(fmt.Sprintf("%s/%s-%s.img", testImagesPath, manager.hostname, testSerialNumber2))
+	assert.Nil(t, err)
+
+	// set manager's node config
+	manager.config = &Config{
+		DefaultDriveCount: 3,
+		Nodes: []*Node{
+			{
+				Drives: []*LoopBackDevice{
+					{
+						SerialNumber: fmt.Sprintf("LOOPBACK%s", testSerialNumber2),
+						VendorID:     nonDefaultVID,
+					},
+				},
+			},
+		},
+	}
+
+	manager.attemptToRecoverDevices(testImagesPath)
+	assert.Equal(t, len(manager.devices), 2)
+
+	var recoveredDeviceVID string
+	for _, device := range manager.devices {
+		if strings.Contains(device.SerialNumber, testSerialNumber2) {
+			recoveredDeviceVID = device.VendorID
+			break
+		}
+	}
+	assert.Equal(t, recoveredDeviceVID, nonDefaultVID)
 }

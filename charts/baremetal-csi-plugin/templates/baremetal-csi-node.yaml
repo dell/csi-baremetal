@@ -168,6 +168,10 @@ spec:
         - name: logs
           mountPath: /var/log/
         {{- end }}
+        {{- if eq .Values.hwmgr.type "LOOPBACK"}}
+        - name: host-home
+          mountPath: /host/home
+        {{- end }}
       {{- if .Values.logReceiver.create  }}
       - name: fluentbit-agent
         image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
@@ -190,6 +194,12 @@ spec:
         hostPath:
           path: /dev
           type: Directory
+      {{- if eq .Values.hwmgr.type "LOOPBACK"}}
+      - name: host-home
+        hostPath:
+          path: /home
+          type: Directory
+      {{- end }}
       - name: host-sys
         hostPath:
           path: /sys
