@@ -141,10 +141,12 @@ func (mgr *LoopBackManager) attemptToRecoverDevices(imagesPath string) {
 
 	// Search for node config for this LoopbackMgr
 	var nodeConfig *Node
-	for _, node := range mgr.config.Nodes {
-		if strings.EqualFold(node.NodeID, mgr.nodeID) {
-			nodeConfig = node
-			break
+	if mgr.config != nil {
+		for _, node := range mgr.config.Nodes {
+			if strings.EqualFold(node.NodeID, mgr.nodeID) {
+				nodeConfig = node
+				break
+			}
 		}
 	}
 
@@ -225,7 +227,7 @@ func (mgr *LoopBackManager) readAndSetConfig(path string) {
 
 	configData, err := ioutil.ReadFile(path)
 	if err != nil {
-		ll.Errorf("failed to read config file %s: %v", configData, err)
+		ll.Debugf("failed to read config file %s: %v", configData, err)
 	} else {
 		c := &Config{}
 		err = yaml.Unmarshal(configData, c)

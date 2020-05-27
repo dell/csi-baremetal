@@ -191,7 +191,7 @@ func TestLoopBackManager_GetDrivesList(t *testing.T) {
 	assert.Equal(t, apiV1.DriveStatusOffline, drives[indexOfDriveToOffline].Status)
 }
 
-func TestLoopBackManager_attemptToRecoverDevices(t *testing.T) {
+func TestLoopBackManager_attemptToRecoverDevicesFromConfig(t *testing.T) {
 	testImagesPath := "/tmp/images"
 	err := os.Mkdir(testImagesPath, 0777)
 	assert.Nil(t, err)
@@ -248,4 +248,27 @@ func TestLoopBackManager_attemptToRecoverDevices(t *testing.T) {
 		}
 	}
 	assert.Equal(t, recoveredDeviceVID, nonDefaultVID)
+}
+
+func TestLoopBackManager_attemptToRecoverDevicesFromDefaults(t *testing.T) {
+	testImagesPath := "/tmp/images"
+	err := os.Mkdir(testImagesPath, 0777)
+	assert.Nil(t, err)
+	defer func() {
+		// cleanup fake images
+		_ = os.RemoveAll(testImagesPath)
+	}()
+
+	var mockexec = &mocks.GoMockExecutor{}
+	var manager = NewLoopBackManager(mockexec, logger)
+	// Clean devices after default initialization in constructor
+	manager.devices = make([]*LoopBackDevice, 0)
+
+	// image of device that should be recovered from default config
+	testSerialNumber := "12345"
+	_, err = os.Create(fmt.Sprintf("%s/%s-%s.img", testImagesPath, manager.hostname, testSerialNumber))
+	assert.Nil(t, err)
+
+	manager.attemptToRecoverDevices(testImagesPath)
+	assert.Equal(t, len(manager.devices), 1)
 }
