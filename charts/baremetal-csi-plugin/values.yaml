@@ -19,7 +19,7 @@ storageClass:
 deploy:
   controller: true
   node: true
-  hwmgr: true
+  drivemgr: true
 
 image:
   tag: green
@@ -34,14 +34,14 @@ node:
     tag:
   grpc:
     client:
-      hwmgr:
+      drivemgr:
         endpoint: tcp://localhost:8888
     server:
       port: 9999
 
-hwmgr:
+drivemgr:
   image:
-    repository: baremetal-csi-plugin-hwmgr
+    repository: baremetal-csi-plugin-drivemgr
     # tag:
   grpc:
     server:

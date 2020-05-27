@@ -53,10 +53,10 @@ const (
 )
 
 // NewCSINodeService is the constructor for CSINodeService struct
-// Receives an instance of HWServiceClient to interact with HWManager, ID of a node where it works, logrus logger
+// Receives an instance of DriveServiceClient to interact with DriveManager, ID of a node where it works, logrus logger
 // and base.KubeClient
 // Returns an instance of CSINodeService
-func NewCSINodeService(client api.HWServiceClient, nodeID string, logger *logrus.Logger, k8sclient *k8s.KubeClient) *CSINodeService {
+func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *logrus.Logger, k8sclient *k8s.KubeClient) *CSINodeService {
 	s := &CSINodeService{
 		VolumeManager: *NewVolumeManager(client, &command.Executor{}, logger, k8sclient, nodeID),
 		NodeID:        nodeID,

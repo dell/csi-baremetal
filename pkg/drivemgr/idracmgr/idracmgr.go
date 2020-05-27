@@ -1,4 +1,4 @@
-// Package idracmgr provides the iDRAC based implementation of HWManager interface
+// Package idracmgr provides the iDRAC based implementation of DriveManager interface
 package idracmgr
 
 import "C"
@@ -21,7 +21,7 @@ const (
 	keyURL     = "@odata.id"
 )
 
-// IDRACManager is the struct that implements HWManager interface using iDRAC inside
+// IDRACManager is the struct that implements DriveManager interface using iDRAC inside
 type IDRACManager struct {
 	log      *logrus.Entry
 	client   *http.Client

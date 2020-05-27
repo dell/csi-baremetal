@@ -53,7 +53,7 @@ var (
 			PodIP: testPod1Ip,
 			ContainerStatuses: []coreV1.ContainerStatus{
 				{
-					Name:  "hwmgr",
+					Name:  "drivemgr",
 					Ready: true,
 				},
 				{
@@ -75,7 +75,7 @@ var (
 			PodIP: testPod2Ip,
 			ContainerStatuses: []coreV1.ContainerStatus{
 				{
-					Name:  "hwmgr",
+					Name:  "drivemgr",
 					Ready: true,
 				},
 				{

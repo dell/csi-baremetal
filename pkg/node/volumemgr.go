@@ -30,10 +30,10 @@ import (
 
 // VolumeManager is the struct to perform volume operations on node side with real storage devices
 type VolumeManager struct {
-	k8sClient   *k8s.KubeClient
-	crHelper    *k8s.CRHelper
-	hWMgrClient api.HWServiceClient
-	scMap       map[SCName]sc.StorageClassImplementer
+	k8sClient      *k8s.KubeClient
+	crHelper       *k8s.CRHelper
+	driveMgrClient api.DriveServiceClient
+	scMap          map[SCName]sc.StorageClassImplementer
 
 	nodeID      string
 	initialized bool
@@ -56,16 +56,16 @@ const (
 )
 
 // NewVolumeManager is the constructor for VolumeManager struct
-// Receives an instance of HWServiceClient to interact with HWManager, CmdExecutor to execute linux commands,
+// Receives an instance of DriveServiceClient to interact with DriveManager, CmdExecutor to execute linux commands,
 // logrus logger, base.KubeClient and ID of a node where VolumeManager works
 // Returns an instance of VolumeManager
-func NewVolumeManager(client api.HWServiceClient, executor command.CmdExecutor, logger *logrus.Logger, k8sclient *k8s.KubeClient, nodeID string) *VolumeManager {
+func NewVolumeManager(client api.DriveServiceClient, executor command.CmdExecutor, logger *logrus.Logger, k8sclient *k8s.KubeClient, nodeID string) *VolumeManager {
 	vm := &VolumeManager{
-		k8sClient:   k8sclient,
-		crHelper:    k8s.NewCRHelper(k8sclient, logger),
-		hWMgrClient: client,
-		linuxUtils:  linuxutils.NewLinuxUtils(executor, logger),
-		nodeID:      nodeID,
+		k8sClient:      k8sclient,
+		crHelper:       k8s.NewCRHelper(k8sclient, logger),
+		driveMgrClient: client,
+		linuxUtils:     linuxutils.NewLinuxUtils(executor, logger),
+		nodeID:         nodeID,
 		scMap: map[SCName]sc.StorageClassImplementer{
 			"hdd": sc.GetHDDSCInstance(logger),
 			"ssd": sc.GetSSDSCInstance(logger)},
@@ -159,14 +159,14 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(m)
 }
 
-// Discover inspects actual drives structs from HWManager and create volume object if partition exist on some of them
-// (in case of VolumeManager restart). Updates Drives CRs based on gathered from HWManager information.
+// Discover inspects actual drives structs from DriveManager and create volume object if partition exist on some of them
+// (in case of VolumeManager restart). Updates Drives CRs based on gathered from DriveManager information.
 // Also this method creates AC CRs. Performs at some intervals in a goroutine
 // Returns error if something went wrong during discovering
 func (m *VolumeManager) Discover() error {
 	ctx, cancelFn := context.WithTimeout(context.Background(), DiscoverDrivesTimeout)
 	defer cancelFn()
-	drivesResponse, err := m.hWMgrClient.GetDrivesList(ctx, &api.DrivesRequest{NodeId: m.nodeID})
+	drivesResponse, err := m.driveMgrClient.GetDrivesList(ctx, &api.DrivesRequest{NodeId: m.nodeID})
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func (m *VolumeManager) Discover() error {
 
 // updateDrivesCRs updates drives cache and Drives CRs based on provided list of Drives. Tries to fill drivesCache in
 // case of VolumeManager restart from Drives CRs.
-// Receives golang context and slice of discovered api.Drive structs usually got from HWManager
+// Receives golang context and slice of discovered api.Drive structs usually got from DriveManager
 func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []*api.Drive) {
 	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
@@ -213,7 +213,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 				exist = true
 				if !driveCR.Equals(drivePtr) {
 					drivePtr.UUID = driveCR.Spec.UUID
-					// If got from HWMgr drive's health is not equal to drive's health in cache then update appropriate
+					// If got from DriveMgr drive's health is not equal to drive's health in cache then update appropriate
 					// resources
 					if drivePtr.Health != driveCR.Spec.Health || drivePtr.Status != driveCR.Spec.Status {
 						m.handleDriveStatusChange(ctx, drivePtr)
@@ -826,7 +826,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		"driveID": drive.UUID,
 	})
 
-	ll.Infof("The new drive status from HWMgr is %s", drive.Health)
+	ll.Infof("The new drive status from DriveMgr is %s", drive.Health)
 
 	// Handle resources without LVG
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN

@@ -144,15 +144,15 @@ kind load docker-image busybox:1.29
 ```
 helm template charts/baremetal-csi-plugin/ 
 --output-dir /tmp --set image.tag=`make version`
---set hwmgr.type=LOOPBACK // test with loopback hwmgr
---set hwmgr.deployConfig=true // deploy config for loopback hwmgr
+--set drivemgr.type=LOOPBACK // test with loopback drivemgr
+--set drivemgr.deployConfig=true // deploy config for loopback drivemgr
 --set busybox.image.tag=1.29  // e2e tests need this busybox for testing pods
 --set image.pullPolicy=IfNotPresent /*KIND can't work with imagePullPolicy <Always> 
                                       because it can pull only from local repository*/
 ``` 
 If you set `--output-dir` to another directory, you should change this line in [code](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/blob/feature-FABRIC-8422-implement-base-csi-e2e-tests-with-Kind/test/test/csi-volume.go#L22) to your directory, so framework can find yaml files.
 
-You can configure Loopback HWManager's devices through ConfigMap. The default one is in charts.
+You can configure Loopback DriveManager's devices through ConfigMap. The default one is in charts.
 For example:
 ```
 apiVersion: v1
@@ -177,13 +177,13 @@ data:
           removed: true
 ```
 
-Because of HWManager is deployed on each node, if you want to set configuration of specified HWManager, you need to
-add its NodeID to `nodes` field of configuration. Loopback HWManager is able to update devices according to
+Because of DriveManager is deployed on each node, if you want to set configuration of specified DriveManager, you need to
+add its NodeID to `nodes` field of configuration. Loopback DriveManager is able to update devices according to
  configuration in runtime. If `drives` field contains existing drive (check by serialNumber) then configuration of this
 drive will be updated and missing fields will be filled with defaults. If `drives` field contains new drive then this 
-drive will be appended to HWManager if it has free slot. It means that if HWManager already has `driveCount` devices
+drive will be appended to DriveManager if it has free slot. It means that if DriveManager already has `driveCount` devices
 then the new drive won't be appended without increasing of `driveCount`. If you increase `driveCount` in runtime then
-HWManager will add missing devices from default or specified drives. If you decrease `driveCount` in runtime then nothing
+DriveManager will add missing devices from default or specified drives. If you decrease `driveCount` in runtime then nothing
 will happen because it's not known which of devices should be deleted (some of them can hold volumes/LVG). To fail
 specified drive you can set `removed` field as true (See the example above). This drive will be shown as `Offline`.
  

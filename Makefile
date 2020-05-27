@@ -3,10 +3,10 @@
 
 include variables.mk
 
-NODE         := node
-HW_MANAGER   := hwmgr
-CONTROLLER   := controller
-HEALTH_PROBE := health_probe
+NODE            := node
+DRIVE_MANAGER   := drivemgr
+CONTROLLER      := controller
+HEALTH_PROBE    := health_probe
 
 GO_ENV_VARS  := GO111MODULE=on GOPRIVATE=eos2git.cec.lab.emc.com/* GOPROXY=http://asdrepo.isus.emc.com/artifactory/api/go/ecs-go-build,https://proxy.golang.org,direct
 
@@ -24,12 +24,12 @@ prepare-env: install-compile-proto install-hal install-controller-gen dependency
 dependency:
 	${GO_ENV_VARS} go mod download
 
-build: compile-proto build-hwmgr build-node build-controller
+build: compile-proto build-drivemgr build-node build-controller
 
 # NOTE: Output directory for binary file should be in Docker context.
 # So we can't use /baremetal-csi-plugin/build to build the image.
-build-hwmgr:
-	go build -o ./build/${HW_MANAGER}/${HW_MANAGER} ./cmd/${HW_MANAGER}/main.go
+build-drivemgr:
+	go build -o ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER} ./cmd/${DRIVE_MANAGER}/main.go
 
 build-node:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${NODE}/${NODE} ./cmd/${NODE}/main.go
@@ -37,12 +37,12 @@ build-node:
 build-controller:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
-image: image-hwmgr image-node image-controller
+image: image-drivemgr image-node image-controller
 
-base-image: base-image-hwmgr base-image-node base-image-controller
+base-image: base-image-drivemgr base-image-node base-image-controller
 
-base-image-hwmgr:
-	docker build --network host --force-rm --file ./pkg/${HW_MANAGER}/Dockerfile.build --tag ${HW_MANAGER}:base ./pkg/${HW_MANAGER}
+base-image-drivemgr:
+	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/Dockerfile.build --tag ${DRIVE_MANAGER}:base ./pkg/${DRIVE_MANAGER}
 
 base-image-node: download-grpc-health-probe
 	cp ./build/${HEALTH_PROBE} ./pkg/${NODE}/${HEALTH_PROBE}
@@ -51,10 +51,10 @@ base-image-node: download-grpc-health-probe
 base-image-controller:
 	docker build --network host --force-rm --file ./pkg/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./pkg/${CONTROLLER}
 
-image-hwmgr:
-	cp ./build/${HW_MANAGER}/${HW_MANAGER} ./pkg/${HW_MANAGER}/${HW_MANAGER}
-	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ./pkg/${HW_MANAGER}
-	docker tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
+image-drivemgr:
+	cp ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER} ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER}
+	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG} ./pkg/${DRIVE_MANAGER}
+	docker tag ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG} ${HARBOR}/${REPO}-${DRIVE_MANAGER}:${TAG}
 
 image-node:
 	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
@@ -66,16 +66,16 @@ image-controller:
 	docker build --network host --force-rm --tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ./pkg/${CONTROLLER}
 	docker tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ${HARBOR}/${REPO}-${CONTROLLER}:${TAG}
 
-push: push-hwmgr push-node push-controller
+push: push-drivemgr push-node push-controller
 
 push-local:
-	docker push ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+	docker push ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG}
 	docker push ${REGISTRY}/${REPO}-${NODE}:${TAG}
 	docker push ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
-push-hwmgr:
-	docker push ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
-	docker push ${HARBOR}/${REPO}-${HW_MANAGER}:${TAG}
+push-drivemgr:
+	docker push ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG}
+	docker push ${HARBOR}/${REPO}-${DRIVE_MANAGER}:${TAG}
 
 push-node:
 	docker push ${REGISTRY}/${REPO}-${NODE}:${TAG}
@@ -90,7 +90,7 @@ kind-load-images:
 	kind load docker-image csi-provisioner:v1.2.2
 	kind load docker-image csi-node-driver-registrar:v1.0.1-gke.0
 	kind load docker-image csi-attacher:v1.0.1
-	kind load docker-image ${REPO}-${HW_MANAGER}:${TAG}
+	kind load docker-image ${REPO}-${DRIVE_MANAGER}:${TAG}
 	kind load docker-image ${REPO}-${NODE}:${TAG}
 	kind load docker-image ${REPO}-${CONTROLLER}:${TAG}
 	kind load docker-image busybox:1.29
@@ -100,7 +100,7 @@ kind-pull-images:
 	docker pull ${REGISTRY}/csi-node-driver-registrar:v1.0.1-gke.0
 	docker pull busybox:1.29
 	docker pull ${REGISTRY}/csi-attacher:v1.0.1
-	docker pull ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+	docker pull ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG}
 	docker pull ${REGISTRY}/${REPO}-${NODE}:${TAG}
 	docker pull ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG}
 
@@ -108,14 +108,14 @@ kind-tag-images:
 	docker tag ${REGISTRY}/csi-provisioner:v1.2.2 csi-provisioner:v1.2.2
 	docker tag ${REGISTRY}/csi-node-driver-registrar:v1.0.1-gke.0 csi-node-driver-registrar:v1.0.1-gke.0
 	docker tag ${REGISTRY}/csi-attacher:v1.0.1 csi-attacher:v1.0.1
-	docker tag ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG} ${REPO}-${HW_MANAGER}:${TAG}
+	docker tag ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG} ${REPO}-${DRIVE_MANAGER}:${TAG}
 	docker tag ${REGISTRY}/${REPO}-${NODE}:${TAG} ${REPO}-${NODE}:${TAG}
 	docker tag ${REGISTRY}/${REPO}-${CONTROLLER}:${TAG} ${REPO}-${CONTROLLER}:${TAG}
 
-clean: clean-hwmgr clean-node clean-controller clean-proto
+clean: clean-drivemgr clean-node clean-controller clean-proto
 
-clean-hwmgr:
-	rm -rf ./build/${HW_MANAGER}/${HW_MANAGER}
+clean-drivemgr:
+	rm -rf ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER}
 
 clean-node:
 	rm -rf ./build/${NODE}/${NODE}
@@ -126,10 +126,10 @@ clean-controller:
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
-clean-image: clean-image-hwmgr clean-image-node # clean-image-controller
+clean-image: clean-image-drivemgr clean-image-node # clean-image-controller
 
-clean-image-hwmgr:
-	docker rmi ${REGISTRY}/${REPO}-${HW_MANAGER}:${TAG}
+clean-image-drivemgr:
+	docker rmi ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG}
 
 clean-image-node:
 	docker rmi ${REGISTRY}/${REPO}-${NODE}:${TAG}

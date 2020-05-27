@@ -1,4 +1,4 @@
-{{- if eq .Values.hwmgr.deployConfig true }}
+{{- if eq .Values.drivemgr.deployConfig true }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

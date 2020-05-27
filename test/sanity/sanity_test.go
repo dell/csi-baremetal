@@ -141,9 +141,9 @@ func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 	}
 }
 
-// prepareNodeMock prepares instance of Node service with mocked hwmgr and mocked executor
+// prepareNodeMock prepares instance of Node service with mocked drivemgr and mocked executor
 func prepareNodeMock(kubeClient *k8s.KubeClient, log *logrus.Logger) *node.CSINodeService {
-	c := mocks.NewMockHWMgrClient(testDrives)
+	c := mocks.NewMockDriveMgrClient(testDrives)
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(lsblk.CmdTmpl, ""): {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
 

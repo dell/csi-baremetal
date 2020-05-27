@@ -1,5 +1,5 @@
 //nolint:unparam
-// Package halmgr provides HAL based implementation of HWManager
+// Package halmgr provides HAL based implementation of DriveManager
 package halmgr
 
 // #cgo LDFLAGS: -L/opt/emc/hal/lib64 -lhalHelper -lviprhal
@@ -27,7 +27,7 @@ func NewHALManager(logger *logrus.Logger) *HALManager {
 	return &HALManager{Log: logger.WithField("component", "HALManager")}
 }
 
-// HALManager struct that implements HWManager interface using HAL and cgo
+// HALManager struct that implements DriveManager interface using HAL and cgo
 type HALManager struct {
 	Log *logrus.Entry
 }

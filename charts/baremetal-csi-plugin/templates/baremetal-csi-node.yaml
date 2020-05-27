@@ -64,8 +64,8 @@ spec:
           {{- if .Values.logReceiver.create  }}
           - "--logpath=/var/log/csi.log"
           {{- end }}
-          {{- if .Values.node.grpc.client.hwmgr.endpoint }}
-          - --hwmgrendpoint={{ .Values.node.grpc.client.hwmgr.endpoint }}
+          {{- if .Values.node.grpc.client.drivemgr.endpoint }}
+          - --drivemgrendpoint={{ .Values.node.grpc.client.drivemgr.endpoint }}
         {{- end }}
         ports:
           - containerPort: {{ .Values.node.grpc.server.port }}
@@ -117,27 +117,27 @@ spec:
           mountPath: /var/lib/kubelet/pods
           mountPropagation: "Bidirectional"
         ports:
-        {{- if .Values.hwmgr.grpc.server.port }}
+        {{- if .Values.drivemgr.grpc.server.port }}
           - containerPort: {{ .Values.node.grpc.server.port }}
         {{- end }}
-      # ********************** baremetal-csi-hwmgr container definition **********************
+      # ********************** baremetal-csi-drivemgr container definition **********************
       # TODO: FABRIC-8595 Replace HWManager to DaemonSet
-      - name: hwmgr
+      - name: drivemgr
         {{- if .Values.env.test  }}
-        image: {{ .Values.hwmgr.image.repository }}:{{ default .Values.image.tag .Values.hwmgr.image.tag }}
+        image: {{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
         {{- else }}
-        image: {{ .Values.global.registry }}/{{ .Values.hwmgr.image.repository }}:{{ default .Values.image.tag .Values.hwmgr.image.tag }}
+        image: {{ .Values.global.registry }}/{{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
-    {{- if eq .Values.hwmgr.halOverride.iscsi true }}
+    {{- if eq .Values.drivemgr.halOverride.iscsi true }}
         command: ["/iscsi_entrypoint.sh"]
     {{- else}}
-      {{- if .Values.hwmgr.grpc.server.endpoint }}
+      {{- if .Values.drivemgr.grpc.server.endpoint }}
         args:
-          - --hwmgrendpoint={{ .Values.hwmgr.grpc.server.endpoint }}
+          - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
         {{- if .Values.logReceiver.create  }}
-          - --logpath=/var/log/hwmgr.log
+          - --logpath=/var/log/drivemgr.log
         {{- end }}
       {{- end }}
     {{- end}}
@@ -146,21 +146,21 @@ spec:
         env:
         - name: LOG_FORMAT
           value: {{ .Values.log.format }}
-        - name: HW_MANAGER
-          value: {{ .Values.hwmgr.type }}
+        - name: DRIVEMGR_MANAGER
+          value: {{ .Values.drivemgr.type }}
         - name: KUBE_NODE_NAME
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
         ports:
-        {{- if .Values.hwmgr.grpc.server.port }}
-          - containerPort: {{ .Values.hwmgr.grpc.server.port }}
+        {{- if .Values.drivemgr.grpc.server.port }}
+          - containerPort: {{ .Values.drivemgr.grpc.server.port }}
         {{- end }}
         volumeMounts:
         - name: host-dev
           mountPath: /dev
-        {{- if eq .Values.hwmgr.deployConfig true }}
+        {{- if eq .Values.drivemgr.deployConfig true }}
         - name: drive-config
           mountPath: /etc/config
         {{- end }}
@@ -168,7 +168,7 @@ spec:
         - name: logs
           mountPath: /var/log/
         {{- end }}
-        {{- if eq .Values.hwmgr.type "LOOPBACK"}}
+        {{- if eq .Values.drivemgr.type "LOOPBACK"}}
         - name: host-home
           mountPath: /host/home
         {{- end }}
@@ -194,7 +194,7 @@ spec:
         hostPath:
           path: /dev
           type: Directory
-      {{- if eq .Values.hwmgr.type "LOOPBACK"}}
+      {{- if eq .Values.drivemgr.type "LOOPBACK"}}
       - name: host-home
         hostPath:
           path: /home
@@ -221,7 +221,7 @@ spec:
         hostPath:
           path: /var/lib/kubelet/pods
           type: Directory
-      {{- if eq .Values.hwmgr.deployConfig true }}
+      {{- if eq .Values.drivemgr.deployConfig true }}
       - name: drive-config
         configMap:
           name: loopback-config

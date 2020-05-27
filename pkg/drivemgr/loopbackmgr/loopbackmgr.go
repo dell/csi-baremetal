@@ -1,4 +1,4 @@
-// Package loopbackmgr contains HWManager for test purposes based on loop devices
+// Package loopbackmgr contains DriveManager for test purposes based on loop devices
 package loopbackmgr
 
 import (
@@ -152,7 +152,7 @@ func (mgr *LoopBackManager) attemptToRecoverDevices(imagesPath string) {
 
 	for _, file := range entries {
 		// If image path contains files that don't correspond to this pod then delete them.
-		// It's done because *.img files store on node side. If hwmgr will delete them during SIGTERM (postStop, pod
+		// It's done because *.img files store on node side. If drivemgr will delete them during SIGTERM (postStop, pod
 		// delete, etc) then LoopbackMgr can't support node rebooting. So it's needed to cleanup excess files on startup
 		if !strings.Contains(file.Name(), mgr.hostname) {
 			absFilePath := fmt.Sprintf("%s/%s", imagesPath, file.Name())

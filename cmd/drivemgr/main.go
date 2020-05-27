@@ -1,4 +1,4 @@
-// Package for main function of HWManager
+// Package for main function of DriveManager
 package main
 
 import (
@@ -18,15 +18,15 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/halmgr"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/idracmgr"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/hwmgr/loopbackmgr"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr/halmgr"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr/idracmgr"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr/loopbackmgr"
 )
 
 var (
-	endpoint    = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "HWManager Endpoint")
-	logPath     = flag.String("logpath", "", "log path for HWManager")
+	endpoint    = flag.String("drivemgrendpoint", base.DefaultDriveMgrEndpoint, "DriveManager Endpoint")
+	logPath     = flag.String("logpath", "", "log path for DriveManager")
 	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
 )
 
@@ -45,19 +45,19 @@ func main() {
 		fmt.Printf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
 
-	logger.Info("Start HWManager")
+	logger.Info("Start DriveManager")
 	// Server is insecure for now because credentials are nil
 	serverRunner := rpc.NewServerRunner(nil, *endpoint, logger)
 
-	hwManager, cleanup, err := chooseHWManager(logger)
+	driveManager, cleanup, err := chooseDriveManager(logger)
 
 	if err != nil {
-		logger.Fatalf("Failed to create HW manager: %s", err.Error())
+		logger.Fatalf("Failed to create drive manager: %s", err.Error())
 	}
 
-	hwServiceServer := hwmgr.NewHWServer(logger, hwManager)
+	driveServiceServer := drivemgr.NewDriveServer(logger, driveManager)
 
-	api.RegisterHWServiceServer(serverRunner.GRPCServer, &hwServiceServer)
+	api.RegisterDriveServiceServer(serverRunner.GRPCServer, &driveServiceServer)
 
 	go util.SetupSignalHandler(serverRunner)
 
@@ -66,7 +66,7 @@ func main() {
 	}
 
 	logger.Info("Got SIGTERM signal")
-	// clean loop devices after hwmgr deletion
+	// clean loop devices after drivemgr deletion
 	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
 	// kubernetes sends SIGTERM signal to containers for pods terminating
 	if cleanup != nil {
@@ -74,29 +74,29 @@ func main() {
 	}
 }
 
-// chooseHWManager picks HW manager implementation based on environment variable.
-func chooseHWManager(logger *logrus.Logger) (hwmgr.HWManager, func(), error) {
+// chooseDriveManager picks Drive manager implementation based on environment variable.
+func chooseDriveManager(logger *logrus.Logger) (drivemgr.DriveManager, func(), error) {
 	e := &command.Executor{}
 	e.SetLogger(logger)
 
-	switch os.Getenv("HW_MANAGER") {
-	case hwmgr.REDFISH:
+	switch os.Getenv("DRIVEMGR_MANAGER") {
+	case drivemgr.REDFISH:
 		linuxUtils := linuxutils.NewLinuxUtils(e, logger)
 		ip := linuxUtils.GetBmcIP()
 		if ip == "" {
 			return nil, nil, status.Error(codes.Internal, "IDRAC IP is not found")
 		}
 		return idracmgr.NewIDRACManager(logger, 10*time.Second, "root", "passwd", ip), nil, nil
-	case hwmgr.TEST:
-		hwManager := loopbackmgr.NewLoopBackManager(e, logger)
+	case drivemgr.TEST:
+		driveManager := loopbackmgr.NewLoopBackManager(e, logger)
 		// initialize
-		err := hwManager.Init()
+		err := driveManager.Init()
 		if err != nil {
-			logger.Errorf("Failed to initialize HW manager: %s", err.Error())
+			logger.Errorf("Failed to initialize Drive manager: %s", err.Error())
 			return nil, nil, err
 		}
-		cleanup := hwManager.CleanupLoopDevices
-		return hwManager, cleanup, nil
+		cleanup := driveManager.CleanupLoopDevices
+		return driveManager, cleanup, nil
 	default:
 		// use HAL manager by default
 		return halmgr.NewHALManager(logger), nil, nil

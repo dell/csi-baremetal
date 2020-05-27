@@ -56,7 +56,7 @@ func TestLinuxUtils_SearchDrivePathBySN(t *testing.T) {
 	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil).Times(2)
 	l := NewLinuxUtils(e, luLogger)
 
-	// success when path is set by hwgmr
+	// success when path is set by drivemgr
 	var drive = new(drivecrd.Drive)
 	expectedDev := "/dev/sda"
 	drive.Spec.Path = expectedDev
@@ -65,7 +65,7 @@ func TestLinuxUtils_SearchDrivePathBySN(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, expectedDev, dev)
 
-	// success when path is not set by hwmgr
+	// success when path is not set by drivemgr
 	drive.Spec.Path = ""
 	dev, err = l.SearchDrivePath(drive)
 	assert.Nil(t, err)

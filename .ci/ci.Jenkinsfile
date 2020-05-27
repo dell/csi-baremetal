@@ -53,9 +53,9 @@ void runTests() {
                     stage('Prepare YAML for e2e tests') {
                         sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
                                 "--set env.test=true " +
-                                "--set hwmgr.type=LOOPBACK " +
+                                "--set drivemgr.type=LOOPBACK " +
                                 "--set image.pullPolicy=IfNotPresent " +
-                                "--set hwmgr.deployConfig=true")
+                                "--set drivemgr.deployConfig=true")
                     }
                     stage('Start Kind') {
                         sh("""
@@ -97,7 +97,7 @@ void runTests() {
                     common.withInfraDevkitContainerKind() {
                         List<String> repos = ["baremetal-csi-plugin-node",
                                               "baremetal-csi-plugin-controller",
-                                              "baremetal-csi-plugin-hwmgr"]
+                                              "baremetal-csi-plugin-drivemgr"]
                         // retag in asdrepo
                         repos.each { String repo ->
                             String image = "${registry}/${repo}"
@@ -149,7 +149,7 @@ private String getArtifactsJson(final Map<String, Object> args) {
     List<Object> artifacts = []
     List<String>  images = [
             "baremetal-csi-plugin-node",
-            "baremetal-csi-plugin-hwmgr",
+            "baremetal-csi-plugin-drivemgr",
             "baremetal-csi-plugin-controller",
     ]
     images.each { image ->

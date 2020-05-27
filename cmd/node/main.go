@@ -34,13 +34,13 @@ import (
 )
 
 var (
-	namespace     = flag.String("namespace", "", "Namespace in which Node Service service run")
-	hwMgrEndpoint = flag.String("hwmgrendpoint", base.DefaultHWMgrEndpoint, "Hardware Manager endpoint")
-	volumeMgrIP   = flag.String("volumemgrip", base.DefaultVMMgrIP, "Node Volume Manager endpoint")
-	csiEndpoint   = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
-	nodeID        = flag.String("nodeid", "", "node identification by k8s")
-	logPath       = flag.String("logpath", "", "Log path for Node Volume Manager service")
-	verboseLogs   = flag.Bool("verbose", false, "Debug mode in logs")
+	namespace        = flag.String("namespace", "", "Namespace in which Node Service service run")
+	driveMgrEndpoint = flag.String("drivemgrendpoint", base.DefaultDriveMgrEndpoint, "Hardware Manager endpoint")
+	volumeMgrIP      = flag.String("volumemgrip", base.DefaultVMMgrIP, "Node Volume Manager endpoint")
+	csiEndpoint      = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
+	nodeID           = flag.String("nodeid", "", "node identification by k8s")
+	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
+	verboseLogs      = flag.Bool("verbose", false, "Debug mode in logs")
 )
 
 func main() {
@@ -49,12 +49,12 @@ func main() {
 	logger := setupLogger()
 	logger.Info("Starting Node Service")
 
-	// gRPC client for communication with HWMgr via TCP socket
-	gRPCClient, err := rpc.NewClient(nil, *hwMgrEndpoint, logger)
+	// gRPC client for communication with DriveMgr via TCP socket
+	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, logger)
 	if err != nil {
-		logger.Fatalf("fail to create grpc client for endpoint %s, error: %v", *hwMgrEndpoint, err)
+		logger.Fatalf("fail to create grpc client for endpoint %s, error: %v", *driveMgrEndpoint, err)
 	}
-	clientToHwMgr := api.NewHWServiceClient(gRPCClient.GRPCClient)
+	clientToDriveMgr := api.NewDriveServiceClient(gRPCClient.GRPCClient)
 
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, logger)
@@ -71,7 +71,7 @@ func main() {
 
 	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(clientToHwMgr, nodeUID, logger, k8sClientForVolume)
+	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume)
 
 	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.5", true)
 

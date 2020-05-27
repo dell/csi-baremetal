@@ -51,7 +51,7 @@ spec:
             PID:
               type: string
             Path:
-              description: path to the device. may not be set by hwmgr.
+              description: path to the device. may not be set by drivemgr.
               type: string
             SerialNumber:
               type: string

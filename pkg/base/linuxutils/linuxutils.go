@@ -89,7 +89,7 @@ func (l *LinuxUtils) GetBmcIP() string {
 // Returns drive's path based on provided drivecrd.Drive or error if something went wrong
 // TODO AK8S-594 to check VID/PID as well
 func (l *LinuxUtils) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
-	// device path might be already set by hwmgr
+	// device path might be already set by drivemgr
 	device := drive.Spec.Path
 	if device != "" {
 		return device, nil

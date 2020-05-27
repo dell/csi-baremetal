@@ -29,7 +29,7 @@ data:
         Tag              baremetal-csi
     [INPUT]
         Name             tail
-        Path             /var/log/hwmgr.log
+        Path             /var/log/drivemgr.log
         DB               /var/log/flb.db
         Path_Key         filename
         Parser           csi-logs

@@ -4,8 +4,8 @@ package base
 import "time"
 
 const (
-	// DefaultHWMgrEndpoint is the default gRPC endpoint for HWmgr
-	DefaultHWMgrEndpoint = "tcp://localhost:8888"
+	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
+	DefaultDriveMgrEndpoint = "tcp://localhost:8888"
 	// DefaultVMMgrIP is the default gRPC IP for VolumeManager
 	DefaultVMMgrIP = "127.0.0.1"
 	// DefaultVolumeManagerPort is the default gRPC port for VolumeManager

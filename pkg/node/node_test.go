@@ -655,7 +655,7 @@ func getNodeUnstageRequest(volumeID, stagePath string) *csi.NodeUnstageVolumeReq
 }
 
 func newNodeService() *CSINodeService {
-	client := mocks.NewMockHWMgrClient(mocks.HwMgrRespDrives)
+	client := mocks.NewMockDriveMgrClient(mocks.DriveMgrRespDrives)
 	// todo get rid of code duplicates
 	// create map of commands which must be mocked
 	cmds := make(map[string]mocks.CmdOut)

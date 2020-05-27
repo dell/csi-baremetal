@@ -13,6 +13,6 @@ message DrivesResponse {
     repeated Drive disks = 1;
 }
 
-service HWService {
+service DriveService {
     rpc GetDrivesList(DrivesRequest) returns (DrivesResponse){};
 }

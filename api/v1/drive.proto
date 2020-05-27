@@ -14,7 +14,7 @@ message Drive {
     int64 Size = 7;
     string Status = 8;
     string NodeId = 9;
-    // path to the device. may not be set by hwmgr.
+    // path to the device. may not be set by drivemgr.
     string Path = 10;
     string Enclosure = 11;
     string Slot = 12;

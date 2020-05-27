@@ -5,8 +5,8 @@ import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
-// HwMgrRespDrives are the drives for mock GetAllDrives call of HWManager
-var HwMgrRespDrives = []*api.Drive{
+// DriveMgrRespDrives are the drives for mock GetAllDrives call of DriveManager
+var DriveMgrRespDrives = []*api.Drive{
 	{
 		SerialNumber: "hdd1",
 		Health:       apiV1.HealthGood,

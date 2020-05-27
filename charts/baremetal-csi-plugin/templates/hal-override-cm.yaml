@@ -1,4 +1,4 @@
-{{- if eq .Values.hwmgr.halOverride.iscsi true }}
+{{- if eq .Values.drivemgr.halOverride.iscsi true }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
