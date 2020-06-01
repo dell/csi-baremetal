@@ -16,8 +16,6 @@ GO_ENV_VARS  := GO111MODULE=on GOPRIVATE=eos2git.cec.lab.emc.com/* GOPROXY=http:
 version:
 	@printf $(TAG)
 
-#all: build image push
-
 # use in clear environment
 prepare-env: install-compile-proto install-hal install-controller-gen dependency generate-api
 
@@ -37,9 +35,9 @@ build-node:
 build-controller:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
-image: image-drivemgr image-node image-controller
+images: image-drivemgr image-node image-controller
 
-base-image: base-image-drivemgr base-image-node base-image-controller
+base-images: base-image-drivemgr base-image-node base-image-controller
 
 base-image-drivemgr:
 	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/Dockerfile.build --tag ${DRIVE_MANAGER}:base ./pkg/${DRIVE_MANAGER}
@@ -126,7 +124,7 @@ clean-controller:
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
-clean-image: clean-image-drivemgr clean-image-node # clean-image-controller
+clean-images: clean-image-drivemgr clean-image-node # clean-image-controller
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${REPO}-${DRIVE_MANAGER}:${TAG}
