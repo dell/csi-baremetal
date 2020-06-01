@@ -63,6 +63,10 @@ void runJob() {
                     ''')
                 }
 
+                stage('Build') {
+                    sh('make build')
+                }
+
                 stage('Lint') {
                     sh('make lint')
                 }
@@ -74,18 +78,14 @@ void runJob() {
                     ''')
                 }
 
-                stage('Build') {
-                    sh('make build')
-                }
-
-                stage('Image') {
+                stage('Images') {
                     sh('''
-                    make base-image
-                    make image
+                    make base-images
+                    make images
                     ''')
                 }
 
-                stage('Push image') {
+                stage('Push images') {
                     sh("""
                         ${common.DOCKER_REGISTRY.HARBOR.getLoginCommand()}
                         ${common.DOCKER_REGISTRY.DOCKER_HUB.getLoginCommand()}

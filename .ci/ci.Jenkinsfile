@@ -91,7 +91,7 @@ void runTests() {
                       """)
                 }
             }
-            stage('Image retagging') {
+            stage('Images re-tagging') {
                 if (args.runMode != RUN_MODE_CUSTOM && testResultSuccess) {
                     harbor.retagCSIImages(args.dockerProject, csiVersion, 'latest')
                     common.withInfraDevkitContainerKind() {
