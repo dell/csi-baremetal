@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -271,4 +272,49 @@ func (cs *CRHelper) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
 		return "", err
 	}
 	return lvgCR.Spec.Name, nil
+}
+
+// GetLVGCRs collect LVG CRs that locate on node, use just node[0] element
+// if node isn't provided - return all volume CRs
+// if error occurs - return nil
+func (cs *CRHelper) GetLVGCRs(node ...string) []lvgcrd.LVG {
+	var (
+		lvgList = &lvgcrd.LVGList{}
+		err     error
+	)
+
+	if err = cs.k8sClient.ReadList(context.Background(), lvgList); err != nil {
+		cs.log.WithField("method", "GetLVGCRs").
+			Errorf("Unable to read volume CRs list: %v", err)
+		return nil
+	}
+
+	if len(node) == 0 {
+		return lvgList.Items
+	}
+
+	// if node was provided, collect LVGs that are on that node
+	res := make([]lvgcrd.LVG, 0)
+	for _, l := range lvgList.Items {
+		if l.Spec.Node == node[0] {
+			res = append(res, l)
+		}
+	}
+	return res
+}
+
+// UpdateVolumeCRSpec reads volume CR with name volName and update it's spec to newSpec
+// returns nil or error in case of error
+func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error {
+	var (
+		volumeCR = &volumecrd.Volume{}
+		err      error
+	)
+
+	if err = cs.k8sClient.ReadCR(context.Background(), volName, volumeCR); err != nil {
+		return err
+	}
+
+	volumeCR.Spec = newSpec
+	return cs.k8sClient.UpdateCR(context.Background(), volumeCR)
 }

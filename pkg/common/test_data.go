@@ -11,7 +11,6 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
@@ -34,7 +33,7 @@ var (
 	// Available Capacity variables
 	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDrive1UUID))
 	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(util.GBYTE),
@@ -44,7 +43,7 @@ var (
 	}
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
 	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(util.GBYTE) * 100,
@@ -55,7 +54,7 @@ var (
 	}
 	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive3UUID))
 	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(util.TBYTE),
@@ -66,7 +65,7 @@ var (
 	}
 	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive4UUID))
 	testAC4     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         testLVG.Spec.Size,
@@ -79,21 +78,21 @@ var (
 	// LVG variables
 	testLVGName = "lvg-1"
 	testLVG     = lvgcrd.LVG{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "LVG", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "LVG", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: testNS},
 		Spec: api.LogicalVolumeGroup{
 			Name:      testLVGName,
 			Node:      testNode2Name,
 			Locations: []string{testDrive4UUID},
 			Size:      int64(util.GBYTE) * 100,
-			Status:    crdV1.Creating,
+			Status:    apiV1.Creating,
 		},
 	}
 
 	// Volumes variables
 	testVolume1Name = "aaaa-1111"
 	testVolume1     = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testVolume1Name,
 			Namespace:         testNS,
@@ -105,7 +104,7 @@ var (
 			Size:         int64(util.GBYTE),
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDrive1UUID,
-			CSIStatus:    crdV1.Creating,
+			CSIStatus:    apiV1.Creating,
 		},
 	}
 )

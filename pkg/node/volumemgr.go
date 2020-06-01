@@ -22,25 +22,44 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
+	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
+	p "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners/utilwrappers"
 )
 
 // VolumeManager is the struct to perform volume operations on node side with real storage devices
 type VolumeManager struct {
-	k8sClient      *k8s.KubeClient
-	crHelper       *k8s.CRHelper
+	// for interacting with kubernetes objects
+	k8sClient *k8s.KubeClient
+	// help to read/update particular CR
+	crHelper *k8s.CRHelper
+
+	// uses for communicating with hardware manager
 	driveMgrClient api.DriveServiceClient
-	scMap          map[SCName]sc.StorageClassImplementer
+	// holds implementations of Provisioner interface
+	provisioners map[p.VolumeType]p.Provisioner
 
-	nodeID      string
-	initialized bool
+	// uses for operations with partitions
+	partOps ph.WrapPartition
+	// uses for FS operations such as Mount/Unmount, MkFS and so on
+	fsOps utilwrappers.FSOperations
+	// uses for LVM operations
+	lvmOps lvm.WrapLVM
+	// uses for running lsblk util
+	listBlk lsblk.WrapLsblk
 
-	linuxUtils *linuxutils.LinuxUtils
+	// uses for searching suitable Available Capacity
 	acProvider common.AvailableCapacityOperations
 
+	// kubernetes node ID
+	nodeID string
+	// whether VolumeManager was initialized or no, uses for health probes
+	initialized bool
+	// general logger
 	log *logrus.Entry
 }
 
@@ -49,35 +68,41 @@ const (
 	DiscoverDrivesTimeout = 300 * time.Second
 	// VolumeOperationsTimeout is the timeout for local Volume creation/deletion
 	VolumeOperationsTimeout = 900 * time.Second
-	// SleepBetweenRetriesToSyncPartTable is the interval between syncing of partition table
-	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
-	// NumberOfRetriesToSyncPartTable is the amount of retries for partprobe of a particular device
-	NumberOfRetriesToSyncPartTable = 3
 )
 
 // NewVolumeManager is the constructor for VolumeManager struct
 // Receives an instance of DriveServiceClient to interact with DriveManager, CmdExecutor to execute linux commands,
 // logrus logger, base.KubeClient and ID of a node where VolumeManager works
 // Returns an instance of VolumeManager
-func NewVolumeManager(client api.DriveServiceClient, executor command.CmdExecutor, logger *logrus.Logger, k8sclient *k8s.KubeClient, nodeID string) *VolumeManager {
+func NewVolumeManager(
+	client api.DriveServiceClient,
+	executor command.CmdExecutor,
+	logger *logrus.Logger,
+	k8sclient *k8s.KubeClient,
+	nodeID string) *VolumeManager {
 	vm := &VolumeManager{
 		k8sClient:      k8sclient,
 		crHelper:       k8s.NewCRHelper(k8sclient, logger),
 		driveMgrClient: client,
-		linuxUtils:     linuxutils.NewLinuxUtils(executor, logger),
-		nodeID:         nodeID,
-		scMap: map[SCName]sc.StorageClassImplementer{
-			"hdd": sc.GetHDDSCInstance(logger),
-			"ssd": sc.GetSSDSCInstance(logger)},
-		acProvider: common.NewACOperationsImpl(k8sclient, logger),
+		acProvider:     common.NewACOperationsImpl(k8sclient, logger),
+		provisioners: map[p.VolumeType]p.Provisioner{
+			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
+			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
+		},
+		fsOps:   utilwrappers.NewFSOperationsImpl(executor, logger),
+		lvmOps:  lvm.NewLVM(executor, logger),
+		listBlk: lsblk.NewLSBLK(executor),
+		partOps: ph.NewWrapPartitionImpl(executor),
+		nodeID:  nodeID,
+		log:     logger.WithField("component", "VolumeManager"),
 	}
-	vm.log = logger.WithField("component", "VolumeManager")
 	return vm
 }
 
-// SetExecutor sets provided CmdExecutor to LinuxUtils field of VolumeManager
-func (m *VolumeManager) SetExecutor(executor command.CmdExecutor) {
-	m.linuxUtils.SetExecutor(executor)
+// SetProvisioners sets provisioners for current VolumeManager instance
+// uses for UTs and Sanity tests purposes
+func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
+	m.provisioners = provs
 }
 
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
@@ -112,10 +137,10 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	var newStatus string
 	switch volume.Spec.CSIStatus {
 	case apiV1.Creating:
-		err := m.CreateLocalVolume(ctx, &volume.Spec)
+		err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
 		if err != nil {
 			ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
-				" Set volume status to FailedToCreate", volume.Spec.Size, err, ctx.Err())
+				" Set volume status to Failed", volume.Spec.Size, err, ctx.Err())
 			newStatus = apiV1.Failed
 		} else {
 			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
@@ -132,9 +157,8 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		return ctrl.Result{}, nil
 	case apiV1.Removing:
-		if err = m.DeleteLocalVolume(ctx, &volume.Spec); err != nil {
-			ll.Errorf("Failed to delete volume - %s. Error: %v. Context Error: %v. "+
-				"Set status FailToRemove", volume.Spec.Id, err, ctx.Err())
+		if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
+			ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 			newStatus = apiV1.Failed
 		} else {
 			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
@@ -201,6 +225,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		"component": "VolumeManager",
 		"method":    "updateDrivesCRs",
 	})
+	ll.Debugf("Processing")
 
 	driveCRs := m.crHelper.GetDriveCRs(m.nodeID)
 
@@ -253,7 +278,13 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 				break
 			}
 		}
+		isInLVG := false
 		if !wasDiscovered {
+			ll.Debugf("Check whether drive %v in LVG or no", d)
+			isInLVG = m.isDriveIsInLVG(d.Spec)
+		}
+		if !wasDiscovered && !isInLVG {
+			// TODO: remove AC and aware Volumes here
 			ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
 			toUpdate := d
 			toUpdate.Spec.Status = apiV1.DriveStatusOffline
@@ -266,6 +297,17 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 	}
 }
 
+// isDriveIsInLVG check whether drive is a part of some LVG or no
+func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
+	lvgs := m.crHelper.GetLVGCRs(m.nodeID)
+	for _, lvg := range lvgs {
+		if util.ContainsString(lvg.Spec.Locations, d.UUID) {
+			return true
+		}
+	}
+	return false
+}
+
 // discoverVolumeCRs updates volumes cache based on provided freeDrives.
 // searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
 // partition uuid and create volume object
@@ -275,7 +317,7 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	})
 
 	// explore each drive from freeDrives
-	lsblk, err := m.linuxUtils.GetBlockDevices("")
+	lsblk, err := m.listBlk.GetBlockDevices("")
 	if err != nil {
 		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
@@ -283,7 +325,11 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	for _, d := range freeDrives {
 		for _, ld := range lsblk {
 			if strings.EqualFold(ld.Serial, d.Spec.SerialNumber) && len(ld.Children) > 0 {
-				partUUID, err := m.linuxUtils.GetPartitionUUID(ld.Name)
+				if m.isDriveIsInLVG(d.Spec) {
+					ll.Debugf("Drive %v is in LVG and not a FREE", d.Spec)
+					break
+				}
+				partUUID, err := m.partOps.GetPartitionUUID(ld.Name, p.DefaultPartitionNumber)
 				if err != nil {
 					ll.Warnf("Unable to determine partition UUID for device %s, error: %v", ld.Name, err)
 					continue
@@ -460,7 +506,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		vgFreeSpace            int64
 	)
 
-	if rootMountPoint, err = m.linuxUtils.FindMnt(base.KubeletRootPath); err != nil {
+	if rootMountPoint, err = m.fsOps.FindMountPoint(base.KubeletRootPath); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
 
@@ -468,7 +514,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	rootMountPoint = strings.Split(rootMountPoint, "[")[0]
 
 	// ensure that rootMountPoint is in SSD drive
-	devices, err := m.linuxUtils.GetBlockDevices(rootMountPoint)
+	devices, err := m.listBlk.GetBlockDevices(rootMountPoint)
 	if err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
@@ -478,11 +524,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
-	if vgName, err = m.linuxUtils.FindVgNameByLvName(rootMountPoint); err != nil {
+	if vgName, err = m.lvmOps.FindVgNameByLvName(rootMountPoint); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
 
-	if vgFreeSpace, err = m.linuxUtils.GetVgFreeSpace(vgName); err != nil {
+	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
 	if vgFreeSpace == 0 {
@@ -516,305 +562,22 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		if err = m.k8sClient.CreateCR(ctx, acName, acCR); err != nil {
 			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
 		}
-		ll.Infof("AC %v was created based on system LVG", acCR)
+		ll.Infof("System LVM was inspected, LVG CR was created %v, AC CR was created: %v", vgCR, acCR)
+		return nil
 	}
 
-	ll.Infof("System LVM was inspected, LVG object was created")
+	ll.Infof("System LVM was inspected, LVG object was created but AC was not. LVG CR: %v", vgCR)
 	return nil
 }
 
-// CreateLocalVolume performs linux operations on the node to create specified volume on hardware drives.
-// If StorageClass of provided api.Volume is LVG then it creates LV based on the VG and creates file system on this LV.
-// If StorageClass of provided api.Volume is HDD or SSD then it creates partition on drive and creates file system on
-// this partition. api.Volume.Location must be set for correct working of this method
-// Returns error if something went wrong
-func (m *VolumeManager) CreateLocalVolume(ctx context.Context, vol *api.Volume) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method":   "CreateLocalVolume",
-		"volumeID": vol.Id,
-	})
-
-	ll.Infof("Creating volume: %v", vol)
-
-	var (
-		volLocation = vol.Location
-		scImpl      = m.getStorageClassImpl(vol.StorageClass)
-		deviceFile  string
-		err         error
-	)
+// getProvisionerForVolume returns appropriate Provisioner implementation for volume
+func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
 	switch vol.StorageClass {
-	//TODO AK8S-762 Use createPartitionAndSetUUID for SSDLVG, HDDLVG SC in CreateLocalVolume
-	case apiV1.StorageClassSSDLVG, apiV1.StorageClassHDDLVG:
-		sizeStr := fmt.Sprintf("%.2fG", float64(vol.Size)/float64(util.GBYTE))
-		vgName := vol.Location
-
-		// Volume.Location is a LVG CR name and we use such name as a real VG name
-		// however for LVG based on system disk LVG CR name != VG name
-		// we need to read appropriate LVG CR and use LVG CR.Spec.Name in LVCreate command
-		if vol.StorageClass == apiV1.StorageClassSSDLVG {
-			vgName, err = m.crHelper.GetVGNameByLVGCRName(volLocation)
-			if err != nil {
-				return fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
-			}
-		}
-
-		// create lv with name /dev/VG_NAME/vol.Id
-		ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, vgName)
-		if err = m.linuxUtils.LVCreate(vol.Id, sizeStr, vgName); err != nil {
-			return fmt.Errorf("unable to create LV: %v", err)
-		}
-
-		ll.Info("LV was created.")
-		deviceFile = fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
-	default: // assume that volume location is whole disk
-		drive := &drivecrd.Drive{}
-
-		// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
-		if err = m.k8sClient.ReadCR(ctx, volLocation, drive); err != nil {
-			return fmt.Errorf("failed to read drive CR with name %s, error %v", volLocation, err)
-		}
-
-		ll.Infof("Search device file for drive with S/N %s", drive.Spec.SerialNumber)
-		device, err := m.linuxUtils.SearchDrivePath(drive)
-		if err != nil {
-			return err
-		}
-
-		ll.Infof("Create partition on device %s and set UUID in background", device)
-		id := vol.Id
-
-		// since volume ID starts with 'pvc-' prefix we need to remove it.
-		// otherwise partition UUID won't be set correctly
-		// todo can we guarantee that e2e test has 'pvc-' prefix
-		volumeUUID, _ := util.GetVolumeUUID(id)
-		partition, rollBacked, err := m.createPartitionAndSetUUID(device, volumeUUID, vol.Ephemeral)
-		if err != nil {
-			if !rollBacked {
-				ll.Errorf("unable set partition uuid for dev %s, error: %v, roll back failed too, set drive status to OFFLINE", device, err)
-				drive.Spec.Status = apiV1.DriveStatusOffline
-				if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
-					ll.Errorf("Failed to update drive CR %s, error %v", drive.Name, err)
-				}
-			}
-			return fmt.Errorf("failed to set partition UUID: %v", err)
-		}
-		deviceFile = partition
-		ll.Info("Partition was created successfully")
-	}
-
-	if err = scImpl.CreateFileSystem(sc.FileSystem(vol.Type), deviceFile); err != nil {
-		return fmt.Errorf("failed to create file system: %v, set volume status FailedToCreate", err)
-	}
-
-	ll.Info("Local volume was created successfully")
-	return nil
-}
-
-// createPartitionAndSetUUID creates partition and sets partition UUID, if some step fails
-// will try to rollback operation, returns error and roll back operation status (bool)
-// if error occurs, status value will show whether device has roll back to the initial state
-func (m *VolumeManager) createPartitionAndSetUUID(device string, uuid string, ephemeral bool) (partName string, rollBacked bool, err error) {
-	ll := m.log.WithFields(logrus.Fields{
-		"method": "createPartitionAndSetUUID",
-		"uuid":   uuid,
-	})
-	ll.Infof("Processing for device %s", device)
-
-	var exist bool
-	rollBacked = true
-
-	// check existence
-	exist, err = m.linuxUtils.IsPartitionExists(device)
-	if err != nil {
-		return
-	}
-	// check partition UUID
-	if exist {
-		currUUID, err := m.linuxUtils.GetPartitionUUID(device)
-		if err != nil {
-			ll.Errorf("Partition has already exist but fail to get it UUID: %v", err)
-			return "", false, fmt.Errorf("partition has already exist on device %s", device)
-		}
-		if currUUID == uuid {
-			ll.Infof("Partition has already set.")
-			return "", true, nil
-		}
-		return "", false, fmt.Errorf("partition has already exist on device %s", device)
-	}
-
-	// create partition table
-	err = m.linuxUtils.CreatePartitionTable(device)
-	if err != nil {
-		return
-	}
-
-	// create partition
-	err = m.linuxUtils.CreatePartition(device)
-	if err != nil {
-		// try to delete partition
-		// todo get rid of this. might cause DL
-		exist, _ = m.linuxUtils.IsPartitionExists(device)
-		if exist {
-			if errDel := m.linuxUtils.DeletePartition(device); errDel != nil {
-				rollBacked = false
-				return
-			}
-		}
-		return
-	}
-
-	// set partition UUID
-	err = m.linuxUtils.SetPartitionUUID(device, uuid)
-	if err != nil {
-		errDel := m.linuxUtils.DeletePartition(device)
-		if errDel != nil {
-			rollBacked = false
-			return
-		}
-		return
-	}
-	//TODO temporary solution because of ephemeral volumes volume id https://jira.cec.lab.emc.com:8443/browse/AK8S-749
-	if ephemeral {
-		uuid, err = m.linuxUtils.GetPartitionUUID(device)
-		if err != nil {
-			ll.Errorf("Partition has already exist but fail to get it UUID: %v", err)
-			return "", false, fmt.Errorf("partition has already exist on device %s", device)
-		}
-	}
-	// get partition name
-	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
-		partName, err = m.linuxUtils.GetPartitionNameByUUID(device, uuid)
-		if err != nil {
-			// sync partition table and try one more time
-			err = m.linuxUtils.SyncPartitionTable(device)
-			if err != nil {
-				// log and ignore error
-				ll.Warningf("Unable to sync partition table for device %s", device)
-			}
-			time.Sleep(SleepBetweenRetriesToSyncPartTable)
-			continue
-		}
-		break
-	}
-
-	if partName == "" {
-		// delete partition
-		// todo https://jira.cec.lab.emc.com:8443/browse/AK8S-719 need to refactor this method to avoid code duplicates
-		errDel := m.linuxUtils.DeletePartition(device)
-		if errDel != nil {
-			rollBacked = false
-			err = errDel
-			return
-		}
-		err = fmt.Errorf("unable to obtain partition name for device %s", device)
-		return
-	}
-
-	return partName, false, nil
-}
-
-// DeleteLocalVolume performs linux operations on the node to delete specified volume from hardware drives.
-// If StorageClass of provided api.Volume is LVG then it deletes file system from the LV that based on the VG and
-// then deletes the LV. If StorageClass of provided api.Volume is HDD or SSD then it deletes file system from the
-// partition of Volume's drive and then it deletes this partition.
-// Returns error if something went wrong
-func (m *VolumeManager) DeleteLocalVolume(ctx context.Context, volume *api.Volume) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method":   "DeleteLocalVolume",
-		"volumeID": volume.Id,
-	})
-
-	ll.Info("Processing request")
-
-	var (
-		err        error
-		deviceFile string
-	)
-	switch volume.StorageClass {
-	case apiV1.StorageClassHDD, apiV1.StorageClassSSD:
-		drive := m.crHelper.GetDriveCRByUUID(volume.Location)
-
-		if drive == nil {
-			return errors.New("unable to find drive by volume location")
-		}
-		// get deviceFile path
-		deviceFile, err = m.linuxUtils.SearchDrivePath(drive)
-		if err != nil {
-			return fmt.Errorf("unable to find device for drive with S/N %s", volume.Location)
-		}
-
-		err = m.linuxUtils.DeletePartition(deviceFile)
-		if err != nil {
-			return fmt.Errorf("failed to delete partition, error: %v", err)
-		}
-		ll.Info("Partition was deleted successfully")
-	case apiV1.StorageClassSSDLVG, apiV1.StorageClassHDDLVG:
-		vgName := volume.Location
-		var err error
-		// Volume.Location is a LVG CR however for LVG based on system disk LVG CR name != VG name
-		// we need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
-		if volume.StorageClass == apiV1.StorageClassSSDLVG {
-			vgName, err = m.crHelper.GetVGNameByLVGCRName(volume.Location)
-			if err != nil {
-				return fmt.Errorf("unable to find LVG name by LVG CR name: %v", err)
-			}
-		}
-		deviceFile = fmt.Sprintf("/dev/%s/%s", vgName, volume.Id) // /dev/VG_NAME/LV_NAME
+	case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
+		return m.provisioners[p.LVMBasedVolumeType]
 	default:
-		return fmt.Errorf("unable to determine storage class for volume %v", volume)
+		return m.provisioners[p.DriveBasedVolumeType]
 	}
-
-	ll.Infof("Found device file %s", deviceFile)
-	scImpl := m.getStorageClassImpl(volume.StorageClass)
-
-	if err = scImpl.DeleteFileSystem(deviceFile); err != nil {
-		return fmt.Errorf("failed to wipefs deviceFile, error: %v", err)
-	}
-
-	if volume.StorageClass == apiV1.StorageClassHDDLVG || volume.StorageClass == apiV1.StorageClassSSDLVG {
-		lvgName := volume.Location
-		ll.Infof("Removing LV %s from LVG %s", volume.Id, lvgName)
-		if err = m.linuxUtils.LVRemove(deviceFile); err != nil {
-			return fmt.Errorf("unable to remove lv: %v", err)
-		}
-	}
-
-	ll.Infof("Local volume %v was removed successfully", volume)
-	return nil
-}
-
-// getStorageClassImpl returns appropriate StorageClass implementation from VolumeManager scMap field
-func (m *VolumeManager) getStorageClassImpl(storageClass string) sc.StorageClassImplementer {
-	switch storageClass {
-	case apiV1.StorageClassHDD:
-		return m.scMap[SCName("hdd")]
-	case apiV1.StorageClassSSD:
-		return m.scMap[SCName("ssd")]
-	default:
-		return m.scMap[SCName("hdd")]
-	}
-}
-
-// SetSCImplementer sets sc.StorageClassImplementer implementation to scMap of VolumeManager
-// Receives scName which uses as a key and an instance of sc.StorageClassImplementer
-func (m *VolumeManager) SetSCImplementer(scName string, implementer sc.StorageClassImplementer) {
-	m.scMap[SCName(scName)] = implementer
-}
-
-// updateVolumeCRSpec reads volume CR with name volName and update it's spec to newSpec
-// returns nil or error in case of error
-func (m *VolumeManager) updateVolumeCRSpec(volName string, newSpec api.Volume) error {
-	var (
-		volumeCR = &volumecrd.Volume{}
-		err      error
-	)
-
-	if err = m.k8sClient.ReadCR(context.Background(), volName, volumeCR); err != nil {
-		return err
-	}
-
-	volumeCR.Spec = newSpec
-	return m.k8sClient.UpdateCR(context.Background(), volumeCR)
 }
 
 // handleDriveStatusChange removes AC that is based on unhealthy drive, returns AC if drive returned to healthy state,
@@ -855,6 +618,8 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// TODO AK8S-472 Handle disk health which are used by LVGs
 }
 
+// drivesAreTheSame check whether two drive represent same node drive or no
+// method is rely on that each drive could be uniquely identified by it VID/PID/Serial Number
 func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 	return drive1.SerialNumber == drive2.SerialNumber &&
 		drive1.VID == drive2.VID &&

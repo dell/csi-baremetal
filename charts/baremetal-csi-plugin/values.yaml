@@ -8,6 +8,7 @@ env:
 #format of logs
 log:
   format: text
+  verbose: true
 
 # Storage Class name that provisions PVs dynamically
 storageClass:

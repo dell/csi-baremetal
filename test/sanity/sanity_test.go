@@ -22,8 +22,9 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/provisioners"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
+	p "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners"
 )
 
 var (
@@ -151,17 +152,8 @@ func prepareNodeMock(kubeClient *k8s.KubeClient, log *logrus.Logger) *node.CSINo
 
 	nodeService.VolumeManager = *node.NewVolumeManager(c, e, log, kubeClient, nodeId)
 
-	scImplMock := &sc.ImplementerMock{}
-	scImplMock.On("DeleteFileSystem", "/dev/sda").Return(nil)
-	scImplMock.On("DeleteFileSystem", "/dev/sdb").Return(nil)
-	scImplMock.On("PrepareVolume", "/dev/sda1", targetSanityPath).Return(false, nil)
-	scImplMock.On("PrepareVolume", "/dev/sdb1", targetSanityPath).Return(false, nil)
-	scImplMock.On("PrepareVolume", "/dev/sda1", stagingSanityPath).Return(false, nil)
-	scImplMock.On("PrepareVolume", "/dev/sdb1", stagingSanityPath).Return(false, nil)
-	scImplMock.On("IsMountPoint", targetSanityPath).Return(true, nil)
-	scImplMock.On("Unmount", stagingSanityPath).Return(nil)
-	scImplMock.On("Unmount", targetSanityPath).Return(nil)
-	nodeService.SetSCImplementer("hdd", scImplMock)
+	pMock := provisioners.GetMockProvisionerSuccess("/some/path")
+	nodeService.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 	return nodeService
 }

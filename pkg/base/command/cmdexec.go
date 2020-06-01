@@ -57,7 +57,7 @@ func (e *Executor) runCmdFromStr(cmd string) (string, string, error) {
 // Returns stdout as string, stderr as string and golang error if something went wrong
 func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string, err error) {
 	var (
-		level               = logrus.InfoLevel
+		level               = logrus.DebugLevel
 		stdout, stderr      bytes.Buffer
 		stdErrPart, errPart string
 	)
@@ -77,10 +77,8 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 		level = logrus.ErrorLevel
 	}
 
-	if err != nil || errStr != "" {
-		e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
-			Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
-	}
+	e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
+		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
 
 	return outStr, errStr, err
 }

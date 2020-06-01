@@ -15,7 +15,6 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -36,7 +35,7 @@ var (
 	testCtx    = context.Background()
 	testUUID   = uuid.New().String()
 	testVolume = vcrd.Volume{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
 		Spec: api.Volume{
 			Id:       testID,
@@ -53,7 +52,7 @@ var (
 		Location:     testDriveLocation1,
 		NodeId:       testNode1Name,
 	}
-	testACTypeMeta = k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version}
+	testACTypeMeta = k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version}
 	testACName     = fmt.Sprintf("%s-%s", testApiAC.NodeId, testApiAC.Location)
 	testACCR       = accrd.AvailableCapacity{
 		TypeMeta:   testACTypeMeta,
@@ -72,14 +71,14 @@ var (
 		Size:         1024 * 1024,
 		Status:       apiV1.DriveStatusOnline,
 	}
-	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: crdV1.APIV1Version}
+	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version}
 	testDriveCR       = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID, Namespace: testNs},
 		Spec:       testApiDrive,
 	}
 
-	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version}
+	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version}
 	testApiVolume      = api.Volume{
 		Id:       testID,
 		NodeId:   testNode1Name,
@@ -107,7 +106,7 @@ var (
 	testLVGCR   = lvgcrd.LVG{
 		TypeMeta: k8smetav1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:      testLVGName,

@@ -17,11 +17,10 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/testutils"
 )
 
@@ -40,7 +39,7 @@ var (
 	testNode4Name      = "preferredNode"
 
 	testVolume = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testID,
 			Namespace:         testNs,
@@ -50,7 +49,7 @@ var (
 			Id:       testID,
 			NodeId:   "pod",
 			Size:     1000,
-			Type:     string(sc.XFS),
+			Type:     string(fs.XFS),
 			Location: "location",
 			Mode:     apiV1.ModeFS,
 		},
@@ -58,7 +57,7 @@ var (
 
 	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation1))
 	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024,
@@ -68,7 +67,7 @@ var (
 	}
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation2))
 	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 1024,
@@ -79,7 +78,7 @@ var (
 	}
 	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
 	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: crdV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
@@ -134,7 +133,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 
-			go testutils.VolumeReconcileImitation(controller.svc, "req1", crdV1.Failed)
+			go testutils.VolumeReconcileImitation(controller.svc, "req1", apiV1.Failed)
 
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
@@ -142,7 +141,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(Equal(status.Error(codes.Internal, "Unable to create volume")))
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", vol)
 			Expect(err).To(BeNil())
-			Expect(vol.Spec.CSIStatus).To(Equal(crdV1.Failed))
+			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
 		It("Volume CR creation timeout expired", func() {
 			uuid := "uuid-1234"
@@ -160,7 +159,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Id:        req.GetName(),
 					Size:      1024 * 60,
 					NodeId:    testNode1Name,
-					CSIStatus: crdV1.Creating,
+					CSIStatus: apiV1.Creating,
 				}})
 			Expect(err).To(BeNil())
 
@@ -170,7 +169,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			v := vcrd.Volume{}
 			err = controller.k8sclient.ReadCR(testCtx, req.GetName(), &v)
 			Expect(err).To(BeNil())
-			Expect(v.Spec.CSIStatus).To(Equal(crdV1.Failed))
+			Expect(v.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
 	})
 
@@ -184,7 +183,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 
-			go testutils.VolumeReconcileImitation(controller.svc, "req1", crdV1.Created)
+			go testutils.VolumeReconcileImitation(controller.svc, "req1", apiV1.Created)
 
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(err).To(BeNil())
@@ -192,7 +191,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", vol)
 			Expect(err).To(BeNil())
-			Expect(vol.Spec.CSIStatus).To(Equal(crdV1.Created))
+			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 		It("Volume CR has already exists", func() {
 			uuid := "uuid-1234"
@@ -210,7 +209,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Id:        req.GetName(),
 					Size:      1024 * 60,
 					NodeId:    testNode1Name,
-					CSIStatus: crdV1.Created,
+					CSIStatus: apiV1.Created,
 				}})
 			Expect(err).To(BeNil())
 
@@ -241,7 +240,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       "Volume",
-				APIVersion: crdV1.APIV1Version,
+				APIVersion: apiV1.APIV1Version,
 			},
 			Spec: api.Volume{
 				Id:     uuid,
@@ -271,7 +270,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, crdV1.Failed)
+			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, apiV1.Failed)
 
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 
@@ -280,7 +279,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 
 			err = controller.k8sclient.ReadCR(context.Background(), uuid, volumeCrd)
 			Expect(err).To(BeNil())
-			Expect(volumeCrd.Spec.CSIStatus).To(Equal(crdV1.Failed))
+			Expect(volumeCrd.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
 	})
 
@@ -297,7 +296,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				volumeCrd = &vcrd.Volume{
 					TypeMeta: k8smetav1.TypeMeta{
 						Kind:       "Volume",
-						APIVersion: crdV1.APIV1Version,
+						APIVersion: apiV1.APIV1Version,
 					},
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Name:      uuid,
@@ -315,7 +314,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, crdV1.Removed)
+			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, apiV1.Removed)
 
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -350,7 +349,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, uuid, &volumeCrd)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, crdV1.Removed)
+			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, apiV1.Removed)
 
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -377,7 +376,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err := controller.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.svc, fullLVGsizeVolume.Spec.Id, crdV1.Removed)
+			go testutils.VolumeReconcileImitation(controller.svc, fullLVGsizeVolume.Spec.Id, apiV1.Removed)
 
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: testID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
@@ -441,7 +440,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.C
 			{
 				AccessType: &csi.VolumeCapability_Mount{
 					Mount: &csi.VolumeCapability_MountVolume{
-						FsType:     string(sc.XFS),
+						FsType:     string(fs.XFS),
 						MountFlags: nil,
 					},
 				},

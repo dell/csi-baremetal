@@ -6,11 +6,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
 )
 
 var (
-	testPartitioner = NewPartition(mocks.NewMockExecutor(mocks.DiskCommands))
+	testPartitioner = NewWrapPartitionImpl(mocks.NewMockExecutor(mocks.DiskCommands))
 	testPartNum     = "1"
 	testCSILabel    = "CSI"
 	testPartUUID    = "64be631b-62a5-11e9-a756-00505680d67f"
@@ -129,4 +132,87 @@ func TestGetPartitionTableTypeFail(t *testing.T) {
 	ptType, err = testPartitioner.GetPartitionTableType("/dev/sde")
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to parse output")
+}
+
+func TestGetPartitionNameByUUIDSuccess(t *testing.T) {
+	p := NewWrapPartitionImpl(&command.Executor{})
+	mockLsblk := &mocklu.MockWrapLsblk{}
+	p.lsblkUtil = mockLsblk
+
+	var (
+		device   = "/dev/sda"
+		partUUID = "uuid-1111"
+		partName = "p1"
+	)
+
+	blkDev1 := lsblk.BlockDevice{Children: []lsblk.BlockDevice{
+		{PartUUID: partUUID, Name: device + partName},
+	}}
+	lsblkResults := []lsblk.BlockDevice{blkDev1}
+	mockLsblk.On("GetBlockDevices", device).Return(lsblkResults, nil)
+
+	res, err := p.GetPartitionNameByUUID(device, partUUID)
+	assert.Nil(t, err)
+	assert.Equal(t, partName, res)
+
+}
+
+func TestGetPartitionNameByUUIDFail(t *testing.T) {
+	p := NewWrapPartitionImpl(&command.Executor{})
+	mockLsblk := &mocklu.MockWrapLsblk{}
+	p.lsblkUtil = mockLsblk
+
+	var (
+		res string
+		err error
+	)
+
+	// device wasn't provided
+	res, err = p.GetPartitionNameByUUID("", "bla")
+	assert.Equal(t, "", res)
+	assert.NotNil(t, err)
+
+	// partition UUID wasn't provided
+	res, err = p.GetPartitionNameByUUID("bla", "")
+	assert.Equal(t, "", res)
+	assert.NotNil(t, err)
+
+	var (
+		device   = "/dev/sda"
+		partUUID = "uuid-1111"
+	)
+
+	// lsblk failed
+	expectedErr := errors.New("lsblk error")
+	mockLsblk.On("GetBlockDevices", device).
+		Return([]lsblk.BlockDevice{}, expectedErr).Times(1)
+	res, err = p.GetPartitionNameByUUID(device, partUUID)
+	assert.Equal(t, "", res)
+	assert.Equal(t, expectedErr, err)
+
+	// partition name not detected
+	blkDev1 := lsblk.BlockDevice{Children: []lsblk.BlockDevice{
+		{PartUUID: partUUID, Name: ""},
+	}}
+	lsblkResults := []lsblk.BlockDevice{blkDev1}
+	mockLsblk.On("GetBlockDevices", device).
+		Return(lsblkResults, nil).Times(1)
+	res, err = p.GetPartitionNameByUUID(device, partUUID)
+	assert.Equal(t, "", res)
+	assert.NotNil(t, err)
+
+	// partition with provided UUID wasn't found
+	mockLsblk.On("GetBlockDevices", device).
+		Return([]lsblk.BlockDevice{blkDev1}, nil).Times(1)
+	res, err = p.GetPartitionNameByUUID(device, "anotherUUID")
+	assert.Equal(t, "", res)
+	assert.NotNil(t, err)
+
+	// empty lsblk output
+	// partition with provided UUID wasn't found
+	mockLsblk.On("GetBlockDevices", device).
+		Return([]lsblk.BlockDevice{}, nil).Times(1)
+	res, err = p.GetPartitionNameByUUID(device, "anotherUUID")
+	assert.Equal(t, "", res)
+	assert.NotNil(t, err)
 }

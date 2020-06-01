@@ -17,7 +17,8 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
@@ -25,12 +26,14 @@ const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 
 // LVGController is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
 type LVGController struct {
-	k8sClient  *k8s.KubeClient
-	node       string
-	linuxUtils *linuxutils.LinuxUtils
-	e          command.CmdExecutor
+	k8sClient *k8s.KubeClient
 
-	log *logrus.Entry
+	listBlk lsblk.WrapLsblk
+	lvmOps  lvm.WrapLVM
+	e       command.CmdExecutor
+
+	node string
+	log  *logrus.Entry
 }
 
 // NewLVGController is the constructor for LVGController struct
@@ -40,11 +43,12 @@ func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logg
 	e := &command.Executor{}
 	e.SetLogger(log)
 	return &LVGController{
-		k8sClient:  k8sClient,
-		node:       nodeID,
-		log:        log.WithField("component", "LVGController"),
-		e:          e,
-		linuxUtils: linuxutils.NewLinuxUtils(e, log),
+		k8sClient: k8sClient,
+		node:      nodeID,
+		log:       log.WithField("component", "LVGController"),
+		e:         e,
+		lvmOps:    lvm.NewLVM(e, log),
+		listBlk:   lsblk.NewLSBLK(e),
 	}
 }
 
@@ -90,10 +94,8 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			// remove AC that point on that LVG
 			c.removeChildAC(lvg.Name)
 
-			// if LVG points in system VG, VG and PVs won't be removed
-			// TODO: here for debug
 			if len(lvg.Spec.Locations) == 0 {
-				ll.Errorf("THERE IS NO LOCATIONS FOR LVG !!!")
+				ll.Warn("Location fields is empty")
 			} else if lvg.Spec.Locations[0] != base.SystemDriveAsLocation {
 				// cleanup LVM artifacts
 				if err := c.removeLVGArtifacts(lvg.Name); err != nil {
@@ -158,13 +160,13 @@ func (c *LVGController) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, er
 		// get serial number
 		sn := drive.Spec.SerialNumber
 		// get device path
-		dev, err := c.linuxUtils.SearchDrivePath(drive)
+		dev, err := c.listBlk.SearchDrivePath(drive)
 		if err != nil {
 			ll.Error(err)
 			continue
 		}
 		// create PV
-		if err := c.linuxUtils.PVCreate(dev); err != nil {
+		if err := c.lvmOps.PVCreate(dev); err != nil {
 			ll.Errorf("Unable to create PV for device %s: %v", dev, err)
 			continue
 		}
@@ -176,7 +178,7 @@ func (c *LVGController) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, er
 		return locations, errors.New("no one PVs were created")
 	}
 	// create vg
-	if err = c.linuxUtils.VGCreate(lvg.Name, deviceFiles...); err != nil {
+	if err = c.lvmOps.VGCreate(lvg.Name, deviceFiles...); err != nil {
 		ll.Errorf("Unable to create VG: %v", err)
 		return locations, err
 	}
@@ -192,16 +194,16 @@ func (c *LVGController) removeLVGArtifacts(lvgName string) error {
 	})
 	ll.Info("Processing ...")
 
-	if c.linuxUtils.IsVGContainsLVs(lvgName) {
+	if c.lvmOps.IsVGContainsLVs(lvgName) {
 		ll.Errorf("There are LVs in LVG. Unable to remove it.")
 		return fmt.Errorf("there are LVs in LVG %s", lvgName)
 	}
 
 	var err error
-	if err = c.linuxUtils.VGRemove(lvgName); err != nil {
+	if err = c.lvmOps.VGRemove(lvgName); err != nil {
 		return fmt.Errorf("unable to remove LVG %s: %v", lvgName, err)
 	}
-	_ = c.linuxUtils.RemoveOrphanPVs() // ignore error since LVG was removed successfully
+	_ = c.lvmOps.RemoveOrphanPVs() // ignore error since LVG was removed successfully
 	return nil
 }
 

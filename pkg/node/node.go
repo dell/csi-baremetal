@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
@@ -23,22 +22,16 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
 )
-
-// SCName type means that depending on SC and parameters in CreateVolumeRequest()
-// here we should use different SC implementations for creating required volumes
-// the same principle we can use in Controller Server or read from a CRD instance
-// store storage class name
-type SCName string
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
-	NodeID string
-	log    *logrus.Entry
-	svc    common.VolumeOperations
-	reqMu  sync.Mutex
+	svc   common.VolumeOperations
+	reqMu sync.Mutex
+
+	log *logrus.Entry
+
 	VolumeManager
 	grpc_health_v1.HealthServer
 }
@@ -57,9 +50,10 @@ const (
 // and base.KubeClient
 // Returns an instance of CSINodeService
 func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *logrus.Logger, k8sclient *k8s.KubeClient) *CSINodeService {
+	e := &command.Executor{}
+	e.SetLogger(logger)
 	s := &CSINodeService{
-		VolumeManager: *NewVolumeManager(client, &command.Executor{}, logger, k8sclient, nodeID),
-		NodeID:        nodeID,
+		VolumeManager: *NewVolumeManager(client, e, logger, k8sclient, nodeID),
 		svc:           common.NewVolumeOperationsImpl(k8sclient, logger),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
@@ -101,21 +95,19 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", volumeCR.Spec.Id)
 	}
 
-	scImpl := s.getStorageClassImpl(volumeCR.Spec.StorageClass)
-
 	targetPath := req.StagingTargetPath
 
-	partition, err := s.constructPartition(&volumeCR.Spec)
+	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
 	if err != nil {
-		ll.Error("failed to get partition, error: ", err)
+		ll.Errorf("failed to get partition, for volume %v: %v", volumeCR.Spec, err)
 		return nil, status.Error(codes.Internal, "failed to stage volume: partition error")
 	}
 
 	if volumeCR.Spec.CSIStatus == apiV1.VolumeReady {
 		ll.Info("Perform mount operation")
-		if err := scImpl.Mount(partition, targetPath); err != nil {
+		if err := s.fsOps.Mount(partition, targetPath); err != nil {
 			ll.Errorf("Failed to stage volume %s, error: %v", volumeCR.Spec.Id, err)
-			return nil, fmt.Errorf("failed to stage volume %s", volumeCR.Spec.Id)
+			return nil, status.Error(codes.Internal, "failed to stage volume: mount error")
 		}
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
@@ -126,14 +118,14 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		errToReturn error
 		newStatus   = apiV1.VolumeReady
 	)
-	if err := s.prepareAndPerformMount(partition, targetPath, scImpl, false); err != nil {
+	if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, false); err != nil {
 		ll.Errorf("Unable to prepare and mount: %v. Going to set volumes status to failed", err)
 		newStatus = apiV1.Failed
 		resp, errToReturn = nil, fmt.Errorf("failed to stage volume")
 	}
 
 	volumeCR.Spec.CSIStatus = newStatus
-	if err = s.updateVolumeCRSpec(volumeCR.Name, volumeCR.Spec); err != nil {
+	if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Spec); err != nil {
 		ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 		resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 	}
@@ -162,23 +154,24 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	}
 	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
 	if volumeCR == nil {
-		return nil, status.Error(codes.Internal, "Unable to find volume")
+		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 
 	if volumeCR.Spec.CSIStatus == apiV1.Failed {
-		return nil, status.Errorf(codes.Internal, "corresponding CR %s reached Failed status", volumeCR.Spec.Id)
+		return nil, status.Errorf(codes.Internal, "corresponding CR %s has Failed status", volumeCR.Spec.Id)
 	}
 
 	// This is a temporary solution to clear all owners during NodeUnstage
 	// because NodeUnpublishRequest doesn't contain info about pod
 	// TODO AK8S-466 Remove owner from Owners slice during Unpublish properly
 	volumeCR.Spec.Owners = nil
+	volumeCR.Spec.CSIStatus = apiV1.Created
 
 	var (
 		resp        = &csi.NodeUnstageVolumeResponse{}
 		errToReturn error
 	)
-	if errToReturn = s.unmount(volumeCR.Spec.StorageClass, req.GetStagingTargetPath()); errToReturn != nil {
+	if errToReturn = s.fsOps.Unmount(req.GetStagingTargetPath()); errToReturn != nil {
 		volumeCR.Spec.CSIStatus = apiV1.Failed
 		resp = nil
 	}
@@ -188,52 +181,8 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		resp, errToReturn = nil, fmt.Errorf("failed to unstage volume: update volume CR error")
 	}
 
+	ll.Debugf("Unstage successfully")
 	return resp, errToReturn
-}
-
-// unmount uses in Unstage/Unpublish requests to avoid duplicated code
-func (s *CSINodeService) unmount(storageClass string, path string) error {
-	ll := s.log.WithFields(logrus.Fields{
-		"method": "unmount",
-	})
-	scImpl := s.getStorageClassImpl(storageClass)
-
-	err := scImpl.Unmount(path)
-	if err != nil {
-		return status.Error(codes.Internal, "Unable to unmount")
-	}
-
-	ll.Infof("volume was successfully unmount from %s", path)
-	return nil
-}
-
-// prepareAndPerformMount is used it in Stage/Publish requests to prepareAndPerformMount scrPath to targetPath, opts are used for prepareAndPerformMount commands
-func (s *CSINodeService) prepareAndPerformMount(srcPath, targetPath string, scImpl sc.StorageClassImplementer, bind bool) error {
-	ll := s.log.WithFields(logrus.Fields{
-		"method": "prepareAndPerformMount",
-	})
-	if err := scImpl.CreateTargetPath(targetPath); err != nil {
-		return err
-	}
-	mounted, err := scImpl.IsMountPoint(targetPath)
-	if err != nil {
-		ll.Info("IsMountPoint failed: ", err)
-		_ = scImpl.DeleteTargetPath(targetPath)
-		return err
-	}
-	if mounted {
-		ll.Infof("Mount point already exist")
-		return nil
-	}
-	var opts string
-	if bind {
-		opts = "--bind"
-	}
-	if err := scImpl.Mount(srcPath, targetPath, opts); err != nil {
-		_ = scImpl.DeleteTargetPath(targetPath)
-		return err
-	}
-	return nil
 }
 
 // NodePublishVolume is the implementation of CSI Spec NodePublishVolume. Performs each time pod starts consume
@@ -264,38 +213,43 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		inline bool
 		err    error
 	)
-	srcPath := req.GetStagingTargetPath()
-	path := req.GetTargetPath()
+
 	if req.GetVolumeContext() != nil {
 		val, ok := req.GetVolumeContext()[EphemeralKey]
 		if ok {
 			inline, err = strconv.ParseBool(val)
 			if err != nil {
-				ll.Errorf("Failed to parse value %v to bool", val)
+				ll.Errorf("Failed to parse bool: %v", err)
+				return nil, status.Error(codes.Internal, "failed to determine whether volume ephemeral or no")
 			}
 		}
 	}
 
-	//For prepareAndPerformMount function
-	bind := true
-	volumeID := req.GetVolumeId()
-	//Inline volume has the same cycle as usual volume, but k8s calls only Publish/Unpulish methods so we need to call CreateVolume before publish it
+	var (
+		volumeID = req.GetVolumeId()
+		srcPath  = req.GetStagingTargetPath()
+		dstPath  = req.GetTargetPath()
+		bind     = true // for mount option
+	)
+	// Inline volume has the same cycle as usual volume,
+	// but k8s calls only Publish/Unpulish methods so we need to call CreateVolume before publish it
 	if inline {
 		vol, err := s.createInlineVolume(ctx, volumeID, req)
 		if err != nil {
-			ll.Error("failed to create inline volume, error: ", err)
+			ll.Errorf("Failed to create inline volume: %v", err)
 			return nil, status.Error(codes.Internal, "unable to create inline volume")
 		}
-		srcPath, err = s.constructPartition(vol)
+		srcPath, err = s.getProvisionerForVolume(vol).GetVolumePath(*vol)
 		if err != nil {
-			ll.Error("failed to get partition, error: ", err)
+			ll.Errorf("failed to get partition for volume %v: %v", vol, err)
 			return nil, status.Error(codes.Internal, "failed to publish inline volume: partition error")
 		}
-		//For inline volume mount is performed without options
+		// For inline volume mount is performed without options
 		bind = false
 	} else if len(srcPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Staging Path missing in request")
 	}
+
 	volumeCR := s.crHelper.GetVolumeByID(volumeID)
 	if volumeCR == nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
@@ -304,16 +258,15 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	if volumeCR.Spec.CSIStatus == apiV1.Failed {
 		return nil, fmt.Errorf("corresponding volume CR %s reached failed status", volumeCR.Spec.Id)
 	}
-	scImpl := s.getStorageClassImpl(volumeCR.Spec.StorageClass)
 
 	var (
 		resp        = &csi.NodePublishVolumeResponse{}
-		errToReturn error
 		newStatus   = apiV1.Published
+		errToReturn error
 	)
 
-	if err := s.prepareAndPerformMount(srcPath, path, scImpl, bind); err != nil {
-		ll.Errorf("prepareAndPerformMount failed: %v", err)
+	if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, bind); err != nil {
+		ll.Errorf("Unable to mount volume: %v", err)
 		newStatus = apiV1.Failed
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
 	}
@@ -327,7 +280,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	owners := volumeCR.Spec.Owners
-	if !util.ContainsString(owners, podName) { // check whether podName name already in owners or no
+	if !util.ContainsString(owners, podName) { // check whether podName already in owners or no
 		owners = append(owners, podName)
 		volumeCR.Spec.Owners = owners
 	}
@@ -351,7 +304,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	var (
 		volumeContext = req.GetVolumeContext() // verified in NodePublishVolume method
 		bytesStr      = volumeContext[base.SizeKey]
-		fsType        = "None"
+		fsType        = ""
 		mode          string
 		scl           string
 		bytes         int64
@@ -359,7 +312,6 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	)
 
 	if bytes, err = util.StrToBytes(bytesStr); err != nil {
-		ll.Errorf("Failed to parse value %v to bytes", bytesStr)
 		return nil, err
 	}
 
@@ -381,7 +333,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	vol, err := s.svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
 		StorageClass: scl,
-		NodeId:       s.NodeID,
+		NodeId:       s.nodeID,
 		Size:         bytes,
 		Ephemeral:    true,
 		Mode:         mode,
@@ -403,54 +355,6 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	}
 
 	return vol, nil
-}
-
-//constructPartition tries to find partition name for particular Volume. It searches drive path and serial number by volume Location,
-//then GetPartitionNameByUUID is called for device and uuid to evaluate partition
-func (s *CSINodeService) constructPartition(volume *api.Volume) (string, error) {
-	var partition string
-	switch volume.StorageClass {
-	case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
-		vgName := volume.Location
-		var err error
-
-		// for LVG based on system disk LVG CR name != VG name
-		// need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
-		if volume.StorageClass == apiV1.StorageClassSSDLVG {
-			vgName, err = s.crHelper.GetVGNameByLVGCRName(volume.Location)
-			if err != nil {
-				return "", err
-			}
-		}
-
-		partition = fmt.Sprintf("/dev/%s/%s", vgName, volume.Id)
-	default:
-		drive := s.crHelper.GetDriveCRByUUID(volume.Location)
-		if drive == nil {
-			return "", fmt.Errorf("drive with uuid %s wasn't found ", volume.Location)
-		}
-
-		// get device path
-		bdev, err := s.linuxUtils.SearchDrivePath(drive)
-		if err != nil {
-			return "", status.Errorf(codes.Internal, "unable to find device for drive with S/N %s", volume.Location)
-		}
-		uuid, _ := util.GetVolumeUUID(volume.Id)
-		// TODO temporary solution because of ephemeral volumes volume id AK8S-749
-		if volume.Ephemeral {
-			uuid, err = s.linuxUtils.GetPartitionUUID(bdev)
-			if err != nil {
-				return "", status.Errorf(codes.Internal, "unable to find partition by device %s", bdev)
-			}
-			time.Sleep(SleepBetweenRetriesToSyncPartTable)
-		}
-		// get partition name
-		partition, err = s.linuxUtils.GetPartitionNameByUUID(bdev, uuid)
-		if err != nil {
-			return "", err
-		}
-	}
-	return partition, nil
 }
 
 // NodeUnpublishVolume is the implementation of CSI Spec NodePublishVolume. Performs each time pod stops consume a volume.
@@ -477,12 +381,13 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	if volumeCR == nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
-	if err := s.unmount(volumeCR.Spec.StorageClass, req.GetTargetPath()); err != nil {
+	if err := s.fsOps.Unmount(req.GetTargetPath()); err != nil {
+		ll.Errorf("Unable to unmount volume: %v", err)
 		volumeCR.Spec.CSIStatus = apiV1.Failed
 		if updateErr := s.k8sClient.UpdateCR(context.Background(), volumeCR); updateErr != nil {
 			ll.Errorf("Unable to set volume CR status to failed: %v", updateErr)
 		}
-		return nil, err
+		return nil, status.Error(codes.Internal, "unmount error")
 	}
 	//If volume has more than 1 owner pods then keep its status as Published
 	if len(volumeCR.Spec.Owners) > 1 {
@@ -494,6 +399,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		s.reqMu.Lock()
 		err := s.svc.DeleteVolume(ctx, req.GetVolumeId())
 		s.reqMu.Unlock()
+
 		if err != nil {
 			if k8sError.IsNotFound(err) {
 				ll.Infof("Volume doesn't exist")
@@ -504,6 +410,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		}
 
 		if err = s.svc.WaitStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed); err != nil {
+			ll.Warn("Status wasn't reached")
 			return nil, status.Error(codes.Internal, "Unable to delete volume")
 		}
 		s.reqMu.Lock()
@@ -516,6 +423,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		}
 	}
 
+	ll.Debugf("Unpublished successfully")
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
@@ -556,14 +464,14 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 
 	topology := csi.Topology{
 		Segments: map[string]string{
-			"baremetal-csi/nodeid": s.NodeID,
+			"baremetal-csi/nodeid": s.nodeID,
 		},
 	}
 
 	ll.Infof("NodeGetInfo created topology: %v", topology)
 
 	return &csi.NodeGetInfoResponse{
-		NodeId:             s.NodeID,
+		NodeId:             s.nodeID,
 		AccessibleTopology: &topology,
 	}, nil
 }

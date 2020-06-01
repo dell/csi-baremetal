@@ -2,25 +2,47 @@ package node
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 
+	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
-	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/sc"
+	mockProv "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/provisioners"
+	p "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/testutils"
 )
+
+var (
+	node   *CSINodeService
+	prov   *mockProv.MockProvisioner
+	fsOps  *mockProv.MockFsOpts
+	volOps *mocks.VolumeOperationsMock
+)
+
+func setVariables() {
+	node = newNodeService()
+	prov = &mockProv.MockProvisioner{}
+	fsOps = &mockProv.MockFsOpts{}
+	volOps = &mocks.VolumeOperationsMock{}
+	node.provisioners = map[p.VolumeType]p.Provisioner{
+		p.DriveBasedVolumeType: prov,
+		p.LVMBasedVolumeType:   prov,
+	}
+	node.fsOps = fsOps
+	node.svc = volOps
+}
 
 func TestCSINodeService(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -28,45 +50,39 @@ func TestCSINodeService(t *testing.T) {
 }
 
 var _ = Describe("CSINodeService NodePublish()", func() {
-	var node *CSINodeService
-	scImplMock := &sc.ImplementerMock{}
-
-	volumeCap := &csi.VolumeCapability{
-		AccessType: &csi.VolumeCapability_Mount{
-			Mount: &csi.VolumeCapability_MountVolume{
-				FsType: "xfs",
-			},
-		},
-		AccessMode: &csi.VolumeCapability_AccessMode{
-			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-		},
-	}
-
 	BeforeEach(func() {
-		node = newNodeService()
+		setVariables()
 	})
 
 	Context("NodePublish() success", func() {
 		It("Should publish volume", func() {
-			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("Mount", stagePath, targetPath, []string{"--bind"}).Return(nil).Times(1)
-			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+			req.VolumeContext[PodNameKey] = testPodName
+
+			fsOps.On("PrepareAndPerformMount",
+				req.GetStagingTargetPath(), req.GetTargetPath(), true).
+				Return(nil)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
-		})
-		It("Target path already mounted", func() {
-			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("IsMountPoint", targetPath).Return(true, nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
 
-			resp, err := node.NodePublishVolume(testCtx, req)
+			// check owner appearance
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
+
+			// publish again such volume
+			resp, err = node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
+
+			// check owner appearance
+			volumeCR = &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(len(volumeCR.Spec.Owners)).To(Equal(1))
 		})
 	})
 
@@ -82,7 +98,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail with missing VolumeId", func() {
 			req := &csi.NodePublishVolumeRequest{
 				TargetPath:       targetPath,
-				VolumeCapability: volumeCap,
+				VolumeCapability: testVolumeCap,
 			}
 
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -93,7 +109,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail with missing target path", func() {
 			req := &csi.NodePublishVolumeRequest{
 				VolumeId:         testV1ID,
-				VolumeCapability: volumeCap,
+				VolumeCapability: testVolumeCap,
 			}
 
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -104,7 +120,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail with missing stage path", func() {
 			req := &csi.NodePublishVolumeRequest{
 				VolumeId:         testV1ID,
-				VolumeCapability: volumeCap,
+				VolumeCapability: testVolumeCap,
 				TargetPath:       targetPath,
 			}
 
@@ -114,7 +130,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err.Error()).To(ContainSubstring("Staging Path missing in request"))
 		})
 		It("Should fail, because Volume has failed status", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.Failed
 			err := node.k8sClient.UpdateCR(testCtx, &vol1)
@@ -125,7 +141,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).NotTo(BeNil())
 		})
 		It("Should fail, because of volume CR isn't exist", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			err := node.k8sClient.DeleteCR(testCtx, &testVolumeCR1)
 			Expect(err).To(BeNil())
 
@@ -135,90 +151,55 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			// not a good ide to check error message. better to validate error code.
 			Expect(err.Error()).To(ContainSubstring("Unable to find volume"))
 		})
-		It("Should fail with search device by S/N error", func() {
-			req := getNodePublishRequest(testV3ID, targetPath, *volumeCap)
+		It("Should fail, because of PrepareAndPerformMount failed", func() {
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+
+			fsOps.On("PrepareAndPerformMount",
+				req.GetStagingTargetPath(), req.GetTargetPath(), true).
+				Return(errors.New("error mount"))
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-		})
-		It("Should fail with IsMountError error", func() {
-			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("IsMountPoint", targetPath).Return(false, errors.New("error")).Times(1)
-			scImplMock.On("DeleteTargetPath", targetPath).Return(nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal("failed to publish volume: mount error"))
-		})
-		It("Should fail with CreateTargetPath error", func() {
-			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
-			scImplMock.On("CreateTargetPath", targetPath).Return(errors.New("error")).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal("failed to publish volume: mount error"))
-		})
-		It("Should fail with Mount error", func() {
-			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
-			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("DeleteTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("Mount", stagePath, targetPath, []string{"--bind"}).Return(errors.New("error")).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal("failed to publish volume: mount error"))
+			Expect(err.Error()).To(ContainSubstring("mount error"))
 		})
 	})
 })
 
 var _ = Describe("CSINodeService NodeStage()", func() {
-	var node *CSINodeService
-	scImplMock := &sc.ImplementerMock{}
-
-	volumeCap := &csi.VolumeCapability{
-		AccessType: &csi.VolumeCapability_Mount{
-			Mount: &csi.VolumeCapability_MountVolume{
-				FsType: "xfs",
-			},
-		},
-		AccessMode: &csi.VolumeCapability_AccessMode{
-			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-		},
-	}
-
 	BeforeEach(func() {
-		node = newNodeService()
+		setVariables()
 	})
 
 	Context("NodeStage() success", func() {
 		It("Should stage volume", func() {
-			scImplMock.On("CreateTargetPath", stagePath).Return(nil).Times(1)
-			scImplMock.On("Mount", device, stagePath, []string{""}).Return(nil).Times(1)
-			scImplMock.On("IsMountPoint", stagePath).Return(false, nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodeStageRequest(testV1ID, *volumeCap)
+			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+			partitionPath := "/partition/path/for/volume1"
+			prov.On("GetVolumePath", testVolume1).Return(partitionPath, nil)
+			fsOps.On("PrepareAndPerformMount",
+				partitionPath, req.GetStagingTargetPath(), false).
+				Return(nil)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
+			// check volume CR status
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
-		It("VolumeReady status", func() {
-			scImplMock.On("Mount", device, stagePath, []string(nil)).Return(nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodeStageRequest(testV1ID, *volumeCap)
+		It("Should stage, volume CR with VolumeReady status", func() {
+			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.VolumeReady
 			err := node.k8sClient.UpdateCR(testCtx, &vol1)
+
+			partitionPath := "/partition/path/for/volume1"
+			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+			fsOps.On("Mount",
+				partitionPath, req.GetStagingTargetPath(), []string(nil)).
+				Return(nil)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -238,7 +219,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		It("Should fail with missing VolumeId", func() {
 			req := &csi.NodeStageVolumeRequest{
 				StagingTargetPath: stagePath,
-				VolumeCapability:  volumeCap,
+				VolumeCapability:  testVolumeCap,
 			}
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -249,7 +230,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		It("Should fail with missing stage path", func() {
 			req := &csi.NodeStageVolumeRequest{
 				VolumeId:         testV1ID,
-				VolumeCapability: volumeCap,
+				VolumeCapability: testVolumeCap,
 			}
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -258,60 +239,58 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(err.Error()).To(ContainSubstring("Stage Path missing in request"))
 		})
 		It("Should fail, because of volume CR isn't exist", func() {
-			req := getNodeStageRequest(testV1ID, *volumeCap)
+			req := getNodeStageRequest(testV1ID, *testVolumeCap)
 			err := node.k8sClient.DeleteCR(testCtx, &testVolumeCR1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("Unable to find volume with ID " + testV1ID))
+			Expect(status.Code(err)).To(Equal(codes.NotFound))
 		})
-		It("Should fail with search device by S/N error", func() {
-			req := getNodeStageRequest(testV3ID, *volumeCap)
+		It("Should fail because partition path wasn't found", func() {
+			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+			prov.On("GetVolumePath", testVolume1).
+				Return("", errors.New("GetVolumePath error"))
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("partition error"))
+			Expect(status.Code(err)).To(Equal(codes.Internal))
 		})
-		It("Should fail with IsMountError error", func() {
-			scImplMock.On("CreateTargetPath", stagePath).Return(nil).Times(1)
-			scImplMock.On("IsMountPoint", stagePath).Return(false, errors.New("error")).Times(1)
-			scImplMock.On("DeleteTargetPath", stagePath).Return(nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodeStageRequest(testV1ID, *volumeCap)
-
-			resp, err := node.NodeStageVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal("failed to stage volume"))
-		})
-		It("Should fail with CreateTargetPath error", func() {
-			scImplMock.On("IsMountPoint", stagePath).Return(false, nil).Times(1)
-			scImplMock.On("CreateTargetPath", stagePath).Return(errors.New("error")).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodeStageRequest(testV1ID, *volumeCap)
+		It("Failed because PrepareAndPerformMount had failed", func() {
+			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+			partitionPath := "/partition/path/for/volume1"
+			prov.On("GetVolumePath", testVolume1).Return(partitionPath, nil)
+			fsOps.On("PrepareAndPerformMount",
+				partitionPath, req.GetStagingTargetPath(), false).
+				Return(errors.New("PrepareAndPerformMount error"))
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("failed to stage volume"))
 		})
-		It("Should fail with Mount error", func() {
-			scImplMock.On("IsMountPoint", stagePath).Return(false, nil).Times(1)
-			scImplMock.On("DeleteTargetPath", stagePath).Return(nil).Times(1)
-			scImplMock.On("CreateTargetPath", stagePath).Return(nil).Times(1)
-			scImplMock.On("Mount", device, stagePath, []string{""}).Return(errors.New("error")).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodeStageRequest(testV1ID, *volumeCap)
+		It("Should fail with Mount error, volume CR has VolumeReady status", func() {
+			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+			vol1 := testVolumeCR1
+			vol1.Spec.CSIStatus = apiV1.VolumeReady
+			err := node.k8sClient.UpdateCR(testCtx, &vol1)
+
+			partitionPath := "/partition/path/for/volume1"
+			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+			fsOps.On("Mount",
+				partitionPath, req.GetStagingTargetPath(), []string(nil)).
+				Return(errors.New("Mount error"))
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("failed to stage volume"))
+			Expect(err.Error()).To(ContainSubstring("mount error"))
 		})
 		It("Should fail, because Volume has failed status", func() {
-			req := getNodeStageRequest(testV1ID, *volumeCap)
+			req := getNodeStageRequest(testV1ID, *testVolumeCap)
 			vol1 := testVolumeCR1
 			vol1.Spec.CSIStatus = apiV1.Failed
 			err := node.k8sClient.UpdateCR(testCtx, &vol1)
@@ -325,37 +304,41 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 })
 
 var _ = Describe("CSINodeService NodeUnPublish()", func() {
-	var node *CSINodeService
-	scImplMock := &sc.ImplementerMock{}
-
 	BeforeEach(func() {
-		node = newNodeService()
+		setVariables()
 	})
 
 	Context("NodeUnPublish() success", func() {
-		It("Should unpublish volume", func() {
-			scImplMock.On("Unmount", targetPath).Return(nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-
+		It("Should unpublish volume and change volume CR status", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath)
+			fsOps.On("Unmount", req.GetTargetPath()).Return(nil)
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
+			// check volume CR status
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
-		It("Should succeeded, because Volume has more than 1 owners", func() {
+		It("Should unpublish volume and don't change volume CR status", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath)
-			scImplMock.On("Unmount", targetPath).Return(nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-
 			vol1 := testVolumeCR1
 			vol1.Spec.Owners = []string{"pod-1", "pod-2"}
+			vol1.Spec.CSIStatus = apiV1.Published
 			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 			Expect(err).To(BeNil())
+			fsOps.On("Unmount", req.GetTargetPath()).Return(nil)
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
+			// check volume CR status
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 		})
 
 	})
@@ -372,9 +355,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err.Error()).To(ContainSubstring("Volume ID missing in request"))
 		})
 		It("Should fail with missing target path", func() {
-			req := &csi.NodeUnpublishVolumeRequest{
-				VolumeId: testV1ID,
-			}
+			req := &csi.NodeUnpublishVolumeRequest{VolumeId: testV1ID}
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
@@ -383,48 +364,44 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 		})
 
 		It("Should fail with Unmount() error", func() {
-			scImplMock.On("Unmount", targetPath).Return(errors.New("error")).Times(1)
-
-			node.scMap[SCName("hdd")] = scImplMock
 			req := getNodeUnpublishRequest(testV1ID, targetPath)
+			fsOps.On("Unmount", req.GetTargetPath()).
+				Return(errors.New("Unmount error"))
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("Unable to unmount"))
+			Expect(err.Error()).To(ContainSubstring("unmount error"))
 		})
-		It("Should failed, because Volume has failed status", func() {
-			req := getNodeUnpublishRequest(testV1ID, targetPath)
-			vol1 := testVolumeCR1
-			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
-			Expect(err).To(BeNil())
+		It("Should failed, because Volume CR wasn't found", func() {
+			req := getNodeUnpublishRequest("unexisted-volume", targetPath)
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
+			Expect(status.Code(err)).To(Equal(codes.NotFound))
 		})
 	})
 })
-
 var _ = Describe("CSINodeService NodeUnStage()", func() {
-	var node *CSINodeService
-	scImplMock := &sc.ImplementerMock{}
-
 	BeforeEach(func() {
-		node = newNodeService()
+		setVariables()
 	})
 
 	Context("NodeUnStage() success", func() {
 		It("Should unstage volume", func() {
-			scImplMock.On("Unmount", stagePath).Return(nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-
 			req := getNodeUnstageRequest(testV1ID, stagePath)
+			fsOps.On("Unmount", req.GetStagingTargetPath()).Return(nil)
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
+			// check owners and CSI status
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.Owners).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 	})
 
@@ -439,7 +416,6 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume ID missing in request"))
 		})
-
 		It("Should fail with missing target path", func() {
 			req := &csi.NodeUnstageVolumeRequest{
 				VolumeId: testV1ID,
@@ -450,17 +426,28 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Stage Path missing in request"))
 		})
+		It("Should fail because Volume CR wasn't found", func() {
+			req := getNodeUnstageRequest("sone-none-existing-UUID", stagePath)
+			resp, err := node.NodeUnstageVolume(testCtx, req)
 
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+			Expect(status.Code(err)).To(Equal(codes.NotFound))
+		})
 		It("Should fail with Unmount() error", func() {
-			scImplMock.On("Unmount", targetPath).Return(errors.New("error")).Times(1)
-
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodeUnstageRequest(testV1ID, targetPath)
+			req := getNodeUnstageRequest(testV1ID, stagePath)
+			fsOps.On("Unmount", req.GetStagingTargetPath()).
+				Return(errors.New("error"))
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("Unable to unmount"))
+			// check owners and CSI status
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.Owners).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
 
 		It("Should failed, because Volume has failed status", func() {
@@ -473,10 +460,10 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
 		})
 	})
 })
-
 var _ = Describe("CSINodeService NodeGetInfo()", func() {
 	It("Should return topology key with Node ID", func() {
 		node := newNodeService()
@@ -529,92 +516,93 @@ var _ = Describe("CSINodeService Check()", func() {
 })
 
 var _ = Describe("CSINodeService InlineVolumes", func() {
-	var node *CSINodeService
-	scImplMock := &sc.ImplementerMock{}
-	volumeCap := &csi.VolumeCapability{
-		AccessType: &csi.VolumeCapability_Mount{
-			Mount: &csi.VolumeCapability_MountVolume{
-				FsType: "xfs",
-			},
-		},
-		AccessMode: &csi.VolumeCapability_AccessMode{
-			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-		},
-	}
 	BeforeEach(func() {
-		node = newNodeService()
+		setVariables()
 	})
 
 	Context("Volume Context with inline volumes", func() {
 		It("Fail to parse volume context", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			req.StagingTargetPath = ""
-			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true1"
+			req.VolumeContext[EphemeralKey] = "true1"
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("Should create inline volume", func() {
-			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("Mount", device, targetPath, []string{""}).Return(nil).Times(1)
-			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
-			req.VolumeContext["size"] = "50Gi"
+			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
+			req.VolumeContext[EphemeralKey] = "true"
+			req.VolumeContext[base.SizeKey] = "50Gi"
+			req.VolumeContext[PodNameKey] = testPodName
 			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
 			Expect(err).To(BeNil())
-			go testutils.VolumeReconcileImitation(node.svc, testV1ID, apiV1.Created)
+
+			var (
+				createdVolCR = testVolumeCR1
+				srcPath      = "/some/path"
+			)
+
+			createdVolCR.Spec.CSIStatus = apiV1.Created
+			err = node.k8sClient.UpdateCR(testCtx, &createdVolCR)
+			Expect(err).To(BeNil())
+
+			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
+			prov.On("GetVolumePath", createdVolCR.Spec).Return(srcPath, nil)
+			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false).Return(nil)
+
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
-		})
+			// check volume CR status and owners
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, createdVolCR.Name, volumeCR)
+			Expect(err).To(BeNil())
 
-		It("Should fail to create inline volume", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
-			req.VolumeContext["size"] = "50Gi"
-			go testutils.VolumeReconcileImitation(node.svc, testV1ID, apiV1.Failed)
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
+			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
+		})
+		It("Should fail to create inline volume in CreateVolume step", func() {
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+			req.VolumeContext[EphemeralKey] = "true"
+			req.VolumeContext[base.SizeKey] = "50Gi"
+
+			var emptyVol *api.Volume
+			volOps.On("CreateVolume", mock.Anything, mock.Anything).
+				Return(emptyVol, errors.New("error"))
+
+			resp, err := node.NodePublishVolume(testCtx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+		})
+		It("Should fail to create inline volume in GetVolumePath step", func() {
+			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
+			req.VolumeContext[EphemeralKey] = "true"
+			req.VolumeContext[base.SizeKey] = "50Gi"
+			req.VolumeContext[PodNameKey] = testPodName
+			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
+			Expect(err).To(BeNil())
+
+			var (
+				createdVolCR = testVolumeCR1
+				srcPath      = "/some/path"
+			)
+
+			createdVolCR.Spec.CSIStatus = apiV1.Created
+			err = node.k8sClient.UpdateCR(testCtx, &createdVolCR)
+			Expect(err).To(BeNil())
+
+			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
+			prov.On("GetVolumePath", createdVolCR.Spec).Return(srcPath, errors.New("error"))
+
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("Should fail with missing size", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-
-		It("Missing Stage path", func() {
-			scImplMock.On("CreateTargetPath", targetPath).Return(nil).Times(1)
-			scImplMock.On("Mount", device, targetPath, []string{""}).Return(nil).Times(1)
-			scImplMock.On("IsMountPoint", targetPath).Return(false, nil).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-			req.StagingTargetPath = ""
-			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
-			req.VolumeContext["size"] = "50Gi"
-			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
-			Expect(err).To(BeNil())
-			go testutils.VolumeReconcileImitation(node.svc, testV1ID, apiV1.Created)
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-		})
-
-		It("Should fail publish inline volume", func() {
-			scImplMock.On("CreateTargetPath", targetPath).Return(fmt.Errorf("error")).Times(1)
-			node.scMap[SCName("hdd")] = scImplMock
-			req := getNodePublishRequest(testV1ID, targetPath, *volumeCap)
-			req.VolumeContext["csi.storage.k8s.io/ephemeral"] = "true"
-			req.VolumeContext["size"] = "50Gi"
-			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
-			Expect(err).To(BeNil())
-			go testutils.VolumeReconcileImitation(node.svc, testV1ID, apiV1.Created)
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+			req.VolumeContext[EphemeralKey] = "true"
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
@@ -656,28 +644,15 @@ func getNodeUnstageRequest(volumeID, stagePath string) *csi.NodeUnstageVolumeReq
 
 func newNodeService() *CSINodeService {
 	client := mocks.NewMockDriveMgrClient(mocks.DriveMgrRespDrives)
-	// todo get rid of code duplicates
-	// create map of commands which must be mocked
-	cmds := make(map[string]mocks.CmdOut)
-	// list of all devices
-	cmds[lsblkAllDevicesCmd] = mocks.CmdOut{Stdout: mocks.LsblkTwoDevicesStr}
-	// list partitions of specific device
-	cmds[lsblkSingleDeviceCmd] = mocks.CmdOut{Stdout: mocks.LsblkListPartitionsStr}
-	partUUID := fmt.Sprintf(fmt.Sprintf(ph.GetPartitionUUIDCmdTmpl, "/dev/sda", "1"))
-	cmds[partUUID] = mocks.CmdOut{Stdout: "Partition unique GUID: volume-id"}
-	executor := mocks.NewMockExecutor(cmds)
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	if err != nil {
 		panic(err)
 	}
-	node := NewCSINodeService(client, nodeID, logrus.New(), kubeClient)
-	node.VolumeManager.SetExecutor(executor)
-	node.linuxUtils = linuxutils.NewLinuxUtils(executor, node.log.Logger)
+	node := NewCSINodeService(client, nodeID, testLogger, kubeClient)
 
 	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)
 	driveCR2 := node.k8sClient.ConstructDriveCR(disk2.UUID, disk2)
 	addDriveCRs(node.k8sClient, driveCR1, driveCR2)
-
 	addVolumeCRs(node.k8sClient, testVolumeCR1, testVolumeCR2, testVolumeCR3)
 
 	return node

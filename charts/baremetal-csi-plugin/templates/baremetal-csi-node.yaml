@@ -61,6 +61,7 @@ spec:
           - "--nodeid=$(KUBE_NODE_NAME)"
           - "--volumemgrip=$(MY_POD_IP)"
           - "--namespace=$(NAMESPACE)"
+          - --verbose={{ .Values.log.verbose }}
           {{- if .Values.logReceiver.create  }}
           - "--logpath=/var/log/csi.log"
           {{- end }}
@@ -121,7 +122,7 @@ spec:
           - containerPort: {{ .Values.node.grpc.server.port }}
         {{- end }}
       # ********************** baremetal-csi-drivemgr container definition **********************
-      # TODO: FABRIC-8595 Replace HWManager to DaemonSet
+      # TODO: FABRIC-8595 Replace DriveMgr to DaemonSet
       - name: drivemgr
         {{- if .Values.env.test  }}
         image: {{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
@@ -135,6 +136,7 @@ spec:
     {{- else}}
       {{- if .Values.drivemgr.grpc.server.endpoint }}
         args:
+          - --verbose={{ .Values.log.verbose }}
           - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
         {{- if .Values.logReceiver.create  }}
           - --logpath=/var/log/drivemgr.log

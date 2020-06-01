@@ -14,7 +14,7 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/rootfs"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
@@ -28,6 +28,7 @@ const (
 
 	threshold         = "1Gi"
 	defaultFileName   = "loopback"
+	rootPath          = "/"
 	imagesFolder      = "/host/home"
 	createFileCmdTmpl = "dd if=/dev/zero of=%s bs=1M count=%d"
 	deleteFileCmdTmpl = "rm -rf %s"
@@ -93,7 +94,7 @@ func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBa
 	hostname := os.Getenv("HOSTNAME")
 	if hostname == "" {
 		/* if not defined set to default - will not break anything but
-		might not be very convinient for troubkeshooting:
+		might not be very convenient for troubleshooting:
 		/sbin/losetup  | grep baremetal-csi-node
 		/dev/loop19         0      0         0  0 /tmp/baremetal-csi-node-w787v-0.img                  0
 		/dev/loop17         0      0         0  0 /tmp/baremetal-csi-node-99zcp-0.img                  0
@@ -372,7 +373,7 @@ func (mgr *LoopBackManager) Init() (err error) {
 	ll := mgr.log.WithField("method", "Init")
 	var device string
 
-	rfAgent := rootfs.NewRootFsAgent(mgr.exec)
+	fsOps := fs.NewFSImpl(mgr.exec)
 	// go through the list of devices and register if needed
 	for i := 0; i < len(mgr.devices); i++ {
 		// If device has devicePath it means that it already bounded to loop device. Skip it.
@@ -389,7 +390,7 @@ func (mgr *LoopBackManager) Init() (err error) {
 		sizeMb, _ := util.ToSizeUnit(sizeBytes, util.BYTE, util.MBYTE)
 		// skip creation if file exists (manager restarted)
 		if _, err := os.Stat(file); err != nil {
-			freeBytes, err := rfAgent.GetRootFsSpace()
+			freeBytes, err := fsOps.GetFSSpace(rootPath)
 			if err != nil {
 				ll.Fatal("Failed to check root fs space")
 			}

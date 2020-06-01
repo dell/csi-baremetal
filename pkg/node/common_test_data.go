@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -22,17 +23,17 @@ import (
 // here locates variables that used in UTs for CSINodeService and VolumeMgr
 
 var (
-	testNs     = "default"
-	testID     = "volume-1-id"
-	volLVGName = "volume-lvg"
-	lvgName    = "lvg-cr-1"
-	driveUUID  = "drive-uuid"
-	nodeID     = "fake-node"
-	device     = "/dev/sda1"
-	targetPath = "/tmp/targetPath"
-	stagePath  = "/tmp/stagePath"
+	testNs      = "default"
+	testID      = "volume-1-id"
+	volLVGName  = "volume-lvg"
+	lvgName     = "lvg-cr-1"
+	driveUUID   = "drive-uuid"
+	nodeID      = "fake-node"
+	targetPath  = "/tmp/targetPath"
+	stagePath   = "/tmp/stagePath"
+	testPodName = "pod-1"
 
-	testLogger  = logrus.New()
+	testLogger  = getTestLogger()
 	testCtx     = context.Background()
 	disk1       = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID}
 	disk2       = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID}
@@ -94,6 +95,17 @@ var (
 		},
 		Spec: testVolume3,
 	}
+
+	testVolumeCap = &csi.VolumeCapability{
+		AccessType: &csi.VolumeCapability_Mount{
+			Mount: &csi.VolumeCapability_MountVolume{
+				FsType: "xfs",
+			},
+		},
+		AccessMode: &csi.VolumeCapability_AccessMode{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+		},
+	}
 )
 
 // assertLenVListItemsEqualsTo read volumes CR List and assert it len is equals to expected, used t for asserting
@@ -106,4 +118,10 @@ func getVolumeCRsListItems(t *testing.T, k8sClient *k8s.KubeClient) []vcrd.Volum
 	err := k8sClient.ReadList(testCtx, vList)
 	assert.Nil(t, err)
 	return vList.Items
+}
+
+func getTestLogger() *logrus.Logger {
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	return logger
 }

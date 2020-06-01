@@ -5,21 +5,24 @@ package partitionhelper
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 )
 
-// Partitioner is the interface which encapsulates methods to work with drives' partitions
-type Partitioner interface {
+// WrapPartition is the interface which encapsulates methods to work with drives' partitions
+type WrapPartition interface {
 	IsPartitionExists(device, partNum string) (exists bool, err error)
 	GetPartitionTableType(device string) (ptType string, err error)
 	CreatePartitionTable(device, partTableType string) (err error)
-	CreatePartition(device, partName string) (err error)
+	CreatePartition(device, label string) (err error)
 	DeletePartition(device, partNum string) (err error)
 	SetPartitionUUID(device, partNum, partUUID string) error
 	GetPartitionUUID(device, partNum string) (string, error)
 	SyncPartitionTable(device string) error
+	GetPartitionNameByUUID(device, partUUID string) (string, error)
 }
 
 const (
@@ -40,7 +43,7 @@ const (
 	// CreatePartitionTableCmdTmpl create partition table on provided device of provided type cmd template
 	// fill device and partition table type
 	CreatePartitionTableCmdTmpl = parted + "-s %s mklabel %s"
-	// CreatePartitionCmdTmpl create partition on provided device cmd template, fill device and partition name
+	// CreatePartitionCmdTmpl create partition on provided device cmd template, fill device and partition label
 	CreatePartitionCmdTmpl = parted + "-s %s mkpart --align optimal %s 0%% 100%%"
 	// DeletePartitionCmdTmpl delete partition from provided device cmd template, fill device and partition number
 	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
@@ -54,22 +57,25 @@ const (
 // supportedTypes list of supported partition table types
 var supportedTypes = []string{PartitionGPT}
 
-// Partition is the basic implementation of Partitioner interface
-type Partition struct {
-	e command.CmdExecutor
+// WrapPartitionImpl is the basic implementation of WrapPartition interface
+type WrapPartitionImpl struct {
+	e         command.CmdExecutor
+	lsblkUtil lsblk.WrapLsblk
+	opMutex   sync.Mutex
 }
 
-// NewPartition is a constructor for Partition instance
-func NewPartition(e command.CmdExecutor) *Partition {
-	return &Partition{
-		e: e,
+// NewWrapPartitionImpl is a constructor for WrapPartitionImpl instance
+func NewWrapPartitionImpl(e command.CmdExecutor) *WrapPartitionImpl {
+	return &WrapPartitionImpl{
+		e:         e,
+		lsblkUtil: lsblk.NewLSBLK(e),
 	}
 }
 
 // IsPartitionExists checks if a partition exists in a provided device
 // Receives path to a device to check a partition existence
 // Returns partition existence status or error if something went wrong
-func (p *Partition) IsPartitionExists(device, partNum string) (bool, error) {
+func (p *WrapPartitionImpl) IsPartitionExists(device, partNum string) (bool, error) {
 	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
 	/*
 		example of output:
@@ -77,7 +83,9 @@ func (p *Partition) IsPartitionExists(device, partNum string) (bool, error) {
 		/dev/sdy: gpt partitions 1 2
 	*/
 
+	p.opMutex.Lock()
 	stdout, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
 
 	if err != nil {
 		return false, fmt.Errorf("unable to check partition %#v existence for %s", partNum, device)
@@ -97,7 +105,7 @@ func (p *Partition) IsPartitionExists(device, partNum string) (bool, error) {
 // CreatePartitionTable created partition table on a provided device
 // Receives device path on which to create table
 // Returns error if something went wrong
-func (p *Partition) CreatePartitionTable(device, partTableType string) error {
+func (p *WrapPartitionImpl) CreatePartitionTable(device, partTableType string) error {
 	if !util.ContainsString(supportedTypes, partTableType) {
 		return fmt.Errorf("unable to create partition table for device %s unsupported partition table type: %#v",
 			device, partTableType)
@@ -116,7 +124,7 @@ func (p *Partition) CreatePartitionTable(device, partTableType string) error {
 // GetPartitionTableType returns string that represent partition table type
 // Receives device path from which partition table type should be got
 // Returns partition table type as a string or error if something went wrong
-func (p *Partition) GetPartitionTableType(device string) (string, error) {
+func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error) {
 	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
 
 	stdout, _, err := p.e.RunCmd(cmd)
@@ -136,10 +144,14 @@ func (p *Partition) GetPartitionTableType(device string) (string, error) {
 // CreatePartition creates partition with name partName on a device
 // Receives device path to create a partition
 // Returns error if something went wrong
-func (p *Partition) CreatePartition(device, partName string) error {
-	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, device, partName)
+func (p *WrapPartitionImpl) CreatePartition(device, label string) error {
+	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, device, label)
 
-	if _, _, err := p.e.RunCmd(cmd); err != nil {
+	p.opMutex.Lock()
+	_, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
+
+	if err != nil {
 		return err
 	}
 
@@ -149,10 +161,14 @@ func (p *Partition) CreatePartition(device, partName string) error {
 // DeletePartition removes partition partNum from a provided device
 // Receives device path and it's partition which should be deleted
 // Returns error if something went wrong
-func (p *Partition) DeletePartition(device, partNum string) error {
+func (p *WrapPartitionImpl) DeletePartition(device, partNum string) error {
 	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device, partNum)
 
-	if _, stderr, err := p.e.RunCmd(cmd); err != nil {
+	p.opMutex.Lock()
+	_, stderr, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
+
+	if err != nil {
 		return fmt.Errorf("unable to delete partition %#v from device %s: %s, error: %v",
 			partNum, device, stderr, err)
 	}
@@ -163,7 +179,7 @@ func (p *Partition) DeletePartition(device, partNum string) error {
 // SetPartitionUUID writes partUUID as GUID for the partition partNum of a provided device
 // Receives device path and partUUID as strings
 // Returns error if something went wrong
-func (p *Partition) SetPartitionUUID(device, partNum, partUUID string) error {
+func (p *WrapPartitionImpl) SetPartitionUUID(device, partNum, partUUID string) error {
 	cmd := fmt.Sprintf(SetPartitionUUIDCmdTmpl, device, partNum, partUUID)
 
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
@@ -176,7 +192,7 @@ func (p *Partition) SetPartitionUUID(device, partNum, partUUID string) error {
 // GetPartitionUUID reads partition unique GUID from the partition partNum of a provided device
 // Receives device path from which to read
 // Returns unique GUID as a string or error if something went wrong
-func (p *Partition) GetPartitionUUID(device, partNum string) (string, error) {
+func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, error) {
 	/*
 		example of command output:
 		$ sgdisk /dev/sdy --info=1
@@ -212,14 +228,54 @@ func (p *Partition) GetPartitionUUID(device, partNum string) (string, error) {
 // SyncPartitionTable syncs partition table for specific device
 // Receives device path to sync with partprobe, device could be an empty string (sync for all devices in the system)
 // Returns error if something went wrong
-func (p *Partition) SyncPartitionTable(device string) error {
+func (p *WrapPartitionImpl) SyncPartitionTable(device string) error {
 	cmd := fmt.Sprintf(PartprobeCmdTmpl, device)
 
+	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd)
+	p.opMutex.Unlock()
 
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// GetPartitionNameByUUID gets partition name by it's UUID
+// for example "1" for /dev/sda1,  "1p2" for /dev/nvme1p2,  "0p3" for /dev/loopback0p3
+// Receives a device path and uuid of partition to find
+// Returns a partition number or error if something went wrong
+func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (string, error) {
+	if device == "" {
+		return "", fmt.Errorf("unable to find partition name by UUID %#v - device name is empty", partUUID)
+	}
+
+	if partUUID == "" {
+		return "", fmt.Errorf("unable to find partition name for device %#v partition UUID is empty", device)
+	}
+
+	// list partitions
+	blockdevices, err := p.lsblkUtil.GetBlockDevices(device)
+	if err != nil {
+		return "", err
+	}
+	if len(blockdevices) == 0 {
+		return "", fmt.Errorf("empty output for device %s", device)
+	}
+
+	// try to find partition name
+	for _, id := range blockdevices[0].Children {
+		// ignore cases
+		if strings.EqualFold(partUUID, id.PartUUID) {
+			// partition name not detected
+			if id.Name == "" {
+				return "", fmt.Errorf("partition %s for device %s found but name is not present",
+					partUUID, device)
+			}
+			return strings.Replace(id.Name, device, "", 1), nil
+		}
+	}
+
+	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s", partUUID, device)
 }

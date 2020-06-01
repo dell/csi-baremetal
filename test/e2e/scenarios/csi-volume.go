@@ -28,7 +28,9 @@ var CSITestSuites = []func() testsuites.TestSuite{
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	logrus.Info(framework.TestContext.RepoRoot)
-	testfiles.AddFileSource(testfiles.RootFileSource{Root: path.Join(framework.TestContext.RepoRoot, "/tmp/baremetal-csi-plugin/templates/")})
+	testfiles.AddFileSource(testfiles.RootFileSource{
+		Root: path.Join(framework.TestContext.RepoRoot, "/tmp/baremetal-csi-plugin/templates/"),
+	})
 
 	curDriver := BaremetalDriver()
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {

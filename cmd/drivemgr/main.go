@@ -15,7 +15,7 @@ import (
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/ipmi"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr"
@@ -81,8 +81,8 @@ func chooseDriveManager(logger *logrus.Logger) (drivemgr.DriveManager, func(), e
 
 	switch os.Getenv("DRIVEMGR_MANAGER") {
 	case drivemgr.REDFISH:
-		linuxUtils := linuxutils.NewLinuxUtils(e, logger)
-		ip := linuxUtils.GetBmcIP()
+		ipmiTool := ipmi.NewIPMI(e)
+		ip := ipmiTool.GetBmcIP()
 		if ip == "" {
 			return nil, nil, status.Error(codes.Internal, "IDRAC IP is not found")
 		}

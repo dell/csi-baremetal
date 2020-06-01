@@ -4,9 +4,9 @@ package lsblk
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
-	"github.com/sirupsen/logrus"
-
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 )
 
@@ -23,20 +23,17 @@ const (
 // WrapLsblk is an interface that encapsulates operation with system lsblk util
 type WrapLsblk interface {
 	GetBlockDevices(device string) ([]BlockDevice, error)
+	SearchDrivePath(drive *drivecrd.Drive) (string, error)
 }
 
 // LSBLK is a wrap for system lsblk util
 type LSBLK struct {
-	e   command.CmdExecutor
-	log *logrus.Entry
+	e command.CmdExecutor
 }
 
 // NewLSBLK is a constructor for LSBLK struct
-func NewLSBLK(e command.CmdExecutor, log *logrus.Logger) *LSBLK {
-	return &LSBLK{
-		e:   e,
-		log: log.WithField("component", "LSBLK"),
-	}
+func NewLSBLK(e command.CmdExecutor) *LSBLK {
+	return &LSBLK{e: e}
 }
 
 // BlockDevice is the struct that represents output of lsblk command for a device
@@ -61,9 +58,8 @@ type BlockDevice struct {
 // Returns slice of BlockDevice structs or error if something went wrong
 func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	cmd := fmt.Sprintf(CmdTmpl, device)
-	strOut, strErr, err := l.e.RunCmd(cmd)
+	strOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
-		l.log.Errorf("lsblk failed, stdErr: %s, Error: %v", strErr, err)
 		return nil, err
 	}
 	rawOut := make(map[string][]BlockDevice, 1)
@@ -77,8 +73,7 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 		ok   bool
 	)
 	if devs, ok = rawOut[outputKey]; !ok {
-		l.log.Errorf("key \"%s\" is not in map %v", outputKey, rawOut)
-		return nil, fmt.Errorf("unexpected lsblk output format")
+		return nil, fmt.Errorf("unexpected lsblk output format, missing \"%s\" key", outputKey)
 	}
 	for _, d := range devs {
 		if d.Type != romDeviceType {
@@ -86,4 +81,37 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 		}
 	}
 	return res, nil
+}
+
+// SearchDrivePath if not defined returns drive path based on drive S/N.
+// Receives an instance of drivecrd.Drive struct
+// Returns drive's path based on provided drivecrd.Drive or error if something went wrong
+// TODO AK8S-594 to check VID/PID as well
+func (l *LSBLK) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
+	// device path might be already set by hwmgr
+	device := drive.Spec.Path
+	if device != "" {
+		return device, nil
+	}
+
+	// try to find it with lsblk
+	lsblkOut, err := l.GetBlockDevices("")
+	if err != nil {
+		return "", err
+	}
+
+	// get drive serial number
+	sn := drive.Spec.SerialNumber
+	for _, l := range lsblkOut {
+		if strings.EqualFold(l.Serial, sn) {
+			device = l.Name
+			break
+		}
+	}
+
+	if device == "" {
+		return "", fmt.Errorf("unable to find drive path by S/N %s", sn)
+	}
+
+	return device, nil
 }

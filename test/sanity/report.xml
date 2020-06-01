@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuite name="CSI Driver Test Suite" tests="31" failures="0" errors="0" time="120.399">
+      <testcase name="Controller Service [Controller Server] ControllerGetCapabilities should return appropriate capabilities" classname="CSI Driver Test Suite" time="0.002150175"></testcase>
+      <testcase name="Controller Service [Controller Server] GetCapacity should return capacity (no optional values added)" classname="CSI Driver Test Suite" time="0.00108295">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ListVolumes should return appropriate values (no optional values added)" classname="CSI Driver Test Suite" time="0.001417878">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ListVolumes should fail when an invalid starting_token is passed" classname="CSI Driver Test Suite" time="0.002175208">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ListVolumes check the presence of new volumes and absence of deleted ones in the volume list" classname="CSI Driver Test Suite" time="0.001481623">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ListVolumes pagination should detect volumes added between pages and accept tokens when the last volume from a page is deleted" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should fail when no name is provided" classname="CSI Driver Test Suite" time="0.00200485"></testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should fail when no volume capabilities are provided" classname="CSI Driver Test Suite" time="0.001063081"></testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should return appropriate values SingleNodeWriter NoCapacity Type:Mount" classname="CSI Driver Test Suite" time="20.043929506"></testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should return appropriate values SingleNodeWriter WithCapacity 1Gi Type:Mount" classname="CSI Driver Test Suite" time="20.03875792"></testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should not fail when requesting to create a volume with already existing name and same capacity." classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should fail when requesting to create a volume with already existing name and different capacity." classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should not fail when creating volume with maximum-length name" classname="CSI Driver Test Suite" time="20.048726667"></testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should create volume from an existing source snapshot" classname="CSI Driver Test Suite" time="0.005887648">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should fail when the volume source snapshot is not found" classname="CSI Driver Test Suite" time="0.004970837">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should create volume from an existing source volume" classname="CSI Driver Test Suite" time="0.006073044">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] CreateVolume should fail when the volume source volume is not found" classname="CSI Driver Test Suite" time="0.004918984">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] DeleteVolume should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.003317004"></testcase>
+      <testcase name="Controller Service [Controller Server] DeleteVolume should succeed when an invalid volume id is used" classname="CSI Driver Test Suite" time="0.003146343"></testcase>
+      <testcase name="Controller Service [Controller Server] DeleteVolume should return appropriate values (no optional values added)" classname="CSI Driver Test Suite" time="20.031773891"></testcase>
+      <testcase name="Controller Service [Controller Server] ValidateVolumeCapabilities should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ValidateVolumeCapabilities should fail when no volume capabilities are provided" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ValidateVolumeCapabilities should return appropriate values (no optional values added)" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ValidateVolumeCapabilities should fail when the requested volume does not exist" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ControllerPublishVolume should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.001441414"></testcase>
+      <testcase name="Controller Service [Controller Server] ControllerPublishVolume should fail when no node id is provided" classname="CSI Driver Test Suite" time="0.001250118"></testcase>
+      <testcase name="Controller Service [Controller Server] ControllerPublishVolume should fail when no volume capability is provided" classname="CSI Driver Test Suite" time="0.000971377"></testcase>
+      <testcase name="Controller Service [Controller Server] ControllerPublishVolume should fail when publishing more volumes than the node max attach limit" classname="CSI Driver Test Suite" time="0.0017917">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ControllerPublishVolume should fail when the volume does not exist" classname="CSI Driver Test Suite" time="0.001132363"></testcase>
+      <testcase name="Controller Service [Controller Server] ControllerPublishVolume should fail when the node does not exist" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ControllerPublishVolume should fail when the volume is already published but is incompatible" classname="CSI Driver Test Suite" time="0.001825677">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] volume lifecycle should work" classname="CSI Driver Test Suite" time="20.038698215"></testcase>
+      <testcase name="Controller Service [Controller Server] volume lifecycle should be idempotent" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Controller Service [Controller Server] ControllerUnpublishVolume should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.001704282"></testcase>
+      <testcase name="CreateSnapshot [Controller Server] should fail when no name is provided" classname="CSI Driver Test Suite" time="0.0028576">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="CreateSnapshot [Controller Server] should fail when no source volume id is provided" classname="CSI Driver Test Suite" time="0.013402145">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="CreateSnapshot [Controller Server] should not fail when requesting to create a snapshot with already existing name and same SourceVolumeId." classname="CSI Driver Test Suite" time="0.00405013">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="CreateSnapshot [Controller Server] should fail when requesting to create a snapshot with already existing name and different SourceVolumeId." classname="CSI Driver Test Suite" time="0.00452588">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="CreateSnapshot [Controller Server] should not fail when creating snapshot with maximum-length name" classname="CSI Driver Test Suite" time="0.005665356">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Node Service NodeGetCapabilities should return appropriate capabilities" classname="CSI Driver Test Suite" time="0.006982582"></testcase>
+      <testcase name="Node Service NodeGetInfo should return appropriate values" classname="CSI Driver Test Suite" time="0.00295672"></testcase>
+      <testcase name="Node Service NodePublishVolume should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.001762857"></testcase>
+      <testcase name="Node Service NodePublishVolume should fail when no target path is provided" classname="CSI Driver Test Suite" time="0.001595654"></testcase>
+      <testcase name="Node Service NodePublishVolume should fail when no volume capability is provided" classname="CSI Driver Test Suite" time="0.002095098"></testcase>
+      <testcase name="Node Service NodeUnpublishVolume should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.002467784"></testcase>
+      <testcase name="Node Service NodeUnpublishVolume should fail when no target path is provided" classname="CSI Driver Test Suite" time="0.002549943"></testcase>
+      <testcase name="Node Service NodeUnpublishVolume should fail when the volume is missing" classname="CSI Driver Test Suite" time="0.002935934"></testcase>
+      <testcase name="Node Service NodeStageVolume should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.003428368"></testcase>
+      <testcase name="Node Service NodeStageVolume should fail when no staging target path is provided" classname="CSI Driver Test Suite" time="0.002995887"></testcase>
+      <testcase name="Node Service NodeStageVolume should fail when no volume capability is provided" classname="CSI Driver Test Suite" time="20.031377808"></testcase>
+      <testcase name="Node Service NodeUnstageVolume should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.002876588"></testcase>
+      <testcase name="Node Service NodeUnstageVolume should fail when no staging target path is provided" classname="CSI Driver Test Suite" time="0.002542158"></testcase>
+      <testcase name="Node Service NodeGetVolumeStats should fail when no volume id is provided" classname="CSI Driver Test Suite" time="0.00268938">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Node Service NodeGetVolumeStats should fail when no volume path is provided" classname="CSI Driver Test Suite" time="0.004672596">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Node Service NodeGetVolumeStats should fail when volume is not found" classname="CSI Driver Test Suite" time="0.002860752">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Node Service NodeGetVolumeStats should fail when volume does not exist on the specified path" classname="CSI Driver Test Suite" time="0.002728674">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Node Service should work" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Node Service should be idempotent" classname="CSI Driver Test Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Identity Service GetPluginCapabilities should return appropriate capabilities" classname="CSI Driver Test Suite" time="0.000684522"></testcase>
+      <testcase name="Identity Service Probe should return appropriate information" classname="CSI Driver Test Suite" time="0.000660418"></testcase>
+      <testcase name="Identity Service GetPluginInfo should return appropriate information" classname="CSI Driver Test Suite" time="0.001162169"></testcase>
+      <testcase name="ListSnapshots [Controller Server] should return appropriate values (no optional values added)" classname="CSI Driver Test Suite" time="0.001637459">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ListSnapshots [Controller Server] should return snapshots that match the specified snapshot id" classname="CSI Driver Test Suite" time="0.001403486">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ListSnapshots [Controller Server] should return empty when the specified snapshot id does not exist" classname="CSI Driver Test Suite" time="0.001212214">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ListSnapshots [Controller Server] should return snapshots that match the specified source volume id)" classname="CSI Driver Test Suite" time="0.00120962">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ListSnapshots [Controller Server] should return empty when the specified source volume id does not exist" classname="CSI Driver Test Suite" time="0.001206916">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ListSnapshots [Controller Server] check the presence of new snapshots in the snapshot list" classname="CSI Driver Test Suite" time="0.001626179">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ListSnapshots [Controller Server] should return next token when a limited number of entries are requested" classname="CSI Driver Test Suite" time="0.001492104">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ExpandVolume [Controller Server] should fail if no volume id is given" classname="CSI Driver Test Suite" time="0.002054074">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ExpandVolume [Controller Server] should fail if no capacity range is given" classname="CSI Driver Test Suite" time="0.002045336">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="ExpandVolume [Controller Server] should work" classname="CSI Driver Test Suite" time="0.001936157">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="DeleteSnapshot [Controller Server] should fail when no snapshot id is provided" classname="CSI Driver Test Suite" time="0.001477963">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="DeleteSnapshot [Controller Server] should succeed when an invalid snapshot id is used" classname="CSI Driver Test Suite" time="0.00083978">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="DeleteSnapshot [Controller Server] should return appropriate values (no optional values added)" classname="CSI Driver Test Suite" time="0.000941487">
+          <skipped></skipped>
+      </testcase>
+  </testsuite>

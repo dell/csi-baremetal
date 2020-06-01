@@ -79,7 +79,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 	err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 	if err != nil {
 		if k8sError.IsNotFound(err) {
-			ll.Infof("Creating CR %s with name %s", obj.GetObjectKind().GroupVersionKind().Kind, name)
+			ll.Infof("Creating CR %s: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 			return k.Create(ctx, obj)
 		}
 		ll.Infof("Unable to check whether CR %s exist or no", name)

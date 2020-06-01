@@ -282,7 +282,7 @@ func (a *ACOperationsImpl) waitUntilLVGWillBeCreated(ctx context.Context, lvgNam
 				ll.Info("LVG was created")
 				return &lvg.Spec
 			case lvg.Spec.Status == apiV1.Failed:
-				ll.Warn("LVG was reached FailedToCreate status")
+				ll.Warn("LVG was reached Failed status")
 				return nil
 			}
 		}

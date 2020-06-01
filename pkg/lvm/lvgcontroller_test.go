@@ -9,22 +9,22 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	crdV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
 )
 
 var (
@@ -67,7 +67,7 @@ var (
 	drive1CR = drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      drive1UUID,
@@ -79,7 +79,7 @@ var (
 	drive2CR = drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      drive2UUID,
@@ -91,7 +91,7 @@ var (
 	lvgCR1 = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      lvg1Name,
@@ -102,14 +102,14 @@ var (
 			Node:      node1ID,
 			Locations: []string{apiDrive1.UUID, apiDrive2.UUID},
 			Size:      int64(1024 * 500 * util.GBYTE),
-			Status:    crdV1.Creating,
+			Status:    apiV1.Creating,
 		},
 	}
 
 	lvgCR2 = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      lvg2Name,
@@ -120,7 +120,7 @@ var (
 			Node:      node2ID,
 			Locations: []string{},
 			Size:      0,
-			Status:    crdV1.Created,
+			Status:    apiV1.Created,
 		},
 	}
 
@@ -128,7 +128,7 @@ var (
 	acCR1     = accrd.AvailableCapacity{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "AvailableCapacity",
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      acCR1Name,
@@ -170,25 +170,26 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 
 func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	var (
-		c   = setup(t, node1ID)
-		e   = &mocks.GoMockExecutor{}
-		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
-		lvg = &lvgcrd.LVG{}
+		c       = setup(t, node1ID)
+		lvmOps  = &mocklu.MockWrapLVM{}
+		listBlk = &mocklu.MockWrapLsblk{}
+		req     = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+		lvg     = &lvgcrd.LVG{}
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
-	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
-	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", nil)
-	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sdb").Return("", "", nil)
-	e.OnCommand(fmt.Sprintf("/sbin/lvm vgcreate --yes %s /dev/sda /dev/sdb", req.Name)).
-		Return("", "", nil)
+	c.lvmOps = lvmOps
+	c.listBlk = listBlk
+
+	listBlk.On("SearchDrivePath", mock.Anything).Return("", nil)
+	lvmOps.On("PVCreate", mock.Anything).Return(nil)
+	lvmOps.On("VGCreate", mock.Anything, mock.Anything).Return(nil)
 
 	res, err := c.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 	err = c.k8sClient.ReadCR(tCtx, req.Name, lvg)
-	assert.Equal(t, lvg.Spec.Status, crdV1.Created)
+	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
 
 	// reconciled second time
 	res, err = c.Reconcile(req)
@@ -208,7 +209,7 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
+	c.lvmOps = lvm.NewLVM(e, testLogger)
 
 	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
@@ -232,7 +233,7 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
+	c.lvmOps = lvm.NewLVM(e, testLogger)
 
 	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
@@ -265,7 +266,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
+	c.lvmOps = lvm.NewLVM(e, testLogger)
 	e.OnCommand(lsblkAllDevicesCmd).Return(lsblkResp, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", errors.New("pvcreate failed"))
 
@@ -275,7 +276,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 
 	lvgCR := &lvgcrd.LVG{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
-	assert.Equal(t, crdV1.Failed, lvgCR.Spec.Status)
+	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
 }
 
 func TestReconcile_FailedVGCreate(t *testing.T) {
@@ -287,7 +288,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
+	c.lvmOps = lvm.NewLVM(e, testLogger)
 	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sdb").Return("", "", nil)
@@ -300,7 +301,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 
 	lvgCR := &lvgcrd.LVG{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
-	assert.Equal(t, crdV1.Failed, lvgCR.Spec.Status)
+	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
 }
 
 func Test_removeLVGArtifacts_Success(t *testing.T) {
@@ -312,7 +313,7 @@ func Test_removeLVGArtifacts_Success(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
+	c.lvmOps = lvm.NewLVM(e, testLogger)
 
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
 	e.OnCommand(fmt.Sprintf(lvm.VGRemoveCmdTmpl, vg)).Return("", "", nil)
@@ -336,7 +337,7 @@ func Test_removeLVGArtifacts_Fail(t *testing.T) {
 	)
 	defer teardown(t, c)
 
-	c.linuxUtils = linuxutils.NewLinuxUtils(e, testLogger)
+	c.lvmOps = lvm.NewLVM(e, testLogger)
 
 	// expect that VG contains LV
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, vg)).Return("some-lv1", "", nil).Times(1)

@@ -168,9 +168,7 @@ test-sanity:
 	"ValidateVolumeCapabilities|\
 	should fail when the node does not exist|\
 	should fail when requesting to create a volume with already existing name and different capacity|\
-	should not fail when requesting to create a volume with already existing name and same capacity|\
-	should be idempotent|\
-	Node Service should work" -ginkgo.v -timeout=0
+	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
 install-junit-report:
 	${GO_ENV_VARS} go get -u github.com/jstemmer/go-junit-report
