@@ -2,11 +2,13 @@ package k8s
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/apps/v1"
+	coreV1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	apisV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,9 +42,9 @@ const (
 // KubeClient is the extension of k8s client which supports CSI custom recources
 type KubeClient struct {
 	k8sCl.Client
-	log *logrus.Entry
-	//mutex for crd request
+	log       *logrus.Entry
 	Namespace string
+	//mutex for crd request
 	sync.Mutex
 }
 
@@ -271,6 +273,39 @@ func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Objec
 	}
 
 	return err
+}
+
+// GetPods returns list of pods which names contain mask
+// Receives golang context and mask for pods filtering
+// Returns slice of coreV1.Pod or error if something went wrong
+// todo use labels instead of mask
+func (k *KubeClient) GetPods(ctx context.Context, mask string) ([]*coreV1.Pod, error) {
+	pods := coreV1.PodList{}
+
+	if err := k.List(ctx, &pods, k8sCl.InNamespace(k.Namespace)); err != nil {
+		return nil, err
+	}
+	p := make([]*coreV1.Pod, 0)
+	for i := range pods.Items {
+		podName := pods.Items[i].ObjectMeta.Name
+		if strings.Contains(podName, mask) {
+			p = append(p, &pods.Items[i])
+		}
+	}
+	return p, nil
+}
+
+// GetNodes returns list of nodes
+// Receives golang context
+// Returns slice of coreV1.Node or error if something went wrong
+func (k *KubeClient) GetNodes(ctx context.Context) ([]coreV1.Node, error) {
+	nodes := coreV1.NodeList{}
+
+	if err := k.List(ctx, &nodes); err != nil {
+		return nil, err
+	}
+
+	return nodes.Items, nil
 }
 
 // GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources

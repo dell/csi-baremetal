@@ -5,15 +5,12 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	coreV1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -22,14 +19,14 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller/node"
 )
 
 // NodeID is the type for node hostname
 type NodeID string
 
+// todo these parameters must be passed via config map or input parameters
 const (
-	// NodeSvcPodsMask mask to find Node pods
-	NodeSvcPodsMask = "baremetal-csi-node"
 	// NodeIDTopologyKey to read topology values created by NodeGetInfo
 	NodeIDTopologyKey = "baremetal-csi/nodeid"
 )
@@ -44,6 +41,9 @@ type CSIControllerService struct {
 
 	svc        common.VolumeOperations
 	acProvider common.AvailableCapacityOperations
+
+	// to track node health status
+	nodeServicesStateMonitor *node.ServicesStateMonitor
 }
 
 // NewControllerService is the constructor for CSIControllerService struct
@@ -51,44 +51,26 @@ type CSIControllerService struct {
 // Returns an instance of CSIControllerService
 func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger) *CSIControllerService {
 	c := &CSIControllerService{
-		k8sclient:  k8sClient,
-		acProvider: common.NewACOperationsImpl(k8sClient, logger),
-		svc:        common.NewVolumeOperationsImpl(k8sClient, logger),
+		k8sclient:                k8sClient,
+		log:                      logger.WithField("component", "CSIControllerService"),
+		acProvider:               common.NewACOperationsImpl(k8sClient, logger),
+		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger),
+		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
 	}
-	c.log = logger.WithField("component", "CSIControllerService")
+
+	// run health monitor
+	c.nodeServicesStateMonitor.Run()
+
 	return c
 }
 
 // WaitNodeServices waits for the first ready Node. Node readiness means that all Node containers are in Ready state
+// and corresponding port is open
 // Returns true in case of ready node service and false instead
 func (c *CSIControllerService) WaitNodeServices() bool {
-	ll := c.log.WithField("method", "WaitNodeServices")
-
-	timeout := 240 * time.Second
-	ctx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-
-	pods, err := c.getPods(ctx, NodeSvcPodsMask)
-
-	if err != nil {
-		ll.Infof("Unable to detect pods with node service: %v", err)
-		return false
-	}
-
-	ll.Infof("Found %d pods with Node service", len(pods))
-
-	for _, pod := range pods {
-		// Consider the Node pod is ready if all of its containers are ready.
-		// Not check Running state because Node can be in it even if all containers are not ready.
-		containersReady := true
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if !containerStatus.Ready {
-				containersReady = false
-			}
-		}
-		if containersReady {
-			return true
-		}
+	// get information from nodeServicesStateMonitor
+	if pods := c.nodeServicesStateMonitor.GetReadyPods(); pods != nil {
+		return true
 	}
 
 	return false
@@ -340,23 +322,4 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 // ControllerExpandVolume is not implemented yet
 func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
-}
-
-// getPods returns list of pods which names contain mask
-// Receives golang context and mask for pods filtering
-// Returns slice of coreV1.Pod or error if something went wrong
-func (c *CSIControllerService) getPods(ctx context.Context, mask string) ([]*coreV1.Pod, error) {
-	pods := coreV1.PodList{}
-
-	if err := c.k8sclient.List(ctx, &pods, k8sCl.InNamespace(c.k8sclient.Namespace)); err != nil {
-		return nil, err
-	}
-	p := make([]*coreV1.Pod, 0)
-	for i := range pods.Items {
-		podName := pods.Items[i].ObjectMeta.Name
-		if strings.Contains(podName, mask) {
-			p = append(p, &pods.Items[i])
-		}
-	}
-	return p, nil
 }

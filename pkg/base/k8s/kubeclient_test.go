@@ -20,6 +20,8 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
 	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
+	coreV1 "k8s.io/api/core/v1"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -115,9 +117,103 @@ var (
 	}
 )
 
+// variables to test pods listing
+var (
+	// pod with prefix 1
+	testPodNamePrefix1 = "pod-prefix-1"
+	testPod1Name       = fmt.Sprintf("%s-testPod1", testPodNamePrefix1)
+	testReadyPod1      = &coreV1.Pod{
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod1Name, Namespace: testNs},
+	}
+
+	// pod with prefix 2
+	testPodNamePrefix2 = "pod-prefix-2"
+	testPod2Name       = fmt.Sprintf("%s-testPod2", testPodNamePrefix2)
+	testUnreadyPod2    = &coreV1.Pod{
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod2Name, Namespace: testNs},
+	}
+
+	// pod from another namespace
+	testPod3Name = "SomeName"
+	testPod3     = &coreV1.Pod{
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod3Name},
+	}
+)
+
 func TestKubernetesClient(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Kubernetes client testing suite")
+}
+
+var _ = Describe("pods listing", func() {
+	var (
+		kubeClient *KubeClient
+		err        error
+	)
+
+	BeforeEach(func() {
+		kubeClient, err = GetFakeKubeClient(testNs, testLogger)
+		Expect(err).To(BeNil())
+		// create test PODs
+		createPods(kubeClient, testReadyPod1, testUnreadyPod2, testPod3)
+	})
+
+	AfterEach(func() {
+		removeAllPods(kubeClient)
+	})
+
+	Context("Obtain list of pods with specific prefix", func() {
+		It("Must receive pod 1", func() {
+			pods, err := kubeClient.GetPods(testCtx, testPodNamePrefix1)
+			Expect(err).To(BeNil())
+			Expect(len(pods)).To(Equal(1))
+			Expect(pods[0].Name).To(Equal(testPod1Name))
+		})
+
+		It("Must receive pod 2", func() {
+			pods, err := kubeClient.GetPods(testCtx, testPodNamePrefix2)
+			Expect(err).To(BeNil())
+			Expect(len(pods)).To(Equal(1))
+			Expect(pods[0].Name).To(Equal(testPod2Name))
+		})
+
+		It("Must receive all pods in namespace", func() {
+			pods, err := kubeClient.GetPods(testCtx, "")
+			Expect(err).To(BeNil())
+			Expect(len(pods)).To(Equal(2))
+		})
+
+		It("Must receive empty list", func() {
+			pods, err := kubeClient.GetPods(testCtx, "fake")
+			Expect(err).To(BeNil())
+			Expect(len(pods)).To(Equal(0))
+		})
+	})
+})
+
+// create provided pods via client from provided svc
+func createPods(kubeClient *KubeClient, pods ...*coreV1.Pod) {
+	for _, pod := range pods {
+		err := kubeClient.Create(context.Background(), pod)
+		if err != nil {
+			Fail(fmt.Sprintf("uable to create pod %s, error: %v", pod.Name, err))
+		}
+	}
+}
+
+// remove all pods via client from provided svc
+func removeAllPods(kubeClient *KubeClient) {
+	pods := coreV1.PodList{}
+	err := kubeClient.List(context.Background(), &pods, k8sCl.InNamespace(testNs))
+	if err != nil {
+		Fail(fmt.Sprintf("unable to get pods list: %v", err))
+	}
+	for _, pod := range pods.Items {
+		err = kubeClient.Delete(context.Background(), &pod)
+		if err != nil {
+			Fail(fmt.Sprintf("unable to delete pod: %v", err))
+		}
+	}
 }
 
 var _ = Describe("Working with CRD", func() {

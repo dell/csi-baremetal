@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 )
 
 func setup() *CRHelper {
@@ -132,4 +134,40 @@ func TestCRHelper_GetVGNameByLVGCRName(t *testing.T) {
 	currentVGName, err = ch.GetVGNameByLVGCRName("randomName")
 	assert.NotNil(t, err)
 	assert.Equal(t, "", currentVGName)
+}
+
+// test AC deletion
+func TestCRHelper_DeleteACsByNodeID(t *testing.T) {
+	mock := setup()
+	err := mock.k8sClient.CreateCR(testCtx, testACCR.Name, &testACCR)
+	assert.Nil(t, err)
+
+	err = mock.DeleteACsByNodeID(testACCR.Spec.NodeId)
+	assert.Nil(t, err)
+}
+
+// test Drive status update
+func TestNewCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
+	mock := setup()
+	err := mock.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	assert.Nil(t, err)
+
+	err = mock.UpdateDrivesStatusOnNode(testDriveCR.Spec.NodeId, v1.DriveStatusOffline)
+	assert.Nil(t, err)
+
+	drive := mock.GetDriveCRByUUID(testDriveCR.Name)
+	assert.Equal(t, drive.Spec.Status, v1.DriveStatusOffline)
+}
+
+// test Volume operational status update
+func TestNewCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
+	mock := setup()
+	err := mock.k8sClient.CreateCR(testCtx, testVolume.Name, &testVolume)
+	assert.Nil(t, err)
+
+	err = mock.UpdateVolumesOpStatusOnNode(testVolume.Spec.NodeId, v1.OperationalStatusMissing)
+	assert.Nil(t, err)
+
+	volume := mock.GetVolumeByID(testVolume.Name)
+	assert.Equal(t, volume.Spec.OperationalStatus, v1.OperationalStatusMissing)
 }

@@ -13,9 +13,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	coreV1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -33,11 +31,6 @@ var (
 	testNs     = "default"
 
 	testCtx       = context.Background()
-	testPod1Name  = fmt.Sprintf("%s-testPod1", NodeSvcPodsMask)
-	testPod2Name  = fmt.Sprintf("%s-testPod2", NodeSvcPodsMask)
-	testPod3Name  = "SomeName"
-	testPod1Ip    = "10.10.10.10"
-	testPod2Ip    = "10.10.10.11"
 	testNode1Name = "node1"
 	testNode2Name = "node2"
 
@@ -45,55 +38,6 @@ var (
 	testDriveLocation2 = "drive2-sn"
 	testDriveLocation4 = "drive4-sn"
 	testNode4Name      = "preferredNode"
-	// valid pod
-	testReadyPod1 = &coreV1.Pod{
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod1Name, Namespace: testNs},
-		Spec:       coreV1.PodSpec{NodeName: testNode1Name},
-		Status: coreV1.PodStatus{
-			PodIP: testPod1Ip,
-			ContainerStatuses: []coreV1.ContainerStatus{
-				{
-					Name:  "drivemgr",
-					Ready: true,
-				},
-				{
-					Name:  "node",
-					Ready: true,
-				},
-				{
-					Name:  "sidecar",
-					Ready: true,
-				},
-			},
-		},
-	}
-	// invalid pod, not all containers are ready
-	testUnreadyPod2 = &coreV1.Pod{
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod2Name, Namespace: testNs},
-		Spec:       coreV1.PodSpec{NodeName: testNode2Name},
-		Status: coreV1.PodStatus{
-			PodIP: testPod2Ip,
-			ContainerStatuses: []coreV1.ContainerStatus{
-				{
-					Name:  "drivemgr",
-					Ready: true,
-				},
-				{
-					Name:  "node",
-					Ready: false,
-				},
-				{
-					Name:  "sidecar",
-					Ready: true,
-				},
-			},
-		},
-	}
-
-	// invalid pod, bad testID
-	testPod3 = &coreV1.Pod{
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testPod3Name},
-	}
 
 	testVolume = vcrd.Volume{
 		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: crdV1.APIV1Version},
@@ -150,43 +94,6 @@ func TestCSIControllerService(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CSIControllerService testing suite")
 }
-
-var _ = Describe("CSIControllerService addition functions", func() {
-	var svc *CSIControllerService
-
-	BeforeEach(func() {
-		svc = newSvc()
-	})
-
-	AfterEach(func() {
-		removeAllPods(svc)
-		removeAllCrds(svc.k8sclient)
-	})
-
-	Context("WaitNodeServices scenarios", func() {
-		It("success scenario when there is ready Node pod", func() {
-			createPods(svc, testReadyPod1, testUnreadyPod2)
-
-			res := svc.WaitNodeServices()
-			Expect(res).To(BeTrue())
-		})
-
-		It("failed scenario when there is no ready Node pod", func() {
-			createPods(svc, testUnreadyPod2)
-
-			res := svc.WaitNodeServices()
-			Expect(res).To(BeFalse())
-		})
-
-		It("failed scenario when there is no Node pod", func() {
-			createPods(svc, testPod3)
-
-			res := svc.WaitNodeServices()
-			Expect(res).To(BeFalse())
-		})
-
-	})
-})
 
 var _ = Describe("CSIControllerService CreateVolume", func() {
 	var controller *CSIControllerService
@@ -515,16 +422,6 @@ var _ = Describe("CSIControllerService ControllerGetCapabilities", func() {
 	})
 })
 
-// create provided pods via client from provided svc
-func createPods(s *CSIControllerService, pods ...*coreV1.Pod) {
-	for _, pod := range pods {
-		err := s.k8sclient.Create(context.Background(), pod)
-		if err != nil {
-			Fail(fmt.Sprintf("uable to create pod %s, error: %v", pod.Name, err))
-		}
-	}
-}
-
 // create and instance of CSIControllerService with scheme for working with CRD
 func newSvc() *CSIControllerService {
 	kubeclient, err := k8s.GetFakeKubeClient(testNs, testLogger)
@@ -533,21 +430,6 @@ func newSvc() *CSIControllerService {
 	}
 	nSvc := NewControllerService(kubeclient, testLogger)
 	return nSvc
-}
-
-// remove all pods via client from provided svc
-func removeAllPods(s *CSIControllerService) {
-	pods := coreV1.PodList{}
-	err := s.k8sclient.List(context.Background(), &pods, k8sclient.InNamespace(testNs))
-	if err != nil {
-		Fail(fmt.Sprintf("unable to get pods list: %v", err))
-	}
-	for _, pod := range pods.Items {
-		err = s.k8sclient.Delete(context.Background(), &pod)
-		if err != nil {
-			Fail(fmt.Sprintf("unable to delete pod: %v", err))
-		}
-	}
 }
 
 // return CreateVolumeRequest based on provided parameters

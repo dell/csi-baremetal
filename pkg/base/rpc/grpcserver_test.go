@@ -2,14 +2,14 @@ package rpc
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	basenet "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/net"
 )
 
 var (
@@ -47,7 +47,7 @@ func TestServerRunner_RunServer(t *testing.T) {
 	}()
 
 	// Ensure that endpoint is accessible
-	if !isTCPPortOpen(address) {
+	if ok, _ := basenet.IsTCPPortOpen(address); !ok {
 		t.Errorf("TCP port %d should be opened", port)
 	}
 
@@ -76,19 +76,4 @@ func TestServerRunner_GetEndpoint(t *testing.T) {
 func TestServerRunner_StopServer(t *testing.T) {
 	// stop server
 	nonSecureSR.StopServer()
-}
-
-// try to connect to provided endpoint with 4 attempts with 0.5 sec timeout
-func isTCPPortOpen(e string) bool {
-	for i := 0; i < 4; i++ {
-		// check that port is open
-		conn, err := net.DialTimeout("tcp", e, time.Second)
-		if err == nil && conn != nil {
-			conn.Close()
-			return true
-		} else {
-			time.Sleep(time.Millisecond * 500)
-		}
-	}
-	return false
 }

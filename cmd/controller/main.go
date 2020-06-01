@@ -36,6 +36,7 @@ func main() {
 	flag.Parse()
 
 	var logLevel logrus.Level
+	// todo log level must be configured via config map
 	if *verboseLogs {
 		logLevel = logrus.DebugLevel
 	} else {

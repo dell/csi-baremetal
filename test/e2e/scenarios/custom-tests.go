@@ -58,7 +58,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 	var (
 		pod           *corev1.Pod
 		pvc           *corev1.PersistentVolumeClaim
-		k8sSC            *v12.StorageClass
+		k8sSC         *v12.StorageClass
 		driverCleanup func()
 	)
 
@@ -139,7 +139,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 
 		// k8s docs say that time from updating ConfigMap to receiving updated ConfigMap in the pod where it's mounted
 		// could last 1 minute by default. Plus 30 seconds between Node's Discover in the worst case
-		time.Sleep(90*time.Second)
+		time.Sleep(90 * time.Second)
 
 		// Read ACs one more time
 		acUnstructuredList, err = f.DynamicClient.Resource(acGVR).Namespace(ns).List(metav1.ListOptions{})
@@ -176,7 +176,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 
 		// k8s docs say that time from updating ConfigMap to receiving updated ConfigMap in the pod where it's mounted
 		// could last 1 minute by default. Plus 30 seconds between Node's Discover in the worst case
-		time.Sleep(90*time.Second)
+		time.Sleep(90 * time.Second)
 
 		// Read Volume one more time
 		changedVolume, err := f.DynamicClient.Resource(volumeGVR).Namespace(ns).Get(volumeName, metav1.GetOptions{})

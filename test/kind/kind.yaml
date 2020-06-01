@@ -1,10 +1,10 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-# 1 control plane node and 3 workers
+# 1 control plane node and 2 workers
 nodes:
 # the control plane node config
 - role: control-plane
-# the four workers
+# the two workers
 - role: worker
   extraMounts:
   - hostPath: /dev
@@ -17,15 +17,3 @@ nodes:
     containerPath: /dev
   - hostPath: /run/udev
     containerPath: /run/udev
-#- role: worker
-#  extraMounts:
-#  - hostPath: /dev
-#    containerPath: /dev
-#  - hostPath: /run/udev
-#    containerPath: /run/udev
-#- role: worker
-#  extraMounts:
-#  - hostPath: /dev
-#    containerPath: /dev
-#  - hostPath: /run/udev
-#    containerPath: /run/udev
