@@ -61,7 +61,7 @@ boolean validatePullRequest(String commit) {
                         stage('Create Kind Cluster') {
                             sh('kind create cluster --config test/kind/kind.yaml')
                         }
-                        stage('Lint') {
+                        stage('Lint Charts') {
                             chartsLintExitCode = sh(script: 'make lint-charts', returnStatus: true)
                             if (chartsLintExitCode != 0) {
                                 currentBuild.result = 'FAILURE'
