@@ -8,6 +8,6 @@ metadata:
     app: baremetal-csi-node
 data:
   config.yaml: |-
-    defaultDrivePerNodeCount: 3
+    defaultDrivePerNodeCount: {{ .Values.drivemgr.amountOfLoopDevices }}
 {{- end }}
 
