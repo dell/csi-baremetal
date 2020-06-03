@@ -1,6 +1,7 @@
 package v1
 
 const (
+	Version            = "v1"
 	CSICRsGroupVersion = "baremetal-csi.dellemc.com"
 	APIV1Version       = "baremetal-csi.dellemc.com/v1"
 	Creating           = "creating"

@@ -66,17 +66,17 @@ func TestCalculatePodStatusPermanentDownToReady(t *testing.T) {
 }
 
 func TestCalculatePodStatusUnready(t *testing.T) {
-	status := calculatePodStatus(nodeID, false, Ready, UnreadyTimeout + 1, logger)
+	status := calculatePodStatus(nodeID, false, Ready, UnreadyTimeout+1, logger)
 	assert.Equal(t, Unready, status)
 }
 
 func TestCalculatePodStatusUnreadyTimeout(t *testing.T) {
-	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout - 1, logger)
+	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout-1, logger)
 	assert.Equal(t, Unready, status)
 }
 
 func TestCalculatePodStatusUnreadyToPermanentDown(t *testing.T) {
-	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout + 1, logger)
+	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout+1, logger)
 	assert.Equal(t, PermanentDown, status)
 }
 

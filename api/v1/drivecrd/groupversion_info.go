@@ -28,7 +28,7 @@ import (
 
 var (
 	// GroupVersionDrive is group version used to register these objects
-	GroupVersionDrive = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: "v1"}
+	GroupVersionDrive = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilderDrive is used to add go types to the GroupVersionKind scheme
 	SchemeBuilderDrive = &scheme.Builder{GroupVersion: GroupVersionDrive}

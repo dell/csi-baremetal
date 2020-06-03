@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
-	v1 "k8s.io/api/apps/v1"
-	coreV1 "k8s.io/api/core/v1"
-	v12 "k8s.io/api/storage/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -21,10 +21,6 @@ import (
 type baremetalDriver struct {
 	driverInfo testsuites.DriverInfo
 	scManifest map[string]string
-}
-
-func (n *baremetalDriver) GetClaimSize() string {
-	return "100Mi"
 }
 
 var (
@@ -62,16 +58,20 @@ var _ testsuites.TestDriver = &baremetalDriver{}
 var _ testsuites.DynamicPVTestDriver = &baremetalDriver{}
 var _ testsuites.EphemeralTestDriver = &baremetalDriver{}
 
-func (n *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
-	return &n.driverInfo
+// GetDriverInfo is implementation of TestDriver interface method
+func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
+	return &d.driverInfo
 }
 
-func (n *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
+// SkipUnsupportedTest is implementation of TestDriver interface method
+func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
 	if pattern.VolType == testpatterns.InlineVolume || pattern.VolType == testpatterns.PreprovisionedPV {
 		framework.Skipf("Baremetal Driver does not support InlineVolume and PreprovisionedPV -- skipping")
 	}
 }
-func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+
+// PrepareTest is implementation of TestDriver interface method
+func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
 	ginkgo.By("deploying baremetal driver")
 
 	cancelLogging := testsuites.StartPodLogs(f)
@@ -84,7 +84,7 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/baremetal-csi-controller.yaml")
 	framework.ExpectNoError(err)
 
-	deployment := &v1.Deployment{}
+	deployment := &appsv1.Deployment{}
 	err = yaml.Unmarshal(file, deployment)
 	framework.ExpectNoError(err)
 
@@ -94,7 +94,7 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	framework.ExpectNoError(err)
 
 	// CreateFromManifests doesn't support ConfigMaps so deploy it from framework's client
-	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(n.constructDefaultLoopbackConfig(ns))
+	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(d.constructDefaultLoopbackConfig(ns))
 	framework.ExpectNoError(err)
 
 	cleanup, err := f.CreateFromManifests(nil, manifests...)
@@ -104,11 +104,11 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	}
 
 	return &testsuites.PerTestConfig{
-			Driver:    n,
+			Driver:    d,
 			Prefix:    "baremetal",
 			Framework: f,
 		}, func() {
-			//wait until ephemeral volume will be deleted
+			// wait until ephemeral volume will be deleted
 			time.Sleep(time.Second * 20)
 			err = f.ClientSet.AppsV1().Deployments(ns).Delete(deployment.Name, &metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
@@ -118,7 +118,9 @@ func (n *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		}
 }
 
-func (n *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTestConfig, fsType string) *v12.StorageClass {
+// GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method
+func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTestConfig,
+	fsType string) *storagev1.StorageClass {
 	var scFsType string
 	switch strings.ToLower(fsType) {
 	case "", "xfs":
@@ -127,9 +129,9 @@ func (n *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 		scFsType = fsType
 	}
 	ns := config.Framework.Namespace.Name
-	provisioner := n.driverInfo.Name
-	suffix := fmt.Sprintf("%s-sc", n.driverInfo.Name)
-	delayedBinding := v12.VolumeBindingWaitForFirstConsumer
+	provisioner := d.driverInfo.Name
+	suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
+	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
 		"storageType": "HDD",
 		"fsType":      scFsType,
@@ -138,21 +140,29 @@ func (n *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 	return testsuites.GetStorageClass(provisioner, scParams, &delayedBinding, ns, suffix)
 }
 
-func (n *baremetalDriver) GetVolume(config *testsuites.PerTestConfig, volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
+// GetClaimSize is implementation of DynamicPVTestDriver interface method
+func (d *baremetalDriver) GetClaimSize() string {
+	return "100Mi"
+}
+
+// GetVolume is implementation of EphemeralTestDriver interface method
+func (d *baremetalDriver) GetVolume(config *testsuites.PerTestConfig,
+	volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
 	attributes = make(map[string]string)
-	attributes["size"] = n.GetClaimSize()
+	attributes["size"] = d.GetClaimSize()
 	attributes["storageType"] = "HDD"
 	return attributes, false, false
 }
 
-func (n *baremetalDriver) GetCSIDriverName(config *testsuites.PerTestConfig) string {
-	return n.GetDriverInfo().Name
+// GetCSIDriverName is implementation of EphemeralTestDriver interface method
+func (d *baremetalDriver) GetCSIDriverName(config *testsuites.PerTestConfig) string {
+	return d.GetDriverInfo().Name
 }
 
 // constructDefaultLoopbackConfig constructs default ConfigMap for LoopBackManager
 // Receives namespace where cm should be deployed
-func (n *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *coreV1.ConfigMap {
-	cm := coreV1.ConfigMap{
+func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *corev1.ConfigMap {
+	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
 			Namespace: namespace,

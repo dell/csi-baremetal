@@ -7,35 +7,36 @@ import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	v12 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
-	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	v1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/test/e2e/common"
 )
 
 var (
 	driveGVR = schema.GroupVersionResource{
-		Group:    v1.CSICRsGroupVersion,
-		Version:  "v1",
+		Group:    apiV1.CSICRsGroupVersion,
+		Version:  apiV1.Version,
 		Resource: "drives",
 	}
 
 	acGVR = schema.GroupVersionResource{
-		Group:    v1.CSICRsGroupVersion,
-		Version:  "v1",
+		Group:    apiV1.CSICRsGroupVersion,
+		Version:  apiV1.Version,
 		Resource: "availablecapacities",
 	}
 
 	volumeGVR = schema.GroupVersionResource{
-		Group:    v1.CSICRsGroupVersion,
-		Version:  "v1",
+		Group:    apiV1.CSICRsGroupVersion,
+		Version:  apiV1.Version,
 		Resource: "volumes",
 	}
 
@@ -43,74 +44,54 @@ var (
 	configKey = "config.yaml"
 )
 
-// DefineCustomTestSuite defines custom baremetal-csi e2e tests
-func DefineCustomTestSuite(driver testsuites.TestDriver) {
-	ginkgo.Context("Baremetal-csi custom tests", func() {
-		// It consists of two steps. 1) Set random drive to Failed state and see that amount of ACs reduced by 1.
+// DefineDriveHealthChangeTestSuite defines custom baremetal-csi e2e tests
+func DefineDriveHealthChangeTestSuite(driver testsuites.TestDriver) {
+	ginkgo.Context("Baremetal-csi drive health change tests", func() {
+		// It consists of two steps.
+		// 1) Set random drive to Failed state and see that amount of ACs reduced by 1.
 		// 2) Install pod with pvc. Set drive which is used by pvc to Failed state. See that appropriate VolumeCR
-		// changes its status too.
-		healthCheckTest(driver)
+		// changes its status too
+		driveHealthChangeTest(driver)
 	})
 }
 
-// healthCheckTest test checks behavior of driver when drives change health from GOOD to BAD
-func healthCheckTest(driver testsuites.TestDriver) {
+// driveHealthChangeTest test checks behavior of driver when drives change health from GOOD to BAD
+func driveHealthChangeTest(driver testsuites.TestDriver) {
 	var (
 		pod           *corev1.Pod
 		pvc           *corev1.PersistentVolumeClaim
-		k8sSC         *v12.StorageClass
+		k8sSC         *storagev1.StorageClass
 		driverCleanup func()
+		ns            string
+		f             = framework.NewDefaultFramework("health")
 	)
 
-	f := framework.NewDefaultFramework("health")
-
 	init := func() {
-		var perTestConf *testsuites.PerTestConfig
+		var (
+			perTestConf *testsuites.PerTestConfig
+			err         error
+		)
+		ns = f.Namespace.Name
+
 		perTestConf, driverCleanup = driver.PrepareTest(f)
+
 		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		var err error
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
+		framework.ExpectNoError(err)
+
+		// wait for csi pods to be running and ready
+		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0, 90*time.Second, nil)
 		framework.ExpectNoError(err)
 	}
 
-	// This function deletes pod if it was installed during test. And waits for its correct deletion to perform
-	// NodeUnpublish and NodeUnstage properly. Next it deletes PVC and waits for correctly deletion of bounded PV
-	// to clear device for next tests (CSI performs wipefs during PV deletion). The last step is the deletion of driver.
 	cleanup := func() {
-		ns := f.Namespace.Name
-
-		if pod != nil {
-			_ = pode2e.DeletePodWithWait(f.ClientSet, pod)
-		}
-
-		if pvc != nil {
-			pv, _ := framework.GetBoundPV(f.ClientSet, pvc)
-			err := framework.DeletePersistentVolumeClaim(f.ClientSet, pvcName, ns)
-			if err != nil {
-				e2elog.Logf("failed to delete pvc %v", err)
-			}
-			if pv != nil {
-				//Wait for pv deletion to clear devices for future tests
-				_ = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
-			}
-		}
-
-		// Removes all driver's manifests installed during init(). (Driver, its RBACs, SC)
-		if driverCleanup != nil {
-			driverCleanup()
-			driverCleanup = nil
-		}
+		e2elog.Logf("Starting cleanup for test DriveHealthChange")
+		common.CleanupAfterCustomTest(f, driverCleanup, pod, pvc)
 	}
 
 	ginkgo.It("should discover drives' health changes and delete ac or change volume health", func() {
 		init()
 		defer cleanup()
-
-		ns := f.Namespace.Name
-
-		// Wait for csi pods to be running and ready
-		err := pode2e.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0, 90*time.Second, nil)
-		framework.ExpectNoError(err)
 
 		// Get ACs from the cluster
 		acUnstructuredList, err := f.DynamicClient.Resource(acGVR).Namespace(ns).List(metav1.ListOptions{})
@@ -154,7 +135,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 		framework.ExpectNoError(err)
 
 		// Create test pod that consumes the pvc
-		pod, err = pode2e.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err = e2epod.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
@@ -184,7 +165,7 @@ func healthCheckTest(driver testsuites.TestDriver) {
 		health, _, err := unstructured.NestedString(changedVolume.Object, "spec", "Health")
 
 		// Check that Volume is marked as unhealthy
-		Expect(health).To(Equal(v1.HealthBad))
+		Expect(health).To(Equal(apiV1.HealthBad))
 	})
 }
 

@@ -15,7 +15,7 @@ import (
 
 var (
 	// constants from provisioner package
-	DefaultPartitionLabel = "CSI"
+	DefaultPartitionLabel  = "CSI"
 	DefaultPartitionNumber = "1"
 
 	testDevice1   = "/dev/sda"
