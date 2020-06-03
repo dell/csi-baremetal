@@ -198,12 +198,14 @@ void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
     sh("""
         helm package charts/baremetal-csi-plugin/ --set image.tag=${args.version} --version ${args.version} --destination ${chartsBuildPath}
     """)
-    final String file = common.findFiles("${chartsBuildPath}/*.tgz")[0].getName()
+    file = common.findFiles("${chartsBuildPath}/*.tgz")[0]
+    final String name = file.getName()
+    final String remoteName = file.getRemote()
     final String chartsPathToPublish = "${ARTIFACTORY_FULL_CHARTS_PATH}/${args.version}"
-    common.publishFileToArtifactory(file, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
+    common.publishFileToArtifactory(remoteName, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
     final String text = this.getArtifactsJson([
             version: args.version,
-            chartsPath: "${ARTIFACTORY_CHARTS_PATH}/${args.version}/${file}"
+            chartsPath: "${ARTIFACTORY_CHARTS_PATH}/${args.version}/${name}"
     ])
 
     writeFile(file: "artifacts.json",
