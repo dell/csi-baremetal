@@ -73,7 +73,7 @@ func main() {
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume)
 
-	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.5", true)
+	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.6", true)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
