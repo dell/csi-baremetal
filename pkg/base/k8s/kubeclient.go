@@ -311,7 +311,7 @@ func (k *KubeClient) GetNodes(ctx context.Context) ([]coreV1.Node, error) {
 // GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources
 // Returns controller-runtime/pkg/Client which can work with CSI CRs or error if something went wrong
 func GetK8SClient() (k8sCl.Client, error) {
-	scheme, err := prepareScheme()
+	scheme, err := PrepareScheme()
 	if err != nil {
 		return nil, err
 	}
@@ -330,16 +330,16 @@ func GetK8SClient() (k8sCl.Client, error) {
 // Returns instance of mocked KubeClient or error if something went wrong
 // todo test code shouldn't be in base package
 func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error) {
-	scheme, err := prepareScheme()
+	scheme, err := PrepareScheme()
 	if err != nil {
 		return nil, err
 	}
 	return NewKubeClient(fake.NewFakeClientWithScheme(scheme), logger, testNs), nil
 }
 
-// prepareScheme registers CSI custom resources to runtime.Scheme
+// PrepareScheme registers CSI custom resources to runtime.Scheme
 // Returns modified runtime.Scheme or error if something went wrong
-func prepareScheme() (*runtime.Scheme, error) {
+func PrepareScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 	if err := v1.AddToScheme(scheme); err != nil {
 		return nil, err
