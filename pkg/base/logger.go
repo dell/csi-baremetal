@@ -11,7 +11,7 @@ import (
 // If path is incorrect or "" then init logger with stdout
 // Receives logPath which is the file to write logs and logrus.Level which is level of logging (For example DEBUG, INFO)
 // Returns created logrus.Logger or error if something went wrong
-func InitLogger(logPath string, logLevel logrus.Level) (*logrus.Logger, error) {
+func InitLogger(logPath string, verbose bool) (*logrus.Logger, error) {
 	logger := logrus.New()
 	if os.Getenv("LOG_FORMAT") == "text" {
 		logger.SetFormatter(&nested.Formatter{
@@ -22,7 +22,15 @@ func InitLogger(logPath string, logLevel logrus.Level) (*logrus.Logger, error) {
 	} else {
 		logger.SetFormatter(&logrus.JSONFormatter{})
 	}
-	logger.SetLevel(logLevel)
+
+	// set log level
+	var level = logrus.InfoLevel
+	if verbose {
+		level = logrus.DebugLevel
+	}
+	logger.SetLevel(level)
+
+	// set output
 	if logPath != "" {
 		file, err := os.Create(logPath)
 		if err != nil {
@@ -33,5 +41,6 @@ func InitLogger(logPath string, logLevel logrus.Level) (*logrus.Logger, error) {
 		return logger, nil
 	}
 	logger.SetOutput(os.Stdout)
+
 	return logger, nil
 }

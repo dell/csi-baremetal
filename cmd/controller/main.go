@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
@@ -35,15 +34,7 @@ const (
 func main() {
 	flag.Parse()
 
-	var logLevel logrus.Level
-	// todo log level must be configured via config map
-	if *verboseLogs {
-		logLevel = logrus.DebugLevel
-	} else {
-		logLevel = logrus.InfoLevel
-	}
-
-	logger, err := base.InitLogger(*logPath, logLevel)
+	logger, err := base.InitLogger(*logPath, *verboseLogs)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}

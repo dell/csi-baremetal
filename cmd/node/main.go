@@ -46,7 +46,11 @@ var (
 func main() {
 	flag.Parse()
 
-	logger := setupLogger()
+	logger, err := base.InitLogger(*logPath, *verboseLogs)
+	if err != nil {
+		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
+	}
+
 	logger.Info("Starting Node Service")
 
 	// gRPC client for communication with DriveMgr via TCP socket
@@ -176,22 +180,6 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.
 	}
 
 	return mgr
-}
-
-// setupLogger initialize logrus logger according to provided flags
-func setupLogger() *logrus.Logger {
-	var logLevel logrus.Level
-	if *verboseLogs {
-		logLevel = logrus.DebugLevel
-	} else {
-		logLevel = logrus.InfoLevel
-	}
-
-	logger, err := base.InitLogger(*logPath, logLevel)
-	if err != nil {
-		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
-	}
-	return logger
 }
 
 func getNodeUID(client k8sClient.Client, nodeName string) (string, error) {

@@ -94,7 +94,7 @@ func TestDriverWithSanity(t *testing.T) {
 }
 
 func newControllerSvc(kubeClient *k8s.KubeClient) {
-	ll, _ := base.InitLogger("", logrus.InfoLevel)
+	ll, _ := base.InitLogger("", true)
 
 	controllerService := controller.NewControllerService(kubeClient, ll)
 
@@ -111,7 +111,7 @@ func newControllerSvc(kubeClient *k8s.KubeClient) {
 }
 
 func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
-	ll, _ := base.InitLogger("", logrus.InfoLevel)
+	ll, _ := base.InitLogger("", true)
 
 	csiNodeService := prepareNodeMock(kubeClient, ll)
 	csiIdentityService := controller.NewIdentityServer(driverName, version, true)

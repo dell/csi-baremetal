@@ -1,6 +1,10 @@
-# file paths
+# project name
+PROJECT          := baremetal-csi-plugin
 
-# version
+### file paths
+CHARTS_PATH		 := charts/baremetal-csi-plugin
+
+### version
 MAJOR            := 0
 MINOR            := 0
 PATCH            := 6
@@ -13,13 +17,31 @@ RELEASE_STR      := ${BLD_CNT}.${BLD_SHA}
 FULL_VERSION     := ${PRODUCT_VERSION}-${RELEASE_STR}
 TAG              := ${FULL_VERSION}
 
+### third-party components version
+CSI_PROVISIONER_TAG := v1.2.2
+CSI_REGISTRAR_TAG   := v1.0.1-gke.0
+CSI_ATTACHER_TAG    := v1.0.1
+BUSYBOX_TAG         := 1.29
 
-HAL_VERSION      := 3.4.0.0-1835.b1a54fa
+### components
+NODE            := node
+DRIVE_MANAGER   := drivemgr
+CONTROLLER      := controller
+# external components
+CSI_PROVISIONER := csi-provisioner
+CSI_REGISTRAR   := csi-node-driver-registrar
+CSI_ATTACHER    := csi-attacher
+BUSYBOX         := busybox
 
-# registry
-REPO             := baremetal-csi-plugin
-REGISTRY         := 10.244.120.194:8085/atlantic
-HARBOR           := harbor.lss.emc.com/atlantic
+HEALTH_PROBE    	 := health_probe
+HEALTH_PROBE_BIN_URL := https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.3.1/grpc_health_probe-linux-amd64
 
-# paths
-CHARTS_PATH		 := charts/baremetal-csi-plugin
+### go env vars
+GO_ENV_VARS     := GO111MODULE=on ${GOPRIVATE_PART} ${GOPROXY_PART}
+
+### custom variables that could be ommited
+GOPRIVATE_PART  :=
+GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
+
+# override some of variables, optional file
+-include variables.override.mk

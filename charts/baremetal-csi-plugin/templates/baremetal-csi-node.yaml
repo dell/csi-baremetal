@@ -131,9 +131,6 @@ spec:
         {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
-    {{- if eq .Values.drivemgr.halOverride.iscsi true }}
-        command: ["/iscsi_entrypoint.sh"]
-    {{- else}}
       {{- if .Values.drivemgr.grpc.server.endpoint }}
         args:
           - --verbose={{ .Values.log.verbose }}
@@ -142,7 +139,6 @@ spec:
           - --logpath=/var/log/drivemgr.log
         {{- end }}
       {{- end }}
-    {{- end}}
         securityContext:
           privileged: true
         env:
