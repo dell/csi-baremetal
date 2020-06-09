@@ -21,11 +21,9 @@ spec:
       containers:
       # ********************** EXTERNAL-PROVISIONER sidecar container definition **********************
       - name: csi-provisioner
-        {{- if .Values.env.test  }}
-        image: csi-provisioner:{{ .Values.provisioner.image.tag }}
-        {{- else }}
-        image: {{ .Values.global.registry }}/csi-provisioner:{{ .Values.provisioner.image.tag }}
-        {{- end }}
+        image: {{- if .Values.env.test }} csi-provisioner:{{ .Values.provisioner.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/csi-provisioner:{{ .Values.provisioner.image.tag }}
+               {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - "--csi-address=$(ADDRESS)"
@@ -41,11 +39,9 @@ spec:
           mountPath: /csi
       # ********************** EXTERNAL_ATTACHER sidecar container definition **********************
       - name: csi-attacher
-        {{- if .Values.env.test  }}
-        image: csi-attacher:{{ .Values.attacher.image.tag }}
-        {{- else }}
-        image: {{ .Values.global.registry }}/csi-attacher:{{ .Values.attacher.image.tag }}
-        {{- end }}
+        image: {{- if .Values.env.test }} csi-attacher:{{ .Values.attacher.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/csi-attacher:{{ .Values.attacher.image.tag }}
+               {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - "--v=5"
@@ -57,13 +53,10 @@ spec:
         - name: socket-dir
           mountPath: /csi
       # ********************** baremetal-csi-controller container definition **********************
-      # TODO: Make CSI containers name smaller - AK8S-57
       - name: controller
-        {{- if .Values.env.test  }}
-        image: baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
-        {{- else }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
-        {{- end }}
+        image: {{- if .Values.env.test }} baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
+               {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - "--endpoint=$(CSI_ENDPOINT)"
@@ -92,8 +85,31 @@ spec:
           mountPath: /csi
         - name: logs
           mountPath: /var/log
-#          Log receiver
-    {{- if .Values.logReceiver.create  }}
+        ports:
+          - name: liveness-port
+            containerPort: 9808
+            protocol: TCP
+        livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: liveness-port
+            initialDelaySeconds: 120
+            timeoutSeconds: 3
+            periodSeconds: 10
+      # Liveness probe sidecar
+      - name: liveness-probe
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{- if .Values.env.test  }} livenessprobe:{{ .Values.livenessprobe.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/livenessprobe:{{ .Values.livenessprobe.image.tag }}
+               {{- end }}
+        args:
+          - --csi-address=/csi/csi.sock
+        volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+      # Log receiver sidecar
+      {{- if .Values.logReceiver.create  }}
       - name: fluentbit-agent
         image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
         imagePullPolicy: IfNotPresent
@@ -102,15 +118,15 @@ spec:
           mountPath: /fluent-bit/etc
         - name: logs
           mountPath: /var/log/
-    {{- end }}
+      {{- end }}
       volumes:
       - name: logs
         emptyDir: {}
-    {{- if .Values.logReceiver.create }}
+      {{- if .Values.logReceiver.create }}
       - name: logs-config
         configMap:
             name: {{ .Release.Name }}-logs-config
-    {{- end }}
+      {{- end }}
       - name: socket-dir
         hostPath:
           path: /var/baremetal-csi/controller

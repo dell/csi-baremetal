@@ -269,7 +269,7 @@ func (n *ServicesStateMonitor) updateCRs() {
 		}
 		n.lock.RUnlock()
 
-		// todo possible issue with racing on bootstrap
+		// todo possible issue with racing on bootstrap - AK8S-1129
 		// delete AC for unready
 		for _, id := range unready {
 			err := n.crHelper.DeleteACsByNodeID(id)

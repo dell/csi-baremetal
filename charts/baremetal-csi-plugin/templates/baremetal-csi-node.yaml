@@ -19,11 +19,9 @@ spec:
       containers:
       # ********************** DRIVER-REGISTRAR sidecar container definition **********************
       - name: csi-node-driver-registrar
-        {{- if .Values.env.test  }}
-        image: csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
-        {{- else }}
-        image: {{ .Values.global.registry }}/csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
-        {{- end }}
+        image: {{- if .Values.env.test }} csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/csi-node-driver-registrar:{{ .Values.nodeDriverRegistrar.image.tag }}
+               {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
           - "--v=5"
@@ -50,11 +48,9 @@ spec:
             mountPath: /registration
       # ********************** baremetal-csi-node container definition **********************
       - name: node
-        {{- if .Values.env.test  }}
-        image: baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
-        {{- else }}
-        image: {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
-        {{- end }}
+        image: {{- if .Values.env.test }} baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
+              {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
@@ -69,7 +65,20 @@ spec:
           - --drivemgrendpoint={{ .Values.node.grpc.client.drivemgr.endpoint }}
         {{- end }}
         ports:
-          - containerPort: {{ .Values.node.grpc.server.port }}
+          {{- if .Values.drivemgr.grpc.server.port }}
+          - containerPort: {{ .Values.drivemgr.grpc.server.port }}
+          {{- end }}
+          - name: liveness-port
+            containerPort: 9808
+            protocol: TCP
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: liveness-port
+          initialDelaySeconds: 120
+          timeoutSeconds: 3
+          periodSeconds: 10
         readinessProbe:
           exec:
             # have to use bash for extrapolating env var
@@ -117,18 +126,12 @@ spec:
         - name: mountpoint-dir
           mountPath: /var/lib/kubelet/pods
           mountPropagation: "Bidirectional"
-        ports:
-        {{- if .Values.drivemgr.grpc.server.port }}
-          - containerPort: {{ .Values.node.grpc.server.port }}
-        {{- end }}
       # ********************** baremetal-csi-drivemgr container definition **********************
       # TODO: FABRIC-8595 Replace DriveMgr to DaemonSet
       - name: drivemgr
-        {{- if .Values.env.test  }}
-        image: {{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
-        {{- else }}
-        image: {{ .Values.global.registry }}/{{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
-        {{- end }}
+        image: {{- if .Values.env.test }} {{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/{{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+               {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
       {{- if .Values.drivemgr.grpc.server.endpoint }}
@@ -170,6 +173,18 @@ spec:
         - name: host-home
           mountPath: /host/home
         {{- end }}
+      # Liveness probe sidecar
+      - name: liveness-probe
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: {{- if .Values.env.test  }} livenessprobe:{{ .Values.livenessprobe.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/livenessprobe:{{ .Values.livenessprobe.image.tag }}
+               {{- end }}
+        args:
+          - --csi-address=/csi/csi.sock
+        volumeMounts:
+          - mountPath: /csi
+            name: csi-socket-dir
+      # Log receiver sidecar
       {{- if .Values.logReceiver.create  }}
       - name: fluentbit-agent
         image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}

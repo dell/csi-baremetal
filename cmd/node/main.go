@@ -28,7 +28,6 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
 )
@@ -77,8 +76,6 @@ func main() {
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume)
 
-	csiIdentityService := controller.NewIdentityServer("baremetal-csi", "0.0.6", true)
-
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
 		lvm.NewLVGController(k8sClientForLVG, nodeUID, logger),
@@ -86,7 +83,7 @@ func main() {
 
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
-	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiIdentityService)
+	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiNodeService)
 
 	go util.SetupSignalHandler(csiUDSServer)
 

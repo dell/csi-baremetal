@@ -4,6 +4,10 @@ package base
 import "time"
 
 const (
+	// PluginName is a name of current CSI plugin
+	PluginName = "baremetal-csi"
+	// PluginVersion is a version of current CSI plugin
+	PluginVersion = "0.0.6"
 	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
 	DefaultDriveMgrEndpoint = "tcp://localhost:8888"
 	// DefaultVMMgrIP is the default gRPC IP for VolumeManager

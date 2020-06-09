@@ -66,6 +66,10 @@ nodeDriverRegistrar:
   image:
     tag: v1.0.1-gke.0
 
+livenessprobe:
+  image:
+    tag: v1.1.0
+
 logReceiver:
   create: false
   #stdout/es if stdout, then fluent bit will print collected logs in stdout, if es, then the output of fluent bit is Elastic Search

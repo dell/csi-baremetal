@@ -21,6 +21,7 @@ TAG              := ${FULL_VERSION}
 CSI_PROVISIONER_TAG := v1.2.2
 CSI_REGISTRAR_TAG   := v1.0.1-gke.0
 CSI_ATTACHER_TAG    := v1.0.1
+LIVENESS_PROBE_TAG  := v1.1.0
 BUSYBOX_TAG         := 1.29
 
 ### components
@@ -31,6 +32,7 @@ CONTROLLER      := controller
 CSI_PROVISIONER := csi-provisioner
 CSI_REGISTRAR   := csi-node-driver-registrar
 CSI_ATTACHER    := csi-attacher
+LIVENESS_PROBE  := livenessprobe
 BUSYBOX         := busybox
 
 HEALTH_PROBE    	 := health_probe

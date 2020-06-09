@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,6 +45,7 @@ type CSIControllerService struct {
 
 	// to track node health status
 	nodeServicesStateMonitor *node.ServicesStateMonitor
+	csi.IdentityServer
 }
 
 // NewControllerService is the constructor for CSIControllerService struct
@@ -56,12 +58,24 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger) *CSI
 		acProvider:               common.NewACOperationsImpl(k8sClient, logger),
 		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
+		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),
 	}
 
 	// run health monitor
 	c.nodeServicesStateMonitor.Run()
 
 	return c
+}
+
+// Probe is the implementation of CSI Spec Probe for IdentityServer.
+// This method checks if CSI driver is ready to serve requests
+// overrides same method from defaultIdentityServer struct
+func (c *CSIControllerService) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+	return &csi.ProbeResponse{
+		Ready: &wrappers.BoolValue{
+			Value: len(c.nodeServicesStateMonitor.GetReadyPods()) > 0,
+		},
+	}, nil
 }
 
 // WaitNodeServices waits for the first ready Node. Node readiness means that all Node containers are in Ready state

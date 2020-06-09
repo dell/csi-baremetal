@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -22,6 +23,7 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
 )
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
@@ -33,6 +35,7 @@ type CSINodeService struct {
 	log *logrus.Entry
 
 	VolumeManager
+	csi.IdentityServer
 	grpc_health_v1.HealthServer
 }
 
@@ -53,11 +56,24 @@ func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *log
 	e := &command.Executor{}
 	e.SetLogger(logger)
 	s := &CSINodeService{
-		VolumeManager: *NewVolumeManager(client, e, logger, k8sclient, nodeID),
-		svc:           common.NewVolumeOperationsImpl(k8sclient, logger),
+		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, nodeID),
+		svc:            common.NewVolumeOperationsImpl(k8sclient, logger),
+		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
+}
+
+// Probe is the implementation of CSI Spec Probe for IdentityServer.
+// This method checks if CSI driver is ready to serve requests
+// overrides same method from identityServer struct in controller package
+func (s *CSINodeService) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+	// TODO: AK8S-1143 implement smart checking of Node liveness condition
+	return &csi.ProbeResponse{
+		Ready: &wrappers.BoolValue{
+			Value: s.initialized,
+		},
+	}, nil
 }
 
 // NodeStageVolume is the implementation of CSI Spec NodeStageVolume. Performs when the first pod consumes a volume.
@@ -477,7 +493,6 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 }
 
 // Check does the health check and changes the status of the server based on drives cache size
-//TODO AK8S-379 Investigate readiness and liveness probes conditions
 func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "Check",

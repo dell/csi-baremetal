@@ -25,11 +25,7 @@ var (
 	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
 )
 
-const (
-	driverName        = "baremetal-csi"
-	version           = "0.0.6"
-	timeoutBeforeInit = 30
-)
+const timeoutBeforeInit = 30
 
 func main() {
 	flag.Parse()
@@ -64,7 +60,7 @@ func main() {
 		}
 	}
 	ticker.Stop()
-	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version, true))
+	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controllerService)
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
 	logger.Info("Starting CSIControllerService")
 	if err := csiControllerServer.RunServer(); err != nil && err != grpc.ErrServerStopped {

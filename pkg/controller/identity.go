@@ -8,15 +8,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// NewIdentityServer is the creator for identityServer struct
+// NewIdentityServer is the creator for defaultIdentityServer struct
 // Receives name of the driver, driver version and readiness state of the driver
-// Returns csi.IdentityServer because identityServer struct implements it
-func NewIdentityServer(name string, version string, readiness bool) csi.IdentityServer {
-	return &identityServer{name, version, readiness}
+// Returns csi.IdentityServer because defaultIdentityServer struct implements it
+func NewIdentityServer(name string, version string) csi.IdentityServer {
+	return &defaultIdentityServer{
+		name:      name,
+		version:   version,
+		readiness: true,
+	}
 }
 
-// identityServer is the implementation of IdentityServer interface
-type identityServer struct {
+// defaultIdentityServer is the implementation of IdentityServer interface
+type defaultIdentityServer struct {
 	name      string
 	version   string
 	readiness bool
@@ -26,7 +30,7 @@ type identityServer struct {
 // This method returns information about CSI driver: its name and version.
 // Receives golang context and CSI Spec GetPluginInfoRequest
 // Returns CSI Spec GetPluginInfoResponse and nil error
-func (s *identityServer) GetPluginInfo(context.Context, *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+func (s *defaultIdentityServer) GetPluginInfo(context.Context, *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	return &csi.GetPluginInfoResponse{
 		Name:          s.name,
 		VendorVersion: s.version,
@@ -37,7 +41,7 @@ func (s *identityServer) GetPluginInfo(context.Context, *csi.GetPluginInfoReques
 // capabilities of  CSI driver. CONTROLLER_SERVICE and VOLUME_ACCESSIBILITY_CONSTRAINTS for now.
 // Receives golang context and CSI Spec GetPluginCapabilitiesRequest
 // Returns CSI Spec GetPluginCapabilitiesResponse and nil error
-func (s *identityServer) GetPluginCapabilities(context.Context, *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+func (s *defaultIdentityServer) GetPluginCapabilities(context.Context, *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 	resp := &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			{
@@ -66,6 +70,6 @@ func (s *identityServer) GetPluginCapabilities(context.Context, *csi.GetPluginCa
 // Probe is the implementation of CSI Spec Probe. This method checks if CSI driver is ready to serve requests
 // Receives golang context and CSI Spec ProbeRequest
 // Returns CSI Spec ProbeResponse and nil error
-func (s *identityServer) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+func (s *defaultIdentityServer) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	return &csi.ProbeResponse{Ready: &wrappers.BoolValue{Value: s.readiness}}, nil
 }
