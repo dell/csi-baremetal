@@ -19,4 +19,4 @@ fi
 
 echo "Use ${BIN_NAME} file"
 
-./${BIN_NAME} "$@"
+exec ./${BIN_NAME} "$@"
