@@ -51,6 +51,7 @@ drivemgr:
   type: HAL
   deployConfig: false
   amountOfLoopDevices: 3
+  sizeOfLoopDevices: 100Mi
 
 # CSI Sidecars parameters
 provisioner:

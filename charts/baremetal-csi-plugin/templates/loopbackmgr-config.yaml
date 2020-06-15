@@ -9,5 +9,6 @@ metadata:
 data:
   config.yaml: |-
     defaultDrivePerNodeCount: {{ .Values.drivemgr.amountOfLoopDevices }}
+    defaultDriveSize: {{ .Values.drivemgr.sizeOfLoopDevices }}
 {{- end }}
 

@@ -63,6 +63,8 @@ func TestLoopBackManager_CleanupLoopDevices(t *testing.T) {
 	for _, device := range manager.devices {
 		mockexec.On("RunCmd", fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath)).
 			Return("", "", nil)
+		mockexec.On("RunCmd", fmt.Sprintf(deleteFileCmdTmpl, device.fileName)).
+			Return("", "", nil)
 	}
 
 	manager.CleanupLoopDevices()
@@ -118,6 +120,94 @@ func TestLoopBackManager_UpdateDevicesFromSetConfig(t *testing.T) {
 	}
 
 	assert.Equal(t, true, found)
+}
+
+func TestLoopBackManager_updateDevicesFromSetConfigWithSize(t *testing.T) {
+	var mockexec = &mocks.GoMockExecutor{}
+
+	var manager = NewLoopBackManager(mockexec, logger)
+
+	config := []byte("defaultDriveSize: 30Mi \ndefaultDrivePerNodeCount: 3")
+	testConfigPath := "/tmp/config.yaml"
+	err := ioutil.WriteFile(testConfigPath, config, 0777)
+	assert.Nil(t, err)
+
+	defer func() {
+		_ = os.Remove(testConfigPath)
+	}()
+	for _, device := range manager.devices {
+		device.devicePath = "/dev/sda"
+		mockexec.On("RunCmd", fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath)).
+			Return("", "", nil)
+		mockexec.On("RunCmd", fmt.Sprintf(deleteFileCmdTmpl, device.fileName)).
+			Return("", "", nil)
+	}
+	manager.readAndSetConfig(testConfigPath)
+	manager.updateDevicesFromConfig()
+
+	for _, device := range manager.devices {
+		assert.Equal(t, device.Size, "30Mi")
+	}
+
+}
+
+func TestLoopBackManager_overrideDevicesFromSetConfigWithSize(t *testing.T) {
+	var mockexec = &mocks.GoMockExecutor{}
+	var manager = NewLoopBackManager(mockexec, logger)
+	testSN := "testSN"
+	testNodeID := "testNode"
+	testConfigPath := "/tmp/config.yaml"
+	config := []byte("defaultDriveSize: 30Mi \ndefaultDrivePerNodeCount: 3\nnodes:\n" +
+		fmt.Sprintf("- nodeID: %s\n", testNodeID) +
+		fmt.Sprintf("  driveCount: %d\n", 5) +
+		"  drives:\n" +
+		fmt.Sprintf("  - serialNumber: %s\n", testSN) +
+		fmt.Sprintf("    size: %s\n", "40Mi"))
+	err := ioutil.WriteFile(testConfigPath, config, 0777)
+	assert.Nil(t, err)
+
+	defer func() {
+		_ = os.Remove(testConfigPath)
+	}()
+	manager.nodeID = testNodeID
+	for _, device := range manager.devices {
+		mockexec.On("RunCmd", fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath)).
+			Return("", "", nil)
+		mockexec.On("RunCmd", fmt.Sprintf(deleteFileCmdTmpl, device.fileName)).
+			Return("", "", nil)
+	}
+
+	manager.readAndSetConfig(testConfigPath)
+	manager.updateDevicesFromConfig()
+
+	config = []byte("defaultDriveSize: 30Mi \ndefaultDrivePerNodeCount: 3\nnodes:\n" +
+		fmt.Sprintf("- nodeID: %s\n", testNodeID) +
+		fmt.Sprintf("  driveCount: %d\n", 5) +
+		"  drives:\n" +
+		fmt.Sprintf("  - serialNumber: %s\n", testSN))
+	err = ioutil.WriteFile(testConfigPath, config, 0777)
+	assert.Nil(t, err)
+
+	for _, device := range manager.devices {
+		if device.SerialNumber == testSN {
+			device.devicePath = "/dev/sda"
+			mockexec.On("RunCmd", fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath)).
+				Return("", "", nil)
+			mockexec.On("RunCmd", fmt.Sprintf(deleteFileCmdTmpl, device.fileName)).
+				Return("", "", nil)
+		}
+	}
+	manager.readAndSetConfig(testConfigPath)
+	manager.updateDevicesFromConfig()
+
+	assert.Nil(t, err)
+
+	for _, device := range manager.devices {
+		if device.SerialNumber == testSN {
+			assert.Equal(t, device.Size, "30Mi")
+		}
+	}
+
 }
 
 func TestLoopBackManager_overrideDevicesFromNodeConfig(t *testing.T) {

@@ -82,6 +82,7 @@ type Node struct {
 // Config struct is the configuration for LoopBackManager. It contains default settings and settings for each node
 type Config struct {
 	DefaultDriveCount int     `yaml:"defaultDrivePerNodeCount"`
+	DefaultDriveSize  string  `yaml:"defaultDriveSize"`
 	Nodes             []*Node `yaml:"nodes"`
 }
 
@@ -150,7 +151,6 @@ func (mgr *LoopBackManager) attemptToRecoverDevices(imagesPath string) {
 			}
 		}
 	}
-
 	for _, file := range entries {
 		// If image path contains files that don't correspond to this pod then delete them.
 		// It's done because *.img files store on node side. If drivemgr will delete them during SIGTERM (postStop, pod
@@ -284,6 +284,25 @@ func (mgr *LoopBackManager) updateDevicesFromConfig() {
 	if drives != nil {
 		mgr.overrideDevicesFromNodeConfig(driveCount, drives)
 	}
+	//If default size from config was changed, then we change size of the drive, which are not overrode on config
+	for _, device := range mgr.devices {
+		var found bool
+		for _, drive := range drives {
+			if device.SerialNumber == drive.SerialNumber {
+				found = true
+				break
+			}
+		}
+		if !found {
+			if mgr.config != nil && mgr.config.DefaultDriveSize != "" &&
+				device.Size != mgr.config.DefaultDriveSize && device.devicePath != "" {
+				ll.Infof("Size of device changes from %s to %s", device.Size, mgr.config.DefaultDriveSize)
+				mgr.deleteLoopbackDevice(device)
+				device.Size = mgr.config.DefaultDriveSize
+				device.devicePath = ""
+			}
+		}
+	}
 	// If driveCount for specified node was increased but drives are not specified then add default devices
 	mgr.createDefaultDevices(driveCount - len(mgr.devices))
 }
@@ -294,7 +313,6 @@ func (mgr *LoopBackManager) updateDevicesFromConfig() {
 // Receives deviceCount which represents what amount of devices manager should have and slice of devices to override
 func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devices []*LoopBackDevice) {
 	ll := mgr.log.WithField("method", "overrideDevicesFromNodeConfig")
-
 	for _, device := range devices {
 		overrode := false
 		for i, mgrDevice := range mgr.devices {
@@ -307,22 +325,21 @@ func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devic
 					// If mgr device is already bound to loop device then check if provided configuration changes size.
 					// If not then we may not rebind device and save existing devicePath
 					if mgrDevice.devicePath != "" {
+						switch {
 						// If size changed when we need to detach loop device and delete appropriate file
-						if device.Size != mgrDevice.Size && device.Size != "" {
+						case device.Size != mgrDevice.Size && device.Size != "":
 							ll.Infof("Size of device changes from %s to %s", mgrDevice.Size, device.Size)
-							_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, mgrDevice.devicePath))
-							if err != nil {
-								ll.Errorf("Unable to detach loopback device %s", mgrDevice.devicePath)
-							}
-							_, _, err = mgr.exec.RunCmd(fmt.Sprintf(deleteFileCmdTmpl, mgrDevice.fileName))
-							if err != nil {
-								ll.Errorf("Unable to delete file %s", mgrDevice.fileName)
-							}
-							device.fileName = mgrDevice.fileName
-						} else {
-							device.fileName = mgrDevice.fileName
+							mgr.deleteLoopbackDevice(mgrDevice)
+						//If device Size is not specified and size of existing drive is not equal default size from config
+						case mgr.config != nil && device.Size == "" && mgr.config.DefaultDriveSize != "" &&
+							mgrDevice.Size != mgr.config.DefaultDriveSize:
+							ll.Infof("Size of device changes from %s to %s", mgrDevice.Size, mgr.config.DefaultDriveSize)
+							mgr.deleteLoopbackDevice(mgrDevice)
+							device.Size = mgr.config.DefaultDriveSize
+						default:
 							device.devicePath = mgrDevice.devicePath
 						}
+						device.fileName = mgrDevice.fileName
 					}
 					device.fillEmptyFieldsWithDefaults()
 					ll.Infof("override existing device %s with device: %v", device.SerialNumber, device)
@@ -345,6 +362,10 @@ func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devic
 				} else {
 					device.fileName = fmt.Sprintf(imagesFolder+"/%s-%s.img", mgr.hostname, device.SerialNumber)
 				}
+				//If device Size is not specified then use default size from config
+				if mgr.config != nil && device.Size == "" && mgr.config.DefaultDriveSize != "" {
+					device.Size = mgr.config.DefaultDriveSize
+				}
 				device.fillEmptyFieldsWithDefaults()
 				ll.Infof("append non-default device: %v", device)
 				mgr.devices = append(mgr.devices, device)
@@ -362,8 +383,25 @@ func (mgr *LoopBackManager) createDefaultDevices(deviceCount int) {
 			SerialNumber: fmt.Sprintf("LOOPBACK%d", deviceID),
 			fileName:     fmt.Sprintf(imagesFolder+"/%s-%d.img", mgr.hostname, deviceID),
 		}
+		//If device Size is not specified then use default size from config
+		if device.Size == "" && mgr.config != nil && mgr.config.DefaultDriveSize != "" {
+			device.Size = mgr.config.DefaultDriveSize
+		}
 		device.fillEmptyFieldsWithDefaults()
 		mgr.devices = append(mgr.devices, device)
+	}
+}
+
+// deleteLoopbackDevice detach specified loopback device and delete according file
+func (mgr *LoopBackManager) deleteLoopbackDevice(device *LoopBackDevice) {
+	ll := mgr.log.WithField("method", "deleteLoopbackDevice")
+	_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath))
+	if err != nil {
+		ll.Errorf("Unable to detach loopback device %s", device.devicePath)
+	}
+	_, _, err = mgr.exec.RunCmd(fmt.Sprintf(deleteFileCmdTmpl, device.fileName))
+	if err != nil {
+		ll.Errorf("Unable to delete file %s", device.fileName)
 	}
 }
 
@@ -498,10 +536,6 @@ func (mgr *LoopBackManager) GetLoopBackDeviceName(file string) (string, error) {
 // CleanupLoopDevices detaches loop devices that are occupied by LoopBackManager
 func (mgr *LoopBackManager) CleanupLoopDevices() {
 	for _, device := range mgr.devices {
-		_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath))
-		if err != nil {
-			mgr.log.WithField("method", "CleanupLoopDevices").
-				Errorf("Unable to detach loopback device %v", device)
-		}
+		mgr.deleteLoopbackDevice(device)
 	}
 }
