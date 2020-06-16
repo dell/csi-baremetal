@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/eventing"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/test/e2e/common"
 )
 
@@ -163,9 +165,16 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		changedVolume, err := f.DynamicClient.Resource(volumeGVR).Namespace(ns).Get(volumeName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		health, _, err := unstructured.NestedString(changedVolume.Object, "spec", "Health")
+		//get events on volume
+		evlist, err := f.ClientSet.CoreV1().Events(ns).Search(runtime.NewScheme(), changedVolume)
+		framework.ExpectNoError(err)
 
+		bhEvents := filterEventsByReason(evlist, eventing.VolumeBadHealth)
+		e2elog.Logf("found bad health events %+v len %d\n", bhEvents, len(bhEvents))
 		// Check that Volume is marked as unhealthy
 		Expect(health).To(Equal(apiV1.HealthBad))
+		// CHeck we have Bad Health Event
+		Expect(len(bhEvents)).To(Equal(1))
 	})
 }
 
@@ -231,4 +240,14 @@ func findNodeNameByUID(f *framework.Framework, nodeUID string) (string, error) {
 		}
 	}
 	return nodeName, nil
+}
+
+func filterEventsByReason(eventlist *corev1.EventList, reason string) []corev1.Event {
+	events := make([]corev1.Event, 0)
+	for i := range eventlist.Items {
+		if eventlist.Items[i].Reason == reason {
+			events = append(events, eventlist.Items[i])
+		}
+	}
+	return events
 }

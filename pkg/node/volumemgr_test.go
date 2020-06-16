@@ -132,7 +132,7 @@ var (
 func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	assert.NotNil(t, vm)
 	assert.Nil(t, vm.driveMgrClient)
 	assert.NotNil(t, vm.fsOps)
@@ -145,7 +145,7 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 }
 
 func TestNewVolumeManager_SetProvisioners(t *testing.T) {
-	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{}, logrus.New(), nil, nodeID)
+	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{}, logrus.New(), nil, new(mocks.NoOpRecorder), nodeID)
 	newProv := &mockProv.MockProvisioner{}
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: newProv})
 	assert.Equal(t, newProv, vm.provisioners[p.DriveBasedVolumeType])
@@ -154,7 +154,7 @@ func TestNewVolumeManager_SetProvisioners(t *testing.T) {
 func TestVolumeManager_DrivesNotInUse(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	driveCR1 := vm.k8sClient.ConstructDriveCR(
 		"hdd1", api.Drive{UUID: "hdd1", SerialNumber: "hdd1", Type: apiV1.DriveTypeHDD, NodeId: nodeID})
@@ -184,7 +184,7 @@ func TestVolumeManager_DrivesNotInUse(t *testing.T) {
 func TestVolumeManager_DiscoverFail(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	// expect: hwMgrClient request fail with error
 	vm.driveMgrClient = mocks.MockDriveMgrClientFail{}
@@ -193,7 +193,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	assert.Equal(t, "drivemgr error", err.Error())
 
 	// expect: lsblk fail with error
-	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, mocks.EmptyExecutorFail{}, testLogger, kubeClient, nodeID)
+	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, mocks.EmptyExecutorFail{}, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	err = vm.Discover()
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "error")
@@ -205,7 +205,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	// expect that cache is empty because of all drives has not children
 	err = vm.Discover()
@@ -219,7 +219,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 		"sgdisk /dev/sdb -i 1": {Stdout: "some output: here"},
 	}
 	e2 := mocks.NewMockExecutor(expectedCmdOut1)
-	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, nodeID)
+	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	err = vm.Discover()
 	assert.Nil(t, err)
 	assertLenVListItemsEqualsTo(t, vm.k8sClient, 0)
@@ -230,7 +230,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 		"sgdisk /dev/sdb --info=1": {Stdout: "Partition unique GUID: uniq-guid-for-dev-sdb"},
 	}
 	e3 := mocks.NewMockExecutor(expectedCmdOut2)
-	vm = NewVolumeManager(*hwMgrClient, e3, testLogger, kubeClient, nodeID)
+	vm = NewVolumeManager(*hwMgrClient, e3, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	partOps := &mocklu.MockWrapPartition{}
 	partOps.On("GetPartitionUUID", mock.Anything, mock.Anything).
 		Return("uniq-guid-for-dev-sdb", nil)
@@ -249,7 +249,7 @@ func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
 	assert.Nil(t, err)
 	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	err = vm.Discover()
 	assert.Nil(t, err)
@@ -272,7 +272,7 @@ func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	hwMgrDrivesWithBad[1].Health = apiV1.HealthBad
 	hwMgrClient := mocks.NewMockDriveMgrClient(hwMgrDrivesWithBad)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	err = vm.Discover()
 	assert.Nil(t, err)
@@ -293,7 +293,7 @@ func TestVolumeManager_DiscoverAvailableCapacityNoFreeDrive(t *testing.T) {
 	assert.Nil(t, err)
 	hwMgrClient := mocks.NewMockDriveMgrClient(nil)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	driveCR1 := vm.k8sClient.ConstructDriveCR("hasVolume", *driveMgrRespDrives[0])
 	addDriveCRs(kubeClient, driveCR1)
@@ -327,7 +327,7 @@ func TestVolumeManager_DiscoverAvailableCapacityIgnoreLVG(t *testing.T) {
 	assert.Nil(t, err)
 	hwMgrClient := mocks.NewMockDriveMgrClient(nil)
 	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	apiDrive := *driveMgrRespDrives[0]
 	driveCR1 := vm.k8sClient.ConstructDriveCR(apiDrive.UUID, apiDrive)
@@ -351,7 +351,7 @@ func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
 	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, nodeID)
+	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	assert.Nil(t, err)
 	assert.Empty(t, vm.crHelper.GetDriveCRs(vm.nodeID))
 	ctx := context.Background()
@@ -372,7 +372,7 @@ func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
 
 	kubeClient, err = k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm = NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, nodeID)
+	vm = NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	assert.Nil(t, err)
 	assert.Empty(t, vm.crHelper.GetDriveCRs(vm.nodeID))
 	vm.updateDrivesCRs(ctx, driveMgrRespDrives)
@@ -500,7 +500,7 @@ func prepareSuccessVolumeManager() *VolumeManager {
 	if err != nil {
 		panic(err)
 	}
-	return NewVolumeManager(c, e, testLogger, kubeClient, nodeID)
+	return NewVolumeManager(c, e, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 }
 
 func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {

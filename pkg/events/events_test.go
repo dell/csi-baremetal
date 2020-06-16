@@ -143,7 +143,7 @@ func TestRecorder_Eventf(t *testing.T) {
 				labelsOverride: tt.fields.labelsOverride,
 				Wait:           tt.fields.Wait,
 			}
-			r.Eventf(tt.args.object, tt.args.eventtype, tt.args.reason, tt.args.messageFmt, tt.args.args)
+			r.Eventf(tt.args.object, tt.args.eventtype, tt.args.reason, tt.args.messageFmt, tt.args.args...)
 			r.Wait()
 
 			tt.fields.eventRecorder.AssertExpectations(t)

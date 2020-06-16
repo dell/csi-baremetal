@@ -68,7 +68,7 @@ func TestSimpleRecorder_Eventf(t *testing.T) {
 				object:     testRef,
 				eventtype:  "Awesome",
 				reason:     "Started",
-				messageFmt: "some verbose message: %v",
+				messageFmt: "some verbose message: %s",
 				args:       []interface{}{"this is argument"},
 			},
 			expectedEvent: &v1.Event{
@@ -87,7 +87,7 @@ func TestSimpleRecorder_Eventf(t *testing.T) {
 				FirstTimestamp: metaFixedtime,
 				LastTimestamp:  metaFixedtime,
 				Reason:         "Started",
-				Message:        "some verbose message: [this is argument]",
+				Message:        "some verbose message: this is argument",
 				Source:         v1.EventSource{Component: "eventTest"},
 				Count:          1,
 				Type:           "Awesome",
@@ -101,7 +101,7 @@ func TestSimpleRecorder_Eventf(t *testing.T) {
 			sr := New(tt.fields.sink, tt.fields.scheme, tt.fields.source, tt.fields.lg)
 			sr.fixedTime = &fixedtime
 
-			sr.Eventf(tt.args.object, tt.args.eventtype, tt.args.reason, tt.args.messageFmt, tt.args.args)
+			sr.Eventf(tt.args.object, tt.args.eventtype, tt.args.reason, tt.args.messageFmt, tt.args.args...)
 			sr.Wait()
 
 			tt.fields.sink.AssertExpectations(t)

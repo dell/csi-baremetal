@@ -52,11 +52,11 @@ const (
 // Receives an instance of DriveServiceClient to interact with DriveManager, ID of a node where it works, logrus logger
 // and base.KubeClient
 // Returns an instance of CSINodeService
-func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *logrus.Logger, k8sclient *k8s.KubeClient) *CSINodeService {
+func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *logrus.Logger, k8sclient *k8s.KubeClient, recorder eventRecorder) *CSINodeService {
 	e := &command.Executor{}
 	e.SetLogger(logger)
 	s := &CSINodeService{
-		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, nodeID),
+		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
 		svc:            common.NewVolumeOperationsImpl(k8sclient, logger),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 	}

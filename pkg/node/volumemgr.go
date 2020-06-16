@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -27,9 +28,15 @@ import (
 	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/eventing"
 	p "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners/utilwrappers"
 )
+
+// eventRecorder interface for sending events
+type eventRecorder interface {
+	Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{})
+}
 
 // VolumeManager is the struct to perform volume operations on node side with real storage devices
 type VolumeManager struct {
@@ -61,6 +68,8 @@ type VolumeManager struct {
 	initialized bool
 	// general logger
 	log *logrus.Entry
+	// sink where we write events
+	recorder eventRecorder
 }
 
 const (
@@ -79,7 +88,7 @@ func NewVolumeManager(
 	executor command.CmdExecutor,
 	logger *logrus.Logger,
 	k8sclient *k8s.KubeClient,
-	nodeID string) *VolumeManager {
+	recorder eventRecorder, nodeID string) *VolumeManager {
 	vm := &VolumeManager{
 		k8sClient:      k8sclient,
 		crHelper:       k8s.NewCRHelper(k8sclient, logger),
@@ -89,12 +98,13 @@ func NewVolumeManager(
 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
 		},
-		fsOps:   utilwrappers.NewFSOperationsImpl(executor, logger),
-		lvmOps:  lvm.NewLVM(executor, logger),
-		listBlk: lsblk.NewLSBLK(executor),
-		partOps: ph.NewWrapPartitionImpl(executor),
-		nodeID:  nodeID,
-		log:     logger.WithField("component", "VolumeManager"),
+		fsOps:    utilwrappers.NewFSOperationsImpl(executor, logger),
+		lvmOps:   lvm.NewLVM(executor, logger),
+		listBlk:  lsblk.NewLSBLK(executor),
+		partOps:  ph.NewWrapPartitionImpl(executor),
+		nodeID:   nodeID,
+		log:      logger.WithField("component", "VolumeManager"),
+		recorder: recorder,
 	}
 	return vm
 }
@@ -607,9 +617,16 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	vol := m.crHelper.GetVolumeByLocation(drive.UUID)
 	if vol != nil {
 		ll.Infof("Setting updated status %s to volume %s", drive.Health, vol.Name)
+		// save previous health state
+		prevHealthState := vol.Spec.Health
 		vol.Spec.Health = drive.Health
 		if err := m.k8sClient.UpdateCR(ctx, vol); err != nil {
 			ll.Errorf("Failed to update volume CR's %s health status: %v", vol.Name, err)
+		}
+		if vol.Spec.Health == apiV1.HealthBad {
+			m.recorder.Eventf(vol, eventing.WarningType, eventing.VolumeBadHealth,
+				"Volume health transitioned from %s to %s. Inherited from %s drive on %s)",
+				prevHealthState, vol.Spec.Health, drive.Health, drive.NodeId)
 		}
 	}
 

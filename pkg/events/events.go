@@ -50,11 +50,11 @@ func (r *Recorder) Eventf(object runtime.Object, eventtype, reason, messageFmt s
 	if r.labelsOverride != nil {
 		labels, ok := r.labelsOverride[reason]
 		if ok && labels != nil {
-			r.eventRecorder.LabeledEventf(object, labels, eventtype, reason, messageFmt, args)
+			r.eventRecorder.LabeledEventf(object, labels, eventtype, reason, messageFmt, args...)
 			return
 		}
 	}
-	r.eventRecorder.Eventf(object, eventtype, reason, messageFmt, args)
+	r.eventRecorder.Eventf(object, eventtype, reason, messageFmt, args...)
 }
 
 // New makes Recorder for a simple usage

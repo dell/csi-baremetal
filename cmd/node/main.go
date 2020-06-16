@@ -5,12 +5,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health/grpc_health_v1"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -28,8 +30,13 @@ import (
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/events"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/lvm"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
+)
+
+const (
+	componentName = "baremetal-csi-node"
 )
 
 var (
@@ -39,6 +46,7 @@ var (
 	csiEndpoint      = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 	nodeID           = flag.String("nodeid", "", "node identification by k8s")
 	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
+	eventConfigPath  = flag.String("eventConfigPath", "/etc/config/alerts.yaml", "path for the events config file")
 	verboseLogs      = flag.Bool("verbose", false, "Debug mode in logs")
 )
 
@@ -71,10 +79,17 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to get uid of k8s Node object: %v", err)
 	}
+	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeUID, logger)
+	if err != nil {
+		logger.Fatalf("fail to prepare event recorder: %v", err)
+	}
+
+	// Wait till all events are sent/handled
+	defer eventRecorder.Wait()
 
 	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume)
+	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
@@ -185,4 +200,45 @@ func getNodeUID(client k8sClient.Client, nodeName string) (string, error) {
 		return "", err
 	}
 	return string(k8sNode.UID), nil
+}
+
+// prepareEventRecorder helper which makes all the work to get EventRecorder
+func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*events.Recorder, error) {
+	// clientset needed to send events
+	k8SClientset, err := k8s.GetK8SClientset()
+	if err != nil {
+		return nil, fmt.Errorf("fail to create kubernetes client, error: %s", err)
+	}
+	eventInter := k8SClientset.CoreV1().Events(*namespace)
+
+	// get the Scheme
+	// in our case we should use Scheme that aware of our CR
+	scheme, err := k8s.PrepareScheme()
+	if err != nil {
+		return nil, fmt.Errorf("fail to prepare kubernetes scheme, error: %s", err)
+	}
+	// Setup Option
+	// It's used for label overriding and logging events
+
+	var opt events.Options
+
+	// Optional will be used when
+	alertFile, err := ioutil.ReadFile(configfile)
+	if err != nil {
+		logger.Infof("fail to open events config file. error: %s. Will proceed without overriding.", err)
+	}
+
+	err = yaml.Unmarshal(alertFile, &opt)
+	if err != nil {
+		return nil, fmt.Errorf("fail to unmarshal config file, error: %s", err)
+	}
+
+	opt.Logger = logger.WithField("componentName", "Events")
+	//
+
+	eventRecorder, err := events.New(componentName, nodeUID, eventInter, scheme, opt)
+	if err != nil {
+		return nil, fmt.Errorf("fail to create events recorder, error: %s", err)
+	}
+	return eventRecorder, nil
 }
