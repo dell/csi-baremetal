@@ -23,6 +23,7 @@ ifeq ($(DRIVE_MANAGER_TYPE),)
 	go build -o ./build/${DRIVE_MANAGER}/hal-drivemgr ./cmd/${DRIVE_MANAGER}/halmgr/main.go
 	go build -o ./build/${DRIVE_MANAGER}/loopback-drivemgr ./cmd/${DRIVE_MANAGER}/loopbackmgr/main.go
 	go build -o ./build/${DRIVE_MANAGER}/idrac-drivemgr ./cmd/${DRIVE_MANAGER}/idracmgr/main.go
+	go build -o ./build/${DRIVE_MANAGER}/base-drivemgr ./cmd/${DRIVE_MANAGER}/basemgr/main.go
 endif
 ifneq ($(DRIVE_MANAGER_TYPE),)
 	go build -o ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER} ./cmd/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/main.go
@@ -41,7 +42,11 @@ images: image-drivemgr image-node image-controller
 base-images: base-image-drivemgr base-image-node base-image-controller
 
 base-image-drivemgr:
+ifeq ($(DRIVE_MANAGER_TYPE), basemgr)
+	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/Dockerfile.build --tag ${DRIVE_MANAGER_TYPE}:base ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
+else
 	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/Dockerfile.build --tag ${DRIVE_MANAGER}:base ./pkg/${DRIVE_MANAGER}
+endif
 
 download-grpc-health-probe:
 	curl -OJL ${HEALTH_PROBE_BIN_URL}
@@ -58,8 +63,13 @@ base-image-controller:
 	docker build --network host --force-rm --file ./pkg/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./pkg/${CONTROLLER}
 
 image-drivemgr:
+ifeq ($(DRIVE_MANAGER_TYPE), basemgr)
+	cp ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER} ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG} ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
+else
 	cp ./build/${DRIVE_MANAGER}/* ./pkg/${DRIVE_MANAGER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG} ./pkg/${DRIVE_MANAGER}
+endif
 	docker tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG} ${HARBOR}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
 
 image-node:
