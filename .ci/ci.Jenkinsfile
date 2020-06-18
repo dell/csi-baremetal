@@ -1,7 +1,5 @@
-import com.emc.pipelines.docker.DockerRegistries
-
 loader.loadFrom('pipelines': [common          : 'common',
-                              docker_helper   : 'flex/docker_helper',
+                              harbor          : 'flex/harbor',
                               devkit          : 'infra/devkit',
                               docker          : 'infra/docker',
                               custom_packaging: 'packaging/custom_packaging'])
@@ -17,13 +15,14 @@ void runTests() {
             csiVersion    : params.CSI_VERSION,
             runMode       : '',
             slackChannel  : '',
+            dockerProject : 'atlantic',
     ]
 
     String csiVersion = args.csiVersion
     final String RUN_MODE_MASTER = 'master'
     final String RUN_MODE_CUSTOM = 'custom'
     boolean testResultSuccess = false
-    final String registry = "asdrepo.isus.emc.com:9042"
+    final String registry = "10.244.120.194:8085/atlantic"  // asdrepo.isus.emc.com:8085/atlantic
     common.node(label: 'csi_test', time: 180) {
         try {
             common.withInfraDevkitContainerKind() {
@@ -94,7 +93,7 @@ void runTests() {
             }
             stage('Images re-tagging') {
                 if (args.runMode != RUN_MODE_CUSTOM && testResultSuccess) {
-                    docker_helper.retagCSIImages(csiVersion, 'latest', DockerRegistries.ASDREPO_ATLANTIC_REGISTRY)
+                    harbor.retagCSIImages(args.dockerProject, csiVersion, 'latest')
                     common.withInfraDevkitContainerKind() {
                         List<String> repos = ["baremetal-csi-plugin-node",
                                               "baremetal-csi-plugin-controller",

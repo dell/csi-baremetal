@@ -70,14 +70,17 @@ else
 	cp ./build/${DRIVE_MANAGER}/* ./pkg/${DRIVE_MANAGER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG} ./pkg/${DRIVE_MANAGER}
 endif
+	docker tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG} ${HARBOR}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
 
 image-node:
 	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ./pkg/${NODE}
+	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${HARBOR}/${PROJECT}-${NODE}:${TAG}
 
 image-controller:
 	cp ./build/${CONTROLLER}/${CONTROLLER} ./pkg/${CONTROLLER}/${CONTROLLER}
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ./pkg/${CONTROLLER}
+	docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${HARBOR}/${PROJECT}-${CONTROLLER}:${TAG}
 
 ### Push images
 
@@ -90,12 +93,18 @@ push-local:
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
+	# TODO: remove HARBOR at all, AK8S-426
+	docker push ${HARBOR}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
 
 push-node:
 	docker push ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
+	# TODO: remove HARBOR at all, AK8S-426
+	docker push ${HARBOR}/${PROJECT}-${NODE}:${TAG}
 
 push-controller:
 	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
+	# TODO: remove HARBOR at all, AK8S-426
+	docker push ${HARBOR}/${PROJECT}-${CONTROLLER}:${TAG}
 
 ### Clean artefacts
 

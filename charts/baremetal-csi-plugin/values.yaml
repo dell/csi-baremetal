@@ -1,6 +1,6 @@
 # Docker registry to pull images
 global:
-  registry: asdrepo.isus.emc.com:9042
+  registry: 10.244.120.194:8085/atlantic  # asdrepo.isus.emc.com:8085/atlantic
 
 env:
  test: false

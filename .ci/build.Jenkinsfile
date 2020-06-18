@@ -87,6 +87,7 @@ void runJob() {
 
                 stage('Push images') {
                     sh("""
+                        ${common.DOCKER_REGISTRY.HARBOR.getLoginCommand()}
                         ${common.DOCKER_REGISTRY.DOCKER_HUB.getLoginCommand()}
                         make push
                     """)
