@@ -68,7 +68,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 		_, _, err := executor.RunCmd(cmd)
 		framework.ExpectNoError(err)
 
-		common.CleanupAfterCustomTest(f, driverCleanup, pod, pvc)
+		common.CleanupAfterCustomTest(f, driverCleanup, pod, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
 	ginkgo.It("controller should keep handle request after node fails", func() {
@@ -120,7 +120,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 
 		// check if CSI controller keep handle requests
 		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
-			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name))
+			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, pvcName))
 		framework.ExpectNoError(err)
 
 		pod, err = e2epod.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},

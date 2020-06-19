@@ -88,7 +88,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test DriveHealthChange")
-		common.CleanupAfterCustomTest(f, driverCleanup, pod, pvc)
+		common.CleanupAfterCustomTest(f, driverCleanup, pod, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
 	ginkgo.It("should discover drives' health changes and delete ac or change volume health", func() {
@@ -133,7 +133,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 
 		// Create test pvc on the cluster
 		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
-			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name))
+			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, pvcName))
 		framework.ExpectNoError(err)
 
 		// Create test pod that consumes the pvc
@@ -180,7 +180,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 
 // constructPVC constructs pvc for test purposes
 // Receives PVC size and namespace
-func constructPVC(ns string, claimSize string, storageClass string) *corev1.PersistentVolumeClaim {
+func constructPVC(ns string, claimSize string, storageClass string, pvcName string) *corev1.PersistentVolumeClaim {
 	claim := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,

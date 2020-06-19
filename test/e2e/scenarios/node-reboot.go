@@ -57,7 +57,7 @@ func DefineNodeRebootTestSuite(driver testsuites.TestDriver) {
 			framework.ExpectNoError(err)
 		}
 
-		common.CleanupAfterCustomTest(f, driverCleanup, pod, pvc)
+		common.CleanupAfterCustomTest(f, driverCleanup, pod, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
 	ginkgo.It("Pod should consume same PVC after node with it was rebooted", func() {
@@ -67,7 +67,7 @@ func DefineNodeRebootTestSuite(driver testsuites.TestDriver) {
 		var err error
 		// create pvc
 		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
-			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name))
+			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, pvcName))
 		framework.ExpectNoError(err)
 
 		// create pod with pvc

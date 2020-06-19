@@ -3,6 +3,7 @@ package scenarios
 import (
 	"fmt"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
 
@@ -95,7 +96,9 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 
 	// CreateFromManifests doesn't support ConfigMaps so deploy it from framework's client
 	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(d.constructDefaultLoopbackConfig(ns))
-	framework.ExpectNoError(err)
+	if !errors.IsAlreadyExists(err) {
+		framework.ExpectNoError(err)
+	}
 
 	cleanup, err := f.CreateFromManifests(nil, manifests...)
 
@@ -137,6 +140,20 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 		"fsType":      scFsType,
 	}
 
+	return testsuites.GetStorageClass(provisioner, scParams, &delayedBinding, ns, suffix)
+}
+
+// GetStorageClassWithStorageType allows to create SC with different storageType
+func (d *baremetalDriver) GetStorageClassWithStorageType(config *testsuites.PerTestConfig,
+	storageType string) *storagev1.StorageClass {
+	ns := config.Framework.Namespace.Name
+	provisioner := d.driverInfo.Name
+	suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
+	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
+	scParams := map[string]string{
+		"storageType": storageType,
+		"fsType":      "xfs",
+	}
 	return testsuites.GetStorageClass(provisioner, scParams, &delayedBinding, ns, suffix)
 }
 

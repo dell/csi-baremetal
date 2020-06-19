@@ -30,10 +30,7 @@ func init() {
 // This function deletes pod if it was installed during test. And waits for its correct deletion to perform
 // NodeUnpublish and NodeUnstage properly. Next it deletes PVC and waits for correctly deletion of bounded PV
 // to clear device for next tests (CSI performs wipefs during PV deletion). The last step is the deletion of driver.
-func CleanupAfterCustomTest(f *framework.Framework,
-	driverCleanupFn func(),
-	pod *corev1.Pod,
-	pvc *corev1.PersistentVolumeClaim) {
+func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod *corev1.Pod, pvc []*corev1.PersistentVolumeClaim) {
 	e2elog.Logf("Starting cleanup")
 	var err error
 
@@ -46,17 +43,19 @@ func CleanupAfterCustomTest(f *framework.Framework,
 	}
 
 	if pvc != nil {
-		e2elog.Logf("Deleting PVC %s", pvc.Name)
-		pv, _ := framework.GetBoundPV(f.ClientSet, pvc)
-		err := framework.DeletePersistentVolumeClaim(f.ClientSet, pvc.Name, f.Namespace.Name)
-		if err != nil {
-			e2elog.Logf("failed to delete pvc %v", err)
-		}
-		if pv != nil {
-			// wait for pv deletion to clear devices for future tests
-			err = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
+		for _, claim := range pvc {
+			e2elog.Logf("Deleting PVC %s", claim.Name)
+			pv, _ := framework.GetBoundPV(f.ClientSet, claim)
+			err := framework.DeletePersistentVolumeClaim(f.ClientSet, claim.Name, f.Namespace.Name)
 			if err != nil {
-				e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
+				e2elog.Logf("failed to delete pvc, error: %v", err)
+			}
+			if pv != nil {
+				// wait for pv deletion to clear devices for future tests
+				err = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
+				if err != nil {
+					e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
+				}
 			}
 		}
 	}

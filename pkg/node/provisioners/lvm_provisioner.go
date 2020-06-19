@@ -29,7 +29,7 @@ func NewLVMProvisioner(e command.CmdExecutor, k *k8s.KubeClient, log *logrus.Log
 		lvmOps:   lvm.NewLVM(e, log),
 		fsOps:    fs.NewFSImpl(e),
 		crHelper: k8s.NewCRHelper(k, log),
-		log:      log.WithField("component", "DriveProvisioner"),
+		log:      log.WithField("component", "LVMProvisioner"),
 	}
 }
 
