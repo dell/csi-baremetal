@@ -131,7 +131,7 @@ kind create cluster --config  test/kind/kind.yaml
 * KIND can't pull images from remote repository, to load images to local docker repository on nodes:
 ```
 export csiVersion=`make version`
-export registry="10.244.120.194:8085/atlantic"
+export registry="asdrepo.isus.emc.com:9042"
 
 make kind-pull-images TAG=${csiVersion} REGISTRY=${registry}
 make kind-tag-images TAG=${csiVersion} REGISTRY=${registry}
