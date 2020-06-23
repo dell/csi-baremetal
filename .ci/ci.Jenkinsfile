@@ -77,7 +77,7 @@ void runTests() {
                             kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_volumes.yaml
                             kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_drives.yaml
                             kubectl apply -f charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_lvgs.yaml
-                            kubectl apply -f charts/baremetal-csi-plugin/templates/csidriver.yaml
+                            kubectl apply -f /tmp/baremetal-csi-plugin/templates/csidriver.yaml
                         ''')
                         testExitCode = sh(script: "make test-ci", returnStatus: true)
                         archiveArtifacts('log.txt')
