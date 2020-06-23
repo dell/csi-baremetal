@@ -32,7 +32,7 @@ func NewFSOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *FSOperation
 	}
 }
 
-// PrepareAndPerformMount implementation of FSOperations method
+// PrepareAndPerformMount (idempotent) implementation of FSOperations method
 // create (if isn't exist) dst folder on node and perform mount from src to dst
 // if bindMount set to true - mount operation will contain "--bind" option
 // if error occurs and dst has created during current method call then dst will be removed

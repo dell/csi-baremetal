@@ -77,6 +77,12 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 		level = logrus.ErrorLevel
 	}
 
+	// TODO: temporary fix, will be removed in AK8S-1181
+	if level != logrus.ErrorLevel && strings.Contains(cmd.Path, "lsblk") {
+		// do not log lsblk results if it was without error
+		return outStr, errStr, err
+	}
+
 	e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
 		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
 

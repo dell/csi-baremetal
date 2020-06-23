@@ -13,6 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -77,6 +80,8 @@ const (
 	DiscoverDrivesTimeout = 300 * time.Second
 	// VolumeOperationsTimeout is the timeout for local Volume creation/deletion
 	VolumeOperationsTimeout = 900 * time.Second
+	// amount of reconcile requests that could be processed simultaneously
+	maxConcurrentReconciles = 15
 )
 
 // NewVolumeManager is the constructor for VolumeManager struct
@@ -143,7 +148,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	ll.Info("Reconciling Volume")
+	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	var newStatus string
 	switch volume.Spec.CSIStatus {
 	case apiV1.Creating:
@@ -188,9 +193,40 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 // SetupWithManager registers VolumeManager to ControllerManager
 func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
+	m.log.WithField("method", "SetupWithManager").
+		Infof("MaxConcurrentReconciles - %d", maxConcurrentReconciles)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&volumecrd.Volume{}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: maxConcurrentReconciles,
+		}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return m.isCorrespondedToNodePredicate(e.Object)
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return m.isCorrespondedToNodePredicate(e.Object)
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return m.isCorrespondedToNodePredicate(e.ObjectOld)
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return m.isCorrespondedToNodePredicate(e.Object)
+			},
+		}).
 		Complete(m)
+}
+
+// isCorrespondedToNodePredicate checks is a provided obj is aVolume CR object
+// and that volume's node is and current manager node
+func (m *VolumeManager) isCorrespondedToNodePredicate(obj runtime.Object) bool {
+	if vol, ok := obj.(*volumecrd.Volume); ok {
+		if vol.Spec.NodeId == m.nodeID {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Discover inspects actual drives structs from DriveManager and create volume object if partition exist on some of them

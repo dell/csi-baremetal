@@ -218,7 +218,7 @@ func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
 		err        error
 	)
 
-	v.Spec.CSIStatus = apiV1.VolumeReady
+	v.Spec.CSIStatus = apiV1.Created
 	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
 	assert.Nil(t, err)
 

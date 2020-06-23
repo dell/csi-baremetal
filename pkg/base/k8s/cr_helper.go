@@ -124,12 +124,14 @@ func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 	}
 
 	isError := false
+
 	for _, volume := range volumes {
 		if volume.Spec.OperationalStatus != opStatus {
 			volume.Spec.OperationalStatus = opStatus
+			ctxWithID := context.WithValue(context.Background(), RequestUUID, volume.Spec.Id)
 			// todo fix linter issue - https://github.com/kyoh86/scopelint/issues/5
 			// nolint:scopelint
-			if err := cs.k8sClient.UpdateCR(context.Background(), &volume); err != nil {
+			if err := cs.k8sClient.UpdateCR(ctxWithID, &volume); err != nil {
 				ll.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
 				isError = true
 			}
@@ -311,10 +313,11 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error
 		err      error
 	)
 
-	if err = cs.k8sClient.ReadCR(context.Background(), volName, volumeCR); err != nil {
+	ctxWithID := context.WithValue(context.Background(), RequestUUID, volumeCR.Spec.Id)
+	if err = cs.k8sClient.ReadCR(ctxWithID, volName, volumeCR); err != nil {
 		return err
 	}
 
 	volumeCR.Spec = newSpec
-	return cs.k8sClient.UpdateCR(context.Background(), volumeCR)
+	return cs.k8sClient.UpdateCR(ctxWithID, volumeCR)
 }

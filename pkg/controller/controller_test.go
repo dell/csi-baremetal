@@ -247,6 +247,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				NodeId: node,
 			}})
 		Expect(err).To(BeNil())
+		println("DONE")
 	})
 
 	AfterEach(func() {
@@ -261,23 +262,25 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).To(Equal(status.Error(codes.InvalidArgument, "Volume ID must be provided")))
 		})
-		It("Node service mark volume as FailToRemove", func() {
+		It("Node service mark volume as Failed", func() {
 			var (
+				volumeID  = "volume-id-2222"
 				volumeCrd = &vcrd.Volume{}
 				err       error
 			)
 			// create volume crd to delete
-			err = controller.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
+			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
+			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 
 			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, apiV1.Failed)
 
-			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
+			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
 
 			Expect(resp).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("Unable to delete volume"))
+			Expect(status.Code(err)).To(Equal(codes.Internal))
 
-			err = controller.k8sclient.ReadCR(context.Background(), uuid, volumeCrd)
+			err = controller.k8sclient.ReadCR(context.Background(), volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 			Expect(volumeCrd.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
@@ -293,34 +296,36 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 		})
 		It("Volume is deleted successful, sc HDD", func() {
 			var (
+				volumeID  = "volume-id-1111"
 				volumeCrd = &vcrd.Volume{
 					TypeMeta: k8smetav1.TypeMeta{
 						Kind:       "Volume",
 						APIVersion: apiV1.APIV1Version,
 					},
 					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      uuid,
+						Name:      volumeID,
 						Namespace: controller.k8sclient.Namespace,
 					},
 					Spec: api.Volume{
-						Id:       uuid,
-						NodeId:   node,
-						Location: testDriveLocation1,
+						Id:        volumeID,
+						NodeId:    node,
+						Location:  testDriveLocation1,
+						CSIStatus: apiV1.Created,
 					},
 				}
 				err error
 			)
 			// create volume crd to delete
-			err = controller.k8sclient.CreateCR(testCtx, uuid, volumeCrd)
+			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 
 			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, apiV1.Removed)
 
-			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
+			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
 
-			err = controller.k8sclient.ReadCR(context.Background(), uuid, volumeCrd)
+			err = controller.k8sclient.ReadCR(context.Background(), volumeID, volumeCrd)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("not found"))
 		})
@@ -336,6 +341,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					Location:     testDriveLocation4, // testAC4
 					Size:         capacity,
 					StorageClass: apiV1.StorageClassHDDLVG,
+					CSIStatus:    apiV1.Created,
 				}
 				volumeCrd = vcrd.Volume{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -371,6 +377,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			removeAllCrds(controller.k8sclient) // remove CRs that was created in BeforeEach()
 			fullLVGsizeVolume := testVolume
 			fullLVGsizeVolume.Spec.StorageClass = apiV1.StorageClassHDDLVG
+			fullLVGsizeVolume.Spec.CSIStatus = apiV1.Created
 
 			// create volume CR that should be deleted
 			err := controller.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
@@ -421,6 +428,7 @@ var _ = Describe("CSIControllerService ControllerGetCapabilities", func() {
 	})
 })
 
+// create and instance of CSIControllerService with scheme for working with CRD
 // create and instance of CSIControllerService with scheme for working with CRD
 func newSvc() *CSIControllerService {
 	kubeclient, err := k8s.GetFakeKubeClient(testNs, testLogger)

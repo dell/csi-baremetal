@@ -60,6 +60,9 @@ provisioner:
     tag: v1.2.2
 
 attacher:
+  # default false because of issue in k8s 1.17/1.18 in attach/detach
+  # https://github.com/kubernetes/kubernetes/issues/84169 and 86281`
+  deploy: false
   image:
     tag: v1.0.1
 

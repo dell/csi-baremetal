@@ -173,9 +173,10 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 
 	Context("NodeStage() success", func() {
 		It("Should stage volume", func() {
-			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+			// testVolume2 has Create status
+			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", testVolume1).Return(partitionPath, nil)
+			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, req.GetStagingTargetPath(), false).
 				Return(nil)
@@ -197,8 +198,8 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
-			fsOps.On("Mount",
-				partitionPath, req.GetStagingTargetPath(), []string(nil)).
+			fsOps.On("PrepareAndPerformMount",
+				partitionPath, req.GetStagingTargetPath(), false).
 				Return(nil)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -260,9 +261,9 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(status.Code(err)).To(Equal(codes.Internal))
 		})
 		It("Failed because PrepareAndPerformMount had failed", func() {
-			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", testVolume1).Return(partitionPath, nil)
+			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, req.GetStagingTargetPath(), false).
 				Return(errors.New("PrepareAndPerformMount error"))
@@ -280,9 +281,9 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
-			fsOps.On("Mount",
-				partitionPath, req.GetStagingTargetPath(), []string(nil)).
-				Return(errors.New("Mount error"))
+			fsOps.On("PrepareAndPerformMount",
+				partitionPath, req.GetStagingTargetPath(), false).
+				Return(errors.New("mount error"))
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
@@ -460,7 +461,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
-			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
 		})
 	})
 })

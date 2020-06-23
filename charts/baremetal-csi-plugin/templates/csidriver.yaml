@@ -3,7 +3,7 @@ kind: CSIDriver
 metadata:
   name: baremetal-csi
 spec:
-  attachRequired: true
+  attachRequired: {{ .Values.attacher.deploy }}
   # pass pod info to NodePublishRequest
   podInfoOnMount: true
   volumeLifecycleModes:

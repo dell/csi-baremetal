@@ -161,22 +161,37 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 		return err
 	}
 
-	switch volumeCR.Spec.CSIStatus {
-	case apiV1.Failed:
-		return status.Error(codes.Internal, "volume has reached FailToRemove status")
-	case apiV1.Removed, apiV1.Removing:
-		return nil
-	default:
-		volumeCR.Spec.CSIStatus = apiV1.Removing
-		return vo.k8sClient.UpdateCR(ctx, volumeCR)
+	if !volumeCR.Spec.Ephemeral {
+		switch volumeCR.Spec.CSIStatus {
+		case apiV1.Created:
+		case apiV1.Failed:
+			return status.Error(codes.Internal, "volume has reached FailToRemove status")
+		case apiV1.Removed:
+			ll.Debug("Volume has Removed status")
+			return nil
+		case apiV1.Removing:
+			ll.Debug("Volume has Removing status")
+			return nil
+		default:
+			return status.Errorf(codes.FailedPrecondition,
+				"Volume CR status hadn't been set to %s, current status - %s, expected - %s",
+				apiV1.Removing, volumeCR.Spec.CSIStatus, apiV1.Created)
+		}
+	} else if volumeCR.Spec.CSIStatus != apiV1.Published { // expect Published status for ephemeral volume
+		return status.Errorf(codes.FailedPrecondition,
+			"CSIStatus for ephemeral volume hadn't been set to %s, current status - %s, expected - %s",
+			apiV1.Removing, volumeCR.Spec.CSIStatus, apiV1.Published)
 	}
+
+	volumeCR.Spec.CSIStatus = apiV1.Removing
+	return vo.k8sClient.UpdateCR(ctx, volumeCR)
 }
 
 // UpdateCRsAfterVolumeDeletion should considered as a second step in DeleteVolume,
 // remove Volume CR and if volume was in LVG SC - update corresponding AC CR
 // does not return anything because that method does not change real drive on the node
 func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
-	ll := logrus.WithFields(logrus.Fields{
+	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "UpdateCRsAfterVolumeDeletion",
 		"volumeID": ctx.Value(k8s.RequestUUID),
 	})
@@ -188,7 +203,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 
 	if err = vo.k8sClient.ReadCR(ctx, volumeID, &volumeCR); err != nil {
 		if !k8sError.IsNotFound(err) {
-			ll.Errorf("Unable to read volume CR: %v. Volume CR will not be removed", volumeID)
+			ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
 		}
 		return
 	}
@@ -243,7 +258,7 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 	for {
 		select {
 		case <-ctx.Done():
-			ll.Warnf("Context is done but volume still not reach one of the expected state.")
+			ll.Warnf("Context is done but volume still not reach one of the expected status: %v", statuses)
 			return fmt.Errorf("volume context is done")
 		case <-time.After(timeoutBetweenCheck):
 			if err = vo.k8sClient.ReadCR(ctx, volumeID, v); err != nil {

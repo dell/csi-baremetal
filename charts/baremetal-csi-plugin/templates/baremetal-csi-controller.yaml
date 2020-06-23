@@ -29,8 +29,6 @@ spec:
         - "--csi-address=$(ADDRESS)"
         - "--v=5"
         - "--feature-gates=Topology=true"
-        # TODO: remove AK8S-58
-        - "--timeout=60s"
         env:
         - name: ADDRESS
           value: /csi/csi.sock
@@ -38,6 +36,7 @@ spec:
         - name: socket-dir
           mountPath: /csi
       # ********************** EXTERNAL_ATTACHER sidecar container definition **********************
+      {{- if eq .Values.attacher.deploy true }}
       - name: csi-attacher
         image: {{- if .Values.env.test }} csi-attacher:{{ .Values.attacher.image.tag }}
                {{- else }} {{ .Values.global.registry }}/csi-attacher:{{ .Values.attacher.image.tag }}
@@ -52,6 +51,7 @@ spec:
         volumeMounts:
         - name: socket-dir
           mountPath: /csi
+      {{- end }}
       # ********************** baremetal-csi-controller container definition **********************
       - name: controller
         image: {{- if .Values.env.test }} baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
