@@ -64,7 +64,7 @@ base-image-controller:
 
 image-drivemgr:
 ifeq ($(DRIVE_MANAGER_TYPE), basemgr)
-	cp ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER} ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
+	cp ./build/${DRIVE_MANAGER}/base-drivemgr ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG} ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
 else
 	cp ./build/${DRIVE_MANAGER}/* ./pkg/${DRIVE_MANAGER}/
