@@ -22,8 +22,10 @@ Features
 - Handle REST calls for disk node mapping
 
 ### Planned features
-- LVM support for micro partitioning [FABRIC-8367](https://asdjira.isus.emc.com:8443/browse/FABRIC-8367)
-- NVMe devices support
+- Custom scheduler
+- Volume expand support
+- User defined storage classes
+- NVMe/NVMeOf devices support
 
 Installation process
 ---------------------

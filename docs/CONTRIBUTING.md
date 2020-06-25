@@ -124,7 +124,8 @@ make test
 
 ##### Running Baremetal CSI E2E tests locally
 
-* Create kind (version >= v0.7.0) cluster with the specified config
+* Install `lvm2` package on your machine
+* Create kind (version >= v0.7.0) cluster with the specified config. Note that kind workers must be run with host IPC
 ```
 kind create cluster --config  test/kind/kind.yaml
 ```

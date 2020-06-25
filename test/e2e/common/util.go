@@ -1,7 +1,10 @@
 package common
 
 import (
+	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 	"time"
 
@@ -16,6 +19,12 @@ import (
 
 var (
 	utilExecutor command.CmdExecutor
+
+	lvgGVR = schema.GroupVersionResource{
+		Group:    apiV1.CSICRsGroupVersion,
+		Version:  apiV1.Version,
+		Resource: "lvgs",
+	}
 )
 
 // init initializes utilExecutor
@@ -23,7 +32,6 @@ func init() {
 	logger := logrus.New()
 	utilExecutor = &command.Executor{}
 	utilExecutor.SetLogger(logger)
-
 }
 
 // CleanupAfterCustomTest cleanups all resources related to CSI plugin and plugin as well
@@ -42,22 +50,33 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		}
 	}
 
-	if pvc != nil {
-		for _, claim := range pvc {
-			e2elog.Logf("Deleting PVC %s", claim.Name)
-			pv, _ := framework.GetBoundPV(f.ClientSet, claim)
-			err := framework.DeletePersistentVolumeClaim(f.ClientSet, claim.Name, f.Namespace.Name)
-			if err != nil {
-				e2elog.Logf("failed to delete pvc, error: %v", err)
-			}
-			if pv != nil {
-				// wait for pv deletion to clear devices for future tests
-				err = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
-				if err != nil {
-					e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
-				}
-			}
+	// to speed up we need to delete PVC in parallel
+	pvs := []*corev1.PersistentVolume{}
+	for _, claim := range pvc {
+		e2elog.Logf("Deleting PVC %s", claim.Name)
+		pv, _ := framework.GetBoundPV(f.ClientSet, claim)
+		err := framework.DeletePersistentVolumeClaim(f.ClientSet, claim.Name, f.Namespace.Name)
+		if err != nil {
+			e2elog.Logf("failed to delete pvc, error: %v", err)
 		}
+		// add pv to the list
+		if pv != nil {
+			pvs = append(pvs, pv)
+		}
+	}
+
+	// wait for pv deletion to clear devices for future tests
+	for _, pv := range pvs {
+		err = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
+		if err != nil {
+			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
+		}
+	}
+
+	// need to clean-up logical volume group CRs until https://jira.cec.lab.emc.com:8443/browse/AK8S-1178 is resolved
+	if err := f.DynamicClient.Resource(lvgGVR).Namespace(f.Namespace.Name).DeleteCollection(
+		metav1.NewDeleteOptions(0), metav1.ListOptions{}); err != nil {
+		e2elog.Logf("failed to delete lvg CRs, error: %v", err)
 	}
 
 	// Removes all driver's manifests installed during init(). (Driver, its RBACs, SC)

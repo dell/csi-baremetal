@@ -20,7 +20,7 @@ import (
 
 // DefineDifferentSCTestSuite defines different SCs tests
 func DefineDifferentSCTestSuite(driver testsuites.TestDriver) {
-	ginkgo.Context("Baremetal-csi drive different SC tests", func() {
+	ginkgo.Context("Baremetal-csi driver different SCs tests", func() {
 		// It consists of 3 suites with following.
 		// 1) Create StorageClass with defined type
 		// 2) Change ConfigMap data by overriding the value of driveType for all loopback devices for SSD SC test suite
@@ -38,7 +38,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		k8sSC         *storagev1.StorageClass
 		driverCleanup func()
 		ns            string
-		f             = framework.NewDefaultFramework("different-sc")
+		f             = framework.NewDefaultFramework("different-scs")
 	)
 
 	init := func(scType string) {
@@ -91,6 +91,15 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 
 	ginkgo.It("should create Pod with PVC with HDD type", func() {
 		scType := "HDD"
+		init(scType)
+		defer cleanup()
+		pvcs = createPVCs(f, 3, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)
+		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+	})
+
+	// test for logical volume group storage class
+	ginkgo.It("should create Pod with PVC with HDDLVG type", func() {
+		scType := "HDDLVG"
 		init(scType)
 		defer cleanup()
 		pvcs = createPVCs(f, 3, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)

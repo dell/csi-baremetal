@@ -58,6 +58,15 @@ void runTests() {
                                 "--set image.pullPolicy=IfNotPresent " +
                                 "--set drivemgr.deployConfig=true")
                     }
+                    // for LVM tests we need to use custom kind version with --ipc-host for worker nodes
+                    // todo - upstream custom changes - https://jira.cec.lab.emc.com:8443/browse/AK8S-1186
+                    stage('Install custom kind version') {
+                        sh ("""
+                          wget -O kind http://big-bang.lss.emc.com/export/home/borism1/bin/kind/host-ipc/kind_v0.8.1
+                          chmod +x kind
+                          mv kind /usr/bin
+                        """)
+                    }
                     stage('Start Kind') {
                         sh("""
                           kind create cluster --config test/kind/kind.yaml

@@ -131,7 +131,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	for {
 		time.Sleep(discoveringWaitTime)
 		if err = c.Discover(); err != nil {
-			logger.Infof("Discover finished with error: %v", err)
+			logger.Errorf("Discover finished with error: %v", err)
 		} else {
 			logger.Info("Discover finished successful")
 			//Increase wait time, because we don't need to call API often after node initialization
