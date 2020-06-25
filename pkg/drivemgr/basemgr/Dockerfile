@@ -1,8 +1,8 @@
 FROM    basemgr:base
 
-LABEL   description="Bare-metal CSI Drive Manager Service"
+LABEL   description="Bare-metal CSI Drive Manager Service based on system utils"
 
-ADD     drivemgr basemgr-drivemgr
+ADD     basemgr basemgr-drivemgr
 
 EXPOSE  8888
 
