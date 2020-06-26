@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/keymutex"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -37,6 +38,9 @@ type CSINodeService struct {
 	VolumeManager
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
+
+	// used for locking requests on each volume
+	volMu keymutex.KeyMutex
 }
 
 const (
@@ -59,6 +63,7 @@ func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *log
 		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
 		svc:            common.NewVolumeOperationsImpl(k8sclient, logger),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
+		volMu:          keymutex.NewHashed(0),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -85,6 +90,20 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		"method":   "NodeStageVolume",
 		"volumeID": req.GetVolumeId(),
 	})
+
+	ll.Infof("locking volume on request: %v", req)
+	s.volMu.LockKey(req.GetVolumeId())
+	defer func() {
+		err := s.volMu.UnlockKey(req.GetVolumeId())
+		if err != nil {
+			ll.Warnf("Unlocking  volume with error %s", err)
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
+	default:
+	}
 
 	ll.Infof("Processing request: %v", req)
 
@@ -157,6 +176,20 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		"volumeID": req.GetVolumeId(),
 	})
 
+	ll.Infof("locking volume on request: %v", req)
+	s.volMu.LockKey(req.GetVolumeId())
+	defer func() {
+		err := s.volMu.UnlockKey(req.GetVolumeId())
+		if err != nil {
+			ll.Warnf("Unlocking  volume with error %s", err)
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
+	default:
+	}
+
 	ll.Infof("Processing request: %v", req)
 
 	// Check arguments
@@ -216,6 +249,20 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		"method":   "NodePublishVolume",
 		"volumeID": req.GetVolumeId(),
 	})
+
+	ll.Infof("locking volume on request: %v", req)
+	s.volMu.LockKey(req.GetVolumeId())
+	defer func() {
+		err := s.volMu.UnlockKey(req.GetVolumeId())
+		if err != nil {
+			ll.Warnf("Unlocking  volume with error %s", err)
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
+	default:
+	}
 
 	ll.Infof("Processing request: %v", req)
 
@@ -393,6 +440,20 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		"method":   "NodeUnpublishVolume",
 		"volumeID": req.GetVolumeId(),
 	})
+
+	ll.Infof("locking volume on request: %v", req)
+	s.volMu.LockKey(req.GetVolumeId())
+	defer func() {
+		err := s.volMu.UnlockKey(req.GetVolumeId())
+		if err != nil {
+			ll.Warnf("Unlocking  volume with error %s", err)
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
+	default:
+	}
 
 	ll.Infof("Processing request: %v", req)
 
