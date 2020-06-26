@@ -29,7 +29,9 @@ NODE            := node
 DRIVE_MANAGER   := drivemgr
 CONTROLLER      := controller
 
-DRIVE_MANAGER_TYPE := basemgr
+BASE_DRIVE_MGR     := basemgr
+LOOPBACK_DRIVE_MGR := loopbackmgr
+DRIVE_MANAGER_TYPE := ${BASE_DRIVE_MGR}
 
 # external components
 CSI_PROVISIONER := csi-provisioner
