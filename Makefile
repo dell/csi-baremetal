@@ -52,7 +52,8 @@ base-image-controller:
 
 image-drivemgr:
 	cp ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE} ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./pkg/${DRIVE_MANAGER_TYPE}
+	docker build --network host --force-rm \
+	--tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
 
 image-node:
 	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
