@@ -11,6 +11,7 @@ vendor
 build/
 # binaries
 pkg/controller/controller
+pkg/controller/health_probe
 pkg/drivemgr/*drivemgr
 pkg/node/node
 pkg/node/health_probe

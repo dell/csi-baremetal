@@ -29,6 +29,9 @@ image:
 controller:
   image:
     tag:
+  health:
+    server:
+      port: 9999
 
 node:
   image:

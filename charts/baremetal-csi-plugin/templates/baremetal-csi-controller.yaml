@@ -61,11 +61,17 @@ spec:
         args:
         - "--endpoint=$(CSI_ENDPOINT)"
         - "--namespace=$(NAMESPACE)"
+        - "--healthip=$(POD_IP)"
+        - --healthport={{ .Values.controller.health.server.port }}
         - --verbose={{ .Values.log.verbose }}
         {{- if .Values.logReceiver.create  }}
         - "--logpath=/var/log/csi.log"
         {{- end }}
         env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: CSI_ENDPOINT
           value: unix:///csi/csi.sock
         - name: LOG_FORMAT
@@ -97,6 +103,18 @@ spec:
             initialDelaySeconds: 120
             timeoutSeconds: 3
             periodSeconds: 10
+        readinessProbe:
+          exec:
+            # have to use bash for extrapolating env var
+            command:
+              - "bash"
+              - "-c"
+              - |
+                /health_probe -addr=$POD_IP:{{ .Values.controller.health.server.port }}
+          initialDelaySeconds: 3
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 15
       # Liveness probe sidecar
       - name: liveness-probe
         imagePullPolicy: {{ .Values.image.pullPolicy }}
