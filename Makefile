@@ -13,6 +13,8 @@ version:
 dependency:
 	${GO_ENV_VARS} go mod download
 
+all: build base-images images push
+
 ### Build binaries
 
 build: compile-proto build-drivemgr build-node build-controller
@@ -67,13 +69,8 @@ image-controller:
 
 push: push-drivemgr push-node push-controller
 
-push-local:
-	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
-	docker push ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
-	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
-
 push-drivemgr:
-	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
+	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
 
 push-node:
 	docker push ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
@@ -100,7 +97,7 @@ clean-proto:
 clean-images: clean-image-drivemgr clean-image-node clean-image-controller
 
 clean-image-drivemgr:
-	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
 
 clean-image-node:
 	docker rmi ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
