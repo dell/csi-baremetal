@@ -80,6 +80,8 @@ push-controller:
 
 ### Clean artefacts
 
+clean-all: clean clean-images
+
 clean: clean-drivemgr clean-node clean-controller clean-proto
 
 clean-drivemgr:
@@ -94,7 +96,7 @@ clean-controller:
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
-clean-images: clean-image-drivemgr clean-image-node clean-image-controller
+clean-images: clean-image-node clean-image-controller clean-image-drivemgr
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
