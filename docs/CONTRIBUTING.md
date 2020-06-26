@@ -142,7 +142,7 @@ make kind-load-images TAG=${csiVersion} REGISTRY=${registry}
 ```
 helm template charts/baremetal-csi-plugin \
     --output-dir /tmp --set image.tag=${csiVersion} \
-    --set env.test=true --set drivemgr.type=LOOPBACK \
+    --set env.test=true --set drivemgr.image.repository=baremetal-csi-plugin-loopbackmgr \
     --set image.pullPolicy=IfNotPresent \
     --set drivemgr.deployConfig=true
 ``` 
