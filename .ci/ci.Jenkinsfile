@@ -54,6 +54,7 @@ void runTests() {
                     stage('Prepare YAML for e2e tests') {
                         sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
                                 "--set env.test=true " +
+                                "--set drivemgr.image.repository=baremetal-csi-plugin-loopback" +
                                 "--set drivemgr.type=LOOPBACK " +
                                 "--set image.pullPolicy=IfNotPresent " +
                                 "--set drivemgr.deployConfig=true")
@@ -107,7 +108,9 @@ void runTests() {
                     common.withInfraDevkitContainerKind() {
                         List<String> repos = ["baremetal-csi-plugin-node",
                                               "baremetal-csi-plugin-controller",
-                                              "baremetal-csi-plugin-drivemgr"]
+                                              "baremetal-csi-plugin-basemgr",
+                                              "baremetal-csi-plugin-halmgr",
+                                              "baremetal-csi-plugin-loopbackmgr",]
                         // retag in asdrepo
                         repos.each { String repo ->
                             String image = "${registry}/${repo}"
