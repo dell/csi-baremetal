@@ -42,13 +42,12 @@ node:
 
 drivemgr:
   image:
-    repository: baremetal-csi-plugin-drivemgr
+    repository: baremetal-csi-plugin-basemgr
     # tag:
   grpc:
     server:
       endpoint: tcp://localhost:8888
-  # TODO: switch to another, AK8S-1125
-  type: HAL
+  # type:
   deployConfig: false
   amountOfLoopDevices: 3
   sizeOfLoopDevices: 100Mi
