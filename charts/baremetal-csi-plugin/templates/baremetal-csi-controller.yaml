@@ -62,8 +62,8 @@ spec:
         - "--endpoint=$(CSI_ENDPOINT)"
         - "--namespace=$(NAMESPACE)"
         - "--healthip=$(POD_IP)"
+        - --loglevel={{ .Values.log.level }}
         - --healthport={{ .Values.controller.health.server.port }}
-        - --verbose={{ .Values.log.verbose }}
         {{- if .Values.logReceiver.create  }}
         - "--logpath=/var/log/csi.log"
         {{- end }}

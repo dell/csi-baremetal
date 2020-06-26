@@ -2,12 +2,13 @@
 package dmsetup
 
 import (
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 // SetupAndRunDriveMgr setups and start/stop particular drive manager

@@ -4,20 +4,26 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
 )
 
 // LoggerSetter is the struct to fully implement CmdExecutor interface without duplicate code of SetLogger
 type LoggerSetter struct {
-	log *logrus.Entry
+	log      *logrus.Entry
+	msgLevel logrus.Level
 }
 
 // SetLogger sets logger to a MockExecutor
 // Receives logrus logger
 func (l LoggerSetter) SetLogger(logger *logrus.Logger) {
 	l.log = logger.WithField("component", "MockExecutor")
+}
+
+// SetLevel sets log Level to a MockExecutor
+// Receives logrus Level
+func (l LoggerSetter) SetLevel(level logrus.Level) {
+	l.msgLevel = level
 }
 
 // EmptyExecutorSuccess implements CmdExecutor interface for test purposes, each command will finish success

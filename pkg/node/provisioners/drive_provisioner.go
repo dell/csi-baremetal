@@ -46,7 +46,7 @@ func NewDriveProvisioner(
 	k *k8s.KubeClient,
 	log *logrus.Logger) *DriveProvisioner {
 	return &DriveProvisioner{
-		listBlk:   lsblk.NewLSBLK(e),
+		listBlk:   lsblk.NewLSBLK(log),
 		fsOps:     fs.NewFSImpl(e),
 		partOps:   uw.NewPartitionOperationsImpl(e, log),
 		k8sClient: k,

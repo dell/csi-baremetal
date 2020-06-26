@@ -44,13 +44,14 @@ var (
 	nodeID           = flag.String("nodeid", "", "node identification by k8s")
 	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
 	eventConfigPath  = flag.String("eventConfigPath", "/etc/config/alerts.yaml", "path for the events config file")
-	verboseLogs      = flag.Bool("verbose", false, "Debug mode in logs")
+	logLevel         = flag.String("loglevel", base.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 )
 
 func main() {
 	flag.Parse()
 
-	logger, err := base.InitLogger(*logPath, *verboseLogs)
+	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}

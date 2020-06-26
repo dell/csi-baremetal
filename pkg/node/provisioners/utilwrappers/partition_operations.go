@@ -54,7 +54,7 @@ type PartitionOperationsImpl struct {
 // NewPartitionOperationsImpl constructor for PartitionOperationsImpl and returns pointer on it
 func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *PartitionOperationsImpl {
 	return &PartitionOperationsImpl{
-		WrapPartition: ph.NewWrapPartitionImpl(e),
+		WrapPartition: ph.NewWrapPartitionImpl(e, log),
 		log:           log.WithField("component", "PartitionOperations"),
 	}
 }
