@@ -3,7 +3,7 @@ package main
 
 import (
 	"flag"
-	"time"
+	"fmt"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
@@ -21,11 +21,11 @@ import (
 var (
 	namespace   = flag.String("namespace", "", "Namespace in which controller service run")
 	endpoint    = flag.String("endpoint", "", "Endpoint for controller service")
+	healthIP    = flag.String("healthip", base.DefaultHealthIP, "IP for health service")
+	healthPort  = flag.Int("healthport", base.DefaultHealthPort, "Port for health service")
 	logPath     = flag.String("logpath", "", "Log path for Controller service")
 	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
 )
-
-const timeoutBeforeInit = 30
 
 func main() {
 	flag.Parse()
@@ -47,21 +47,15 @@ func main() {
 	controllerService := controller.NewControllerService(kubeClient, logger)
 	go util.SetupSignalHandler(csiControllerServer)
 
-	ticker := time.NewTicker(timeoutBeforeInit * time.Second)
-	for i := 1; ; i++ {
-		<-ticker.C
-		// check whether there is any ready pod with node service or no
-		// controller will start  when at least one ready node service will be detected
-		if !controllerService.WaitNodeServices() {
-			logger.Warnf("There are no ready node services, attempt %d. Wait %d seconds and retry.", i, timeoutBeforeInit)
-		} else {
-			logger.Info("Ready node service detected")
-			break
-		}
-	}
-	ticker.Stop()
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controllerService)
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
+	go func() {
+		logger.Info("Starting Controller Health server ...")
+		controllerHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *healthIP, *healthPort)
+		if err := util.SetupAndStartHealthCheckServer(controllerService, logger, controllerHealthEndpoint); err != nil {
+			logger.Fatalf("Controller service failed with error: %v", err)
+		}
+	}()
 	logger.Info("Starting CSIControllerService")
 	if err := csiControllerServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("fail to serve, error: %v", err)

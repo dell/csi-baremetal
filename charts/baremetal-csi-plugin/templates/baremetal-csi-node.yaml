@@ -55,7 +55,7 @@ spec:
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
-          - "--volumemgrip=$(MY_POD_IP)"
+          - "--healthip=$(MY_POD_IP)"
           - "--namespace=$(NAMESPACE)"
           - --verbose={{ .Values.log.verbose }}
           {{- if .Values.logReceiver.create  }}

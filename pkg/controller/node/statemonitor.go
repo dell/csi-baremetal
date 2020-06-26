@@ -112,47 +112,52 @@ func (n *ServicesStateMonitor) GetReadyPods() []string {
 	return ready
 }
 
-// todo how will this method scale up with hundreds of nodes?
-// todo instead of polling we need to watch for events once liveness probes are ready
-func (n *ServicesStateMonitor) pollPodsStatus() {
-	log := n.log.WithFields(logrus.Fields{"method": "pollPodsStatus"})
-	// infinite loop
-	for {
-		podToNodeMap, err := n.getPodToNodeList()
-		// obtain write lock
-		n.lock.Lock()
-		currentTime := time.Now()
-		if err == nil {
-			for nodeID, podAndNode := range podToNodeMap {
-				// check pod status
-				isReady := isPodReady(podAndNode)
-				var (
-					state   *serviceState
-					isExist bool
-				)
-				// todo when node is removed from cluster?
-				if state, isExist = n.nodeHealthMap[nodeID]; !isExist {
-					state = &serviceState{Unknown, currentTime}
-					// add pod to the map - no need to print warning message here since this is cache initialization
-					n.nodeHealthMap[nodeID] = state
-				}
-				// calculate new status
-				timePassed := currentTime.Sub(state.time).Seconds()
-				newStatus := calculatePodStatus(nodeID, isReady, state.status, timePassed, n.log)
-				// update when status changed
-				if newStatus != state.status {
-					state.status = newStatus
-					state.time = currentTime
-				}
+// UpdateNodeHealthCache check if node service pods are ready and update nodeHealthMap
+func (n *ServicesStateMonitor) UpdateNodeHealthCache() {
+	log := n.log.WithFields(logrus.Fields{"method": "UpdateNodeHealthCache"})
+	podToNodeMap, err := n.getPodToNodeList()
+	// obtain write lock
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	currentTime := time.Now()
+	if err == nil {
+		for nodeID, podAndNode := range podToNodeMap {
+			// check pod status
+			isReady := isPodReady(podAndNode)
+			var (
+				state   *serviceState
+				isExist bool
+			)
+			// todo when node is removed from cluster?
+			if state, isExist = n.nodeHealthMap[nodeID]; !isExist {
+				state = &serviceState{Unknown, currentTime}
+				// add pod to the map - no need to print warning message here since this is cache initialization
+				n.nodeHealthMap[nodeID] = state
 			}
-		} else {
-			log.Errorf("Unable to obtain list of the pods. Change health to Unknown for all pods")
-			for _, state := range n.nodeHealthMap {
-				state.status = Unknown
+			// calculate new status
+			timePassed := currentTime.Sub(state.time).Seconds()
+			newStatus := calculatePodStatus(nodeID, isReady, state.status, timePassed, n.log)
+			// update when status changed
+			if newStatus != state.status {
+				state.status = newStatus
 				state.time = currentTime
 			}
 		}
-		n.lock.Unlock()
+	} else {
+		log.Errorf("Unable to obtain list of the pods. Change health to Unknown for all pods")
+		for _, state := range n.nodeHealthMap {
+			state.status = Unknown
+			state.time = currentTime
+		}
+	}
+}
+
+// todo how will this method scale up with hundreds of nodes?
+// todo instead of polling we need to watch for events once liveness probes are ready
+func (n *ServicesStateMonitor) pollPodsStatus() {
+	// infinite loop
+	for {
+		n.UpdateNodeHealthCache()
 		// sleep before next poll
 		time.Sleep(SleepBeforeNextPoll * time.Second)
 	}

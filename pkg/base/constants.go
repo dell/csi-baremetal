@@ -10,10 +10,11 @@ const (
 	PluginVersion = "0.0.6"
 	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
 	DefaultDriveMgrEndpoint = "tcp://localhost:8888"
-	// DefaultVMMgrIP is the default gRPC IP for VolumeManager
-	DefaultVMMgrIP = "127.0.0.1"
-	// DefaultVolumeManagerPort is the default gRPC port for VolumeManager
-	DefaultVolumeManagerPort = 9999
+	// DefaultHealthIP is the default gRPC IP for Health server
+	DefaultHealthIP = "127.0.0.1"
+	// DefaultHealthPort is the default gRPC port for Health Server
+	DefaultHealthPort = 9999
+
 	// KubeletRootPath is the pods' path on the node
 	KubeletRootPath = "/var/lib/kubelet/pods"
 	// NonRotationalNum points on SSD drive

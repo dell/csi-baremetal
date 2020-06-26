@@ -49,7 +49,8 @@ base-image-node: download-grpc-health-probe
 	cp ./build/${HEALTH_PROBE} ./pkg/${NODE}/${HEALTH_PROBE}
 	docker build --network host --force-rm --file ./pkg/${NODE}/Dockerfile.build --tag ${NODE}:base ./pkg/${NODE}
 
-base-image-controller:
+base-image-controller: download-grpc-health-probe
+	cp ./build/${HEALTH_PROBE} ./pkg/${CONTROLLER}/${HEALTH_PROBE}
 	docker build --network host --force-rm --file ./pkg/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./pkg/${CONTROLLER}
 
 image-drivemgr:

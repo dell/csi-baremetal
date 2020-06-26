@@ -12,7 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
@@ -425,6 +427,80 @@ var _ = Describe("CSIControllerService ControllerGetCapabilities", func() {
 			currentCapabilitiesTypes[i] = caps.Capabilities[i].GetRpc().GetType()
 		}
 		Expect(expectedCapabilitiesTypes).To(ConsistOf(currentCapabilitiesTypes))
+	})
+})
+
+var _ = Describe("CSIControllerService health check", func() {
+	It("Should failed health check", func() {
+		svc := newSvc()
+		check, err := svc.Check(testCtx, &grpc_health_v1.HealthCheckRequest{})
+		Expect(err).To(BeNil())
+		Expect(check.Status).To(Equal(grpc_health_v1.HealthCheckResponse_NOT_SERVING))
+	})
+	It("Should success health check", func() {
+		svc := newSvc()
+		//To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
+		err := svc.k8sclient.Create(testCtx,
+			&v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{{Type: v1.NodeReady, Status: v1.ConditionTrue}},
+					Addresses: []v1.NodeAddress{
+						{Type: v1.NodeHostName, Address: testNode1Name},
+					},
+				},
+			},
+		)
+		Expect(err).To(BeNil())
+		err = svc.k8sclient.Create(testCtx, &v1.Pod{
+			TypeMeta: k8smetav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Pod",
+			},
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      "baremetal-csi-node",
+				Namespace: "default",
+			},
+			Spec: v1.PodSpec{NodeName: testNode1Name},
+			Status: v1.PodStatus{
+				ContainerStatuses: []v1.ContainerStatus{{Ready: true}},
+			}})
+
+		Expect(err).To(BeNil())
+		check, err := svc.Check(testCtx, &grpc_health_v1.HealthCheckRequest{})
+		Expect(err).To(BeNil())
+		Expect(check.Status).To(Equal(grpc_health_v1.HealthCheckResponse_SERVING))
+	})
+	It("Should failed health check, pod is unready", func() {
+		svc := newSvc()
+		//To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
+		err := svc.k8sclient.Create(testCtx,
+			&v1.Node{
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{
+						{Type: v1.NodeHostName, Address: testNode1Name},
+					},
+				},
+			},
+		)
+		Expect(err).To(BeNil())
+		err = svc.k8sclient.Create(testCtx, &v1.Pod{
+			TypeMeta: k8smetav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Pod",
+			},
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      "baremetal-csi-node-0",
+				Namespace: "default",
+			},
+			Spec: v1.PodSpec{NodeName: testNode1Name},
+			Status: v1.PodStatus{
+				ContainerStatuses: []v1.ContainerStatus{{Ready: false}},
+			}})
+		Expect(err).To(BeNil())
+
+		check, err := svc.Check(testCtx, &grpc_health_v1.HealthCheckRequest{})
+		Expect(err).To(BeNil())
+		Expect(check.Status).To(Equal(grpc_health_v1.HealthCheckResponse_NOT_SERVING))
 	})
 })
 
