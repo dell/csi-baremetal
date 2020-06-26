@@ -3,6 +3,9 @@ package node
 import (
 	"errors"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,8 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
-	"testing"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -643,6 +645,27 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
+	})
+})
+
+var _ = Describe("CSINodeService Probe()", func() {
+	It("Should success", func() {
+		node := newNodeService()
+		node.initialized = true
+
+		resp, err := node.Probe(testCtx, &csi.ProbeRequest{})
+		Expect(err).To(BeNil())
+		Expect(resp).ToNot(BeNil())
+		Expect(resp.Ready.Value).To(Equal(true))
+	})
+	It("Should failed", func() {
+		node := newNodeService()
+		//client without scheme, so it should failed probe because k8s doesn't aware of CRD
+		node.k8sClient = k8s.NewKubeClient(fake.NewFakeClient(), testLogger, testNs)
+		resp, err := node.Probe(testCtx, &csi.ProbeRequest{})
+		Expect(err).To(BeNil())
+		Expect(resp).ToNot(BeNil())
+		Expect(resp.Ready.Value).To(Equal(false))
 	})
 })
 
