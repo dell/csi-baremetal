@@ -47,7 +47,6 @@ drivemgr:
   grpc:
     server:
       endpoint: tcp://localhost:8888
-  # type:
   deployConfig: false
   amountOfLoopDevices: 3
   sizeOfLoopDevices: 100Mi
