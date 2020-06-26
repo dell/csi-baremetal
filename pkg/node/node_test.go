@@ -2,8 +2,7 @@ package node
 
 import (
 	"errors"
-	"testing"
-
+	"fmt"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -12,6 +11,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	"testing"
+	"time"
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
@@ -462,6 +463,40 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
 			Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
+		})
+	})
+
+	Context("NodeUnStage() concurrent requests", func() {
+		It("Should unstage volume one time", func() {
+			req := getNodeUnstageRequest(testV1ID, stagePath)
+			secondUnstageErr := make(chan error)
+			// Unmount should only once respond with no error
+			fsOps.On("Unmount", req.GetStagingTargetPath()).Return(nil).Run(func(_ mock.Arguments) {
+				go func() {
+					_, err := node.NodeUnstageVolume(testCtx, req)
+					secondUnstageErr <- err
+				}()
+				// make call blocking call
+				time.Sleep(10 * time.Millisecond)
+			}).Once()
+			// on later calls it will respond error
+			fsOps.On("Unmount", req.GetStagingTargetPath()).
+				Return(fmt.Errorf("%s not mounted", req.GetStagingTargetPath()))
+
+			resp, err := node.NodeUnstageVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
+			// check concurrent call error
+			err = <-secondUnstageErr
+			Expect(err).To(BeNil())
+
+			// check owners and CSI status
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.Owners).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 	})
 })
