@@ -28,6 +28,9 @@ BUSYBOX_TAG         := 1.29
 NODE            := node
 DRIVE_MANAGER   := drivemgr
 CONTROLLER      := controller
+
+DRIVE_MANAGER_TYPE := basemgr
+
 # external components
 CSI_PROVISIONER := csi-provisioner
 CSI_REGISTRAR   := csi-node-driver-registrar

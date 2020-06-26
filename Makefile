@@ -18,10 +18,7 @@ dependency:
 build: compile-proto build-drivemgr build-node build-controller
 
 build-drivemgr:
-ifeq ($(DRIVE_MANAGER_TYPE),)
-	$(eval DRIVE_MANAGER_TYPE=basemgr)
-endif
-	go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
+	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
 
 build-node:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${NODE}/${NODE} ./cmd/${NODE}/main.go
@@ -36,10 +33,7 @@ images: image-drivemgr image-node image-controller
 base-images: base-image-drivemgr base-image-node base-image-controller
 
 base-image-drivemgr:
-ifeq ($(DRIVE_MANAGER_TYPE),)
-	$(eval DRIVE_MANAGER_TYPE=basemgr)
-endif
-	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE})/Dockerfile.build \
+	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/Dockerfile.build \
 	 --tag ${DRIVE_MANAGER_TYPE}:base ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
 
 download-grpc-health-probe:
@@ -57,9 +51,6 @@ base-image-controller:
 	docker build --network host --force-rm --file ./pkg/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./pkg/${CONTROLLER}
 
 image-drivemgr:
-ifeq ($(DRIVE_MANAGER_TYPE),)
-	$(eval DRIVE_MANAGER_TYPE=basemgr)
-endif
 	cp ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE} ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./pkg/${DRIVE_MANAGER_TYPE}
 
