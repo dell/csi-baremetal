@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
@@ -65,10 +67,10 @@ type WrapPartitionImpl struct {
 }
 
 // NewWrapPartitionImpl is a constructor for WrapPartitionImpl instance
-func NewWrapPartitionImpl(e command.CmdExecutor) *WrapPartitionImpl {
+func NewWrapPartitionImpl(e command.CmdExecutor, log *logrus.Logger) *WrapPartitionImpl {
 	return &WrapPartitionImpl{
 		e:         e,
-		lsblkUtil: lsblk.NewLSBLK(e),
+		lsblkUtil: lsblk.NewLSBLK(log),
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
@@ -13,7 +14,8 @@ import (
 )
 
 var (
-	testPartitioner = NewWrapPartitionImpl(mocks.NewMockExecutor(mocks.DiskCommands))
+	testLogger      = logrus.New()
+	testPartitioner = NewWrapPartitionImpl(mocks.NewMockExecutor(mocks.DiskCommands), testLogger)
 	testPartNum     = "1"
 	testCSILabel    = "CSI"
 	testPartUUID    = "64be631b-62a5-11e9-a756-00505680d67f"
@@ -135,7 +137,7 @@ func TestGetPartitionTableTypeFail(t *testing.T) {
 }
 
 func TestGetPartitionNameByUUIDSuccess(t *testing.T) {
-	p := NewWrapPartitionImpl(&command.Executor{})
+	p := NewWrapPartitionImpl(&command.Executor{}, testLogger)
 	mockLsblk := &mocklu.MockWrapLsblk{}
 	p.lsblkUtil = mockLsblk
 
@@ -158,7 +160,7 @@ func TestGetPartitionNameByUUIDSuccess(t *testing.T) {
 }
 
 func TestGetPartitionNameByUUIDFail(t *testing.T) {
-	p := NewWrapPartitionImpl(&command.Executor{})
+	p := NewWrapPartitionImpl(&command.Executor{}, testLogger)
 	mockLsblk := &mocklu.MockWrapLsblk{}
 	p.lsblkUtil = mockLsblk
 

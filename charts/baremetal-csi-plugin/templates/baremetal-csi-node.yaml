@@ -55,9 +55,9 @@ spec:
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
-          - "--volumemgrip=$(MY_POD_IP)"
+          - "--healthip=$(MY_POD_IP)"
           - "--namespace=$(NAMESPACE)"
-          - --verbose={{ .Values.log.verbose }}
+          - --loglevel={{ .Values.log.level }}
           {{- if .Values.logReceiver.create  }}
           - "--logpath=/var/log/csi.log"
           {{- end }}
@@ -136,7 +136,7 @@ spec:
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
       {{- if .Values.drivemgr.grpc.server.endpoint }}
         args:
-          - --verbose={{ .Values.log.verbose }}
+          - --loglevel={{ .Values.log.level }}
           - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
         {{- if .Values.logReceiver.create  }}
           - --logpath=/var/log/drivemgr.log

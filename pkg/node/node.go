@@ -19,6 +19,10 @@ import (
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
@@ -73,10 +77,10 @@ func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *log
 // This method checks if CSI driver is ready to serve requests
 // overrides same method from identityServer struct in controller package
 func (s *CSINodeService) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	// TODO: AK8S-1143 implement smart checking of Node liveness condition
+	alive := s.checkK8SClient()
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{
-			Value: s.initialized,
+			Value: alive,
 		},
 	}, nil
 }
@@ -429,6 +433,26 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	}
 
 	return vol, nil
+}
+
+//checkK8SClient check if node can access CRs in Kubernetes
+func (s *CSINodeService) checkK8SClient() bool {
+	if err := s.k8sClient.ReadList(context.Background(), &drivecrd.DriveList{}); err != nil {
+		return false
+	}
+
+	if err := s.k8sClient.ReadList(context.Background(), &volumecrd.VolumeList{}); err != nil {
+		return false
+	}
+
+	if err := s.k8sClient.ReadList(context.Background(), &accrd.AvailableCapacityList{}); err != nil {
+		return false
+	}
+
+	if err := s.k8sClient.ReadList(context.Background(), &lvgcrd.LVGList{}); err != nil {
+		return false
+	}
+	return true
 }
 
 // NodeUnpublishVolume is the implementation of CSI Spec NodePublishVolume. Performs each time pod stops consume a volume.

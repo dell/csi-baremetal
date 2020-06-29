@@ -8,7 +8,7 @@ env:
 #format of logs
 log:
   format: text
-  verbose: true
+  level: info
 
 # Storage Class name that provisions PVs dynamically
 storageClass:
@@ -29,6 +29,9 @@ image:
 controller:
   image:
     tag:
+  health:
+    server:
+      port: 9999
 
 node:
   image:

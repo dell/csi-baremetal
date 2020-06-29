@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 
@@ -45,7 +46,11 @@ type CSIControllerService struct {
 
 	// to track node health status
 	nodeServicesStateMonitor *node.ServicesStateMonitor
+
+	ready bool
+
 	csi.IdentityServer
+	grpc_health_v1.HealthServer
 }
 
 // NewControllerService is the constructor for CSIControllerService struct
@@ -88,6 +93,30 @@ func (c *CSIControllerService) WaitNodeServices() bool {
 	}
 
 	return false
+}
+
+// Check does the health check and changes the status of the server based on drives cache size
+func (c *CSIControllerService) Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	ll := c.log.WithFields(logrus.Fields{
+		"method": "Check",
+	})
+	//If controller service is ready we don't need to update cache often
+	if !c.ready {
+		c.nodeServicesStateMonitor.UpdateNodeHealthCache()
+	}
+	if len(c.nodeServicesStateMonitor.GetReadyPods()) > 0 {
+		c.ready = true
+		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
+	}
+	c.ready = false
+	ll.Info("Controller svc is not ready yet")
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
+}
+
+// Watch is used by clients to receive updates when the svc status changes.
+// Watch only dummy implemented just to satisfy the interface.
+func (c *CSIControllerService) Watch(*grpc_health_v1.HealthCheckRequest, grpc_health_v1.Health_WatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 
 // CreateVolume is the implementation of CSI Spec CreateVolume. If k8s SC of driver is set to WaitForFirstConsumer then

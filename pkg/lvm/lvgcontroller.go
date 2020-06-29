@@ -48,7 +48,7 @@ func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logg
 		log:       log.WithField("component", "LVGController"),
 		e:         e,
 		lvmOps:    lvm.NewLVM(e, log),
-		listBlk:   lsblk.NewLSBLK(e),
+		listBlk:   lsblk.NewLSBLK(log),
 	}
 }
 

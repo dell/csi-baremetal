@@ -11,7 +11,6 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	health "google.golang.org/grpc/health/grpc_health_v1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,8 +19,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	// +kubebuilder:scaffold:imports
 
 	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
@@ -42,18 +39,19 @@ const (
 var (
 	namespace        = flag.String("namespace", "", "Namespace in which Node Service service run")
 	driveMgrEndpoint = flag.String("drivemgrendpoint", base.DefaultDriveMgrEndpoint, "Hardware Manager endpoint")
-	volumeMgrIP      = flag.String("volumemgrip", base.DefaultVMMgrIP, "Node Volume Manager endpoint")
+	healthIP         = flag.String("healthip", base.DefaultHealthIP, "Node health server ip")
 	csiEndpoint      = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 	nodeID           = flag.String("nodeid", "", "node identification by k8s")
 	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
 	eventConfigPath  = flag.String("eventConfigPath", "/etc/config/alerts.yaml", "path for the events config file")
-	verboseLogs      = flag.Bool("verbose", false, "Debug mode in logs")
+	logLevel         = flag.String("loglevel", base.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 )
 
 func main() {
 	flag.Parse()
 
-	logger, err := base.InitLogger(*logPath, *verboseLogs)
+	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
@@ -103,8 +101,10 @@ func main() {
 	go util.SetupSignalHandler(csiUDSServer)
 
 	go func() {
-		if err := StartNodeHealthServer(csiNodeService, logger); err != nil {
-			logger.Infof("VolumeManager server failed with error: %v", err)
+		logger.Info("Starting Node Health server ...")
+		nodeHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *healthIP, base.DefaultHealthPort)
+		if err := util.SetupAndStartHealthCheckServer(csiNodeService, logger, nodeHealthEndpoint); err != nil {
+			logger.Fatalf("Node service failed with error: %v", err)
 		}
 	}()
 	go func() {
@@ -138,18 +138,6 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 			discoveringWaitTime = 30 * time.Second
 		}
 	}
-}
-
-// StartNodeHealthServer starts gRPC server to handle Health checking requests
-func StartNodeHealthServer(c health.HealthServer, logger *logrus.Logger) error {
-	logger.Info("Starting Node Health server ...")
-	// gRPC server that will serve requests for Node Health checking
-	nodeHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *volumeMgrIP, base.DefaultVolumeManagerPort)
-	nodeHealthServer := rpc.NewServerRunner(nil, nodeHealthEndpoint, logger)
-	// register Health checks
-	logger.Info("Registering Node service health check")
-	health.RegisterHealthServer(nodeHealthServer.GRPCServer, c)
-	return nodeHealthServer.RunServer()
 }
 
 // prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources

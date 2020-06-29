@@ -185,7 +185,6 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-
 	// expect: hwMgrClient request fail with error
 	vm.driveMgrClient = mocks.MockDriveMgrClientFail{}
 	err = vm.Discover()
@@ -194,6 +193,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	// expect: lsblk fail with error
 	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, mocks.EmptyExecutorFail{}, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.listBlk.SetExecutor(mocks.EmptyExecutorFail{})
 	err = vm.Discover()
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "error")
@@ -206,7 +206,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-
+	vm.listBlk.SetExecutor(e1)
 	// expect that cache is empty because of all drives has not children
 	err = vm.Discover()
 	assert.Nil(t, err)
@@ -220,6 +220,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	}
 	e2 := mocks.NewMockExecutor(expectedCmdOut1)
 	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.listBlk.SetExecutor(e2)
 	err = vm.Discover()
 	assert.Nil(t, err)
 	assertLenVListItemsEqualsTo(t, vm.k8sClient, 0)
@@ -231,6 +232,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	}
 	e3 := mocks.NewMockExecutor(expectedCmdOut2)
 	vm = NewVolumeManager(*hwMgrClient, e3, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.listBlk.SetExecutor(e3)
 	partOps := &mocklu.MockWrapPartition{}
 	partOps.On("GetPartitionUUID", mock.Anything, mock.Anything).
 		Return("uniq-guid-for-dev-sdb", nil)
