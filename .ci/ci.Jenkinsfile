@@ -54,7 +54,7 @@ void runTests() {
                     stage('Prepare YAML for e2e tests') {
                         sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
                                 "--set env.test=true " +
-                                "--set drivemgr.image.repository=baremetal-csi-plugin-loopbackmgr" +
+                                "--set drivemgr.image.repository=baremetal-csi-plugin-loopbackmgr " +
                                 "--set image.pullPolicy=IfNotPresent " +
                                 "--set drivemgr.deployConfig=true")
                     }
