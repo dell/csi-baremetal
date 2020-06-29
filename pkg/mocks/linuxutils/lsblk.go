@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
 )
 
@@ -24,4 +25,9 @@ func (m *MockWrapLsblk) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	args := m.Mock.Called(drive)
 
 	return args.String(0), args.Error(1)
+}
+
+// SetExecutor is a mock implementations
+func (m *MockWrapLsblk) SetExecutor(e command.CmdExecutor) {
+	m.Mock.Called(e)
 }

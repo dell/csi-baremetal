@@ -13,17 +13,25 @@ import (
 type CmdExecutor interface {
 	RunCmd(cmd interface{}) (string, string, error)
 	SetLogger(logger *logrus.Logger)
+	SetLevel(level logrus.Level)
 }
 
 // Executor is the implementation of CmdExecutor based on os/exec package
 type Executor struct {
-	log *logrus.Entry
+	log      *logrus.Entry
+	msgLevel logrus.Level
 }
 
 // SetLogger sets logrus logger to Executor struct
 // Receives logrus logger
 func (e *Executor) SetLogger(logger *logrus.Logger) {
 	e.log = logger.WithField("component", "Executor")
+}
+
+// SetLevel sets logrus Level to Executor msgLevel field
+// Receives logrus Level
+func (e *Executor) SetLevel(level logrus.Level) {
+	e.msgLevel = level
 }
 
 // RunCmd runs specified command on OS
@@ -57,11 +65,13 @@ func (e *Executor) runCmdFromStr(cmd string) (string, string, error) {
 // Returns stdout as string, stderr as string and golang error if something went wrong
 func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string, err error) {
 	var (
-		level               = logrus.DebugLevel
+		level               = e.msgLevel
 		stdout, stderr      bytes.Buffer
 		stdErrPart, errPart string
 	)
-
+	if level == 0 {
+		level = logrus.DebugLevel
+	}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
@@ -77,14 +87,7 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 		level = logrus.ErrorLevel
 	}
 
-	// TODO: temporary fix, will be removed in AK8S-1181
-	if level != logrus.ErrorLevel && strings.Contains(cmd.Path, "lsblk") {
-		// do not log lsblk results if it was without error
-		return outStr, errStr, err
-	}
-
 	e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
 		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
-
 	return outStr, errStr, err
 }

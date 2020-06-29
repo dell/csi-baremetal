@@ -19,18 +19,19 @@ import (
 )
 
 var (
-	namespace   = flag.String("namespace", "", "Namespace in which controller service run")
-	endpoint    = flag.String("endpoint", "", "Endpoint for controller service")
-	healthIP    = flag.String("healthip", base.DefaultHealthIP, "IP for health service")
-	healthPort  = flag.Int("healthport", base.DefaultHealthPort, "Port for health service")
-	logPath     = flag.String("logpath", "", "Log path for Controller service")
-	verboseLogs = flag.Bool("verbose", false, "Debug mode in logs")
+	namespace  = flag.String("namespace", "", "Namespace in which controller service run")
+	healthIP   = flag.String("healthip", base.DefaultHealthIP, "IP for health service")
+	healthPort = flag.Int("healthport", base.DefaultHealthPort, "Port for health service")
+	endpoint   = flag.String("endpoint", "", "Endpoint for controller service")
+	logPath    = flag.String("logpath", "", "Log path for Controller service")
+	logLevel   = flag.String("loglevel", base.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 )
 
 func main() {
 	flag.Parse()
 
-	logger, err := base.InitLogger(*logPath, *verboseLogs)
+	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}

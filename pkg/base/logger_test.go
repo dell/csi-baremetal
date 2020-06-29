@@ -8,7 +8,7 @@ import (
 )
 
 func TestInitLoggerStdOut(t *testing.T) {
-	logger, err := InitLogger("", false)
+	logger, err := InitLogger("", InfoLevel)
 	if err != nil {
 		t.Errorf("Logger initialized with error: %s", err.Error())
 	}
@@ -18,7 +18,7 @@ func TestInitLoggerStdOut(t *testing.T) {
 
 func TestInitLoggerCorrectPath(t *testing.T) {
 	logPath := "/tmp/logs.log"
-	logger, err := InitLogger(logPath, false)
+	logger, err := InitLogger(logPath, InfoLevel)
 	if err != nil {
 		t.Errorf("Logger initialized with error: %s", err.Error())
 	}
@@ -32,7 +32,7 @@ func TestInitLoggerCorrectPath(t *testing.T) {
 
 func TestInitLoggerWrongPath(t *testing.T) {
 	logPath := "////"
-	logger, err := InitLogger(logPath, false)
+	logger, err := InitLogger(logPath, InfoLevel)
 	if err == nil {
 		t.Errorf("Logger should be initialized with an error")
 	}

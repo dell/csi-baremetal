@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
 	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
 )
@@ -24,6 +26,7 @@ const (
 type WrapLsblk interface {
 	GetBlockDevices(device string) ([]BlockDevice, error)
 	SearchDrivePath(drive *drivecrd.Drive) (string, error)
+	SetExecutor(e command.CmdExecutor)
 }
 
 // LSBLK is a wrap for system lsblk util
@@ -32,8 +35,16 @@ type LSBLK struct {
 }
 
 // NewLSBLK is a constructor for LSBLK struct
-func NewLSBLK(e command.CmdExecutor) *LSBLK {
+func NewLSBLK(log *logrus.Logger) *LSBLK {
+	e := &command.Executor{}
+	e.SetLogger(log)
+	e.SetLevel(logrus.TraceLevel)
 	return &LSBLK{e: e}
+}
+
+// SetExecutor is a setter for LSBLK Executor field
+func (l *LSBLK) SetExecutor(e command.CmdExecutor) {
+	l.e = e
 }
 
 // BlockDevice is the struct that represents output of lsblk command for a device
