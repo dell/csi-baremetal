@@ -60,6 +60,14 @@ Installation depend weather you use Helm 2 or Helm 3. If you use Helm 2 you have
     
     ```helm install --name baremetal-csi ./baremetal-csi-plugin```
     
+    2.2 Customization
+    
+    There is an ability to customize any value from `values.yaml` file via helm option `--set X.Y.Z=NEW_VALUE`,
+    
+    E.g. plugin installation with custom image tag for node, controller and drivemgr:
+    
+    ```helm install --name baremetal-csi ./baremetal-csi-plugin --set image.tag=CUSTOM_TAG``` 
+    
     Check CSI pods readiness
     
     ```
