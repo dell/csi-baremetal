@@ -590,9 +590,10 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			Size:      vgFreeSpace,
 			Status:    apiV1.Created,
 		}
-		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
-		ctx  = context.WithValue(context.Background(), k8s.RequestUUID, vg.Name)
+		vgCR        = m.k8sClient.ConstructLVGCR(vgCRName, vg)
+		ctx, cancel = context.WithTimeout(context.WithValue(context.Background(), k8s.RequestUUID, vg.Name), DiscoverDrivesTimeout)
 	)
+	defer cancel()
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
 	}
