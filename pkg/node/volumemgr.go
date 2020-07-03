@@ -550,7 +550,9 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			if err != nil {
 				return err
 			}
-			ll.Infof("Created AC %v for lvg %v", ac, lvg)
+			if ac != nil {
+				ll.Infof("Created AC %v for lvg %v", ac, lvg)
+			}
 			return nil
 		}
 	}
@@ -615,7 +617,9 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		if acCR, err = m.createACIfNotExists(ctx, vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
 			return err
 		}
-		ll.Infof("System LVM was inspected, LVG CR was created %v, AC CR was created: %v", vgCR, acCR)
+		if acCR != nil {
+			ll.Infof("System LVM was inspected, LVG CR was created %v, AC CR was created: %v", vgCR, acCR)
+		}
 		return nil
 	}
 	m.discoverLvgSSD = false
@@ -686,7 +690,14 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 		drive1.PID == drive2.PID
 }
 
+// createACIfNotExists create AC CR if there are no volume or existing AC
+// Receive context, drive location, storage class, size of available capacity
+// Return AC CR, error
 func (m *VolumeManager) createACIfNotExists(ctx context.Context, location string, sc string, size int64) (*accrd.AvailableCapacity, error) {
+	volume := m.crHelper.GetVolumeByLocation(location)
+	if volume != nil {
+		return nil, nil
+	}
 	acCR := m.crHelper.GetACByLocation(location)
 	if acCR == nil {
 		acName := uuid.New().String()
