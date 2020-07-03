@@ -546,7 +546,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	for _, lvg := range lvgList.Items {
 		if lvg.Spec.Node == m.nodeID && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
 			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
-			ac, err := m.createACIfNotExists(context.Background(), lvg.Spec.Name, apiV1.StorageClassSSDLVG, lvg.Spec.Size)
+			ac, err := m.createACIfNotExists(context.Background(), lvg.Name, apiV1.StorageClassSSDLVG, lvg.Spec.Size)
 			if err != nil {
 				return err
 			}
@@ -612,7 +612,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 
 	if vgFreeSpace > common.AcSizeMinThresholdBytes {
 		var acCR *accrd.AvailableCapacity
-		if acCR, err = m.createACIfNotExists(ctx, vgName, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
+		if acCR, err = m.createACIfNotExists(ctx, vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
 			return err
 		}
 		ll.Infof("System LVM was inspected, LVG CR was created %v, AC CR was created: %v", vgCR, acCR)
