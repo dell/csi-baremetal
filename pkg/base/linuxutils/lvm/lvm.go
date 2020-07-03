@@ -50,7 +50,7 @@ type WrapLVM interface {
 	LVRemove(fullLVName string) error
 	IsVGContainsLVs(vgName string) bool
 	RemoveOrphanPVs() error
-	FindVgNameByLvName(lvName string) (string, error)
+	FindVgNameByLvNameIfExists(lvName string) (string, error)
 	GetVgFreeSpace(vgName string) (int64, error)
 }
 
@@ -176,17 +176,20 @@ func (l *LVM) RemoveOrphanPVs() error {
 	return nil
 }
 
-// FindVgNameByLvName search VG name by LV name, LV name should be full
+// FindVgNameByLvNameIfExists search VG name by LV name, LV name should be full, if LVG doesn't exist, return empty string
 // Receives LV name to find its VG
 // Returns VG name or empty string and error
-func (l *LVM) FindVgNameByLvName(lvName string) (string, error) {
+func (l *LVM) FindVgNameByLvNameIfExists(lvName string) (string, error) {
 	/*
 		Example of output:
 		root@provo-goop:~# lvs /dev/mapper/unassigned--hostname--vg-root --options vg_name --noheadings
 			  unassigned-hostname-vg
 	*/
 	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
-	strOut, _, err := l.e.RunCmd(cmd)
+	strOut, stdErr, err := l.e.RunCmd(cmd)
+	if strings.Contains(stdErr, "Invalid path for Logical Volume") {
+		return "", nil
+	}
 	if err != nil {
 		return "", err
 	}

@@ -65,6 +65,9 @@ type VolumeManager struct {
 	// uses for searching suitable Available Capacity
 	acProvider common.AvailableCapacityOperations
 
+	// used for discoverLVGOnSystemDisk method
+	discoverLvgSSD bool
+
 	// kubernetes node ID
 	nodeID string
 	// whether VolumeManager was initialized or no, uses for health probes
@@ -103,13 +106,14 @@ func NewVolumeManager(
 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
 		},
-		fsOps:    utilwrappers.NewFSOperationsImpl(executor, logger),
-		lvmOps:   lvm.NewLVM(executor, logger),
-		listBlk:  lsblk.NewLSBLK(logger),
-		partOps:  ph.NewWrapPartitionImpl(executor, logger),
-		nodeID:   nodeID,
-		log:      logger.WithField("component", "VolumeManager"),
-		recorder: recorder,
+		fsOps:          utilwrappers.NewFSOperationsImpl(executor, logger),
+		lvmOps:         lvm.NewLVM(executor, logger),
+		listBlk:        lsblk.NewLSBLK(logger),
+		partOps:        ph.NewWrapPartitionImpl(executor, logger),
+		nodeID:         nodeID,
+		log:            logger.WithField("component", "VolumeManager"),
+		recorder:       recorder,
+		discoverLvgSSD: true,
 	}
 	return vm
 }
@@ -252,14 +256,13 @@ func (m *VolumeManager) Discover() error {
 		return err
 	}
 
-	if !m.initialized {
-		err = m.discoverLVGOnSystemDrive()
-		if err != nil {
+	if m.discoverLvgSSD {
+		if err = m.discoverLVGOnSystemDrive(); err != nil {
 			m.log.WithField("method", "Discover").
 				Errorf("unable to inspect system LVG: %v", err)
 		}
-		m.initialized = true
 	}
+	m.initialized = true
 	return nil
 }
 
@@ -543,6 +546,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	for _, lvg := range lvgList.Items {
 		if lvg.Spec.Node == m.nodeID && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
 			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
+			ac, err := m.createACIfNotExists(context.Background(), lvg.Spec.Name, apiV1.StorageClassSSDLVG, lvg.Spec.Size)
+			if err != nil {
+				return err
+			}
+			ll.Infof("Created AC %v for lvg %v", ac, lvg)
 			return nil
 		}
 	}
@@ -559,21 +567,26 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	// from container we expect here name like "VG_NAME[/var/lib/kubelet/pods]"
 	rootMountPoint = strings.Split(rootMountPoint, "[")[0]
 
-	// ensure that rootMountPoint is in SSD drive
 	devices, err := m.listBlk.GetBlockDevices(rootMountPoint)
 	if err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
 
+	// ensure that rootMountPoint is in SSD drive
 	if devices[0].Rota != base.NonRotationalNum {
+		m.discoverLvgSSD = false
 		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
 		return nil
 	}
 
-	if vgName, err = m.lvmOps.FindVgNameByLvName(rootMountPoint); err != nil {
+	if vgName, err = m.lvmOps.FindVgNameByLvNameIfExists(rootMountPoint); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
-
+	if vgName == "" {
+		m.discoverLvgSSD = false
+		ll.Infof("System disk is SSD. but it doesn't have LVG.")
+		return nil
+	}
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
@@ -590,29 +603,22 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			Size:      vgFreeSpace,
 			Status:    apiV1.Created,
 		}
-		vgCR        = m.k8sClient.ConstructLVGCR(vgCRName, vg)
-		ctx, cancel = context.WithTimeout(context.WithValue(context.Background(), k8s.RequestUUID, vg.Name), DiscoverDrivesTimeout)
+		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
+		ctx  = context.WithValue(context.Background(), k8s.RequestUUID, vg.Name)
 	)
-	defer cancel()
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
 	}
 
 	if vgFreeSpace > common.AcSizeMinThresholdBytes {
-		acName := uuid.New().String()
-		acCR := m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
-			Location:     vgCRName,
-			NodeId:       m.nodeID,
-			StorageClass: apiV1.StorageClassSSDLVG,
-			Size:         vgFreeSpace,
-		})
-		if err = m.k8sClient.CreateCR(ctx, acName, acCR); err != nil {
-			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
+		var acCR *accrd.AvailableCapacity
+		if acCR, err = m.createACIfNotExists(ctx, vgName, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
+			return err
 		}
 		ll.Infof("System LVM was inspected, LVG CR was created %v, AC CR was created: %v", vgCR, acCR)
 		return nil
 	}
-
+	m.discoverLvgSSD = false
 	ll.Infof("System LVM was inspected, LVG object was created but AC was not. LVG CR: %v", vgCR)
 	return nil
 }
@@ -678,4 +684,21 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 	return drive1.SerialNumber == drive2.SerialNumber &&
 		drive1.VID == drive2.VID &&
 		drive1.PID == drive2.PID
+}
+
+func (m *VolumeManager) createACIfNotExists(ctx context.Context, location string, sc string, size int64) (*accrd.AvailableCapacity, error) {
+	acCR := m.crHelper.GetACByLocation(location)
+	if acCR == nil {
+		acName := uuid.New().String()
+		acCR = m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
+			Location:     location,
+			NodeId:       m.nodeID,
+			StorageClass: sc,
+			Size:         size,
+		})
+		if err := m.k8sClient.CreateCR(ctx, acName, acCR); err != nil {
+			return nil, fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
+		}
+	}
+	return acCR, nil
 }

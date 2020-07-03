@@ -65,8 +65,8 @@ func (m *MockWrapLVM) RemoveOrphanPVs() error {
 	return args.Error(0)
 }
 
-// FindVgNameByLvName is a mock implementations
-func (m *MockWrapLVM) FindVgNameByLvName(lvName string) (string, error) {
+// FindVgNameByLvNameIfExists is a mock implementations
+func (m *MockWrapLVM) FindVgNameByLvNameIfExists(lvName string) (string, error) {
 	args := m.Mock.Called(lvName)
 
 	return args.String(0), args.Error(1)

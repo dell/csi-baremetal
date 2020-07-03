@@ -221,13 +221,13 @@ func TestLinuxUtils_FindVgNameByLvName(t *testing.T) {
 
 	// expect success (tabs and new line were trim)
 	e.OnCommand(cmd).Return(fmt.Sprintf("\t%s   \t\n", expectedVG), "", nil).Times(1)
-	currentVG, err = l.FindVgNameByLvName(lvName)
+	currentVG, err = l.FindVgNameByLvNameIfExists(lvName)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVG, currentVG)
 
 	// expect error
 	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
-	currentVG, err = l.FindVgNameByLvName(lvName)
+	currentVG, err = l.FindVgNameByLvNameIfExists(lvName)
 	assert.Equal(t, "", currentVG)
 	assert.Equal(t, expectedErr, err)
 
