@@ -65,11 +65,10 @@ type VolumeManager struct {
 	// uses for searching suitable Available Capacity
 	acProvider common.AvailableCapacityOperations
 
-	// used for discoverLVGOnSystemDisk method
-	discoverLvgSSD bool
-
 	// kubernetes node ID
 	nodeID string
+	// used for discoverLVGOnSystemDisk method
+	discoverLvgSSD bool
 	// whether VolumeManager was initialized or no, uses for health probes
 	initialized bool
 	// general logger
@@ -574,7 +573,6 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf(errTmpl, err)
 	}
 
-	// ensure that rootMountPoint is in SSD drive
 	if devices[0].Rota != base.NonRotationalNum {
 		m.discoverLvgSSD = false
 		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
