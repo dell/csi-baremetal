@@ -231,6 +231,12 @@ func TestLinuxUtils_FindVgNameByLvName(t *testing.T) {
 	assert.Equal(t, "", currentVG)
 	assert.Equal(t, expectedErr, err)
 
+	// expect volume group node found
+	e.OnCommand(cmd).Return("", "Volume group \"lv-1\" not found", expectedErr).Times(1)
+	currentVG, err = l.FindVgNameByLvNameIfExists(lvName)
+	assert.Equal(t, "", currentVG)
+	assert.Equal(t, nil, err)
+
 }
 
 func TestLinuxUtils_GetVgFreeSpace(t *testing.T) {
