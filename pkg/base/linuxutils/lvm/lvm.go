@@ -187,8 +187,10 @@ func (l *LVM) FindVgNameByLvNameIfExists(lvName string) (string, error) {
 	*/
 	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
 	strOut, stdErr, err := l.e.RunCmd(cmd)
-	if strings.Contains(stdErr, "Invalid path for Logical Volume") {
-		return "", nil
+	for _, s := range strings.Split(lvName, "/") {
+		if strings.Contains(stdErr, fmt.Sprintf("Volume group \"%s\" not found", s)) {
+			return "", nil
+		}
 	}
 	if err != nil {
 		return "", err
