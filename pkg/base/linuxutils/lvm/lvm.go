@@ -50,8 +50,9 @@ type WrapLVM interface {
 	LVRemove(fullLVName string) error
 	IsVGContainsLVs(vgName string) bool
 	RemoveOrphanPVs() error
-	FindVgNameByLvNameIfExists(lvName string) (string, error)
+	FindVgNameByLvName(lvName string) (string, error)
 	GetVgFreeSpace(vgName string) (int64, error)
+	IsMountPointInLVG(mountpoint string) (bool, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -176,22 +177,17 @@ func (l *LVM) RemoveOrphanPVs() error {
 	return nil
 }
 
-// FindVgNameByLvNameIfExists search VG name by LV name, LV name should be full, if LVG doesn't exist, return empty string
+// FindVgNameByLvName search VG name by LV name, LV name should be full
 // Receives LV name to find its VG
 // Returns VG name or empty string and error
-func (l *LVM) FindVgNameByLvNameIfExists(lvName string) (string, error) {
+func (l *LVM) FindVgNameByLvName(lvName string) (string, error) {
 	/*
 		Example of output:
 		root@provo-goop:~# lvs /dev/mapper/unassigned--hostname--vg-root --options vg_name --noheadings
 			  unassigned-hostname-vg
 	*/
 	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
-	strOut, stdErr, err := l.e.RunCmd(cmd)
-	for _, s := range strings.Split(lvName, "/") {
-		if strings.Contains(stdErr, fmt.Sprintf("Volume group \"%s\" not found", s)) {
-			return "", nil
-		}
-	}
+	strOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return "", err
 	}
@@ -224,4 +220,21 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	}
 
 	return bytes, nil
+}
+
+// IsMountPointInLVG try to get vg group from mountpoint, if there is no such group then mountpoint is considered without lvm
+// Receives mountpoint string
+// Returns true if mountpoint is in lvg, else false; error
+func (l *LVM) IsMountPointInLVG(mountpoint string) (bool, error) {
+	cmd := fmt.Sprintf(VGByLVCmdTmpl, mountpoint)
+	_, stdErr, err := l.e.RunCmd(cmd)
+	for _, s := range strings.Split(mountpoint, "/") {
+		if strings.Contains(stdErr, fmt.Sprintf("Volume group \"%s\" not found", s)) {
+			return false, nil
+		}
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

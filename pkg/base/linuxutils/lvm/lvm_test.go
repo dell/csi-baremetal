@@ -221,20 +221,45 @@ func TestLinuxUtils_FindVgNameByLvName(t *testing.T) {
 
 	// expect success (tabs and new line were trim)
 	e.OnCommand(cmd).Return(fmt.Sprintf("\t%s   \t\n", expectedVG), "", nil).Times(1)
-	currentVG, err = l.FindVgNameByLvNameIfExists(lvName)
+	currentVG, err = l.FindVgNameByLvName(lvName)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVG, currentVG)
 
 	// expect error
 	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
-	currentVG, err = l.FindVgNameByLvNameIfExists(lvName)
+	currentVG, err = l.FindVgNameByLvName(lvName)
 	assert.Equal(t, "", currentVG)
+	assert.Equal(t, expectedErr, err)
+
+}
+
+func TestLinuxUtils_IsMountPointInLVG(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLVM(e, testLogger)
+		lvName      = "/dev/mapper/lv-1"
+		cmd         = fmt.Sprintf(VGByLVCmdTmpl, lvName)
+		expectedVG  = "vg-1"
+		expectedErr = errors.New("error here")
+		err         error
+	)
+
+	// expect success (tabs and new line were trim)
+	e.OnCommand(cmd).Return(fmt.Sprintf("\t%s   \t\n", expectedVG), "", nil).Times(1)
+	mp, err := l.IsMountPointInLVG(lvName)
+	assert.Nil(t, err)
+	assert.Equal(t, true, mp)
+
+	// expect error
+	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
+	mp, err = l.IsMountPointInLVG(lvName)
+	assert.Equal(t, false, mp)
 	assert.Equal(t, expectedErr, err)
 
 	// expect volume group node found
 	e.OnCommand(cmd).Return("", "Volume group \"lv-1\" not found", expectedErr).Times(1)
-	currentVG, err = l.FindVgNameByLvNameIfExists(lvName)
-	assert.Equal(t, "", currentVG)
+	mp, err = l.IsMountPointInLVG(lvName)
+	assert.Equal(t, false, mp)
 	assert.Equal(t, nil, err)
 
 }

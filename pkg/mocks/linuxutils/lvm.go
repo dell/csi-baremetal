@@ -65,8 +65,8 @@ func (m *MockWrapLVM) RemoveOrphanPVs() error {
 	return args.Error(0)
 }
 
-// FindVgNameByLvNameIfExists is a mock implementations
-func (m *MockWrapLVM) FindVgNameByLvNameIfExists(lvName string) (string, error) {
+// FindVgNameByLvName is a mock implementations
+func (m *MockWrapLVM) FindVgNameByLvName(lvName string) (string, error) {
 	args := m.Mock.Called(lvName)
 
 	return args.String(0), args.Error(1)
@@ -77,4 +77,11 @@ func (m *MockWrapLVM) GetVgFreeSpace(vgName string) (int64, error) {
 	args := m.Mock.Called(vgName)
 
 	return args.Get(0).(int64), args.Error(1)
+}
+
+// IsMountPointInLVG is a mock implementations
+func (m *MockWrapLVM) IsMountPointInLVG(mountpoint string) (bool, error) {
+	args := m.Mock.Called(mountpoint)
+
+	return args.Bool(0), args.Error(1)
 }

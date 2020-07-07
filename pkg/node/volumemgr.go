@@ -544,13 +544,13 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 
 	for _, lvg := range lvgList.Items {
 		if lvg.Spec.Node == m.nodeID && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
-			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
-			ac, err := m.createACIfNotExists(context.Background(), lvg.Name, apiV1.StorageClassSSDLVG, lvg.Spec.Size)
-			if err != nil {
+			var vgFreeSpace int64
+			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
 			}
-			if ac != nil {
-				ll.Infof("Created AC %v for lvg %v", ac, lvg)
+			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
+			if err = m.createACIfFreeSpace(context.Background(), lvg.Name, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
+				return err
 			}
 			return nil
 		}
@@ -579,21 +579,24 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
-	if vgName, err = m.lvmOps.FindVgNameByLvNameIfExists(rootMountPoint); err != nil {
+	isMountPoint, err := m.lvmOps.IsMountPointInLVG(rootMountPoint)
+
+	if err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
-	if vgName == "" {
+
+	if !isMountPoint {
 		m.discoverLvgSSD = false
 		ll.Infof("System disk is SSD. but it doesn't have LVG.")
 		return nil
 	}
+
+	if vgName, err = m.lvmOps.FindVgNameByLvName(rootMountPoint); err != nil {
+		return fmt.Errorf(errTmpl, err)
+	}
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
-	if vgFreeSpace == 0 {
-		vgFreeSpace++ // if size is 0 it field will not display for CR
-	}
-
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
@@ -610,17 +613,9 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
 	}
 
-	if vgFreeSpace > common.AcSizeMinThresholdBytes {
-		var acCR *accrd.AvailableCapacity
-		if acCR, err = m.createACIfNotExists(ctx, vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
-			return err
-		}
-		if acCR != nil {
-			ll.Infof("System LVM was inspected, LVG CR was created %v, AC CR was created: %v", vgCR, acCR)
-		}
-		return nil
+	if err = m.createACIfFreeSpace(ctx, vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
+		return err
 	}
-	m.discoverLvgSSD = false
 	ll.Infof("System LVM was inspected, LVG object was created but AC was not. LVG CR: %v", vgCR)
 	return nil
 }
@@ -688,16 +683,21 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 		drive1.PID == drive2.PID
 }
 
-// createACIfNotExists create AC CR if there are no volume or existing AC
+// createACIfFreeSpace create AC CR if there are free spcae on drive
 // Receive context, drive location, storage class, size of available capacity
-// Return AC CR, error
-func (m *VolumeManager) createACIfNotExists(ctx context.Context, location string, sc string, size int64) (*accrd.AvailableCapacity, error) {
-	volume := m.crHelper.GetVolumeByLocation(location)
-	if volume != nil {
-		return nil, nil
+// Return error
+func (m *VolumeManager) createACIfFreeSpace(ctx context.Context, location string, sc string, size int64) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "createACIfFreeSpace",
+	})
+	if size == 0 {
+		size++ // if size is 0 it field will not display for CR
 	}
 	acCR := m.crHelper.GetACByLocation(location)
-	if acCR == nil {
+	if acCR != nil {
+		return nil
+	}
+	if size > common.AcSizeMinThresholdBytes {
 		acName := uuid.New().String()
 		acCR = m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
 			Location:     location,
@@ -706,8 +706,11 @@ func (m *VolumeManager) createACIfNotExists(ctx context.Context, location string
 			Size:         size,
 		})
 		if err := m.k8sClient.CreateCR(ctx, acName, acCR); err != nil {
-			return nil, fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
+			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
 		}
+		ll.Infof("Created AC %v for lvg %s", acCR, location)
+		return nil
 	}
-	return acCR, nil
+	ll.Infof("There is no available space on %s", location)
+	return nil
 }
