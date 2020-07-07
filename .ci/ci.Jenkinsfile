@@ -133,9 +133,14 @@ void runTests() {
                             version: csiVersion,
                         ])
                     }
-                     permalink = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/latest"
-                     artifactRepo = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/${csiVersion}"
-                     common.publishPermalinkToArtifactory(permalink, artifactRepo, ARTIFACTORY_NAME)
+                    if (!(common.checkManifest(ARTIFACTORY_COMPONENT_PATH, csiVersion))) {
+                        println('Manifest check failed')
+                        common.setBuildFailure()
+                    } else {
+                        permalink = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/latest"
+                        artifactRepo = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/${csiVersion}"
+                        common.publishPermalinkToArtifactory(permalink, artifactRepo, ARTIFACTORY_NAME)
+                    }
                 } else {
                     println('Skip pushing artifacts..')
                 }
@@ -169,31 +174,31 @@ private String getArtifactsJson(final Map<String, Object> args) {
                 "componentName": COMPONENT_NAME,
                 "version": args.version,
                 "type": "docker-image",
-                "endpoint": "{{ ASD_REGISTRY }}",
-                "path": "atlantic/${image}"
+                "endpoint": "{{ ATLANTIC_REGISTRY }}",
+                "path": "${image}"
         ])
     }
     artifacts.add([
             "componentName": COMPONENT_NAME,
             "version": ATTACHER_VERSION,
             "type": "docker-image",
-            "endpoint": "{{ ASD_REGISTRY }}",
-            "path": "atlantic/csi-attacher"
+            "endpoint": "{{ ATLANTIC_REGISTRY }}",
+            "path": "csi-attacher"
 
     ])
     artifacts.add([
             "componentName": COMPONENT_NAME,
             "version": PROVISION_VERSION,
             "type": "docker-image",
-            "endpoint": "{{ ASD_REGISTRY }}",
-            "path": "atlantic/csi-provisioner"
+            "endpoint": "{{ ATLANTIC_REGISTRY }}",
+            "path": "csi-provisioner"
     ])
     artifacts.add([
             "componentName": COMPONENT_NAME,
             "version": NODE_REGISTRAR_VERSION,
             "type": "docker-image",
-            "endpoint": "{{ ASD_REGISTRY }}",
-            "path": "atlantic/csi-node-driver-registrar",
+            "endpoint": "{{ ATLANTIC_REGISTRY }}",
+            "path": "csi-node-driver-registrar",
     ])
     artifacts.add([
             "componentName": COMPONENT_NAME,

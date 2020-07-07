@@ -7,7 +7,7 @@ CHARTS_PATH		 := charts/baremetal-csi-plugin
 ### version
 MAJOR            := 0
 MINOR            := 0
-PATCH            := 6
+PATCH            := 7
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
 BUILD_REL_B      := $(shell git rev-parse --short HEAD)
