@@ -44,6 +44,6 @@ func main() {
 
 	driveMgr := loopbackmgr.NewLoopBackManager(e, logger)
 
-	go driveMgr.UpdateOnConfigChange(watcher, logger)
+	go driveMgr.UpdateOnConfigChange(watcher)
 	dmsetup.SetupAndRunDriveMgr(driveMgr, serverRunner, driveMgr.CleanupLoopDevices, logger)
 }

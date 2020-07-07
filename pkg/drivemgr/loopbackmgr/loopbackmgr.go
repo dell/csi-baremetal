@@ -548,22 +548,21 @@ func (mgr *LoopBackManager) CleanupLoopDevices() {
 }
 
 // UpdateOnConfigChange triggers update configruration and init of devices.
-func (mgr *LoopBackManager) UpdateOnConfigChange(watcher *fsnotify.Watcher, logger *logrus.Logger) {
-	logger.Info("updateOnConfigChange started")
-	defer logger.Info("updateOnConfigChange ended")
-	err := watcher.Add(configPath)
+func (mgr *LoopBackManager) UpdateOnConfigChange(watcher *fsnotify.Watcher) {
+	ll := mgr.log.WithField("method", "UpdateOnConfigChange")
 	mgr.updateDevicesFromConfig()
 	mgr.Init()
+	err := watcher.Add(configPath)
 	if err != nil {
-		logger.Fatalf("Can't add config to file watcher %s", err)
+		ll.Fatalf("can't add config to file watcher %s", err)
 	}
 	for {
 		event, ok := <-watcher.Events
 		if !ok {
-			logger.Info("file watcher is closed")
+			ll.Info("file watcher is closed")
 			return
 		}
-		logger.Infof("event %s came ", event.Op)
+		ll.Debugf("event %s came ", event.Op)
 
 		switch event.Op {
 		case fsnotify.Chmod:
@@ -571,17 +570,17 @@ func (mgr *LoopBackManager) UpdateOnConfigChange(watcher *fsnotify.Watcher, logg
 		case fsnotify.Remove:
 			err = watcher.Remove(configPath)
 			if err != nil {
-				logger.Fatalf("Can't remove config to file watcher %s", err)
+				ll.Debugf("can't remove config to file watcher %s", err)
 			}
 			err = watcher.Add(configPath)
 			if err != nil {
-				logger.Fatalf("Can't add config to file watcher %s", err)
+				ll.Fatalf("can't add config to file watcher %s", err)
 			}
 		default:
-			logger.Infof("unexpected file event %s", event.Op)
+			ll.Warnf("unexpected file event %s", event.Op)
 		}
 
-		logger.Infof("Triggering updateDevicesFromConfig on %s event", event.Op)
+		ll.Debugf("triggering updateDevicesFromConfig on %s event", event.Op)
 		mgr.updateDevicesFromConfig()
 		mgr.Init()
 	}
