@@ -549,10 +549,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 				return err
 			}
 			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
-			if err = m.createACIfFreeSpace(context.Background(), lvg.Name, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
-				return err
-			}
-			return nil
+			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSSDLVG, vgFreeSpace)
 		}
 	}
 
@@ -579,7 +576,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
-	isMountPoint, err := m.lvmOps.IsMountPointInLVG(rootMountPoint)
+	isMountPoint, err := m.lvmOps.IsLVGExists(rootMountPoint)
 
 	if err != nil {
 		return fmt.Errorf(errTmpl, err)
@@ -612,12 +609,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
 	}
-
-	if err = m.createACIfFreeSpace(ctx, vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace); err != nil {
-		return err
-	}
-	ll.Infof("System LVM was inspected, LVG object was created but AC was not. LVG CR: %v", vgCR)
-	return nil
+	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace)
 }
 
 // getProvisionerForVolume returns appropriate Provisioner implementation for volume
@@ -686,7 +678,7 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 // createACIfFreeSpace create AC CR if there are free spcae on drive
 // Receive context, drive location, storage class, size of available capacity
 // Return error
-func (m *VolumeManager) createACIfFreeSpace(ctx context.Context, location string, sc string, size int64) error {
+func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int64) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "createACIfFreeSpace",
 	})
@@ -705,7 +697,7 @@ func (m *VolumeManager) createACIfFreeSpace(ctx context.Context, location string
 			StorageClass: sc,
 			Size:         size,
 		})
-		if err := m.k8sClient.CreateCR(ctx, acName, acCR); err != nil {
+		if err := m.k8sClient.CreateCR(context.Background(), acName, acCR); err != nil {
 			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
 		}
 		ll.Infof("Created AC %v for lvg %s", acCR, location)

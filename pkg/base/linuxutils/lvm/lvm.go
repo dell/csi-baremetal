@@ -52,7 +52,7 @@ type WrapLVM interface {
 	RemoveOrphanPVs() error
 	FindVgNameByLvName(lvName string) (string, error)
 	GetVgFreeSpace(vgName string) (int64, error)
-	IsMountPointInLVG(mountpoint string) (bool, error)
+	IsLVGExists(mountpoint string) (bool, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -222,19 +222,22 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	return bytes, nil
 }
 
-// IsMountPointInLVG try to get vg group from mountpoint, if there is no such group then mountpoint is considered without lvm
+// IsLVGExists try to get vg group from mountpoint, if there is no such group then mountpoint is considered without lvm
 // Receives mountpoint string
 // Returns true if mountpoint is in lvg, else false; error
-func (l *LVM) IsMountPointInLVG(mountpoint string) (bool, error) {
+func (l *LVM) IsLVGExists(mountpoint string) (bool, error) {
 	cmd := fmt.Sprintf(VGByLVCmdTmpl, mountpoint)
-	_, stdErr, err := l.e.RunCmd(cmd)
+	stdout, stdErr, err := l.e.RunCmd(cmd)
+	if err != nil {
+		return false, err
+	}
 	for _, s := range strings.Split(mountpoint, "/") {
 		if strings.Contains(stdErr, fmt.Sprintf("Volume group \"%s\" not found", s)) {
 			return false, nil
 		}
 	}
-	if err != nil {
-		return false, err
+	if len(strings.TrimSpace(stdout)) > 0 {
+		return true, nil
 	}
-	return true, nil
+	return false, fmt.Errorf("unable to determine")
 }
