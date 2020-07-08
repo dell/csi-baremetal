@@ -262,6 +262,12 @@ func TestLinuxUtils_IsLVGExists(t *testing.T) {
 	assert.Equal(t, false, mp)
 	assert.Equal(t, nil, err)
 
+	// expect unable to determine
+	e.OnCommand(cmd).Return("", "", nil).Times(1)
+	mp, err = l.IsLVGExists(lvName)
+	assert.Equal(t, false, mp)
+	assert.NotNil(t, err)
+
 }
 
 func TestLinuxUtils_GetVgFreeSpace(t *testing.T) {

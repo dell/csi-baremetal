@@ -80,8 +80,8 @@ func (m *MockWrapLVM) GetVgFreeSpace(vgName string) (int64, error) {
 }
 
 // IsLVGExists is a mock implementations
-func (m *MockWrapLVM) IsLVGExists(mountpoint string) (bool, error) {
-	args := m.Mock.Called(mountpoint)
+func (m *MockWrapLVM) IsLVGExists(lvName string) (bool, error) {
+	args := m.Mock.Called(lvName)
 
 	return args.Bool(0), args.Error(1)
 }
