@@ -1,0 +1,45 @@
+name: PR-validation
+
+on:
+  #   push:
+  #     branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-20.04
+    steps:
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.14
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Get dependencies
+        run: |
+          make install-compile-proto
+          make install-controller-gen
+          make generate-deepcopy
+          make dependency
+
+      - name: Lint Charts
+        run: make lint-charts
+
+      - name: Lint
+        run: make lint
+
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: make test
+
+      - name: Sanity Test
+        run: make test-sanity
