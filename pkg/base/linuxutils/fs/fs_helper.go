@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	"github.com/dell/csi-baremetal.git/pkg/base/util"
 )
 
 // FileSystem is type for storing FS string representation

@@ -11,11 +11,11 @@ import (
 
 	// +kubebuilder:scaffold:imports
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
+	"github.com/dell/csi-baremetal.git/pkg/base"
+	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
+	"github.com/dell/csi-baremetal.git/pkg/base/rpc"
+	"github.com/dell/csi-baremetal.git/pkg/base/util"
+	"github.com/dell/csi-baremetal.git/pkg/controller"
 )
 
 var (

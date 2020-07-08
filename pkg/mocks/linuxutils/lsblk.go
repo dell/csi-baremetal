@@ -3,9 +3,9 @@ package linuxutils
 import (
 	"github.com/stretchr/testify/mock"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lsblk"
 )
 
 // MockWrapLsblk is a mock implementation of WrapLsblk interface from lsblk package

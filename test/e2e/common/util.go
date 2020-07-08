@@ -1,7 +1,7 @@
 package common
 
 import (
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,7 +14,7 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
 )
 
 var (

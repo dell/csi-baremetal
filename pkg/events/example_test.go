@@ -7,9 +7,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/events"
+	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
+	"github.com/dell/csi-baremetal.git/pkg/events"
 )
 
 func Example() {

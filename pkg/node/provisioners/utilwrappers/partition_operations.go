@@ -6,8 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	ph "github.com/dell/csi-baremetal.git/pkg/base/linuxutils/partitionhelper"
 )
 
 // PartitionOperations is a high-level interface

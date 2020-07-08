@@ -17,8 +17,8 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/test/e2e/common"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	"github.com/dell/csi-baremetal.git/test/e2e/common"
 )
 
 const ControllerName = "baremetal-csi-controller"

@@ -8,9 +8,9 @@ import (
 	"github.com/sirupsen/logrus"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
+	api "github.com/dell/csi-baremetal.git/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
 )
 
 const (

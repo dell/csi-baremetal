@@ -7,11 +7,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
+	api "github.com/dell/csi-baremetal.git/api/generated/v1"
+	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal.git/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal.git/api/v1/volumecrd"
 )
 
 // CRHelper is able to collect different CRs by different criteria

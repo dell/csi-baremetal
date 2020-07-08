@@ -4,11 +4,11 @@ import (
 	"flag"
 	"fmt"
 
-	dmsetup "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/cmd/drivemgr"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr/basemgr"
+	dmsetup "github.com/dell/csi-baremetal.git/cmd/drivemgr"
+	"github.com/dell/csi-baremetal.git/pkg/base"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	"github.com/dell/csi-baremetal.git/pkg/base/rpc"
+	"github.com/dell/csi-baremetal.git/pkg/drivemgr/basemgr"
 )
 
 var (
