@@ -7,8 +7,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	"github.com/dell/csi-baremetal.git/pkg/mocks"
 )
 
 var (

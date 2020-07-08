@@ -1,7 +1,7 @@
 package lsscsi
 
 import (
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	"github.com/dell/csi-baremetal.git/pkg/mocks"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

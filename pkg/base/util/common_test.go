@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
+	api "github.com/dell/csi-baremetal.git/api/v1"
 )
 
 const tmpMounts = "/tmp/mounts"

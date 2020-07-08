@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
 )
 
 // constants for state monitoring

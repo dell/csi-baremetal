@@ -5,10 +5,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/drivemgr"
+	api "github.com/dell/csi-baremetal.git/api/generated/v1"
+	"github.com/dell/csi-baremetal.git/pkg/base/rpc"
+	"github.com/dell/csi-baremetal.git/pkg/base/util"
+	"github.com/dell/csi-baremetal.git/pkg/drivemgr"
 )
 
 // SetupAndRunDriveMgr setups and start/stop particular drive manager

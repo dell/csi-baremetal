@@ -14,17 +14,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
-	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
+	api "github.com/dell/csi-baremetal.git/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal.git/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
+	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lvm"
+	"github.com/dell/csi-baremetal.git/pkg/base/util"
+	"github.com/dell/csi-baremetal.git/pkg/mocks"
+	mocklu "github.com/dell/csi-baremetal.git/pkg/mocks/linuxutils"
 )
 
 var (

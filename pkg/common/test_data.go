@@ -9,12 +9,12 @@ import (
 	"github.com/sirupsen/logrus"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
+	api "github.com/dell/csi-baremetal.git/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal.git/api/v1/lvgcrd"
+	vcrd "github.com/dell/csi-baremetal.git/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal.git/pkg/base/util"
 )
 
 var (

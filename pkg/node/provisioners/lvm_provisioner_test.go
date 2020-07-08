@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
-	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
-	mockProv "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/provisioners"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
+	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/fs"
+	mocklu "github.com/dell/csi-baremetal.git/pkg/mocks/linuxutils"
+	mockProv "github.com/dell/csi-baremetal.git/pkg/mocks/provisioners"
 )
 
 var (

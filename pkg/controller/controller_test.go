@@ -17,13 +17,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/testutils"
+	api "github.com/dell/csi-baremetal.git/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
+	vcrd "github.com/dell/csi-baremetal.git/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
+	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal.git/pkg/testutils"
 )
 
 var (

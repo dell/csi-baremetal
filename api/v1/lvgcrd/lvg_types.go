@@ -1,7 +1,7 @@
 package lvgcrd
 
 import (
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	api "github.com/dell/csi-baremetal.git/api/generated/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

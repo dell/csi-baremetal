@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	basenet "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/net"
+	basenet "github.com/dell/csi-baremetal.git/pkg/base/net"
 )
 
 var (

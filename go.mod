@@ -1,4 +1,4 @@
-module eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git
+module github.com/dell/csi-baremetal.git
 
 go 1.14
 
