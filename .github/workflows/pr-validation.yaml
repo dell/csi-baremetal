@@ -1,13 +1,10 @@
 name: PR-validation
 
 on:
-  #   push:
-  #     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    # branches: [ master ]
 
 jobs:
-
   build:
     name: Build
     runs-on: ubuntu-20.04
@@ -32,9 +29,6 @@ jobs:
       - name: Lint Charts
         run: make lint-charts
 
-      - name: Lint
-        run: make lint
-
       - name: Build
         run: make build
 
@@ -43,3 +37,13 @@ jobs:
 
       - name: Sanity Test
         run: make test-sanity
+  golangci:
+    name: Lint
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v1
+        with:
+          version: v1.27
+
