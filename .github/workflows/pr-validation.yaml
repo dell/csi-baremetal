@@ -30,7 +30,7 @@ jobs:
         run: make lint-charts
 
       - name: Build
-        run: make build
+        run: make DRIVE_MANAGER_TYPE=basemgr build
 
       - name: Test
         run: make test
