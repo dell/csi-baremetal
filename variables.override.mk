@@ -9,4 +9,6 @@ GOPRIVATE_PART	 :=
 #GOPRIVATE=eos2git.cec.lab.emc.com/*
 
 # override variable in variables.mk
-GOPROXY_PART     := GOPROXY=http://asdrepo.isus.emc.com/artifactory/api/go/ecs-go-build,https://proxy.golang.org,direct
+GOPROXY_PART     := GOPROXY=https://proxy.golang.org,direct
+
+# http://asdrepo.isus.emc.com/artifactory/api/go/ecs-go-build
