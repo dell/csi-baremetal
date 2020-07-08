@@ -67,7 +67,8 @@ type VolumeManager struct {
 
 	// kubernetes node ID
 	nodeID string
-	// used for discoverLVGOnSystemDisk method
+	// used for discoverLVGOnSystemDisk method to determine if we need to discover LVG in Discover method, default true
+	// set false when there is no LVG on system disk or system disk is not SSD
 	discoverLvgSSD bool
 	// whether VolumeManager was initialized or no, uses for health probes
 	initialized bool
@@ -576,13 +577,13 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
-	isMountPoint, err := m.lvmOps.IsLVGExists(rootMountPoint)
+	lvgExists, err := m.lvmOps.IsLVGExists(rootMountPoint)
 
 	if err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
 
-	if !isMountPoint {
+	if !lvgExists {
 		m.discoverLvgSSD = false
 		ll.Infof("System disk is SSD. but it doesn't have LVG.")
 		return nil
