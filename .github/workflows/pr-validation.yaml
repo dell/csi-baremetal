@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    name: Build
+    name: Lint-Build-Test
     runs-on: ubuntu-20.04
     steps:
 
@@ -29,6 +29,11 @@ jobs:
       - name: Lint Charts
         run: make lint-charts
 
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v1
+        with:
+          version: v1.27
+
       - name: Build
         run: make DRIVE_MANAGER_TYPE=basemgr build
 
@@ -37,13 +42,3 @@ jobs:
 
       - name: Sanity Test
         run: make test-sanity
-  golangci:
-    name: Lint
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v1
-        with:
-          version: v1.27
-
