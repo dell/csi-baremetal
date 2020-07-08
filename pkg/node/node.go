@@ -264,7 +264,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}()
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
+		return nil, fmt.Errorf("jcontext is done after volume lock. err: %s", ctx.Err())
 	default:
 	}
 
