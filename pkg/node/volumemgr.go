@@ -300,12 +300,18 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		}
 		if !exist {
 			// Drive CR is not exist, try to create it
-			toCreateSpec := *drivePtr
-			toCreateSpec.NodeId = m.nodeID
-			toCreateSpec.UUID = uuid.New().String()
-			driveCR := m.k8sClient.ConstructDriveCR(toCreateSpec.UUID, toCreateSpec)
-			if err := m.k8sClient.CreateCR(ctx, driveCR.Name, driveCR); err != nil {
-				ll.Errorf("Failed to create drive CR %v, error: %v", driveCR, err)
+			isSystem, err := m.isDriveIsSystem(drivePtr.Path)
+			if err != nil {
+				ll.Errorf("Unable to determine system root for drive %v", *drivePtr)
+			}
+			if !isSystem {
+				toCreateSpec := *drivePtr
+				toCreateSpec.NodeId = m.nodeID
+				toCreateSpec.UUID = uuid.New().String()
+				driveCR := m.k8sClient.ConstructDriveCR(toCreateSpec.UUID, toCreateSpec)
+				if err := m.k8sClient.CreateCR(ctx, driveCR.Name, driveCR); err != nil {
+					ll.Errorf("Failed to create drive CR %v, error: %v", driveCR, err)
+				}
 			}
 		}
 	}
@@ -348,6 +354,28 @@ func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
 	lvgs := m.crHelper.GetLVGCRs(m.nodeID)
 	for _, lvg := range lvgs {
 		if util.ContainsString(lvg.Spec.Locations, d.UUID) {
+			return true
+		}
+	}
+	return false
+}
+
+// isDriveIsSystem check whether drive is system
+func (m *VolumeManager) isDriveIsSystem(path string) (bool, error) {
+	devices, err := m.listBlk.GetBlockDevices(path)
+	if err != nil {
+		return false, err
+	}
+	return m.isRootMountpoint(devices), nil
+}
+
+// isRootMountpoint check whether devices has root mountpoint
+func (m *VolumeManager) isRootMountpoint(dev []lsblk.BlockDevice) bool {
+	for _, device := range dev {
+		if strings.TrimSpace(device.MountPoint) == base.KubeletRootPath {
+			return true
+		}
+		if m.isRootMountpoint(device.Children) {
 			return true
 		}
 	}

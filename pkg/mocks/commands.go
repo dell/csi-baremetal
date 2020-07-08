@@ -136,3 +136,18 @@ var LsblkDevWithChildren = CmdOut{
 			}`,
 	Stderr: "",
 	Err:    nil}
+
+// LsblkDevWithRootmount imitates lsblk output with two block devices with children, one of them has root mount
+var LsblkDevWithRootmount = CmdOut{
+	Stdout: `{
+			  "blockdevices":[{
+				"name": "/dev/sdc",
+				"type": "disk",
+				"serial": "hdd2",
+				"children": [{"name": "/dev/children1", "mountpoint":""}, 
+							 {"name": "/dev/children2", "mountpoint":"/var/lib/kubelet/pods"}],
+				"size": "213674622976"
+				}]
+			}`,
+	Stderr: "",
+	Err:    nil}

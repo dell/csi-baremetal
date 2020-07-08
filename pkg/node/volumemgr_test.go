@@ -486,6 +486,36 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(acList.Items))
 }
+func TestVolumeManager_isDriveIsSystem(t *testing.T) {
+	vm := prepareSuccessVolumeManager()
+	isSystem, err := vm.isDriveIsSystem("/dev/sdb")
+	assert.Nil(t, err)
+	assert.Equal(t, isSystem, false)
+
+	expectedCmdOut1 := map[string]mocks.CmdOut{
+		fmt.Sprintf(lsblk.CmdTmpl, "/dev/sdc"): mocks.LsblkDevWithRootmount,
+	}
+	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+
+	e2 := mocks.NewMockExecutor(expectedCmdOut1)
+	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.listBlk.SetExecutor(e2)
+	isSystem, err = vm.isDriveIsSystem("/dev/sdc")
+	assert.Nil(t, err)
+	assert.Equal(t, isSystem, true)
+
+	errorOutput := map[string]mocks.CmdOut{
+		fmt.Sprintf(lsblk.CmdTmpl, "/dev/sdb"): {Err: fmt.Errorf("error")},
+	}
+	e2 = mocks.NewMockExecutor(errorOutput)
+	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.listBlk.SetExecutor(e2)
+	isSystem, err = vm.isDriveIsSystem("/dev/sdb")
+	assert.NotNil(t, err)
+	assert.Equal(t, isSystem, false)
+}
 
 func prepareSuccessVolumeManager() *VolumeManager {
 	c := mocks.NewMockDriveMgrClient(nil)

@@ -21,7 +21,7 @@ var logger = logrus.New()
 func TestLoopBackManager_GetNVMDevicesSuccess(t *testing.T) {
 	var (
 		mockexec = &mocks.GoMockExecutor{}
-		manager  = NewLinuxUtilManager(mockexec, logger)
+		manager  = NewBaseManager(mockexec, logger)
 		mockNvme = &linuxutils.MockWrapNvmecli{}
 	)
 	nvmeDevice := make([]nvmecli.NVMDevice, 0)
@@ -55,7 +55,7 @@ func TestLoopBackManager_GetNVMDevicesSuccess(t *testing.T) {
 func TestLoopBackManager_GetNVMDevicesEmptyVidPidSn(t *testing.T) {
 	var (
 		mockexec = &mocks.GoMockExecutor{}
-		manager  = NewLinuxUtilManager(mockexec, logger)
+		manager  = NewBaseManager(mockexec, logger)
 		mockNvme = &linuxutils.MockWrapNvmecli{}
 	)
 	nvmeDevice := make([]nvmecli.NVMDevice, 0)
@@ -81,7 +81,7 @@ func TestLoopBackManager_GetNVMDevicesEmptyVidPidSn(t *testing.T) {
 func TestLoopBackManager_GetNVMDevicesFail(t *testing.T) {
 	var (
 		mockexec = &mocks.GoMockExecutor{}
-		manager  = NewLinuxUtilManager(mockexec, logger)
+		manager  = NewBaseManager(mockexec, logger)
 		mockNvme = &linuxutils.MockWrapNvmecli{}
 	)
 	mockNvme.On("GetNVMDevices", mock.Anything).
@@ -96,7 +96,7 @@ func TestLoopBackManager_GetNVMDevicesFail(t *testing.T) {
 func TestLoopBackManager_GetSCSIDevices(t *testing.T) {
 	var (
 		mockexec     = &mocks.GoMockExecutor{}
-		manager      = NewLinuxUtilManager(mockexec, logger)
+		manager      = NewBaseManager(mockexec, logger)
 		mockLsscsi   = &linuxutils.MockWrapLsscsi{}
 		mockSmartctl = &linuxutils.MockWrapSmartctl{}
 	)
@@ -150,7 +150,7 @@ func TestLoopBackManager_GetSCSIDevices(t *testing.T) {
 func TestLoopBackManager_GetSCSIDevicesEmptyVidPidSn(t *testing.T) {
 	var (
 		mockexec     = &mocks.GoMockExecutor{}
-		manager      = NewLinuxUtilManager(mockexec, logger)
+		manager      = NewBaseManager(mockexec, logger)
 		mockLsscsi   = &linuxutils.MockWrapLsscsi{}
 		mockSmartctl = &linuxutils.MockWrapSmartctl{}
 	)
@@ -188,7 +188,7 @@ func TestLoopBackManager_GetSCSIDevicesEmptyVidPidSn(t *testing.T) {
 func TestLoopBackManager_GetSCSIDevicesFail(t *testing.T) {
 	var (
 		mockexec     = &mocks.GoMockExecutor{}
-		manager      = NewLinuxUtilManager(mockexec, logger)
+		manager      = NewBaseManager(mockexec, logger)
 		mockSmartctl = &linuxutils.MockWrapSmartctl{}
 		mockLsscsi   = &linuxutils.MockWrapLsscsi{}
 	)
@@ -218,7 +218,7 @@ func TestLoopBackManager_GetSCSIDevicesFail(t *testing.T) {
 func TestLoopBackManager_GetSCSIDevicesLsscsiFail(t *testing.T) {
 	var (
 		mockexec   = &mocks.GoMockExecutor{}
-		manager    = NewLinuxUtilManager(mockexec, logger)
+		manager    = NewBaseManager(mockexec, logger)
 		mockLsscsi = &linuxutils.MockWrapLsscsi{}
 	)
 	mockLsscsi.On("GetSCSIDevices", mock.Anything).
@@ -233,7 +233,7 @@ func TestLoopBackManager_GetSCSIDevicesLsscsiFail(t *testing.T) {
 func TestLoopBackManager_GetDrivesListFail(t *testing.T) {
 	var (
 		mockexec   = &mocks.GoMockExecutor{}
-		manager    = NewLinuxUtilManager(mockexec, logger)
+		manager    = NewBaseManager(mockexec, logger)
 		mockLsscsi = &linuxutils.MockWrapLsscsi{}
 		mockNvme   = &linuxutils.MockWrapNvmecli{}
 	)
@@ -253,7 +253,7 @@ func TestLoopBackManager_GetDrivesListFail(t *testing.T) {
 func TestLoopBackManager_GetDrivesListLsscsiFail(t *testing.T) {
 	var (
 		mockexec   = &mocks.GoMockExecutor{}
-		manager    = NewLinuxUtilManager(mockexec, logger)
+		manager    = NewBaseManager(mockexec, logger)
 		mockLsscsi = &linuxutils.MockWrapLsscsi{}
 		mockNvme   = &linuxutils.MockWrapNvmecli{}
 	)
@@ -274,7 +274,7 @@ func TestLoopBackManager_GetDrivesListLsscsiFail(t *testing.T) {
 func TestLoopBackManager_GetDrivesListSuccess(t *testing.T) {
 	var (
 		mockexec   = &mocks.GoMockExecutor{}
-		manager    = NewLinuxUtilManager(mockexec, logger)
+		manager    = NewBaseManager(mockexec, logger)
 		mockLsscsi = &linuxutils.MockWrapLsscsi{}
 		mockNvme   = &linuxutils.MockWrapNvmecli{}
 	)
