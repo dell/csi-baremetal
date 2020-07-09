@@ -300,7 +300,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		}
 		if !exist {
 			// Drive CR is not exist, try to create it
-			isSystem, err := m.isDriveIsSystem(drivePtr.Path)
+			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
 				ll.Errorf("Unable to determine system root for drive %v", *drivePtr)
 			}
@@ -360,8 +360,8 @@ func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
 	return false
 }
 
-// isDriveIsSystem check whether drive is system
-func (m *VolumeManager) isDriveIsSystem(path string) (bool, error) {
+// isDriveSystem check whether drive is system
+func (m *VolumeManager) isDriveSystem(path string) (bool, error) {
 	devices, err := m.listBlk.GetBlockDevices(path)
 	if err != nil {
 		return false, err

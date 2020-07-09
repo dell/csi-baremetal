@@ -486,9 +486,9 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(acList.Items))
 }
-func TestVolumeManager_isDriveIsSystem(t *testing.T) {
+func TestVolumeManager_isDriveSystem(t *testing.T) {
 	vm := prepareSuccessVolumeManager()
-	isSystem, err := vm.isDriveIsSystem("/dev/sdb")
+	isSystem, err := vm.isDriveSystem("/dev/sdb")
 	assert.Nil(t, err)
 	assert.Equal(t, isSystem, false)
 
@@ -502,7 +502,7 @@ func TestVolumeManager_isDriveIsSystem(t *testing.T) {
 	e2 := mocks.NewMockExecutor(expectedCmdOut1)
 	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	vm.listBlk.SetExecutor(e2)
-	isSystem, err = vm.isDriveIsSystem("/dev/sdc")
+	isSystem, err = vm.isDriveSystem("/dev/sdc")
 	assert.Nil(t, err)
 	assert.Equal(t, isSystem, true)
 
@@ -512,7 +512,7 @@ func TestVolumeManager_isDriveIsSystem(t *testing.T) {
 	e2 = mocks.NewMockExecutor(errorOutput)
 	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	vm.listBlk.SetExecutor(e2)
-	isSystem, err = vm.isDriveIsSystem("/dev/sdb")
+	isSystem, err = vm.isDriveSystem("/dev/sdb")
 	assert.NotNil(t, err)
 	assert.Equal(t, isSystem, false)
 }

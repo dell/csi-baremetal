@@ -137,7 +137,7 @@ var LsblkDevWithChildren = CmdOut{
 	Stderr: "",
 	Err:    nil}
 
-// LsblkDevWithRootmount imitates lsblk output with two block devices with children, one of them has root mount
+// LsblkDevWithRootmount imitates lsblk output with device with root mount
 var LsblkDevWithRootmount = CmdOut{
 	Stdout: `{
 			  "blockdevices":[{
