@@ -120,7 +120,6 @@ func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBa
 	}
 
 	mgr.attemptToRecoverDevices(imagesFolder)
-	//go mgr.updateOnConfigChange(fsw, logger)
 
 	exec.SetLogger(logger)
 
