@@ -546,7 +546,7 @@ func (mgr *LoopBackManager) CleanupLoopDevices() {
 	}
 }
 
-// UpdateOnConfigChange triggers update configruration and init of devices.
+// UpdateOnConfigChange triggers update configuration and init of devices.
 func (mgr *LoopBackManager) UpdateOnConfigChange(watcher *fsnotify.Watcher) {
 	ll := mgr.log.WithField("method", "UpdateOnConfigChange")
 	mgr.updateDevicesFromConfig()
@@ -576,10 +576,10 @@ func (mgr *LoopBackManager) UpdateOnConfigChange(watcher *fsnotify.Watcher) {
 				ll.Fatalf("can't add config to file watcher %s", err)
 			}
 		default:
-			ll.Warnf("unexpected file event %s", event.Op)
+			ll.Warnf("file event %s", event.Op)
 		}
 
-		ll.Debugf("triggering updateDevicesFromConfig on %s event", event.Op)
+		ll.Debugf("triggering devices update on %s event", event.Op)
 		mgr.updateDevicesFromConfig()
 		mgr.Init()
 	}
