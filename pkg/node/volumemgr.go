@@ -161,7 +161,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
 			newStatus = apiV1.Created
 		}
-
 		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
 			// Here we can return error because Volume created successfully and we can try to change CR's status
@@ -169,7 +168,18 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
 			return ctrl.Result{}, err
 		}
-
+		if volume.Spec.StorageClass == apiV1.StorageClassSSDLVG || volume.Spec.StorageClass == apiV1.StorageClassHDDLVG {
+			lvg := &lvgcrd.LVG{}
+			if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
+				ll.Errorf("Unable to read LVG: %v", err)
+				return ctrl.Result{}, err
+			}
+			lvg.Spec.VolumeCounter++
+			if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+				ll.Errorf("Unable to update LVG %v: %v", lvg, err)
+				return ctrl.Result{}, err
+			}
+		}
 		return ctrl.Result{}, nil
 	case apiV1.Removing:
 		if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
@@ -179,11 +189,31 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 			newStatus = apiV1.Removed
 		}
-
 		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
 			ll.Error("Unable to set new status for volume")
 			return ctrl.Result{}, err
+		}
+		if volume.Spec.StorageClass == apiV1.StorageClassSSDLVG || volume.Spec.StorageClass == apiV1.StorageClassHDDLVG {
+			lvg := &lvgcrd.LVG{}
+			if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
+				ll.Errorf("Unable to read LVG: %v", err)
+				return ctrl.Result{}, err
+			}
+			if (lvg.Spec.VolumeCounter - 1) == 0 {
+				ac := m.crHelper.GetACByLocation(lvg.Name)
+				if err := m.k8sClient.Delete(ctx, ac); err != nil {
+					ll.Errorf("Unable to delete AC %v: %v", ac, err)
+				}
+				if err := m.k8sClient.Delete(ctx, lvg); err != nil {
+					ll.Errorf("Unable to delete LVG %v: %v", lvg, err)
+				}
+				return ctrl.Result{}, nil
+			}
+			lvg.Spec.VolumeCounter--
+			if err := m.k8sClient.UpdateCRWithAttempts(ctx, lvg, 5); err != nil {
+				ll.Errorf("Unable to update LVG %v: %v", lvg, err)
+			}
 		}
 		return ctrl.Result{}, nil
 	default:
