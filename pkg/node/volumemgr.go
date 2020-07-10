@@ -303,6 +303,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
 				ll.Errorf("Unable to determine system root for drive %v", *drivePtr)
+				continue
 			}
 			if !isSystem {
 				toCreateSpec := *drivePtr
