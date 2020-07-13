@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 func TestSMARCTL_GetDriveInfoByPath(t *testing.T) {

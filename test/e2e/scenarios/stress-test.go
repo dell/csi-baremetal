@@ -16,7 +16,7 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/test/e2e/common"
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 var stsName = "stress-test-sts"

@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	simple "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/events/recorder"
+	simple "github.com/dell/csi-baremetal/pkg/events/recorder"
 )
 
 // EventRecorder knows how to record events on behalf of an EventSource

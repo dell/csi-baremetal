@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +14,8 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 var (
