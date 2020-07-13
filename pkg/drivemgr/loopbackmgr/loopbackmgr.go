@@ -6,6 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
+
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -57,6 +60,7 @@ type LoopBackManager struct {
 	nodeID   string
 	devices  []*LoopBackDevice
 	config   *Config
+	sync.Mutex
 }
 
 // LoopBackDevice struct contains fields to describe a loop device bound with a file
@@ -117,8 +121,6 @@ func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBa
 
 	mgr.attemptToRecoverDevices(imagesFolder)
 
-	mgr.updateDevicesFromConfig()
-
 	exec.SetLogger(logger)
 
 	return mgr
@@ -129,6 +131,8 @@ func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBa
 // existing ones
 func (mgr *LoopBackManager) attemptToRecoverDevices(imagesPath string) {
 	ll := mgr.log.WithField("method", "attemptToRecoveryDevices")
+	mgr.Lock()
+	defer mgr.Unlock()
 
 	entries, err := ioutil.ReadDir(imagesPath)
 	if err != nil {
@@ -247,6 +251,8 @@ func (mgr *LoopBackManager) readAndSetConfig(path string) {
 // them with local default settings.
 func (mgr *LoopBackManager) updateDevicesFromConfig() {
 	ll := mgr.log.WithField("method", "updateDevicesFromConfig")
+	mgr.Lock()
+	defer mgr.Unlock()
 
 	mgr.readAndSetConfig(configPath)
 
@@ -409,10 +415,11 @@ func (mgr *LoopBackManager) deleteLoopbackDevice(device *LoopBackDevice) {
 
 // Init creates files and register them as loopback devices
 // Returns error if something went wrong
-func (mgr *LoopBackManager) Init() (err error) {
+func (mgr *LoopBackManager) Init() {
 	ll := mgr.log.WithField("method", "Init")
 	var device string
-
+	mgr.Lock()
+	defer mgr.Unlock()
 	fsOps := fs.NewFSImpl(mgr.exec)
 	// go through the list of devices and register if needed
 	for i := 0; i < len(mgr.devices); i++ {
@@ -479,18 +486,15 @@ func (mgr *LoopBackManager) Init() (err error) {
 		device, _ = mgr.GetLoopBackDeviceName(file)
 		mgr.devices[i].devicePath = device
 	}
-	return nil
 }
 
 // GetDrivesList returns list of loopback devices as *api.Drive slice
 // Returns *api.Drive slice or error if something went wrong
 func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 	// TODO AK8S-896 Make process of config updating asynchronous
-	mgr.updateDevicesFromConfig()
-	if err := mgr.Init(); err != nil {
-		mgr.log.WithField("method", "GetDrivesList").Errorf("Failed to init devices: %v", err)
-	}
-	drives := make([]*api.Drive, 0)
+	mgr.Lock()
+	defer mgr.Unlock()
+	drives := make([]*api.Drive, 0, len(mgr.devices))
 	for i := 0; i < len(mgr.devices); i++ {
 		var driveStatus string
 		if mgr.devices[i].Removed {
@@ -539,5 +543,44 @@ func (mgr *LoopBackManager) GetLoopBackDeviceName(file string) (string, error) {
 func (mgr *LoopBackManager) CleanupLoopDevices() {
 	for _, device := range mgr.devices {
 		mgr.deleteLoopbackDevice(device)
+	}
+}
+
+// UpdateOnConfigChange triggers update configuration and init of devices.
+func (mgr *LoopBackManager) UpdateOnConfigChange(watcher *fsnotify.Watcher) {
+	ll := mgr.log.WithField("method", "UpdateOnConfigChange")
+	err := watcher.Add(configPath)
+	if err != nil {
+		ll.Fatalf("can't add config to file watcher %s", err)
+	}
+	mgr.updateDevicesFromConfig()
+	mgr.Init()
+	for {
+		event, ok := <-watcher.Events
+		if !ok {
+			ll.Info("file watcher is closed")
+			return
+		}
+		ll.Debugf("event %s came ", event.Op)
+
+		switch event.Op {
+		case fsnotify.Chmod:
+			continue
+		case fsnotify.Remove:
+			err = watcher.Remove(configPath)
+			if err != nil {
+				ll.Debugf("can't remove config to file watcher %s", err)
+			}
+			err = watcher.Add(configPath)
+			if err != nil {
+				ll.Fatalf("can't add config to file watcher %s", err)
+			}
+		default:
+			ll.Warnf("file event %s", event.Op)
+		}
+
+		ll.Debugf("triggering devices update on %s event", event.Op)
+		mgr.updateDevicesFromConfig()
+		mgr.Init()
 	}
 }

@@ -9,7 +9,7 @@ this.runPullRequestValidationJob()
 void runPullRequestValidationJob() {
     Map<String, Object> args = [
         pullRequestNumber: params.PULL_REQUEST_NUMBER,
-        repo             : common.CSI_BAREMETAL,
+        repo             : common.CSI_BAREMETAL_REPO,
     ]
     pr_validation.runPullRequestValidationJob(args) {
         String commit ->

@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/fsnotify/fsnotify"
+
 	dmsetup "github.com/dell/csi-baremetal.git/cmd/drivemgr"
 	"github.com/dell/csi-baremetal.git/pkg/base"
 	"github.com/dell/csi-baremetal.git/pkg/base/command"
@@ -32,11 +34,16 @@ func main() {
 	e := &command.Executor{}
 	e.SetLogger(logger)
 
-	driveMgr := loopbackmgr.NewLoopBackManager(e, logger)
-	// initialize
-	if err = driveMgr.Init(); err != nil {
-		logger.Fatalf("Failed to initialize LoopBack drive manager: %v", err)
+	// creates a new file watcher for config
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		logger.Fatalf("Failed to create fs watcher: %v", err)
 	}
+	//nolint:errcheck
+	defer watcher.Close()
 
+	driveMgr := loopbackmgr.NewLoopBackManager(e, logger)
+
+	go driveMgr.UpdateOnConfigChange(watcher)
 	dmsetup.SetupAndRunDriveMgr(driveMgr, serverRunner, driveMgr.CleanupLoopDevices, logger)
 }
