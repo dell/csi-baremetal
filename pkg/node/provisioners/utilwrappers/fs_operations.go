@@ -6,8 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 )
 
 // FSOperations is holds methods that consists of WrapFS methods

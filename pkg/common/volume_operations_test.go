@@ -11,13 +11,13 @@ import (
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal.git/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {

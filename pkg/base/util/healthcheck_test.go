@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/dell/csi-baremetal.git/pkg/base"
-	grpc "github.com/dell/csi-baremetal.git/pkg/base/rpc"
-	"github.com/dell/csi-baremetal.git/pkg/mocks/rpc"
+	"github.com/dell/csi-baremetal/pkg/base"
+	grpc "github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/mocks/rpc"
 )
 
 var testLogger = logrus.New()

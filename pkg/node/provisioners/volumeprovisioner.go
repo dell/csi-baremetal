@@ -4,7 +4,7 @@
 // and encapsulates all low-level work with these objects.
 package provisioners
 
-import api "github.com/dell/csi-baremetal.git/api/generated/v1"
+import api "github.com/dell/csi-baremetal/api/generated/v1"
 
 // VolumeType is used for describing class of volume depending on underlying structures
 // volume could be based on partitions, logical volume and so on

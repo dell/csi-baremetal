@@ -3,7 +3,7 @@ package linuxutils
 import (
 	"github.com/stretchr/testify/mock"
 
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lsscsi"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsscsi"
 )
 
 // MockWrapLsscsi is a mock implementation of WrapLsscsi interface from lsscsi package

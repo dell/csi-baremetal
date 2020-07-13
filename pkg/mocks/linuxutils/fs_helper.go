@@ -3,7 +3,7 @@ package linuxutils
 import (
 	"github.com/stretchr/testify/mock"
 
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 )
 
 // MockWrapFS is a mock implementation of WrapFS interface from fs package

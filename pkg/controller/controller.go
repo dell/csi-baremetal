@@ -14,14 +14,14 @@ import (
 	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	"github.com/dell/csi-baremetal.git/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal.git/pkg/base"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
-	"github.com/dell/csi-baremetal.git/pkg/common"
-	"github.com/dell/csi-baremetal.git/pkg/controller/node"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/common"
+	"github.com/dell/csi-baremetal/pkg/controller/node"
 )
 
 // NodeID is the type for node hostname

@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lsscsi"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/nvmecli"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/smartctl"
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
-	"github.com/dell/csi-baremetal.git/pkg/mocks/linuxutils"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsscsi"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/nvmecli"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/smartctl"
+	"github.com/dell/csi-baremetal/pkg/mocks"
+	"github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 )
 
 var logger = logrus.New()

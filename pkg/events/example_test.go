@@ -7,9 +7,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
-	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/events"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/events"
 )
 
 func Example() {

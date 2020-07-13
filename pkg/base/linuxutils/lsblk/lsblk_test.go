@@ -8,9 +8,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 var (

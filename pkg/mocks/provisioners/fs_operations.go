@@ -1,6 +1,6 @@
 package provisioners
 
-import mocklu "github.com/dell/csi-baremetal.git/pkg/mocks/linuxutils"
+import mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 
 // MockFsOpts is a mock implementation of FSOperation interface from volumeprovisioner package
 type MockFsOpts struct {

@@ -11,11 +11,11 @@ import (
 
 	// +kubebuilder:scaffold:imports
 
-	"github.com/dell/csi-baremetal.git/pkg/base"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/base/rpc"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
-	"github.com/dell/csi-baremetal.git/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/controller"
 )
 
 var (

@@ -15,9 +15,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 // NewHALManager is the constructor of HALManager

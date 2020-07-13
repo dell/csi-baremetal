@@ -6,8 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 const (

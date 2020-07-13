@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/partitionhelper"
-	mocklu "github.com/dell/csi-baremetal.git/pkg/mocks/linuxutils"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
+	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 )
 
 var (

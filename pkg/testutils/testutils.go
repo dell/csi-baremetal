@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/common"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/common"
 )
 
 // VolumeReconcileImitation looking for volume CR with name volId and sets it's status to newStatus

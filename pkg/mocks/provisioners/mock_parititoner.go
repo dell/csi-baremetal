@@ -3,8 +3,8 @@ package provisioners
 import (
 	"github.com/stretchr/testify/mock"
 
-	mocklu "github.com/dell/csi-baremetal.git/pkg/mocks/linuxutils"
-	"github.com/dell/csi-baremetal.git/pkg/node/provisioners/utilwrappers"
+	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
+	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 // MockPartitionOps is a mock implementation of WrapPartition interface

@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 var (

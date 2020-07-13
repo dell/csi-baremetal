@@ -16,7 +16,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	ref "k8s.io/client-go/tools/reference"
 
-	"github.com/dell/csi-baremetal.git/pkg/events/mocks"
+	"github.com/dell/csi-baremetal/pkg/events/mocks"
 )
 
 func TestSimpleRecorder_Eventf(t *testing.T) {

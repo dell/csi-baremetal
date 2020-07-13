@@ -7,15 +7,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/fs"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lsblk"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/partitionhelper"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
-	uw "github.com/dell/csi-baremetal.git/pkg/node/provisioners/utilwrappers"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	uw "github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 const (

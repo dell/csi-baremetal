@@ -14,8 +14,8 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 var (

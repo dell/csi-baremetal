@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	api "github.com/dell/csi-baremetal.git/api/v1"
+	api "github.com/dell/csi-baremetal/api/v1"
 )
 
 const tmpMounts = "/tmp/mounts"

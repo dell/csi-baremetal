@@ -12,8 +12,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 )
 
 const (

@@ -1,4 +1,4 @@
-module github.com/dell/csi-baremetal.git
+module github.com/dell/csi-baremetal
 
 go 1.14
 
@@ -10,14 +10,11 @@ require (
 	github.com/golang/protobuf v1.3.5
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/uuid v1.1.1
-	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/kubernetes-csi/csi-test/v3 v3.1.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.7.1
-	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
-	golang.org/x/arch v0.0.0-20200312215426-ff8b605520f4 // indirect
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
@@ -30,7 +27,6 @@ require (
 	k8s.io/kubernetes v1.16.4
 	k8s.io/utils v0.0.0-20190801114015-581e00157fb1
 	sigs.k8s.io/controller-runtime v0.4.0
-	sigs.k8s.io/controller-tools v0.2.2 // indirect
 	sigs.k8s.io/yaml v1.1.0
 )
 

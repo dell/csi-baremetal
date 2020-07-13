@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 )
 
 // DriveServiceServerImpl is the implementation of gRPC server that gives possibility to invoke DriveManager's methods

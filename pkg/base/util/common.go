@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	api "github.com/dell/csi-baremetal.git/api/v1"
+	api "github.com/dell/csi-baremetal/api/v1"
 )
 
 // ConsistentRead returns content of the file and ensure that this content is actual (no one modify file during timeout)

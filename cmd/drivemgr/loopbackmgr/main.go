@@ -6,11 +6,11 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	dmsetup "github.com/dell/csi-baremetal.git/cmd/drivemgr"
-	"github.com/dell/csi-baremetal.git/pkg/base"
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	"github.com/dell/csi-baremetal.git/pkg/base/rpc"
-	"github.com/dell/csi-baremetal.git/pkg/drivemgr/loopbackmgr"
+	dmsetup "github.com/dell/csi-baremetal/cmd/drivemgr"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 )
 
 var (

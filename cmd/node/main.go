@@ -20,16 +20,16 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	"github.com/dell/csi-baremetal.git/api/v1/lvgcrd"
-	"github.com/dell/csi-baremetal.git/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal.git/pkg/base"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/base/rpc"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
-	"github.com/dell/csi-baremetal.git/pkg/events"
-	"github.com/dell/csi-baremetal.git/pkg/lvm"
-	"github.com/dell/csi-baremetal.git/pkg/node"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/events"
+	"github.com/dell/csi-baremetal/pkg/lvm"
+	"github.com/dell/csi-baremetal/pkg/node"
 )
 
 const (

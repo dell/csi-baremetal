@@ -1,8 +1,8 @@
 package mocks
 
 import (
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 )
 
 // DriveMgrRespDrives are the drives for mock GetAllDrives call of DriveManager

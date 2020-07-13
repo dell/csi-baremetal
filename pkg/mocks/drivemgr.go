@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"google.golang.org/grpc"
 )
 

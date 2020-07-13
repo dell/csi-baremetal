@@ -16,15 +16,15 @@ import (
 	"google.golang.org/grpc/status"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	vcrd "github.com/dell/csi-baremetal.git/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal.git/pkg/base"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
-	mockProv "github.com/dell/csi-baremetal.git/pkg/mocks/provisioners"
-	p "github.com/dell/csi-baremetal.git/pkg/node/provisioners"
-	"github.com/dell/csi-baremetal.git/pkg/testutils"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/mocks"
+	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
+	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
+	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 
 var (

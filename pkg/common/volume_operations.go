@@ -11,12 +11,12 @@ import (
 	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal.git/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal.git/pkg/base"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 // FileSystem is type for storing FS string representation

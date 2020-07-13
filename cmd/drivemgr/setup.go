@@ -5,10 +5,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	"github.com/dell/csi-baremetal.git/pkg/base/rpc"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
-	"github.com/dell/csi-baremetal.git/pkg/drivemgr"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/drivemgr"
 )
 
 // SetupAndRunDriveMgr setups and start/stop particular drive manager

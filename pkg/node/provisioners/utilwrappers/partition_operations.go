@@ -6,8 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	ph "github.com/dell/csi-baremetal.git/pkg/base/linuxutils/partitionhelper"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 )
 
 // PartitionOperations is a high-level interface

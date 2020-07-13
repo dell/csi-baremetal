@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/dell/csi-baremetal.git/api/v1"
+	"github.com/dell/csi-baremetal/api/v1"
 )
 
 var (

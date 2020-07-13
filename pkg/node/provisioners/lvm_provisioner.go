@@ -5,13 +5,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	"github.com/dell/csi-baremetal.git/pkg/base/k8s"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/fs"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lvm"
-	"github.com/dell/csi-baremetal.git/pkg/base/util"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 // LVMProvisioner is a implementation of Provisioner interface

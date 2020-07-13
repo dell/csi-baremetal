@@ -5,12 +5,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	"github.com/dell/csi-baremetal.git/pkg/base/command"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/lsscsi"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/nvmecli"
-	"github.com/dell/csi-baremetal.git/pkg/base/linuxutils/smartctl"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsscsi"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/nvmecli"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/smartctl"
 )
 
 //LinuxUtilManager is a drive manager based on Linux system utils

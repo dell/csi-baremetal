@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 func TestIPMI_GetBmcIP(t *testing.T) {

@@ -1,7 +1,7 @@
 // Package drivemgr contains a code for managers of storage hardware such as drives
 package drivemgr
 
-import api "github.com/dell/csi-baremetal.git/api/generated/v1"
+import api "github.com/dell/csi-baremetal/api/generated/v1"
 
 /*
 List of supported implementations

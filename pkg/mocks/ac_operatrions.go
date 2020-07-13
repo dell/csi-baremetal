@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 )
 
 // ACOperationsMock is the mock implementation of AvailableCapacityOperations interface for test purposes

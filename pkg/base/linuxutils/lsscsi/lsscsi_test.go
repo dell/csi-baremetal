@@ -1,7 +1,7 @@
 package lsscsi
 
 import (
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

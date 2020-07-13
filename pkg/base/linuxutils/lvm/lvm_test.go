@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/dell/csi-baremetal.git/pkg/mocks"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 var (

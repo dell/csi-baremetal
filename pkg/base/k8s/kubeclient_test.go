@@ -13,12 +13,12 @@ import (
 	"github.com/sirupsen/logrus"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/dell/csi-baremetal.git/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal.git/api/v1"
-	accrd "github.com/dell/csi-baremetal.git/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal.git/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal.git/api/v1/lvgcrd"
-	vcrd "github.com/dell/csi-baremetal.git/api/v1/volumecrd"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	coreV1 "k8s.io/api/core/v1"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 )

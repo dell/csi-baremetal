@@ -1,4 +1,4 @@
-// Package v1 contains API Schema definitions for the LVG v1 API group
+// Package lvgcrd contains API Schema definitions for the LVG v1 API group
 // +groupName=baremetal-csi.dellemc.com
 // +versionName=v1
 package lvgcrd
@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/dell/csi-baremetal.git/api/v1"
+	"github.com/dell/csi-baremetal/api/v1"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	v1 "github.com/dell/csi-baremetal.git/api/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 )
 
 func setup() *CRHelper {
