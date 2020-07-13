@@ -3,7 +3,7 @@ package linuxutils
 import (
 	"github.com/stretchr/testify/mock"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/nvmecli"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/nvmecli"
 )
 
 // MockWrapNvmecli is a mock implementation of WrapNvmecli interface from nvmee package

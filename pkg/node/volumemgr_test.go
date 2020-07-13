@@ -12,21 +12,21 @@ import (
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
-	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
-	mockProv "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/provisioners"
-	p "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/mocks"
+	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
+	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
+	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 )
 
 // todo refactor these UTs - https://jira.cec.lab.emc.com:8443/browse/AK8S-724
@@ -434,8 +434,23 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 		})
 		lvgList = lvgcrd.LVGList{}
 		err     error
+		lvmOps  = &mocklu.MockWrapLVM{}
 	)
+	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(0), nil)
+	m.lvmOps = lvmOps
+	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
+	assert.Nil(t, err)
 
+	err = m.discoverLVGOnSystemDrive()
+	assert.Nil(t, err)
+
+	err = m.k8sClient.ReadList(testCtx, &lvgList)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(lvgList.Items))
+	assert.Equal(t, lvgCR, &lvgList.Items[0])
+
+	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(1024), nil)
+	m.lvmOps = lvmOps
 	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
 	assert.Nil(t, err)
 
@@ -469,6 +484,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
 	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
+	lvmOps.On("IsLVGExists", rootMountPoint).Return(true, nil)
 
 	// expect success, LVG CR and AC CR was created
 	err = m.discoverLVGOnSystemDrive()

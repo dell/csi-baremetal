@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
 )
 
 //SetupSignalHandler set up channel for SIGTERM signal, when SIGTERM is caught function try to shutdown service

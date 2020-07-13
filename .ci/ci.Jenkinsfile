@@ -23,7 +23,7 @@ void runTests() {
     final String RUN_MODE_MASTER = 'master'
     final String RUN_MODE_CUSTOM = 'custom'
     boolean testResultSuccess = false
-    final String registry = "asdrepo.isus.emc.com:9042"
+    final String registry = common.DOCKER_REGISTRY.ASDREPO_ATLANTIC_REGISTRY.getRegistryUrl()
     common.node(label: 'csi_test', time: 180) {
         try {
             common.withInfraDevkitContainerKind() {

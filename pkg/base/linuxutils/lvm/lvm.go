@@ -9,8 +9,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 const (
@@ -52,6 +52,7 @@ type WrapLVM interface {
 	RemoveOrphanPVs() error
 	FindVgNameByLvName(lvName string) (string, error)
 	GetVgFreeSpace(vgName string) (int64, error)
+	IsLVGExists(lvName string) (bool, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -219,4 +220,24 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	}
 
 	return bytes, nil
+}
+
+// IsLVGExists try to get vg group from lvName, if there is no such group then lvg is not exists
+// Receives lvName string
+// Returns true if lvg exists, else false; error
+func (l *LVM) IsLVGExists(lvName string) (bool, error) {
+	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
+	stdout, stdErr, err := l.e.RunCmd(cmd)
+	for _, s := range strings.Split(lvName, "/") {
+		if strings.Contains(stdErr, fmt.Sprintf("Volume group \"%s\" not found", s)) {
+			return false, nil
+		}
+	}
+	if err != nil {
+		return false, err
+	}
+	if len(strings.TrimSpace(stdout)) > 0 {
+		return true, nil
+	}
+	return false, fmt.Errorf("unable to determine")
 }

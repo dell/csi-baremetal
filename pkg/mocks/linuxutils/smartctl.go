@@ -3,7 +3,7 @@ package linuxutils
 import (
 	"github.com/stretchr/testify/mock"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/smartctl"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/smartctl"
 )
 
 // MockWrapSmartctl is a mock implementation of WrapSmartctl interface from smartctl package

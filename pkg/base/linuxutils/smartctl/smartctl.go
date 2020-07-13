@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 const (
