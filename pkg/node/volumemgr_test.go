@@ -434,8 +434,23 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 		})
 		lvgList = lvgcrd.LVGList{}
 		err     error
+		lvmOps  = &mocklu.MockWrapLVM{}
 	)
+	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(0), nil)
+	m.lvmOps = lvmOps
+	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
+	assert.Nil(t, err)
 
+	err = m.discoverLVGOnSystemDrive()
+	assert.Nil(t, err)
+
+	err = m.k8sClient.ReadList(testCtx, &lvgList)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(lvgList.Items))
+	assert.Equal(t, lvgCR, &lvgList.Items[0])
+
+	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(1024), nil)
+	m.lvmOps = lvmOps
 	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
 	assert.Nil(t, err)
 
@@ -469,6 +484,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
 	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
+	lvmOps.On("IsLVGExists", rootMountPoint).Return(true, nil)
 
 	// expect success, LVG CR and AC CR was created
 	err = m.discoverLVGOnSystemDrive()
