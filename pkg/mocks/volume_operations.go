@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 )
 
 // VolumeOperationsMock is the mock implementation of VolumeOperations interface for test purposes.

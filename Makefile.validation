@@ -49,10 +49,10 @@ kind-pull-images:
 	docker pull ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
 	docker pull ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	docker pull ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker pull ${BUSYBOX}:${BUSYBOX_TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
-	docker pull ${BUSYBOX}:${BUSYBOX_TAG}
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
