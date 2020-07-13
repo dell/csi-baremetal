@@ -175,7 +175,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				return ctrl.Result{}, err
 			}
 			lvg.Spec.VolumeCounter++
-			if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+			if err = m.k8sClient.UpdateCRWithAttempts(ctx, lvg, 5); err != nil {
 				ll.Errorf("Unable to update LVG %v: %v", lvg, err)
 				return ctrl.Result{}, err
 			}
@@ -200,7 +200,8 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				ll.Errorf("Unable to read LVG: %v", err)
 				return ctrl.Result{}, err
 			}
-			if (lvg.Spec.VolumeCounter - 1) == 0 {
+			lvg.Spec.VolumeCounter--
+			if lvg.Spec.VolumeCounter == 0 {
 				ac := m.crHelper.GetACByLocation(lvg.Name)
 				if err := m.k8sClient.Delete(ctx, ac); err != nil {
 					ll.Errorf("Unable to delete AC %v: %v", ac, err)
@@ -210,7 +211,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				}
 				return ctrl.Result{}, nil
 			}
-			lvg.Spec.VolumeCounter--
 			if err := m.k8sClient.UpdateCRWithAttempts(ctx, lvg, 5); err != nil {
 				ll.Errorf("Unable to update LVG %v: %v", lvg, err)
 			}

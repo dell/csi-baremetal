@@ -3,7 +3,6 @@ package common
 import (
 	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 	"time"
@@ -73,11 +72,11 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		}
 	}
 
-	// need to clean-up logical volume group CRs until https://jira.cec.lab.emc.com:8443/browse/AK8S-1178 is resolved
-	if err := f.DynamicClient.Resource(lvgGVR).Namespace(f.Namespace.Name).DeleteCollection(
-		metav1.NewDeleteOptions(0), metav1.ListOptions{}); err != nil {
-		e2elog.Logf("failed to delete lvg CRs, error: %v", err)
-	}
+	//// need to clean-up logical volume group CRs until https://jira.cec.lab.emc.com:8443/browse/AK8S-1178 is resolved
+	//if err := f.DynamicClient.Resource(lvgGVR).Namespace(f.Namespace.Name).DeleteCollection(
+	//	metav1.NewDeleteOptions(0), metav1.ListOptions{}); err != nil {
+	//	e2elog.Logf("failed to delete lvg CRs, error: %v", err)
+	//}
 
 	// Removes all driver's manifests installed during init(). (Driver, its RBACs, SC)
 	if driverCleanupFn != nil {

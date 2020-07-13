@@ -46,6 +46,9 @@ spec:
               type: integer
             Status:
               type: string
+            VolumeCounter:
+              format: int64
+              type: integer
           type: object
       type: object
   version: v1
