@@ -166,8 +166,10 @@ private String getArtifactsJson(final Map<String, Object> args) {
     List<Object> artifacts = []
     List<String>  images = [
             "baremetal-csi-plugin-node",
-            "baremetal-csi-plugin-drivemgr",
             "baremetal-csi-plugin-controller",
+            "baremetal-csi-plugin-halmgr",
+            "baremetal-csi-plugin-basemgr",
+            "baremetal-csi-plugin-loopbackmgr"
     ]
     images.each { image ->
         artifacts.add([
