@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -102,8 +104,9 @@ func main() {
 
 	go func() {
 		logger.Info("Starting Node Health server ...")
-		nodeHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *healthIP, base.DefaultHealthPort)
-		if err := util.SetupAndStartHealthCheckServer(csiNodeService, logger, nodeHealthEndpoint); err != nil {
+		if err := util.SetupAndStartHealthCheckServer(
+			csiNodeService, logger,
+			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(base.DefaultHealthPort))); err != nil {
 			logger.Fatalf("Node service failed with error: %v", err)
 		}
 	}()

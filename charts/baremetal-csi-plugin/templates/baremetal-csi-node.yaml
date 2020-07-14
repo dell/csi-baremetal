@@ -55,7 +55,6 @@ spec:
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
-          - "--healthip=$(MY_POD_IP)"
           - "--namespace=$(NAMESPACE)"
           - --loglevel={{ .Values.log.level }}
           {{- if .Values.logReceiver.create  }}
@@ -81,12 +80,7 @@ spec:
           periodSeconds: 10
         readinessProbe:
           exec:
-            # have to use bash for extrapolating env var
-            command:
-              - "bash"
-              - "-c"
-              - |
-                /health_probe -addr=$MY_POD_IP:{{ .Values.node.grpc.server.port }}
+            command: ["/health_probe", "-addr=:{{ .Values.node.grpc.server.port }}"]
           initialDelaySeconds: 3
           periodSeconds: 3
           successThreshold: 3
