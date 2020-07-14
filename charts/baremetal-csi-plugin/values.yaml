@@ -44,14 +44,12 @@ node:
       port: 9999
 
 drivemgr:
+  type: basemgr
   image:
-    repository: baremetal-csi-plugin-drivemgr
-    # tag:
+    tag:
   grpc:
     server:
       endpoint: tcp://localhost:8888
-  # TODO: switch to another, AK8S-1125
-  type: HAL
   deployConfig: false
   amountOfLoopDevices: 3
   sizeOfLoopDevices: 100Mi
@@ -92,5 +90,5 @@ logReceiver:
 
 fluentbitAgent:
   image:
-    repository: fluent-bit
+    name: fluent-bit
     tag: shippable

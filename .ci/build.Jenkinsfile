@@ -64,7 +64,12 @@ void runJob() {
                 }
 
                 stage('Build') {
-                    sh('make build')
+                    sh('''
+                        make DRIVE_MANAGER_TYPE=basemgr build
+                        make DRIVE_MANAGER_TYPE=halmgr build-drivemgr
+                        make DRIVE_MANAGER_TYPE=loopbackmgr build-drivemgr
+                        make DRIVE_MANAGER_TYPE=idracmgr build-drivemgr
+                    ''')
                 }
 
                 stage('Lint') {
@@ -78,17 +83,28 @@ void runJob() {
                     ''')
                 }
 
+                stage('Base images') {
+                    sh('''
+                        make DRIVE_MANAGER_TYPE=basemgr base-images
+                        make DRIVE_MANAGER_TYPE=loopbackmgr base-image-drivemgr
+                        make DRIVE_MANAGER_TYPE=halmgr base-image-drivemgr
+                    ''')
+                }
+
                 stage('Images') {
                     sh('''
-                    make base-images
-                    make images
+                        make DRIVE_MANAGER_TYPE=basemgr images
+                        make DRIVE_MANAGER_TYPE=loopbackmgr image-drivemgr
+                        make DRIVE_MANAGER_TYPE=halmgr image-drivemgr
                     ''')
                 }
 
                 stage('Push images') {
                     sh("""
                         ${common.DOCKER_REGISTRY.DOCKER_HUB.getLoginCommand()}
-                        make push
+                        make DRIVE_MANAGER_TYPE=basemgr push
+                        make DRIVE_MANAGER_TYPE=loopbackmgr push-drivemgr
+                        make DRIVE_MANAGER_TYPE=halmgr push-drivemgr
                     """)
                 }
 

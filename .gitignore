@@ -12,9 +12,12 @@ build/
 # binaries
 pkg/controller/controller
 pkg/controller/health_probe
-pkg/drivemgr/*drivemgr
 pkg/node/node
 pkg/node/health_probe
+pkg/drivemgr/basemgr/basemgr
+pkg/drivemgr/halmgr/halmgr
+pkg/drivemgr/loopbackmgr/loopbackmgr
+pkg/drivemgr/idracmgr/idracmgr
 # tests results
 coverage.out
 coverage.html
