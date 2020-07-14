@@ -13,21 +13,14 @@ version:
 dependency:
 	${GO_ENV_VARS} go mod download
 
+all: build base-images images push
+
 ### Build binaries
 
 build: compile-proto build-drivemgr build-node build-controller
 
 build-drivemgr:
-ifeq ($(DRIVE_MANAGER_TYPE),)
-	# build all drivemanagers: TODO: do not build all binaries, AK8S-1125
-	go build -o ./build/${DRIVE_MANAGER}/hal-drivemgr ./cmd/${DRIVE_MANAGER}/halmgr/main.go
-	go build -o ./build/${DRIVE_MANAGER}/loopback-drivemgr ./cmd/${DRIVE_MANAGER}/loopbackmgr/main.go
-	go build -o ./build/${DRIVE_MANAGER}/idrac-drivemgr ./cmd/${DRIVE_MANAGER}/idracmgr/main.go
-	go build -o ./build/${DRIVE_MANAGER}/base-drivemgr ./cmd/${DRIVE_MANAGER}/basemgr/main.go
-endif
-ifneq ($(DRIVE_MANAGER_TYPE),)
-	go build -o ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER} ./cmd/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/main.go
-endif
+	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
 
 build-node:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${NODE}/${NODE} ./cmd/${NODE}/main.go
@@ -42,11 +35,8 @@ images: image-drivemgr image-node image-controller
 base-images: base-image-drivemgr base-image-node base-image-controller
 
 base-image-drivemgr:
-ifeq ($(DRIVE_MANAGER_TYPE), basemgr)
-	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/Dockerfile.build --tag ${DRIVE_MANAGER_TYPE}:base ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
-else
-	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/Dockerfile.build --tag ${DRIVE_MANAGER}:base ./pkg/${DRIVE_MANAGER}
-endif
+	docker build --network host --force-rm --file ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/Dockerfile.build \
+	 --tag ${DRIVE_MANAGER_TYPE}:base ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
 
 download-grpc-health-probe:
 	curl -OJL ${HEALTH_PROBE_BIN_URL}
@@ -64,13 +54,9 @@ base-image-controller: download-grpc-health-probe
 	docker build --network host --force-rm --file ./pkg/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./pkg/${CONTROLLER}
 
 image-drivemgr:
-ifeq ($(DRIVE_MANAGER_TYPE), basemgr)
-	cp ./build/${DRIVE_MANAGER}/base-drivemgr ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-$(DRIVE_MANAGER_TYPE):${TAG} ./pkg/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/
-else
-	cp ./build/${DRIVE_MANAGER}/* ./pkg/${DRIVE_MANAGER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG} ./pkg/${DRIVE_MANAGER}
-endif
+	cp ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE} ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/
+	docker build --network host --force-rm \
+	--tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
 
 image-node:
 	cp ./build/${NODE}/${NODE} ./pkg/${NODE}/${NODE}
@@ -84,13 +70,8 @@ image-controller:
 
 push: push-drivemgr push-node push-controller
 
-push-local:
-	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
-	docker push ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
-	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
-
 push-drivemgr:
-	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
+	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
 
 push-node:
 	docker push ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
@@ -99,6 +80,8 @@ push-controller:
 	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 
 ### Clean artefacts
+
+clean-all: clean clean-images
 
 clean: clean-drivemgr clean-node clean-controller clean-proto
 
@@ -114,10 +97,10 @@ clean-controller:
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
-clean-images: clean-image-drivemgr clean-image-node clean-image-controller
+clean-images: clean-image-node clean-image-controller clean-image-drivemgr
 
 clean-image-drivemgr:
-	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
 
 clean-image-node:
 	docker rmi ${REGISTRY}/${PROJECT}-${NODE}:${TAG}

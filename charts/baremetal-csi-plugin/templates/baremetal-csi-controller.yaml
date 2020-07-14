@@ -129,7 +129,7 @@ spec:
       # Log receiver sidecar
       {{- if .Values.logReceiver.create  }}
       - name: fluentbit-agent
-        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
+        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.name }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: logs-config
