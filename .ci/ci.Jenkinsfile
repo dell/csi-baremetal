@@ -54,9 +54,9 @@ void runTests() {
                     stage('Prepare YAML for e2e tests') {
                         sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
                                 "--set env.test=true " +
-                                "--set drivemgr.image.repository=baremetal-csi-plugin-loopbackmgr " +
-                                "--set image.pullPolicy=IfNotPresent " +
-                                "--set drivemgr.deployConfig=true")
+                                "--set drivemgr.type=loopbackmgr " +
+                                "--set drivemgr.deployConfig=true " +
+                                "--set image.pullPolicy=IfNotPresent")
                     }
                     // for LVM tests we need to use custom kind version with --ipc-host for worker nodes
                     // todo - upstream custom changes - https://jira.cec.lab.emc.com:8443/browse/AK8S-1186

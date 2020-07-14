@@ -142,9 +142,9 @@ make kind-load-images TAG=${csiVersion} REGISTRY=${registry}
 ```
 helm template charts/baremetal-csi-plugin \
     --output-dir /tmp --set image.tag=${csiVersion} \
-    --set env.test=true --set drivemgr.image.repository=baremetal-csi-plugin-loopbackmgr \
-    --set image.pullPolicy=IfNotPresent \
-    --set drivemgr.deployConfig=true
+    --set env.test=true --set drivemgr.type=loopbackmgr \
+    --set drivemgr.deployConfig=true \
+    --set image.pullPolicy=IfNotPresent    
 ``` 
 If you set `--output-dir` to another directory, you should change this line in [code](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/blob/feature-FABRIC-8422-implement-base-csi-e2e-tests-with-Kind/test/test/csi-volume.go#L22) to your directory, so framework can find yaml files.
 

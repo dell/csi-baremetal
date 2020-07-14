@@ -44,9 +44,9 @@ node:
       port: 9999
 
 drivemgr:
+  type: basemgr
   image:
-    repository: baremetal-csi-plugin-basemgr
-    # tag:
+    tag:
   grpc:
     server:
       endpoint: tcp://localhost:8888
@@ -90,5 +90,5 @@ logReceiver:
 
 fluentbitAgent:
   image:
-    repository: fluent-bit
+    name: fluent-bit
     tag: shippable

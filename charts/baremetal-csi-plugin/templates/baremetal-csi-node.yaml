@@ -129,8 +129,8 @@ spec:
       # ********************** baremetal-csi-drivemgr container definition **********************
       # TODO: FABRIC-8595 Replace DriveMgr to DaemonSet
       - name: drivemgr
-        image: {{- if .Values.env.test }} {{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
-               {{- else }} {{ .Values.global.registry }}/{{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+        image: {{- if .Values.env.test }} baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
                {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
@@ -167,7 +167,7 @@ spec:
         - name: logs
           mountPath: /var/log/
         {{- end }}
-        {{- if eq .Values.drivemgr.image.repository "baremetal-csi-plugin-loopbackmgr"}}
+        {{- if eq .Values.drivemgr.type "loopbackmgr"}}
         - name: host-home
           mountPath: /host/home
         {{- end }}
@@ -185,7 +185,7 @@ spec:
       # Log receiver sidecar
       {{- if .Values.logReceiver.create  }}
       - name: fluentbit-agent
-        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
+        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.name }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - name: logs-config
@@ -205,7 +205,7 @@ spec:
         hostPath:
           path: /dev
           type: Directory
-      {{- if eq .Values.drivemgr.image.repository "baremetal-csi-plugin-loopbackmgr"}}
+      {{- if eq .Values.drivemgr.type "loopbackmgr"}}
       - name: host-home
         hostPath:
           path: /home
