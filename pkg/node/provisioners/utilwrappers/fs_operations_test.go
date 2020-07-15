@@ -93,3 +93,62 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	wrapFS.AssertCalled(t, "IsMounted", dst)
 	wrapFS.AssertNotCalled(t, "RmDir", dst)
 }
+
+func TestFSOperationsImpl_MountWithCheck_Success(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	// not mounted
+	wrapFS.On("IsMounted", path).Return(false, nil).Once()
+	err = fsOps.UnmountWithCheck(path)
+	assert.Nil(t, err)
+	for _, c := range wrapFS.Calls {
+		if c.Method == "Unmount" {
+			t.Error("Method Unmount shouldn't have been called")
+		}
+	}
+
+	// Unmount successfully
+	wrapFS.On("IsMounted", path).Return(true, nil).Once()
+	wrapFS.On("Unmount", path).Return(nil).Once()
+	err = fsOps.UnmountWithCheck(path)
+	assert.Nil(t, err)
+	unmountCalled := false
+	for _, c := range wrapFS.Calls {
+		if c.Method == "Unmount" {
+			unmountCalled = true
+			break
+		}
+	}
+	assert.True(t, unmountCalled)
+}
+
+func TestFSOperationsImpl_MountWithCheck_Fail(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	// IsMounted failed
+	isMountedErr := errors.New("isMounted failed")
+	wrapFS.On("IsMounted", path).Return(false, isMountedErr).Once()
+	err = fsOps.UnmountWithCheck(path)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), isMountedErr.Error())
+
+	// Unmount failed
+	unmountErr := errors.New("unmount failed")
+	wrapFS.On("IsMounted", path).Return(true, nil).Once()
+	wrapFS.On("Unmount", path).Return(unmountErr).Once()
+	err = fsOps.UnmountWithCheck(path)
+	assert.NotNil(t, err)
+	assert.Equal(t, unmountErr, err)
+}
