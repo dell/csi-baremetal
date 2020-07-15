@@ -40,8 +40,6 @@ const (
 	GetFSTypeCmdTmpl = wipefs + "%s --output TYPE --noheadings"
 	// MountInfoFile "/proc/mounts" path
 	MountInfoFile = "/proc/self/mountinfo"
-	// IsMountpointCmdTmpl mountpoint template, add src string
-	IsMountpointCmdTmpl = "mountpoint %s"
 	// FindMntCmdTmpl find source device for target mount path cmd
 	FindMntCmdTmpl = "findmnt --target %s --output SOURCE --noheadings" // add target path
 	// MountCmdTmpl mount cmd template, add "src" "dst" and "opts" (could be omitted)
@@ -62,7 +60,6 @@ type WrapFS interface {
 	GetFSType(device string) (FileSystem, error)
 	// Mount operations
 	IsMounted(src string) (bool, error)
-	IsMountPoint(src string) (bool, error)
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
@@ -205,41 +202,6 @@ func (h *WrapFSImpl) IsMounted(path string) (bool, error) {
 	}
 
 	return false, nil
-}
-
-// IsMountPoint checks if the specified path is mount point
-// Receives path that should be checked
-// Returns bool that is true if path is the mount point and error if something went wrong
-func (h *WrapFSImpl) IsMountPoint(path string) (bool, error) {
-	/*
-		examples of output:
-		1) existing mount point
-			$~% mountpoint /dev
-			/dev is a mountpoint
-		2) not a mount point
-		return code is '0'
-			$~% mount point /dev
-			/dev is not a mountpoint
-		return code is '1' !!!
-		3) incorrect path
-			$~% mountpoint /blabla
-			mountpoint: /blabla: No such file or directory
-		return code is '1'
-	*/
-	cmd := fmt.Sprintf(IsMountpointCmdTmpl, path)
-
-	h.opMutex.Lock()
-	stdout, _, err := h.e.RunCmd(cmd)
-	h.opMutex.Unlock()
-
-	if err != nil {
-		if strings.Contains(stdout, "not a mountpoint") {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return true, nil
 }
 
 // FindMountPoint returns source of mount point for target

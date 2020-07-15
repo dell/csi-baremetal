@@ -59,7 +59,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount 
 
 	// dst folder is exist, check whether it is a mount point
 	if !wasCreated {
-		alreadyMounted, err := fsOp.IsMountPoint(dst)
+		alreadyMounted, err := fsOp.IsMounted(dst)
 		if err != nil {
 			_ = fsOp.RmDir(dst)
 			return fmt.Errorf("unable to determine whether %s is a mountpoint or no: %v", dst, err)

@@ -60,13 +60,6 @@ func (m *MockWrapFS) IsMounted(src string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-// IsMountPoint is a mock implementations
-func (m *MockWrapFS) IsMountPoint(src string) (bool, error) {
-	args := m.Mock.Called(src)
-
-	return args.Bool(0), args.Error(1)
-}
-
 // FindMountPoint is a mock implementations
 func (m *MockWrapFS) FindMountPoint(target string) (string, error) {
 	args := m.Mock.Called(target)

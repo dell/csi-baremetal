@@ -194,34 +194,6 @@ func TestGetFSType(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestIsMountPoint(t *testing.T) {
-	var (
-		e    = &mocks.GoMockExecutor{}
-		fh   = NewFSImpl(e)
-		path = "/dev/sda1"
-		cmd  = fmt.Sprintf(IsMountpointCmdTmpl, path)
-		err  error
-		res  bool
-	)
-
-	e.OnCommand(cmd).Return("", "", nil).Times(1)
-	res, err = fh.IsMountPoint(path)
-	assert.True(t, res)
-	assert.Nil(t, err)
-
-	// got error but stdout contain "not a mountpoint"
-	e.OnCommand(cmd).Return("not a mountpoint", "", testError).Times(1)
-	res, err = fh.IsMountPoint(path)
-	assert.False(t, res)
-	assert.Nil(t, err)
-
-	// cmd failed
-	e.OnCommand(cmd).Return("", "", testError).Times(1)
-	res, err = fh.IsMountPoint(path)
-	assert.False(t, res)
-	assert.NotNil(t, err)
-}
-
 func TestMount(t *testing.T) {
 	var (
 		e   = &mocks.GoMockExecutor{}
