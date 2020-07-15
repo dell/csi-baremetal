@@ -83,7 +83,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount 
 	return nil
 }
 
-// UnmountWithCheck idempotent implemetation of unmout operation
+// UnmountWithCheck idempotent implemetation of unmount operation
 // check whether path is mounted and only if yes - try to unmount
 func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
 	isMounted, err := fsOp.IsMounted(path)
