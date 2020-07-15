@@ -38,8 +38,8 @@ const (
 	WipeFSCmdTmpl = wipefs + "-af %s"
 	// GetFSTypeCmdTmpl cmd for retrieving FS type
 	GetFSTypeCmdTmpl = wipefs + "%s --output TYPE --noheadings"
-	// ProcMountsFile "/proc/mounts" path
-	ProcMountsFile = "/proc/mounts"
+	// MountInfoFile "/proc/mounts" path
+	MountInfoFile = "/proc/self/mountinfo"
 	// IsMountpointCmdTmpl mountpoint template, add src string
 	IsMountpointCmdTmpl = "mountpoint %s"
 	// FindMntCmdTmpl find source device for target mount path cmd
@@ -185,25 +185,21 @@ func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
 	return FileSystem(strings.TrimSpace(stdout)), nil
 }
 
-// IsMounted checks if the partition of device mounted
-// Receives partition path as a string
+// IsMounted checks if the path is presented in /proc/self/mountinfo
+// Receives path as a string
 // Returns bool that represents mount status or error if something went wrong
-func (h *WrapFSImpl) IsMounted(partition string) (bool, error) {
+func (h *WrapFSImpl) IsMounted(path string) (bool, error) {
 	h.opMutex.Lock()
 	defer h.opMutex.Unlock()
 
-	procMounts, err := util.ConsistentRead(ProcMountsFile, 5, time.Millisecond)
+	procMounts, err := util.ConsistentRead(MountInfoFile, 5, time.Millisecond)
 	if err != nil || len(procMounts) == 0 {
-		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %v", partition, err)
+		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %v", path, err)
 	}
 
-	// parse /proc/mounts content and search partition entry
+	// parse /proc/mounts content and search path entry
 	for _, line := range strings.Split(string(procMounts), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		if fields[0] == partition {
+		if strings.Contains(line, path) {
 			return true, nil
 		}
 	}
@@ -286,14 +282,8 @@ func (h *WrapFSImpl) Unmount(path string) error {
 	cmd := fmt.Sprintf(UnmountCmdTmpl, path)
 
 	h.opMutex.Lock()
-	_, stderr, err := h.e.RunCmd(cmd)
+	_, _, err := h.e.RunCmd(cmd)
 	h.opMutex.Unlock()
 
-	if err != nil {
-		if strings.Contains(stderr, "not mounted") {
-			return nil
-		}
-		return err
-	}
-	return nil
+	return err
 }

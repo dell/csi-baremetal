@@ -255,11 +255,6 @@ func TestUnmount(t *testing.T) {
 	err = fh.Unmount(path)
 	assert.Nil(t, err)
 
-	// got error that fs is not mounted
-	e.OnCommand(cmd).Return("", "not mounted", testError).Times(1)
-	err = fh.Unmount(path)
-	assert.Nil(t, err)
-
 	// cmd failed
 	e.OnCommand(cmd).Return("", "", testError).Times(1)
 	err = fh.Unmount(path)

@@ -13,3 +13,10 @@ func (m *MockFsOpts) PrepareAndPerformMount(src, dst string, bindMount bool) err
 
 	return args.Error(0)
 }
+
+// UnmountWithCheck is a mock implementation
+func (m *MockFsOpts) UnmountWithCheck(path string) error {
+	args := m.Mock.Called(path)
+1
+	return args.Error(0)
+}
