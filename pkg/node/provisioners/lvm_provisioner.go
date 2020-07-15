@@ -82,6 +82,7 @@ func (l *LVMProvisioner) ReleaseVolume(vol api.Volume) error {
 	}
 
 	ll.Debugf("Removing LV %s", deviceFile)
+	// TODO: might failed on big scale, should to be refactored, ATLDEF-64
 	return l.lvmOps.LVRemove(deviceFile)
 }
 

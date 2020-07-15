@@ -10,11 +10,13 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 )
 
-// FSOperations is holds methods that consists of WrapFS methods
+// FSOperations is holds idempotent methods that consists of WrapFS methods
 type FSOperations interface {
 	// PrepareAndPerformMount composite methods which is prepare source and destination directories
 	// and performs mount operation from src to dst
 	PrepareAndPerformMount(src, dst string, bindMount bool) error
+	// UnmountWithCheck unmount operation
+	UnmountWithCheck(path string) error
 	fs.WrapFS
 }
 
@@ -57,7 +59,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount 
 
 	// dst folder is exist, check whether it is a mount point
 	if !wasCreated {
-		alreadyMounted, err := fsOp.IsMountPoint(dst)
+		alreadyMounted, err := fsOp.IsMounted(dst)
 		if err != nil {
 			_ = fsOp.RmDir(dst)
 			return fmt.Errorf("unable to determine whether %s is a mountpoint or no: %v", dst, err)
@@ -79,4 +81,19 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount 
 		return fmt.Errorf("unable to mount %s to %s: %v", src, dst, err)
 	}
 	return nil
+}
+
+// UnmountWithCheck idempotent implemetation of unmount operation
+// check whether path is mounted and only if yes - try to unmount
+func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
+	isMounted, err := fsOp.IsMounted(path)
+	if err != nil {
+		return fmt.Errorf("unable to check wthether path mounted or no: %v", err)
+	}
+	if !isMounted {
+		fsOp.log.WithField("method", "Unmount").Infof("Path %s is not mounted", path)
+		return nil
+	}
+
+	return fsOp.Unmount(path)
 }
