@@ -4,6 +4,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
@@ -52,8 +54,9 @@ func main() {
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
 	go func() {
 		logger.Info("Starting Controller Health server ...")
-		controllerHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *healthIP, *healthPort)
-		if err := util.SetupAndStartHealthCheckServer(controllerService, logger, controllerHealthEndpoint); err != nil {
+		if err := util.SetupAndStartHealthCheckServer(
+			controllerService, logger,
+			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(*healthPort))); err != nil {
 			logger.Fatalf("Controller service failed with error: %v", err)
 		}
 	}()
