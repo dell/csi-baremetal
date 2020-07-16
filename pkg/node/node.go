@@ -3,6 +3,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -85,6 +86,19 @@ func (s *CSINodeService) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeRe
 	}, nil
 }
 
+// checkRequestContext checks whether provided context is done or no, return error in case of done context
+func (s *CSINodeService) checkRequestContext(ctx context.Context, logger *logrus.Entry) error {
+	select {
+	case <-ctx.Done():
+		msg := fmt.Sprintf("context is done after volume lock. err: %s", ctx.Err())
+		logger.Warn(msg)
+		return errors.New(msg)
+	default:
+		logger.Info("Processing request")
+		return nil
+	}
+}
+
 // NodeStageVolume is the implementation of CSI Spec NodeStageVolume. Performs when the first pod consumes a volume.
 // This method mounts volume with appropriate VolumeID into the StagingTargetPath from request.
 // Receives golang context and CSI Spec NodeStageVolumeRequest
@@ -103,13 +117,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			ll.Warnf("Unlocking  volume with error %s", err)
 		}
 	}()
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
-	default:
+	if err := s.checkRequestContext(ctx, ll); err != nil {
+		return nil, err
 	}
-
-	ll.Infof("Processing request: %v", req)
 
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
@@ -188,13 +198,9 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 			ll.Warnf("Unlocking  volume with error %s", err)
 		}
 	}()
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
-	default:
+	if err := s.checkRequestContext(ctx, ll); err != nil {
+		return nil, err
 	}
-
-	ll.Infof("Processing request: %v", req)
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -229,7 +235,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		resp        = &csi.NodeUnstageVolumeResponse{}
 		errToReturn error
 	)
-	if errToReturn = s.fsOps.Unmount(req.GetStagingTargetPath()); errToReturn != nil {
+	if errToReturn = s.fsOps.UnmountWithCheck(req.GetStagingTargetPath()); errToReturn != nil {
 		volumeCR.Spec.CSIStatus = apiV1.Failed
 		resp = nil
 	}
@@ -262,15 +268,9 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 			ll.Warnf("Unlocking  volume with error %s", err)
 		}
 	}()
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
-	default:
+	if err := s.checkRequestContext(ctx, ll); err != nil {
+		return nil, err
 	}
-
-	ll.Infof("Processing request: %v", req)
-
-	// TODO: add lock for each volume
 
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
@@ -470,16 +470,12 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	defer func() {
 		err := s.volMu.UnlockKey(req.GetVolumeId())
 		if err != nil {
-			ll.Warnf("Unlocking  volume with error %s", err)
+			ll.Warnf("Unlocking volume with error %s", err)
 		}
 	}()
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("context is done after volume lock. err: %s", ctx.Err())
-	default:
+	if err := s.checkRequestContext(ctx, ll); err != nil {
+		return nil, err
 	}
-
-	ll.Infof("Processing request: %v", req)
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -504,7 +500,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	}
 
 	ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, req.GetVolumeId())
-	if err := s.fsOps.Unmount(req.GetTargetPath()); err != nil {
+	if err := s.fsOps.UnmountWithCheck(req.GetTargetPath()); err != nil {
 		ll.Errorf("Unable to unmount volume: %v", err)
 		volumeCR.Spec.CSIStatus = apiV1.Failed
 		if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {

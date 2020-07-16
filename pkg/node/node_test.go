@@ -315,7 +315,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 	Context("NodeUnPublish() success", func() {
 		It("Should unpublish volume and change volume CR status", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath)
-			fsOps.On("Unmount", req.GetTargetPath()).Return(nil)
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -333,7 +333,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			vol1.Spec.CSIStatus = apiV1.Published
 			err := node.k8sClient.UpdateCR(testCtx, &vol1)
 			Expect(err).To(BeNil())
-			fsOps.On("Unmount", req.GetTargetPath()).Return(nil)
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -367,9 +367,9 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err.Error()).To(ContainSubstring("Target Path missing in request"))
 		})
 
-		It("Should fail with Unmount() error", func() {
+		It("Should fail with UnmountWithCheck() error", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath)
-			fsOps.On("Unmount", req.GetTargetPath()).
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).
 				Return(errors.New("Unmount error"))
 
 			resp, err := node.NodeUnpublishVolume(testCtx, req)
@@ -395,7 +395,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 	Context("NodeUnStage() success", func() {
 		It("Should unstage volume", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
-			fsOps.On("Unmount", req.GetStagingTargetPath()).Return(nil)
+			fsOps.On("UnmountWithCheck", req.GetStagingTargetPath()).Return(nil)
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -438,9 +438,9 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(status.Code(err)).To(Equal(codes.NotFound))
 		})
-		It("Should fail with Unmount() error", func() {
+		It("Should fail with UnmountWithCheck() error", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
-			fsOps.On("Unmount", req.GetStagingTargetPath()).
+			fsOps.On("UnmountWithCheck", req.GetStagingTargetPath()).
 				Return(errors.New("error"))
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
@@ -472,8 +472,8 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 		It("Should unstage volume one time", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
 			secondUnstageErr := make(chan error)
-			// Unmount should only once respond with no error
-			fsOps.On("Unmount", req.GetStagingTargetPath()).Return(nil).Run(func(_ mock.Arguments) {
+			// UnmountWithCheck should only once respond with no error
+			fsOps.On("UnmountWithCheck", req.GetStagingTargetPath()).Return(nil).Run(func(_ mock.Arguments) {
 				go func() {
 					_, err := node.NodeUnstageVolume(testCtx, req)
 					secondUnstageErr <- err
@@ -482,7 +482,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 				time.Sleep(10 * time.Millisecond)
 			}).Once()
 			// on later calls it will respond error
-			fsOps.On("Unmount", req.GetStagingTargetPath()).
+			fsOps.On("UnmountWithCheck", req.GetStagingTargetPath()).
 				Return(fmt.Errorf("%s not mounted", req.GetStagingTargetPath()))
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
