@@ -9,9 +9,9 @@ const (
 	// PluginVersion is a version of current CSI plugin
 	PluginVersion = "0.0.7"
 	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
-	DefaultDriveMgrEndpoint = "tcp://localhost:8888"
+	DefaultDriveMgrEndpoint = "tcp://:8888"
 	// DefaultHealthIP is the default gRPC IP for Health server
-	DefaultHealthIP = "127.0.0.1"
+	DefaultHealthIP = ""
 	// DefaultHealthPort is the default gRPC port for Health Server
 	DefaultHealthPort = 9999
 
