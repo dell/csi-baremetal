@@ -148,6 +148,7 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string
 	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
 		partName, err = d.GetPartitionNameByUUID(device, partUUID)
 		if err != nil {
+			ll.Debugf("unable to find part name: %v", err)
 			// sync partition table and try one more time
 			err = d.SyncPartitionTable(device)
 			if err != nil {
