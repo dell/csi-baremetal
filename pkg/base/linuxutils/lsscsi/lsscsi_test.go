@@ -1,11 +1,12 @@
 package lsscsi
 
 import (
-	"github.com/dell/csi-baremetal/pkg/mocks"
 	"fmt"
+	"testing"
+
+	"github.com/dell/csi-baremetal/pkg/mocks"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var testLogger = logrus.New()

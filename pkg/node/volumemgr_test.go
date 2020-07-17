@@ -10,7 +10,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -142,6 +145,149 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	assert.True(t, len(vm.provisioners) > 0)
 	assert.NotNil(t, vm.acProvider)
 	assert.NotNil(t, vm.crHelper)
+}
+
+func TestReconcile_SuccessNotFound(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: "not-found-that-name"}}
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+}
+
+func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
+	var (
+		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCRLVG.Name}}
+		lvg    = &lvgcrd.LVG{}
+		volume = &vcrd.Volume{}
+	)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	err = vm.k8sClient.CreateCR(testCtx, volCRLVG.Name, &volCRLVG)
+	assert.Nil(t, err)
+	err = vm.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
+
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, lvgCR.Name, lvg)
+	assert.Nil(t, err)
+	assert.Equal(t, len(lvg.Spec.VolumeRefs), 1)
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
+
+	volume.Spec.CSIStatus = apiV1.Removing
+	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+	// reconciled second time
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	err = vm.k8sClient.ReadCR(testCtx, lvgCR.Name, lvg)
+	assert.True(t, k8sError.IsNotFound(err))
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+}
+
+func TestReconcile_SuccessCreatingAndRemovingDriveVolume(t *testing.T) {
+	var (
+		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+		volume = &vcrd.Volume{}
+	)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
+
+	volume.Spec.CSIStatus = apiV1.Removing
+	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+	// reconciled second time
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+}
+
+func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
+	var (
+		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+		volume = &vcrd.Volume{}
+	)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := &mockProv.MockProvisioner{}
+	pMock.On("PrepareVolume", mock.Anything).Return(fmt.Errorf("error"))
+	pMock.On("ReleaseVolume", mock.Anything).Return(fmt.Errorf("error"))
+
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+
+	volume.Spec.CSIStatus = apiV1.Removing
+	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+	// reconciled second time
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+}
+
+func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	volCR.Spec.CSIStatus = apiV1.Failed
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
 }
 
 func TestNewVolumeManager_SetProvisioners(t *testing.T) {
@@ -485,6 +631,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
 	lvmOps.On("IsLVGExists", rootMountPoint).Return(true, nil)
+	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"})
 
 	// expect success, LVG CR and AC CR was created
 	err = m.discoverLVGOnSystemDrive()

@@ -146,12 +146,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Here we need to check that this VolumeCR corresponds to this node
-	// because we deploy VolumeCRD Controller as DaemonSet
-	if volume.Spec.NodeId != m.nodeID {
-		return ctrl.Result{}, nil
-	}
-
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	var newStatus string
 	switch volume.Spec.CSIStatus {
@@ -164,25 +158,24 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		} else {
 			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
 			newStatus = apiV1.Created
+			// Here we can return error because Volume created successfully and we can try to change CR's status
+			// one more time
+			if volume.Spec.StorageClass == apiV1.StorageClassHDDLVG || volume.Spec.StorageClass == apiV1.StorageClassSSDLVG {
+				lvg := &lvgcrd.LVG{}
+				if err = m.k8sClient.ReadCR(context.Background(), volume.Spec.Location, lvg); err != nil {
+					ll.Errorf("Unable to get LVG %s: %v", volume.Spec.Location, err)
+					return ctrl.Result{}, err
+				}
+				if err := m.addVolumeToLVG(lvg, volume.Name); err != nil {
+					ll.Errorf("Unable to add volume reference to LVG %s: %v", volume.Spec.Location, err)
+					return ctrl.Result{}, err
+				}
+			}
 		}
 		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
-			// Here we can return error because Volume created successfully and we can try to change CR's status
-			// one more time
 			ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
 			return ctrl.Result{}, err
-		}
-		if volume.Spec.StorageClass == apiV1.StorageClassSSDLVG || volume.Spec.StorageClass == apiV1.StorageClassHDDLVG {
-			lvg := &lvgcrd.LVG{}
-			if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
-				ll.Errorf("Unable to read LVG: %v", err)
-				return ctrl.Result{}, err
-			}
-			lvg.Spec.VolumeCounter++
-			if err = m.k8sClient.UpdateCRWithAttempts(ctx, lvg, 5); err != nil {
-				ll.Errorf("Unable to update LVG %v: %v", lvg, err)
-				return ctrl.Result{}, err
-			}
 		}
 		return ctrl.Result{}, nil
 	case apiV1.Removing:
@@ -192,40 +185,69 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		} else {
 			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 			newStatus = apiV1.Removed
+			if volume.Spec.StorageClass == apiV1.StorageClassHDDLVG || volume.Spec.StorageClass == apiV1.StorageClassSSDLVG {
+				lvg := &lvgcrd.LVG{}
+				if err = m.k8sClient.ReadCR(context.Background(), volume.Spec.Location, lvg); err != nil {
+					ll.Errorf("Unable to get LVG %s: %v", volume.Spec.Location, err)
+					return ctrl.Result{}, err
+				}
+				if err := m.removeVolumeFromLVG(lvg, volume.Name); err != nil {
+					ll.Errorf("Unable to remove volume reference from LVG %s: %v", volume.Spec.Location, err)
+					return ctrl.Result{}, err
+				}
+			}
 		}
 		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
 			ll.Error("Unable to set new status for volume")
 			return ctrl.Result{}, err
 		}
-		if volume.Spec.StorageClass == apiV1.StorageClassSSDLVG || volume.Spec.StorageClass == apiV1.StorageClassHDDLVG {
-			lvg := &lvgcrd.LVG{}
-			if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
-				ll.Errorf("Unable to read LVG: %v", err)
-				return ctrl.Result{}, err
-			}
-			lvg.Spec.VolumeCounter--
-			if lvg.Spec.VolumeCounter == 0 {
-				ac := m.crHelper.GetACByLocation(lvg.Name)
-				if err := m.k8sClient.Delete(ctx, ac); err != nil {
-					ll.Errorf("Unable to delete AC %v: %v", ac, err)
-					return ctrl.Result{}, err
-				}
-				if err := m.k8sClient.Delete(ctx, lvg); err != nil {
-					ll.Errorf("Unable to delete LVG %v: %v", lvg, err)
-					return ctrl.Result{}, err
-				}
-				return ctrl.Result{}, nil
-			}
-			if err := m.k8sClient.UpdateCRWithAttempts(ctx, lvg, 5); err != nil {
-				ll.Errorf("Unable to update LVG %v: %v", lvg, err)
-				return ctrl.Result{}, err
-			}
-		}
 		return ctrl.Result{}, nil
 	default:
 		return ctrl.Result{}, nil
 	}
+}
+
+func (m *VolumeManager) addVolumeToLVG(lvg *lvgcrd.LVG, volID string) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "addVolumeToLVG",
+	})
+	for _, vol := range lvg.Spec.VolumeRefs {
+		if vol == volID {
+			return nil
+		}
+	}
+	lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volID)
+	ll.Infof("Append volume %s to LVG %v", volID, lvg)
+	if err := m.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *VolumeManager) removeVolumeFromLVG(lvg *lvgcrd.LVG, volID string) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "removeVolumeFromLVG",
+	})
+	for i, id := range lvg.Spec.VolumeRefs {
+		if volID == id {
+			l := len(lvg.Spec.VolumeRefs)
+			lvg.Spec.VolumeRefs[i] = lvg.Spec.VolumeRefs[l-1]
+			lvg.Spec.VolumeRefs = lvg.Spec.VolumeRefs[:l-1]
+			ll.Infof("Remove volume %s from LVG %v", volID, lvg)
+			if len(lvg.Spec.VolumeRefs) == 0 {
+				if err := m.k8sClient.DeleteCR(context.Background(), lvg); err != nil {
+					return err
+				}
+				return nil
+			}
+			if err := m.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+	return nil
 }
 
 // SetupWithManager registers VolumeManager to ControllerManager
@@ -628,14 +650,16 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
+	lvs := m.lvmOps.GetLVsInVG(vgName)
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
-			Name:      vgName,
-			Node:      m.nodeID,
-			Locations: []string{base.SystemDriveAsLocation},
-			Size:      vgFreeSpace,
-			Status:    apiV1.Created,
+			Name:       vgName,
+			Node:       m.nodeID,
+			Locations:  []string{base.SystemDriveAsLocation},
+			Size:       vgFreeSpace,
+			Status:     apiV1.Created,
+			VolumeRefs: lvs,
 		}
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), k8s.RequestUUID, vg.Name)
