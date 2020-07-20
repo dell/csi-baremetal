@@ -17,6 +17,7 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	vccrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -87,6 +88,24 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		ll.Infof("Removing LVG")
 		if util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
+			volumes := &vccrd.VolumeList{}
+
+			err := c.k8sClient.ReadList(ctx, volumes)
+			if err != nil {
+				ll.Errorf("Unable to read volume list: %v", err)
+			}
+
+			for _, item := range volumes.Items {
+				if item.Spec.Location == lvg.Name {
+					lvg.DeletionTimestamp = nil
+					err := c.k8sClient.UpdateCR(ctx, lvg)
+					if err != nil {
+						ll.Errorf("Unable to update %s LVG: %v", lvg.Name, err)
+						return ctrl.Result{}, err
+					}
+					return ctrl.Result{}, nil
+				}
+			}
 			// remove AC that point on that LVG
 			c.removeChildAC(lvg.Name)
 

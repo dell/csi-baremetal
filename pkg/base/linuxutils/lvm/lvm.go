@@ -154,7 +154,7 @@ func (l *LVM) IsVGContainsLVs(vgName string) bool {
 	return res
 }
 
-// GetLVsInVG checks collect LVs for given volume group
+// GetLVsInVG collects LVs for given volume group
 // Receives Volume Group name
 // Returns slice of found logical volumes
 func (l *LVM) GetLVsInVG(vgName string) []string {

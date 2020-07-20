@@ -14,6 +14,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -136,6 +137,16 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		if err = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, ac, 5); err != nil {
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
+
+		if sc == apiV1.StorageClassHDDLVG || sc == apiV1.StorageClassSSDLVG {
+			lvg := &lvgcrd.LVG{}
+			if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
+				ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
+			}
+			if err := vo.addVolumeToLVG(lvg, v.Id); err != nil {
+				ll.Errorf("Unable to add volume reference to LVG %s: %v", volumeCR.Spec.Location, err)
+			}
+		}
 	}
 
 	return &volumeCR.Spec, nil
@@ -208,6 +219,10 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		return
 	}
 
+	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
+		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
+	}
+
 	// if volume is in LVG - update corresponding AC size
 	// if such AC isn't exist - do nothing (AC should be recreated by VolumeMgr)
 	if volumeCR.Spec.StorageClass == apiV1.StorageClassHDDLVG || volumeCR.Spec.StorageClass == apiV1.StorageClassSSDLVG {
@@ -233,10 +248,14 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 				ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
 			}
 		}
-	}
-
-	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
-		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
+		lvg := &lvgcrd.LVG{}
+		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
+			ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
+			return
+		}
+		if err := vo.deleteLVGIfVolumesNotExistOrUpdate(lvg, volumeCR.Name); err != nil {
+			ll.Errorf("Unable to remove volume reference from LVG %s: %v", volumeCR.Spec.Location, err)
+		}
 	}
 }
 
@@ -304,6 +323,57 @@ func (vo *VolumeOperationsImpl) ReadVolumeAndChangeStatus(volumeID string, newSt
 	v.Spec.CSIStatus = newStatus
 	if err := vo.k8sClient.UpdateCRWithAttempts(ctx, v, attempts); err != nil {
 		return err
+	}
+	return nil
+}
+
+// addVolumeToLVG tries to add volume ID into VolumeRefs slice from LVG struct and updates according LVG
+// Receives LVG and volumeID of a Volume CR which should be added
+// Returns error if something went wrong
+func (vo *VolumeOperationsImpl) addVolumeToLVG(lvg *lvgcrd.LVG, volID string) error {
+	ll := vo.log.WithFields(logrus.Fields{
+		"method":   "addVolumeToLVG",
+		"volumeID": volID,
+	})
+	for _, vol := range lvg.Spec.VolumeRefs {
+		if vol == volID {
+			return nil
+		}
+	}
+	lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volID)
+	ll.Infof("Append volume %s to LVG %v", volID, lvg)
+	if err := vo.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
+		return err
+	}
+	return nil
+}
+
+// deleteLVGIfVolumesNotExistOrUpdate tries to remove volume ID into VolumeRefs slice from LVG struct and updates according LVG
+// If VolumeRefs length equals 0, then deletes according LVG
+// Receives LVG and volumeID of a Volume CR which should be removed
+// Returns error if something went wrong
+func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.LVG, volID string) error {
+	ll := vo.log.WithFields(logrus.Fields{
+		"method":   "deleteLVGIfVolumesNotExistOrUpdate",
+		"volumeID": volID,
+	})
+	for i, id := range lvg.Spec.VolumeRefs {
+		if volID == id {
+			l := len(lvg.Spec.VolumeRefs)
+			lvg.Spec.VolumeRefs[i] = lvg.Spec.VolumeRefs[l-1]
+			lvg.Spec.VolumeRefs = lvg.Spec.VolumeRefs[:l-1]
+			ll.Infof("Remove volume %s from LVG %v", volID, lvg)
+			if len(lvg.Spec.VolumeRefs) == 0 {
+				if err := vo.k8sClient.DeleteCR(context.Background(), lvg); err != nil {
+					return err
+				}
+				return nil
+			}
+			if err := vo.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
+				return err
+			}
+			return nil
+		}
 	}
 	return nil
 }

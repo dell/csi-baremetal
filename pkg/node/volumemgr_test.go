@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -161,7 +160,6 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
 	var (
 		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCRLVG.Name}}
-		lvg    = &lvgcrd.LVG{}
 		volume = &vcrd.Volume{}
 	)
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
@@ -170,8 +168,6 @@ func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
 
 	err = vm.k8sClient.CreateCR(testCtx, volCRLVG.Name, &volCRLVG)
 	assert.Nil(t, err)
-	err = vm.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR)
-	assert.Nil(t, err)
 
 	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
@@ -179,12 +175,9 @@ func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
 	res, err := vm.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, lvgCR.Name, lvg)
-	assert.Nil(t, err)
-	assert.Equal(t, len(lvg.Spec.VolumeRefs), 1)
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
+	assert.Equal(t, apiV1.Created, volume.Spec.CSIStatus)
 
 	volume.Spec.CSIStatus = apiV1.Removing
 	err = vm.k8sClient.UpdateCR(testCtx, volume)
@@ -194,11 +187,9 @@ func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	err = vm.k8sClient.ReadCR(testCtx, lvgCR.Name, lvg)
-	assert.True(t, k8sError.IsNotFound(err))
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+	assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
 }
 
 func TestReconcile_SuccessCreatingAndRemovingDriveVolume(t *testing.T) {
