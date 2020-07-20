@@ -4,6 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 
 	coreV1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +23,7 @@ var (
 	testPod = &coreV1.Pod{
 		ObjectMeta: k8smetav1.ObjectMeta{Name: "testPod"},
 		Status: coreV1.PodStatus{
+			Phase: coreV1.PodRunning,
 			PodIP: "10.10.10.1",
 			ContainerStatuses: []coreV1.ContainerStatus{
 				{Name: "container-1", Ready: true},
@@ -56,31 +58,41 @@ func TestIsNodeServiceUnready(t *testing.T) {
 }
 
 func TestCalculatePodStatusReady(t *testing.T) {
-	status := calculatePodStatus(nodeID, true, Ready, 0, logger)
+	status := calculatePodStatus(nodeID, true, Ready, 0, logger, false)
 	assert.Equal(t, Ready, status)
 }
 
 func TestCalculatePodStatusPermanentDownToReady(t *testing.T) {
-	status := calculatePodStatus(nodeID, true, PermanentDown, 0, logger)
+	status := calculatePodStatus(nodeID, true, PermanentDown, 0, logger, false)
 	assert.Equal(t, Ready, status)
 }
 
 func TestCalculatePodStatusUnready(t *testing.T) {
-	status := calculatePodStatus(nodeID, false, Ready, UnreadyTimeout+1, logger)
+	status := calculatePodStatus(nodeID, false, Ready, UnreadyTimeout+1, logger, false)
 	assert.Equal(t, Unready, status)
 }
 
 func TestCalculatePodStatusUnreadyTimeout(t *testing.T) {
-	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout-1, logger)
+	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout-1, logger, false)
 	assert.Equal(t, Unready, status)
 }
 
 func TestCalculatePodStatusUnreadyToPermanentDown(t *testing.T) {
-	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout+1, logger)
+	status := calculatePodStatus(nodeID, false, Unready, PermanentDownTimeout+1, logger, false)
 	assert.Equal(t, PermanentDown, status)
 }
 
 func TestCalculatePodStatusPermanentDown(t *testing.T) {
-	status := calculatePodStatus(nodeID, false, PermanentDown, 0, logger)
+	status := calculatePodStatus(nodeID, false, PermanentDown, 0, logger, false)
 	assert.Equal(t, PermanentDown, status)
+}
+
+func TestPodIsUnderStartupProtection(t *testing.T) {
+	components := stateComponents{testNode, testPod}
+	assert.False(t, podIsUnderStartupProtection(
+		serviceState{Unready, time.Now(), true},
+		components))
+	assert.True(t, podIsUnderStartupProtection(
+		serviceState{Unready, time.Now(), false},
+		components))
 }
