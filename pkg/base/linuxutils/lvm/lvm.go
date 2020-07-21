@@ -165,11 +165,11 @@ func (l *LVM) GetLVsInVG(vgName string) []string {
 			Errorf("Unable to get logical volumes for VG %s", vgName)
 		return nil
 	}
-	lvs := make([]string, 0)
-	for _, s := range strings.Split(stdout, "\n") {
-		lvs = append(lvs, strings.TrimSpace(s))
+	lvg := strings.Split(stdout, "\n")
+	for i := range lvg {
+		lvg[i] = strings.TrimSpace(lvg[i])
 	}
-	return lvs
+	return lvg
 }
 
 // RemoveOrphanPVs removes PVs that do not have VG
