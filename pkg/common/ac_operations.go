@@ -27,6 +27,8 @@ type AvailableCapacityOperations interface {
 
 // AcSizeMinThresholdBytes means that if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
 const AcSizeMinThresholdBytes = int64(util.MBYTE) // 1MB
+// lvgDefaultMetadata is a number of bytes needed for a new volume group
+const lvgDefaultMetadata = 1048576
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
 type ACOperationsImpl struct {
@@ -83,7 +85,8 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 		node, requiredBytes, sc)
 
 	if sc == apiV1.StorageClassAny {
-		//First try to find AC with hdd, then AC with ssd, if we couldn't find AC with HDD or SSD, try to find AC with any StorageCLass
+		// First try to find AC with hdd, then AC with ssd.
+		// if we couldn't find AC with HDD or SSD, try to find AC with any StorageCLass
 		for _, sc := range []string{apiV1.StorageClassHDD, apiV1.StorageClassSSD, ""} {
 			foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 			if foundAC != nil {
@@ -109,7 +112,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 			subSC = apiV1.StorageClassSSD
 		}
 		ll.Infof("StorageClass is in LVG, search AC with subStorageClass %s", subSC)
-		foundAC = a.SearchAC(ctx, node, requiredBytes, subSC)
+		foundAC = a.SearchAC(ctx, node, requiredBytes+lvgDefaultMetadata, subSC)
 		if foundAC == nil {
 			return nil
 		}
