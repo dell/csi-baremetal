@@ -160,12 +160,12 @@ func (l *LVM) IsVGContainsLVs(vgName string) bool {
 func (l *LVM) GetLVsInVG(vgName string) []string {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
 	stdout, _, err := l.e.RunCmd(cmd)
-	lvs := make([]string, 0)
 	if err != nil {
 		l.log.WithField("method", "GetLVsInVG").
 			Errorf("Unable to get logical volumes for VG %s", vgName)
-		return lvs
+		return nil
 	}
+	lvs := make([]string, 0)
 	for _, s := range strings.Split(stdout, "\n") {
 		lvs = append(lvs, strings.TrimSpace(s))
 	}
