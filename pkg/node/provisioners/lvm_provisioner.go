@@ -2,6 +2,7 @@ package provisioners
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 
@@ -43,10 +44,13 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
 	ll.Infof("Processing for volume %#v", vol)
 
 	var (
-		sizeStr = fmt.Sprintf("%.2fG", float64(vol.Size)/float64(util.GBYTE))
-		vgName  string
-		err     error
+		vgName string
+		err    error
 	)
+	// get mbytes with precision loss
+	size, _ := util.ToSizeUnit(vol.Size, util.BYTE, util.MBYTE)
+	sizeStr := strconv.FormatInt(size, 10)
+	sizeStr += "m"
 	vgName, err = l.getVGName(&vol)
 	if err != nil {
 		return err
