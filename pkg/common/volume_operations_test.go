@@ -193,7 +193,7 @@ func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
 
 	err = svc.DeleteVolume(testCtx, testVolume1Name)
 	assert.NotNil(t, err)
-	assert.Equal(t, status.Error(codes.Internal, "volume has reached FailToRemove status"), err)
+	assert.Equal(t, status.Error(codes.Internal, "volume has reached failed status"), err)
 }
 
 // volume has status Removed or Removing

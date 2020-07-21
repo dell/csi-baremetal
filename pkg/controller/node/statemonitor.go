@@ -30,6 +30,8 @@ const (
 	UnreadyTimeout       = 60
 	PermanentDownTimeout = 120
 	SleepBeforeNextPoll  = 30
+	// StartupProtectionMultiplier will be applied to Timeouts if POD is under startup protection
+	StartupProtectionMultiplier = 5
 )
 
 const (
@@ -55,6 +57,8 @@ type ServicesStateMonitor struct {
 type serviceState struct {
 	status int
 	time   time.Time
+	// if true, then POD was seen in ready state some time ago, we should not apply startupProteciton to it
+	wasReady bool
 }
 
 type stateComponents struct {
@@ -130,13 +134,17 @@ func (n *ServicesStateMonitor) UpdateNodeHealthCache() {
 			)
 			// todo when node is removed from cluster?
 			if state, isExist = n.nodeHealthMap[nodeID]; !isExist {
-				state = &serviceState{Unknown, currentTime}
+				state = &serviceState{status: Unknown, time: currentTime}
 				// add pod to the map - no need to print warning message here since this is cache initialization
 				n.nodeHealthMap[nodeID] = state
 			}
+			if isReady {
+				state.wasReady = true
+			}
 			// calculate new status
 			timePassed := currentTime.Sub(state.time).Seconds()
-			newStatus := calculatePodStatus(nodeID, isReady, state.status, timePassed, n.log)
+			newStatus := calculatePodStatus(nodeID, isReady, state.status,
+				timePassed, podIsUnderStartupProtection(*state, podAndNode), n.log)
 			// update when status changed
 			if newStatus != state.status {
 				state.status = newStatus
@@ -219,7 +227,8 @@ func (n *ServicesStateMonitor) getPodToNodeList() (map[string]stateComponents, e
 }
 
 // calculate pod status based on current, previous state and timestamp
-func calculatePodStatus(name string, isReady bool, status int, timePassed float64, logger *logrus.Entry) int {
+func calculatePodStatus(name string, isReady bool, status int, timePassed float64,
+	startupProtection bool, logger *logrus.Entry) int {
 	log := logger.WithFields(logrus.Fields{"method": "calculatePodStatus"})
 	if isReady {
 		// return to Ready state right away
@@ -228,18 +237,21 @@ func calculatePodStatus(name string, isReady bool, status int, timePassed float6
 		}
 		return Ready
 	}
-
+	multiplier := 1
+	if startupProtection {
+		multiplier = StartupProtectionMultiplier
+	}
 	// pod is unready. need to decide whether it's unready or permanent down
 	switch status {
 	case Unknown, Ready:
 		// todo how to be with polling interval?
 		// todo this is not fair
-		if timePassed > UnreadyTimeout {
+		if timePassed > float64(UnreadyTimeout*multiplier) {
 			log.Warningf("Node service %s is unready", name)
 			return Unready
 		}
 	case Unready:
-		if timePassed > PermanentDownTimeout {
+		if timePassed > float64(PermanentDownTimeout*multiplier) {
 			log.Errorf("Node service %s is in PermanentDown state", name)
 			return PermanentDown
 		}
@@ -322,4 +334,26 @@ func isPodReady(components stateComponents) bool {
 	}
 	// return false if corresponding condition not found
 	return false
+}
+
+// podIsUnderStartupProtection checks if startupProtection can be applied to the node's POD
+// If POD on node was never in "Ready" state during the controller's POD lifetime, then we will increase timeouts to
+// give the node's POD additional time to boot and create all resources.
+func podIsUnderStartupProtection(state serviceState, podNode stateComponents) bool {
+	// if we detect that POD already was online we should handle it as usual
+	if state.wasReady {
+		return false
+	}
+	// only PODs in Pending and Running state can be under startup protection
+	if !(podNode.pod.Status.Phase == coreV1.PodPending ||
+		podNode.pod.Status.Phase == coreV1.PodRunning) {
+		return false
+	}
+	// POD should have no terminated containers to be under startup protection
+	for _, container := range podNode.pod.Status.ContainerStatuses {
+		if container.State.Terminated != nil {
+			return false
+		}
+	}
+	return true
 }

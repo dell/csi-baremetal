@@ -176,7 +176,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 		switch volumeCR.Spec.CSIStatus {
 		case apiV1.Created:
 		case apiV1.Failed:
-			return status.Error(codes.Internal, "volume has reached FailToRemove status")
+			return status.Error(codes.Internal, "volume has reached failed status")
 		case apiV1.Removed:
 			ll.Debug("Volume has Removed status")
 			return nil
