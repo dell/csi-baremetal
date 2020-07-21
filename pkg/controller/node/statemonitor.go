@@ -143,7 +143,8 @@ func (n *ServicesStateMonitor) UpdateNodeHealthCache() {
 			}
 			// calculate new status
 			timePassed := currentTime.Sub(state.time).Seconds()
-			newStatus := calculatePodStatus(nodeID, isReady, state.status, timePassed, podIsUnderStartupProtection(*state, podAndNode), n.log)
+			newStatus := calculatePodStatus(nodeID, isReady, state.status,
+				timePassed, podIsUnderStartupProtection(*state, podAndNode), n.log)
 			// update when status changed
 			if newStatus != state.status {
 				state.status = newStatus
