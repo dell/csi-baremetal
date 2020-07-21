@@ -143,8 +143,7 @@ func (n *ServicesStateMonitor) UpdateNodeHealthCache() {
 			}
 			// calculate new status
 			timePassed := currentTime.Sub(state.time).Seconds()
-			newStatus := calculatePodStatus(nodeID, isReady, state.status,
-				timePassed, n.log, podIsUnderStartupProtection(*state, podAndNode))
+			newStatus := calculatePodStatus(nodeID, isReady, state.status, timePassed, podIsUnderStartupProtection(*state, podAndNode), n.log)
 			// update when status changed
 			if newStatus != state.status {
 				state.status = newStatus
@@ -228,7 +227,7 @@ func (n *ServicesStateMonitor) getPodToNodeList() (map[string]stateComponents, e
 
 // calculate pod status based on current, previous state and timestamp
 func calculatePodStatus(name string, isReady bool, status int, timePassed float64,
-	logger *logrus.Entry, startupProtection bool) int {
+	startupProtection bool, logger *logrus.Entry) int {
 	log := logger.WithFields(logrus.Fields{"method": "calculatePodStatus"})
 	if isReady {
 		// return to Ready state right away
