@@ -158,14 +158,16 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		} else {
 			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
 			newStatus = apiV1.Created
-			// Here we can return error because Volume created successfully and we can try to change CR's status
-			// one more time
 		}
+
 		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+			// Here we can return error because Volume created successfully and we can try to change CR's status
+			// one more time
 			ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
 			return ctrl.Result{}, err
 		}
+
 		return ctrl.Result{}, nil
 	case apiV1.Removing:
 		if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
@@ -175,6 +177,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 			newStatus = apiV1.Removed
 		}
+
 		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
 			ll.Error("Unable to set new status for volume")

@@ -18,6 +18,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
@@ -142,13 +143,13 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			lvg := &lvgcrd.LVG{}
 			if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
 				ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
+				return &volumeCR.Spec, nil
 			}
 			if err := vo.addVolumeToLVG(lvg, v.Id); err != nil {
 				ll.Errorf("Unable to add volume reference to LVG %s: %v", volumeCR.Spec.Location, err)
 			}
 		}
 	}
-
 	return &volumeCR.Spec, nil
 }
 
@@ -335,17 +336,12 @@ func (vo *VolumeOperationsImpl) addVolumeToLVG(lvg *lvgcrd.LVG, volID string) er
 		"method":   "addVolumeToLVG",
 		"volumeID": volID,
 	})
-	for _, vol := range lvg.Spec.VolumeRefs {
-		if vol == volID {
-			return nil
-		}
+	if util.ContainsString(lvg.Spec.VolumeRefs, volID) {
+		return nil
 	}
 	lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volID)
 	ll.Infof("Append volume %s to LVG %v", volID, lvg)
-	if err := vo.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
-		return err
-	}
-	return nil
+	return vo.k8sClient.UpdateCR(context.Background(), lvg)
 }
 
 // deleteLVGIfVolumesNotExistOrUpdate tries to remove volume ID into VolumeRefs slice from LVG struct and updates according LVG
@@ -362,17 +358,11 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 			l := len(lvg.Spec.VolumeRefs)
 			lvg.Spec.VolumeRefs[i] = lvg.Spec.VolumeRefs[l-1]
 			lvg.Spec.VolumeRefs = lvg.Spec.VolumeRefs[:l-1]
-			ll.Infof("Remove volume %s from LVG %v", volID, lvg)
+			ll.Debugf("Remove volume %s from LVG %v", volID, lvg)
 			if len(lvg.Spec.VolumeRefs) == 0 {
-				if err := vo.k8sClient.DeleteCR(context.Background(), lvg); err != nil {
-					return err
-				}
-				return nil
+				return vo.k8sClient.DeleteCR(context.Background(), lvg)
 			}
-			if err := vo.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
-				return err
-			}
-			return nil
+			return vo.k8sClient.UpdateCR(context.Background(), lvg)
 		}
 	}
 	return nil
