@@ -28,6 +28,7 @@ BUSYBOX_TAG         := 1.29
 NODE            := node
 DRIVE_MANAGER   := drivemgr
 CONTROLLER      := controller
+EXTENDER        := extender
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr

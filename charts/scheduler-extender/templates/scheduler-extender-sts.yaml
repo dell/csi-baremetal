@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: kube-system
+  name: csi-baremetal-se
+spec:
+  serviceName: csi-baremetal-se
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csi-baremetal-se
+  template:
+    metadata:
+      labels:
+        app: csi-baremetal-se
+    spec:
+      serviceAccountName: csi-baremetal-extender-sa
+      containers:
+        - name: extender
+          image: 10.244.120.194:9042/scheduler-extender:0.0.1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8888
+      hostNetwork: true
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/master
+                    operator: Exists
