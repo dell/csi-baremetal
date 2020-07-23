@@ -2,11 +2,13 @@
 
  1. Build binary and push image (if you don't change extender' code you don't have to rebuild
  binary and image):
-    `make all`
-    Image `10.244.120.194:9042/scheduler-extender:0.0.1` that is built has already present
-    in the registry
+    ```
+        make build-extener
+        make image-extender
+        make push-extender
+    ```
 
- 2. On node where kube scheduler pod is run create folder `/etc/kubernetes/scheduler`
+ 2. On node where kubernetes scheduler pod is run create folder `/etc/kubernetes/scheduler`
  e.g. 
  ```
  ssh root@provo-goop mkdir -p /etc/kubernetes/scheduler

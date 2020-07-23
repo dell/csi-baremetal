@@ -17,8 +17,8 @@ spec:
       serviceAccountName: csi-baremetal-extender-sa
       containers:
         - name: extender
-          image: 10.244.120.194:9042/scheduler-extender:0.0.1
-          imagePullPolicy: Always
+          image: {{ .Values.global.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 8888
       hostNetwork: true
