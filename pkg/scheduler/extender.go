@@ -96,7 +96,6 @@ func (e *Extender) filter(ctx context.Context,
 	for _, v := range pod.Spec.Volumes {
 		e.logger.Debugf("Inspecting pod volume %+v", v)
 		if v.CSI != nil {
-			ll.Infof("Detected Ephemeral volume: %+v", v)
 			if strings.Contains(v.CSI.Driver, pluginNameMask) {
 				volume, err := e.constructVolumeFromCSISource(v)
 				if err != nil {
@@ -108,7 +107,6 @@ func (e *Extender) filter(ctx context.Context,
 			continue
 		}
 		if v.PersistentVolumeClaim != nil {
-			ll.Infof("Detect PVC claim: %s", v.PersistentVolumeClaim.ClaimName)
 			pvc := &k8sV1.PersistentVolumeClaim{}
 			err := e.k8sClient.Get(ctx,
 				k8sCl.ObjectKey{Name: v.PersistentVolumeClaim.ClaimName, Namespace: pod.Namespace},
@@ -120,21 +118,20 @@ func (e *Extender) filter(ctx context.Context,
 			if strings.Contains(*pvc.Spec.StorageClassName, "baremetal") {
 				storageRes, ok := pvc.Spec.Resources.Requests[k8sV1.ResourceStorage]
 				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC", pvc.Name)
+					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
 					storageRes = resource.Quantity{}
 				}
-				ll.Infof("Got PVC claim: %+v. Resources (storage): %+v", pvc, storageRes)
 				volumes = append(volumes, &genV1.Volume{
 					Id:           pvc.Name,
 					StorageClass: *pvc.Spec.StorageClassName,
-					Size:         0, // TODO: pvc.Spec.Resources.Requests[k8sV1.ResourceStorage]
+					Size:         storageRes.Value(),
 					Mode:         string(*pvc.Spec.VolumeMode),
-					Type:         "", // TODO: how to detect fs type??
 					Ephemeral:    false,
 				})
 			}
 		}
 	}
+	ll.Debugf("Required volumes: %v", volumes)
 
 	var toReturn = &schedulerapi.ExtenderFilterResult{
 		Nodes:       args.Nodes,
