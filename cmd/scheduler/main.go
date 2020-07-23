@@ -11,11 +11,12 @@ import (
 
 var (
 	port = flag.Int("port", base.DefaultExtenderPort, "Port for service")
+	logLevel = flag.String("logLevel", base.InfoLevel, "Log level")
 )
 
 func main() {
 	flag.Parse()
-	logger, _ := base.InitLogger("", "debug")
+	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
 	extender := scheduler.NewExtender(logger)

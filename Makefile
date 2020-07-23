@@ -93,7 +93,7 @@ push-extender:
 
 clean-all: clean clean-images
 
-clean: clean-drivemgr clean-node clean-controller clean-extedner clean-proto
+clean: clean-drivemgr clean-node clean-controller clean-extender clean-proto
 
 clean-drivemgr:
 	rm -rf ./build/${DRIVE_MANAGER}/*
@@ -104,7 +104,7 @@ clean-node:
 clean-controller:
 	rm -rf ./build/${CONTROLLER}/${CONTROLLER}
 
-clean-extedner:
+clean-extender:
 	rm -rf ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER}
 
 clean-proto:

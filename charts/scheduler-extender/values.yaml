@@ -3,6 +3,9 @@ registry: asdrepo.isus.emc.com:9042
 
 port: 8889
 
+log:
+  level: info
+
 image:
   tag: green
   pullPolicy: Always

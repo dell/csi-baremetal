@@ -21,6 +21,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --port={{ .Values.port }}
+            - --loglevel={{ .Values.log.level }}
           ports:
             - containerPort: {{  .Values.port }}
       hostNetwork: true
