@@ -9,3 +9,9 @@ log:
 image:
   tag: green
   pullPolicy: Always
+
+scheduler:
+  policy:
+    path: /etc/kubernetes/scheduler/policy.yaml
+  conf:
+    path: /etc/kubernetes/scheduler.conf
