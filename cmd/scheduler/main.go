@@ -11,7 +11,7 @@ import (
 
 var (
 	port = flag.Int("port", base.DefaultExtenderPort, "Port for service")
-	logLevel = flag.String("logLevel", base.InfoLevel, "Log level")
+	logLevel = flag.String("loglevel", base.InfoLevel, "Log level")
 )
 
 func main() {
