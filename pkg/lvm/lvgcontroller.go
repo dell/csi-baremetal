@@ -7,13 +7,17 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	vccrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -71,13 +75,6 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Here we need to check that this LVG CR corresponds to this node
-	// because we deploy LVG CR Controller as DaemonSet
-	if lvg.Spec.Node != c.node {
-		ll.Info("Skip ...")
-		return ctrl.Result{}, nil
-	}
-
 	ll.Infof("Reconciling LVG: %v", lvg)
 	if lvg.ObjectMeta.DeletionTimestamp.IsZero() {
 		// append finalizer if LVG doesn't contain it
@@ -91,6 +88,27 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		ll.Infof("Removing LVG")
 		if util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
+			volumes := &vccrd.VolumeList{}
+
+			err := c.k8sClient.ReadList(ctx, volumes)
+			if err != nil {
+				ll.Errorf("Unable to read volume list: %v", err)
+				return ctrl.Result{}, err
+			}
+			// If Kubernetes has volumes with location of LVG, which is needed to be deleted,
+			//we prevent removing, because this LVG is still used. We set DeletionTimestamp as nil and update LVG
+			for _, item := range volumes.Items {
+				if item.Spec.Location == lvg.Name {
+					ll.Debugf("There are volumes with location LVG %s, stop LVG deletion", lvg.Name)
+					lvg.DeletionTimestamp = nil
+					err := c.k8sClient.UpdateCR(ctx, lvg)
+					if err != nil {
+						ll.Errorf("Unable to update %s LVG: %v", lvg.Name, err)
+						return ctrl.Result{}, err
+					}
+					return ctrl.Result{}, nil
+				}
+			}
 			// remove AC that point on that LVG
 			c.removeChildAC(lvg.Name)
 
@@ -121,14 +139,12 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Errorf("Unable to create system LVG: %v", err)
 			newStatus = apiV1.Failed
 		}
-
 		lvg.Spec.Status = newStatus
 		lvg.Spec.Locations = locations
 		if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
 			ll.Errorf("Unable to update LVG status to %s, error: %v.", newStatus, err)
 		}
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -136,7 +152,30 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (c *LVGController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lvgcrd.LVG{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return c.filterCRs(e.Object)
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return c.filterCRs(e.Object)
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return c.filterCRs(e.ObjectOld)
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return c.filterCRs(e.Object)
+			},
+		}).
 		Complete(c)
+}
+
+func (c *LVGController) filterCRs(obj runtime.Object) bool {
+	if lvg, ok := obj.(*lvgcrd.LVG); ok {
+		if lvg.Spec.Node == c.node {
+			return true
+		}
+	}
+	return false
 }
 
 // createSystemLVG creates LVG in the system and put all drives from lvg.Spec.Location in that LVG

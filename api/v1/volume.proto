@@ -31,5 +31,6 @@ message LogicalVolumeGroup {
     string Node = 2;
     repeated string Locations = 3;
     int64 Size = 4;
+    repeated string VolumeRefs = 5;
     string Status = 6;
 }
