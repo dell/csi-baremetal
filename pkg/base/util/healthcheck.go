@@ -4,7 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	health "google.golang.org/grpc/health/grpc_health_v1"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
 )
 
 // SetupAndStartHealthCheckServer starts gRPC server to handle Health checking requests

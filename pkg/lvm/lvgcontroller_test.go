@@ -14,17 +14,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
-	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	vccrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/mocks"
+	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 )
 
 var (
@@ -141,6 +142,22 @@ var (
 			Size:         int64(1024 * 300 * util.GBYTE),
 		},
 	}
+	testVolume1 = api.Volume{
+		Id:           "volume",
+		NodeId:       node1ID,
+		Location:     lvgCR1.Name,
+		StorageClass: apiV1.StorageClassHDD,
+		CSIStatus:    apiV1.VolumeReady,
+	}
+
+	testVolumeCR1 = vccrd.Volume{
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      testVolume1.Id,
+			Namespace: ns,
+		},
+		Spec: testVolume1,
+	}
 )
 
 func Test_NewLVGController(t *testing.T) {
@@ -223,6 +240,33 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 	res, err := c.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
+}
+
+func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
+	var (
+		c   = setup(t, node1ID)
+		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+	)
+	defer teardown(t, c)
+
+	lvgToDell := lvgCR1
+	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
+	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
+	assert.Nil(t, err)
+
+	err = c.k8sClient.CreateCR(tCtx, testVolumeCR1.Name, &testVolumeCR1)
+	assert.Nil(t, err)
+
+	res, err := c.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	lvg := &lvgcrd.LVG{}
+	err = c.k8sClient.ReadCR(tCtx, lvgToDell.Name, lvg)
+	assert.Nil(t, err)
+	assert.NotNil(t, lvg)
+	assert.Equal(t, lvgToDell.Name, lvg.Name)
 }
 
 func TestReconcile_DeletionFailed(t *testing.T) {

@@ -46,6 +46,10 @@ spec:
               type: integer
             Status:
               type: string
+            VolumeRefs:
+              items:
+                type: string
+              type: array
           type: object
       type: object
   version: v1

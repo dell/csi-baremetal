@@ -1,10 +1,7 @@
 package common
 
 import (
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 	"time"
 
@@ -14,18 +11,10 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
-var (
-	utilExecutor command.CmdExecutor
-
-	lvgGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
-		Version:  apiV1.Version,
-		Resource: "lvgs",
-	}
-)
+var utilExecutor command.CmdExecutor
 
 // init initializes utilExecutor
 func init() {
@@ -71,12 +60,6 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		if err != nil {
 			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}
-	}
-
-	// need to clean-up logical volume group CRs until https://jira.cec.lab.emc.com:8443/browse/AK8S-1178 is resolved
-	if err := f.DynamicClient.Resource(lvgGVR).Namespace(f.Namespace.Name).DeleteCollection(
-		metav1.NewDeleteOptions(0), metav1.ListOptions{}); err != nil {
-		e2elog.Logf("failed to delete lvg CRs, error: %v", err)
 	}
 
 	// Removes all driver's manifests installed during init(). (Driver, its RBACs, SC)

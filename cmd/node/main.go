@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -20,16 +22,16 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/events"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/lvm"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/events"
+	"github.com/dell/csi-baremetal/pkg/lvm"
+	"github.com/dell/csi-baremetal/pkg/node"
 )
 
 const (
@@ -102,8 +104,9 @@ func main() {
 
 	go func() {
 		logger.Info("Starting Node Health server ...")
-		nodeHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *healthIP, base.DefaultHealthPort)
-		if err := util.SetupAndStartHealthCheckServer(csiNodeService, logger, nodeHealthEndpoint); err != nil {
+		if err := util.SetupAndStartHealthCheckServer(
+			csiNodeService, logger,
+			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(base.DefaultHealthPort))); err != nil {
 			logger.Fatalf("Node service failed with error: %v", err)
 		}
 	}()

@@ -14,8 +14,8 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/test/e2e/common"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 func DefineNodeRebootTestSuite(driver testsuites.TestDriver) {

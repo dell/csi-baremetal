@@ -17,23 +17,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
-	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/common"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/eventing"
-	p "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners/utilwrappers"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
+	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/common"
+	"github.com/dell/csi-baremetal/pkg/eventing"
+	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
+	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 // eventRecorder interface for sending events
@@ -67,6 +67,9 @@ type VolumeManager struct {
 
 	// kubernetes node ID
 	nodeID string
+	// used for discoverLVGOnSystemDisk method to determine if we need to discover LVG in Discover method, default true
+	// set false when there is no LVG on system disk or system disk is not SSD
+	discoverLvgSSD bool
 	// whether VolumeManager was initialized or no, uses for health probes
 	initialized bool
 	// general logger
@@ -103,13 +106,14 @@ func NewVolumeManager(
 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
 		},
-		fsOps:    utilwrappers.NewFSOperationsImpl(executor, logger),
-		lvmOps:   lvm.NewLVM(executor, logger),
-		listBlk:  lsblk.NewLSBLK(logger),
-		partOps:  ph.NewWrapPartitionImpl(executor, logger),
-		nodeID:   nodeID,
-		log:      logger.WithField("component", "VolumeManager"),
-		recorder: recorder,
+		fsOps:          utilwrappers.NewFSOperationsImpl(executor, logger),
+		lvmOps:         lvm.NewLVM(executor, logger),
+		listBlk:        lsblk.NewLSBLK(logger),
+		partOps:        ph.NewWrapPartitionImpl(executor, logger),
+		nodeID:         nodeID,
+		log:            logger.WithField("component", "VolumeManager"),
+		recorder:       recorder,
+		discoverLvgSSD: true,
 	}
 	return vm
 }
@@ -140,12 +144,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err := m.k8sClient.ReadCR(ctx, req.Name, volume)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	// Here we need to check that this VolumeCR corresponds to this node
-	// because we deploy VolumeCRD Controller as DaemonSet
-	if volume.Spec.NodeId != m.nodeID {
-		return ctrl.Result{}, nil
 	}
 
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
@@ -252,14 +250,13 @@ func (m *VolumeManager) Discover() error {
 		return err
 	}
 
-	if !m.initialized {
-		err = m.discoverLVGOnSystemDrive()
-		if err != nil {
+	if m.discoverLvgSSD {
+		if err = m.discoverLVGOnSystemDrive(); err != nil {
 			m.log.WithField("method", "Discover").
 				Errorf("unable to inspect system LVG: %v", err)
 		}
-		m.initialized = true
 	}
+	m.initialized = true
 	return nil
 }
 
@@ -542,8 +539,12 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 
 	for _, lvg := range lvgList.Items {
 		if lvg.Spec.Node == m.nodeID && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
+			var vgFreeSpace int64
+			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
+				return err
+			}
 			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
-			return nil
+			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSSDLVG, vgFreeSpace)
 		}
 	}
 
@@ -559,36 +560,45 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	// from container we expect here name like "VG_NAME[/var/lib/kubelet/pods]"
 	rootMountPoint = strings.Split(rootMountPoint, "[")[0]
 
-	// ensure that rootMountPoint is in SSD drive
 	devices, err := m.listBlk.GetBlockDevices(rootMountPoint)
 	if err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
 
 	if devices[0].Rota != base.NonRotationalNum {
+		m.discoverLvgSSD = false
 		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
+		return nil
+	}
+
+	lvgExists, err := m.lvmOps.IsLVGExists(rootMountPoint)
+
+	if err != nil {
+		return fmt.Errorf(errTmpl, err)
+	}
+
+	if !lvgExists {
+		m.discoverLvgSSD = false
+		ll.Infof("System disk is SSD. but it doesn't have LVG.")
 		return nil
 	}
 
 	if vgName, err = m.lvmOps.FindVgNameByLvName(rootMountPoint); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
-
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
-	if vgFreeSpace == 0 {
-		vgFreeSpace++ // if size is 0 it field will not display for CR
-	}
-
+	lvs := m.lvmOps.GetLVsInVG(vgName)
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
-			Name:      vgName,
-			Node:      m.nodeID,
-			Locations: []string{base.SystemDriveAsLocation},
-			Size:      vgFreeSpace,
-			Status:    apiV1.Created,
+			Name:       vgName,
+			Node:       m.nodeID,
+			Locations:  []string{base.SystemDriveAsLocation},
+			Size:       vgFreeSpace,
+			Status:     apiV1.Created,
+			VolumeRefs: lvs,
 		}
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), k8s.RequestUUID, vg.Name)
@@ -596,24 +606,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
 	}
-
-	if vgFreeSpace > common.AcSizeMinThresholdBytes {
-		acName := uuid.New().String()
-		acCR := m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
-			Location:     vgCRName,
-			NodeId:       m.nodeID,
-			StorageClass: apiV1.StorageClassSSDLVG,
-			Size:         vgFreeSpace,
-		})
-		if err = m.k8sClient.CreateCR(ctx, acName, acCR); err != nil {
-			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
-		}
-		ll.Infof("System LVM was inspected, LVG CR was created %v, AC CR was created: %v", vgCR, acCR)
-		return nil
-	}
-
-	ll.Infof("System LVM was inspected, LVG object was created but AC was not. LVG CR: %v", vgCR)
-	return nil
+	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace)
 }
 
 // getProvisionerForVolume returns appropriate Provisioner implementation for volume
@@ -677,4 +670,36 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 	return drive1.SerialNumber == drive2.SerialNumber &&
 		drive1.VID == drive2.VID &&
 		drive1.PID == drive2.PID
+}
+
+// createACIfFreeSpace create AC CR if there are free spcae on drive
+// Receive context, drive location, storage class, size of available capacity
+// Return error
+func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int64) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "createACIfFreeSpace",
+	})
+	if size == 0 {
+		size++ // if size is 0 it field will not display for CR
+	}
+	acCR := m.crHelper.GetACByLocation(location)
+	if acCR != nil {
+		return nil
+	}
+	if size > common.AcSizeMinThresholdBytes {
+		acName := uuid.New().String()
+		acCR = m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
+			Location:     location,
+			NodeId:       m.nodeID,
+			StorageClass: sc,
+			Size:         size,
+		})
+		if err := m.k8sClient.CreateCR(context.Background(), acName, acCR); err != nil {
+			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
+		}
+		ll.Infof("Created AC %v for lvg %s", acCR, location)
+		return nil
+	}
+	ll.Infof("There is no available space on %s", location)
+	return nil
 }

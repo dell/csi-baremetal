@@ -9,9 +9,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 // WrapPartition is the interface which encapsulates methods to work with drives' partitions

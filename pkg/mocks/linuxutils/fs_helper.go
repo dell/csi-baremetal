@@ -3,7 +3,7 @@ package linuxutils
 import (
 	"github.com/stretchr/testify/mock"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 )
 
 // MockWrapFS is a mock implementation of WrapFS interface from fs package
@@ -55,13 +55,6 @@ func (m *MockWrapFS) GetFSType(device string) (fs.FileSystem, error) {
 
 // IsMounted is a mock implementations
 func (m *MockWrapFS) IsMounted(src string) (bool, error) {
-	args := m.Mock.Called(src)
-
-	return args.Bool(0), args.Error(1)
-}
-
-// IsMountPoint is a mock implementations
-func (m *MockWrapFS) IsMountPoint(src string) (bool, error) {
 	args := m.Mock.Called(src)
 
 	return args.Bool(0), args.Error(1)

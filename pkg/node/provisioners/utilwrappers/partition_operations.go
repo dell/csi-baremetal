@@ -6,8 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	ph "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 )
 
 // PartitionOperations is a high-level interface
@@ -148,6 +148,7 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string
 	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
 		partName, err = d.GetPartitionNameByUUID(device, partUUID)
 		if err != nil {
+			ll.Debugf("unable to find part name: %v", err)
 			// sync partition table and try one more time
 			err = d.SyncPartitionTable(device)
 			if err != nil {

@@ -11,13 +11,14 @@ import (
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
@@ -91,13 +92,16 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		requiredBytes = int64(util.GBYTE)
 		expectedAC    = &accrd.AvailableCapacity{
 			Spec: api.AvailableCapacity{
-				Location:     testDrive1UUID,
-				NodeId:       testNode1Name,
+				Location:     testLVG.Spec.Name,
+				NodeId:       testLVG.Spec.Node,
 				StorageClass: apiV1.StorageClassHDDLVG,
-				Size:         int64(util.GBYTE) * 42,
+				Size:         testLVG.Spec.Size,
 			},
 		}
 	)
+	err := svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
+	assert.Nil(t, err)
+
 	svc.acProvider = acProvider
 	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
 		Return(expectedAC).Times(1)
@@ -189,7 +193,7 @@ func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
 
 	err = svc.DeleteVolume(testCtx, testVolume1Name)
 	assert.NotNil(t, err)
-	assert.Equal(t, status.Error(codes.Internal, "volume has reached FailToRemove status"), err)
+	assert.Equal(t, status.Error(codes.Internal, "volume has reached failed status"), err)
 }
 
 // volume has status Removed or Removing
@@ -328,6 +332,59 @@ func TestVolumeOperationsImpl_ReadVolumeAndChangeStatus(t *testing.T) {
 	err = svc.ReadVolumeAndChangeStatus("notExisting", newStatus)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestVolumeOperationsImpl_addVolumeToLVG(t *testing.T) {
+	svc := setupVOOperationsTest(t)
+	volumeID := "volumeID"
+	err := svc.addVolumeToLVG(&testLVG, volumeID)
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
+
+	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
+	assert.Nil(t, err)
+
+	err = svc.addVolumeToLVG(&testLVG, volumeID)
+	assert.Nil(t, err)
+	lvg := &lvgcrd.LVG{}
+	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
+
+	err = svc.addVolumeToLVG(&testLVG, volumeID)
+	assert.Nil(t, err)
+	lvg = &lvgcrd.LVG{}
+	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
+}
+
+func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
+	svc := setupVOOperationsTest(t)
+	volumeID := "volumeID"
+	volumeID1 := "volumeID1"
+
+	testLVG.Spec.VolumeRefs = append(testLVG.Spec.VolumeRefs, volumeID, volumeID1)
+	err := svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID)
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
+
+	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
+	assert.Nil(t, err)
+
+	err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID)
+	assert.Nil(t, err)
+	lvg := &lvgcrd.LVG{}
+	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
+
+	err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID1)
+	assert.Nil(t, err)
+	lvg = &lvgcrd.LVG{}
+	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
 }
 
 // creates fake k8s client and creates AC CRs based on provided acs

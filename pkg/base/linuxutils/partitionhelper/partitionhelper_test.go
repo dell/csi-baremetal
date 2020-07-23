@@ -7,10 +7,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
-	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/mocks"
+	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 )
 
 var (

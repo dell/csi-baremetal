@@ -7,15 +7,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/partitionhelper"
-	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
-	mockProv "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/provisioners"
-	uw "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners/utilwrappers"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
+	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
+	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
+	uw "github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 // setupTestDriveProvisioner creates DriveProvisioner and all mock fields and return them

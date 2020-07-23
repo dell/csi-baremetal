@@ -5,13 +5,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/command"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lvm"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 // LVMProvisioner is a implementation of Provisioner interface
@@ -82,6 +82,7 @@ func (l *LVMProvisioner) ReleaseVolume(vol api.Volume) error {
 	}
 
 	ll.Debugf("Removing LV %s", deviceFile)
+	// TODO: might failed on big scale, should to be refactored, ATLDEF-64
 	return l.lvmOps.LVRemove(deviceFile)
 }
 

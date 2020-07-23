@@ -23,7 +23,7 @@ void runTests() {
     final String RUN_MODE_MASTER = 'master'
     final String RUN_MODE_CUSTOM = 'custom'
     boolean testResultSuccess = false
-    final String registry = "asdrepo.isus.emc.com:9042"
+    final String registry = common.DOCKER_REGISTRY.ASDREPO_ATLANTIC_REGISTRY.getRegistryUrl()
     common.node(label: 'csi_test', time: 180) {
         try {
             common.withInfraDevkitContainerKind() {
@@ -54,9 +54,9 @@ void runTests() {
                     stage('Prepare YAML for e2e tests') {
                         sh("helm template charts/baremetal-csi-plugin --output-dir /tmp --set image.tag=${csiVersion} " +
                                 "--set env.test=true " +
-                                "--set drivemgr.type=LOOPBACK " +
-                                "--set image.pullPolicy=IfNotPresent " +
-                                "--set drivemgr.deployConfig=true")
+                                "--set drivemgr.type=loopbackmgr " +
+                                "--set drivemgr.deployConfig=true " +
+                                "--set image.pullPolicy=IfNotPresent")
                     }
                     // for LVM tests we need to use custom kind version with --ipc-host for worker nodes
                     // todo - upstream custom changes - https://jira.cec.lab.emc.com:8443/browse/AK8S-1186
@@ -107,7 +107,9 @@ void runTests() {
                     common.withInfraDevkitContainerKind() {
                         List<String> repos = ["baremetal-csi-plugin-node",
                                               "baremetal-csi-plugin-controller",
-                                              "baremetal-csi-plugin-drivemgr"]
+                                              "baremetal-csi-plugin-basemgr",
+                                              "baremetal-csi-plugin-halmgr",
+                                              "baremetal-csi-plugin-loopbackmgr",]
                         // retag in asdrepo
                         repos.each { String repo ->
                             String image = "${registry}/${repo}"
@@ -123,14 +125,9 @@ void runTests() {
                     println('Skip pushing Docker images...')
                 }
             }
-            stage('Push artifacts to artifactory') {
+            stage('Promote artifacts') {
                  if (args.runMode != RUN_MODE_CUSTOM && testResultSuccess) {
                     load('.ci/pipeline_variables.groovy')
-                    common.withInfraDevkitContainerKind() {
-                        this.publishCSIArtifactsToArtifactory([
-                            version: csiVersion,
-                        ])
-                    }
                     if (!(common.checkManifest(ARTIFACTORY_COMPONENT_PATH, csiVersion))) {
                         println('Manifest check failed')
                         common.setBuildFailure()
@@ -158,76 +155,6 @@ void runTests() {
             common.slackSend(channel: args.slackChannel)
         }
     }
-}
-
-private String getArtifactsJson(final Map<String, Object> args) {
-    List<Object> artifacts = []
-    List<String>  images = [
-            "baremetal-csi-plugin-node",
-            "baremetal-csi-plugin-drivemgr",
-            "baremetal-csi-plugin-controller",
-    ]
-    images.each { image ->
-        artifacts.add([
-                "componentName": COMPONENT_NAME,
-                "version": args.version,
-                "type": "docker-image",
-                "endpoint": "{{ ATLANTIC_REGISTRY }}",
-                "path": "${image}"
-        ])
-    }
-    artifacts.add([
-            "componentName": COMPONENT_NAME,
-            "version": ATTACHER_VERSION,
-            "type": "docker-image",
-            "endpoint": "{{ ATLANTIC_REGISTRY }}",
-            "path": "csi-attacher"
-
-    ])
-    artifacts.add([
-            "componentName": COMPONENT_NAME,
-            "version": PROVISION_VERSION,
-            "type": "docker-image",
-            "endpoint": "{{ ATLANTIC_REGISTRY }}",
-            "path": "csi-provisioner"
-    ])
-    artifacts.add([
-            "componentName": COMPONENT_NAME,
-            "version": NODE_REGISTRAR_VERSION,
-            "type": "docker-image",
-            "endpoint": "{{ ATLANTIC_REGISTRY }}",
-            "path": "csi-node-driver-registrar",
-    ])
-    artifacts.add([
-            "componentName": COMPONENT_NAME,
-            "version": args.version,
-            "type": "helm-chart",
-            "endpoint": "{{ ASD_REPO }}",
-            "path": args.chartsPath
-    ])
-    return common.toJSON(["componentVersion": args.version, "componentArtifacts": artifacts], true)
-}
-
-void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
-    final String chartsBuildPath = "build/charts"
-    sh("""
-        helm package charts/baremetal-csi-plugin/ --set image.tag=${args.version} --version ${args.version} --destination ${chartsBuildPath}
-    """)
-    file = common.findFiles("${chartsBuildPath}/*.tgz")[0]
-    final String name = file.getName()
-    final String remoteName = file.getRemote()
-    final String chartsPathToPublish = "${ARTIFACTORY_FULL_CHARTS_PATH}/${args.version}"
-    common.publishFileToArtifactory(remoteName, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
-    final String text = this.getArtifactsJson([
-            version: args.version,
-            chartsPath: "${ARTIFACTORY_CHARTS_PATH}/${args.version}/${name}"
-    ])
-
-    writeFile(file: "artifacts.json",
-            text: text)
-
-    final String pathToPublish = "${ARTIFACTORY_COMPONENT_PATH}/${args.version}"
-    common.publishFileToArtifactory("artifacts.json", pathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
 }
 
 this

@@ -55,7 +55,6 @@ spec:
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
           - "--nodeid=$(KUBE_NODE_NAME)"
-          - "--healthip=$(MY_POD_IP)"
           - "--namespace=$(NAMESPACE)"
           - --loglevel={{ .Values.log.level }}
           {{- if .Values.logReceiver.create  }}
@@ -81,12 +80,7 @@ spec:
           periodSeconds: 10
         readinessProbe:
           exec:
-            # have to use bash for extrapolating env var
-            command:
-              - "bash"
-              - "-c"
-              - |
-                /health_probe -addr=$MY_POD_IP:{{ .Values.node.grpc.server.port }}
+            command: ["/health_probe", "-addr=:{{ .Values.node.grpc.server.port }}"]
           initialDelaySeconds: 3
           periodSeconds: 3
           successThreshold: 3
@@ -129,8 +123,8 @@ spec:
       # ********************** baremetal-csi-drivemgr container definition **********************
       # TODO: FABRIC-8595 Replace DriveMgr to DaemonSet
       - name: drivemgr
-        image: {{- if .Values.env.test }} {{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
-               {{- else }} {{ .Values.global.registry }}/{{ .Values.drivemgr.image.repository }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+        image: {{- if .Values.env.test }} baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
                {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
@@ -147,8 +141,6 @@ spec:
         env:
         - name: LOG_FORMAT
           value: {{ .Values.log.format }}
-        - name: DRIVEMGR_MANAGER
-          value: {{ .Values.drivemgr.type }}
         - name: KUBE_NODE_NAME
           valueFrom:
             fieldRef:
@@ -169,7 +161,7 @@ spec:
         - name: logs
           mountPath: /var/log/
         {{- end }}
-        {{- if eq .Values.drivemgr.type "LOOPBACK"}}
+        {{- if eq .Values.drivemgr.type "loopbackmgr"}}
         - name: host-home
           mountPath: /host/home
         {{- end }}
@@ -187,7 +179,7 @@ spec:
       # Log receiver sidecar
       {{- if .Values.logReceiver.create  }}
       - name: fluentbit-agent
-        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.repository }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
+        image: {{ .Values.global.registry }}/{{ .Values.fluentbitAgent.image.name }}:{{ default .Values.tag .Values.fluentbitAgent.image.tag }}
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - name: logs-config
@@ -207,7 +199,7 @@ spec:
         hostPath:
           path: /dev
           type: Directory
-      {{- if eq .Values.drivemgr.type "LOOPBACK"}}
+      {{- if eq .Values.drivemgr.type "loopbackmgr"}}
       - name: host-home
         hostPath:
           path: /home

@@ -11,22 +11,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 
-	api "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/generated/v1"
-	apiV1 "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1"
-	accrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/availablecapacitycrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/drivecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/lvgcrd"
-	vcrd "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/api/v1/volumecrd"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/fs"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/linuxutils/lsblk"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
-	mocklu "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/linuxutils"
-	mockProv "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks/provisioners"
-	p "eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/node/provisioners"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/mocks"
+	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
+	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
+	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 )
 
 // todo refactor these UTs - https://jira.cec.lab.emc.com:8443/browse/AK8S-724
@@ -142,6 +144,141 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	assert.True(t, len(vm.provisioners) > 0)
 	assert.NotNil(t, vm.acProvider)
 	assert.NotNil(t, vm.crHelper)
+}
+
+func TestReconcile_SuccessNotFound(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: "not-found-that-name"}}
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+}
+
+func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
+	var (
+		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCRLVG.Name}}
+		volume = &vcrd.Volume{}
+	)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	err = vm.k8sClient.CreateCR(testCtx, volCRLVG.Name, &volCRLVG)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
+
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, apiV1.Created, volume.Spec.CSIStatus)
+
+	volume.Spec.CSIStatus = apiV1.Removing
+	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+	// reconciled second time
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
+}
+
+func TestReconcile_SuccessCreatingAndRemovingDriveVolume(t *testing.T) {
+	var (
+		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+		volume = &vcrd.Volume{}
+	)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
+
+	volume.Spec.CSIStatus = apiV1.Removing
+	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+	// reconciled second time
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+}
+
+func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
+	var (
+		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+		volume = &vcrd.Volume{}
+	)
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := &mockProv.MockProvisioner{}
+	pMock.On("PrepareVolume", mock.Anything).Return(fmt.Errorf("error"))
+	pMock.On("ReleaseVolume", mock.Anything).Return(fmt.Errorf("error"))
+
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+
+	volume.Spec.CSIStatus = apiV1.Removing
+	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+	// reconciled second time
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+}
+
+func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	volCR.Spec.CSIStatus = apiV1.Failed
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
 }
 
 func TestNewVolumeManager_SetProvisioners(t *testing.T) {
@@ -434,8 +571,23 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 		})
 		lvgList = lvgcrd.LVGList{}
 		err     error
+		lvmOps  = &mocklu.MockWrapLVM{}
 	)
+	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(0), nil)
+	m.lvmOps = lvmOps
+	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
+	assert.Nil(t, err)
 
+	err = m.discoverLVGOnSystemDrive()
+	assert.Nil(t, err)
+
+	err = m.k8sClient.ReadList(testCtx, &lvgList)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(lvgList.Items))
+	assert.Equal(t, lvgCR, &lvgList.Items[0])
+
+	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(1024), nil)
+	m.lvmOps = lvmOps
 	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
 	assert.Nil(t, err)
 
@@ -469,6 +621,8 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
 	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
+	lvmOps.On("IsLVGExists", rootMountPoint).Return(true, nil)
+	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"})
 
 	// expect success, LVG CR and AC CR was created
 	err = m.discoverLVGOnSystemDrive()

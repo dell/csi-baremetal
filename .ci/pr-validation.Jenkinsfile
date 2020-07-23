@@ -9,7 +9,7 @@ this.runPullRequestValidationJob()
 void runPullRequestValidationJob() {
     Map<String, Object> args = [
         pullRequestNumber: params.PULL_REQUEST_NUMBER,
-        repo             : common.BAREMETAL_CSI_PLUGIN_REPO_SSH,
+        repo             : common.CSI_BAREMETAL_REPO,
     ]
     pr_validation.runPullRequestValidationJob(args) {
         String commit ->
@@ -86,7 +86,12 @@ boolean validatePullRequest(String commit) {
                         }
 
                         stage('Build') {
-                            buildExitCode = sh(script: 'make build', returnStatus: true)
+                            buildExitCode = sh(script: '''
+                                make DRIVE_MANAGER_TYPE=basemgr build
+                                make DRIVE_MANAGER_TYPE=halmgr build-drivemgr
+                                make DRIVE_MANAGER_TYPE=loopbackmgr build-drivemgr
+                                make DRIVE_MANAGER_TYPE=idracmgr build-drivemgr
+                            ''', returnStatus: true)
                             if (buildExitCode != 0) {
                                 currentBuild.result = 'FAILURE'
                                 throw new Exception("Build stage failed, check logs")
@@ -116,8 +121,16 @@ boolean validatePullRequest(String commit) {
                     }
                 )
                 stage('Make images') {
-                    baseImageExitCode = sh(script: 'make base-images', returnStatus: true)
-                    imageExitCode = sh(script: 'make images', returnStatus: true)
+                    baseImageExitCode = sh(script: '''
+                        make DRIVE_MANAGER_TYPE=basemgr base-images
+                        make DRIVE_MANAGER_TYPE=loopbackmgr base-image-drivemgr
+                        make DRIVE_MANAGER_TYPE=halmgr base-image-drivemgr
+                    ''', returnStatus: true)
+                    imageExitCode = sh(script: '''
+                        make DRIVE_MANAGER_TYPE=basemgr images
+                        make DRIVE_MANAGER_TYPE=loopbackmgr image-drivemgr
+                        make DRIVE_MANAGER_TYPE=halmgr image-drivemgr
+                    ''', returnStatus: true)
                     if ((imageExitCode != 0) || (baseImageExitCode != 0)) {
                         currentBuild.result = 'FAILURE'
                         throw new Exception("Image stage failed, check logs")

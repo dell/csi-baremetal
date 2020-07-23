@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/mocks"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 var (
@@ -176,6 +176,26 @@ func TestLinuxUtilsIs_VGContainsLVs(t *testing.T) {
 	assert.True(t, res)
 }
 
+func TestLinuxUtils_GetLVsInVG(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLVM(e, testLogger)
+		vg          = "test-lvg"
+		cmd         = fmt.Sprintf(LVsInVGCmdTmpl, vg)
+		expectedErr = errors.New("error")
+	)
+
+	e.OnCommand(cmd).Return("  asdf\n  adf", "", nil).Times(1)
+	res := l.GetLVsInVG(vg)
+	assert.Equal(t, len(res), 2)
+	assert.Equal(t, res[0], "asdf")
+	assert.Equal(t, res[1], "adf")
+
+	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
+	res = l.GetLVsInVG(vg)
+	assert.Empty(t, res)
+}
+
 func TestLinuxUtils_RemoveOrphanPVs(t *testing.T) {
 	var (
 		e           = &mocks.GoMockExecutor{}
@@ -230,6 +250,43 @@ func TestLinuxUtils_FindVgNameByLvName(t *testing.T) {
 	currentVG, err = l.FindVgNameByLvName(lvName)
 	assert.Equal(t, "", currentVG)
 	assert.Equal(t, expectedErr, err)
+
+}
+
+func TestLinuxUtils_IsLVGExists(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLVM(e, testLogger)
+		lvName      = "/dev/mapper/lv-1"
+		cmd         = fmt.Sprintf(VGByLVCmdTmpl, lvName)
+		expectedVG  = "vg-1"
+		expectedErr = errors.New("error here")
+		err         error
+	)
+
+	// expect success (tabs and new line were trim)
+	e.OnCommand(cmd).Return(fmt.Sprintf("\t%s   \t\n", expectedVG), "", nil).Times(1)
+	mp, err := l.IsLVGExists(lvName)
+	assert.Nil(t, err)
+	assert.Equal(t, true, mp)
+
+	// expect error
+	e.OnCommand(cmd).Return("root_vg", "", expectedErr).Times(1)
+	mp, err = l.IsLVGExists(lvName)
+	assert.Equal(t, false, mp)
+	assert.Equal(t, expectedErr, err)
+
+	// expect volume group node found
+	e.OnCommand(cmd).Return("", "Volume group \"lv-1\" not found", nil).Times(1)
+	mp, err = l.IsLVGExists(lvName)
+	assert.Equal(t, false, mp)
+	assert.Equal(t, nil, err)
+
+	// expect unable to determine
+	e.OnCommand(cmd).Return("", "", nil).Times(1)
+	mp, err = l.IsLVGExists(lvName)
+	assert.Equal(t, false, mp)
+	assert.NotNil(t, err)
 
 }
 

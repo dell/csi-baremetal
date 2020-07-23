@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/events/mocks"
+	"github.com/dell/csi-baremetal/pkg/events/mocks"
 )
 
 func TestOption_YAMLValidation(t *testing.T) {

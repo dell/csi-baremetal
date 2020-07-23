@@ -4,6 +4,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
@@ -11,11 +13,11 @@ import (
 
 	// +kubebuilder:scaffold:imports
 
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/k8s"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/rpc"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/base/util"
-	"eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin.git/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/controller"
 )
 
 var (
@@ -52,8 +54,9 @@ func main() {
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
 	go func() {
 		logger.Info("Starting Controller Health server ...")
-		controllerHealthEndpoint := fmt.Sprintf("tcp://%s:%d", *healthIP, *healthPort)
-		if err := util.SetupAndStartHealthCheckServer(controllerService, logger, controllerHealthEndpoint); err != nil {
+		if err := util.SetupAndStartHealthCheckServer(
+			controllerService, logger,
+			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(*healthPort))); err != nil {
 			logger.Fatalf("Controller service failed with error: %v", err)
 		}
 	}()
