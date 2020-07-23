@@ -17,10 +17,12 @@ spec:
       serviceAccountName: csi-baremetal-extender-sa
       containers:
         - name: extender
-          image: {{ .Values.global.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+          image: {{ .Values.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --port={{ .Values.port }}
           ports:
-            - containerPort: 8888
+            - containerPort: {{  .Values.port }}
       hostNetwork: true
       tolerations:
         - key: CriticalAddonsOnly

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 
@@ -8,17 +9,18 @@ import (
 	"github.com/dell/csi-baremetal/pkg/scheduler"
 )
 
-const (
-	defaultPort = "8888"
+var (
+	port = flag.Int("port", base.DefaultExtenderPort, "Port for service")
 )
 
-func main()  {
+func main() {
+	flag.Parse()
 	logger, _ := base.InitLogger("", "debug")
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
 	extender := scheduler.NewExtender(logger)
 
+	logger.Infof("Starting extender on port %d ...", *port)
 	http.HandleFunc("/filter", extender.FilterHandler)
-	logger.Infof("Starting extender on port %s ...", defaultPort)
-	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", defaultPort), nil))
+	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
 }

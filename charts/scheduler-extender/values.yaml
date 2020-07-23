@@ -1,6 +1,7 @@
 # Docker registry to pull images
-global:
-  registry: asdrepo.isus.emc.com:9042
+registry: asdrepo.isus.emc.com:9042
+
+port: 8889
 
 image:
   tag: green
