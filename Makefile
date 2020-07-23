@@ -29,7 +29,7 @@ build-controller:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
 build-extender:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${EXTENDER}/${EXTENDER} ./cmd/${EXTENDER}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./cmd/${SCHEDULER_EXTENDER_PKG}/main.go
 
 ### Build images
 
@@ -70,8 +70,8 @@ image-controller:
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ./pkg/${CONTROLLER}
 
 image-extender:
-	cp ./build/${EXTENDER}/${EXTENDER} ./pkg/${EXTENDER}/scheduler-extender
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ./pkg/${EXTENDER}
+	cp ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./pkg/${SCHEDULER_EXTENDER_PKG}/${EXTENDER}
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PKG}
 
 ### Push images
 
@@ -105,12 +105,12 @@ clean-controller:
 	rm -rf ./build/${CONTROLLER}/${CONTROLLER}
 
 clean-extedner:
-	rm -rf ./build/${EXTENDER}/${EXTENDER}
+	rm -rf ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER}
 
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
-clean-images: clean-image-node clean-image-controller clean-image-drivemgr clean-image-extedner
+clean-images: clean-image-node clean-image-controller clean-image-drivemgr clean-image-extender
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -121,7 +121,7 @@ clean-image-node:
 clean-image-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 
-clean-image-extedner:
+clean-image-extender:
 	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
 
 ### API targets

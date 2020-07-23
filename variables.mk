@@ -24,6 +24,9 @@ CSI_ATTACHER_TAG    := v1.0.1
 LIVENESS_PROBE_TAG  := v1.1.0
 BUSYBOX_TAG         := 1.29
 
+### PATH
+SCHEDULER_EXTENDER_PKG := scheduler
+
 ### components
 NODE            := node
 DRIVE_MANAGER   := drivemgr
