@@ -14,6 +14,7 @@ import (
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -145,11 +146,17 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 
 // constructVolumeFromCSISource constructs genV1.Volume based on fields from k8sV1.Volume.CSI
 func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *genV1.Volume, err error) {
-	vol = new(genV1.Volume)
+	// if some parameters aren't parsed for some reason empty volume will be returned in order count that volume
+	vol = &genV1.Volume{
+		StorageClass: v1.StorageClassAny,
+		Ephemeral:    true,
+	}
 
 	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
 	if !ok {
 		return vol, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
+	} else {
+		vol.StorageClass = sc
 	}
 
 	sizeStr, ok := v.VolumeAttributes[base.SizeKey]
@@ -161,10 +168,7 @@ func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *
 	if err != nil {
 		return vol, fmt.Errorf("unable to convert string %s to bytes: %v", sizeStr, err)
 	}
+	vol.Size = size
 
-	return &genV1.Volume{
-		StorageClass: strings.ToUpper(sc),
-		Size:         size,
-		Ephemeral:    true,
-	}, nil
+	return vol, nil
 }
