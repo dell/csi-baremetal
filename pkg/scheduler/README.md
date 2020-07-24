@@ -52,5 +52,9 @@
     After you save changes in `kube-scheduler.yaml` kubernetes will restart scheduler.
     
  6. Apply some pod manifest
- 7. Run `kubectl logs -f csi-baremetal-se-0 -n kube-system` and observe as scheduler extender works
+ 7. Run
+    ```
+    k logs -f -n kube-system `k get pods -n kube-system --selector=app=csi-baremetal-se --no-headers | awk '{print $1}'`
+    ``` 
+    and observe as scheduler extender works
  
