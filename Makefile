@@ -75,7 +75,7 @@ image-extender:
 
 ### Push images
 
-push: push-drivemgr push-node push-controller
+push: push-drivemgr push-node push-controller push-extender
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
