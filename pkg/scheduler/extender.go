@@ -14,7 +14,6 @@ import (
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -107,7 +106,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 		// check whether there are Ephemeral volumes or no
 		if v.CSI != nil {
 			if strings.Contains(v.CSI.Driver, pluginNameMask) {
-				volume, err := e.constructVolumeFromCSISource(v)
+				volume, err := e.constructVolumeFromCSISource(v.CSI)
 				if err != nil {
 					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
 				}
@@ -144,19 +143,18 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 	return volumes, nil
 }
 
-func (e *Extender) constructVolumeFromCSISource(v k8sV1.Volume) (vol *genV1.Volume, err error) {
-	vol = &genV1.Volume{StorageClass: apiV1.StorageClassAny}
+// constructVolumeFromCSISource constructs genV1.Volume based on fields from k8sV1.Volume.CSI
+func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *genV1.Volume, err error) {
+	vol = new(genV1.Volume)
 
-	sc, ok := v.CSI.VolumeAttributes[base.StorageTypeKey]
+	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
 	if !ok {
-		return vol, fmt.Errorf("unable to detect storage class for volume %s for attributes %v",
-			v.Name, v.CSI.VolumeAttributes)
+		return vol, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
 	}
 
-	sizeStr, ok := v.CSI.VolumeAttributes[base.SizeKey]
+	sizeStr, ok := v.VolumeAttributes[base.SizeKey]
 	if !ok {
-		return vol, fmt.Errorf("unable to detect size for volume %s for attributes %v",
-			v.Name, v.CSI.VolumeAttributes)
+		return vol, fmt.Errorf("unable to detect size from attributes %v", v.VolumeAttributes)
 	}
 
 	size, err := util.StrToBytes(sizeStr)
@@ -165,8 +163,7 @@ func (e *Extender) constructVolumeFromCSISource(v k8sV1.Volume) (vol *genV1.Volu
 	}
 
 	return &genV1.Volume{
-		Id:           v.Name,
-		StorageClass: sc,
+		StorageClass: strings.ToUpper(sc),
 		Size:         size,
 		Ephemeral:    true,
 	}, nil
