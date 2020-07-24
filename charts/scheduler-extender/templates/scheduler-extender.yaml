@@ -1,10 +1,9 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   namespace: kube-system
   name: csi-baremetal-se
 spec:
-  serviceName: csi-baremetal-se
   replicas: 1
   selector:
     matchLabels:
