@@ -11,7 +11,6 @@ import (
 	k8sV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
-	_ "sigs.k8s.io/controller-runtime/pkg/client"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
@@ -21,6 +20,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
+// Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
+// based on pod volumes requirements and Available Capacities
 type Extender struct {
 	k8sClient *k8s.KubeClient
 	logger    *logrus.Entry
@@ -30,6 +31,7 @@ const (
 	pluginNameMask = "baremetal"
 )
 
+// NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger) *Extender {
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
@@ -132,6 +134,8 @@ func (e *Extender) filter(ctx context.Context,
 		}
 	}
 	ll.Debugf("Required volumes: %v", volumes)
+
+	// TODO: add logic here for nodes filtering
 
 	var toReturn = &schedulerapi.ExtenderFilterResult{
 		Nodes:       args.Nodes,

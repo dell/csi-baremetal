@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	port = flag.Int("port", base.DefaultExtenderPort, "Port for service")
+	port     = flag.Int("port", base.DefaultExtenderPort, "Port for service")
 	logLevel = flag.String("loglevel", base.InfoLevel, "Log level")
 )
 
