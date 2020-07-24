@@ -135,7 +135,7 @@ func (e *Extender) filter(ctx context.Context,
 	}
 	ll.Debugf("Required volumes: %v", volumes)
 
-	// TODO: add logic here for nodes filtering
+	// TODO: add logic here for nodes filtering - AK8S-1244
 
 	var toReturn = &schedulerapi.ExtenderFilterResult{
 		Nodes:       args.Nodes,
