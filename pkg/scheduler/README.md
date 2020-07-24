@@ -19,8 +19,10 @@
  ```
  scp deploy/policy.yaml deploy/config.yaml root@provo-goop:/etc/kubernetes/scheduler
  ```
- 4. Apply extender manifest:
-    `kubectl apply -f deploy/extender.yaml`
+ 4. Install extender chart:
+    ```
+    helm install se charts/scheduler-extender --set log.level=debug --set image.tag=`make version`
+    ```
  5. Modify kube-scheduler manifest on the node. Config file is located in `/etc/kubernetes/manifests/kube-scheduler.yaml`
     
     - add next volumes in `.spec`:
@@ -52,6 +54,3 @@
  6. Apply some pod manifest
  7. Run `kubectl logs -f csi-baremetal-se-0 -n kube-system` and observe as scheduler extender works
  
-## Limitation
-    Since it is POC implementation extender does not check storage class and size of volumes
-    and just checks that amount of ACs on node is >= amount of volumes to be provisioned.

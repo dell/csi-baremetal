@@ -4,7 +4,7 @@ schedulerName: default-scheduler
 algorithmSource:
   policy:
     file:
-      path: /extender/policy.yaml
+      path: /etc/kubernetes/scheduler/policy.yaml
 leaderElection:
   leaderElect: true
 clientConnection:

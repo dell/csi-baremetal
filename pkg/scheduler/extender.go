@@ -38,7 +38,7 @@ func NewExtender(logger *logrus.Logger) *Extender {
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, "kube-system")
 	return &Extender{
 		k8sClient: kubeClient,
-		logger:    logrus.WithField("component", "Extender"),
+		logger:    logger.WithField("component", "Extender"),
 	}
 }
 
