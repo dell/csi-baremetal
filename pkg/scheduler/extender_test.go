@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -19,10 +20,6 @@ func TestNewExtender(t *testing.T) {
 	assert.NotNil(t, e.k8sClient)
 	assert.NotNil(t, e.logger)
 	assert.Equal(t, namespace, e.k8sClient.Namespace)
-}
-
-func TestExtender_FilterHandler(t *testing.T) {
-
 }
 
 func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
