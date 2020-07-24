@@ -81,10 +81,11 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 
 func (e *Extender) encodeResults(resp *json.Encoder, res *schedulerapi.ExtenderFilterResult) {
 	ll := e.logger.WithField("method", "encodeResults")
+
+	ll.Infof("Writing ExtenderFilterResult, suitable nodes: %v, not suitable nodes: %v, error: %v",
+		res.NodeNames, res.FailedNodes, res.Error)
 	if err := resp.Encode(res); err != nil {
 		ll.Errorf("Unable to write response: %v", err)
-	} else if res.Error == "" {
-		ll.Infof("ExtenderFilterResult was written, not suitable nodes: %+v", res.FailedNodes)
 	}
 }
 
@@ -97,6 +98,9 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 	})
 	ll.Debug("Processing ...")
 
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	volumes := make([]*genV1.Volume, 0)
 	for _, v := range pod.Spec.Volumes {
 		e.logger.Tracef("Inspecting pod volume %+v", v)
