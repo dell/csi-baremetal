@@ -28,6 +28,7 @@ type Extender struct {
 }
 
 const (
+	namespace      = "kube-system"
 	pluginNameMask = "baremetal"
 )
 
@@ -37,7 +38,7 @@ func NewExtender(logger *logrus.Logger) *Extender {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	kubeClient := k8s.NewKubeClient(k8sClient, logger, "kube-system")
+	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
 	return &Extender{
 		k8sClient: kubeClient,
 		logger:    logger.WithField("component", "Extender"),
@@ -52,24 +53,29 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	resp := json.NewEncoder(w)
 
-	var (
-		extenderArgs schedulerapi.ExtenderArgs
-		extenderRes  = &schedulerapi.ExtenderFilterResult{}
-	)
+	var extenderArgs schedulerapi.ExtenderArgs
 
 	if err := json.NewDecoder(req.Body).Decode(&extenderArgs); err != nil {
 		ll.Errorf("Unable to decode request body: %v", err)
-		extenderRes.Error = err.Error()
-		e.encodeResults(resp, extenderRes)
+		e.encodeResults(resp, &schedulerapi.ExtenderFilterResult{Error: err.Error()})
 	}
 
-	ll.Info("Running filter")
-	extenderFilterResult, err := e.filter(req.Context(), extenderArgs)
+	ll.Info("Filtering")
+	volumes, err := e.gatherVolumesByProvisioner(req.Context(), extenderArgs.Pod)
 	if err != nil {
-		extenderRes.Error = err.Error()
-	} else {
-		extenderRes = extenderFilterResult
+		e.encodeResults(resp, &schedulerapi.ExtenderFilterResult{Error: err.Error()})
 	}
+	ll.Debugf("Required volumes: %v", volumes)
+
+	// TODO: add logic here for nodes filtering - AK8S-1244
+
+	extenderRes := &schedulerapi.ExtenderFilterResult{
+		Nodes:       extenderArgs.Nodes,
+		NodeNames:   nil,
+		FailedNodes: nil,
+		Error:       "",
+	}
+
 	e.encodeResults(resp, extenderRes)
 }
 
@@ -80,33 +86,6 @@ func (e *Extender) encodeResults(resp *json.Encoder, res *schedulerapi.ExtenderF
 	} else if res.Error == "" {
 		ll.Infof("ExtenderFilterResult was written, not suitable nodes: %+v", res.FailedNodes)
 	}
-}
-
-// filter filters nodes that don't fit pod volumes requirements and constructs ExtenderFilterResult struct
-func (e *Extender) filter(ctx context.Context,
-	args schedulerapi.ExtenderArgs) (*schedulerapi.ExtenderFilterResult, error) {
-	pod := args.Pod
-	ll := e.logger.WithFields(logrus.Fields{
-		"method": "filter",
-		"pod":    pod.Name,
-	})
-	ll.Debug("Processing ...")
-
-	volumes, err := e.gatherVolumesByProvisioner(ctx, pod)
-	if err != nil {
-		return nil, err
-	}
-	ll.Debugf("Required volumes: %v", volumes)
-
-	// TODO: add logic here for nodes filtering - AK8S-1244
-
-	var toReturn = &schedulerapi.ExtenderFilterResult{
-		Nodes:       args.Nodes,
-		NodeNames:   nil,
-		FailedNodes: nil,
-		Error:       "",
-	}
-	return toReturn, nil
 }
 
 // gatherVolumesByProvisioner search all volumes in pod' spec that should be provisioned
