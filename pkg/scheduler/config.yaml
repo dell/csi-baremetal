@@ -1,0 +1,11 @@
+apiVersion: kubescheduler.config.k8s.io/v1alpha1
+kind: KubeSchedulerConfiguration
+schedulerName: default-scheduler
+algorithmSource:
+  policy:
+    file:
+      path: /extender/policy.yaml
+leaderElection:
+  leaderElect: true
+clientConnection:
+  kubeconfig: /etc/kubernetes/scheduler.conf

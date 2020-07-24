@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Policy
+extenders:
+  - urlPrefix: "8889"
+    filterVerb: filter
+    enableHttps: false
+    nodeCacheCapable: false
+    ignorable: true
