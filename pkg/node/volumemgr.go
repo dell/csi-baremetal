@@ -146,12 +146,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Here we need to check that this VolumeCR corresponds to this node
-	// because we deploy VolumeCRD Controller as DaemonSet
-	if volume.Spec.NodeId != m.nodeID {
-		return ctrl.Result{}, nil
-	}
-
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	var newStatus string
 	switch volume.Spec.CSIStatus {
@@ -595,14 +589,16 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
+	lvs := m.lvmOps.GetLVsInVG(vgName)
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
-			Name:      vgName,
-			Node:      m.nodeID,
-			Locations: []string{base.SystemDriveAsLocation},
-			Size:      vgFreeSpace,
-			Status:    apiV1.Created,
+			Name:       vgName,
+			Node:       m.nodeID,
+			Locations:  []string{base.SystemDriveAsLocation},
+			Size:       vgFreeSpace,
+			Status:     apiV1.Created,
+			VolumeRefs: lvs,
 		}
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), k8s.RequestUUID, vg.Name)

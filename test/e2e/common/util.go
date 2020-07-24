@@ -7,26 +7,14 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
-var (
-	utilExecutor command.CmdExecutor
-
-	lvgGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
-		Version:  apiV1.Version,
-		Resource: "lvgs",
-	}
-)
+var utilExecutor command.CmdExecutor
 
 // init initializes utilExecutor
 func init() {
@@ -73,10 +61,6 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}
 	}
-	err = DeleteResource(f.DynamicClient, lvgGVR, f.Namespace.Name, 5*time.Second, 5*time.Minute)
-	if err != nil {
-		e2elog.Logf("failed to delete lvg CRs, error: %v", err)
-	}
 
 	// Removes all driver's manifests installed during init(). (Driver, its RBACs, SC)
 	if driverCleanupFn != nil {
@@ -98,24 +82,4 @@ func GetDockerContainers() ([]string, error) {
 	}
 
 	return strings.Split(strings.TrimSpace(stdout), "\n"), nil
-}
-
-// DeleteResource will delete some resource and waits until it all be deleted.
-func DeleteResource(dc dynamic.Interface, resource schema.GroupVersionResource, ns string, poll, timeout time.Duration) error {
-	// need to clean-up logical volume group CRs until https://jira.cec.lab.emc.com:8443/browse/AK8S-1178 is resolved
-	err := dc.Resource(lvgGVR).Namespace(ns).DeleteCollection(metav1.NewDeleteOptions(0), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	// wait until it will all be deleted
-	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
-		lvgs, err := dc.Resource(resource).Namespace(ns).List(metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		if len(lvgs.Items) == 0 {
-			return nil
-		}
-	}
-	return fmt.Errorf("apparently resource %v is still exists after deletion", resource)
 }
