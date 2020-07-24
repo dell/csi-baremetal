@@ -92,11 +92,36 @@ func (e *Extender) filter(ctx context.Context,
 	})
 	ll.Debug("Processing ...")
 
-	volumes := make([]*genV1.Volume, 0)
+	volumes, err := e.gatherVolumesByProvisioner(ctx, pod)
+	if err != nil {
+		return nil, err
+	}
+	ll.Debugf("Required volumes: %v", volumes)
 
-	// check whether there are Ephemeral volumes or no
+	// TODO: add logic here for nodes filtering - AK8S-1244
+
+	var toReturn = &schedulerapi.ExtenderFilterResult{
+		Nodes:       args.Nodes,
+		NodeNames:   nil,
+		FailedNodes: nil,
+		Error:       "",
+	}
+	return toReturn, nil
+}
+
+// gatherVolumesByProvisioner search all volumes in pod' spec that should be provisioned
+// by provisioner that match pluginNameMask and construct getV1.Volume struct for each of such volume
+func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Pod) ([]*genV1.Volume, error) {
+	ll := e.logger.WithFields(logrus.Fields{
+		"method": "gatherVolumesByProvisioner",
+		"pod":    pod.Name,
+	})
+	ll.Debug("Processing ...")
+
+	volumes := make([]*genV1.Volume, 0)
 	for _, v := range pod.Spec.Volumes {
-		e.logger.Debugf("Inspecting pod volume %+v", v)
+		e.logger.Tracef("Inspecting pod volume %+v", v)
+		// check whether there are Ephemeral volumes or no
 		if v.CSI != nil {
 			if strings.Contains(v.CSI.Driver, pluginNameMask) {
 				volume, err := e.constructVolumeFromCSISource(v)
@@ -114,7 +139,7 @@ func (e *Extender) filter(ctx context.Context,
 				k8sCl.ObjectKey{Name: v.PersistentVolumeClaim.ClaimName, Namespace: pod.Namespace},
 				pvc)
 			if err != nil {
-				e.logger.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
+				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
 				return nil, err
 			}
 			if strings.Contains(*pvc.Spec.StorageClassName, "baremetal") {
@@ -133,17 +158,7 @@ func (e *Extender) filter(ctx context.Context,
 			}
 		}
 	}
-	ll.Debugf("Required volumes: %v", volumes)
-
-	// TODO: add logic here for nodes filtering - AK8S-1244
-
-	var toReturn = &schedulerapi.ExtenderFilterResult{
-		Nodes:       args.Nodes,
-		NodeNames:   nil,
-		FailedNodes: nil,
-		Error:       "",
-	}
-	return toReturn, nil
+	return volumes, nil
 }
 
 func (e *Extender) constructVolumeFromCSISource(v k8sV1.Volume) (vol *genV1.Volume, err error) {
