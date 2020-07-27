@@ -25,7 +25,7 @@ var (
 
 	testSizeStr      = "10G"
 	testStorageType  = "HDD"
-	testCSIVolumeSrc = &k8sV1.CSIVolumeSource{
+	testCSIVolumeSrc = k8sV1.CSIVolumeSource{
 		Driver:           fmt.Sprintf("%s-hdd", pluginNameMask),
 		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
 	}
@@ -36,7 +36,7 @@ var (
 	}
 
 	testPVC1Name = "pvc-with-plugin"
-	testPVC1     = &k8sV1.PersistentVolumeClaim{
+	testPVC1     = k8sV1.PersistentVolumeClaim{
 		TypeMeta: testPVCTypeMeta,
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      testPVC1Name,
@@ -53,7 +53,7 @@ var (
 	}
 
 	testPVC2Name = "not-a-plugin-pvc"
-	testPVC2     = &k8sV1.PersistentVolumeClaim{
+	testPVC2     = k8sV1.PersistentVolumeClaim{
 		TypeMeta: testPVCTypeMeta,
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      testPVC2Name,
@@ -83,7 +83,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	pod := testPod
 	// append inlineVolume
 	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sV1.Volume{
-		VolumeSource: k8sV1.VolumeSource{CSI: testCSIVolumeSrc},
+		VolumeSource: k8sV1.VolumeSource{CSI: &testCSIVolumeSrc},
 	})
 	// append testPVC1
 	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sV1.Volume{
@@ -102,18 +102,64 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 		},
 	})
 	// create PVC
-	err := e.k8sClient.Create(context.Background(), testPVC1)
-	assert.Nil(t, err)
-	err = e.k8sClient.Create(context.Background(), testPVC2)
-	assert.Nil(t, err)
+	err := applyPVC(e.k8sClient, &testPVC1, &testPVC2)
 
-	v, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
 	assert.Nil(t, err)
-	fmt.Printf("volumes: %+v\n\n", v)
+	assert.Equal(t, 2, len(volumes))
 }
 
 func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
+	e := setup()
 
+	// constructVolumeFromCSISource failed
+	pod := testPod
+	badCSIVolumeSrc := testCSIVolumeSrc
+	badCSIVolumeSrc.VolumeAttributes = map[string]string{}
+	// append inlineVolume
+	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sV1.Volume{
+		VolumeSource: k8sV1.VolumeSource{CSI: &badCSIVolumeSrc},
+	})
+
+	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(volumes))
+	assert.True(t, volumes[0].Ephemeral)
+	assert.Equal(t, v1.StorageClassAny, volumes[0].StorageClass)
+
+	// unable to read PVCs (bad namespace)
+	pod.Namespace = "unexisted-namespace"
+	// append testPVC1
+	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sV1.Volume{
+		VolumeSource: k8sV1.VolumeSource{
+			PersistentVolumeClaim: &k8sV1.PersistentVolumeClaimVolumeSource{
+				ClaimName: testPVC1Name,
+			},
+		},
+	})
+	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	assert.Nil(t, volumes)
+	assert.NotNil(t, err)
+
+	// PVC doesn't contain information about size
+	pod.Namespace = namespace
+	pvcWithoutSize := testPVC1
+	delete(pvcWithoutSize.Spec.Resources.Requests, k8sV1.ResourceStorage)
+	assert.Nil(t, applyPVC(e.k8sClient, &pvcWithoutSize))
+
+	pod.Spec.Volumes = []k8sV1.Volume{{
+		VolumeSource: k8sV1.VolumeSource{
+			PersistentVolumeClaim: &k8sV1.PersistentVolumeClaimVolumeSource{
+				ClaimName: testPVC1Name,
+			},
+		},
+	}}
+
+	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	assert.Nil(t, err)
+	assert.NotNil(t, volumes)
+	assert.Equal(t, 1, len(volumes))
+	assert.Equal(t, int64(0), volumes[0].Size)
 }
 
 func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
@@ -122,7 +168,7 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 	assert.Nil(t, err)
 	expectedVolume := &genV1.Volume{StorageClass: testStorageType, Size: expectedSize, Ephemeral: true}
 
-	curr, err := e.constructVolumeFromCSISource(testCSIVolumeSrc)
+	curr, err := e.constructVolumeFromCSISource(&testCSIVolumeSrc)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVolume, curr)
 
@@ -138,7 +184,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	v.VolumeAttributes = map[string]string{}
 	expected := &genV1.Volume{StorageClass: v1.StorageClassAny, Ephemeral: true}
 
-	curr, err := e.constructVolumeFromCSISource(v)
+	curr, err := e.constructVolumeFromCSISource(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -147,7 +193,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	// missing size
 	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
 	expected = &genV1.Volume{StorageClass: testStorageType, Ephemeral: true}
-	curr, err = e.constructVolumeFromCSISource(v)
+	curr, err = e.constructVolumeFromCSISource(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -158,7 +204,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	sizeStr := "12S12"
 	v.VolumeAttributes[base.SizeKey] = sizeStr
 	expected = &genV1.Volume{StorageClass: testStorageType, Ephemeral: true}
-	curr, err = e.constructVolumeFromCSISource(v)
+	curr, err = e.constructVolumeFromCSISource(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -175,4 +221,14 @@ func setup() *Extender {
 	e.k8sClient = k8s.NewKubeClient(k, testLogger, namespace)
 
 	return e
+}
+
+func applyPVC(k8sClient *k8s.KubeClient, pvcs ...*k8sV1.PersistentVolumeClaim) error {
+	for _, pvc := range pvcs {
+		pvc := pvc
+		if err := k8sClient.Create(context.Background(), pvc); err != nil {
+			return err
+		}
+	}
+	return nil
 }
