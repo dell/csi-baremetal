@@ -98,9 +98,6 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 	})
 	ll.Debug("Processing ...")
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
 	volumes := make([]*genV1.Volume, 0)
 	for _, v := range pod.Spec.Volumes {
 		e.logger.Tracef("Inspecting pod volume %+v", v)
