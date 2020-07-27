@@ -125,17 +125,26 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
 				return nil, err
 			}
+			if pvc.Spec.StorageClassName == nil {
+				continue
+			}
 			if strings.Contains(*pvc.Spec.StorageClassName, "baremetal") {
 				storageRes, ok := pvc.Spec.Resources.Requests[k8sV1.ResourceStorage]
 				if !ok {
 					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
 					storageRes = resource.Quantity{}
 				}
+
+				mode := ""
+				if pvc.Spec.VolumeMode != nil {
+					mode = string(*pvc.Spec.VolumeMode)
+				}
+
 				volumes = append(volumes, &genV1.Volume{
 					Id:           pvc.Name,
 					StorageClass: *pvc.Spec.StorageClassName,
 					Size:         storageRes.Value(),
-					Mode:         string(*pvc.Spec.VolumeMode),
+					Mode:         mode,
 					Ephemeral:    false,
 				})
 			}
@@ -155,9 +164,8 @@ func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *
 	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
 	if !ok {
 		return vol, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
-	} else {
-		vol.StorageClass = sc
 	}
+	vol.StorageClass = sc
 
 	sizeStr, ok := v.VolumeAttributes[base.SizeKey]
 	if !ok {
