@@ -372,15 +372,20 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 					ll.Debugf("Drive %v is in LVG and not a FREE", d.Spec)
 					break
 				}
-				partUUID, err := m.partOps.GetPartitionUUID(ld.Name, p.DefaultPartitionNumber)
-				if err != nil {
-					ll.Warnf("Unable to determine partition UUID for device %s, error: %v", ld.Name, err)
-					continue
+				var (
+					partUUID string
+					size     int64
+				)
+				partUUID = ld.PartUUID
+				if partUUID == "" {
+					partUUID = uuid.New().String() // just generate random and exclude drive
+					ll.Warnf("UUID generated %s", partUUID)
 				}
-				size, err := strconv.ParseInt(ld.Size, 10, 64)
-				if err != nil {
-					ll.Warnf("Unable parse string %s to int, for device %s, error: %v", ld.Size, ld.Name, err)
-					continue
+				if ld.Size != "" {
+					size, err = strconv.ParseInt(ld.Size, 10, 64)
+					if err != nil {
+						ll.Warnf("Unable parse string %s to int, for device %s, error: %v", ld.Size, ld.Name, err)
+					}
 				}
 
 				volumeCR := m.k8sClient.ConstructVolumeCR(partUUID, api.Volume{
@@ -504,9 +509,7 @@ func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
 		isUsed := false
 		for _, v := range m.crHelper.GetVolumeCRs(m.nodeID) {
 			// expect only Drive LocationType, for Drive LocationType Location will be a UUID of the drive
-			if d.Spec.Type != apiV1.DriveTypeNVMe &&
-				v.Spec.LocationType == apiV1.LocationTypeDrive &&
-				strings.EqualFold(d.Spec.UUID, v.Spec.Location) {
+			if strings.EqualFold(d.Spec.UUID, v.Spec.Location) {
 				isUsed = true
 				break
 			}
