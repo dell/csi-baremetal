@@ -363,7 +363,6 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	// that because we expect one item in volumes cache
 	vItems := getVolumeCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 1, len(vItems))
-	//assert.Equal(t, "uniq-guid-for-dev-sdb", vItems[0].Spec.Id)
 }
 
 func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
