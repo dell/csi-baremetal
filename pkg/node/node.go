@@ -349,7 +349,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
 	}
 
-	// add volume owner info
+	//TODO need to provide better logic for volumes Owners AK8S-466
+	//add volume owner info
 	//var podName string
 	//podName, ok := req.VolumeContext[PodNameKey]
 	//if !ok {
