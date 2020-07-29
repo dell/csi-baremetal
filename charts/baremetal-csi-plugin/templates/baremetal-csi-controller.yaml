@@ -156,7 +156,5 @@ spec:
             name: {{ .Release.Name }}-logs-config
       {{- end }}
       - name: socket-dir
-        hostPath:
-          path: /var/baremetal-csi/controller
-          type: DirectoryOrCreate
+        emptyDir:
 {{- end }}
