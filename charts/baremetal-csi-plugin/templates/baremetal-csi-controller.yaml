@@ -131,6 +131,21 @@ spec:
           mountPath: /fluent-bit/etc
         - name: logs
           mountPath: /var/log/
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
       {{- end }}
       volumes:
       - name: logs
