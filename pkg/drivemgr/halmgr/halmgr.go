@@ -2,10 +2,14 @@
 // Package halmgr provides HAL based implementation of DriveManager
 package halmgr
 
-// #cgo LDFLAGS: -L/opt/emc/hal/lib64 -lhalHelper -lviprhal
+// #cgo LDFLAGS: -L/opt/emc/hal/lib64 -lhalFlexHelper -lviprhal
 /*
-	#include "/opt/emc/hal/include/chal/hal-helper.hxx"
+
 	#include <stdlib.h>
+	#include <stdint.h>
+	#include <stdbool.h>
+    #include "/opt/emc/hal/include/chal/flex/hal-flex-helper.hxx"
+
 */
 import "C"
 import (
@@ -95,14 +99,14 @@ func (mgr *HALManager) GetDrivesList() ([]*api.Drive, error) {
 
 	for i := 0; i < count; i++ {
 		drive := &api.Drive{
-			VID:          C.GoString(&drivesSliceHAL[i].vid[0]),
-			PID:          C.GoString(&drivesSliceHAL[i].pid[0]),
-			SerialNumber: strings.ToUpper(C.GoString(&drivesSliceHAL[i].serialNumber[0])),
-			Size:         util.ToBytes(int64(drivesSliceHAL[i].capacity), util.GBYTE),
-			Health:       mgr.convertDriveHealth(drivesSliceHAL[i].driveHealth),
-			Type:         mgr.convertDriveType(drivesSliceHAL[i].storageClass),
-			Path:         C.GoString(&drivesSliceHAL[i].path[0]),
-			Slot:         C.GoString(&drivesSliceHAL[i].slotName[0]),
+			VID:          C.GoString(&drivesSliceHAL[i].base.vid[0]),
+			PID:          C.GoString(&drivesSliceHAL[i].base.pid[0]),
+			SerialNumber: strings.ToUpper(C.GoString(&drivesSliceHAL[i].base.serialNumber[0])),
+			Size:         util.ToBytes(int64(drivesSliceHAL[i].base.capacity), util.GBYTE),
+			Health:       mgr.convertDriveHealth(drivesSliceHAL[i].base.driveHealth),
+			Type:         mgr.convertDriveType(drivesSliceHAL[i].base.storageClass),
+			Path:         C.GoString(&drivesSliceHAL[i].base.path[0]),
+			Slot:         C.GoString(&drivesSliceHAL[i].base.slotName[0]),
 		}
 		drivesSlice = append(drivesSlice, drive)
 	}

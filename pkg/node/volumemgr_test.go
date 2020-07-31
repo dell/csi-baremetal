@@ -349,19 +349,6 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	assert.Nil(t, err)
 	assertLenVListItemsEqualsTo(t, vm.k8sClient, 0)
 
-	// expect that volume cache will be empty because one drive without size
-	// and GetPartitionGUID returns error for second drive
-	expectedCmdOut1 := map[string]mocks.CmdOut{
-		lsblkAllDevicesCmd:     mocks.LsblkDevWithChildren,
-		"sgdisk /dev/sdb -i 1": {Stdout: "some output: here"},
-	}
-	e2 := mocks.NewMockExecutor(expectedCmdOut1)
-	vm = NewVolumeManager(*hwMgrClient, e2, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-	vm.listBlk.SetExecutor(e2)
-	err = vm.Discover()
-	assert.Nil(t, err)
-	assertLenVListItemsEqualsTo(t, vm.k8sClient, 0)
-
 	// expect that one volume will appear in cache
 	expectedCmdOut2 := map[string]mocks.CmdOut{
 		lsblkAllDevicesCmd:         mocks.LsblkDevWithChildren,
@@ -370,17 +357,12 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	e3 := mocks.NewMockExecutor(expectedCmdOut2)
 	vm = NewVolumeManager(*hwMgrClient, e3, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	vm.listBlk.SetExecutor(e3)
-	partOps := &mocklu.MockWrapPartition{}
-	partOps.On("GetPartitionUUID", mock.Anything, mock.Anything).
-		Return("uniq-guid-for-dev-sdb", nil)
-	vm.partOps = partOps
 	err = vm.Discover()
 	assert.Nil(t, err)
 	// LsblkDevWithChildren contains 2 devices with children however one of them without size
 	// that because we expect one item in volumes cache
 	vItems := getVolumeCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 1, len(vItems))
-	assert.Equal(t, "uniq-guid-for-dev-sdb", vItems[0].Spec.Id)
 }
 
 func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
