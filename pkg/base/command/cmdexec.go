@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -74,7 +75,10 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 	}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+
+	cmdStartTime := time.Now()
 	err = cmd.Run()
+	cmdDuration := time.Since(cmdStartTime)
 
 	outStr, errStr = stdout.String(), stderr.String()
 	// construct log message based on output and error
@@ -86,8 +90,10 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 		errPart = fmt.Sprintf(", Error: %v", err)
 		level = logrus.ErrorLevel
 	}
-
-	e.log.WithField("cmd", strings.Join(cmd.Args, " ")).
+	e.log.WithFields(logrus.Fields{
+		"cmd":         strings.Join(cmd.Args, " "),
+		"duration":    cmdDuration.String(),
+		"duration_ns": cmdDuration.Nanoseconds()}).
 		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
 	return outStr, errStr, err
 }
