@@ -5,7 +5,14 @@
     <node>
         <hbas>
             <!-- Do not configure SATA disks -->
-            <hba configure="false" device_class="0x106"/>
+            <hba configure="true" device_class="0x106">
+                <!-- Do not show SATADOM disks -->
+                <disks configure="false" pid="SATADOM*"/>
+                <!-- Do not show internal system disks on device_class="0x106" -->
+                <disks>
+                    <disk configure="false" system="true"/>
+                </disks>
+            </hba>
 
             <!-- Do not configure system disks -->
             <hba>
@@ -24,7 +31,7 @@
                 <disks>
                     <!-- Do not show raw system disks.
                          Show internal system disks with partitions to support hybrid configuration. -->
-                    <disk configure="false" system="true" hasPartitions="false" />
+                    <disk configure="false" system="true"/>
                 </disks>
             </hba>
         </hbas>
