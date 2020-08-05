@@ -37,6 +37,12 @@ data:
         Skip_Long_Lines  Off
         Refresh_Interval 5
         Tag              kubernetes_cluster-baremetal-csi
+    [FILTER]
+        Name             record_modifier
+        Match            *
+        Record pod_name ${POD_NAME}
+        Record node_name ${NODE_NAME}
+        Record namespace ${NAMESPACE}
     [OUTPUT]
     {{- if eq .Values.logReceiver.output "es"}}
         Name            es
