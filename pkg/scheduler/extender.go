@@ -58,12 +58,14 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if err := json.NewDecoder(req.Body).Decode(&extenderArgs); err != nil {
 		ll.Errorf("Unable to decode request body: %v", err)
 		e.encodeResults(resp, &schedulerapi.ExtenderFilterResult{Error: err.Error()})
+		return
 	}
 
 	ll.Info("Filtering")
 	volumes, err := e.gatherVolumesByProvisioner(req.Context(), extenderArgs.Pod)
 	if err != nil {
 		e.encodeResults(resp, &schedulerapi.ExtenderFilterResult{Error: err.Error()})
+		return
 	}
 	ll.Debugf("Required volumes: %v", volumes)
 
@@ -85,7 +87,7 @@ func (e *Extender) encodeResults(resp *json.Encoder, res *schedulerapi.ExtenderF
 	ll.Infof("Writing ExtenderFilterResult, suitable nodes: %v, not suitable nodes: %v, error: %v",
 		res.NodeNames, res.FailedNodes, res.Error)
 	if err := resp.Encode(res); err != nil {
-		ll.Errorf("Unable to write response: %v", err)
+		ll.Errorf("Unable to write response %v: %v", resp, err)
 	}
 }
 
@@ -125,7 +127,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 			if pvc.Spec.StorageClassName == nil {
 				continue
 			}
-			if strings.Contains(*pvc.Spec.StorageClassName, "baremetal") {
+			if strings.Contains(*pvc.Spec.StorageClassName, pluginNameMask) {
 				storageRes, ok := pvc.Spec.Resources.Requests[k8sV1.ResourceStorage]
 				if !ok {
 					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
