@@ -279,5 +279,6 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 		}
 	}
 
-	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s", partUUID, device)
+	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s within %v",
+		partUUID, device, blockdevices)
 }
