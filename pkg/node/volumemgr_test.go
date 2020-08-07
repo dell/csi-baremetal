@@ -373,6 +373,7 @@ func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
 	e1 := &mocks.GoMockExecutor{}
 	e1.On("RunCmd", mock.Anything).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.listBlk.SetExecutor(e1)
 
 	err = vm.Discover()
 	assert.Nil(t, err)
@@ -397,6 +398,7 @@ func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	e1 := &mocks.GoMockExecutor{}
 	e1.On("RunCmd", mock.Anything).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.listBlk.SetExecutor(e1)
 
 	err = vm.Discover()
 	assert.Nil(t, err)

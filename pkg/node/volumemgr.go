@@ -96,8 +96,6 @@ func NewVolumeManager(
 	logger *logrus.Logger,
 	k8sclient *k8s.KubeClient,
 	recorder eventRecorder, nodeID string) *VolumeManager {
-	listBlk := lsblk.NewLSBLK(logger)
-	listBlk.SetExecutor(executor)
 	vm := &VolumeManager{
 		k8sClient:      k8sclient,
 		crHelper:       k8s.NewCRHelper(k8sclient, logger),
@@ -109,7 +107,7 @@ func NewVolumeManager(
 		},
 		fsOps:          utilwrappers.NewFSOperationsImpl(executor, logger),
 		lvmOps:         lvm.NewLVM(executor, logger),
-		listBlk:        listBlk,
+		listBlk:        lsblk.NewLSBLK(logger),
 		partOps:        ph.NewWrapPartitionImpl(executor, logger),
 		nodeID:         nodeID,
 		log:            logger.WithField("component", "VolumeManager"),
