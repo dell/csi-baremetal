@@ -479,7 +479,7 @@ func (mgr *LoopBackManager) Init() {
 		if errcode != nil {
 			ll.Fatalf("Unable to create loopback device for %s: %s", fileName, stderr)
 		}
-		mgr.devices[i].devicePath = stdout
+		mgr.devices[i].devicePath = strings.TrimSuffix(stdout, "\n")
 	}
 }
 
