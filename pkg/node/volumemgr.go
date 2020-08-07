@@ -123,6 +123,12 @@ func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
 	m.provisioners = provs
 }
 
+// SetListBlk sets listBlk struct
+// method is used for test purposes because of listBlk is created with own executor
+func (m *VolumeManager) SetListBlk(l lsblk.WrapLsblk) {
+	m.listBlk = l
+}
+
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
 // VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
 // Volume.Spec.CSIStatus is Removing.
