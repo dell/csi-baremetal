@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -97,6 +96,8 @@ func NewVolumeManager(
 	logger *logrus.Logger,
 	k8sclient *k8s.KubeClient,
 	recorder eventRecorder, nodeID string) *VolumeManager {
+	listBlk := lsblk.NewLSBLK(logger)
+	listBlk.SetExecutor(executor)
 	vm := &VolumeManager{
 		k8sClient:      k8sclient,
 		crHelper:       k8s.NewCRHelper(k8sclient, logger),
@@ -108,7 +109,7 @@ func NewVolumeManager(
 		},
 		fsOps:          utilwrappers.NewFSOperationsImpl(executor, logger),
 		lvmOps:         lvm.NewLVM(executor, logger),
-		listBlk:        lsblk.NewLSBLK(logger),
+		listBlk:        listBlk,
 		partOps:        ph.NewWrapPartitionImpl(executor, logger),
 		nodeID:         nodeID,
 		log:            logger.WithField("component", "VolumeManager"),
@@ -372,26 +373,17 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 					ll.Debugf("Drive %v is in LVG and not a FREE", d.Spec)
 					break
 				}
-				var (
-					partUUID string
-					size     int64
-				)
-				partUUID = ld.PartUUID
+
+				partUUID := ld.PartUUID
 				if partUUID == "" {
 					partUUID = uuid.New().String() // just generate random and exclude drive
 					ll.Warnf("UUID generated %s", partUUID)
-				}
-				if ld.Size != "" {
-					size, err = strconv.ParseInt(ld.Size, 10, 64)
-					if err != nil {
-						ll.Warnf("Unable parse string %s to int, for device %s, error: %v", ld.Size, ld.Name, err)
-					}
 				}
 
 				volumeCR := m.k8sClient.ConstructVolumeCR(partUUID, api.Volume{
 					NodeId:       m.nodeID,
 					Id:           partUUID,
-					Size:         size,
+					Size:         ld.Size,
 					Location:     d.Spec.UUID,
 					LocationType: apiV1.LocationTypeDrive,
 					Mode:         apiV1.ModeFS,
@@ -568,7 +560,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf(errTmpl, err)
 	}
 
-	if devices[0].Rota != base.NonRotationalNum {
+	if devices[0].Rota {
 		m.discoverLvgSSD = false
 		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
 		return nil

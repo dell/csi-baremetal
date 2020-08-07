@@ -369,7 +369,9 @@ func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+
+	e1 := &mocks.GoMockExecutor{}
+	e1.On("RunCmd", mock.Anything).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	err = vm.Discover()
@@ -392,7 +394,8 @@ func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	hwMgrDrivesWithBad := driveMgrRespDrives
 	hwMgrDrivesWithBad[1].Health = apiV1.HealthBad
 	hwMgrClient := mocks.NewMockDriveMgrClient(hwMgrDrivesWithBad)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
+	e1 := &mocks.GoMockExecutor{}
+	e1.On("RunCmd", mock.Anything).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	err = vm.Discover()
@@ -600,7 +603,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	rootMountPoint := "/dev/sda"
 	vgName := "root-vg"
 	fsOps.On("FindMountPoint", base.KubeletRootPath).Return(rootMountPoint, nil)
-	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
+	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: false}}, nil)
 	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
 	lvmOps.On("IsLVGExists", rootMountPoint).Return(true, nil)

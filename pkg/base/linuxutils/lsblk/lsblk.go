@@ -51,8 +51,8 @@ func (l *LSBLK) SetExecutor(e command.CmdExecutor) {
 type BlockDevice struct {
 	Name       string        `json:"name,omitempty"`
 	Type       string        `json:"type,omitempty"`
-	Size       string        `json:"size,omitempty"`
-	Rota       string        `json:"rota,omitempty"`
+	Size       int64         `json:"size,omitempty"`
+	Rota       bool          `json:"rota,omitempty"`
 	Serial     string        `json:"serial,omitempty"`
 	WWN        string        `json:"wwn,omitempty"`
 	Vendor     string        `json:"vendor,omitempty"`
@@ -76,7 +76,7 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	rawOut := make(map[string][]BlockDevice, 1)
 	err = json.Unmarshal([]byte(strOut), &rawOut)
 	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal output to BlockDevice instance, error: %v", err)
+		return nil, fmt.Errorf("unable to unmarshal output to BlockDevice instance, error: %v: out: %v", err, strOut)
 	}
 	res := make([]BlockDevice, 0)
 	var (
