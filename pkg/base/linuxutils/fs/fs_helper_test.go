@@ -134,7 +134,7 @@ func TestCreateFS(t *testing.T) {
 		fh     = NewFSImpl(e)
 		device = "/dev/sda1"
 		fsType = XFS
-		cmd    = fmt.Sprintf(MkFSCmdTmpl, fsType, device)
+		cmd    = fmt.Sprintf(MkFSCmdTmpl, fsType, XFSOptions, device)
 		err    error
 	)
 
