@@ -39,8 +39,8 @@ const (
 	deleteFileCmdTmpl = "rm -rf %s"
 	// requires root privileges
 	losetupCmd                      = "losetup"
-	checkLoopBackDeviceCmdTmpl      = losetupCmd + " -j %s"
-	setupLoopBackDeviceCmdTmpl      = losetupCmd + " -fP %s"
+	readLoopBackDevicesMappingCmd   = losetupCmd + " -O NAME,BACK-FILE"
+	setupLoopBackDeviceCmdTmpl      = losetupCmd + " -fP --show %s"
 	detachLoopBackDeviceCmdTmpl     = losetupCmd + " -d %s"
 	findUnusedLoopBackDeviceCmdTmpl = losetupCmd + " -f"
 
@@ -417,7 +417,6 @@ func (mgr *LoopBackManager) deleteLoopbackDevice(device *LoopBackDevice) {
 // Returns error if something went wrong
 func (mgr *LoopBackManager) Init() {
 	ll := mgr.log.WithField("method", "Init")
-	var device string
 	mgr.Lock()
 	defer mgr.Unlock()
 	fsOps := fs.NewFSImpl(mgr.exec)
@@ -452,24 +451,21 @@ func (mgr *LoopBackManager) Init() {
 			if errcode != nil {
 				ll.Fatalf("Unable to create file %s with size %d MB: %s", file, sizeMb, stderr)
 			}
+		}
+	}
 
-			// check that loopback device exists. ignore error here
-			device, _ = mgr.GetLoopBackDeviceName(file)
-			if device != "" {
-				// try to detach
-				_, _, err := mgr.exec.RunCmd(fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device))
-				if err != nil {
-					ll.Errorf("Unable to detach loopback device %s for file %s", device, file)
-				}
-			}
-		} else {
-			// check that loopback device exists
-			device, _ = mgr.GetLoopBackDeviceName(file)
-			if device != "" {
-				mgr.devices[i].devicePath = device
-				// go to the next
-				continue
-			}
+	loopDeviceMapping, err := mgr.GetBackFileToLoopMap()
+	if err != nil {
+		ll.Fatal(err.Error())
+	}
+
+	for i := 0; i < len(mgr.devices); i++ {
+		// check that loopback device exists
+		fileName := mgr.devices[i].fileName
+		loopDevs, ok := loopDeviceMapping[fileName]
+		if ok && len(loopDevs) > 0 {
+			mgr.devices[i].devicePath = loopDevs[0]
+			continue
 		}
 
 		// check that system has unused device for troubleshooting purposes
@@ -479,12 +475,11 @@ func (mgr *LoopBackManager) Init() {
 		}
 
 		// create new device
-		_, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(setupLoopBackDeviceCmdTmpl, file))
+		stdout, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(setupLoopBackDeviceCmdTmpl, fileName))
 		if errcode != nil {
-			ll.Fatalf("Unable to create loopback device for %s: %s", file, stderr)
+			ll.Fatalf("Unable to create loopback device for %s: %s", fileName, stderr)
 		}
-		device, _ = mgr.GetLoopBackDeviceName(file)
-		mgr.devices[i].devicePath = device
+		mgr.devices[i].devicePath = strings.TrimSuffix(stdout, "\n")
 	}
 }
 
@@ -518,25 +513,33 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 	return drives, nil
 }
 
-// GetLoopBackDeviceName checks whether device registered for file or not
-// Receives file path as a string
-// Returns device path or or empty string if the file is not bounded to any loop device
-func (mgr *LoopBackManager) GetLoopBackDeviceName(file string) (string, error) {
+// GetBackFileToLoopMap return mapping between backing file and loopback devices
+// Multiple loopback devices can be created from on backing file.
+func (mgr *LoopBackManager) GetBackFileToLoopMap() (map[string][]string, error) {
 	// check that loopback device exists
-	stdout, stderr, err := mgr.exec.RunCmd(fmt.Sprintf(checkLoopBackDeviceCmdTmpl, file))
+	stdout, stderr, err := mgr.exec.RunCmd(readLoopBackDevicesMappingCmd)
+	errMsg := "Unable to to retrieve loopback device list"
 	if err != nil {
-		mgr.log.Errorf("Unable to check loopback configuration for %s: %s", file, stderr)
-		return "", err
+		mgr.log.Errorf("%s: %s", errMsg, stderr)
+		return nil, err
 	}
 
-	// not the best way to find file name
-	if strings.Contains(stdout, file) {
-		// device already registered
-		// output example: /dev/loop18: []: (/tmp/loopback-ubuntu-0.img)
-		return strings.Split(stdout, ":")[0], nil
+	result := make(map[string][]string)
+	for _, dataLine := range strings.Split(stdout, "\n")[1:] {
+		if len(dataLine) == 0 {
+			continue
+		}
+		dataFields := strings.SplitN(dataLine, " ", 2)
+		if len(dataFields) != 2 {
+			err := fmt.Errorf("%s: unexpected data format", errMsg)
+			mgr.log.Error(err.Error())
+			return nil, err
+		}
+		loopDevice, backFile := dataFields[0], strings.TrimSpace(dataFields[1])
+		result[backFile] = append(result[backFile], loopDevice)
 	}
 
-	return "", nil
+	return result, nil
 }
 
 // CleanupLoopDevices detaches loop devices that are occupied by LoopBackManager
