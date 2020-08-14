@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,12 +122,6 @@ func NewVolumeManager(
 // uses for UTs and Sanity tests purposes
 func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
 	m.provisioners = provs
-}
-
-// SetListBlk sets listBlk struct
-// method is used for test purposes because of listBlk is created with own executor
-func (m *VolumeManager) SetListBlk(l lsblk.WrapLsblk) {
-	m.listBlk = l
 }
 
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
@@ -377,17 +372,26 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 					ll.Debugf("Drive %v is in LVG and not a FREE", d.Spec)
 					break
 				}
-
-				partUUID := ld.PartUUID
+				var (
+					partUUID string
+					size     int64
+				)
+				partUUID = ld.PartUUID
 				if partUUID == "" {
 					partUUID = uuid.New().String() // just generate random and exclude drive
 					ll.Warnf("UUID generated %s", partUUID)
+				}
+				if ld.Size != "" {
+					size, err = strconv.ParseInt(ld.Size, 10, 64)
+					if err != nil {
+						ll.Warnf("Unable parse string %s to int, for device %s, error: %v", ld.Size, ld.Name, err)
+					}
 				}
 
 				volumeCR := m.k8sClient.ConstructVolumeCR(partUUID, api.Volume{
 					NodeId:       m.nodeID,
 					Id:           partUUID,
-					Size:         ld.Size,
+					Size:         size,
 					Location:     d.Spec.UUID,
 					LocationType: apiV1.LocationTypeDrive,
 					Mode:         apiV1.ModeFS,
@@ -564,7 +568,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf(errTmpl, err)
 	}
 
-	if devices[0].Rota {
+	if devices[0].Rota != base.NonRotationalNum {
 		m.discoverLvgSSD = false
 		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
 		return nil

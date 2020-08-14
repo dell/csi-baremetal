@@ -104,13 +104,11 @@ var LsblkTwoDevicesStr = `{
 			  "blockdevices":[{
 				"name": "/dev/sda",
 				"type": "disk",
-				"serial": "hdd1",
-				"size": 1024
+				"serial": "hdd1"
 				}, {
 				"name": "/dev/sdb",
 				"type": "disk",
-				"serial": "hdd2",
-				"size": 1024
+				"serial": "hdd2"
 				}]
 			}`
 
@@ -133,7 +131,7 @@ var LsblkDevWithChildren = CmdOut{
 				"serial": "hdd2",
 				"children": [{"name": "/dev/children1", "mountpoint":""}, 
 							 {"name": "/dev/children2", "mountpoint":"/var/lib/kubelet/pods/27cc6e45-61f1-11e9-b966-001e67e6854b/volumes/kubernetes.io~csi/pvc-27cbea1b-61f1-11e9-b966-001e67e6854b/mount"}],
-				"size": 213674622976
+				"size": "213674622976"
 				}]
 			}`,
 	Stderr: "",
