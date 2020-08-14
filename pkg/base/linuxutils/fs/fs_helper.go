@@ -27,11 +27,9 @@ const (
 	// CheckSpaceCmdImpl cmd for getting space on the mounted FS, produce output in megabytes (--block-size=M)
 	CheckSpaceCmdImpl = "df %s --output=target,avail --block-size=M" // add mounted fs part
 	// MkFSCmdTmpl mkfs command template
-	MkFSCmdTmpl = "mkfs.%s %s %s" // add fs type, options and device/path
+	MkFSCmdTmpl = "mkfs.%s %s" // add fs type and device/path
 	// SpeedUpFsCreationOpts options that could be used for speeds up creation of ext3 and ext4 FS
 	SpeedUpFsCreationOpts = " -E lazy_journal_init=1,lazy_itable_init=1,discard"
-	// XFSOptions options for xfs creation
-	XFSOptions = "-m reflink=0"
 	// MkDirCmdTmpl mkdir template
 	MkDirCmdTmpl = "mkdir -p %s"
 	// RmDirCmdTmpl rm template
@@ -142,9 +140,9 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 	var cmd string
 	switch fsType {
 	case XFS:
-		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, XFSOptions, device)
+		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device)
 	case EXT3, EXT4:
-		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, SpeedUpFsCreationOpts, device)
+		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device) + SpeedUpFsCreationOpts
 	default:
 		return fmt.Errorf("unsupported file system %v", fsType)
 	}

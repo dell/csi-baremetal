@@ -17,6 +17,8 @@ const (
 
 	// KubeletRootPath is the pods' path on the node
 	KubeletRootPath = "/var/lib/kubelet/pods"
+	// NonRotationalNum points on SSD drive
+	NonRotationalNum = "0"
 
 	// DefaultTimeoutForOperations is the timeout in which we expect that any operation should be finished
 	DefaultTimeoutForOperations = 10 * time.Minute

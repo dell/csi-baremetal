@@ -148,10 +148,8 @@ func prepareNodeMock(kubeClient *k8s.KubeClient, log *logrus.Logger) *node.CSINo
 	e.SetSuccessIfNotFound(true)
 
 	nodeService := node.NewCSINodeService(nil, nodeId, log, kubeClient, new(mocks.NoOpRecorder))
+
 	nodeService.VolumeManager = *node.NewVolumeManager(c, e, log, kubeClient, new(mocks.NoOpRecorder), nodeId)
-	l := lsblk.NewLSBLK(log)
-	l.SetExecutor(e)
-	nodeService.SetListBlk(l)
 
 	pMock := provisioners.GetMockProvisionerSuccess("/some/path")
 	nodeService.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
