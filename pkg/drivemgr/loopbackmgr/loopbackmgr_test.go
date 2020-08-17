@@ -1,7 +1,6 @@
 package loopbackmgr
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,43 +16,45 @@ import (
 
 var logger = logrus.New()
 
-func TestLoopBackManager_getLoopBackDeviceName(t *testing.T) {
+func TestLoopBackManager_GetBackFileToLoopMap(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
 	var manager = NewLoopBackManager(mockexec, logger)
+	testData := `NAME	BACK-FILE
+/dev/loop1 /root/test2.img
+/dev/loop33 /root/test2.img
+/dev/loop95 /root/test96.img
+/dev/loop101 /foobar.img (deleted)
+/dev/loop102 /foo bar.img
+`
+	mockexec.On("RunCmd", readLoopBackDevicesMappingCmd).
+		Return(testData, "", nil)
+	mapping, err := manager.GetBackFileToLoopMap()
 
-	file := "/tmp/test"
-	loop := "/dev/loop18"
-	mockexec.On("RunCmd", fmt.Sprintf(checkLoopBackDeviceCmdTmpl, file)).
-		Return(loop+": []: ("+file+")", "", nil)
-	device, err := manager.GetLoopBackDeviceName(file)
-
-	assert.Equal(t, "/dev/loop18", device)
+	assert.Equal(t, []string{"/dev/loop95"}, mapping["/root/test96.img"])
+	assert.Equal(t, []string{"/dev/loop1", "/dev/loop33"}, mapping["/root/test2.img"])
+	assert.Equal(t, []string{"/dev/loop102"}, mapping["/foo bar.img"])
+	assert.Equal(t, []string{"/dev/loop101"}, mapping["/foobar.img (deleted)"])
 	assert.Nil(t, err)
 }
 
-func TestLoopBackManager_getLoopBackDeviceName_NotFound(t *testing.T) {
+func TestLoopBackManager_GetBackFileToLoopMap_Empty(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
 	var manager = NewLoopBackManager(mockexec, logger)
-
-	file := "/tmp/test"
-	mockexec.On("RunCmd", fmt.Sprintf(checkLoopBackDeviceCmdTmpl, file)).
+	mockexec.On("RunCmd", readLoopBackDevicesMappingCmd).
 		Return("", "", nil)
-	device, err := manager.GetLoopBackDeviceName(file)
-	assert.Equal(t, "", device)
+	mapping, err := manager.GetBackFileToLoopMap()
+
+	assert.Empty(t, mapping)
 	assert.Nil(t, err)
 }
 
-func TestLoopBackManager_getLoopBackDeviceName_Fail(t *testing.T) {
+func TestLoopBackManager_GetBackFileToLoopMap_InvalidData(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
 	var manager = NewLoopBackManager(mockexec, logger)
-
-	file := "/tmp/test"
-	error := errors.New("losetup: command not found")
-	mockexec.On("RunCmd", fmt.Sprintf(checkLoopBackDeviceCmdTmpl, file)).
-		Return("", "", error)
-	device, err := manager.GetLoopBackDeviceName(file)
-	assert.Equal(t, "", device)
-	assert.Equal(t, error, err)
+	mockexec.On("RunCmd", readLoopBackDevicesMappingCmd).
+		Return("\ninvalid\ndata  data data", "", nil)
+	_, err := manager.GetBackFileToLoopMap()
+	assert.NotNil(t, err)
 }
 
 func TestLoopBackManager_CleanupLoopDevices(t *testing.T) {
