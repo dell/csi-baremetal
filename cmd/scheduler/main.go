@@ -4,14 +4,17 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/scheduler"
 )
 
 var (
-	port     = flag.Int("port", base.DefaultExtenderPort, "Port for service")
-	logLevel = flag.String("loglevel", base.InfoLevel, "Log level")
+	port           = flag.Int("port", base.DefaultExtenderPort, "Port for service")
+	certFile       = flag.String("certFile", "", "path to the cert file")
+	privateKeyFile = flag.String("privateKeyFile", "", "path to the private key file")
+	logLevel       = flag.String("loglevel", base.InfoLevel, "Log level")
 )
 
 func main() {
@@ -23,5 +26,21 @@ func main() {
 
 	logger.Infof("Starting extender on port %d ...", *port)
 	http.HandleFunc("/filter", extender.FilterHandler)
-	logger.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
+
+	var (
+		addr = fmt.Sprintf(":%d", *port)
+		err  error
+	)
+
+	if *certFile != "" && *privateKeyFile != "" {
+		logger.Info("Handle with TLS")
+		err = http.ListenAndServeTLS(addr, *certFile, *privateKeyFile, nil)
+	} else {
+		err = http.ListenAndServe(addr, nil)
+	}
+
+	if err != nil {
+		logger.Fatal(err)
+	}
+	os.Exit(0)
 }

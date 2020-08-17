@@ -21,6 +21,8 @@ spec:
           args:
             - --port={{ .Values.port }}
             - --loglevel={{ .Values.log.level }}
+            - --certFile={{ .Values.tls.certFile }}
+            - --privateKeyFile={{ .Values.tls.privateKeyFile }}
           ports:
             - containerPort: {{  .Values.port }}
       hostNetwork: true

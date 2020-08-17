@@ -6,3 +6,6 @@ extenders:
     enableHttps: false
     nodeCacheCapable: false
     ignorable: true
+#    tlsConfig:
+#      certFile:
+#      keyFile:
