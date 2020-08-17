@@ -1,0 +1,15 @@
+# Docker registry to pull images
+registry: asdrepo.isus.emc.com:9042
+
+port: 8889
+
+tls:
+  certFile: ""
+  privateKeyFile: ""
+
+log:
+  level: info
+
+image:
+  tag: green
+  pullPolicy: Always

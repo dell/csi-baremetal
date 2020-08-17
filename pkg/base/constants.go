@@ -14,6 +14,8 @@ const (
 	DefaultHealthIP = ""
 	// DefaultHealthPort is the default gRPC port for Health Server
 	DefaultHealthPort = 9999
+	// DefaultExtenderPort is the default http port for scheduler extender
+	DefaultExtenderPort = 8889
 
 	// KubeletRootPath is the pods' path on the node
 	KubeletRootPath = "/var/lib/kubelet/pods"

@@ -17,7 +17,7 @@ all: build base-images images push
 
 ### Build binaries
 
-build: compile-proto build-drivemgr build-node build-controller
+build: compile-proto build-drivemgr build-node build-controller build-extender
 
 build-drivemgr:
 	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
@@ -28,9 +28,12 @@ build-node:
 build-controller:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
+build-extender:
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./cmd/${SCHEDULER_EXTENDER_PKG}/main.go
+
 ### Build images
 
-images: image-drivemgr image-node image-controller
+images: image-drivemgr image-node image-controller image-extender
 
 base-images: base-image-drivemgr base-image-node base-image-controller
 
@@ -66,9 +69,13 @@ image-controller:
 	cp ./build/${CONTROLLER}/${CONTROLLER} ./pkg/${CONTROLLER}/${CONTROLLER}
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ./pkg/${CONTROLLER}
 
+image-extender:
+	cp ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./pkg/${SCHEDULER_EXTENDER_PKG}/${EXTENDER}
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PKG}
+
 ### Push images
 
-push: push-drivemgr push-node push-controller
+push: push-drivemgr push-node push-controller push-extender
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -79,11 +86,14 @@ push-node:
 push-controller:
 	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 
+push-extender:
+	docker push ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+
 ### Clean artefacts
 
 clean-all: clean clean-images
 
-clean: clean-drivemgr clean-node clean-controller clean-proto
+clean: clean-drivemgr clean-node clean-controller clean-extender clean-proto
 
 clean-drivemgr:
 	rm -rf ./build/${DRIVE_MANAGER}/*
@@ -94,10 +104,13 @@ clean-node:
 clean-controller:
 	rm -rf ./build/${CONTROLLER}/${CONTROLLER}
 
+clean-extender:
+	rm -rf ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER}
+
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
-clean-images: clean-image-node clean-image-controller clean-image-drivemgr
+clean-images: clean-image-node clean-image-controller clean-image-drivemgr clean-image-extender
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -107,6 +120,9 @@ clean-image-node:
 
 clean-image-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
+
+clean-image-extender:
+	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
 
 ### API targets
 
