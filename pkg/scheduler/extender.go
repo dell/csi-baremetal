@@ -33,16 +33,16 @@ const (
 )
 
 // NewExtender returns new instance of Extender struct
-func NewExtender(logger *logrus.Logger) *Extender {
+func NewExtender(logger *logrus.Logger) (*Extender, error) {
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
-		logger.Fatalf("fail to create kubernetes client, error: %v", err)
+		return nil, err
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
 	return &Extender{
 		k8sClient: kubeClient,
 		logger:    logger.WithField("component", "Extender"),
-	}
+	}, nil
 }
 
 // FilterHandler extracts ExtenderArgs struct from req and writes ExtenderFilterResult to the w

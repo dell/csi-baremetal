@@ -22,16 +22,15 @@ func main() {
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
-	extender := scheduler.NewExtender(logger)
+	extender, err := scheduler.NewExtender(logger)
+	if err != nil {
+		logger.Fatalf("Fail to create extender: %v", err)
+	}
 
 	logger.Infof("Starting extender on port %d ...", *port)
 	http.HandleFunc("/filter", extender.FilterHandler)
 
-	var (
-		addr = fmt.Sprintf(":%d", *port)
-		err  error
-	)
-
+	var addr = fmt.Sprintf(":%d", *port)
 	if *certFile != "" && *privateKeyFile != "" {
 		logger.Info("Handle with TLS")
 		err = http.ListenAndServeTLS(addr, *certFile, *privateKeyFile, nil)
