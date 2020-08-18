@@ -68,7 +68,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 		_, _, err := executor.RunCmd(cmd)
 		framework.ExpectNoError(err)
 
-		common.CleanupAfterCustomTest(f, driverCleanup, pod, []*corev1.PersistentVolumeClaim{pvc})
+		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
 	ginkgo.It("controller should keep handle request after node fails", func() {
