@@ -18,7 +18,14 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
+// DefineNodeRebootTestSuite defines custom baremetal-csi node reboot test
 func DefineNodeRebootTestSuite(driver testsuites.TestDriver) {
+	ginkgo.Context("Baremetal-csi node reboot test", func() {
+		defineNodeRebootTest(driver)
+	})
+}
+
+func defineNodeRebootTest(driver testsuites.TestDriver) {
 	var (
 		pod             *corev1.Pod
 		pvc             *corev1.PersistentVolumeClaim
@@ -57,7 +64,7 @@ func DefineNodeRebootTestSuite(driver testsuites.TestDriver) {
 			framework.ExpectNoError(err)
 		}
 
-		common.CleanupAfterCustomTest(f, driverCleanup, pod, []*corev1.PersistentVolumeClaim{pvc})
+		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
 	ginkgo.It("Pod should consume same PVC after node with it was rebooted", func() {
