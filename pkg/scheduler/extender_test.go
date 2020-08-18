@@ -23,9 +23,10 @@ var (
 
 	testSCName = pluginNameMask + "-hddlvg"
 
-	testSizeStr      = "10G"
-	testStorageType  = "HDD"
-	testCSIVolumeSrc = k8sV1.CSIVolumeSource{
+	testSizeGb       int64 = 10
+	testSizeStr            = fmt.Sprintf("%dG", testSizeGb)
+	testStorageType        = "HDD"
+	testCSIVolumeSrc       = k8sV1.CSIVolumeSource{
 		Driver:           fmt.Sprintf("%s-hdd", pluginNameMask),
 		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
 	}
@@ -46,7 +47,7 @@ var (
 			StorageClassName: &testSCName,
 			Resources: k8sV1.ResourceRequirements{
 				Requests: k8sV1.ResourceList{
-					k8sV1.ResourceStorage: resource.MustParse(testSizeStr),
+					k8sV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
 				},
 			},
 		},
@@ -70,16 +71,8 @@ var (
 	}
 )
 
-func TestNewExtender(t *testing.T) {
-	e := NewExtender(logrus.New())
-	assert.NotNil(t, e)
-	assert.NotNil(t, e.k8sClient)
-	assert.NotNil(t, e.logger)
-	assert.Equal(t, namespace, e.k8sClient.Namespace)
-}
-
 func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
-	e := setup()
+	e := setup(t)
 	pod := testPod
 	// append inlineVolume
 	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sV1.Volume{
@@ -110,7 +103,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 }
 
 func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
-	e := setup()
+	e := setup(t)
 
 	// constructVolumeFromCSISource failed
 	pod := testPod
@@ -163,7 +156,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 }
 
 func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
-	e := setup()
+	e := setup(t)
 	expectedSize, err := util.StrToBytes(testSizeStr)
 	assert.Nil(t, err)
 	expectedVolume := &genV1.Volume{StorageClass: testStorageType, Size: expectedSize, Ephemeral: true}
@@ -176,7 +169,7 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 
 func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	var (
-		e = setup()
+		e = setup(t)
 		v = testCSIVolumeSrc
 	)
 
@@ -211,16 +204,15 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	assert.Contains(t, err.Error(), sizeStr)
 }
 
-func setup() *Extender {
+func setup(t *testing.T) *Extender {
 	k, err := k8s.GetFakeKubeClient(namespace, testLogger)
-	if err != nil {
-		panic(err)
+	assert.Nil(t, err)
+
+	kubeClient := k8s.NewKubeClient(k, testLogger, namespace)
+	return &Extender{
+		k8sClient: kubeClient,
+		logger:    testLogger.WithField("component", "Extender"),
 	}
-
-	e := NewExtender(testLogger)
-	e.k8sClient = k8s.NewKubeClient(k, testLogger, namespace)
-
-	return e
 }
 
 func applyPVC(k8sClient *k8s.KubeClient, pvcs ...*k8sV1.PersistentVolumeClaim) error {
