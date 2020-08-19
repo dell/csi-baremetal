@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	k8sV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -204,6 +207,127 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	assert.Contains(t, err.Error(), sizeStr)
 }
 
+func TestExtender_filterSuccess(t *testing.T) {
+	var (
+		node1Name = "NODE-1"
+		node2Name = "NODE-2"
+		node3Name = "NODE-3"
+		node1UID  = "node-1111-uuid"
+		node2UID  = "node-2222-uuid"
+		node3UID  = "node-3333-uuid"
+
+		e = setup(t)
+	)
+
+	nodes := []k8sV1.Node{
+		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node1UID), Name: node1Name}},
+		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node2UID), Name: node2Name}},
+		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node3UID), Name: node3Name}},
+	}
+
+	acs := []accrd.AvailableCapacity{
+		// NODE-1 ACs
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 150 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 350 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)}),
+		// NODE-2 ACs
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 500 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 300 * int64(util.GBYTE)}),
+		// NODE-3 ACs
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 600 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)}),
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassSSDLVG, Size: 300 * int64(util.GBYTE)}),
+	}
+
+	// create all AC
+	for _, ac := range acs {
+		assert.Nil(t, e.k8sClient.Create(context.Background(), &ac))
+	}
+
+	testCases := [6]struct {
+		Volumes           []*genV1.Volume
+		ExpectedNodeNames []string
+	}{
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{node1Name},
+		},
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDD, Size: 500 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassSSDLVG, Size: 200 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{node2Name},
+		},
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDDLVG, Size: 500 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{node3Name},
+		},
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassSSDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{node1Name, node3Name},
+		},
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{node1Name, node3Name},
+		},
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDDLVG, Size: 300 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 200 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{node2Name, node3Name},
+		},
+	}
+
+	for _, testCase := range testCases {
+		matchedNodes, failedNode, err := e.filter(nodes, testCase.Volumes)
+		assert.Equal(t, 0, len(failedNode))
+		assert.Nil(t, err)
+		matchedNodeNames := getNodeNames(matchedNodes)
+		for _, n := range testCase.ExpectedNodeNames {
+			assert.True(t, util.ContainsString(matchedNodeNames, n))
+		}
+	}
+}
+
 func setup(t *testing.T) *Extender {
 	k, err := k8s.GetFakeKubeClient(namespace, testLogger)
 	assert.Nil(t, err)
@@ -223,4 +347,12 @@ func applyPVC(k8sClient *k8s.KubeClient, pvcs ...*k8sV1.PersistentVolumeClaim) e
 		}
 	}
 	return nil
+}
+
+func getNodeNames(nodes []k8sV1.Node) []string {
+	nodeNames := make([]string, 0)
+	for _, n := range nodes {
+		nodeNames = append(nodeNames, n.Name)
+	}
+	return nodeNames
 }

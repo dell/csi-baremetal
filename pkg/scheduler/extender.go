@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 
@@ -15,9 +16,11 @@ import (
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -48,7 +51,7 @@ func NewExtender(logger *logrus.Logger) (*Extender, error) {
 // FilterHandler extracts ExtenderArgs struct from req and writes ExtenderFilterResult to the w
 func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	ll := e.logger.WithField("method", "FilterHandler")
-	ll.Debugf("Processing request: %v", req)
+	ll.Debugf("Processing request: %v. With context %v", req, req.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	resp := json.NewEncoder(w)
@@ -74,10 +77,13 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		errMsg = err.Error()
+	} else if len(matchedNodes) == 0 {
+		errMsg = "There are no nodes that matched requested volumes"
+		ll.Error(errMsg)
 	}
 
 	extenderRes := &schedulerapi.ExtenderFilterResult{
-		Nodes:       &k8sV1.NodeList{
+		Nodes: &k8sV1.NodeList{
 			TypeMeta: extenderArgs.Nodes.TypeMeta,
 			Items:    matchedNodes,
 		},
@@ -188,6 +194,143 @@ func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *
 	return vol, nil
 }
 
-func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedNodes []k8sV1.Node, nodesMap schedulerapi.FailedNodesMap, err error) {
-	return nodes, nil, nil
+func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedNodes []k8sV1.Node,
+	failedNodesMap schedulerapi.FailedNodesMap, err error) {
+	ll := e.logger.WithField("method", "filter")
+	/**
+	represent volumes as a next structure:
+	map[StorageClass][]*Volume
+	{
+		StorageClass1: [volume1, ..., volumeN]
+	    .............
+	}
+	**/
+	var scVolumeMap = map[string][]*genV1.Volume{}
+	for _, v := range volumes {
+		sc := v.StorageClass
+		if _, ok := scVolumeMap[sc]; !ok {
+			scVolumeMap[sc] = []*genV1.Volume{v}
+		} else {
+			scVolumeMap[sc] = append(scVolumeMap[sc], v)
+		}
+	}
+
+	var acList = &accrd.AvailableCapacityList{}
+	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
+		ll.Errorf("Unable to read AvailableCapacity list: %v", err)
+		return
+	}
+
+	/**
+	construct map with next structure:
+	map[NodeID]map[StorageClass]map[AC.Name]accrd.AvailableCapacity{}
+	{
+		NodeID_1: {
+			StorageClass_1: {
+				AC1Name: ACCRD_1,
+				ACnName: ACCRD_n
+			},
+			StorageClass_M: {
+				AC1Name: ACCRD_1,
+				ACkName: ACCRD_k
+			},
+		NodeID_l: {
+			...................
+		}
+	}
+	**/
+	var acByNodeAndSCMap = map[string]map[string]map[string]accrd.AvailableCapacity{}
+	for _, ac := range acList.Items {
+		node := ac.Spec.NodeId
+		if _, ok := acByNodeAndSCMap[node]; !ok {
+			acByNodeAndSCMap[node] = map[string]map[string]accrd.AvailableCapacity{}
+		}
+		sc := ac.Spec.StorageClass
+		if _, ok := acByNodeAndSCMap[node][sc]; !ok {
+			acByNodeAndSCMap[node][sc] = map[string]accrd.AvailableCapacity{ac.Name: ac}
+		} else {
+			acByNodeAndSCMap[node][sc][ac.Name] = ac
+		}
+	}
+
+	matched := false
+	for _, node := range nodes {
+		matched = true
+		nodeID := string(node.UID)
+		for sc, volumes := range scVolumeMap {
+			for _, volume := range volumes {
+				subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
+				forLVM := sc == v1.StorageClassSSDLVG || sc == v1.StorageClassHDDLVG
+
+				if len(acByNodeAndSCMap[nodeID][sc]) == 0 && len(acByNodeAndSCMap[nodeID][subSC]) == 0 {
+					matched = false
+					goto CheckMatched
+				}
+
+				var ac *accrd.AvailableCapacity
+				ac = e.searchClosestAC(acByNodeAndSCMap[nodeID][sc], volume)
+				if ac == nil {
+					if forLVM {
+						// search AC in sub storage class
+						ac = e.searchClosestAC(acByNodeAndSCMap[nodeID][subSC], volume)
+						if ac != nil { // found
+							// mark such AC by real SC (switch sc to subSC) and just change AC volume
+							ac.Spec.StorageClass = subSC
+							ac.Spec.Size -= volume.Size
+							delete(acByNodeAndSCMap[nodeID][subSC], ac.Name)
+							if ac.Spec.Size > common.AcSizeMinThresholdBytes {
+								if _, ok := acByNodeAndSCMap[nodeID][sc]; !ok {
+									acByNodeAndSCMap[nodeID][sc] = map[string]accrd.AvailableCapacity{}
+								}
+								acByNodeAndSCMap[nodeID][sc][ac.Name] = *ac
+							}
+							continue
+						}
+					}
+				} else {
+					if forLVM {
+						// update corresponding AC volume
+						ac.Spec.Size -= volume.Size
+						if ac.Spec.Size > common.AcSizeMinThresholdBytes {
+							acByNodeAndSCMap[nodeID][sc][ac.Name] = *ac
+						} else {
+							delete(acByNodeAndSCMap[nodeID][sc], ac.Name)
+						}
+					} else {
+						// picked up AC that was found (remove from AC list)
+						delete(acByNodeAndSCMap[nodeID][sc], ac.Name)
+					}
+				}
+				if ac == nil {
+					// as soon as for some volume in some SC there are no any AC - consider
+					// that node doesn't match volumes requests
+					matched = false
+					goto CheckMatched
+				}
+			}
+		}
+	CheckMatched:
+		if matched {
+			matchedNodes = append(matchedNodes, node)
+		}
+	}
+
+	return
+}
+
+// searchClosestAC search AC that match all requirements from volume (size)
+func (e *Extender) searchClosestAC(acs map[string]accrd.AvailableCapacity, volume *genV1.Volume) *accrd.AvailableCapacity {
+	var (
+		maxSize  int64 = math.MaxInt64
+		pickedAC *accrd.AvailableCapacity
+	)
+
+	for _, ac := range acs {
+		if ac.Spec.Size >= volume.Size && ac.Spec.Size < maxSize {
+			ac := ac
+			pickedAC = &ac
+			maxSize = ac.Spec.Size
+		}
+	}
+	return pickedAC
 }
