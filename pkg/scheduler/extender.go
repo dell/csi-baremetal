@@ -238,17 +238,18 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 		}
 	}
 	**/
-	var acByNodeAndSCMap = map[string]map[string]map[string]accrd.AvailableCapacity{}
+	var acByNodeAndSCMap = map[string]map[string]map[string]*accrd.AvailableCapacity{}
 	for _, ac := range acList.Items {
 		node := ac.Spec.NodeId
 		if _, ok := acByNodeAndSCMap[node]; !ok {
-			acByNodeAndSCMap[node] = map[string]map[string]accrd.AvailableCapacity{}
+			acByNodeAndSCMap[node] = map[string]map[string]*accrd.AvailableCapacity{}
 		}
 		sc := ac.Spec.StorageClass
+		ac := ac  // ac uses in range and represent different value on each iteration but we need to put pointer in map
 		if _, ok := acByNodeAndSCMap[node][sc]; !ok {
-			acByNodeAndSCMap[node][sc] = map[string]accrd.AvailableCapacity{ac.Name: ac}
+			acByNodeAndSCMap[node][sc] = map[string]*accrd.AvailableCapacity{ac.Name: &ac}
 		} else {
-			acByNodeAndSCMap[node][sc][ac.Name] = ac
+			acByNodeAndSCMap[node][sc][ac.Name] = &ac
 		}
 	}
 
@@ -279,9 +280,9 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 							delete(acByNodeAndSCMap[nodeID][subSC], ac.Name)
 							if ac.Spec.Size > common.AcSizeMinThresholdBytes {
 								if _, ok := acByNodeAndSCMap[nodeID][sc]; !ok {
-									acByNodeAndSCMap[nodeID][sc] = map[string]accrd.AvailableCapacity{}
+									acByNodeAndSCMap[nodeID][sc] = map[string]*accrd.AvailableCapacity{}
 								}
-								acByNodeAndSCMap[nodeID][sc][ac.Name] = *ac
+								acByNodeAndSCMap[nodeID][sc][ac.Name] = ac
 							}
 							continue
 						}
@@ -291,7 +292,7 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 						// update corresponding AC volume
 						ac.Spec.Size -= volume.Size
 						if ac.Spec.Size > common.AcSizeMinThresholdBytes {
-							acByNodeAndSCMap[nodeID][sc][ac.Name] = *ac
+							acByNodeAndSCMap[nodeID][sc][ac.Name] = ac
 						} else {
 							delete(acByNodeAndSCMap[nodeID][sc], ac.Name)
 						}
@@ -323,7 +324,7 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 }
 
 // searchClosestAC search AC that match all requirements from volume (size)
-func (e *Extender) searchClosestAC(acs map[string]accrd.AvailableCapacity, volume *genV1.Volume) *accrd.AvailableCapacity {
+func (e *Extender) searchClosestAC(acs map[string]*accrd.AvailableCapacity, volume *genV1.Volume) *accrd.AvailableCapacity {
 	var (
 		maxSize  int64 = math.MaxInt64
 		pickedAC *accrd.AvailableCapacity
@@ -331,8 +332,7 @@ func (e *Extender) searchClosestAC(acs map[string]accrd.AvailableCapacity, volum
 
 	for _, ac := range acs {
 		if ac.Spec.Size >= volume.Size && ac.Spec.Size < maxSize {
-			ac := ac
-			pickedAC = &ac
+			pickedAC = ac
 			maxSize = ac.Spec.Size
 		}
 	}
