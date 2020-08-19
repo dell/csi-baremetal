@@ -87,7 +87,6 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 			TypeMeta: extenderArgs.Nodes.TypeMeta,
 			Items:    matchedNodes,
 		},
-		NodeNames:   nil,
 		FailedNodes: failedNodes,
 		Error:       errMsg,
 	}
@@ -312,6 +311,11 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 	CheckMatched:
 		if matched {
 			matchedNodes = append(matchedNodes, node)
+		} else {
+			if failedNodesMap == nil {
+				failedNodesMap = map[string]string{}
+			}
+			failedNodesMap[node.Name] = fmt.Sprintf("Node doesn't contain required amount of AvailableCapacity")
 		}
 	}
 

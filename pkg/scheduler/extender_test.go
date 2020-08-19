@@ -319,9 +319,11 @@ func TestExtender_filterSuccess(t *testing.T) {
 
 	for _, testCase := range testCases {
 		matchedNodes, failedNode, err := e.filter(nodes, testCase.Volumes)
-		assert.Equal(t, 0, len(failedNode))
+		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode))
+		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes))
 		assert.Nil(t, err)
 		matchedNodeNames := getNodeNames(matchedNodes)
+
 		for _, n := range testCase.ExpectedNodeNames {
 			assert.True(t, util.ContainsString(matchedNodeNames, n))
 		}
