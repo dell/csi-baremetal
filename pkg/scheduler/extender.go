@@ -69,13 +69,21 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	ll.Debugf("Required volumes: %v", volumes)
 
-	// TODO: add logic here for nodes filtering - AK8S-1244
+	matchedNodes, failedNodes, err := e.filter(extenderArgs.Nodes.Items, volumes)
+	errMsg := ""
+	if err != nil {
+		ll.Errorf("filter finished with error: %v", err)
+		errMsg = err.Error()
+	}
 
 	extenderRes := &schedulerapi.ExtenderFilterResult{
-		Nodes:       extenderArgs.Nodes,
+		Nodes:       &k8sV1.NodeList{
+			TypeMeta: extenderArgs.Nodes.TypeMeta,
+			Items:    matchedNodes,
+		},
 		NodeNames:   nil,
-		FailedNodes: nil,
-		Error:       "",
+		FailedNodes: failedNodes,
+		Error:       errMsg,
 	}
 
 	e.encodeResults(resp, extenderRes)
@@ -178,4 +186,8 @@ func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *
 	vol.Size = size
 
 	return vol, nil
+}
+
+func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedNodes []k8sV1.Node, nodesMap schedulerapi.FailedNodesMap, err error) {
+	return nodes, nil, nil
 }

@@ -67,6 +67,17 @@ func ConvertDriveTypeToStorageClass(driveType string) string {
 	}
 }
 
+// GetSubStorageClass return appropriate underlying storage class for
+// storage classes that are based on LVM, or empty string
+func GetSubStorageClass(sc string) string {
+	if sc == api.StorageClassHDDLVG {
+		return api.StorageClassHDD
+	} else if sc == api.StorageClassSSDLVG {
+		return api.StorageClassSSD
+	}
+	return ""
+}
+
 // ContainsString return true if slice contains string str
 // Receives slice of strings and string to find
 // Returns true if contains or false if not
