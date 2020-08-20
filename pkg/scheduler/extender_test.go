@@ -28,7 +28,7 @@ var (
 
 	testSizeGb       int64 = 10
 	testSizeStr            = fmt.Sprintf("%dG", testSizeGb)
-	testStorageType        = "HDD"
+	testStorageType        = v1.K8sStorageClassHDD
 	testCSIVolumeSrc       = k8sV1.CSIVolumeSource{
 		Driver:           fmt.Sprintf("%s-hdd", pluginNameMask),
 		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
@@ -162,7 +162,11 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 	e := setup(t)
 	expectedSize, err := util.StrToBytes(testSizeStr)
 	assert.Nil(t, err)
-	expectedVolume := &genV1.Volume{StorageClass: testStorageType, Size: expectedSize, Ephemeral: true}
+	expectedVolume := &genV1.Volume{
+		StorageClass: util.ConvertStorageClass(testStorageType),
+		Size: expectedSize,
+		Ephemeral: true,
+	}
 
 	curr, err := e.constructVolumeFromCSISource(&testCSIVolumeSrc)
 	assert.Nil(t, err)
@@ -188,7 +192,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 
 	// missing size
 	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
-	expected = &genV1.Volume{StorageClass: testStorageType, Ephemeral: true}
+	expected = &genV1.Volume{StorageClass: util.ConvertStorageClass(testStorageType), Ephemeral: true}
 	curr, err = e.constructVolumeFromCSISource(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
@@ -199,7 +203,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
 	sizeStr := "12S12"
 	v.VolumeAttributes[base.SizeKey] = sizeStr
-	expected = &genV1.Volume{StorageClass: testStorageType, Ephemeral: true}
+	expected = &genV1.Volume{StorageClass: util.ConvertStorageClass(testStorageType), Ephemeral: true}
 	curr, err = e.constructVolumeFromCSISource(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)

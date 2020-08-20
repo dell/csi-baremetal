@@ -42,13 +42,38 @@ func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, 
 // Receives string name of StorageClass
 // Returns string of CSI StorageClass
 func ConvertStorageClass(strSC string) string {
+	// TODO: map of storage class
 	sc := strings.ToUpper(strSC)
-	if sc == api.StorageClassHDD || sc == api.StorageClassSSD || sc == api.StorageClassNVMe ||
-		sc == api.StorageClassHDDLVG || sc == api.StorageClassSSDLVG {
+	switch sc {
+	case api.StorageClassHDD,
+	api.StorageClassSSD,
+	api.StorageClassNVMe,
+	api.StorageClassHDDLVG,
+	api.StorageClassSSDLVG,
+	api.StorageClassNVMeLVG,
+	api.StorageClassAny:
 		return sc
 	}
 
-	return api.StorageClassAny
+	sc = strings.ToLower(strSC)
+	switch sc {
+	case api.K8sStorageClassAny:
+		return api.StorageClassAny
+	case api.K8sStorageClassHDD:
+		return api.StorageClassHDD
+	case api.K8sStorageClassSSD:
+		return api.StorageClassSSD
+	case api.K8sStorageClassNVME:
+		return api.StorageClassNVMe
+	case api.K8sStorageClassHDDLVG:
+		return api.StorageClassHDDLVG
+	case api.K8sStorageClassSSDLVG:
+		return api.StorageClassSSDLVG
+	case api.K8sStorageClassNVMeLVG:
+		return api.StorageClassNVMeLVG
+	}
+
+	return api.StorageClassAny  // TODO: return empty string here
 }
 
 // ConvertDriveTypeToStorageClass converts type of a drive to AvailableCapacity StorageClass

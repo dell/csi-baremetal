@@ -77,9 +77,6 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		errMsg = err.Error()
-	} else if len(matchedNodes) == 0 {
-		errMsg = "There are no nodes that matched requested volumes"
-		ll.Error(errMsg)
 	}
 
 	extenderRes := &schedulerapi.ExtenderFilterResult{
@@ -95,12 +92,9 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (e *Extender) encodeResults(resp *json.Encoder, res *schedulerapi.ExtenderFilterResult) {
-	ll := e.logger.WithField("method", "encodeResults")
-
-	ll.Infof("Writing ExtenderFilterResult, suitable nodes: %v, not suitable nodes: %v, error: %v",
-		res.NodeNames, res.FailedNodes, res.Error)
 	if err := resp.Encode(res); err != nil {
-		ll.Errorf("Unable to write response %v: %v", resp, err)
+		e.logger.WithField("method", "encodeResults").
+			Errorf("Unable to write response %v: %v", res, err)
 	}
 }
 
@@ -141,10 +135,10 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 				continue
 			}
 			if strings.Contains(*pvc.Spec.StorageClassName, pluginNameMask) {
-				storageRes, ok := pvc.Spec.Resources.Requests[k8sV1.ResourceStorage]
+				storageReq, ok := pvc.Spec.Resources.Requests[k8sV1.ResourceStorage]
 				if !ok {
 					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
-					storageRes = resource.Quantity{}
+					storageReq = resource.Quantity{}
 				}
 
 				mode := ""
@@ -154,8 +148,8 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 
 				volumes = append(volumes, &genV1.Volume{
 					Id:           pvc.Name,
-					StorageClass: *pvc.Spec.StorageClassName,
-					Size:         storageRes.Value(),
+					StorageClass: util.ConvertStorageClass(*pvc.Spec.StorageClassName),
+					Size:         storageReq.Value(),
 					Mode:         mode,
 					Ephemeral:    false,
 				})
@@ -177,7 +171,7 @@ func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *
 	if !ok {
 		return vol, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
 	}
-	vol.StorageClass = sc
+	vol.StorageClass = util.ConvertStorageClass(sc)
 
 	sizeStr, ok := v.VolumeAttributes[base.SizeKey]
 	if !ok {
@@ -260,7 +254,7 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 		for sc, volumes := range scVolumeMap {
 			for _, volume := range volumes {
 				subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
-				forLVM := sc == v1.StorageClassSSDLVG || sc == v1.StorageClassHDDLVG
+				forLVM := sc == v1.StorageClassSSDLVG || sc == v1.StorageClassHDDLVG || sc == v1.StorageClassNVMeLVG
 
 				if len(acByNodeAndSCMap[nodeID][sc]) == 0 && len(acByNodeAndSCMap[nodeID][subSC]) == 0 {
 					matched = false
@@ -311,6 +305,7 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 		}
 	CheckMatched:
 		if matched {
+			ll.Infof("Node %s/%s is acceptable for scheduling pod with requested volumes.", node.Name, node.UID)
 			matchedNodes = append(matchedNodes, node)
 		} else {
 			if failedNodesMap == nil {

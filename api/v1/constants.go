@@ -55,4 +55,14 @@ const (
 	StorageClassNVMe   = "NVME"
 	StorageClassHDDLVG = "HDDLVG"
 	StorageClassSSDLVG = "SSDLVG"
+	StorageClassNVMeLVG = "NVMELVG"
+
+	// Kubernetes storage class
+	K8sStorageClassAny     = "baremetal-csi-sc-any"
+	K8sStorageClassHDD     = "baremetal-csi-sc-hdd"
+	K8sStorageClassSSD     = "baremetal-csi-sc-ssd"
+	K8sStorageClassNVME    = "baremetal-csi-sc-nvme"
+	K8sStorageClassHDDLVG  = "baremetal-csi-sc-hddlvg"
+	K8sStorageClassSSDLVG  = "baremetal-csi-sc-ssdlvg"
+	K8sStorageClassNVMeLVG = "baremetal-csi-sc-nvmelvg"
 )
