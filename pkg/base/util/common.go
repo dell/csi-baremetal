@@ -107,6 +107,11 @@ func GetSubStorageClass(sc string) string {
 	}
 }
 
+// IsStorageClassLVG returns whether provided sc relates to LVG or no
+func IsStorageClassLVG(sc string) bool {
+	return sc == api.StorageClassHDDLVG || sc == api.StorageClassSSDLVG || sc == api.StorageClassNVMeLVG
+}
+
 // ContainsString return true if slice contains string str
 // Receives slice of strings and string to find
 // Returns true if contains or false if not

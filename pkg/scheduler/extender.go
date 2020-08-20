@@ -265,7 +265,7 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 		for sc, volumes := range scVolumeMap {
 			for _, volume := range volumes {
 				subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
-				forLVM := sc == v1.StorageClassSSDLVG || sc == v1.StorageClassHDDLVG || sc == v1.StorageClassNVMeLVG
+				forLVM := util.IsStorageClassLVG(sc)
 
 				if len(acByNodeAndSCMap[nodeID][sc]) == 0 && len(acByNodeAndSCMap[nodeID][subSC]) == 0 {
 					matched = false
