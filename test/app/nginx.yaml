@@ -4,7 +4,7 @@ metadata:
   name: web
 spec:
   serviceName: "nginx"
-  replicas: 4
+  replicas: 2
   podManagementPolicy: Parallel
   selector:
     matchLabels:
@@ -14,6 +14,16 @@ spec:
       labels:
         app: nginx
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - nginx
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: nginx
         image: k8s.gcr.io/nginx-slim:0.8
@@ -35,7 +45,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 50Mi
+          storage: 60Mi
   - metadata:
       name: data
     spec:
@@ -43,7 +53,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 50Mi
+          storage: 60Mi
   - metadata:
       name: logs
     spec:
@@ -51,4 +61,4 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 50Mi
+          storage: 60Mi

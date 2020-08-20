@@ -408,40 +408,6 @@ func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	assert.Equal(t, 1, len(acList.Items))
 }
 
-func TestVolumeManager_DiscoverAvailableCapacityNoFreeDrive(t *testing.T) {
-	//expected 0 available capacity because the drive has volume
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	hwMgrClient := mocks.NewMockDriveMgrClient(nil)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-
-	driveCR1 := vm.k8sClient.ConstructDriveCR("hasVolume", *driveMgrRespDrives[0])
-	addDriveCRs(kubeClient, driveCR1)
-
-	volumeCR := vm.k8sClient.ConstructVolumeCR("id", api.Volume{
-		Id:           "id",
-		NodeId:       nodeID,
-		Size:         1000,
-		Location:     driveMgrRespDrives[0].UUID,
-		LocationType: apiV1.LocationTypeDrive,
-		Mode:         apiV1.ModeFS,
-		Type:         "xfs",
-		Health:       driveMgrRespDrives[0].Health,
-		CSIStatus:    "",
-	})
-	addVolumeCRs(vm.k8sClient, *volumeCR)
-
-	err = vm.discoverAvailableCapacity(context.Background(), nodeID)
-	assert.Nil(t, err)
-
-	acList := &accrd.AvailableCapacityList{}
-	err = vm.k8sClient.ReadList(context.Background(), acList)
-
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(acList.Items))
-}
-
 func TestVolumeManager_DiscoverAvailableCapacityIgnoreLVG(t *testing.T) {
 	// expected 0 available capacity because the drive is used in LVG
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)

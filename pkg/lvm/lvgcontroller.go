@@ -109,8 +109,9 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 					return ctrl.Result{}, nil
 				}
 			}
-			// remove AC that point on that LVG
-			c.removeChildAC(lvg.Name)
+			// update AC size that point on that LVG
+			// todo handle case when multiple LVM PVs are used
+			c.increaseACSize(lvg.Spec.Locations[0], lvg.Spec.Size)
 
 			if len(lvg.Spec.Locations) == 0 {
 				ll.Warn("Location fields is empty")
@@ -246,24 +247,32 @@ func (c *LVGController) removeLVGArtifacts(lvgName string) error {
 	return nil
 }
 
-// removeChildAC removes AC CR that points (AC.Spec.Location) on LVG CR with name lvgName
-func (c *LVGController) removeChildAC(lvgName string) {
+// increaseACSize updates size of AC related to drive
+// todo LVG might use multiple LVM PV
+func (c *LVGController) increaseACSize(driveID string, size int64) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "removeChildAC",
-		"lvgName": lvgName,
+		"driveID": driveID,
 	})
 
+	// read all ACs
 	acList := &accrd.AvailableCapacityList{}
 	if err := c.k8sClient.ReadList(context.Background(), acList); err != nil {
 		ll.Errorf("Unable to list ACs: %v", err)
+		return
 	}
+
+	// search for AC and update size
 	for _, ac := range acList.Items {
-		if ac.Spec.Location == lvgName {
-			acToRemove := ac
-			ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, lvgName)
-			if err := c.k8sClient.DeleteCR(ctxWithID, &acToRemove); err != nil {
-				ll.Errorf("Unable to remove AC %v, error: %v", acToRemove, err)
+		if ac.Spec.Location == driveID {
+			ac.Spec.Size += size
+			ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, driveID)
+			if err := c.k8sClient.UpdateCR(ctxWithID, &ac); err != nil {
+				ll.Errorf("Unable to update size of AC %v, error: %v", ac, err)
 			}
+			return
 		}
 	}
+
+	ll.Errorf("Corresponding AC for drive ID %s not found", driveID)
 }

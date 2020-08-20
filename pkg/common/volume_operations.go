@@ -224,38 +224,50 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
 	}
 
-	// if volume is in LVG - update corresponding AC size
-	// if such AC isn't exist - do nothing (AC should be recreated by VolumeMgr)
-	if volumeCR.Spec.StorageClass == apiV1.StorageClassHDDLVG || volumeCR.Spec.StorageClass == apiV1.StorageClassSSDLVG {
-		var (
-			acCR   = accrd.AvailableCapacity{}
-			acList = accrd.AvailableCapacityList{}
-		)
-		if err = vo.k8sClient.ReadList(ctx, &acList); err != nil {
-			ll.Errorf("Volume was deleted but corresponding AC with SC %s hadn't updated, unable to read list: %v",
-				volumeCR.Spec.StorageClass, err)
-		}
+	// find corresponding AC CR
+	acList := accrd.AvailableCapacityList{}
+	if err = vo.k8sClient.ReadList(ctx, &acList); err != nil {
+		ll.Errorf("Volume was deleted but corresponding AC with SC %s hadn't updated, unable to read list: %v",
+			volumeCR.Spec.StorageClass, err)
+	}
 
-		for _, a := range acList.Items {
-			if a.Spec.Location == volumeCR.Spec.Location {
-				acCR = a
-				break
-			}
+	// search for AC
+	acCR := accrd.AvailableCapacity{}
+	for _, a := range acList.Items {
+		if a.Spec.Location == volumeCR.Spec.Location {
+			acCR = a
+			break
 		}
-		if acCR.Name != "" {
-			// AC was found, update it size (increase)
-			acCR.Spec.Size += volumeCR.Spec.Size
-			if err = vo.k8sClient.UpdateCRWithAttempts(ctx, &acCR, 5); err != nil {
-				ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
-			}
-		}
-		lvg := &lvgcrd.LVG{}
+	}
+	// AC CR must exist
+	// todo how to handle error in this case?
+	if acCR.Name == "" {
+		ll.Errorf("Unable to find available capacity resource for volume %s", volumeID)
+		return
+	}
+
+	// for LVG SCs we need to delete AC CR to avoid allocation since underlying LVG CR is destroying
+	// for other SC just to increase size
+	toIncrease := true
+	lvg := &lvgcrd.LVG{}
+	if volumeCR.Spec.StorageClass == apiV1.StorageClassHDDLVG ||
+		volumeCR.Spec.StorageClass == apiV1.StorageClassSSDLVG {
 		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
 			ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
 			return
 		}
-		if err := vo.deleteLVGIfVolumesNotExistOrUpdate(lvg, volumeCR.Name); err != nil {
+
+		// todo refactor this code
+		if toIncrease, err = vo.deleteLVGIfVolumesNotExistOrUpdate(lvg, volumeCR.Name, &acCR); err != nil {
 			ll.Errorf("Unable to remove volume reference from LVG %s: %v", volumeCR.Spec.Location, err)
+		}
+	}
+
+	if toIncrease {
+		// Increase size of AC using volume size
+		acCR.Spec.Size += volumeCR.Spec.Size
+		if err = vo.k8sClient.UpdateCRWithAttempts(ctx, &acCR, 5); err != nil {
+			ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
 		}
 	}
 }
@@ -348,22 +360,33 @@ func (vo *VolumeOperationsImpl) addVolumeToLVG(lvg *lvgcrd.LVG, volID string) er
 // If VolumeRefs length equals 0, then deletes according LVG
 // Receives LVG and volumeID of a Volume CR which should be removed
 // Returns error if something went wrong
-func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.LVG, volID string) error {
+func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.LVG,
+	volID string, ac *accrd.AvailableCapacity) (bool, error) {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "deleteLVGIfVolumesNotExistOrUpdate",
 		"volumeID": volID,
 	})
+
+	// if only one volume remains - remove AC first and LVG then
+	if len(lvg.Spec.VolumeRefs) == 1 {
+		if err := vo.k8sClient.DeleteCR(context.Background(), ac); err != nil {
+			ll.Errorf("Unable to delete AC %s: %v", ac.Name, err)
+			return false, nil
+		}
+		return false, vo.k8sClient.DeleteCR(context.Background(), lvg)
+	}
+
+	// search for volume index
 	for i, id := range lvg.Spec.VolumeRefs {
 		if volID == id {
+			ll.Debugf("Remove volume %s from LVG %v", volID, lvg)
 			l := len(lvg.Spec.VolumeRefs)
 			lvg.Spec.VolumeRefs[i] = lvg.Spec.VolumeRefs[l-1]
 			lvg.Spec.VolumeRefs = lvg.Spec.VolumeRefs[:l-1]
-			ll.Debugf("Remove volume %s from LVG %v", volID, lvg)
-			if len(lvg.Spec.VolumeRefs) == 0 {
-				return vo.k8sClient.DeleteCR(context.Background(), lvg)
-			}
-			return vo.k8sClient.UpdateCR(context.Background(), lvg)
+
+			return true, vo.k8sClient.UpdateCR(context.Background(), lvg)
 		}
 	}
-	return nil
+	// todo add error message
+	return true, nil
 }

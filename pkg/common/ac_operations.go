@@ -207,14 +207,12 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...*accrd.AvailableC
 		}
 	)
 
-	// remove ACs at the first because if LVG creation fails some drives could be
+	// set size ACs to 0 at the first because if LVG creation fails some drives could be
 	// corrupted and that mean that ACs based on that drive will not be working
-	// if LVG creation fails and drives were not corrupted, ACs based on that drives
-	// will be recreated by particular node manager
 	for _, ac := range acs {
-		if err = a.k8sClient.DeleteCR(context.Background(), ac); err != nil {
-			ll.Errorf("Unable to remove AC %v, error: %v. Two ACs that and LVG have location in the same drive.",
-				ac, err)
+		ac.Spec.Size = 0
+		if err = a.k8sClient.UpdateCR(context.Background(), ac); err != nil {
+			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
 		}
 	}
 
