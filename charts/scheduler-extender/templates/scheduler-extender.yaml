@@ -51,6 +51,7 @@ spec:
             - --target-policy-path={{ .Values.patcher.target_policy_path}}
             - --source-config-path=/config/{{ .Values.patcher.source_config_path}}
             - --source-policy-path=/config/{{ .Values.patcher.source_policy_path}}
+            - --backup-path=/etc/kubernetes/scheduler
           volumeMounts:
             - mountPath: /config
               name: schedulerpatcher-config

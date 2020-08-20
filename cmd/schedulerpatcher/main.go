@@ -24,6 +24,8 @@ var (
 		"target path for scheduler config file")
 	targetPolicyPath = flag.String("target-policy-path", "",
 		"target path for scheduler policy file")
+	backupPath = flag.String("backup-path", "",
+		"path to store manifest backup")
 	syncInterval = flag.Int("interval", defaultSyncInterval,
 		fmt.Sprintf("interval to check manifest config, default: %d", defaultSyncInterval))
 	restoreOnShutdown = flag.Bool("restore", false, "restore manifest when on shutdown")
@@ -42,7 +44,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	for _, opt := range []*string{manifestPath, sourceConfigPath, sourcePolicyPath,
-		targetConfigPath, targetPolicyPath} {
+		targetConfigPath, targetPolicyPath, backupPath} {
 		if *opt == "" {
 			flag.Usage()
 			os.Exit(1)
@@ -55,6 +57,7 @@ func main() {
 		TargetConfigPath: *targetConfigPath,
 		SourcePolicyPath: *sourcePolicyPath,
 		TargetPolicyPath: *targetPolicyPath,
+		BackupPath:       *backupPath,
 	}
 
 	apply := func() {

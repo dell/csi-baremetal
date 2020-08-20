@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"fmt"
+	"github.com/dell/csi-baremetal/test/e2e/common"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"strings"
@@ -27,6 +28,7 @@ type baremetalDriver struct {
 var (
 	BaremetalDriver = InitBaremetalDriver
 	cmName          = "loopback-config"
+	manifestsFolder = "baremetal-csi-plugin/templates/"
 )
 
 func initBaremetalDriver(name string) testsuites.TestDriver {
@@ -78,9 +80,9 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	cancelLogging := testsuites.StartPodLogs(f)
 
 	manifests := []string{
-		"controller-rbac.yaml",
-		"node-rbac.yaml",
-		"baremetal-csi-node.yaml",
+		manifestsFolder + "controller-rbac.yaml",
+		manifestsFolder + "node-rbac.yaml",
+		manifestsFolder + "baremetal-csi-node.yaml",
 	}
 	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/baremetal-csi-controller.yaml")
 	framework.ExpectNoError(err)
@@ -100,10 +102,17 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		framework.ExpectNoError(err)
 	}
 
-	cleanup, err := f.CreateFromManifests(nil, manifests...)
+	driverCleanup, err := f.CreateFromManifests(nil, manifests...)
 
 	if err != nil {
 		framework.Failf("deploying csi baremetal driver: %v", err)
+	}
+
+	extenderCleanup := common.DeploySchedulerExtender(f)
+
+	cleanup := func() {
+		driverCleanup()
+		extenderCleanup()
 	}
 
 	return &testsuites.PerTestConfig{

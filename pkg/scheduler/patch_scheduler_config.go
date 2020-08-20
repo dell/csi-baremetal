@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	manifestBackupSuffix = "_backup_csi-baremetal"
-	manifestPerm         = 0600
+	manifestBackupName = "kube-scheduler.backup_csi-baremetal"
+	manifestPerm       = 0600
 )
 
 // NewManifestPatcher initialize and return ManifestPatcher instance
@@ -32,6 +32,7 @@ type ManifestPatcherConfig struct {
 	TargetConfigPath string
 	SourcePolicyPath string
 	TargetPolicyPath string
+	BackupPath       string
 }
 
 // ManifestPatcher try to apply patches to kube-scheduler manifests
@@ -189,7 +190,7 @@ func (mp *ManifestPatcher) checkOrModifyContainerSpec(config ManifestPatcherConf
 		}
 		if !commandArgFound {
 			changes = true
-			container.Command = append(container.Command, fmt.Sprintf("--config %s", config.TargetConfigPath))
+			container.Command = append(container.Command, fmt.Sprintf("--config=%s", config.TargetConfigPath))
 		}
 		pod.Spec.Containers[i] = container
 	}
@@ -248,7 +249,7 @@ func createMountSpec(name, mountpath string) corev1.VolumeMount {
 }
 
 func getManifestBackupPath(config ManifestPatcherConfig) string {
-	return config.ManifestPath + manifestBackupSuffix
+	return config.BackupPath + manifestBackupName
 }
 
 func isFilesEqual(src, target string) (bool, error) {

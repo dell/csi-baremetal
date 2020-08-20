@@ -83,6 +83,10 @@ func schedulingTest(driver testsuites.TestDriver) {
 			pvcs = append(pvcs, pvc)
 		}
 		pod := startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		updateM.Lock()
+		pods = append(pods, pod)
+		pvcs = append(pvcs, pvcs...)
+		updateM.Unlock()
 		return pod, pvcs
 	}
 
@@ -97,11 +101,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 			go func() {
 				defer ginkgo.GinkgoRecover()
 				defer wg.Done()
-				pod, podPvcs := createTestPod(podSCList)
-				updateM.Lock()
-				pods = append(pods, pod)
-				pvcs = append(pvcs, podPvcs...)
-				updateM.Unlock()
+				_, _ = createTestPod(podSCList)
 			}()
 		}
 		wg.Wait()
