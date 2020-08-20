@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: kube-system
+  namespace: {{ .Release.Namespace }}
   name: csi-baremetal-se
 spec:
   replicas: 1
@@ -19,12 +19,19 @@ spec:
           image: {{ .Values.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
+            - --namespace=$(NAMESPACE)
+            - --provisioner={{ .Values.provisioner }}
             - --port={{ .Values.port }}
             - --loglevel={{ .Values.log.level }}
             - --certFile={{ .Values.tls.certFile }}
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
           ports:
             - containerPort: {{  .Values.port }}
+          - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
       hostNetwork: true
       tolerations:
         - key: CriticalAddonsOnly

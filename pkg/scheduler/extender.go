@@ -10,13 +10,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	k8sV1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
+	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
-	v1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -28,24 +28,23 @@ import (
 // based on pod volumes requirements and Available Capacities
 type Extender struct {
 	k8sClient *k8s.KubeClient
-	logger    *logrus.Entry
+	// namespace in which Extender will be search Available Capacity
+	namespace   string
+	provisioner string
+	logger      *logrus.Entry
 }
 
-const (
-	namespace      = "default"
-	pluginNameMask = "baremetal"
-)
-
 // NewExtender returns new instance of Extender struct
-func NewExtender(logger *logrus.Logger) (*Extender, error) {
+func NewExtender(logger *logrus.Logger, namespace, provisioner string) (*Extender, error) {
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
 		return nil, err
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
 	return &Extender{
-		k8sClient: kubeClient,
-		logger:    logger.WithField("component", "Extender"),
+		k8sClient:   kubeClient,
+		provisioner: provisioner,
+		logger:      logger.WithField("component", "Extender"),
 	}, nil
 }
 
@@ -98,7 +97,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Infof("Nodes don't match requested volumes: %v", failedNodes)
 	}
 
-	extenderRes.Nodes = &k8sV1.NodeList{
+	extenderRes.Nodes = &coreV1.NodeList{
 		TypeMeta: extenderArgs.Nodes.TypeMeta,
 		Items:    matchedNodes,
 	}
@@ -111,21 +110,30 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // gatherVolumesByProvisioner search all volumes in pod' spec that should be provisioned
-// by provisioner that match pluginNameMask and construct getV1.Volume struct for each of such volume
-func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Pod) ([]*genV1.Volume, error) {
+// by provisioner that match provisionerMask and construct genV1.Volume struct for each of such volume
+func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.Volume, error) {
 	ll := e.logger.WithFields(logrus.Fields{
-		"method": "gatherVolumesByProvisioner",
-		"pod":    pod.Name,
+		"sessionUUID": ctx.Value(k8s.RequestUUID),
+		"method":      "gatherVolumesByProvisioner",
+		"pod":         pod.Name,
 	})
 	ll.Debug("Processing ...")
+
+	scs, err := e.getSCNameStorageType(ctx)
+	if err != nil {
+		ll.Errorf("Unable to collect storage classes: %v", err)
+		return nil, err
+	} else {
+		ll.Debugf("Read next SCs: %v", scs)
+	}
 
 	volumes := make([]*genV1.Volume, 0)
 	for _, v := range pod.Spec.Volumes {
 		e.logger.Tracef("Inspecting pod volume %+v", v)
 		// check whether there are Ephemeral volumes or no
 		if v.CSI != nil {
-			if strings.Contains(v.CSI.Driver, pluginNameMask) {
-				volume, err := e.constructVolumeFromCSISource(v.CSI)
+			if storageType, ok := scs[v.CSI.Driver]; ok {
+				volume, err := e.constructVolumeFromCSISource(v.CSI, storageType)
 				if err != nil {
 					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
 				}
@@ -135,7 +143,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 			continue
 		}
 		if v.PersistentVolumeClaim != nil {
-			pvc := &k8sV1.PersistentVolumeClaim{}
+			pvc := &coreV1.PersistentVolumeClaim{}
 			err := e.k8sClient.Get(ctx,
 				k8sCl.ObjectKey{Name: v.PersistentVolumeClaim.ClaimName, Namespace: pod.Namespace},
 				pvc)
@@ -146,8 +154,8 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 			if pvc.Spec.StorageClassName == nil {
 				continue
 			}
-			if strings.Contains(*pvc.Spec.StorageClassName, pluginNameMask) {
-				storageReq, ok := pvc.Spec.Resources.Requests[k8sV1.ResourceStorage]
+			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
+				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
 				if !ok {
 					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
 					storageReq = resource.Quantity{}
@@ -160,7 +168,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 
 				volumes = append(volumes, &genV1.Volume{
 					Id:           pvc.Name,
-					StorageClass: util.ConvertStorageClass(*pvc.Spec.StorageClassName),
+					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
 					Mode:         mode,
 					Ephemeral:    false,
@@ -171,19 +179,13 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *k8sV1.Po
 	return volumes, nil
 }
 
-// constructVolumeFromCSISource constructs genV1.Volume based on fields from k8sV1.Volume.CSI
-func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *genV1.Volume, err error) {
+// constructVolumeFromCSISource constructs genV1.Volume based on fields from coreV1.Volume.CSI
+func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource, storageType string) (vol *genV1.Volume, err error) {
 	// if some parameters aren't parsed for some reason empty volume will be returned in order count that volume
 	vol = &genV1.Volume{
-		StorageClass: v1.StorageClassAny,
+		StorageClass: util.ConvertStorageClass(storageType),
 		Ephemeral:    true,
 	}
-
-	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
-	if !ok {
-		return vol, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
-	}
-	vol.StorageClass = util.ConvertStorageClass(sc)
 
 	sizeStr, ok := v.VolumeAttributes[base.SizeKey]
 	if !ok {
@@ -199,7 +201,7 @@ func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *
 	return vol, nil
 }
 
-func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedNodes []k8sV1.Node,
+func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
 	/**
 	represent volumes as a next structure:
@@ -342,4 +344,25 @@ func (e *Extender) searchClosestAC(acs map[string]*accrd.AvailableCapacity, volu
 		}
 	}
 	return pickedAC
+}
+
+// getSCNameStorageType reads k8s storage class resources and collect map with key storage class name
+// and value .parameters.storageType for that sc, collect only sc that have provisioner e.provisioner
+func (e *Extender) getSCNameStorageType(ctx context.Context) (map[string]string, error) {
+	scs := storageV1.StorageClassList{}
+
+	if err := e.k8sClient.List(ctx, &scs); err != nil {
+		return nil, err
+	}
+
+	scNameTypeMap := map[string]string{}
+	for _, sc := range scs.Items {
+		if sc.Provisioner == e.provisioner {
+			scNameTypeMap[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+		}
+	}
+	if len(scNameTypeMap) == 0 {
+		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
+	}
+	return scNameTypeMap, nil
 }

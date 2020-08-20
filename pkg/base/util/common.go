@@ -55,24 +55,6 @@ func ConvertStorageClass(strSC string) string {
 		return sc
 	}
 
-	sc = strings.ToLower(strSC)
-	switch sc {
-	case api.K8sStorageClassAny:
-		return api.StorageClassAny
-	case api.K8sStorageClassHDD:
-		return api.StorageClassHDD
-	case api.K8sStorageClassSSD:
-		return api.StorageClassSSD
-	case api.K8sStorageClassNVME:
-		return api.StorageClassNVMe
-	case api.K8sStorageClassHDDLVG:
-		return api.StorageClassHDDLVG
-	case api.K8sStorageClassSSDLVG:
-		return api.StorageClassSSDLVG
-	case api.K8sStorageClassNVMeLVG:
-		return api.StorageClassNVMeLVG
-	}
-
 	return api.StorageClassAny
 }
 
