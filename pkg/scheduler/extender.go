@@ -31,7 +31,7 @@ type Extender struct {
 }
 
 const (
-	namespace      = "kube-system"
+	namespace      = "default"
 	pluginNameMask = "baremetal"
 )
 

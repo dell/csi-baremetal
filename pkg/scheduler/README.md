@@ -13,11 +13,11 @@
  ```
  ssh root@provo-goop mkdir -p /etc/kubernetes/scheduler
 ```
- 3. Copy files `config.yaml` and `policy.yaml` from `deploy` folder to the `/etc/kubernetes/scheduler`
+ 3. Copy files `config.yaml` and `policy.yaml` from `pkg/scheduler` folder to the `/etc/kubernetes/scheduler`
  on the node.
  e.g. 
  ```
- scp deploy/policy.yaml deploy/config.yaml root@provo-goop:/etc/kubernetes/scheduler
+ scp policy.yaml config.yaml root@provo-goop:/etc/kubernetes/scheduler
  ```
  4. Install extender chart:
     ```
