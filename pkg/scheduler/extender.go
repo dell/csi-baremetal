@@ -99,7 +99,8 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if len(matchedNodes) == 0 {
 		ll.Warn("No one node match requested volumes")
 	} else {
-		ll.Infof("Nodes don't match requested volumes: %v", failedNodes)
+		ll.Infof("Construct response. There are acceptance nodes. "+
+			"Nodes that don't match requested volumes: %v", failedNodes)
 	}
 
 	extenderRes.Nodes = &coreV1.NodeList{
@@ -128,8 +129,6 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 	if err != nil {
 		ll.Errorf("Unable to collect storage classes: %v", err)
 		return nil, err
-	} else {
-		ll.Debugf("Read next SCs: %v", scs)
 	}
 
 	volumes := make([]*genV1.Volume, 0)

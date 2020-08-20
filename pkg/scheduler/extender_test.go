@@ -131,8 +131,14 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	e := setup(t)
 
-	// constructVolumeFromCSISource failed
+	// sc mapping empty
 	pod := testPod
+	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	assert.Nil(t, volumes)
+	assert.NotNil(t, err)
+
+	// constructVolumeFromCSISource failed
+	pod = testPod
 	badCSIVolumeSrc := testCSIVolumeSrc
 	badCSIVolumeSrc.VolumeAttributes = map[string]string{}
 	// append inlineVolume
@@ -142,7 +148,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	// create SC
 	applyObjs(t, e.k8sClient, &testSC1)
 
-	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(volumes))
 	assert.True(t, volumes[0].Ephemeral)
