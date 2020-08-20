@@ -46,12 +46,12 @@ func ConvertStorageClass(strSC string) string {
 	sc := strings.ToUpper(strSC)
 	switch sc {
 	case api.StorageClassHDD,
-	api.StorageClassSSD,
-	api.StorageClassNVMe,
-	api.StorageClassHDDLVG,
-	api.StorageClassSSDLVG,
-	api.StorageClassNVMeLVG,
-	api.StorageClassAny:
+		api.StorageClassSSD,
+		api.StorageClassNVMe,
+		api.StorageClassHDDLVG,
+		api.StorageClassSSDLVG,
+		api.StorageClassNVMeLVG,
+		api.StorageClassAny:
 		return sc
 	}
 
@@ -73,7 +73,7 @@ func ConvertStorageClass(strSC string) string {
 		return api.StorageClassNVMeLVG
 	}
 
-	return api.StorageClassAny  // TODO: return empty string here
+	return api.StorageClassAny // TODO: return empty string here
 }
 
 // ConvertDriveTypeToStorageClass converts type of a drive to AvailableCapacity StorageClass

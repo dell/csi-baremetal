@@ -242,7 +242,7 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 			acByNodeAndSCMap[node] = map[string]map[string]*accrd.AvailableCapacity{}
 		}
 		sc := ac.Spec.StorageClass
-		ac := ac  // ac uses in range and represent different value on each iteration but we need to put pointer in map
+		ac := ac // ac uses in range and represent different value on each iteration but we need to put pointer in map
 		if _, ok := acByNodeAndSCMap[node][sc]; !ok {
 			acByNodeAndSCMap[node][sc] = map[string]*accrd.AvailableCapacity{ac.Name: &ac}
 		} else {

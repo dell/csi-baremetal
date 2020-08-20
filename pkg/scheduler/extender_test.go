@@ -164,8 +164,8 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 	assert.Nil(t, err)
 	expectedVolume := &genV1.Volume{
 		StorageClass: util.ConvertStorageClass(testStorageType),
-		Size: expectedSize,
-		Ephemeral: true,
+		Size:         expectedSize,
+		Ephemeral:    true,
 	}
 
 	curr, err := e.constructVolumeFromCSISource(&testCSIVolumeSrc)
