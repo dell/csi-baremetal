@@ -78,6 +78,9 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Errorf("filter finished with error: %v", err)
 		errMsg = err.Error()
 	}
+	if len(matchedNodes) == 0 {
+		ll.Warn("No one node match requested volumes")
+	}
 
 	extenderRes := &schedulerapi.ExtenderFilterResult{
 		Nodes: &k8sV1.NodeList{
