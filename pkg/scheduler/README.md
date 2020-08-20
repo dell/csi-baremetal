@@ -54,7 +54,7 @@
  6. Apply some pod manifest
  7. Run
     ```
-    kubectl logs -f -n kube-system `kubectl get pods -n kube-system --selector=app=csi-baremetal-se --no-headers | awk '{print $1}'`
+    kubectl logs -f -n NAMESPACE_NAME `kubectl get pods -n kube-system --selector=app=csi-baremetal-se --no-headers | awk '{print $1}'`
     ``` 
     and observe as scheduler extender works
  
