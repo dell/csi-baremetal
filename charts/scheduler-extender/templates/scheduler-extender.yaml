@@ -27,7 +27,8 @@ spec:
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
           ports:
             - containerPort: {{  .Values.port }}
-          - name: NAMESPACE
+          env:
+            - name: NAMESPACE
               valueFrom:
                 fieldRef:
                   apiVersion: v1
