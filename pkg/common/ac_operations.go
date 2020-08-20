@@ -93,7 +93,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	} else {
 		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 	}
-	if sc == apiV1.StorageClassHDDLVG || sc == apiV1.StorageClassSSDLVG {
+	if util.IsStorageClassLVG(sc) {
 		if foundAC != nil {
 			// check whether LVG being deleted or no
 			lvgCR := &lvgcrd.LVG{}
