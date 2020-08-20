@@ -30,8 +30,7 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	logrus.Infof("RepoRoot: %s", framework.TestContext.RepoRoot)
 
 	pathToTheManifests := path.Join(
-		framework.TestContext.RepoRoot,
-		"/tmp/baremetal-csi-plugin/templates/")
+		framework.TestContext.RepoRoot, "/tmp/")
 
 	testfiles.AddFileSource(testfiles.RootFileSource{
 		Root: pathToTheManifests,
