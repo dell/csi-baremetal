@@ -255,6 +255,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 	testCases := [7]struct {
 		Volumes           []*genV1.Volume
 		ExpectedNodeNames []string
+		Msg               string
 	}{
 		{
 			Volumes: []*genV1.Volume{
@@ -262,12 +263,14 @@ func TestExtender_filterSuccess(t *testing.T) {
 				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node1Name},
+			Msg:               "Volumes: HDD[50Gb, 100Gb]; Expected nodes: [NODE-1]",
 		},
 		{
 			Volumes: []*genV1.Volume{
 				{StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node2Name},
+			Msg:               "Volumes: SSD[50Gb]; Expected nodes: [NODE-2]",
 		},
 		{
 			Volumes: []*genV1.Volume{
@@ -276,12 +279,14 @@ func TestExtender_filterSuccess(t *testing.T) {
 				{StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node3Name},
+			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: [NODE-3]",
 		},
 		{
 			Volumes: []*genV1.Volume{
 				{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node1Name, node2Name},
+			Msg:               "Volumes: HDD[80Gb]; Expected nodes: [NODE-1, NODE-2]",
 		},
 		{
 			Volumes: []*genV1.Volume{
@@ -290,6 +295,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node1Name, node3Name},
+			Msg:               "Volumes: HDDLVG[50Gb, 50Gb, 50Gb]; Expected nodes: [NODE-1, NODE-3]",
 		},
 		{
 			Volumes: []*genV1.Volume{
@@ -297,24 +303,27 @@ func TestExtender_filterSuccess(t *testing.T) {
 				{StorageClass: v1.StorageClassSSDLVG, Size: 50 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node2Name, node3Name},
+			Msg:               "Volumes: HDDLVG[100Gb], SSDLVG[50Gb]; Expected nodes: [NODE-2, NODE-3]",
 		},
 		{
 			Volumes: []*genV1.Volume{
 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node1Name, node2Name, node3Name},
+			Msg:               "Volumes: HDDLVG[100Gb]; Expected nodes: [NODE-1, NODE-2, NODE-3]",
 		},
 	}
 
 	for _, testCase := range testCases {
 		matchedNodes, failedNode, err := e.filter(nodes, testCase.Volumes)
-		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode))
-		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes))
-		assert.Nil(t, err)
+		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
+		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes), testCase.Msg)
+		assert.Nil(t, err, testCase.Msg)
 		matchedNodeNames := getNodeNames(matchedNodes)
 
 		for _, n := range testCase.ExpectedNodeNames {
-			assert.True(t, util.ContainsString(matchedNodeNames, n))
+			assert.True(t, util.ContainsString(matchedNodeNames, n),
+				fmt.Sprintf("Matched nodes: %v, msg - %s", matchedNodeNames, testCase.Msg))
 		}
 	}
 }
