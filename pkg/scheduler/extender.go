@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	k8sV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -50,54 +51,62 @@ func NewExtender(logger *logrus.Logger) (*Extender, error) {
 
 // FilterHandler extracts ExtenderArgs struct from req and writes ExtenderFilterResult to the w
 func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
-	ll := e.logger.WithField("method", "FilterHandler")
-	ll.Debugf("Processing request: %v. With context %v", req, req.Context())
+	sessionUUID := uuid.New().String()
+	ll := e.logger.WithFields(logrus.Fields{
+		"sessionUUID": sessionUUID,
+		"method":      "FilterHandler",
+	})
+	ll.Infof("Processing request: %v", req)
 
 	w.Header().Set("Content-Type", "application/json")
 	resp := json.NewEncoder(w)
 
-	var extenderArgs schedulerapi.ExtenderArgs
+	var (
+		extenderArgs schedulerapi.ExtenderArgs
+		extenderRes  = &schedulerapi.ExtenderFilterResult{}
+	)
 
 	if err := json.NewDecoder(req.Body).Decode(&extenderArgs); err != nil {
 		ll.Errorf("Unable to decode request body: %v", err)
-		e.encodeResults(resp, &schedulerapi.ExtenderFilterResult{Error: err.Error()})
+		extenderRes.Error = err.Error()
+		if err := resp.Encode(extenderRes); err != nil {
+			ll.Errorf("Unable to write response %v: %v", extenderRes, err)
+		}
 		return
 	}
 
 	ll.Info("Filtering")
-	volumes, err := e.gatherVolumesByProvisioner(req.Context(), extenderArgs.Pod)
+	ctxWithVal := context.WithValue(req.Context(), k8s.RequestUUID, sessionUUID)
+	volumes, err := e.gatherVolumesByProvisioner(ctxWithVal, extenderArgs.Pod)
 	if err != nil {
-		e.encodeResults(resp, &schedulerapi.ExtenderFilterResult{Error: err.Error()})
+		extenderRes.Error = err.Error()
+		if err := resp.Encode(extenderRes); err != nil {
+			ll.Errorf("Unable to write response %v: %v", extenderRes, err)
+		}
 		return
 	}
 	ll.Debugf("Required volumes: %v", volumes)
 
 	matchedNodes, failedNodes, err := e.filter(extenderArgs.Nodes.Items, volumes)
-	errMsg := ""
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
-		errMsg = err.Error()
+		extenderRes.Error = err.Error()
 	}
 	if len(matchedNodes) == 0 {
 		ll.Warn("No one node match requested volumes")
+	} else {
+		ll.Infof("Nodes don't match requested volumes: %v", failedNodes)
 	}
 
-	extenderRes := &schedulerapi.ExtenderFilterResult{
-		Nodes: &k8sV1.NodeList{
-			TypeMeta: extenderArgs.Nodes.TypeMeta,
-			Items:    matchedNodes,
-		},
-		FailedNodes: failedNodes,
-		Error:       errMsg,
+	extenderRes.Nodes = &k8sV1.NodeList{
+		TypeMeta: extenderArgs.Nodes.TypeMeta,
+		Items:    matchedNodes,
 	}
+	extenderRes.FailedNodes = failedNodes
 
-	e.encodeResults(resp, extenderRes)
-}
-
-func (e *Extender) encodeResults(resp *json.Encoder, res *schedulerapi.ExtenderFilterResult) {
-	if err := resp.Encode(res); err != nil {
+	if err := resp.Encode(extenderRes); err != nil {
 		e.logger.WithField("method", "encodeResults").
-			Errorf("Unable to write response %v: %v", res, err)
+			Errorf("Unable to write response %v: %v", extenderRes, err)
 	}
 }
 
@@ -192,7 +201,6 @@ func (e *Extender) constructVolumeFromCSISource(v *k8sV1.CSIVolumeSource) (vol *
 
 func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedNodes []k8sV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
-	ll := e.logger.WithField("method", "filter")
 	/**
 	represent volumes as a next structure:
 	map[StorageClass][]*Volume
@@ -213,7 +221,7 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 
 	var acList = &accrd.AvailableCapacityList{}
 	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
-		ll.Errorf("Unable to read AvailableCapacity list: %v", err)
+		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)
 		return
 	}
 
@@ -308,7 +316,6 @@ func (e *Extender) filter(nodes []k8sV1.Node, volumes []*genV1.Volume) (matchedN
 		}
 	CheckMatched:
 		if matched {
-			ll.Infof("Node %s/%s is acceptable for scheduling pod with requested volumes.", node.Name, node.UID)
 			matchedNodes = append(matchedNodes, node)
 		} else {
 			if failedNodesMap == nil {
