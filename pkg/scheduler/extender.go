@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ import (
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -31,7 +33,8 @@ type Extender struct {
 	// namespace in which Extender will be search Available Capacity
 	namespace   string
 	provisioner string
-	logger      *logrus.Entry
+	sync.Mutex
+	logger *logrus.Entry
 }
 
 // NewExtender returns new instance of Extender struct
@@ -86,6 +89,8 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	ll.Debugf("Required volumes: %v", volumes)
 
+	e.Lock()
+	defer e.Unlock()
 	matchedNodes, failedNodes, err := e.filter(extenderArgs.Nodes.Items, volumes)
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
@@ -119,7 +124,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 	})
 	ll.Debug("Processing ...")
 
-	scs, err := e.getSCNameStorageType(ctx)
+	scs, err := e.scNameStorageTypeMapping(ctx)
 	if err != nil {
 		ll.Errorf("Unable to collect storage classes: %v", err)
 		return nil, err
@@ -132,8 +137,8 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 		e.logger.Tracef("Inspecting pod volume %+v", v)
 		// check whether there are Ephemeral volumes or no
 		if v.CSI != nil {
-			if storageType, ok := scs[v.CSI.Driver]; ok {
-				volume, err := e.constructVolumeFromCSISource(v.CSI, storageType)
+			if v.CSI.Driver == e.provisioner {
+				volume, err := e.constructVolumeFromCSISource(v.CSI)
 				if err != nil {
 					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
 				}
@@ -180,12 +185,19 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 }
 
 // constructVolumeFromCSISource constructs genV1.Volume based on fields from coreV1.Volume.CSI
-func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource, storageType string) (vol *genV1.Volume, err error) {
-	// if some parameters aren't parsed for some reason empty volume will be returned in order count that volume
+func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol *genV1.Volume, err error) {
+	// if some parameters aren't parsed for some reason
+	// empty volume will be returned in order count that volume
 	vol = &genV1.Volume{
-		StorageClass: util.ConvertStorageClass(storageType),
+		StorageClass: v1.StorageClassAny,
 		Ephemeral:    true,
 	}
+
+	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
+	if !ok {
+		return vol, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
+	}
+	vol.StorageClass = util.ConvertStorageClass(sc)
 
 	sizeStr, ok := v.VolumeAttributes[base.SizeKey]
 	if !ok {
@@ -346,9 +358,9 @@ func (e *Extender) searchClosestAC(acs map[string]*accrd.AvailableCapacity, volu
 	return pickedAC
 }
 
-// getSCNameStorageType reads k8s storage class resources and collect map with key storage class name
+// scNameStorageTypeMapping reads k8s storage class resources and collect map with key storage class name
 // and value .parameters.storageType for that sc, collect only sc that have provisioner e.provisioner
-func (e *Extender) getSCNameStorageType(ctx context.Context) (map[string]string, error) {
+func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]string, error) {
 	scs := storageV1.StorageClassList{}
 
 	if err := e.k8sClient.List(ctx, &scs); err != nil {

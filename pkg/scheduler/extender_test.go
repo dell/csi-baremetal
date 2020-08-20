@@ -35,7 +35,7 @@ var (
 	testSizeStr            = fmt.Sprintf("%dG", testSizeGb)
 	testStorageType        = v1.StorageClassHDD
 	testCSIVolumeSrc       = coreV1.CSIVolumeSource{
-		Driver:           testSCName1,
+		Driver:           testProvisioner,
 		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
 	}
 
@@ -146,7 +146,8 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(volumes))
 	assert.True(t, volumes[0].Ephemeral)
-	assert.Equal(t, testStorageType, volumes[0].StorageClass)
+	// any because storageType key missing in csi volume sourc
+	assert.Equal(t, v1.StorageClassAny, volumes[0].StorageClass)
 
 	// unable to read PVCs (bad namespace)
 	pod.Namespace = "unexisted-namespace"
@@ -193,7 +194,7 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 		Ephemeral:    true,
 	}
 
-	curr, err := e.constructVolumeFromCSISource(&testCSIVolumeSrc, testStorageType)
+	curr, err := e.constructVolumeFromCSISource(&testCSIVolumeSrc)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVolume, curr)
 
@@ -205,10 +206,20 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 		v = testCSIVolumeSrc
 	)
 
-	// missing size
+	// missing storage type
 	v.VolumeAttributes = map[string]string{}
-	expected := &genV1.Volume{StorageClass: util.ConvertStorageClass(testStorageType), Ephemeral: true}
-	curr, err := e.constructVolumeFromCSISource(&v, testStorageType)
+	expected := &genV1.Volume{StorageClass: v1.StorageClassAny, Ephemeral: true}
+
+	curr, err := e.constructVolumeFromCSISource(&v)
+	assert.NotNil(t, curr)
+	assert.Equal(t, expected, curr)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unable to detect storage class from attributes")
+
+	// missing size
+	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
+	expected = &genV1.Volume{StorageClass: util.ConvertStorageClass(testStorageType), Ephemeral: true}
+	curr, err = e.constructVolumeFromCSISource(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -219,7 +230,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	sizeStr := "12S12"
 	v.VolumeAttributes[base.SizeKey] = sizeStr
 	expected = &genV1.Volume{StorageClass: util.ConvertStorageClass(testStorageType), Ephemeral: true}
-	curr, err = e.constructVolumeFromCSISource(&v, testStorageType)
+	curr, err = e.constructVolumeFromCSISource(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -348,7 +359,7 @@ func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 	// create 2 storage classes
 	applyObjs(t, e.k8sClient, &testSC1, &testSC2)
 
-	m, err := e.getSCNameStorageType(context.Background())
+	m, err := e.scNameStorageTypeMapping(context.Background())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(m))
 	assert.Equal(t, m[testSCName1], testStorageType)
@@ -357,7 +368,7 @@ func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 func TestExtender_getSCNameStorageType_Fail(t *testing.T) {
 	e := setup(t)
 
-	m, err := e.getSCNameStorageType(context.Background())
+	m, err := e.scNameStorageTypeMapping(context.Background())
 	assert.Nil(t, m)
 	assert.NotNil(t, err)
 }

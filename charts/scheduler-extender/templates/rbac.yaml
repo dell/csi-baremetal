@@ -12,12 +12,15 @@ metadata:
 rules:
   - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["availablecapacities"]
-    verbs: ["list"]
+    verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
     verbs: ["get", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list"]
 ---
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-baremetal-extender-rb
