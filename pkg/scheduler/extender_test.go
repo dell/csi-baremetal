@@ -226,31 +226,21 @@ func TestExtender_filterSuccess(t *testing.T) {
 	}
 
 	acs := []accrd.AvailableCapacity{
-		// NODE-1 ACs
+		// NODE-1 ACs, HDD[50Gb, 100Gb]
+		*e.k8sClient.ConstructACCR(uuid.New().String(),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)}),
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
 			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+		// NODE-2 ACs, HDD[100Gb], SSD[50Gb]
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 150 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 350 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)}),
+		// NODE-3 ACs, HDDLVG[150Gb], SSDLVG[100Gb]
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)}),
-		// NODE-2 ACs
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)}),
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 500 * int64(util.GBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 300 * int64(util.GBYTE)}),
-		// NODE-3 ACs
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 600 * int64(util.GBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassSSDLVG, Size: 300 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)}),
 	}
 
 	// create all AC
@@ -258,50 +248,39 @@ func TestExtender_filterSuccess(t *testing.T) {
 		assert.Nil(t, e.k8sClient.Create(context.Background(), &ac))
 	}
 
-	testCases := [6]struct {
+	testCases := [7]struct {
 		Volumes           []*genV1.Volume
 		ExpectedNodeNames []string
 	}{
 		{
 			Volumes: []*genV1.Volume{
-				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node1Name},
 		},
 		{
 			Volumes: []*genV1.Volume{
-				{StorageClass: v1.StorageClassHDD, Size: 500 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassSSDLVG, Size: 200 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node2Name},
 		},
 		{
 			Volumes: []*genV1.Volume{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 500 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)},
+				// {StorageClass: v1.StorageClassANY, Size: 150 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node3Name},
 		},
 		{
 			Volumes: []*genV1.Volume{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassSSDLVG, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)},
 			},
-			ExpectedNodeNames: []string{node1Name, node3Name},
+			ExpectedNodeNames: []string{node1Name, node2Name},
 		},
 		{
 			Volumes: []*genV1.Volume{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
@@ -310,10 +289,16 @@ func TestExtender_filterSuccess(t *testing.T) {
 		},
 		{
 			Volumes: []*genV1.Volume{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 300 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 200 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassSSDLVG, Size: 50 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node2Name, node3Name},
+		},
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{node1Name, node2Name, node3Name},
 		},
 	}
 
