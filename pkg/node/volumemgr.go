@@ -614,12 +614,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 
 // getProvisionerForVolume returns appropriate Provisioner implementation for volume
 func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
-	switch vol.StorageClass {
-	case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG, apiV1.StorageClassSystemSSDLVG:
+	if util.IsStorageClassLVG(vol.StorageClass) {
 		return m.provisioners[p.LVMBasedVolumeType]
-	default:
-		return m.provisioners[p.DriveBasedVolumeType]
 	}
+
+	return m.provisioners[p.DriveBasedVolumeType]
 }
 
 // handleDriveStatusChange removes AC that is based on unhealthy drive, returns AC if drive returned to healthy state,

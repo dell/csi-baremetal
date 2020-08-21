@@ -91,6 +91,8 @@ var strToSC = []struct {
 	{"nvme", api.StorageClassNVMe},
 	{"hddlvg", api.StorageClassHDDLVG},
 	{"ssdlvg", api.StorageClassSSDLVG},
+	{"nvmelvg", api.StorageClassNVMeLVG},
+	{"system-ssdLVG", api.StorageClassSystemSSDLVG},
 	{"any", api.StorageClassAny},
 	{"random", api.StorageClassAny},
 }

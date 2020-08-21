@@ -102,11 +102,10 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		// volume should be created with that particular SC
 		sc = ac.Spec.StorageClass
 
-		switch sc {
-		case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
+		if util.IsStorageClassLVG(sc) {
 			allocatedBytes = v.Size
 			locationType = apiV1.LocationTypeLVM
-		default:
+		} else {
 			allocatedBytes = ac.Spec.Size
 			locationType = apiV1.LocationTypeDrive
 		}
@@ -226,7 +225,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 
 	// if volume is in LVG - update corresponding AC size
 	// if such AC isn't exist - do nothing (AC should be recreated by VolumeMgr)
-	if volumeCR.Spec.StorageClass == apiV1.StorageClassHDDLVG || volumeCR.Spec.StorageClass == apiV1.StorageClassSSDLVG {
+	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
 		var (
 			acCR   = accrd.AvailableCapacity{}
 			acList = accrd.AvailableCapacityList{}
