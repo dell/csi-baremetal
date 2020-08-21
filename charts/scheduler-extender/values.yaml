@@ -3,6 +3,10 @@ registry: asdrepo.isus.emc.com:9042
 
 port: 8889
 
+# extender will be looking for volumes that should be provisioned
+# by storage class with provided provisioner name
+provisioner: baremetal-csi
+
 tls:
   certFile: ""
   privateKeyFile: ""

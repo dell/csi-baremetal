@@ -11,6 +11,8 @@ import (
 )
 
 var (
+	namespace      = flag.String("namespace", "", "Namespace in which Node Service service run")
+	provisioner    = flag.String("provisioner", "", "Provisioner name which storage classes extener will be observing")
 	port           = flag.Int("port", base.DefaultExtenderPort, "Port for service")
 	certFile       = flag.String("certFile", "", "path to the cert file")
 	privateKeyFile = flag.String("privateKeyFile", "", "path to the private key file")
@@ -22,7 +24,7 @@ func main() {
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
-	extender, err := scheduler.NewExtender(logger)
+	extender, err := scheduler.NewExtender(logger, *namespace, *provisioner)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}
