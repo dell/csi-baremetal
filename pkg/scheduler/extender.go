@@ -98,13 +98,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if len(matchedNodes) == 0 {
 		ll.Warn("No one node match requested volumes")
 	} else {
-		nodeNames := make([]string, 0)
-		for _, n := range matchedNodes {
-			nodeNames = append(nodeNames, n.Name)
-		}
-
-		ll.Infof("Construct response. There are suitable nodes %v. "+
-			"Nodes that don't match requested volumes: %v", nodeNames, failedNodes)
+		ll.Infof("Construct response. Suitable nodes - %v. Failed nodes - %v", matchedNodes, failedNodes)
 	}
 
 	extenderRes.Nodes = &coreV1.NodeList{
@@ -114,8 +108,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	extenderRes.FailedNodes = failedNodes
 
 	if err := resp.Encode(extenderRes); err != nil {
-		e.logger.WithField("method", "encodeResults").
-			Errorf("Unable to write response %v: %v", extenderRes, err)
+		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
 	}
 }
 
@@ -246,6 +239,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 					len(acByNodeAndSCMap[nodeID][subSC]) == 0 &&
 					sc != v1.StorageClassAny {
 					matched = false
+					e.logger.Infof("goto CheckMatched, node - %v, from if len statement", node.Name)
 					goto CheckMatched
 				}
 
@@ -267,6 +261,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 						// as soon as for some volume in some SC there are no any AC - consider
 						// that node doesn't match volumes requests
 						matched = false
+						e.logger.Infof("goto CheckMatched, node - %v, from ac == nil statement", node.Name)
 						goto CheckMatched
 					}
 				}
@@ -307,7 +302,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		}
 	}
 
-	return
+	return matchedNodes, failedNodesMap, err
 }
 
 // searchClosestAC search AC that match all requirements from volume (size)
