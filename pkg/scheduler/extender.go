@@ -98,8 +98,13 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if len(matchedNodes) == 0 {
 		ll.Warn("No one node match requested volumes")
 	} else {
-		ll.Infof("Construct response. There are acceptance nodes. "+
-			"Nodes that don't match requested volumes: %v", failedNodes)
+		nodeNames := make([]string, 0)
+		for _, n := range matchedNodes {
+			nodeNames = append(nodeNames, n.Name)
+		}
+
+		ll.Infof("Construct response. There are suitable nodes %v. "+
+			"Nodes that don't match requested volumes: %v", nodeNames, failedNodes)
 	}
 
 	extenderRes.Nodes = &coreV1.NodeList{
@@ -217,68 +222,22 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 // failedNodesMap - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
-	/**
-	represent volumes as a next structure:
-	map[StorageClass][]*Volume
-	{
-		StorageClass1: [volume1, ..., volumeN]
-	    .............
-	}
-	**/
-	var scVolumeMap = map[string][]*genV1.Volume{}
-	for _, v := range volumes {
-		sc := v.StorageClass
-		if _, ok := scVolumeMap[sc]; !ok {
-			scVolumeMap[sc] = []*genV1.Volume{v}
-		} else {
-			scVolumeMap[sc] = append(scVolumeMap[sc], v)
-		}
-	}
-
 	var acList = &accrd.AvailableCapacityList{}
 	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
 		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)
 		return
 	}
 
-	/**
-	construct map with next structure:
-	map[NodeID]map[StorageClass]map[AC.Name]accrd.AvailableCapacity{}
-	{
-		NodeID_1: {
-			StorageClass_1: {
-				AC1Name: ACCRD_1,
-				ACnName: ACCRD_n
-			},
-			StorageClass_M: {
-				AC1Name: ACCRD_1,
-				ACkName: ACCRD_k
-			},
-		NodeID_l: {
-			...................
-		}
-	}
-	**/
-	var acByNodeAndSCMap = map[string]map[string]map[string]*accrd.AvailableCapacity{}
-	for _, ac := range acList.Items {
-		node := ac.Spec.NodeId
-		if _, ok := acByNodeAndSCMap[node]; !ok {
-			acByNodeAndSCMap[node] = map[string]map[string]*accrd.AvailableCapacity{}
-		}
-		sc := ac.Spec.StorageClass
-		ac := ac // ac uses in range and represent different value on each iteration but we need to put pointer in map
-		if _, ok := acByNodeAndSCMap[node][sc]; !ok {
-			acByNodeAndSCMap[node][sc] = map[string]*accrd.AvailableCapacity{ac.Name: &ac}
-		} else {
-			acByNodeAndSCMap[node][sc][ac.Name] = &ac
-		}
-	}
+	// map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
+	acByNodeAndSCMap := e.acByNodeAndSCMap(acList.Items)
+	// map[StorageClass]*Volume
+	scVolumeMapping := e.scVolumeMapping(volumes)
 
 	matched := false
 	for _, node := range nodes {
 		matched = true
 		nodeID := string(node.UID)
-		for sc, scVolumes := range scVolumeMap {
+		for sc, scVolumes := range scVolumeMapping {
 			for _, volume := range scVolumes {
 				subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
 				forLVM := util.IsStorageClassLVG(sc)
@@ -344,7 +303,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 			if failedNodesMap == nil {
 				failedNodesMap = map[string]string{}
 			}
-			failedNodesMap[node.Name] = fmt.Sprintf("Node doesn't contain required amount of AvailableCapacity")
+			failedNodesMap[node.Name] = "Node doesn't contain required amount of AvailableCapacity"
 		}
 	}
 
@@ -386,4 +345,62 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
 	return scNameTypeMap, nil
+}
+
+/**
+	scVolumeMapping constructs map with next structure:
+	map[StorageClass][]*Volume
+	{
+		StorageClass1: [volume1, ..., volumeN]
+		.............
+	}
+**/
+func (e *Extender) scVolumeMapping(volumes []*genV1.Volume) map[string][]*genV1.Volume {
+	var scVolumeMap = map[string][]*genV1.Volume{}
+	for _, v := range volumes {
+		sc := v.StorageClass
+		if _, ok := scVolumeMap[sc]; !ok {
+			scVolumeMap[sc] = []*genV1.Volume{v}
+		} else {
+			scVolumeMap[sc] = append(scVolumeMap[sc], v)
+		}
+	}
+	return scVolumeMap
+}
+
+/**
+	acByNodeAndSCMap constructs map with next structure:
+	map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
+	{
+		NodeID_1: {
+			StorageClass_1: {
+				AC1Name: ACCRD_1,
+				ACnName: ACCRD_n
+			},
+			StorageClass_M: {
+				AC1Name: ACCRD_1,
+				ACkName: ACCRD_k
+			},
+		NodeID_l: {
+			...................
+		}
+	}
+**/
+func (e *Extender) acByNodeAndSCMap(acs []accrd.AvailableCapacity) map[string]map[string]map[string]*accrd.AvailableCapacity {
+	var acByNodeAndSCMap = map[string]map[string]map[string]*accrd.AvailableCapacity{}
+	for _, ac := range acs {
+		node := ac.Spec.NodeId
+		if _, ok := acByNodeAndSCMap[node]; !ok {
+			acByNodeAndSCMap[node] = map[string]map[string]*accrd.AvailableCapacity{}
+		}
+		sc := ac.Spec.StorageClass
+		ac := ac // ac uses in range and represent different value on each iteration but we need to put pointer in map
+		if _, ok := acByNodeAndSCMap[node][sc]; !ok {
+			acByNodeAndSCMap[node][sc] = map[string]*accrd.AvailableCapacity{ac.Name: &ac}
+		} else {
+			acByNodeAndSCMap[node][sc][ac.Name] = &ac
+		}
+	}
+
+	return acByNodeAndSCMap
 }
