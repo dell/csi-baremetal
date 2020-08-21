@@ -55,4 +55,5 @@ const (
 	StorageClassNVMe   = "NVME"
 	StorageClassHDDLVG = "HDDLVG"
 	StorageClassSSDLVG = "SSDLVG"
+	StorageClassSystemSSDLVG = "SYSTEM-SSDLVG"
 )

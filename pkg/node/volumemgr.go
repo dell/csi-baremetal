@@ -547,7 +547,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 				return err
 			}
 			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
-			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSSDLVG, vgFreeSpace)
+			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSystemSSDLVG, vgFreeSpace)
 		}
 	}
 
@@ -609,13 +609,13 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
 	}
-	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace)
+	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSystemSSDLVG, vgFreeSpace)
 }
 
 // getProvisionerForVolume returns appropriate Provisioner implementation for volume
 func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
 	switch vol.StorageClass {
-	case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
+	case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG, apiV1.StorageClassSystemSSDLVG:
 		return m.provisioners[p.LVMBasedVolumeType]
 	default:
 		return m.provisioners[p.DriveBasedVolumeType]
