@@ -211,6 +211,10 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 	return vol, nil
 }
 
+// filter is an algorithm for defining whether requested volumes could be provisioned on particular node or no
+// nodes - list of node candidate, volumes - requested volumes
+// returns: matchedNodes - list of nodes on which volumes could be provisioned
+// failedNodesMap - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
 	/**
