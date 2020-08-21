@@ -1,10 +1,8 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  namespace: kube-system
   name: csi-baremetal-se
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: csi-baremetal-se
@@ -16,7 +14,9 @@ spec:
       serviceAccountName: csi-baremetal-extender-sa
       containers:
         - name: extender
-          image: {{ .Values.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+          image: {{- if .Values.env.test }} baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+            {{- else }} {{ .Values.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --port={{ .Values.port }}
@@ -25,6 +25,44 @@ spec:
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
           ports:
             - containerPort: {{  .Values.port }}
+      {{- if .Values.patcher.enable }}
+        - name: schedulerpatcher
+          image: {{- if .Values.env.test }} baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+                                              {{- else }} {{ .Values.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /schedulerpatcher
+          args:
+            - --loglevel={{ .Values.log.level }}
+            - --restore={{ .Values.patcher.restore_on_shutdown }}
+            - --interval={{ .Values.patcher.interval }}
+            - --manifest={{ .Values.patcher.manifest }}
+            - --target-config-path={{ .Values.patcher.target_config_path}}
+            - --target-policy-path={{ .Values.patcher.target_policy_path}}
+            - --source-config-path=/config/{{ .Values.patcher.source_config_path}}
+            - --source-policy-path=/config/{{ .Values.patcher.source_policy_path}}
+          volumeMounts:
+            - mountPath: /config
+              name: schedulerpatcher-config
+              readOnly: true
+            - mountPath: /etc/kubernetes/manifests
+              name: kubernetes-manifests
+            - mountPath: /etc/kubernetes/scheduler
+              name: kubernetes-scheduler
+      {{- end }}
+      volumes:
+      {{- if .Values.patcher.enable }}
+        - name: schedulerpatcher-config
+          configMap:
+            name: {{ .Values.patcher.config_map_name }}
+        - name: kubernetes-manifests
+          hostPath:
+            path: /etc/kubernetes/manifests
+        - name: kubernetes-scheduler
+          hostPath:
+            path: /etc/kubernetes/scheduler
+      {{- end }}
       hostNetwork: true
       tolerations:
         - key: CriticalAddonsOnly

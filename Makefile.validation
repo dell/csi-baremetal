@@ -7,6 +7,7 @@ lint:
 
 lint-charts:
 	helm lint ./${CHARTS_PATH}
+	helm lint ./${EXTENDER_CHARTS_PATH}
 
 ### Unit tests
 

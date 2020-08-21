@@ -3,6 +3,9 @@ registry: asdrepo.isus.emc.com:9042
 
 port: 8889
 
+env:
+  test: false
+
 tls:
   certFile: ""
   privateKeyFile: ""
@@ -13,3 +16,14 @@ log:
 image:
   tag: green
   pullPolicy: Always
+
+patcher:
+  enable: false
+  manifest: /etc/kubernetes/manifests/kube-scheduler.yaml
+  source_config_path: config.yaml
+  source_policy_path: policy.yaml
+  target_config_path: /etc/kubernetes/scheduler/config.yaml
+  target_policy_path: /etc/kubernetes/scheduler/policy.yaml
+  interval: 60
+  restore_on_shutdown: false
+  config_map_name: schedulerpatcher-config
