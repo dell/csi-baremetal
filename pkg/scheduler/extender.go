@@ -23,7 +23,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -275,12 +274,14 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	for _, node := range nodes {
 		matched = true
 		nodeID := string(node.UID)
-		for sc, volumes := range scVolumeMap {
-			for _, volume := range volumes {
+		for sc, scVolumes := range scVolumeMap {
+			for _, volume := range scVolumes {
 				subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
 				forLVM := util.IsStorageClassLVG(sc)
 
-				if len(acByNodeAndSCMap[nodeID][sc]) == 0 && len(acByNodeAndSCMap[nodeID][subSC]) == 0 {
+				if len(acByNodeAndSCMap[nodeID][sc]) == 0 &&
+					len(acByNodeAndSCMap[nodeID][subSC]) == 0 &&
+					sc != v1.StorageClassAny {
 					matched = false
 					goto CheckMatched
 				}
@@ -291,39 +292,44 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 					if forLVM {
 						// search AC in sub storage class
 						ac = e.searchClosestAC(acByNodeAndSCMap[nodeID][subSC], volume)
-						if ac != nil { // found
-							// mark such AC by real SC (switch sc to subSC) and just change AC volume
-							ac.Spec.StorageClass = subSC
-							ac.Spec.Size -= volume.Size
-							delete(acByNodeAndSCMap[nodeID][subSC], ac.Name)
-							if ac.Spec.Size > common.AcSizeMinThresholdBytes {
-								if _, ok := acByNodeAndSCMap[nodeID][sc]; !ok {
-									acByNodeAndSCMap[nodeID][sc] = map[string]*accrd.AvailableCapacity{}
-								}
-								acByNodeAndSCMap[nodeID][sc][ac.Name] = ac
+					} else if sc == v1.StorageClassAny {
+						for _, acs := range acByNodeAndSCMap[nodeID] {
+							ac = e.searchClosestAC(acs, volume)
+							if ac != nil {
+								break
 							}
-							continue
 						}
+					}
+					if ac == nil {
+						// as soon as for some volume in some SC there are no any AC - consider
+						// that node doesn't match volumes requests
+						matched = false
+						goto CheckMatched
+					}
+				}
+				// here ac != nil
+				if ac.Spec.StorageClass != sc { // sc relates to LVG or sc == ANY
+					if util.IsStorageClassLVG(ac.Spec.StorageClass) || forLVM {
+						if forLVM {
+							// remove AC with subSC
+							delete(acByNodeAndSCMap[nodeID][subSC], ac.Name)
+							ac.Spec.StorageClass = sc // e.g. HDD -> HDDLVG
+							if _, ok := acByNodeAndSCMap[nodeID][sc]; !ok {
+								acByNodeAndSCMap[nodeID][sc] = map[string]*accrd.AvailableCapacity{}
+							}
+							acByNodeAndSCMap[nodeID][sc][ac.Name] = ac
+						}
+						ac.Spec.Size -= volume.Size
+					} else {
+						// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
+						delete(acByNodeAndSCMap[nodeID][ac.Spec.StorageClass], ac.Name)
 					}
 				} else {
 					if forLVM {
-						// update corresponding AC volume
 						ac.Spec.Size -= volume.Size
-						if ac.Spec.Size > common.AcSizeMinThresholdBytes {
-							acByNodeAndSCMap[nodeID][sc][ac.Name] = ac
-						} else {
-							delete(acByNodeAndSCMap[nodeID][sc], ac.Name)
-						}
 					} else {
-						// picked up AC that was found (remove from AC list)
 						delete(acByNodeAndSCMap[nodeID][sc], ac.Name)
 					}
-				}
-				if ac == nil {
-					// as soon as for some volume in some SC there are no any AC - consider
-					// that node doesn't match volumes requests
-					matched = false
-					goto CheckMatched
 				}
 			}
 		}

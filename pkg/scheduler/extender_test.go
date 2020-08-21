@@ -306,9 +306,8 @@ func TestExtender_filterSuccess(t *testing.T) {
 		},
 		{
 			Volumes: []*genV1.Volume{
-				// {StorageClass: v1.StorageClassANY, Size: 150 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassAny, Size: 150 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassAny, Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node3Name},
 			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: [NODE-3]",
@@ -344,14 +343,23 @@ func TestExtender_filterSuccess(t *testing.T) {
 			ExpectedNodeNames: []string{node1Name, node2Name, node3Name},
 			Msg:               "Volumes: HDDLVG[100Gb]; Expected nodes: [NODE-1, NODE-2, NODE-3]",
 		},
+		{
+			Volumes: []*genV1.Volume{
+				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+			},
+			ExpectedNodeNames: []string{},
+			Msg:               "Volumes: HDDLVG[100Gb], SSDLVG[50Gb]; Expected nodes: []",
+		},
 	}
 
 	for _, testCase := range testCases {
 		matchedNodes, failedNode, err := e.filter(nodes, testCase.Volumes)
 		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
-		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes), testCase.Msg)
-		assert.Nil(t, err, testCase.Msg)
 		matchedNodeNames := getNodeNames(matchedNodes)
+		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
+			fmt.Sprintf("Matched nodes %v. Test case: %v", matchedNodeNames, testCase.Msg))
+		assert.Nil(t, err, testCase.Msg)
 
 		for _, n := range testCase.ExpectedNodeNames {
 			assert.True(t, util.ContainsString(matchedNodeNames, n),
