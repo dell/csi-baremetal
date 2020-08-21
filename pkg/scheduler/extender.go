@@ -231,67 +231,12 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		matched = true
 		nodeID := string(node.UID)
 		for sc, scVolumes := range scVolumeMapping {
-			for _, volume := range scVolumes {
-				subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
-				forLVM := util.IsStorageClassLVG(sc)
-
-				if len(acByNodeAndSCMap[nodeID][sc]) == 0 &&
-					len(acByNodeAndSCMap[nodeID][subSC]) == 0 &&
-					sc != v1.StorageClassAny {
-					matched = false
-					e.logger.Infof("goto CheckMatched, node - %v, from if len statement", node.Name)
-					goto CheckMatched
-				}
-
-				var ac *accrd.AvailableCapacity
-				ac = e.searchClosestAC(acByNodeAndSCMap[nodeID][sc], volume)
-				if ac == nil {
-					if forLVM {
-						// search AC in sub storage class
-						ac = e.searchClosestAC(acByNodeAndSCMap[nodeID][subSC], volume)
-					} else if sc == v1.StorageClassAny {
-						for _, acs := range acByNodeAndSCMap[nodeID] {
-							ac = e.searchClosestAC(acs, volume)
-							if ac != nil {
-								break
-							}
-						}
-					}
-					if ac == nil {
-						// as soon as for some volume in some SC there are no any AC - consider
-						// that node doesn't match volumes requests
-						matched = false
-						e.logger.Infof("goto CheckMatched, node - %v, from ac == nil statement", node.Name)
-						goto CheckMatched
-					}
-				}
-				// here ac != nil
-				if ac.Spec.StorageClass != sc { // sc relates to LVG or sc == ANY
-					if util.IsStorageClassLVG(ac.Spec.StorageClass) || forLVM {
-						if forLVM {
-							// remove AC with subSC
-							delete(acByNodeAndSCMap[nodeID][subSC], ac.Name)
-							ac.Spec.StorageClass = sc // e.g. HDD -> HDDLVG
-							if _, ok := acByNodeAndSCMap[nodeID][sc]; !ok {
-								acByNodeAndSCMap[nodeID][sc] = map[string]*accrd.AvailableCapacity{}
-							}
-							acByNodeAndSCMap[nodeID][sc][ac.Name] = ac
-						}
-						ac.Spec.Size -= volume.Size
-					} else {
-						// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
-						delete(acByNodeAndSCMap[nodeID][ac.Spec.StorageClass], ac.Name)
-					}
-				} else {
-					if forLVM {
-						ac.Spec.Size -= volume.Size
-					} else {
-						delete(acByNodeAndSCMap[nodeID][sc], ac.Name)
-					}
-				}
+			if !e.isACMatchVolumeRequests(acByNodeAndSCMap[nodeID], sc, scVolumes) {
+				matched = false
+				break
 			}
 		}
-	CheckMatched:
+
 		if matched {
 			matchedNodes = append(matchedNodes, node)
 		} else {
@@ -303,6 +248,69 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	}
 
 	return matchedNodes, failedNodesMap, err
+}
+
+// isACMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
+// scACMap - map that represents available capacity and has next structure: map[StorageClass][AC.Name]*AC
+func (e *Extender) isACMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
+	sc string, volumes []*genV1.Volume) bool {
+	for _, volume := range volumes {
+		subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
+		forLVM := util.IsStorageClassLVG(sc)
+
+		if len(scACMap[sc]) == 0 &&
+			len(scACMap[subSC]) == 0 &&
+			sc != v1.StorageClassAny {
+			return false
+		}
+
+		var ac *accrd.AvailableCapacity
+		ac = e.searchClosestAC(scACMap[sc], volume)
+		if ac == nil {
+			if forLVM {
+				// search AC in sub storage class
+				ac = e.searchClosestAC(scACMap[subSC], volume)
+			} else if sc == v1.StorageClassAny {
+				for _, acs := range scACMap {
+					ac = e.searchClosestAC(acs, volume)
+					if ac != nil {
+						break
+					}
+				}
+			}
+			if ac == nil {
+				// as soon as for some volume in some SC there are no any AC - consider
+				// that whole volumes suite couldn't be provisioned based on available capacities
+				return false
+			}
+		}
+		// here ac != nil
+		if ac.Spec.StorageClass != sc { // sc relates to LVG or sc == ANY
+			if util.IsStorageClassLVG(ac.Spec.StorageClass) || forLVM {
+				if forLVM {
+					// remove AC with subSC
+					delete(scACMap[subSC], ac.Name)
+					ac.Spec.StorageClass = sc // e.g. HDD -> HDDLVG
+					if _, ok := scACMap[sc]; !ok {
+						scACMap[sc] = map[string]*accrd.AvailableCapacity{}
+					}
+					scACMap[sc][ac.Name] = ac
+				}
+				ac.Spec.Size -= volume.Size
+			} else {
+				// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
+				delete(scACMap[ac.Spec.StorageClass], ac.Name)
+			}
+		} else {
+			if forLVM {
+				ac.Spec.Size -= volume.Size
+			} else {
+				delete(scACMap[sc], ac.Name)
+			}
+		}
+	}
+
+	return true
 }
 
 // searchClosestAC search AC that match all requirements from volume (size)
