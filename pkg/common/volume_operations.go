@@ -139,7 +139,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
 
-		if sc == apiV1.StorageClassHDDLVG || sc == apiV1.StorageClassSSDLVG {
+		if util.IsStorageClassLVG(sc) {
 			lvg := &lvgcrd.LVG{}
 			if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
 				ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
