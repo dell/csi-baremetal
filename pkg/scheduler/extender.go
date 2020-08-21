@@ -98,7 +98,8 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if len(matchedNodes) == 0 {
 		ll.Warn("No one node match requested volumes")
 	} else {
-		ll.Infof("Construct response. Suitable nodes - %v. Failed nodes - %v", matchedNodes, failedNodes)
+		ll.Infof("Construct response. Get %d nodes in request. Among them suitable nodes count %v. Filtered out nodes - %v",
+			len(extenderArgs.Nodes.Items), len(matchedNodes), failedNodes)
 	}
 
 	extenderRes.Nodes = &coreV1.NodeList{
