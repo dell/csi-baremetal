@@ -98,7 +98,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if len(matchedNodes) == 0 {
 		ll.Warn("No one node match requested volumes")
 	} else {
-		ll.Infof("Construct response. Get %d nodes in request. Among them suitable nodes count %v. Filtered out nodes - %v",
+		ll.Infof("Construct response. Get %d nodes in request. Among them suitable nodes count is %d. Filtered out nodes - %v",
 			len(extenderArgs.Nodes.Items), len(matchedNodes), failedNodes)
 	}
 
@@ -114,7 +114,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // gatherVolumesByProvisioner search all volumes in pod' spec that should be provisioned
-// by provisioner that match provisionerMask and construct genV1.Volume struct for each of such volume
+// by provisioner e.provisioner and construct genV1.Volume struct for each of such volume
 func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.Volume, error) {
 	ll := e.logger.WithFields(logrus.Fields{
 		"sessionUUID": ctx.Value(k8s.RequestUUID),
@@ -230,9 +230,8 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	matched := false
 	for _, node := range nodes {
 		matched = true
-		nodeID := string(node.UID)
 		for sc, scVolumes := range scVolumeMapping {
-			if !e.isACMatchVolumeRequests(acByNodeAndSCMap[nodeID], sc, scVolumes) {
+			if !e.isACMatchVolumeRequests(acByNodeAndSCMap[string(node.UID)], sc, scVolumes) {
 				matched = false
 				break
 			}
@@ -252,7 +251,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 }
 
 // isACMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
-// scACMap - map that represents available capacity and has next structure: map[StorageClass][AC.Name]*AC
+// scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
 func (e *Extender) isACMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) bool {
 	for _, volume := range volumes {
