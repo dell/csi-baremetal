@@ -222,7 +222,7 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
 	if len(volumes) == 0 {
-		return
+		return nodes, failedNodesMap, err
 	}
 
 	var acList = &accrd.AvailableCapacityList{}
