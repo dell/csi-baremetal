@@ -42,9 +42,17 @@ func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, 
 // Receives string name of StorageClass
 // Returns string of CSI StorageClass
 func ConvertStorageClass(strSC string) string {
+	// TODO: use map or something else for such conversion AK8S-1305
 	sc := strings.ToUpper(strSC)
-	if sc == api.StorageClassHDD || sc == api.StorageClassSSD || sc == api.StorageClassNVMe ||
-		sc == api.StorageClassHDDLVG || sc == api.StorageClassSSDLVG {
+	switch sc {
+	case api.StorageClassHDD,
+		api.StorageClassSSD,
+		api.StorageClassNVMe,
+		api.StorageClassHDDLVG,
+		api.StorageClassSSDLVG,
+		api.StorageClassNVMeLVG,
+		api.StorageClassSystemLVG,
+		api.StorageClassAny:
 		return sc
 	}
 
@@ -65,6 +73,29 @@ func ConvertDriveTypeToStorageClass(driveType string) string {
 	default:
 		return api.StorageClassAny
 	}
+}
+
+// GetSubStorageClass return appropriate underlying storage class for
+// storage classes that are based on LVM, or empty string
+func GetSubStorageClass(sc string) string {
+	switch sc {
+	case api.StorageClassHDDLVG:
+		return api.StorageClassHDD
+	case api.StorageClassSSDLVG:
+		return api.StorageClassSSD
+	case api.StorageClassNVMeLVG:
+		return api.StorageClassNVMe
+	default:
+		return ""
+	}
+}
+
+// IsStorageClassLVG returns whether provided sc relates to LVG or no
+func IsStorageClassLVG(sc string) bool {
+	return sc == api.StorageClassHDDLVG ||
+		sc == api.StorageClassSSDLVG ||
+		sc == api.StorageClassNVMeLVG ||
+		sc == api.StorageClassSystemLVG
 }
 
 // ContainsString return true if slice contains string str

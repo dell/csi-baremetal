@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
@@ -352,9 +354,32 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					},
 					Spec: volume,
 				}
+				logicalVolumeGroup = api.LogicalVolumeGroup{
+					Name:       testDriveLocation4,
+					Node:       testNode2Name,
+					Locations:  []string{testDriveLocation4},
+					VolumeRefs: []string{uuid},
+					Status:     apiV1.Creating,
+					Size:       capacity,
+				}
+				lvgCR = lvgcrd.LVG{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Name:      testDriveLocation4,
+						Namespace: controller.k8sclient.Namespace,
+					},
+					Spec: logicalVolumeGroup,
+				}
 			)
 			// create volume CR that should be deleted (created in BeforeEach)
 			err = controller.k8sclient.CreateCR(testCtx, uuid, &volumeCrd)
+			Expect(err).To(BeNil())
+
+			// create LVG CR
+			err = controller.k8sclient.CreateCR(testCtx, uuid, &lvgCR)
+			Expect(err).To(BeNil())
+
+			lvgCRs := &lvgcrd.LVGList{}
+			err = controller.k8sclient.ReadList(testCtx, lvgCRs)
 			Expect(err).To(BeNil())
 
 			go testutils.VolumeReconcileImitation(controller.svc, volumeCrd.Spec.Id, apiV1.Removed)
@@ -372,8 +397,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			acList := accrd.AvailableCapacityList{}
 			err = controller.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(1)) // expect that amount of AC was not increased
-			Expect(acList.Items[0].Spec.Size - capacity).To(Equal(testAC3.Spec.Size))
+			Expect(len(acList.Items)).To(Equal(0)) // expect that LVG AC was removed
 		})
 		It("Volume is deleted successful, LVG AC recreated", func() {
 			removeAllCrds(controller.k8sclient) // remove CRs that was created in BeforeEach()

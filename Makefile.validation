@@ -7,6 +7,7 @@ lint:
 
 lint-charts:
 	helm lint ./${CHARTS_PATH}
+	helm lint ./${EXTENDER_CHARTS_PATH}
 
 ### Unit tests
 
@@ -53,6 +54,8 @@ kind-pull-images:
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -62,6 +65,8 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG} ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${PROJECT}-${NODE}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${PROJECT}-${CONTROLLER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ${PROJECT}-${EXTENDER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 
 kind-load-images:
 	kind load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -72,3 +77,5 @@ kind-load-images:
 	kind load docker-image ${PROJECT}-${NODE}:${TAG}
 	kind load docker-image ${PROJECT}-${CONTROLLER}:${TAG}
 	kind load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
+	kind load docker-image ${PROJECT}-${EXTENDER}:${TAG}
+	kind load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}

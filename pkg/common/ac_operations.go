@@ -93,7 +93,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	} else {
 		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 	}
-	if sc == apiV1.StorageClassHDDLVG || sc == apiV1.StorageClassSSDLVG {
+	if util.IsStorageClassLVG(sc) {
 		if foundAC != nil {
 			// check whether LVG being deleted or no
 			lvgCR := &lvgcrd.LVG{}
@@ -104,17 +104,14 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 		}
 		// if storageClass is related to LVG and there is no AC with that storageClass
 		// search drive with subclass on which LVG will be creating
-		subSC := apiV1.StorageClassHDD
-		if sc == apiV1.StorageClassSSDLVG {
-			subSC = apiV1.StorageClassSSD
-		}
+		subSC := util.GetSubStorageClass(sc)
 		ll.Infof("StorageClass is in LVG, search AC with subStorageClass %s", subSC)
 		foundAC = a.SearchAC(ctx, node, requiredBytes, subSC)
 		if foundAC == nil {
 			return nil
 		}
 		ll.Infof("Got AC %v", foundAC)
-		return a.recreateACToLVGSC(sc, foundAC)
+		return a.recreateACToLVGSC(sc, *foundAC)
 	}
 
 	return foundAC
@@ -182,10 +179,10 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 }
 
 // recreateACToLVGSC creates LVG(based on ACs), ensure it become ready,
-// creates AC based on that LVG and removes provided ACs.
+// creates AC based on that LVG and set sise of provided ACs to 0.
 // Receives sc as string (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
-func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...*accrd.AvailableCapacity) *accrd.AvailableCapacity {
+func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithField("method", "recreateACToLVGSC")
 
 	lvgLocations := make([]string, len(acs))
@@ -207,14 +204,12 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...*accrd.AvailableC
 		}
 	)
 
-	// remove ACs at the first because if LVG creation fails some drives could be
-	// corrupted and that mean that ACs based on that drive will not be working
-	// if LVG creation fails and drives were not corrupted, ACs based on that drives
-	// will be recreated by particular node manager
+	// set size ACs to 0 to avoid allocations
 	for _, ac := range acs {
-		if err = a.k8sClient.DeleteCR(context.Background(), ac); err != nil {
-			ll.Errorf("Unable to remove AC %v, error: %v. Two ACs that and LVG have location in the same drive.",
-				ac, err)
+		ac.Spec.Size = 0
+		// nolint: scopelint
+		if err = a.k8sClient.UpdateCR(context.Background(), &ac); err != nil {
+			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
 		}
 	}
 

@@ -33,7 +33,7 @@ build-extender:
 
 ### Build images
 
-images: image-drivemgr image-node image-controller image-extender
+images: image-drivemgr image-node image-controller image-extender image-extender-patcher
 
 base-images: base-image-drivemgr base-image-node base-image-controller
 
@@ -73,9 +73,12 @@ image-extender:
 	cp ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./pkg/${SCHEDULER_EXTENDER_PKG}/${EXTENDER}
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PKG}
 
+image-extender-patcher:
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PATCHER_PKG}
+
 ### Push images
 
-push: push-drivemgr push-node push-controller push-extender
+push: push-drivemgr push-node push-controller push-extender push-extender-patcher
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -88,6 +91,9 @@ push-controller:
 
 push-extender:
 	docker push ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+
+push-extender-patcher:
+	docker push ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 
 ### Clean artefacts
 
@@ -110,7 +116,7 @@ clean-extender:
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
-clean-images: clean-image-node clean-image-controller clean-image-drivemgr clean-image-extender
+clean-images: clean-image-node clean-image-controller clean-image-drivemgr clean-image-extender clean-image-extender-patcher
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -123,6 +129,9 @@ clean-image-controller:
 
 clean-image-extender:
 	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+
+clean-image-extender-patcher:
+	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 
 ### API targets
 

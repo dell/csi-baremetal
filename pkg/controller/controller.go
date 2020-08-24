@@ -172,10 +172,6 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, err
 	}
 
-	if err = c.acProvider.DeleteIfEmpty(ctx, vol.Location); err != nil {
-		ll.Errorf("Unable to check AC size by location: %v", err)
-	}
-
 	if vol.CSIStatus == apiV1.Creating {
 		ll.Info("Waiting until volume will reach Created status")
 		if err := c.svc.WaitStatus(ctx, vol.Id, apiV1.Failed, apiV1.Created); err != nil {

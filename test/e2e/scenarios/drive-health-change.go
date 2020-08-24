@@ -88,7 +88,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test DriveHealthChange")
-		common.CleanupAfterCustomTest(f, driverCleanup, pod, []*corev1.PersistentVolumeClaim{pvc})
+		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
 	ginkgo.It("should discover drives' health changes and delete ac or change volume health", func() {

@@ -419,11 +419,10 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 	})
 
 	var (
-		err       error
-		wasError  = false
-		volumeCRs = m.crHelper.GetVolumeCRs(m.nodeID)
-		lvgList   = &lvgcrd.LVGList{}
-		acList    = &accrd.AvailableCapacityList{}
+		err      error
+		wasError = false
+		lvgList  = &lvgcrd.LVGList{}
+		acList   = &accrd.AvailableCapacityList{}
 	)
 
 	if err = m.k8sClient.ReadList(ctx, lvgList); err != nil {
@@ -438,32 +437,6 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 			continue
 		}
 
-		isUsed := false
-
-		// check whether drive is consumed by volume or no
-		for _, volume := range volumeCRs {
-			if strings.EqualFold(volume.Spec.Location, drive.Spec.UUID) {
-				isUsed = true
-				break
-			}
-		}
-
-		// check whether drive is consumed by LVG or no
-		if !isUsed {
-			for _, lvg := range lvgList.Items {
-				if util.ContainsString(lvg.Spec.Locations, drive.Spec.UUID) {
-					isUsed = true
-					break
-				}
-			}
-		}
-
-		// drive is consumed by volume or LVG
-		if isUsed {
-			continue
-		}
-
-		// If drive isn't used by Volume or LVG then try to create AC CR from it
 		capacity := &api.AvailableCapacity{
 			Size:         drive.Spec.Size,
 			Location:     drive.Spec.UUID,
@@ -473,7 +446,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 
 		name := capacity.NodeId + "-" + strings.ToLower(capacity.Location)
 
-		// check whether appropriate AC exists or no
+		// check whether appropriate AC exists or not
 		acExist := false
 		for _, ac := range acList.Items {
 			if ac.Spec.Location == drive.Spec.UUID {
@@ -547,7 +520,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 				return err
 			}
 			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
-			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSSDLVG, vgFreeSpace)
+			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSystemLVG, vgFreeSpace)
 		}
 	}
 
@@ -609,17 +582,16 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
 	}
-	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSSDLVG, vgFreeSpace)
+	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSystemLVG, vgFreeSpace)
 }
 
 // getProvisionerForVolume returns appropriate Provisioner implementation for volume
 func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
-	switch vol.StorageClass {
-	case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
+	if util.IsStorageClassLVG(vol.StorageClass) {
 		return m.provisioners[p.LVMBasedVolumeType]
-	default:
-		return m.provisioners[p.DriveBasedVolumeType]
 	}
+
+	return m.provisioners[p.DriveBasedVolumeType]
 }
 
 // handleDriveStatusChange removes AC that is based on unhealthy drive, returns AC if drive returned to healthy state,

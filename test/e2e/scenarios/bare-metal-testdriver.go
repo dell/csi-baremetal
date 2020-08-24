@@ -3,7 +3,6 @@ package scenarios
 import (
 	"fmt"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
 
@@ -11,12 +10,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"sigs.k8s.io/yaml"
+
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 type baremetalDriver struct {
@@ -27,6 +29,7 @@ type baremetalDriver struct {
 var (
 	BaremetalDriver = InitBaremetalDriver
 	cmName          = "loopback-config"
+	manifestsFolder = "baremetal-csi-plugin/templates/"
 )
 
 func initBaremetalDriver(name string) testsuites.TestDriver {
@@ -78,9 +81,9 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	cancelLogging := testsuites.StartPodLogs(f)
 
 	manifests := []string{
-		"controller-rbac.yaml",
-		"node-rbac.yaml",
-		"baremetal-csi-node.yaml",
+		manifestsFolder + "controller-rbac.yaml",
+		manifestsFolder + "node-rbac.yaml",
+		manifestsFolder + "baremetal-csi-node.yaml",
 	}
 	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/baremetal-csi-controller.yaml")
 	framework.ExpectNoError(err)
@@ -100,10 +103,18 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		framework.ExpectNoError(err)
 	}
 
-	cleanup, err := f.CreateFromManifests(nil, manifests...)
+	driverCleanup, err := f.CreateFromManifests(nil, manifests...)
 
 	if err != nil {
 		framework.Failf("deploying csi baremetal driver: %v", err)
+	}
+
+	extenderCleanup := common.DeploySchedulerExtender(f)
+	time.Sleep(time.Second * 30) // quick hack, need to wait until default scheduler will be restarted
+
+	cleanup := func() {
+		driverCleanup()
+		extenderCleanup()
 	}
 
 	return &testsuites.PerTestConfig{

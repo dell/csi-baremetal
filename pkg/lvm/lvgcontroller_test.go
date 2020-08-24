@@ -395,7 +395,7 @@ func Test_removeLVGArtifacts_Fail(t *testing.T) {
 	assert.Contains(t, err.Error(), "unable to remove LVG")
 }
 
-func Test_RemoveChildAC(t *testing.T) {
+func Test_increaseACSize(t *testing.T) {
 	c := setup(t, node1ID)
 	defer teardown(t, c)
 
@@ -403,25 +403,14 @@ func Test_RemoveChildAC(t *testing.T) {
 	err := c.k8sClient.CreateCR(tCtx, acCR1Name, &acCR1)
 	assert.Nil(t, err)
 
-	c.removeChildAC(acCR1.Spec.Location)
+	size := acCR1.Spec.Size
+	drive := acCR1.Spec.Location
+	c.increaseACSize(drive, 1)
 
-	// expect that there are no any AC CR
 	acList := &accrd.AvailableCapacityList{}
 	err = c.k8sClient.ReadList(tCtx, acList)
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(acList.Items))
 
-	// add AC CR that point in lvgCR1
-	err = c.k8sClient.CreateCR(tCtx, acCR1Name, &acCR1)
-	assert.Nil(t, err)
-	// try to remove AC that point on lvgCR2
-	c.removeChildAC(lvgCR2.Name)
-
-	// expect that there are no any AC CR were removed
-	acList = &accrd.AvailableCapacityList{}
-	err = c.k8sClient.ReadList(tCtx, acList)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(acList.Items))
+	assert.Equal(t, size+1, acList.Items[0].Spec.Size)
 }
 
 // setup creates drive CRs and LVG CRs and returns LVGController instance
