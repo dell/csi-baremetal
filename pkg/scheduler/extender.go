@@ -227,6 +227,9 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 // failedNodesMap - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
+	if len(volumes) == 0 {
+		return
+	}
 	var acList = &accrd.AvailableCapacityList{}
 	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
 		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)
