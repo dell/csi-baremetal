@@ -59,8 +59,8 @@ void runTests() {
                                 "--set image.pullPolicy=IfNotPresent")
 						sh("helm template charts/scheduler-extender --output-dir /tmp --set image.tag=${csiVersion} " +
 								"--set env.test=true " +
-								"--set image.pullPolicy=IfNotPresent" +
-								"--set patcher.enable=true" +
+								"--set image.pullPolicy=IfNotPresent " +
+								"--set patcher.enable=true " +
 								"--set patcher.restore_on_shutdown=true")
                     }
                     // for LVM tests we need to use custom kind version with --ipc-host for worker nodes
