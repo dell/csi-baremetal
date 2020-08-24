@@ -57,6 +57,11 @@ void runTests() {
                                 "--set drivemgr.type=loopbackmgr " +
                                 "--set drivemgr.deployConfig=true " +
                                 "--set image.pullPolicy=IfNotPresent")
+						sh("helm template charts/scheduler-extender --output-dir /tmp --set image.tag=${csiVersion} " +
+								"--set env.test=true " +
+								"--set image.pullPolicy=IfNotPresent " +
+								"--set patcher.enable=true " +
+								"--set patcher.restore_on_shutdown=true")
                     }
                     // for LVM tests we need to use custom kind version with --ipc-host for worker nodes
                     // todo - upstream custom changes - https://jira.cec.lab.emc.com:8443/browse/AK8S-1186
@@ -109,7 +114,8 @@ void runTests() {
                                               "baremetal-csi-plugin-controller",
                                               "baremetal-csi-plugin-basemgr",
                                               "baremetal-csi-plugin-halmgr",
-                                              "baremetal-csi-plugin-loopbackmgr",]
+                                              "baremetal-csi-plugin-loopbackmgr",
+                                              "baremetal-csi-plugin-extender"]
                         // retag in asdrepo
                         repos.each { String repo ->
                             String image = "${registry}/${repo}"

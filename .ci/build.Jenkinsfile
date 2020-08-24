@@ -145,7 +145,8 @@ private String getArtifactsJson(final Map<String, Object> args) {
             "baremetal-csi-plugin-controller",
             "baremetal-csi-plugin-halmgr",
             "baremetal-csi-plugin-basemgr",
-            "baremetal-csi-plugin-loopbackmgr"
+            "baremetal-csi-plugin-loopbackmgr",
+            "baremetal-csi-plugin-extender"
     ]
     images.each { image ->
         artifacts.add([
@@ -178,29 +179,39 @@ private String getArtifactsJson(final Map<String, Object> args) {
             "endpoint": "{{ ATLANTIC_REGISTRY }}",
             "path": "csi-node-driver-registrar",
     ])
-    artifacts.add([
-            "componentName": COMPONENT_NAME,
-            "version": args.version,
-            "type": "helm-chart",
-            "endpoint": "{{ ASD_REPO }}",
-            "path": args.chartsPath
-    ])
+    args.chartsPath.each {
+        artifacts.add([
+                "componentName": COMPONENT_NAME,
+                "version": args.version,
+                "type": "helm-chart",
+                "endpoint": "{{ ASD_REPO }}",
+                "path": it
+        ])
+    }
+
     return common.toJSON(["componentVersion": args.version, "componentArtifacts": artifacts], true)
 }
 
 void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
     final String chartsBuildPath = "build/charts"
-    sh("""
-        helm package charts/baremetal-csi-plugin/ --set image.tag=${args.version} --version ${args.version} --destination ${chartsBuildPath}
+    ["baremetal-csi-plugin", "scheduler-extender"].each {
+        sh("""
+        helm package charts/${it}/ --set image.tag=${args.version} --version ${args.version} --destination ${chartsBuildPath}
     """)
-    file = common.findFiles("${chartsBuildPath}/*.tgz")[0]
-    final String name = file.getName()
-    final String remoteName = file.getRemote()
-    final String chartsPathToPublish = "${ARTIFACTORY_FULL_CHARTS_PATH}/${args.version}"
-    common.publishFileToArtifactory(remoteName, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
+    }
+
+    files = common.findFiles("${chartsBuildPath}/*.tgz")
+    List <String> charts = []
+    files.each{ f ->
+        charts.add("${ARTIFACTORY_CHARTS_PATH}/${args.version}/"+ f.getName())
+        final String remoteName = f.getRemote()
+        final String chartsPathToPublish = "${ARTIFACTORY_FULL_CHARTS_PATH}/${args.version}"
+        common.publishFileToArtifactory(remoteName, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
+    }
+
     final String text = this.getArtifactsJson([
             version: args.version,
-            chartsPath: "${ARTIFACTORY_CHARTS_PATH}/${args.version}/${name}"
+            chartsPath: charts
     ])
 
     writeFile(file: "artifacts.json",
