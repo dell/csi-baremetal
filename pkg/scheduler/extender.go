@@ -131,10 +131,8 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 
 	volumes := make([]*genV1.Volume, 0)
 	for _, v := range pod.Spec.Volumes {
-		ll.Debugf("Inspecting pod volume %+v", v)
 		// check whether there are Ephemeral volumes or no
 		if v.CSI != nil {
-			ll.Debugf("Detect volume from CSI source: %v", v.CSI)
 			if v.CSI.Driver == e.provisioner {
 				volume, err := e.constructVolumeFromCSISource(v.CSI)
 				if err != nil {
@@ -146,7 +144,6 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 			continue
 		}
 		if v.PersistentVolumeClaim != nil {
-			ll.Debugf("Detect volume from PVC: %v", v.PersistentVolumeClaim)
 			pvc := &coreV1.PersistentVolumeClaim{}
 			err := e.k8sClient.Get(ctx,
 				k8sCl.ObjectKey{Name: v.PersistentVolumeClaim.ClaimName, Namespace: pod.Namespace},
@@ -156,15 +153,12 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 				return nil, err
 			}
 			if pvc.Spec.StorageClassName == nil {
-				ll.Debugf("Storage class is nil for PVC %s", pvc.Name)
 				continue
 			}
 			if _, ok := scs[*pvc.Spec.StorageClassName]; !ok {
-				ll.Debugf("That pvc %s will be provisoned by another CSI driver, not a %s", pvc.Name, e.provisioner)
 				continue
 			}
 			if pvc.Status.Phase == coreV1.ClaimBound {
-				ll.Debugf("PVC %s has already bound. Skip ...", pvc.Name)
 				continue
 			}
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
@@ -230,6 +224,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	if len(volumes) == 0 {
 		return
 	}
+
 	var acList = &accrd.AvailableCapacityList{}
 	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
 		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)
