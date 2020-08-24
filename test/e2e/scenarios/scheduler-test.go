@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"fmt"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo"
@@ -24,16 +25,30 @@ func DefineSchedulerTestSuite(driver testsuites.TestDriver) {
 	})
 }
 
+var (
+	storageClassAny    = apiV1.StorageClassAny
+	storageClassHDD    = apiV1.StorageClassHDD
+	storageClassSSD    = apiV1.StorageClassSSD
+	storageClassNVMe   = apiV1.StorageClassNVMe
+	storageClassHDDLVG = apiV1.StorageClassHDDLVG
+	storageClassSSDLVG = apiV1.StorageClassSSDLVG
+
+	driveTypeHDD  = apiV1.DriveTypeHDD
+	driveTypeSSD  = apiV1.DriveTypeSSD
+	driveTypeNVMe = apiV1.DriveTypeNVMe
+)
+
 // schedulingTest test custom extender for scheduler
 func schedulingTest(driver testsuites.TestDriver) {
 	var (
-		pods           []*corev1.Pod
-		pvcs           []*corev1.PersistentVolumeClaim
-		updateM        sync.Mutex
-		driverCleanup  func()
-		ns             string
-		f              = framework.NewDefaultFramework("scheduling-test")
-		availableSC    = []string{"ANY", "HDD", "SSD", "NVME"}
+		testPODs      []*corev1.Pod
+		testPVCs      []*corev1.PersistentVolumeClaim
+		updateM       sync.Mutex
+		driverCleanup func()
+		ns            string
+		f             = framework.NewDefaultFramework("scheduling-test")
+		availableSC   = []string{storageClassAny, storageClassHDD, storageClassSSD,
+			storageClassNVMe, storageClassHDDLVG, storageClassSSDLVG}
 		storageClasses = make(map[string]*storagev1.StorageClass)
 	)
 
@@ -67,27 +82,27 @@ func schedulingTest(driver testsuites.TestDriver) {
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test SchedulingTests")
-		common.CleanupAfterCustomTest(f, driverCleanup, pods, pvcs)
-		pods, pvcs = nil, nil
+		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
+		testPODs, testPVCs = nil, nil
 		storageClasses = make(map[string]*storagev1.StorageClass)
 	}
 
 	createTestPod := func(podSCList []string) (*corev1.Pod, []*corev1.PersistentVolumeClaim) {
-		var pvcs []*corev1.PersistentVolumeClaim
+		var podPVCs []*corev1.PersistentVolumeClaim
 		for _, scKey := range podSCList {
 			sc := storageClasses[scKey]
 			pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(
 				constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(),
 					sc.Name, pvcName+"-"+uuid.New().String()))
 			framework.ExpectNoError(err)
-			pvcs = append(pvcs, pvc)
+			podPVCs = append(podPVCs, pvc)
 		}
-		pod := startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		pod := startAndWaitForPodWithPVCRunning(f, ns, podPVCs)
 		updateM.Lock()
-		pods = append(pods, pod)
-		pvcs = append(pvcs, pvcs...)
+		testPODs = append(testPODs, pod)
+		testPVCs = append(testPVCs, podPVCs...)
 		updateM.Unlock()
-		return pod, pvcs
+		return pod, testPVCs
 	}
 
 	createTestPods := func(testPodsCount int, testPodsDisksPerPod int) {
@@ -161,32 +176,51 @@ func schedulingTest(driver testsuites.TestDriver) {
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
 			Nodes: &[]common.LoopBackManagerConfigNode{
-				*buildLMDrivesConfig(node1, []string{"HDD", "SSD"}),
-				*buildLMDrivesConfig(node2, []string{"HDD", "NVME", "HDD"}),
-				*buildLMDrivesConfig(node3, []string{"HDD", "HDD"}),
+				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeSSD}}),
+				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeNVMe}, {DriveType: &driveTypeSSD}}),
+				*buildLMDrivesConfig(node3, []common.LoopBackManagerConfigDevice{
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeHDD}}),
 			}}
 		init(lmConfig)
 		defer cleanup()
 
-		createTestPod([]string{"HDD", "SSD"})
-		createTestPod([]string{"HDD", "NVME"})
-		createTestPod([]string{"HDD", "HDD"})
-		createTestPod([]string{"ANY"})
+		createTestPod([]string{storageClassHDD, storageClassSSD})
+		createTestPod([]string{storageClassHDD, storageClassNVMe})
+		createTestPod([]string{storageClassHDD, storageClassHDD})
+		createTestPod([]string{storageClassAny})
+	})
+
+	ginkgo.It("2 LVM PV on one drive", func() {
+		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 2)
+
+		defaultDriveCount := 0
+		node1, node2 := nodes[0], nodes[1]
+		driveSize := "250Mi"
+		lmConfig := &common.LoopBackManagerConfig{
+			DefaultDriveCount: &defaultDriveCount,
+			Nodes: &[]common.LoopBackManagerConfigNode{
+				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
+					{DriveType: &driveTypeHDD, Size: &driveSize}}),
+				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
+					{DriveType: &driveTypeSSD, Size: &driveSize}}),
+			}}
+		init(lmConfig)
+		defer cleanup()
+
+		createTestPod([]string{storageClassHDDLVG, storageClassHDDLVG})
+		createTestPod([]string{storageClassSSDLVG, storageClassSSDLVG})
 	})
 
 }
 
-func buildLMDrivesConfig(node string, driveTypes []string) *common.LoopBackManagerConfigNode {
-	var devices []common.LoopBackManagerConfigDevice
-	for _, dt := range driveTypes {
-		dt := dt
-		devices = append(devices, common.LoopBackManagerConfigDevice{DriveType: &dt})
-	}
-	drivesCount := len(driveTypes)
+func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevice) *common.LoopBackManagerConfigNode {
+	drivesCount := len(drives)
 	return &common.LoopBackManagerConfigNode{
 		NodeID:     &node,
 		DriveCount: &drivesCount,
-		Drives:     &devices,
+		Drives:     &drives,
 	}
 }
 
