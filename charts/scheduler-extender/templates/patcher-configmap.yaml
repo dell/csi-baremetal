@@ -1,0 +1,28 @@
+{{- if .Values.patcher.enable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.patcher.config_map_name }}
+data:
+  {{ .Values.patcher.source_config_path }}: |
+    apiVersion: kubescheduler.config.k8s.io/v1alpha1
+    kind: KubeSchedulerConfiguration
+    schedulerName: default-scheduler
+    algorithmSource:
+      policy:
+        file:
+          path: {{ .Values.patcher.target_policy_path }}
+    leaderElection:
+      leaderElect: true
+    clientConnection:
+      kubeconfig: /etc/kubernetes/scheduler.conf
+  {{ .Values.patcher.source_policy_path }}: |
+    apiVersion: v1
+    kind: Policy
+    extenders:
+      - urlPrefix: "http://127.0.0.1:{{ .Values.port }}"
+        filterVerb: filter
+        enableHttps: false
+        nodeCacheCapable: false
+        ignorable: true
+{{ end }}

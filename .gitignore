@@ -19,6 +19,7 @@ pkg/drivemgr/halmgr/halmgr
 pkg/drivemgr/loopbackmgr/loopbackmgr
 pkg/drivemgr/idracmgr/idracmgr
 pkg/scheduler/extender
+pkg/scheduler/schedulerpatcher
 # tests results
 coverage.out
 coverage.html

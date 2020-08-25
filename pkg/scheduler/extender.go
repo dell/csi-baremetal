@@ -131,7 +131,6 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 
 	volumes := make([]*genV1.Volume, 0)
 	for _, v := range pod.Spec.Volumes {
-		e.logger.Tracef("Inspecting pod volume %+v", v)
 		// check whether there are Ephemeral volumes or no
 		if v.CSI != nil {
 			if v.CSI.Driver == e.provisioner {
@@ -154,6 +153,12 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 				return nil, err
 			}
 			if pvc.Spec.StorageClassName == nil {
+				continue
+			}
+			if _, ok := scs[*pvc.Spec.StorageClassName]; !ok {
+				continue
+			}
+			if pvc.Status.Phase == coreV1.ClaimBound {
 				continue
 			}
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
@@ -216,6 +221,10 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 // failedNodesMap - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
+	if len(volumes) == 0 {
+		return nodes, failedNodesMap, err
+	}
+
 	var acList = &accrd.AvailableCapacityList{}
 	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
 		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)

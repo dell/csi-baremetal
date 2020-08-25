@@ -70,7 +70,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test DriveHealthChange")
-		common.CleanupAfterCustomTest(f, driverCleanup, pod, pvcs)
+		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, pvcs)
 	}
 
 	ginkgo.It("should create Pod with PVC with SSD type", func() {
