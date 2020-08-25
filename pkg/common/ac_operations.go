@@ -114,7 +114,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 			return nil
 		}
 		ll.Infof("Got AC %v", foundAC)
-		return a.recreateACToLVGSC(sc, foundAC)
+		return a.recreateACToLVGSC(sc, *foundAC)
 	}
 
 	return foundAC
@@ -185,7 +185,7 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 // creates AC based on that LVG and removes provided ACs.
 // Receives sc as string (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
-func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...*accrd.AvailableCapacity) *accrd.AvailableCapacity {
+func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithField("method", "recreateACToLVGSC")
 
 	lvgLocations := make([]string, len(acs))
@@ -207,11 +207,11 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...*accrd.AvailableC
 		}
 	)
 
-	// set size ACs to 0 at the first because if LVG creation fails some drives could be
-	// corrupted and that mean that ACs based on that drive will not be working
+	// set size ACs to 0 to avoid allocations
 	for _, ac := range acs {
 		ac.Spec.Size = 0
-		if err = a.k8sClient.UpdateCR(context.Background(), ac); err != nil {
+		// nolint: scopelint
+		if err = a.k8sClient.UpdateCR(context.Background(), &ac); err != nil {
 			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
 		}
 	}

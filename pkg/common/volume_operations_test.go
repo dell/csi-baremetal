@@ -364,26 +364,32 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	volumeID := "volumeID"
 	volumeID1 := "volumeID1"
 
-	testLVG.Spec.VolumeRefs = append(testLVG.Spec.VolumeRefs, volumeID, volumeID1)
-	err := svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID)
+	// CR not found error
+	testLVG.Spec.VolumeRefs = [](string){volumeID, volumeID1}
+	isDeleted, err := svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
+	assert.False(t, isDeleted)
 	assert.NotNil(t, err)
 	assert.True(t, k8sError.IsNotFound(err))
 
 	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
 	assert.Nil(t, err)
+	err = svc.k8sClient.CreateCR(context.Background(), testAC4.Name, &testAC4)
+	assert.Nil(t, err)
 
-	err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID)
+	// test deletion
+	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
+	assert.True(t, isDeleted)
 	assert.Nil(t, err)
 	lvg := &lvgcrd.LVG{}
 	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
+	assert.True(t, k8sError.IsNotFound(err))
+	ac := &accrd.AvailableCapacity{}
+	err = svc.k8sClient.ReadCR(context.Background(), testAC4.Name, ac)
+	assert.True(t, k8sError.IsNotFound(err))
 
-	err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID1)
-	assert.Nil(t, err)
-	lvg = &lvgcrd.LVG{}
-	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
-	assert.NotNil(t, err)
+	// try to remove again
+	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
+	assert.False(t, isDeleted)
 	assert.True(t, k8sError.IsNotFound(err))
 }
 

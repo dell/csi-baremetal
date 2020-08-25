@@ -410,7 +410,7 @@ func Test_increaseACSize(t *testing.T) {
 	acList := &accrd.AvailableCapacityList{}
 	err = c.k8sClient.ReadList(tCtx, acList)
 
-	assert.Equal(t, size + 1, acList.Items[0].Spec.Size)
+	assert.Equal(t, size+1, acList.Items[0].Spec.Size)
 }
 
 // setup creates drive CRs and LVG CRs and returns LVGController instance

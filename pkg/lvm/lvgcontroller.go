@@ -267,6 +267,7 @@ func (c *LVGController) increaseACSize(driveID string, size int64) {
 		if ac.Spec.Location == driveID {
 			ac.Spec.Size += size
 			ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, driveID)
+			// nolint: scopelint
 			if err := c.k8sClient.UpdateCR(ctxWithID, &ac); err != nil {
 				ll.Errorf("Unable to update size of AC %v, error: %v", ac, err)
 			}

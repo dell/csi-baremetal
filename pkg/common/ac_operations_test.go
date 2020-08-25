@@ -79,8 +79,15 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationSuccess(t *testing.T) {
 
 	err = acOp.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(acList.Items))
-	assert.Equal(t, apiV1.StorageClassHDDLVG, acList.Items[0].Spec.StorageClass)
+	assert.Equal(t, 2, len(acList.Items))
+	// this is AC for corresponding drive. Size must be 0
+	driveACSpec := acList.Items[0].Spec
+	assert.Equal(t, apiV1.StorageClassHDD, driveACSpec.StorageClass)
+	assert.Equal(t, int64(0), driveACSpec.Size)
+	// this is AC for corresponding LVG. Size must not be 0
+	lvgACSpec := acList.Items[1].Spec
+	assert.Equal(t, apiV1.StorageClassHDDLVG, lvgACSpec.StorageClass)
+	assert.Equal(t, testAC1.Spec.Size, lvgACSpec.Size)
 }
 
 func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
@@ -104,7 +111,10 @@ func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
 
 	err = acOp.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
-	assert.Equal(t, 0, len(acList.Items))
+	assert.Equal(t, 1, len(acList.Items))
+	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[0].Spec.StorageClass)
+	// 0 is expected since we don't have rollback when PV/VG/LV creation failed
+	assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
 }
 
 func TestACOperationsImpl_DeleteIfEmpty(t *testing.T) {
@@ -157,7 +167,7 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	)
 	wg.Add(1)
 	go func() {
-		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, &testAC2, &testAC3)
+		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, testAC2, testAC3)
 		wg.Done()
 	}()
 	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Created)
@@ -181,11 +191,15 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	sort.Strings(currentLocation)
 	assert.Equal(t, expectedLocation, currentLocation)
 
-	// check that AC2 and AC3 was removed
+	// check that AC2 and AC3 size was set to 0
 	acList = accrd.AvailableCapacityList{}
 	err = acOp.k8sClient.ReadList(testCtx, &acList)
-	assert.Equal(t, 1, len(acList.Items))
-	assert.Equal(t, apiV1.StorageClassHDDLVG, acList.Items[0].Spec.StorageClass)
+	assert.Equal(t, 3, len(acList.Items))
+	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[0].Spec.StorageClass)
+	assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
+	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[1].Spec.StorageClass)
+	assert.Equal(t, int64(0), acList.Items[1].Spec.Size)
+	assert.Equal(t, apiV1.StorageClassHDDLVG, acList.Items[2].Spec.StorageClass)
 }
 
 func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
@@ -205,7 +219,7 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 	)
 	wg.Add(1)
 	go func() {
-		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, &testAC2, &testAC3)
+		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, testAC2, testAC3)
 		wg.Done()
 	}()
 	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Failed)
@@ -213,10 +227,14 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 	wg.Wait()
 	assert.Nil(t, newAC)
 
-	// check that AC2 and AC3 was removed and new AC wasn't created
+	// check that AC2 and AC3 size was set to 0 and new AC not created
 	acList = accrd.AvailableCapacityList{}
 	err = acOp.k8sClient.ReadList(testCtx, &acList)
-	assert.Equal(t, 0, len(acList.Items))
+	assert.Equal(t, 2, len(acList.Items))
+	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[0].Spec.StorageClass)
+	assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
+	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[1].Spec.StorageClass)
+	assert.Equal(t, int64(0), acList.Items[1].Spec.Size)
 }
 
 func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
