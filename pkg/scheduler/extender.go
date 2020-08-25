@@ -94,9 +94,6 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		extenderRes.Error = err.Error()
-	}
-	if len(matchedNodes) == 0 {
-		ll.Warn("No one node match requested volumes")
 	} else {
 		ll.Infof("Construct response. Get %d nodes in request. Among them suitable nodes count is %d. Filtered out nodes - %v",
 			len(extenderArgs.Nodes.Items), len(matchedNodes), failedNodes)
@@ -158,7 +155,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 			if _, ok := scs[*pvc.Spec.StorageClassName]; !ok {
 				continue
 			}
-			if pvc.Status.Phase != "" {
+			if pvc.Status.Phase == coreV1.ClaimBound  || pvc.Status.Phase == coreV1.ClaimLost {
 				continue
 			}
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
@@ -264,7 +261,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 func (e *Extender) isACMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) bool {
 	for _, volume := range volumes {
-		subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
+		subSC := util.GetSubStorageClass(sc)
 		forLVM := util.IsStorageClassLVG(sc)
 
 		if len(scACMap[sc]) == 0 &&
