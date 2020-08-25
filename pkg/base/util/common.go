@@ -51,7 +51,7 @@ func ConvertStorageClass(strSC string) string {
 		api.StorageClassHDDLVG,
 		api.StorageClassSSDLVG,
 		api.StorageClassNVMeLVG,
-		api.StorageClassSystemSSDLVG,
+		api.StorageClassSystemLVG,
 		api.StorageClassAny:
 		return sc
 	}
@@ -95,7 +95,7 @@ func IsStorageClassLVG(sc string) bool {
 	return sc == api.StorageClassHDDLVG ||
 		sc == api.StorageClassSSDLVG ||
 		sc == api.StorageClassNVMeLVG ||
-		sc == api.StorageClassSystemSSDLVG
+		sc == api.StorageClassSystemLVG
 }
 
 // ContainsString return true if slice contains string str
