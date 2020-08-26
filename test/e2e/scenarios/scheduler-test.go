@@ -104,7 +104,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		testPODs = append(testPODs, pod)
 		testPVCs = append(testPVCs, podPVCs...)
 		updateM.Unlock()
-		return pod, testPVCs
+		return pod, podPVCs
 	}
 
 	createTestPods := func(testPodsCount int, testPodsDisksPerPod int) {
