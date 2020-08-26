@@ -2,8 +2,9 @@ package scenarios
 
 import (
 	"fmt"
-	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/test/e2e/common"
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
@@ -14,8 +15,9 @@ import (
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-	"sync"
-	"time"
+
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 // DefineSchedulerTestSuite defines tests for scheduler extender
