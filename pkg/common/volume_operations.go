@@ -246,8 +246,8 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		return
 	}
 
-	// for LVG SCs we need to delete AC CR to avoid allocation since underlying LVG CR is destroying
-	// for other SC just to increase size
+	// for LVG SCs we need to delete AC CR when no volumes remain to avoid new allocations since
+	// underlying LVG CR is destroying. For other SC just to increase size
 	isDeleted := false
 	lvg := &lvgcrd.LVG{}
 	if volumeCR.Spec.StorageClass == apiV1.StorageClassHDDLVG ||

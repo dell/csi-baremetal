@@ -179,7 +179,7 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 }
 
 // recreateACToLVGSC creates LVG(based on ACs), ensure it become ready,
-// creates AC based on that LVG and removes provided ACs.
+// creates AC based on that LVG and set sise of provided ACs to 0.
 // Receives sc as string (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
 func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
