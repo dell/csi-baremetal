@@ -155,7 +155,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 			if _, ok := scs[*pvc.Spec.StorageClassName]; !ok {
 				continue
 			}
-			if pvc.Status.Phase == coreV1.ClaimBound  || pvc.Status.Phase == coreV1.ClaimLost {
+			if pvc.Status.Phase == coreV1.ClaimBound || pvc.Status.Phase == coreV1.ClaimLost {
 				continue
 			}
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
