@@ -148,6 +148,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
 				return nil, err
 			}
+			ll.Debugf("Got PVC: %v", pvc)
 			if pvc.Spec.StorageClassName == nil {
 				continue
 			}
@@ -226,6 +227,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)
 		return
 	}
+	e.logger.Debugf("Got ACs: %v", acList.Items)
 
 	// map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
 	acByNodeAndSCMap := e.acByNodeAndSCMap(acList.Items)
