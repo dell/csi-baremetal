@@ -118,7 +118,6 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 		"method":      "gatherVolumesByProvisioner",
 		"pod":         pod.Name,
 	})
-	ll.Debug("Processing ...")
 
 	scs, err := e.scNameStorageTypeMapping(ctx)
 	if err != nil {
