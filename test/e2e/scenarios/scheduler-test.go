@@ -181,7 +181,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
 					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeSSD}}),
 				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeNVMe}, {DriveType: &driveTypeSSD}}),
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeNVMe}, {DriveType: &driveTypeHDD}}),
 				*buildLMDrivesConfig(node3, []common.LoopBackManagerConfigDevice{
 					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeHDD}}),
 			}}
