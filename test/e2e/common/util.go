@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
 
@@ -24,18 +25,18 @@ func init() {
 }
 
 // CleanupAfterCustomTest cleanups all resources related to CSI plugin and plugin as well
-// This function deletes pod if it was installed during test. And waits for its correct deletion to perform
+// This function deletes pods if were created during test. And waits for its correct deletion to perform
 // NodeUnpublish and NodeUnstage properly. Next it deletes PVC and waits for correctly deletion of bounded PV
 // to clear device for next tests (CSI performs wipefs during PV deletion). The last step is the deletion of driver.
-func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod *corev1.Pod, pvc []*corev1.PersistentVolumeClaim) {
+func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod []*corev1.Pod, pvc []*corev1.PersistentVolumeClaim) {
 	e2elog.Logf("Starting cleanup")
 	var err error
 
-	if pod != nil {
-		e2elog.Logf("Deleting Pod %s", pod.Name)
-		err = pode2e.DeletePodWithWait(f.ClientSet, pod)
+	for _, p := range pod {
+		e2elog.Logf("Deleting Pod %s", p.Name)
+		err = pode2e.DeletePodWithWait(f.ClientSet, p)
 		if err != nil {
-			e2elog.Logf("Failed to delete pod %s: %v", pod.Name, err)
+			e2elog.Logf("Failed to delete pod %s: %v", p.Name, err)
 		}
 	}
 
@@ -59,6 +60,22 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		err = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
 		if err != nil {
 			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
+		}
+	}
+
+	// wait for SC deletion
+	storageClasses, err := f.ClientSet.StorageV1().StorageClasses().List(metav1.ListOptions{})
+	if err != nil {
+		e2elog.Logf("failed to read SC list, error: %v", err)
+	} else {
+		for _, sc := range storageClasses.Items {
+			if !strings.HasPrefix(sc.Name, f.Namespace.Name) {
+				continue
+			}
+			err = f.ClientSet.StorageV1().StorageClasses().Delete(sc.Name, &metav1.DeleteOptions{})
+			if err != nil {
+				e2elog.Logf("failed to remove SC, error: %v", err)
+			}
 		}
 	}
 

@@ -93,7 +93,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	} else {
 		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 	}
-	if sc == apiV1.StorageClassHDDLVG || sc == apiV1.StorageClassSSDLVG {
+	if util.IsStorageClassLVG(sc) {
 		if foundAC != nil {
 			// check whether LVG being deleted or no
 			lvgCR := &lvgcrd.LVG{}
@@ -104,10 +104,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 		}
 		// if storageClass is related to LVG and there is no AC with that storageClass
 		// search drive with subclass on which LVG will be creating
-		subSC := apiV1.StorageClassHDD
-		if sc == apiV1.StorageClassSSDLVG {
-			subSC = apiV1.StorageClassSSD
-		}
+		subSC := util.GetSubStorageClass(sc)
 		ll.Infof("StorageClass is in LVG, search AC with subStorageClass %s", subSC)
 		foundAC = a.SearchAC(ctx, node, requiredBytes, subSC)
 		if foundAC == nil {

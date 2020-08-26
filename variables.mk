@@ -3,6 +3,7 @@ PROJECT          := baremetal-csi-plugin
 
 ### file paths
 CHARTS_PATH		 := charts/baremetal-csi-plugin
+EXTENDER_CHARTS_PATH := charts/scheduler-extender
 
 ### version
 MAJOR            := 0
@@ -26,12 +27,14 @@ BUSYBOX_TAG         := 1.29
 
 ### PATH
 SCHEDULER_EXTENDER_PKG := scheduler
+SCHEDULER_EXTENDERPATCHER_PKG := schedulerpatcher
 
 ### components
 NODE            := node
 DRIVE_MANAGER   := drivemgr
 CONTROLLER      := controller
 EXTENDER        := extender
+EXTENDERPATCHER := schedulerpatcher
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr
