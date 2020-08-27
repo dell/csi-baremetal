@@ -429,10 +429,6 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 		}
 	}
 
-	if err = s.acProvider.DeleteIfEmpty(ctx, vol.Location); err != nil {
-		ll.Errorf("Unable to check AC size by location: %v", err)
-	}
-
 	return vol, nil
 }
 
