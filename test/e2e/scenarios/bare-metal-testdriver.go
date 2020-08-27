@@ -2,11 +2,12 @@ package scenarios
 
 import (
 	"fmt"
-	"github.com/dell/csi-baremetal/test/e2e/common"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
+
+	"github.com/dell/csi-baremetal/test/e2e/common"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/onsi/ginkgo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -109,7 +110,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	}
 
 	extenderCleanup := common.DeploySchedulerExtender(f)
-	time.Sleep(time.Second * 30)  // quick hack, need to wait until default scheduler will be restarted
+	time.Sleep(time.Second * 30) // quick hack, need to wait until default scheduler will be restarted
 
 	cleanup := func() {
 		driverCleanup()
