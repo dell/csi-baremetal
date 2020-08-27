@@ -94,9 +94,6 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		extenderRes.Error = err.Error()
-	}
-	if len(matchedNodes) == 0 {
-		ll.Warn("No one node match requested volumes")
 	} else {
 		ll.Infof("Construct response. Get %d nodes in request. Among them suitable nodes count is %d. Filtered out nodes - %v",
 			len(extenderArgs.Nodes.Items), len(matchedNodes), failedNodes)
@@ -121,7 +118,6 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 		"method":      "gatherVolumesByProvisioner",
 		"pod":         pod.Name,
 	})
-	ll.Debug("Processing ...")
 
 	scs, err := e.scNameStorageTypeMapping(ctx)
 	if err != nil {
@@ -158,7 +154,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 			if _, ok := scs[*pvc.Spec.StorageClassName]; !ok {
 				continue
 			}
-			if pvc.Status.Phase == coreV1.ClaimBound {
+			if pvc.Status.Phase == coreV1.ClaimBound || pvc.Status.Phase == coreV1.ClaimLost {
 				continue
 			}
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
@@ -240,7 +236,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	for _, node := range nodes {
 		matched = true
 		for sc, scVolumes := range scVolumeMapping {
-			if !e.isACMatchVolumeRequests(acByNodeAndSCMap[string(node.UID)], sc, scVolumes) {
+			if !e.isACsMatchVolumeRequests(acByNodeAndSCMap[string(node.UID)], sc, scVolumes) {
 				matched = false
 				break
 			}
@@ -259,12 +255,12 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	return matchedNodes, failedNodesMap, err
 }
 
-// isACMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
+// isACsMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
-func (e *Extender) isACMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
+func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) bool {
 	for _, volume := range volumes {
-		subSC := util.GetSubStorageClass(sc) // returns empty string for non LVM storage classes
+		subSC := util.GetSubStorageClass(sc)
 		forLVM := util.IsStorageClassLVG(sc)
 
 		if len(scACMap[sc]) == 0 &&

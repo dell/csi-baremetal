@@ -49,11 +49,12 @@ const (
 	LocationTypeNVMe  = "NVME"
 
 	// CSI StorageClass
-	StorageClassAny     = "ANY"
-	StorageClassHDD     = "HDD"
-	StorageClassSSD     = "SSD"
-	StorageClassNVMe    = "NVME"
-	StorageClassHDDLVG  = "HDDLVG"
-	StorageClassSSDLVG  = "SSDLVG"
-	StorageClassNVMeLVG = "NVMELVG"
+	StorageClassAny       = "ANY"
+	StorageClassHDD       = "HDD"
+	StorageClassSSD       = "SSD"
+	StorageClassNVMe      = "NVME"
+	StorageClassHDDLVG    = "HDDLVG"
+	StorageClassSSDLVG    = "SSDLVG"
+	StorageClassNVMeLVG   = "NVMELVG"
+	StorageClassSystemLVG = "SYSLVG"
 )

@@ -103,11 +103,10 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		// volume should be created with that particular SC
 		sc = ac.Spec.StorageClass
 
-		switch sc {
-		case apiV1.StorageClassHDDLVG, apiV1.StorageClassSSDLVG:
+		if util.IsStorageClassLVG(sc) {
 			allocatedBytes = v.Size
 			locationType = apiV1.LocationTypeLVM
-		default:
+		} else {
 			allocatedBytes = ac.Spec.Size
 			locationType = apiV1.LocationTypeDrive
 		}
@@ -250,8 +249,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	// underlying LVG CR is destroying. For other SC just to increase size
 	isDeleted := false
 	lvg := &lvgcrd.LVG{}
-	if volumeCR.Spec.StorageClass == apiV1.StorageClassHDDLVG ||
-		volumeCR.Spec.StorageClass == apiV1.StorageClassSSDLVG {
+	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
 		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
 			ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
 			return
@@ -369,7 +367,7 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 	})
 
 	// if only one volume remains - remove AC first and LVG then
-	if len(lvg.Spec.VolumeRefs) == 1 {
+	if len(lvg.Spec.VolumeRefs) == 1 && lvg.Spec.Locations[0] != base.SystemDriveAsLocation {
 		if err := vo.k8sClient.DeleteCR(context.Background(), ac); err != nil {
 			log.Errorf("Unable to delete AC %s: %v", ac.Name, err)
 			return false, err

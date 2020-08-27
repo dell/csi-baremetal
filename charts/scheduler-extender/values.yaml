@@ -15,7 +15,7 @@ tls:
   privateKeyFile: ""
 
 log:
-  level: info
+  level: debug
 
 image:
   tag: green
