@@ -105,7 +105,7 @@ func isSchedulerRunsWithNewConfig() (bool, error) {
 }
 
 func getPodNameBySelector(namespace, selector string) (string, error) {
-	cmd := fmt.Sprintf("kubectl get pods -n %s --no-headers %s", namespace, selector)
+	cmd := fmt.Sprintf("kubectl get pods -n %s --no-headers --selector=%s", namespace, selector)
 	strOut, _, err := utilExecutor.RunCmd(cmd)
 	if err != nil {
 		return "", err
