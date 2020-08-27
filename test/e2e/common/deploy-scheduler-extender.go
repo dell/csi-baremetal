@@ -80,7 +80,8 @@ func buildDaemonSet(f *framework.Framework) func() {
 	}
 }
 
-// selector - component=kube-scheduler
+// isSchedulerRunsWithNewConfig determines whether there is option kubeconfig=/etc/kubernetes/scheduler.conf
+// in currently running kube-scheduler pod
 func isSchedulerRunsWithNewConfig() (bool, error) {
 	kubeSystemNS := "kube-system"
 	podName, err := getPodNameBySelector(kubeSystemNS, "component=kube-scheduler")
@@ -104,6 +105,7 @@ func isSchedulerRunsWithNewConfig() (bool, error) {
 	return strings.Contains(strOut, "kubeconfig=/etc/kubernetes/scheduler.conf"), nil
 }
 
+// getPodNameBySelector returns first pod from output in provided namespace with selector
 func getPodNameBySelector(namespace, selector string) (string, error) {
 	cmd := fmt.Sprintf("kubectl get pods -n %s --no-headers --selector=%s", namespace, selector)
 	strOut, _, err := utilExecutor.RunCmd(cmd)
@@ -119,6 +121,8 @@ func getPodNameBySelector(namespace, selector string) (string, error) {
 	return strings.Fields(pods[0])[0], nil
 }
 
+// WaitUntilSchedulerRestartsWithConfig checks whether kube-scheduler pod is running with new config or not
+// within attempts and timeout between them
 func WaitUntilSchedulerRestartsWithConfig(attempts int, timeout time.Duration) error {
 	for i := 0; i < attempts; i++ {
 		useCfg, err := isSchedulerRunsWithNewConfig()
@@ -128,6 +132,7 @@ func WaitUntilSchedulerRestartsWithConfig(attempts int, timeout time.Duration) e
 		if err != nil {
 			e2elog.Logf("unable to determine whether kube-scheduler runs with new config or not: %v", err)
 		}
+		time.Sleep(timeout)
 	}
 
 	return errors.New("kube-scheduler isn't running with new config")
