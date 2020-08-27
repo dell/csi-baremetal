@@ -109,6 +109,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	}
 
 	extenderCleanup := common.DeploySchedulerExtender(f)
+	time.Sleep(time.Second * 30)  // quick hack, need to wait until default scheduler will be restarted
 
 	cleanup := func() {
 		driverCleanup()
