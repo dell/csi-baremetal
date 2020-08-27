@@ -5,14 +5,14 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/dell/csi-baremetal/pkg/base/util"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"sigs.k8s.io/yaml"
+
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 const (
