@@ -148,7 +148,6 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
 				return nil, err
 			}
-			ll.Debugf("Got PVC: %v", pvc)
 			if pvc.Spec.StorageClassName == nil {
 				continue
 			}
@@ -227,7 +226,6 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)
 		return
 	}
-	e.logger.Debugf("Got ACs: %v", acList.Items)
 
 	// map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
 	acByNodeAndSCMap := e.acByNodeAndSCMap(acList.Items)
@@ -238,7 +236,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	for _, node := range nodes {
 		matched = true
 		for sc, scVolumes := range scVolumeMapping {
-			if !e.isACMatchVolumeRequests(acByNodeAndSCMap[string(node.UID)], sc, scVolumes) {
+			if !e.isACsMatchVolumeRequests(acByNodeAndSCMap[string(node.UID)], sc, scVolumes) {
 				matched = false
 				break
 			}
@@ -257,9 +255,9 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	return matchedNodes, failedNodesMap, err
 }
 
-// isACMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
+// isACsMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
-func (e *Extender) isACMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
+func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) bool {
 	for _, volume := range volumes {
 		subSC := util.GetSubStorageClass(sc)
