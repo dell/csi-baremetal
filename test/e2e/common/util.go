@@ -20,6 +20,7 @@ var utilExecutor command.CmdExecutor
 // init initializes utilExecutor
 func init() {
 	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
 	utilExecutor = &command.Executor{}
 	utilExecutor.SetLogger(logger)
 }
