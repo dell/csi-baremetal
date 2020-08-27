@@ -81,13 +81,13 @@ func buildDaemonSet(f *framework.Framework) func() {
 }
 
 // WaitUntilSchedulerRestartsWithConfig checks whether kube-scheduler pod is running with new config or not
-// within attempts and timeout between them
-func WaitUntilSchedulerRestartsWithConfig(attempts int, timeout time.Duration, f *framework.Framework) error {
+// within attempts and interval between them
+func WaitUntilSchedulerRestartsWithConfig(attempts int, interval time.Duration, f *framework.Framework) error {
 	for i := 0; i < attempts; i++ {
-		pods, err := f.ClientSet.CoreV1().Pods("kube-system").List(metav1.ListOptions{
-			TypeMeta:      metav1.TypeMeta{},
-			LabelSelector: "component=kube-scheduler",
-		})
+		pods, err := f.ClientSet.CoreV1().Pods("kube-system").
+			List(metav1.ListOptions{
+				LabelSelector: "component=kube-scheduler",
+			})
 
 		if err != nil {
 			e2elog.Logf("Unable to get pods list: %v", err)
@@ -101,7 +101,7 @@ func WaitUntilSchedulerRestartsWithConfig(attempts int, timeout time.Duration, f
 			}
 		}
 
-		time.Sleep(timeout)
+		time.Sleep(interval)
 	}
 
 	return errors.New("kube-scheduler isn't running with new config")
