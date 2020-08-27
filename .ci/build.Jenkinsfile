@@ -216,7 +216,8 @@ void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
         common.publishFileToArtifactory(remoteName, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
     }
 
-    final String pathToPublishFile = "${ARTIFACTORY_FILE_PATH}/${args.version}"
+    final String pathToPublish = "${ARTIFACTORY_COMPONENT_PATH}/${args.version}"
+    final String artifactoryPathToFile = "${ARTIFACTORY_FILE_PATH}/${args.version}"
     final String pathToFile = "pkg/scheduler/openshift_patcher.sh"
     sh("""
         sed -i  \'s/.*IMAGE=.*/IMAGE=${args.version}/\' ${pathToFile}
@@ -227,10 +228,9 @@ void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
     final String text = this.getArtifactsJson([
             version: args.version,
             chartsPath: charts,
-            pathToFile: pathToPublishFile + "/" + file.getName()
+            pathToFile: artifactoryPathToFile + "/" + file.getName()
     ])
 
-    final String pathToPublish = "${ARTIFACTORY_COMPONENT_PATH}/${args.version}"
     writeFile(file: "artifacts.json",
             text: text)
 
