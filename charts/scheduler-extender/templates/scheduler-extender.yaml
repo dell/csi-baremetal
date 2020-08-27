@@ -41,7 +41,7 @@ spec:
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - /usr/bin/python3
+            - python3
             - -u
             - main.py
           args:
