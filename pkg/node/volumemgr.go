@@ -419,11 +419,10 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 	})
 
 	var (
-		err       error
-		wasError  = false
-		volumeCRs = m.crHelper.GetVolumeCRs(m.nodeID)
-		lvgList   = &lvgcrd.LVGList{}
-		acList    = &accrd.AvailableCapacityList{}
+		err      error
+		wasError = false
+		lvgList  = &lvgcrd.LVGList{}
+		acList   = &accrd.AvailableCapacityList{}
 	)
 
 	if err = m.k8sClient.ReadList(ctx, lvgList); err != nil {
@@ -438,32 +437,6 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 			continue
 		}
 
-		isUsed := false
-
-		// check whether drive is consumed by volume or no
-		for _, volume := range volumeCRs {
-			if strings.EqualFold(volume.Spec.Location, drive.Spec.UUID) {
-				isUsed = true
-				break
-			}
-		}
-
-		// check whether drive is consumed by LVG or no
-		if !isUsed {
-			for _, lvg := range lvgList.Items {
-				if util.ContainsString(lvg.Spec.Locations, drive.Spec.UUID) {
-					isUsed = true
-					break
-				}
-			}
-		}
-
-		// drive is consumed by volume or LVG
-		if isUsed {
-			continue
-		}
-
-		// If drive isn't used by Volume or LVG then try to create AC CR from it
 		capacity := &api.AvailableCapacity{
 			Size:         drive.Spec.Size,
 			Location:     drive.Spec.UUID,
@@ -473,7 +446,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 
 		name := capacity.NodeId + "-" + strings.ToLower(capacity.Location)
 
-		// check whether appropriate AC exists or no
+		// check whether appropriate AC exists or not
 		acExist := false
 		for _, ac := range acList.Items {
 			if ac.Spec.Location == drive.Spec.UUID {
