@@ -224,7 +224,7 @@ void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
     sh('sed -i  \'s/.*IMAGE=.*/IMAGE=${args.version}/\' ${pathToFile}')
     final String text = this.getArtifactsJson([
             version: args.version,
-            chartsPath: charts
+            chartsPath: charts,
             pathToFile: pathToPublish + "/" + remoteName
     ])
 
