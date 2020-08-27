@@ -1,7 +1,12 @@
 package common
 
 import (
+	"errors"
+	"fmt"
 	"io/ioutil"
+	"strings"
+	"time"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,4 +78,57 @@ func buildDaemonSet(f *framework.Framework) func() {
 			e2elog.Logf("Failed to delete SE daemonset %s: %v", ds.Name, err)
 		}
 	}
+}
+
+// selector - component=kube-scheduler
+func isSchedulerRunsWithNewConfig() (bool, error) {
+	kubeSystemNS := "kube-system"
+	podName, err := getPodNameBySelector(kubeSystemNS, "component=kube-scheduler")
+	if podName == "" || err != nil {
+		return false, fmt.Errorf("unable to determine kube-scheduler pod name. Error: %v", err)
+	}
+
+	/**
+		output will be a list of command section for first container from scheduler pod manifest and looks like:
+		~$ kubectl get pod kube-scheduler-qwe -n kube-system -o jsonpath='{.spec.containers[0].command}'
+		[kube-scheduler --kubeconfig=/etc/kubernetes/scheduler.conf --leader-elect=true]
+	**/
+	cmd := fmt.Sprintf("kubectl get pod %s -n %s -o jsonpath='{.spec.containers[0].command}'",
+		podName, kubeSystemNS)
+
+	strOut, _, err := utilExecutor.RunCmd(cmd)
+	if err != nil {
+		return false, fmt.Errorf("unable to read scheduler pod (%s) config: %v", podName, err)
+	}
+
+	return strings.Contains(strOut, "kubeconfig=/etc/kubernetes/scheduler.conf"), nil
+}
+
+func getPodNameBySelector(namespace, selector string) (string, error) {
+	cmd := fmt.Sprintf("kubectl get pods -n %s --no-headers %s", namespace, selector)
+	strOut, _, err := utilExecutor.RunCmd(cmd)
+	if err != nil {
+		return "", err
+	}
+
+	pods := strings.Split(strOut, "\n")
+	if len(pods) == 0 {
+		return "", nil
+	}
+
+	return strings.Fields(pods[0])[0], nil
+}
+
+func WaitUntilSchedulerRestartsWithConfig(attempts int, timeout time.Duration) error {
+	for i := 0; i < attempts; i++ {
+		useCfg, err := isSchedulerRunsWithNewConfig()
+		if useCfg {
+			return nil
+		}
+		if err != nil {
+			e2elog.Logf("unable to determine whether kube-scheduler runs with new config or not: %v", err)
+		}
+	}
+
+	return errors.New("kube-scheduler isn't running with new config")
 }
