@@ -30,7 +30,6 @@ build-controller:
 
 build-extender:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./cmd/${SCHEDULER_EXTENDER_PKG}/main.go
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULER_EXTENDERPATCHER_PKG}/${EXTENDERPATCHER} ./cmd/${SCHEDULER_EXTENDERPATCHER_PKG}/main.go
 
 ### Build images
 
@@ -72,7 +71,6 @@ image-controller:
 
 image-extender:
 	cp ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./pkg/${SCHEDULER_EXTENDER_PKG}/${EXTENDER}
-	cp ./build/${SCHEDULER_EXTENDERPATCHER_PKG}/${EXTENDERPATCHER} ./pkg/${SCHEDULER_EXTENDER_PKG}/${EXTENDERPATCHER}
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PKG}
 
 image-extender-patcher:
