@@ -2,10 +2,10 @@ package common
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
-	"strings"
 	"time"
+
+	"github.com/dell/csi-baremetal/pkg/base/util"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -80,58 +80,27 @@ func buildDaemonSet(f *framework.Framework) func() {
 	}
 }
 
-// isSchedulerRunsWithNewConfig determines whether there is option kubeconfig=/etc/kubernetes/scheduler.conf
-// in currently running kube-scheduler pod
-func isSchedulerRunsWithNewConfig() (bool, error) {
-	kubeSystemNS := "kube-system"
-	podName, err := getPodNameBySelector(kubeSystemNS, "component=kube-scheduler")
-	if podName == "" || err != nil {
-		return false, fmt.Errorf("unable to determine kube-scheduler pod name. Error: %v", err)
-	}
-
-	/**
-		output will be a list of command section for first container from scheduler pod manifest and looks like:
-		~$ kubectl get pod kube-scheduler-qwe -n kube-system -o jsonpath='{.spec.containers[0].command}'
-		[kube-scheduler --kubeconfig=/etc/kubernetes/scheduler.conf --leader-elect=true]
-	**/
-	cmd := fmt.Sprintf("kubectl get pod %s -n %s -o jsonpath='{.spec.containers[0].command}'",
-		podName, kubeSystemNS)
-
-	strOut, _, err := utilExecutor.RunCmd(cmd)
-	if err != nil {
-		return false, fmt.Errorf("unable to read scheduler pod (%s) config: %v", podName, err)
-	}
-
-	return strings.Contains(strOut, "kubeconfig=/etc/kubernetes/scheduler.conf"), nil
-}
-
-// getPodNameBySelector returns first pod from output in provided namespace with selector
-func getPodNameBySelector(namespace, selector string) (string, error) {
-	cmd := fmt.Sprintf("kubectl get pods -n %s --no-headers --selector=%s", namespace, selector)
-	strOut, _, err := utilExecutor.RunCmd(cmd)
-	if err != nil {
-		return "", err
-	}
-
-	pods := strings.Split(strOut, "\n")
-	if len(pods) == 0 {
-		return "", nil
-	}
-
-	return strings.Fields(pods[0])[0], nil
-}
-
 // WaitUntilSchedulerRestartsWithConfig checks whether kube-scheduler pod is running with new config or not
 // within attempts and timeout between them
-func WaitUntilSchedulerRestartsWithConfig(attempts int, timeout time.Duration) error {
+func WaitUntilSchedulerRestartsWithConfig(attempts int, timeout time.Duration, f *framework.Framework) error {
 	for i := 0; i < attempts; i++ {
-		useCfg, err := isSchedulerRunsWithNewConfig()
-		if useCfg {
-			return nil
-		}
+		pods, err := f.ClientSet.CoreV1().Pods("kube-system").List(metav1.ListOptions{
+			TypeMeta:      metav1.TypeMeta{},
+			LabelSelector: "component=kube-scheduler",
+		})
+
 		if err != nil {
-			e2elog.Logf("unable to determine whether kube-scheduler runs with new config or not: %v", err)
+			e2elog.Logf("Unable to get pods list: %v", err)
+			return err
 		}
+
+		if len(pods.Items) != 0 {
+			pod := pods.Items[0] // expect only one scheduler pod
+			if util.ContainsString(pod.Spec.Containers[0].Command, "--config=/etc/kubernetes/scheduler/config.yaml") {
+				return nil
+			}
+		}
+
 		time.Sleep(timeout)
 	}
 
