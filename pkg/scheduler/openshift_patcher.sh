@@ -27,16 +27,16 @@ cat <<EOF >./policy.cfg
 }
 EOF
 
-os get configmap ${POLICY_CONFIGMAP_NAME}
+oc get configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
 exit_status=$?
 
 if [ $exit_status -eq 0 ]; then
    # If ConfigMap contains predicates and priorities we will lost them in case of removing and replacing configmap.
    # But it hard to edit ConfigMap in bash script. Should we allow user to edit ConfigMap by its own.
-   os delete configmap -n openshift-config ${POLICY_CONFIGMAP_NAME}
+   oc delete configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
 fi
-os create configmap -n openshift-config --from-file=policy.cfg ${POLICY_CONFIGMAP_NAME}
-os patch Scheduler cluster --type='merge' -p '{"spec":{"policy":{"name":"'${POLICY_CONFIGMAP_NAME}'"}}}' --type=merge
+oc create configmap -n openshift-config --from-file=policy.cfg ${POLICY_CONFIGMAP_NAME}
+oc patch Scheduler cluster --type='merge' -p '{"spec":{"policy":{"name":"'${POLICY_CONFIGMAP_NAME}'"}}}' --type=merge
 
 rm policy.cfg
 
