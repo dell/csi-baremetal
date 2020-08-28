@@ -1,12 +1,23 @@
 #!/bin/sh
 
-IMAGE=0.0.7
-REGISTRY=10.244.120.194:9042
-PORT=8889
-POLICY_CONFIGMAP_NAME=scheduler-policy
-RELEASE_NAME=scheduler-extender
+IMAGE="${IMAGE:-0.0.7}"
+REGISTRY="${REGISTRY:-10.244.120.194:9042}"
+PORT="${PORT:-8889}"
+POLICY_CONFIGMAP_NAME="${POLICY_CONFIGMAP_NAME:-scheduler-policy}"
+RELEASE_NAME="${RELEASE_NAME:-scheduler-extender}"
 ARTIFACTORY=10.244.120.194:8081
 CSI_ARTIFACTORY_PATH=artifactory/atlantic-build/com/emc/atlantic/charts/csi
+PATH_TO_CHART="${PATH_TO_CHART:-http://${ARTIFACTORY}/${CSI_ARTIFACTORY_PATH}/${IMAGE}/scheduler-extender-${IMAGE}.tgz}"
+
+printHelp() {
+  echo "-i: scheduler extender image tag
+-n: helm release name
+-p: scheduler extender port
+-r: scheduler extender image registry
+-c: path to scheduler extender charts
+-m: name of the scheduler policy ConfigMap
+-h: help"
+}
 
 checkErr() {
 	if [ $? -ne 0 ]; then
@@ -15,8 +26,26 @@ checkErr() {
 	fi
 }
 
-helm install ${RELEASE_NAME} http://${ARTIFACTORY}/${CSI_ARTIFACTORY_PATH}/${IMAGE}/scheduler-extender-${IMAGE}.tgz \
---set image.tag=${IMAGE} --set registry=${REGISTRY} --set port=${PORT}
+while getopts ":i:n:p:c:r:m:h" arg; do
+  case "${arg}" in
+    i) IMAGE=$OPTARG;;
+    n) RELEASE_NAME=$OPTARG;;
+    p) PORT=$OPTARG;;
+    r) REGISTRY=$OPTARG;;
+    c) PATH_TO_CHART=$OPTARG;;
+    m) POLICY_CONFIGMAP_NAME=$OPTARG;;
+    h)
+      printHelp
+      exit 0
+      ;;
+    a*)
+      printHelp
+      exit 1
+      ;;
+  esac
+done
+
+helm install ${RELEASE_NAME} ${PATH_TO_CHART} --set image.tag=${IMAGE} --set registry=${REGISTRY} --set port=${PORT}
 checkErr "error during scheduler-extender installation."
 
 cat <<EOF >./policy.cfg
