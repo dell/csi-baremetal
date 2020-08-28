@@ -15,4 +15,12 @@ const (
 	VolumeUnknownHealth = "VolumeUnknownHealth"
 	VolumeGoodHealth    = "VolumeGoodHealth"
 	VolumeSuspectHealth = "VolumeSuspectHealth"
+
+	DriveDiscovered    = "DriveDiscovered"
+	DriveHealthSuspect = "DriveHealthSuspect"
+	DriveHealthFailure = "DriveHealthFailure"
+	DriveHealthGood    = "DriveHealthGood"
+	DriveHealthUnknown = "DriveHealthUnknown"
+	DriveStatusOnline  = "DriveStatusOnline"
+	DriveStatusOffline = "DriveStatusOffline"
 )
