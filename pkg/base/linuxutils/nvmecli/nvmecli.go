@@ -99,10 +99,10 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 		return apiV1.HealthUnknown
 	}
 	health := smartLog.CriticalWarning
-	if na.isBitSet(health, 0) || na.isBitSet(health, 3) {
+	if na.isOneOfBitsSet(health, 0, 3) {
 		return apiV1.HealthSuspect
 	}
-	if na.isBitSet(health, 2) || na.isBitSet(health, 4) || na.isBitSet(health, 5) {
+	if na.isOneOfBitsSet(health, 2, 4, 5) {
 		return apiV1.HealthBad
 	}
 	return apiV1.HealthGood
@@ -123,6 +123,11 @@ func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 }
 
 //isBitSet check if bit on bitPos in value is set
-func (na *NVMECLI) isBitSet(value, bitPos int) bool {
-	return (value>>bitPos)&1 != 0
+func (na *NVMECLI) isOneOfBitsSet(value int, bitPos ...int) bool {
+	for bit := range bitPos {
+		if (value>>bit)&1 != 0 {
+			return true
+		}
+	}
+	return false
 }
