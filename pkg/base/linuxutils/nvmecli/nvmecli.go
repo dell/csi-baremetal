@@ -99,14 +99,13 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 		return apiV1.HealthUnknown
 	}
 	health := smartLog.CriticalWarning
-	switch health {
-	case 0, 3:
+	if na.isBitSet(health, 0) || na.isBitSet(health, 3) {
 		return apiV1.HealthSuspect
-	case 2, 4, 5:
-		return apiV1.HealthBad
-	default:
-		return apiV1.HealthGood
 	}
+	if na.isBitSet(health, 2) || na.isBitSet(health, 4) || na.isBitSet(health, 5) {
+		return apiV1.HealthBad
+	}
+	return apiV1.HealthGood
 }
 
 //fillNVMDeviceVendor gets information about device vendor id
@@ -121,4 +120,9 @@ func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	if err != nil {
 		ll.Errorf("unable to unmarshal output to NVMEDevice, error: %v", err)
 	}
+}
+
+//isBitSet check if bit on bitPos in value is set
+func (na *NVMECLI) isBitSet(value, bitPos int) bool {
+	return (value>>bitPos)&1 != 0
 }

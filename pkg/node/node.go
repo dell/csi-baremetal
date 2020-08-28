@@ -510,7 +510,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	//	return &csi.NodeUnpublishVolumeResponse{}, nil
 	//}
 
-	// k8s dosn't call DeleteVolume for inline volumes, so we perform DeleteVolume operation in Unpublish request
+	// k8s doesn't call DeleteVolume for inline volumes, so we perform DeleteVolume operation in Unpublish request
 	if volumeCR.Spec.Ephemeral {
 		s.reqMu.Lock()
 		err := s.svc.DeleteVolume(ctxWithID, req.GetVolumeId())
