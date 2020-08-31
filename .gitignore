@@ -23,3 +23,7 @@ pkg/scheduler/schedulerpatcher
 # tests results
 coverage.out
 coverage.html
+# vscode
+.vscode
+# python 
+__pycache__
