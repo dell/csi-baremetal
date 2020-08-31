@@ -219,7 +219,7 @@ func TestNVMECLI_getNVMDeviceVendorUnmarshalError(t *testing.T) {
 	assert.Equal(t, 0, device.Vendor)
 }
 
-func TestNVMECLI_isBitSet(t *testing.T) {
+func TestNVMECLI_isOneOfBitsSet(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 	set := l.isOneOfBitsSet(1, 0)
