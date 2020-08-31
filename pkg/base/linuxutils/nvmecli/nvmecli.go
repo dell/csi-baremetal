@@ -122,7 +122,7 @@ func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	}
 }
 
-//isBitSet check if bit on bitPos in value is set
+//isBitSet returns true then one of bits in slice is set in value
 func (na *NVMECLI) isOneOfBitsSet(value int, bits ...int) bool {
 	for _, bit := range bits {
 		if (value>>bit)&1 != 0 {
