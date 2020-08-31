@@ -36,15 +36,17 @@ spec:
                   fieldPath: metadata.namespace
         {{- if .Values.patcher.enable }}
         - name: schedulerpatcher
-          image: {{- if .Values.env.test }} baremetal-csi-plugin-extender:{{ .Values.image.tag }}
-                                              {{- else }} {{ .Values.registry }}/baremetal-csi-plugin-extender:{{ .Values.image.tag }}
+          image: {{- if .Values.env.test }} baremetal-csi-plugin-scheduler-patcher:{{ .Values.image.tag }}
+                                              {{- else }} {{ .Values.registry }}/baremetal-csi-plugin-scheduler-patcher:{{ .Values.image.tag }}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - /schedulerpatcher
+            - python3
+            - -u
+            - main.py
           args:
             - --loglevel={{ .Values.log.level }}
-            - --restore={{ .Values.patcher.restore_on_shutdown }}
+            {{ if .Values.patcher.restore_on_shutdown }}- --restore {{ end }}
             - --interval={{ .Values.patcher.interval }}
             - --manifest={{ .Values.patcher.manifest }}
             - --target-config-path={{ .Values.patcher.target_config_path}}
