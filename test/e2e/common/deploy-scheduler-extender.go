@@ -83,6 +83,7 @@ func buildDaemonSet(f *framework.Framework) func() {
 // WaitUntilSchedulerRestartsWithConfig checks whether kube-scheduler pod is running with new config or not
 // within attempts and interval between them
 func WaitUntilSchedulerRestartsWithConfig(attempts int, interval time.Duration, f *framework.Framework) error {
+	e2elog.Logf("ensure scheduler restarted with new config")
 	for i := 0; i < attempts; i++ {
 		pods, err := f.ClientSet.CoreV1().Pods("kube-system").
 			List(metav1.ListOptions{
@@ -97,6 +98,7 @@ func WaitUntilSchedulerRestartsWithConfig(attempts int, interval time.Duration, 
 		if len(pods.Items) != 0 {
 			pod := pods.Items[0] // expect only one scheduler pod
 			if util.ContainsString(pod.Spec.Containers[0].Command, "--config=/etc/kubernetes/scheduler/config.yaml") {
+				e2elog.Logf("kube-scheduler restarted with new config")
 				return nil
 			}
 		}
