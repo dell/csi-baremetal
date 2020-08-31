@@ -27,14 +27,14 @@ BUSYBOX_TAG         := 1.29
 
 ### PATH
 SCHEDULER_EXTENDER_PKG := scheduler
-SCHEDULER_EXTENDERPATCHER_PKG := schedulerpatcher
+SCHEDULER_EXTENDER_PATCHER_PKG := scheduler-patcher
 
 ### components
-NODE            := node
-DRIVE_MANAGER   := drivemgr
-CONTROLLER      := controller
-EXTENDER        := extender
-EXTENDERPATCHER := schedulerpatcher
+NODE             := node
+DRIVE_MANAGER    := drivemgr
+CONTROLLER       := controller
+EXTENDER         := extender
+EXTENDER_PATCHER := scheduler-patcher
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr
