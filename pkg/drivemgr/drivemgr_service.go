@@ -42,7 +42,9 @@ func (svc *DriveServiceServerImpl) GetDrivesList(ctx context.Context, req *api.D
 	// All drives are ONLINE by default
 	for _, drive := range drives {
 		drive.NodeId = req.NodeId
-		drive.Status = apiV1.DriveStatusOnline
+		if drive.Status == "" {
+			drive.Status = apiV1.DriveStatusOnline
+		}
 	}
 	return &api.DrivesResponse{
 		Disks: drives,
