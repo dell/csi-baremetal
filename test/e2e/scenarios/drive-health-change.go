@@ -21,7 +21,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -208,7 +207,17 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		driveCRs := filterDrivesCRsForNode(string(node.ObjectMeta.GetUID()), getDrivesList(f))
 		Expect(len(driveCRs) > 2).To(BeTrue())
 
-		driveUnderTest1, driveUnderTest2 := driveCRs[0], driveCRs[1]
+		driveUnderTest1 := driveCRs[0]
+		driveUnderTest1SN, _, _ := unstructured.NestedString(
+			driveUnderTest1.Object, "spec", "SerialNumber")
+		driveUnderTest1Name, _, _ := unstructured.NestedString(
+			driveUnderTest1.Object, "metadata", "name")
+
+		driveUnderTest2 := driveCRs[1]
+		driveUnderTest2SN, _, _ := unstructured.NestedString(
+			driveUnderTest2.Object, "spec", "SerialNumber")
+		driveUnderTest2Name, _, _ := unstructured.NestedString(
+			driveUnderTest2.Object, "metadata", "name")
 
 		driveStateChangeTimeout := time.Minute * 3
 
@@ -217,15 +226,17 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		badHealth := apiV1.HealthBad
 		driveRemoved := true
 		conf.Nodes[0].Drives = append(conf.Nodes[0].Drives, common.LoopBackManagerConfigDevice{
-			SerialNumber: &driveUnderTest1.Spec.SerialNumber,
+			SerialNumber: &driveUnderTest1SN,
 			Health:       &badHealth,
 		}, common.LoopBackManagerConfigDevice{
-			SerialNumber: &driveUnderTest2.Spec.SerialNumber,
+			SerialNumber: &driveUnderTest2SN,
 			Removed:      &driveRemoved,
 		})
 		applyLMConfig(f, ns, conf)
-		waitForDriveHealthChange(f, driveUnderTest1.Name, apiV1.HealthBad, driveStateChangeTimeout)
-		waitForDriveStatusChange(f, driveUnderTest2.Name, apiV1.DriveStatusOffline, driveStateChangeTimeout)
+		waitForDriveStateChange(f, driveUnderTest1Name, driveStateChangeTimeout,
+			apiV1.HealthBad, "spec", "Health")
+		waitForDriveStateChange(f, driveUnderTest2Name, driveStateChangeTimeout,
+			apiV1.DriveStatusOffline, "spec", "Status")
 
 		// switch driveUnderTest1 health to "GOOD"
 		// switch driveUnderTest2 status to "ONLINE"
@@ -235,8 +246,10 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		// driveUnderTest2
 		conf.Nodes[0].Drives[1].Removed = nil
 		applyLMConfig(f, ns, conf)
-		waitForDriveHealthChange(f, driveUnderTest1.Name, apiV1.HealthGood, driveStateChangeTimeout)
-		waitForDriveStatusChange(f, driveUnderTest2.Name, apiV1.DriveStatusOnline, driveStateChangeTimeout)
+		waitForDriveStateChange(f, driveUnderTest1Name, driveStateChangeTimeout,
+			apiV1.HealthGood, "spec", "Health")
+		waitForDriveStateChange(f, driveUnderTest2Name, driveStateChangeTimeout,
+			apiV1.DriveStatusOnline, "spec", "Status")
 
 		// check events
 		checkExpectedEventsExist(f, &driveUnderTest1, []string{
@@ -338,54 +351,38 @@ func applyLMConfig(f *framework.Framework, namespace string, lmConf *common.Loop
 	framework.ExpectNoError(err)
 }
 
-func filterDrivesCRsForNode(nodeID string, driveList drivecrd.DriveList) []drivecrd.Drive {
-	var filtered []drivecrd.Drive
+func filterDrivesCRsForNode(nodeID string, drives *unstructured.UnstructuredList) []unstructured.Unstructured {
+	var filtered []unstructured.Unstructured
 
-	for _, d := range driveList.Items {
-		if d.Spec.NodeId == nodeID {
+	for _, d := range drives.Items {
+		v, _, err := unstructured.NestedString(d.UnstructuredContent(), "spec", "NodeId")
+		framework.ExpectNoError(err)
+		if v == nodeID {
 			filtered = append(filtered, d)
 		}
 	}
 	return filtered
 }
 
-func getDrivesList(f *framework.Framework) drivecrd.DriveList {
+func getDrivesList(f *framework.Framework) *unstructured.UnstructuredList {
 	drivesU, err := f.DynamicClient.Resource(driveGVR).Namespace(f.Namespace.Name).List(metav1.ListOptions{})
 	framework.ExpectNoError(err)
-	driveList := drivecrd.DriveList{}
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(drivesU.UnstructuredContent(), &driveList)
-	framework.ExpectNoError(err)
-	return driveList
+	return drivesU
 }
 
-func getDrive(f *framework.Framework, name string) (drivecrd.Drive, bool) {
+func getDrive(f *framework.Framework, name string) (*unstructured.Unstructured, bool) {
 	driveU, err := f.DynamicClient.Resource(driveGVR).Namespace(f.Namespace.Name).Get(name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return drivecrd.Drive{}, false
+			return nil, false
 		}
 		framework.ExpectNoError(err)
 	}
-	drive := drivecrd.Drive{}
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(driveU.UnstructuredContent(), &drive)
-	framework.ExpectNoError(err)
-	return drive, true
-}
-
-func waitForDriveHealthChange(f *framework.Framework, name, expectedHealth string, timeout time.Duration) {
-	waitForDriveStateChange(f, name, timeout, func(drive drivecrd.Drive) bool {
-		return drive.Spec.Health == expectedHealth
-	})
-}
-
-func waitForDriveStatusChange(f *framework.Framework, name, expectedStatus string, timeout time.Duration) {
-	waitForDriveStateChange(f, name, timeout, func(drive drivecrd.Drive) bool {
-		return drive.Spec.Status == expectedStatus
-	})
+	return driveU, true
 }
 
 func waitForDriveStateChange(f *framework.Framework, name string,
-	timeout time.Duration, checkFunc func(drive drivecrd.Drive) bool) {
+	timeout time.Duration, expectedValue string, fields ...string) {
 
 	deadline := time.Now().Add(timeout)
 	for {
@@ -393,7 +390,9 @@ func waitForDriveStateChange(f *framework.Framework, name string,
 		if !found {
 			continue
 		}
-		if checkFunc(drive) {
+		result, _, err := unstructured.NestedString(drive.Object, fields...)
+		framework.ExpectNoError(err)
+		if result == expectedValue {
 			return
 		}
 		if time.Now().After(deadline) {
