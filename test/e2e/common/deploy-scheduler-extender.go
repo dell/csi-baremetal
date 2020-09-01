@@ -1,18 +1,13 @@
 package common
 
 import (
-	"errors"
 	"io/ioutil"
-	"time"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"sigs.k8s.io/yaml"
-
-	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 const (
@@ -78,33 +73,4 @@ func buildDaemonSet(f *framework.Framework) func() {
 			e2elog.Logf("Failed to delete SE daemonset %s: %v", ds.Name, err)
 		}
 	}
-}
-
-// WaitUntilSchedulerRestartsWithConfig checks whether kube-scheduler pod is running with new config or not
-// within attempts and interval between them
-func WaitUntilSchedulerRestartsWithConfig(attempts int, interval time.Duration, f *framework.Framework) error {
-	e2elog.Logf("ensure scheduler restarted with new config")
-	for i := 0; i < attempts; i++ {
-		pods, err := f.ClientSet.CoreV1().Pods("kube-system").
-			List(metav1.ListOptions{
-				LabelSelector: "component=kube-scheduler",
-			})
-
-		if err != nil {
-			e2elog.Logf("Unable to get pods list: %v", err)
-			return err
-		}
-
-		if len(pods.Items) != 0 {
-			pod := pods.Items[0] // expect only one scheduler pod
-			if util.ContainsString(pod.Spec.Containers[0].Command, "--config=/etc/kubernetes/scheduler/config.yaml") {
-				e2elog.Logf("kube-scheduler restarted with new config")
-				return nil
-			}
-		}
-
-		time.Sleep(interval)
-	}
-
-	return errors.New("kube-scheduler isn't running with new config")
 }
