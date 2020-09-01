@@ -99,10 +99,10 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 		return apiV1.HealthUnknown
 	}
 	health := smartLog.CriticalWarning
-	if na.isOneOfBitsSet(health, 0, 3) {
+	if na.isOneOfBitsSet(uint64(health), 0, 3) {
 		return apiV1.HealthSuspect
 	}
-	if na.isOneOfBitsSet(health, 2, 4, 5) {
+	if na.isOneOfBitsSet(uint64(health), 2, 4, 5) {
 		return apiV1.HealthBad
 	}
 	return apiV1.HealthGood
@@ -123,9 +123,12 @@ func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 }
 
 //isOneOfBitsSet returns true then one of bits in slice is set in value
-func (na *NVMECLI) isOneOfBitsSet(value int, bits ...int) bool {
+func (na *NVMECLI) isOneOfBitsSet(value uint64, bits ...int) bool {
+	ll := na.log.WithField("method", "isOneOfBitsSet")
 	for _, bit := range bits {
-		if (value>>bit)&1 != 0 {
+		if bit > 63 {
+			ll.Errorf("Bit position %d is larger than 63, skip it", bit)
+		} else if (value>>bit)&1 != 0 {
 			return true
 		}
 	}

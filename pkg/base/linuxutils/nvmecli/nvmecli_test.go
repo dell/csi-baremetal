@@ -226,4 +226,6 @@ func TestNVMECLI_isOneOfBitsSet(t *testing.T) {
 	assert.True(t, set)
 	set = l.isOneOfBitsSet(4, 3)
 	assert.False(t, set)
+	set = l.isOneOfBitsSet(5, 64)
+	assert.False(t, set)
 }
