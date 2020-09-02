@@ -189,6 +189,13 @@ private String getArtifactsJson(final Map<String, Object> args) {
                 "path": it
         ])
     }
+    artifacts.add([
+           "componentName": COMPONENT_NAME,
+           "version": args.version,
+           "type": "file",
+           "endpoint": "{{ ASD_REPO }}",
+           "path": args.pathToFile,
+    ])
 
     return common.toJSON(["componentVersion": args.version, "componentArtifacts": artifacts], true)
 }
@@ -210,15 +217,24 @@ void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
         common.publishFileToArtifactory(remoteName, chartsPathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
     }
 
+    final String pathToPublish = "${ARTIFACTORY_COMPONENT_PATH}/${args.version}"
+    final String artifactoryPathToFile = "${ARTIFACTORY_FILE_PATH}/${args.version}"
+    final String pathToFile = "pkg/scheduler/openshift_patcher.sh"
+    sh("""
+         export IMAGE=${args.version}
+    """)
+    file = common.findFiles("${pathToFile}")[0]
+    final String remoteName = file.getRemote()
+    common.publishFileToArtifactory(remoteName, pathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
     final String text = this.getArtifactsJson([
             version: args.version,
-            chartsPath: charts
+            chartsPath: charts,
+            pathToFile: artifactoryPathToFile + "/" + file.getName()
     ])
 
     writeFile(file: "artifacts.json",
             text: text)
 
-    final String pathToPublish = "${ARTIFACTORY_COMPONENT_PATH}/${args.version}"
     common.publishFileToArtifactory("artifacts.json", pathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
 }
 
