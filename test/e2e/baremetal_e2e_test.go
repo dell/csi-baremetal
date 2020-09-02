@@ -28,7 +28,13 @@ func init() {
 func Test(t *testing.T) {
 	skipIfNotCI(t)
 	flag.Parse()
-	framework.AfterReadingAllFlags(&framework.TestContext)
+	tc := &framework.TestContext
+	tc.SystemdServices = "kubelet" // gather kubelet logs
+	tc.DumpSystemdJournal = true
+	tc.GatherKubeSystemResourceUsageData = "master"
+	tc.GatherSuiteMetricsAfterTest = true
+	tc.DumpLogsOnFailure = true
+	framework.AfterReadingAllFlags(tc)
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	junitReporter := reporters.NewJUnitReporter("report.xml")
 	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "CSI Suite", []ginkgo.Reporter{junitReporter})
