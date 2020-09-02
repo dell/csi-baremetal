@@ -145,7 +145,18 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
+	if !volume.ObjectMeta.DeletionTimestamp.IsZero() && volume.Spec.CSIStatus != apiV1.Removed &&
+		volume.Spec.CSIStatus != apiV1.Creating {
+		if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
+			ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
+			volume.Spec.CSIStatus = apiV1.Failed
+			if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
+				ll.Error("Unable to set new status for volume")
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	var newStatus string
 	switch volume.Spec.CSIStatus {

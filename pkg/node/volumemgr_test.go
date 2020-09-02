@@ -227,6 +227,33 @@ func TestReconcile_SuccessCreatingAndRemovingDriveVolume(t *testing.T) {
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
 }
 
+func TestReconcile_SuccessDeleteVolume(t *testing.T) {
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+
+	volCR.Spec.CSIStatus = apiV1.Failed
+	volCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	volCR.Spec.CSIStatus = apiV1.Removed
+	err = vm.k8sClient.UpdateCR(testCtx, &volCR)
+	assert.Nil(t, err)
+
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+}
+
 func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
 	var (
 		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
