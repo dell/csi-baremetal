@@ -11,7 +11,9 @@ const (
 	//SmartctlCmdImpl is a base CMD for smartctl util
 	SmartctlCmdImpl = "smartctl"
 	//SmartctlDeviceInfoCmdImpl is a CMD to get basic SMART information and health about device in JSON format
-	SmartctlDeviceInfoCmdImpl = SmartctlCmdImpl + " --info --health --json %s"
+	SmartctlDeviceInfoCmdImpl = SmartctlCmdImpl + " --info --json %s"
+	//SmartctlHealthCmdImpl is a CMD to get  SMART status of device in JSON format
+	SmartctlHealthCmdImpl = SmartctlCmdImpl + " --health --json %s"
 )
 
 //WrapSmartctl is an interface that encapsulates operation with system smartctl util
@@ -46,7 +48,25 @@ func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 	bytes := []byte(strOut)
 	err = json.Unmarshal(bytes, deviceInfo)
 	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal output to []Device instance, error: %v", err)
+		return nil, fmt.Errorf("unable to unmarshal output to []DeviceSMARTInfo instance, error: %v", err)
+	}
+	err = sa.fillSmartStatus(deviceInfo, path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get SMART status for device %s, error: %v", path, err)
 	}
 	return deviceInfo, nil
+}
+
+//fillSmartStatus fill smart_status field in DeviceSMARTInfo using smartctl command
+func (sa *SMARTCTL) fillSmartStatus(dev *DeviceSMARTInfo, path string) error {
+	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlHealthCmdImpl, path))
+	if err != nil {
+		return err
+	}
+	bytes := []byte(strOut)
+	err = json.Unmarshal(bytes, dev)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal output to []Device instance, error: %v", err)
+	}
+	return nil
 }

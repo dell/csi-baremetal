@@ -16,17 +16,19 @@ func TestSMARCTL_GetDriveInfoByPath(t *testing.T) {
 					"name": "/dev/sdd", 
 					"info_name": "/dev/sdd [SAT]", 
 					"type": "sat", "protocol": "ATA"}, 
-					"rotation_rate": 7200, 
-					"smart_status": { 
-						"passed": true
-					} 
+					"rotation_rate": 7200
 				}`
+	outputHealth := `{
+    "smart_status": {
+        "passed": true
+    }}`
 	cmd := fmt.Sprintf(SmartctlDeviceInfoCmdImpl, "/dev/sdd")
+	cmdHealth := fmt.Sprintf(SmartctlHealthCmdImpl, "/dev/sdd")
 	e := &mocks.GoMockExecutor{}
 	l := NewSMARTCTL(e)
 
 	e.On("RunCmd", cmd).Return(output, "", nil)
-
+	e.On("RunCmd", cmdHealth).Return(outputHealth, "", nil)
 	smartInfo, err := l.GetDriveInfoByPath("/dev/sdd")
 	assert.Nil(t, err)
 
@@ -65,5 +67,32 @@ func TestSMARCTL_GetDriveInfoByPathUnmarshallError(t *testing.T) {
 	e.On("RunCmd", cmd).Return(output, "", nil)
 
 	_, err := l.GetDriveInfoByPath("/dev/sdd")
+	assert.NotNil(t, err)
+}
+
+func TestSMARCTL_fillSmartStatus(t *testing.T) {
+	cmd := fmt.Sprintf(SmartctlHealthCmdImpl, "/dev/sdd")
+	e := &mocks.GoMockExecutor{}
+	l := NewSMARTCTL(e)
+
+	e.On("RunCmd", cmd).Return("", "", fmt.Errorf("error"))
+
+	err := l.fillSmartStatus(&DeviceSMARTInfo{}, "/dev/sdd")
+	assert.NotNil(t, err)
+}
+
+func TestSMARCTL_fillSmartStatusUnmarshallError(t *testing.T) {
+	output := `{
+					"smart_status": { 
+						"passed": "true",
+					} 
+				}`
+	cmd := fmt.Sprintf(SmartctlHealthCmdImpl, "/dev/sdd")
+	e := &mocks.GoMockExecutor{}
+	l := NewSMARTCTL(e)
+
+	e.On("RunCmd", cmd).Return(output, "", nil)
+
+	err := l.fillSmartStatus(&DeviceSMARTInfo{}, "/dev/sdd")
 	assert.NotNil(t, err)
 }
