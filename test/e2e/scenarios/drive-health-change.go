@@ -1,13 +1,13 @@
 package scenarios
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,6 +21,11 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/test/e2e/common"
+)
+
+const (
+	// maximum time to wait before drive state will change after LM config change
+	driveStateChangeTimeout = time.Minute * 3
 )
 
 var (
@@ -60,20 +65,24 @@ func DefineDriveHealthChangeTestSuite(driver testsuites.TestDriver) {
 // driveHealthChangeTest test checks behavior of driver when drives change health from GOOD to BAD
 func driveHealthChangeTest(driver testsuites.TestDriver) {
 	var (
-		pod           *corev1.Pod
-		pvc           *corev1.PersistentVolumeClaim
+		testPODs      []*corev1.Pod
+		testPVCs      []*corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
 		driverCleanup func()
 		ns            string
 		f             = framework.NewDefaultFramework("health")
 	)
 
-	init := func() {
+	init := func(lmConf *common.LoopBackManagerConfig) {
 		var (
 			perTestConf *testsuites.PerTestConfig
 			err         error
 		)
 		ns = f.Namespace.Name
+
+		if lmConf != nil {
+			applyLMConfig(f, lmConf)
+		}
 
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 
@@ -88,93 +97,196 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test DriveHealthChange")
-		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
+		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
 	}
 
-	ginkgo.It("should discover drives' health changes and delete ac or change volume health", func() {
-		init()
+	ginkgo.It("AC for unhealthy drive should be removed", func() {
+		defaultDriveCount := 3
+		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
+
+		init(conf)
 		defer cleanup()
 
-		// Get ACs from the cluster
-		acUnstructuredList, err := f.DynamicClient.Resource(acGVR).Namespace(ns).List(metav1.ListOptions{})
-		framework.ExpectNoError(err)
-
+		acUnstructuredList := getUObjList(f, acGVR)
 		// Save amount of ACs before drive's health changing
 		amountOfACBeforeDiskFailure := len(acUnstructuredList.Items)
 		e2elog.Logf("found %d ac", amountOfACBeforeDiskFailure)
 
-		// Prepare variables to find serialNumber of drive which should be unhealthy
-		drivesUnstructuredList, _ := f.DynamicClient.Resource(driveGVR).Namespace(ns).List(metav1.ListOptions{})
-		acToDelete, _, err := unstructured.NestedString(acUnstructuredList.Items[0].Object, "spec", "Location")
+		targetAC := acUnstructuredList.Items[0]
+		acLocation, _, err := unstructured.NestedString(targetAC.Object, "spec", "Location")
 		framework.ExpectNoError(err)
-		nodeUidOfAC, _, err := unstructured.NestedString(acUnstructuredList.Items[0].Object, "spec", "NodeId")
+		nodeUidOfAC, _, err := unstructured.NestedString(targetAC.Object, "spec", "NodeId")
 		framework.ExpectNoError(err)
 		nodeNameOfAC, err := findNodeNameByUID(f, nodeUidOfAC)
 		framework.ExpectNoError(err)
-
-		// Get current loopback-config from the cluster
-		cm, err := f.ClientSet.CoreV1().ConfigMaps(ns).Get(cmName, metav1.GetOptions{})
+		targetDrive, found := getUObj(f, driveGVR, acLocation)
+		Expect(found).To(BeTrue())
+		targetDriveName, _, err := unstructured.NestedString(targetDrive.Object, "metadata", "name")
 		framework.ExpectNoError(err)
+		targetDriveSN, _, err := unstructured.NestedString(targetDrive.Object, "spec", "SerialNumber")
+		framework.ExpectNoError(err)
+
+		targetDriveNewHealth := apiV1.HealthBad
 		// Append bad-health drive to this config and update config on the cluster side
-		appendBadHealthDriveToConfig(cm, findSNByDriveLocation(drivesUnstructuredList.Items, acToDelete), nodeNameOfAC)
-		cm, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(cm)
-		framework.ExpectNoError(err)
+		conf.Nodes = []common.LoopBackManagerConfigNode{{
+			NodeID: &nodeNameOfAC,
+			Drives: []common.LoopBackManagerConfigDevice{{
+				SerialNumber: &targetDriveSN,
+				Health:       &targetDriveNewHealth},
+			}}}
+		applyLMConfig(f, conf)
 
-		// k8s docs say that time from updating ConfigMap to receiving updated ConfigMap in the pod where it's mounted
-		// could last 1 minute by default. Plus 30 seconds between Node's Discover in the worst case
-		time.Sleep(90 * time.Second)
+		// wait for drive health change
+		waitForObjStateChange(f, driveGVR, targetDriveName, driveStateChangeTimeout,
+			targetDriveNewHealth, "spec", "Health")
 
-		// Read ACs one more time
-		acUnstructuredList, err = f.DynamicClient.Resource(acGVR).Namespace(ns).List(metav1.ListOptions{})
-		framework.ExpectNoError(err)
+		// Read ACs one more time with retry
+		deadline := time.Now().Add(time.Second * 30)
+		for {
+			acUnstructuredList = getUObjList(f, acGVR)
+			if len(acUnstructuredList.Items) == amountOfACBeforeDiskFailure-1 {
+				e2elog.Logf("AC count decreased")
+				return
+			}
+			if time.Now().After(deadline) {
+				framework.Failf("AC count doesn't decreased")
+			}
+			time.Sleep(time.Second * 3)
+		}
+	})
 
-		// Check that amount of ACs reduced by one
-		Expect(len(acUnstructuredList.Items)).To(Equal(amountOfACBeforeDiskFailure - 1))
+	ginkgo.It("volume health should change after drive health changed", func() {
+		defaultDriveCount := 3
+		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
+		init(conf)
 
+		defer cleanup()
 		// Create test pvc on the cluster
-		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
+		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
 			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, pvcName))
 		framework.ExpectNoError(err)
 
 		// Create test pod that consumes the pvc
-		pod, err = e2epod.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err := e2epod.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
+		testPVCs = append(testPVCs, pvc)
+		testPODs = append(testPODs, pod)
 
 		// Get Volume CRs and save variables to identify on which drive the pod's Volume based on
 		volumesUnstructuredList, _ := f.DynamicClient.Resource(volumeGVR).List(metav1.ListOptions{})
-		location, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "spec", "Location")
+		targetVolume := volumesUnstructuredList.Items[0]
+		location, _, err := unstructured.NestedString(targetVolume.Object, "spec", "Location")
 		framework.ExpectNoError(err)
-		volumeName, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "metadata", "name")
+		volumeName, _, err := unstructured.NestedString(targetVolume.Object, "metadata", "name")
 		framework.ExpectNoError(err)
-		nodeUidOfVolume, _, err := unstructured.NestedString(volumesUnstructuredList.Items[0].Object, "spec", "NodeId")
+		nodeUidOfVolume, _, err := unstructured.NestedString(targetVolume.Object, "spec", "NodeId")
 		framework.ExpectNoError(err)
 		nodeNameOfVolume, err := findNodeNameByUID(f, nodeUidOfVolume)
 		framework.ExpectNoError(err)
-
-		// Make the drive of the Volume unhealthy
-		appendBadHealthDriveToConfig(cm, findSNByDriveLocation(drivesUnstructuredList.Items, location), nodeNameOfVolume)
-		cm, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(cm)
+		targetDrive, found := getUObj(f, driveGVR, location)
+		Expect(found).To(BeTrue())
+		targetDriveSN, _, err := unstructured.NestedString(targetDrive.Object, "spec", "SerialNumber")
 		framework.ExpectNoError(err)
 
-		// k8s docs say that time from updating ConfigMap to receiving updated ConfigMap in the pod where it's mounted
-		// could last 1 minute by default. Plus 30 seconds between Node's Discover in the worst case
-		time.Sleep(90 * time.Second)
+		targetDriveNewHealth := apiV1.HealthBad
+		// Append bad-health drive to this config and update config on the cluster side
+		conf.Nodes = []common.LoopBackManagerConfigNode{{
+			NodeID: &nodeNameOfVolume,
+			Drives: []common.LoopBackManagerConfigDevice{{
+				SerialNumber: &targetDriveSN,
+				Health:       &targetDriveNewHealth},
+			}}}
+		applyLMConfig(f, conf)
 
-		// Read Volume one more time
-		changedVolume, err := f.DynamicClient.Resource(volumeGVR).Namespace(ns).Get(volumeName, metav1.GetOptions{})
+		// wait for volume health change
+		waitForObjStateChange(f, volumeGVR, volumeName, driveStateChangeTimeout,
+			apiV1.HealthBad, "spec", "Health")
+
+		// check events for volume
+		eventsWaitTimeout := time.Second * 30
+		checkExpectedEventsExistWithRetry(f, &targetVolume, []string{
+			eventing.VolumeBadHealth,
+		}, eventsWaitTimeout)
+	})
+
+	ginkgo.It("Check drive events", func() {
+		defaultDriveCount := 3
+		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
+
+		init(conf)
+		defer cleanup()
+
+		allDrives := getUObjList(f, driveGVR)
+		Expect(len(allDrives.Items) > 2).To(BeTrue())
+		targetNodeID, _, err := unstructured.NestedString(
+			allDrives.Items[0].UnstructuredContent(), "spec", "NodeId")
 		framework.ExpectNoError(err)
-		health, _, err := unstructured.NestedString(changedVolume.Object, "spec", "Health")
-		//get events on volume
-		evlist, err := f.ClientSet.CoreV1().Events(ns).Search(runtime.NewScheme(), changedVolume)
+		targetNodeName, err := findNodeNameByUID(f, targetNodeID)
 		framework.ExpectNoError(err)
 
-		bhEvents := filterEventsByReason(evlist, eventing.VolumeBadHealth)
-		e2elog.Logf("found bad health events %+v len %d\n", bhEvents, len(bhEvents))
-		// Check that Volume is marked as unhealthy
-		Expect(health).To(Equal(apiV1.HealthBad))
-		// CHeck we have Bad Health Event
-		Expect(len(bhEvents)).To(Equal(1))
+		driveCRsForNode := filterDrivesCRsForNode(targetNodeID, allDrives)
+		Expect(len(driveCRsForNode) > 2).To(BeTrue())
+
+		driveUnderTest1 := driveCRsForNode[0]
+		driveUnderTest1SN, _, _ := unstructured.NestedString(
+			driveUnderTest1.Object, "spec", "SerialNumber")
+		driveUnderTest1Name, _, _ := unstructured.NestedString(
+			driveUnderTest1.Object, "metadata", "name")
+
+		driveUnderTest2 := driveCRsForNode[1]
+		driveUnderTest2SN, _, _ := unstructured.NestedString(
+			driveUnderTest2.Object, "spec", "SerialNumber")
+		driveUnderTest2Name, _, _ := unstructured.NestedString(
+			driveUnderTest2.Object, "metadata", "name")
+
+		// switch driveUnderTest1 health to "BAD"
+		// switch driveUnderTest2 status to "OFFLINE"
+		badHealth := apiV1.HealthBad
+		driveRemoved := true
+		conf.Nodes = []common.LoopBackManagerConfigNode{{
+			NodeID: &targetNodeName,
+			Drives: []common.LoopBackManagerConfigDevice{{
+				SerialNumber: &driveUnderTest1SN,
+				Health:       &badHealth,
+			}, {
+				SerialNumber: &driveUnderTest2SN,
+				Removed:      &driveRemoved,
+			}},
+		}}
+		applyLMConfig(f, conf)
+		waitForObjStateChange(f, driveGVR, driveUnderTest1Name, driveStateChangeTimeout,
+			apiV1.HealthBad, "spec", "Health")
+		waitForObjStateChange(f, driveGVR, driveUnderTest2Name, driveStateChangeTimeout,
+			apiV1.DriveStatusOffline, "spec", "Status")
+
+		// switch driveUnderTest1 health to "GOOD"
+		// switch driveUnderTest2 status to "ONLINE"
+		goodHealth := apiV1.HealthGood
+		// driveUnderTest1
+		conf.Nodes[0].Drives[0].Health = &goodHealth
+		// driveUnderTest2
+		conf.Nodes[0].Drives[1].Removed = nil
+		applyLMConfig(f, conf)
+		waitForObjStateChange(f, driveGVR, driveUnderTest1Name, driveStateChangeTimeout,
+			apiV1.HealthGood, "spec", "Health")
+		waitForObjStateChange(f, driveGVR, driveUnderTest2Name, driveStateChangeTimeout,
+			apiV1.DriveStatusOnline, "spec", "Status")
+
+		// check events
+		eventsWaitTimeout := time.Second * 30
+		checkExpectedEventsExistWithRetry(f, &driveUnderTest1, []string{
+			eventing.DriveDiscovered,
+			eventing.DriveHealthGood,
+			eventing.DriveHealthFailure,
+			eventing.DriveHealthGood,
+		}, eventsWaitTimeout)
+		checkExpectedEventsExistWithRetry(f, &driveUnderTest2, []string{
+			eventing.DriveDiscovered,
+			eventing.DriveHealthGood,
+			eventing.DriveStatusOffline,
+			eventing.DriveStatusOnline,
+		}, eventsWaitTimeout)
 	})
 }
 
@@ -202,28 +314,6 @@ func constructPVC(ns string, claimSize string, storageClass string, pvcName stri
 	return &claim
 }
 
-// appendBadHealthDriveToConfig appends spec of bad-health drive to LoopBackMgr's ConfigMap
-// Receives current state of ConfigMap, serialNumber of drive to make it unhealthy, nodeID where the drive is placed
-func appendBadHealthDriveToConfig(cm *corev1.ConfigMap, serialNumber string, nodeID string) {
-	cm.Data[configKey] = cm.Data[configKey] + fmt.Sprintf("- nodeID: %s\n", nodeID) +
-		"  drives:\n" +
-		fmt.Sprintf("  - serialNumber: %s\n", serialNumber) +
-		"    health: BAD\n"
-}
-
-// findSNByDriveLocation finds SerialNumber of the drive which is used by the volume using its location
-// Receives unstructured list of drives and location
-func findSNByDriveLocation(driveList []unstructured.Unstructured, driveLocation string) string {
-	for _, unstrDrive := range driveList {
-		name, _, _ := unstructured.NestedString(unstrDrive.Object, "metadata", "name")
-		if name == driveLocation {
-			sn, _, _ := unstructured.NestedString(unstrDrive.Object, "spec", "SerialNumber")
-			return sn
-		}
-	}
-	return ""
-}
-
 // findNodeNameByUID finds node name according to its k8s uid
 // Receives k8s test framework and node uid
 // Returns node name or error if something went wrong
@@ -242,12 +332,108 @@ func findNodeNameByUID(f *framework.Framework, nodeUID string) (string, error) {
 	return nodeName, nil
 }
 
-func filterEventsByReason(eventlist *corev1.EventList, reason string) []corev1.Event {
-	events := make([]corev1.Event, 0)
-	for i := range eventlist.Items {
-		if eventlist.Items[i].Reason == reason {
-			events = append(events, eventlist.Items[i])
+func applyLMConfig(f *framework.Framework, lmConf *common.LoopBackManagerConfig) {
+	ns := f.Namespace.Name
+	lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
+	framework.ExpectNoError(err)
+	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(lmConfigMap)
+	if errors.IsAlreadyExists(err) {
+		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(lmConfigMap)
+	}
+	framework.ExpectNoError(err)
+}
+
+func filterDrivesCRsForNode(nodeID string, drives *unstructured.UnstructuredList) []unstructured.Unstructured {
+	var filtered []unstructured.Unstructured
+
+	for _, d := range drives.Items {
+		v, _, err := unstructured.NestedString(d.UnstructuredContent(), "spec", "NodeId")
+		framework.ExpectNoError(err)
+		if v == nodeID {
+			filtered = append(filtered, d)
 		}
 	}
-	return events
+	return filtered
+}
+
+func getUObjList(f *framework.Framework, resource schema.GroupVersionResource) *unstructured.UnstructuredList {
+	drivesU, err := f.DynamicClient.Resource(resource).Namespace(f.Namespace.Name).List(metav1.ListOptions{})
+	framework.ExpectNoError(err)
+	return drivesU
+}
+
+func getUObj(f *framework.Framework, resource schema.GroupVersionResource, name string) (*unstructured.Unstructured, bool) {
+	driveU, err := f.DynamicClient.Resource(resource).Namespace(f.Namespace.Name).Get(name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, false
+		}
+		framework.ExpectNoError(err)
+	}
+	return driveU, true
+}
+
+func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionResource, name string,
+	timeout time.Duration, expectedValue string, fields ...string) {
+
+	deadline := time.Now().Add(timeout)
+	for {
+		drive, found := getUObj(f, resource, name)
+		if !found {
+			continue
+		}
+		result, _, err := unstructured.NestedString(drive.Object, fields...)
+		framework.ExpectNoError(err)
+		if result == expectedValue {
+			e2elog.Logf("%s %s in expected state: %s",
+				resource.Resource, name, expectedValue)
+			return
+		}
+		if time.Now().After(deadline) {
+			framework.Failf("%s %s doesn't change to expected state: %s",
+				resource.Resource, name, expectedValue)
+		}
+		time.Sleep(time.Second * 5)
+	}
+}
+
+func checkExpectedEventsExistWithRetry(f *framework.Framework, object runtime.Object,
+	eventsReasons []string, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for {
+		if checkExpectedEventsExist(f, object, eventsReasons) {
+			return
+		}
+		if time.Now().After(deadline) {
+			framework.Failf("expected events not found")
+		}
+		time.Sleep(time.Second * 5)
+	}
+}
+
+func checkExpectedEventsExist(f *framework.Framework, object runtime.Object, eventsReasons []string) bool {
+	evlist, err := f.ClientSet.CoreV1().Events(f.Namespace.Name).Search(runtime.NewScheme(), object)
+	framework.ExpectNoError(err)
+	events := evlist.Items
+
+	for _, er := range eventsReasons {
+		var found bool
+		for i := 0; i < len(events); i++ {
+			if events[i].Reason == er {
+				found = true
+				// remove matched event
+				events[i] = events[len(events)-1]
+				events[len(events)-1] = corev1.Event{}
+				events = events[:len(events)-1]
+				break
+			}
+		}
+		if !found {
+			e2elog.Logf("expected event not found: %s", er)
+			return false
+		}
+
+	}
+	e2elog.Logf("all expected events found")
+	return true
 }

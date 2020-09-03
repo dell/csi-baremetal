@@ -78,6 +78,33 @@ type VolumeManager struct {
 	recorder eventRecorder
 }
 
+// driveStates internal struct, holds info about drive updates
+// not thread safe
+type driveUpdates struct {
+	Created    []*drivecrd.Drive
+	NotChanged []*drivecrd.Drive
+	Updated    []updatedDrive
+}
+
+func (du *driveUpdates) AddCreated(drive *drivecrd.Drive) {
+	du.Created = append(du.Created, drive)
+}
+
+func (du *driveUpdates) AddNotChanged(drive *drivecrd.Drive) {
+	du.NotChanged = append(du.NotChanged, drive)
+}
+
+func (du *driveUpdates) AddUpdated(previousState, currentState *drivecrd.Drive) {
+	du.Updated = append(du.Updated, updatedDrive{
+		PreviousState: previousState, CurrentState: currentState})
+}
+
+// updatedDrive holds previous and current state for updated drive
+type updatedDrive struct {
+	PreviousState *drivecrd.Drive
+	CurrentState  *drivecrd.Drive
+}
+
 const (
 	// DiscoverDrivesTimeout is the timeout for Discover method
 	DiscoverDrivesTimeout = 300 * time.Second
@@ -239,7 +266,8 @@ func (m *VolumeManager) Discover() error {
 		return err
 	}
 
-	m.updateDrivesCRs(ctx, drivesResponse.Disks)
+	updates := m.updateDrivesCRs(ctx, drivesResponse.Disks)
+	m.handleDriveUpdates(ctx, updates)
 
 	freeDrives := m.drivesAreNotUsed()
 	if err = m.discoverVolumeCRs(freeDrives); err != nil {
@@ -260,15 +288,17 @@ func (m *VolumeManager) Discover() error {
 	return nil
 }
 
-// updateDrivesCRs updates drives cache and Drives CRs based on provided list of Drives. Tries to fill drivesCache in
-// case of VolumeManager restart from Drives CRs.
+// updateDrivesCRs updates Drives CRs based on provided list of Drives.
 // Receives golang context and slice of discovered api.Drive structs usually got from DriveManager
-func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []*api.Drive) {
+// returns struct with information about drives updates
+func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []*api.Drive) *driveUpdates {
 	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
 		"method":    "updateDrivesCRs",
 	})
 	ll.Debugf("Processing")
+
+	updates := &driveUpdates{}
 
 	driveCRs := m.crHelper.GetDriveCRs(m.nodeID)
 
@@ -276,20 +306,22 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 	for _, drivePtr := range discoveredDrives {
 		exist := false
 		for _, driveCR := range driveCRs {
+			driveCR := driveCR
 			// If drive CR already exist, try to update, if drive was changed
 			if m.drivesAreTheSame(drivePtr, &driveCR.Spec) {
 				exist = true
-				if !driveCR.Equals(drivePtr) {
+				if driveCR.Equals(drivePtr) {
+					updates.AddNotChanged(&driveCR)
+				} else {
+					previousState := driveCR.DeepCopy()
 					drivePtr.UUID = driveCR.Spec.UUID
-					// If got from DriveMgr drive's health is not equal to drive's health in cache then update appropriate
-					// resources
-					if drivePtr.Health != driveCR.Spec.Health || drivePtr.Status != driveCR.Spec.Status {
-						m.handleDriveStatusChange(ctx, drivePtr)
-					}
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
 					if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
+						updates.AddNotChanged(previousState)
+					} else {
+						updates.AddUpdated(previousState, &toUpdate)
 					}
 				}
 				break
@@ -304,12 +336,13 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 			if err := m.k8sClient.CreateCR(ctx, driveCR.Name, driveCR); err != nil {
 				ll.Errorf("Failed to create drive CR %v, error: %v", driveCR, err)
 			}
+			updates.AddCreated(driveCR)
 		}
 	}
 
 	// that means that it is a first round and drives are discovered first time
 	if len(driveCRs) == 0 {
-		return
+		return updates
 	}
 
 	// Try to find missing drive in drive CRs and update according CR
@@ -329,15 +362,27 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 		if !wasDiscovered && !isInLVG {
 			// TODO: remove AC and aware Volumes here
 			ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
+			previousState := d.DeepCopy()
 			toUpdate := d
 			toUpdate.Spec.Status = apiV1.DriveStatusOffline
 			toUpdate.Spec.Health = apiV1.HealthUnknown
 			err := m.k8sClient.UpdateCR(ctx, &toUpdate)
 			if err != nil {
 				ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
+				updates.AddNotChanged(previousState)
+			} else {
+				updates.AddUpdated(previousState, &toUpdate)
 			}
 		}
 	}
+	return updates
+}
+
+func (m *VolumeManager) handleDriveUpdates(ctx context.Context, updates *driveUpdates) {
+	for _, updDrive := range updates.Updated {
+		m.handleDriveStatusChange(ctx, &updDrive.CurrentState.Spec)
+	}
+	m.createEventsForDriveUpdates(updates)
 }
 
 // isDriveIsInLVG check whether drive is a part of some LVG or no
@@ -677,4 +722,80 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 	}
 	ll.Infof("There is no available space on %s", location)
 	return nil
+}
+
+// createEventsForDriveUpdates create required events for drive state change
+func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
+	for _, createdDrive := range updates.Created {
+		m.sendEventForDrive(createdDrive, eventing.InfoType, eventing.DriveDiscovered,
+			"New drive discovered SN: %s, Node: %s.",
+			createdDrive.Spec.SerialNumber, createdDrive.Spec.NodeId)
+		m.createEventForDriveHealthChange(
+			createdDrive, apiV1.HealthUnknown, createdDrive.Spec.Health)
+	}
+	for _, updDrive := range updates.Updated {
+		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health {
+			m.createEventForDriveHealthChange(
+				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
+		}
+		if updDrive.CurrentState.Spec.Status != updDrive.PreviousState.Spec.Status {
+			m.createEventForDriveStatusChange(
+				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
+		}
+	}
+}
+
+func (m *VolumeManager) createEventForDriveHealthChange(
+	drive *drivecrd.Drive, prevHealth, currentHealth string) {
+	healthMsgTemplate := "Drive health is: %s, previous state: %s."
+	eventType := eventing.WarningType
+	var reason string
+	switch currentHealth {
+	case apiV1.HealthGood:
+		eventType = eventing.InfoType
+		reason = eventing.DriveHealthGood
+	case apiV1.HealthBad:
+		eventType = eventing.ErrorType
+		reason = eventing.DriveHealthFailure
+	case apiV1.HealthSuspect:
+		reason = eventing.DriveHealthSuspect
+	case apiV1.HealthUnknown:
+		reason = eventing.DriveHealthUnknown
+	default:
+		return
+	}
+	m.sendEventForDrive(drive, eventType, reason,
+		healthMsgTemplate, currentHealth, prevHealth)
+}
+
+func (m *VolumeManager) createEventForDriveStatusChange(
+	drive *drivecrd.Drive, prevStatus, currentStatus string) {
+	statusMsgTemplate := "Drive status is: %s, previous status: %s."
+	eventType := eventing.InfoType
+	var reason string
+	switch currentStatus {
+	case apiV1.DriveStatusOnline:
+		reason = eventing.DriveStatusOnline
+	case apiV1.DriveStatusOffline:
+		eventType = eventing.ErrorType
+		reason = eventing.DriveStatusOffline
+	default:
+		return
+	}
+	m.sendEventForDrive(drive, eventType, reason,
+		statusMsgTemplate, currentStatus, prevStatus)
+}
+
+func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reason, messageFmt string,
+	args ...interface{}) {
+	messageFmt += prepareDriveDescription(drive)
+	m.recorder.Eventf(drive, eventtype, reason, messageFmt, args...)
+}
+
+func prepareDriveDescription(drive *drivecrd.Drive) string {
+	return fmt.Sprintf(" Drive Details: SN='%s', Node='%s',"+
+		" Type='%s', Model='%s %s',"+
+		" Size='%d', Firmware='%s'",
+		drive.Spec.SerialNumber, drive.Spec.NodeId, drive.Spec.Type,
+		drive.Spec.VID, drive.Spec.PID, drive.Spec.Size, drive.Spec.Firmware)
 }
