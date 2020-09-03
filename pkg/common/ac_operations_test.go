@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestACOperationsImpl_SearchAC(t *testing.T) {
@@ -349,4 +348,58 @@ func lvgReconcileImitation(k8sClient *k8s.KubeClient, newStatus string) error {
 	ticker.Stop()
 	lvgCRList.Items[0].Spec.Status = newStatus
 	return k8sClient.UpdateCR(context.Background(), &lvgCRList.Items[0])
+}
+
+func Test_alignSizeByPE(t *testing.T) {
+	type args struct {
+		size int64
+	}
+	tests := []struct {
+		name string
+		args args
+		want int64
+	}{
+		{
+			name: "100Mi",
+			args: args{
+				size: 104857600,
+			},
+			want: 104857600,
+		},
+		{
+			name: "lower than 1Mi",
+			args: args{
+				size: 1,
+			},
+			want: DefaultPESize,
+		},
+		{
+			name: "slightly lower than 4Mi",
+			args: args{
+				size: 4194303,
+			},
+			want: DefaultPESize,
+		},
+		{
+			name: "slightly higher than 4Mi",
+			args: args{
+				size: 4194305,
+			},
+			want: 2*DefaultPESize,
+		},
+		{
+			name: "Negative",
+			args: args{
+				size: -104857600,
+			},
+			want: -104857600,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := alignSizeByPE(tt.args.size); got != tt.want {
+				t.Errorf("alignSizeByPE() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

@@ -131,7 +131,11 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 
 // Make size aligned with PE
 func alignSizeByPE(size int64) int64 {
-	alignement := DefaultPESize - (size % DefaultPESize)
+	var alignement int64
+	reminder := size % DefaultPESize
+	if reminder != 0 {
+		alignement = DefaultPESize - reminder
+	}
 	return size + alignement
 }
 
