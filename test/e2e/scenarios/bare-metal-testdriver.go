@@ -170,9 +170,7 @@ func (d *baremetalDriver) GetStorageClassWithStorageType(config *testsuites.PerT
 
 // GetClaimSize is implementation of DynamicPVTestDriver interface method
 func (d *baremetalDriver) GetClaimSize() string {
-	// for LVM need to align with VG PE size
-	// todo address this issue in https://jira.cec.lab.emc.com:8443/browse/ATLDEF-56
-	return "96Mi"
+	return "100Mi"
 }
 
 // GetVolume is implementation of EphemeralTestDriver interface method
