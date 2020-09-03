@@ -192,7 +192,7 @@ private String getArtifactsJson(final Map<String, Object> args) {
     artifacts.add([
            "componentName": COMPONENT_NAME,
            "version": args.version,
-           "type": "file",
+           "type": "binary",
            "endpoint": "{{ ASD_REPO }}",
            "path": args.pathToFile,
     ])
