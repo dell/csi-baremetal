@@ -70,11 +70,11 @@ func TestNVMECLI_GetNVMDevicesSuccess(t *testing.T) {
 	assert.Equal(t, "/dev/nvme9n1", devices[0].DevicePath)
 	assert.Equal(t, "VDV1DP21", devices[0].Firmware)
 	assert.Equal(t, "Dell Express Flash NVMe P4510 4TB SFF", devices[0].ModelNumber)
-	assert.Equal(t, apiV1.HealthSuspect, devices[0].Health)
+	assert.Equal(t, apiV1.HealthGood, devices[0].Health)
 	assert.Equal(t, 32902, devices[0].Vendor)
 }
 
-func TestSMARCTL_GetNVMDevicesFails(t *testing.T) {
+func TestNVMECLI_GetNVMDevicesFails(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 
@@ -84,7 +84,7 @@ func TestSMARCTL_GetNVMDevicesFails(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestSMARCTL_GetNVMDevicesUnmarshallError(t *testing.T) {
+func TestNVMECLI_GetNVMDevicesUnmarshallError(t *testing.T) {
 	output := `
 	{
 		"Devices" : [
@@ -110,7 +110,7 @@ func TestSMARCTL_GetNVMDevicesUnmarshallError(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestSMARCTL_GetNVMDevicesWrongKey(t *testing.T) {
+func TestNVMECLI_GetNVMDevicesWrongKey(t *testing.T) {
 	output := `
 	{
 		"Wrong Key" : [
@@ -136,19 +136,19 @@ func TestSMARCTL_GetNVMDevicesWrongKey(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestSMARCTL_getNVMDeviceHealthGood(t *testing.T) {
+func TestNVMECLI_getNVMDeviceHealthBad(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 
 	health := `{
-  		"critical_warning" : 1
+  		"critical_warning" : 4
 	}
 	`
 	e.On("RunCmd", fmt.Sprintf(NVMeHealthCmdImpl, testPath)).Return(health, "", nil)
 	deviceHealth := l.getNVMDeviceHealth(testPath)
-	assert.Equal(t, apiV1.HealthGood, deviceHealth)
+	assert.Equal(t, apiV1.HealthBad, deviceHealth)
 }
-func TestSMARCTL_getNVMDeviceHealthBad(t *testing.T) {
+func TestNVMECLI_getNVMDeviceHealthSuspect(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 	health := `{
@@ -157,10 +157,22 @@ func TestSMARCTL_getNVMDeviceHealthBad(t *testing.T) {
 	`
 	e.On("RunCmd", fmt.Sprintf(NVMeHealthCmdImpl, testPath)).Return(health, "", nil)
 	deviceHealth := l.getNVMDeviceHealth(testPath)
-	assert.Equal(t, apiV1.HealthBad, deviceHealth)
+	assert.Equal(t, apiV1.HealthSuspect, deviceHealth)
 }
 
-func TestSMARCTL_getNVMDeviceHealthUnmarshallError(t *testing.T) {
+func TestNVMECLI_getNVMDeviceHealthGood(t *testing.T) {
+	e := &mocks.GoMockExecutor{}
+	l := NewNVMECLI(e, testLogger)
+	health := `{
+  		"critical_warning" : 0
+	}
+	`
+	e.On("RunCmd", fmt.Sprintf(NVMeHealthCmdImpl, testPath)).Return(health, "", nil)
+	deviceHealth := l.getNVMDeviceHealth(testPath)
+	assert.Equal(t, apiV1.HealthGood, deviceHealth)
+}
+
+func TestNVMECLI_getNVMDeviceHealthUnmarshallError(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 	//unmarshall error
@@ -173,7 +185,7 @@ func TestSMARCTL_getNVMDeviceHealthUnmarshallError(t *testing.T) {
 	assert.Equal(t, apiV1.HealthUnknown, deviceHealth)
 }
 
-func TestSMARCTL_getNVMDeviceHealthCMDError(t *testing.T) {
+func TestNVMECLI_getNVMDeviceHealthCMDError(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 	e.On("RunCmd", fmt.Sprintf(NVMeHealthCmdImpl, testPath)).Return("", "", fmt.Errorf("error"))
@@ -181,7 +193,7 @@ func TestSMARCTL_getNVMDeviceHealthCMDError(t *testing.T) {
 	assert.Equal(t, apiV1.HealthUnknown, deviceHealth)
 }
 
-func TestSMARCTL_getNVMDeviceVendorFail(t *testing.T) {
+func TestNVMECLI_getNVMDeviceVendorFail(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 	device := NVMDevice{
@@ -192,7 +204,7 @@ func TestSMARCTL_getNVMDeviceVendorFail(t *testing.T) {
 	assert.Equal(t, 0, device.Vendor)
 }
 
-func TestSMARCTL_getNVMDeviceVendorUnmarshalError(t *testing.T) {
+func TestNVMECLI_getNVMDeviceVendorUnmarshalError(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
 	vendor := `{ (
@@ -205,4 +217,15 @@ func TestSMARCTL_getNVMDeviceVendorUnmarshalError(t *testing.T) {
 	e.On("RunCmd", fmt.Sprintf(NVMeVendorCmdImpl, "/dev/nvme9n1")).Return(vendor, "", nil)
 	l.fillNVMDeviceVendor(&device)
 	assert.Equal(t, 0, device.Vendor)
+}
+
+func TestNVMECLI_isOneOfBitsSet(t *testing.T) {
+	e := &mocks.GoMockExecutor{}
+	l := NewNVMECLI(e, testLogger)
+	set := l.isOneOfBitsSet(1, 0)
+	assert.True(t, set)
+	set = l.isOneOfBitsSet(4, 3)
+	assert.False(t, set)
+	set = l.isOneOfBitsSet(5, 64)
+	assert.False(t, set)
 }
