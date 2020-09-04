@@ -19,17 +19,17 @@ type LoopBackManagerConfigDevice struct {
 
 // LoopBackManagerConfigNode struct represents particular configuration of LoopBackManager for specified node
 type LoopBackManagerConfigNode struct {
-	NodeID     *string                        `yaml:"nodeID,omitempty"`
-	DriveCount *int                           `yaml:"driveCount,omitempty"`
-	Drives     *[]LoopBackManagerConfigDevice `yaml:"drives,omitempty"`
+	NodeID     *string                       `yaml:"nodeID,omitempty"`
+	DriveCount *int                          `yaml:"driveCount,omitempty"`
+	Drives     []LoopBackManagerConfigDevice `yaml:"drives,omitempty"`
 }
 
 // LoopBackManagerConfig struct is the configuration for LoopBackManager.
 // It contains default settings and settings for each node
 type LoopBackManagerConfig struct {
-	DefaultDriveCount *int                         `yaml:"defaultDrivePerNodeCount,omitempty"`
-	DefaultDriveSize  *string                      `yaml:"defaultDriveSize,omitempty"`
-	Nodes             *[]LoopBackManagerConfigNode `yaml:"nodes,omitempty"`
+	DefaultDriveCount *int                        `yaml:"defaultDrivePerNodeCount,omitempty"`
+	DefaultDriveSize  *string                     `yaml:"defaultDriveSize,omitempty"`
+	Nodes             []LoopBackManagerConfigNode `yaml:"nodes,omitempty"`
 }
 
 // BuildLoopBackManagerConfigMap returns ConfigMap with configuration for loopback manager
