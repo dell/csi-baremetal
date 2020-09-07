@@ -134,7 +134,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		defaultDriveCount := 0
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
-			Nodes: &[]common.LoopBackManagerConfigNode{
+			Nodes: []common.LoopBackManagerConfigNode{
 				{
 					NodeID:     &nodeWithDisksID,
 					DriveCount: &nodeWithDisksDriveCount},
@@ -163,7 +163,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		}
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
-			Nodes:             &lmNodes}
+			Nodes:             lmNodes}
 		init(lmConfig)
 		defer cleanup()
 		createTestPods(testPodsCount, testPodsDisksPerPod)
@@ -177,7 +177,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		defaultDriveCount := 0
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
-			Nodes: &[]common.LoopBackManagerConfigNode{
+			Nodes: []common.LoopBackManagerConfigNode{
 				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
 					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeSSD}}),
 				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
@@ -202,7 +202,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		driveSize := "250Mi"
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
-			Nodes: &[]common.LoopBackManagerConfigNode{
+			Nodes: []common.LoopBackManagerConfigNode{
 				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
 					{DriveType: &driveTypeHDD, Size: &driveSize}}),
 				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
@@ -222,7 +222,7 @@ func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevic
 	return &common.LoopBackManagerConfigNode{
 		NodeID:     &node,
 		DriveCount: &drivesCount,
-		Drives:     &drives,
+		Drives:     drives,
 	}
 }
 

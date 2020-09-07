@@ -26,6 +26,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
@@ -131,6 +132,18 @@ var (
 			NodeId:       drive1.NodeId},
 	}
 )
+
+func getTestDrive(id, sn string) *api.Drive {
+	return &api.Drive{
+		UUID:         id,
+		SerialNumber: sn,
+		Size:         1024 * 1024 * 1024 * 500,
+		NodeId:       nodeID,
+		Type:         apiV1.DriveTypeHDD,
+		Status:       apiV1.DriveStatusOnline,
+		Health:       apiV1.HealthGood,
+	}
+}
 
 func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
@@ -463,29 +476,35 @@ func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Empty(t, vm.crHelper.GetDriveCRs(vm.nodeID))
 	ctx := context.Background()
-	vm.updateDrivesCRs(ctx, driveMgrRespDrives)
+	updates := vm.updateDrivesCRs(ctx, driveMgrRespDrives)
 	assert.Nil(t, err)
 	assert.Equal(t, len(vm.crHelper.GetDriveCRs(vm.nodeID)), 2)
+	assert.Len(t, updates.Created, 2)
 
 	driveMgrRespDrives[0].Health = apiV1.HealthBad
-	vm.updateDrivesCRs(ctx, driveMgrRespDrives)
+	updates = vm.updateDrivesCRs(ctx, driveMgrRespDrives)
 	assert.Nil(t, err)
 	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthBad)
+	assert.Len(t, updates.Updated, 1)
+	assert.Len(t, updates.NotChanged, 1)
 
 	drives := driveMgrRespDrives[1:]
-	vm.updateDrivesCRs(ctx, drives)
+	updates = vm.updateDrivesCRs(ctx, drives)
 	assert.Nil(t, err)
 	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthUnknown)
 	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Status, apiV1.DriveStatusOffline)
+	assert.Len(t, updates.Updated, 1)
+	assert.Len(t, updates.NotChanged, 1)
 
 	kubeClient, err = k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	vm = NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	assert.Nil(t, err)
 	assert.Empty(t, vm.crHelper.GetDriveCRs(vm.nodeID))
-	vm.updateDrivesCRs(ctx, driveMgrRespDrives)
+	updates = vm.updateDrivesCRs(ctx, driveMgrRespDrives)
 	assert.Nil(t, err)
 	assert.Equal(t, len(vm.crHelper.GetDriveCRs(vm.nodeID)), 2)
+	assert.Len(t, updates.Created, 2)
 	driveMgrRespDrives = append(driveMgrRespDrives, &api.Drive{
 		UUID:         uuid.New().String(),
 		SerialNumber: "hdd3",
@@ -494,9 +513,11 @@ func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
 		Size:         1024 * 1024 * 1024 * 150,
 		NodeId:       nodeID,
 	})
-	vm.updateDrivesCRs(ctx, driveMgrRespDrives)
+	updates = vm.updateDrivesCRs(ctx, driveMgrRespDrives)
 	assert.Nil(t, err)
 	assert.Equal(t, len(vm.crHelper.GetDriveCRs(vm.nodeID)), 3)
+	assert.Len(t, updates.Created, 1)
+	assert.Len(t, updates.NotChanged, 2)
 }
 
 func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
@@ -647,4 +668,78 @@ func addDriveCRs(k *k8s.KubeClient, drives ...*drivecrd.Drive) {
 			panic(err)
 		}
 	}
+}
+
+func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
+	k, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+
+	drive1CR := k.ConstructDriveCR(drive1UUID, *getTestDrive(drive1UUID, "SN1"))
+	drive2CR := k.ConstructDriveCR(drive2UUID, *getTestDrive(drive1UUID, "SN2"))
+
+	var (
+		rec *mocks.NoOpRecorder
+		mgr *VolumeManager
+	)
+
+	init := func() {
+		rec = &mocks.NoOpRecorder{}
+		mgr = &VolumeManager{recorder: rec}
+	}
+
+	expectEvent := func(drive *drivecrd.Drive, eventtype, reason string) bool {
+		for _, c := range rec.Calls {
+			driveObj, ok := c.Object.(*drivecrd.Drive)
+			if !ok {
+				continue
+			}
+			if driveObj.Name != drive.Name {
+				continue
+			}
+			if c.Eventtype == eventtype && c.Reason == reason {
+				return true
+			}
+		}
+		return false
+	}
+
+	t.Run("Healthy drives discovered", func(t *testing.T) {
+		init()
+		upd := &driveUpdates{
+			Created: []*drivecrd.Drive{drive1CR, drive2CR},
+		}
+		mgr.createEventsForDriveUpdates(upd)
+		assert.NotEmpty(t, rec.Calls)
+		msgDiscovered := "DriveDiscovered event should exist for drive"
+		msgHealth := "DriveHealthGood event should exist for drive"
+		assert.True(t, expectEvent(drive1CR, eventing.InfoType, eventing.DriveDiscovered), msgDiscovered)
+		assert.True(t, expectEvent(drive2CR, eventing.InfoType, eventing.DriveDiscovered), msgDiscovered)
+		assert.True(t, expectEvent(drive1CR, eventing.InfoType, eventing.DriveHealthGood), msgHealth)
+		assert.True(t, expectEvent(drive2CR, eventing.InfoType, eventing.DriveHealthGood), msgHealth)
+	})
+
+	t.Run("No changes", func(t *testing.T) {
+		init()
+		upd := &driveUpdates{
+			NotChanged: []*drivecrd.Drive{drive1CR, drive2CR},
+		}
+		mgr.createEventsForDriveUpdates(upd)
+		assert.Empty(t, rec.Calls)
+	})
+
+	t.Run("Drive status and health changed", func(t *testing.T) {
+		init()
+		modifiedDrive := drive1CR.DeepCopy()
+		modifiedDrive.Spec.Status = apiV1.DriveStatusOffline
+		modifiedDrive.Spec.Health = apiV1.HealthUnknown
+
+		upd := &driveUpdates{
+			Updated: []updatedDrive{{
+				PreviousState: drive1CR,
+				CurrentState:  modifiedDrive}},
+		}
+		mgr.createEventsForDriveUpdates(upd)
+		assert.True(t, expectEvent(drive1CR, eventing.ErrorType, eventing.DriveStatusOffline))
+		assert.True(t, expectEvent(drive1CR, eventing.WarningType, eventing.DriveHealthUnknown))
+	})
 }
