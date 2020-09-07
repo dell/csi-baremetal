@@ -232,7 +232,7 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...accrd.AvailableCa
 	}
 
 	// create new AC
-	newACCRName := acs[0].Spec.NodeId + "-" + lvg.Name
+	newACCRName := uuid.New().String()
 	newACCR := a.k8sClient.ConstructACCR(newACCRName, api.AvailableCapacity{
 		Location:     lvg.Name,
 		NodeId:       acs[0].Spec.NodeId,
