@@ -248,7 +248,7 @@ func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempt
 }
 
 // UpdateCRWithAttempts updates provided resource on k8s cluster with specified amount of attempts
-// Fails right away if resource is not found
+// Fails right away if resource is not found or was changed
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Object, attempts int) error {
@@ -263,9 +263,12 @@ func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Objec
 	defer ticker.Stop()
 
 	for i := 0; i < attempts; i++ {
-		if err = k.UpdateCR(ctxVal, obj); err == nil {
+		err = k.UpdateCR(ctxVal, obj)
+		if err == nil {
 			return nil
-		} else if k8sError.IsNotFound(err) {
+		}
+		// immediately return if object was removed or modified
+		if k8sError.IsNotFound(err) || k8sError.IsConflict(err) {
 			return err
 		}
 		ll.Warnf("Unable to update volume CR. Attempt %d out of %d with err %v", i, attempts, err)
