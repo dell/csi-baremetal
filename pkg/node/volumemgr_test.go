@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -232,25 +233,43 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-
-	volCR.Spec.CSIStatus = apiV1.Failed
-	volCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	volCR.Spec.CSIStatus = apiV1.Removed
 	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
 	assert.Nil(t, err)
 
 	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
+	//successfully add finalizer
 	res, err := vm.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	volCR.Spec.CSIStatus = apiV1.Removed
+	//successfully remove finalizer
+	volCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	err = vm.k8sClient.UpdateCR(testCtx, &volCR)
 	assert.Nil(t, err)
 
 	res, err = vm.Reconcile(req)
+	assert.NotNil(t, k8sError.IsNotFound(err))
+	assert.Equal(t, res, ctrl.Result{})
+
+	volCR.Spec.CSIStatus = apiV1.Created
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
 	assert.Nil(t, err)
+
+	//successfully add finalizer
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	volCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	err = vm.k8sClient.UpdateCR(testCtx, &volCR)
+	assert.Nil(t, err)
+
+	//successfully release volume
+	res, err = vm.Reconcile(req)
+	assert.NotNil(t, k8sError.IsNotFound(err))
 	assert.Equal(t, res, ctrl.Result{})
 }
 
@@ -263,6 +282,7 @@ func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
+	volCR.Spec.CSIStatus = apiV1.Creating
 	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
 	assert.Nil(t, err)
 
@@ -276,7 +296,7 @@ func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+	assert.Equal(t, apiV1.Failed, volume.Spec.CSIStatus)
 
 	volume.Spec.CSIStatus = apiV1.Removing
 	err = vm.k8sClient.UpdateCR(testCtx, volume)

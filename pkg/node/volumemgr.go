@@ -36,6 +36,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
+const volumeFinalizer = "dell.emc.csi/volume-cleanup"
+
 // eventRecorder interface for sending events
 type eventRecorder interface {
 	Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{})
@@ -145,17 +147,31 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if !volume.ObjectMeta.DeletionTimestamp.IsZero() && volume.Spec.CSIStatus != apiV1.Removed &&
-		volume.Spec.CSIStatus != apiV1.Creating {
-		if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
-			ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
-			volume.Spec.CSIStatus = apiV1.Failed
-			if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
-				ll.Error("Unable to set new status for volume")
-				return ctrl.Result{}, err
+	if volume.DeletionTimestamp.IsZero() {
+		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
+			ll.Debugf("Appending finalizer for volume %s", volume.Spec.Id)
+			volume.ObjectMeta.Finalizers = append(volume.ObjectMeta.Finalizers, volumeFinalizer)
+			if err := m.k8sClient.UpdateCR(context.Background(), volume); err != nil {
+				ll.Errorf("Unable to append finalizer %s to Volume, error: %v.", volumeFinalizer, err)
+				return ctrl.Result{Requeue: true}, err
 			}
 		}
-		return ctrl.Result{}, nil
+	} else {
+		if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
+			//We shouldn't try to release volume with Published or VolumeReady status, because this volume is mount,and ReleaseVolume will fail.
+			//We also don't change status for Creating and Removed, because for these statuses Volume was already released
+			if volume.Spec.CSIStatus != apiV1.Created && volume.Spec.CSIStatus != apiV1.Failed && volume.Spec.CSIStatus != apiV1.Removing {
+				volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
+				ll.Debugf("Remove finalizer for volume %s", volume.Spec.Id)
+				if err := m.k8sClient.UpdateCR(context.Background(), volume); err != nil {
+					ll.Errorf("Unable to update Volume's finalizers: %v", err)
+					return ctrl.Result{}, err
+				}
+				return ctrl.Result{}, nil
+			}
+			ll.Debugf("Changing status to Removing for volume %s", volume.Spec.Id)
+			volume.Spec.CSIStatus = apiV1.Removing
+		}
 	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	var newStatus string
@@ -184,11 +200,12 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
 			ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 			newStatus = apiV1.Failed
+			//If status is failed, we shouldn't delete this volume
+			volume.DeletionTimestamp = nil
 		} else {
 			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 			newStatus = apiV1.Removed
 		}
-
 		volume.Spec.CSIStatus = newStatus
 		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
 			ll.Error("Unable to set new status for volume")
