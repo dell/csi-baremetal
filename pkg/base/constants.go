@@ -7,7 +7,8 @@ const (
 	// PluginName is a name of current CSI plugin
 	PluginName = "baremetal-csi"
 	// PluginVersion is a version of current CSI plugin
-	PluginVersion = "0.0.8"
+	// todo get rid of hardcoded value
+	PluginVersion = "0.0.9"
 	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
 	DefaultDriveMgrEndpoint = "tcp://:8888"
 	// DefaultHealthIP is the default gRPC IP for Health server
