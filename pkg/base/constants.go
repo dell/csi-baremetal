@@ -27,7 +27,7 @@ const (
 	DefaultTimeoutForVolumeOperations = 10 * time.Minute
 
 	// DefaultTimeoutForLVGOperations is the timeout in which we expect that any operation with LVG should be finished
-	DefaultTimeoutForLVGOperations = 8 * time.Minute
+	DefaultRequeueAfterForVolume = 5 * time.Second
 
 	// SystemDriveAsLocation is the const to fill Location field in CRs if the location based on system drive
 	SystemDriveAsLocation = "system drive"

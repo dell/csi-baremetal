@@ -175,95 +175,128 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
-	var newStatus string
 	switch volume.Spec.CSIStatus {
 	case apiV1.Waiting:
-		// consider that underlying structure hasn't ready yet
-		lvg := &lvgcrd.LVG{}
-		ll.Debugf("Volume is in Waiting status, reading LVG %s", volume.Spec.Location)
-		if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
-			ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
-			if k8sError.IsNotFound(err) {
-				ll.Errorf("LVG %s doesn't exist. Unable to create volume on non-existed lvg.", volume.Spec.Location)
-				volume.Spec.CSIStatus = apiV1.Failed
-				if err = m.k8sClient.UpdateCR(ctx, volume); err == nil {
-					return ctrl.Result{}, nil // no need to retry
-				}
-				ll.Errorf("Unable to update volume CR and set status for failed: %v", err)
-			}
-			// retry because of LVG wasn't read or Volume status wasn't updated
-			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-		}
-		switch lvg.Spec.Status {
-		case apiV1.Creating:
-			ll.Debugf("Underlying LVG %s hasn't created yet.", lvg.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-		case apiV1.Failed:
-			ll.Errorf("Underlying LVG %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
-			volume.Spec.CSIStatus = apiV1.Failed
-			if err = m.k8sClient.UpdateCR(ctx, volume); err == nil {
-				return ctrl.Result{}, err // no need to retry
-			}
-			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
-			// retry because of volume status wasn't updated
-			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-		case apiV1.Created:
-			ll.Debugf("Underlying LVG %s has reached Created status", lvg.Name)
-			volume.Spec.CSIStatus = apiV1.Creating
-			if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
-				ll.Errorf("Unable to update volume CR (set status to creating): %v", err)
-				return ctrl.Result{Requeue: true}, err // need to retry to set CSIStatus
-			}
-			return ctrl.Result{Requeue: true}, nil // reconcile with new CSIStatus
-		default:
-			ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
-			return ctrl.Result{Requeue: true}, err
-		}
+		return m.handleWaitingStatus(ctx, volume)
 	case apiV1.Creating:
-		// add volume ID to the corresponding lvg volume references
-		if util.IsStorageClassLVG(volume.Spec.StorageClass) {
-			if err = m.addVolumeToLVG(volume.Spec.Location, volume.Spec.Id); err != nil {
-				ll.Errorf("Unable to add volume reference to LVG %s: %v", volume.Spec.Location, err)
-			}
-		}
-
-		err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
-		if err != nil {
-			ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
-				" Set volume status to Failed", volume.Spec.Size, err, ctx.Err())
-			newStatus = apiV1.Failed
-		} else {
-			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
-			newStatus = apiV1.Created
-		}
-
-		volume.Spec.CSIStatus = newStatus
-		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
-			// Here we can return error because Volume created successfully and we can try to change CR's status
-			// one more time
-			ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
+		return m.handleCreatingStatus(ctx, volume)
 	case apiV1.Removing:
-		if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
-			ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
-			newStatus = apiV1.Failed
-		} else {
-			ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
-			newStatus = apiV1.Removed
-		}
-
-		volume.Spec.CSIStatus = newStatus
-		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
-			ll.Error("Unable to set new status for volume")
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+		return m.handleRemovingStatus(ctx, volume)
 	default:
 		return ctrl.Result{}, nil
 	}
+}
+
+func (m *VolumeManager) handleWaitingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "handleWaitingStatus",
+		"volumeID": volume.Name,
+	})
+
+	var (
+		lvg = &lvgcrd.LVG{}
+		err error
+	)
+
+	if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
+		ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
+		if k8sError.IsNotFound(err) {
+			volume.Spec.CSIStatus = apiV1.Failed
+			if err = m.k8sClient.UpdateCR(ctx, volume); err == nil {
+				return ctrl.Result{}, nil // no need to retry
+			}
+			ll.Errorf("Unable to update volume CR and set status for failed: %v", err)
+		}
+		// retry because of LVG wasn't read or Volume status wasn't updated
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, err
+	}
+
+	switch lvg.Spec.Status {
+	case apiV1.Creating:
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, nil
+	case apiV1.Failed:
+		ll.Errorf("Underlying LVG %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
+		volume.Spec.CSIStatus = apiV1.Failed
+		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
+			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
+			// retry because of volume status wasn't updated
+			return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, nil
+		}
+		return ctrl.Result{}, nil // no need to retry
+	case apiV1.Created:
+		volume.Spec.CSIStatus = apiV1.Creating
+		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
+			ll.Errorf("Unable to update volume CR and set status to creating: %v", err)
+			return ctrl.Result{Requeue: true}, err // need to retry to set CSIStatus
+		}
+		return ctrl.Result{Requeue: true}, nil // reconcile with new CSIStatus
+	default:
+		ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
+		return ctrl.Result{Requeue: true}, nil
+	}
+}
+
+func (m *VolumeManager) handleCreatingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "handleCreatingStatus",
+		"volumeID": volume.Name,
+	})
+
+	var (
+		err       error
+		newStatus string
+	)
+	// add volume ID to the corresponding lvg volume references
+	if util.IsStorageClassLVG(volume.Spec.StorageClass) {
+		if err = m.addVolumeToLVG(volume.Spec.Location, volume.Spec.Id); err != nil {
+			ll.Errorf("Unable to add volume reference to LVG %s: %v", volume.Spec.Location, err)
+		}
+	}
+
+	err = m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
+	if err != nil {
+		ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
+			" Set volume status to Failed", volume.Spec.Size, err, ctx.Err())
+		newStatus = apiV1.Failed
+	} else {
+		ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
+		newStatus = apiV1.Created
+	}
+
+	volume.Spec.CSIStatus = newStatus
+	if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+		ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "handleRemovingStatus",
+		"volumeID": volume.Name,
+	})
+
+	var (
+		err       error
+		newStatus string
+	)
+
+	if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
+		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
+		newStatus = apiV1.Failed
+	} else {
+		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
+		newStatus = apiV1.Removed
+	}
+
+	volume.Spec.CSIStatus = newStatus
+	if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
+		ll.Error("Unable to set new status for volume")
+		return ctrl.Result{Requeue: true}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager registers VolumeManager to ControllerManager
