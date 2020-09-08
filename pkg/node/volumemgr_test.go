@@ -90,11 +90,11 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      lvgName,
+			Name:      testLVGName,
 			Namespace: testNs,
 		},
 		Spec: api.LogicalVolumeGroup{
-			Name:      lvgName,
+			Name:      testLVGName,
 			Node:      nodeID,
 			Locations: []string{drive1.UUID},
 			Size:      int64(1024 * 500 * util.GBYTE),

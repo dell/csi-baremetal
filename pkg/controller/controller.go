@@ -172,8 +172,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, err
 	}
 
-	if vol.CSIStatus == apiV1.Creating {
-		ll.Info("Waiting until volume will reach Created status")
+	if vol.CSIStatus == apiV1.Creating || vol.CSIStatus == apiV1.Waiting {
+		ll.Infof("Waiting until volume will reach Created status. Current status - %s", vol.CSIStatus)
 		if err := c.svc.WaitStatus(ctx, vol.Id, apiV1.Failed, apiV1.Created); err != nil {
 			return nil, status.Error(codes.Internal, "Unable to create volume")
 		}

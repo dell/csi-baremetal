@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
@@ -167,7 +166,7 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	)
 	wg.Add(1)
 	go func() {
-		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, testAC2, testAC3)
+		newAC = acOp.RecreateACToLVGSC(testCtx, apiV1.StorageClassHDDLVG, testAC2, testAC3)
 		wg.Done()
 	}()
 	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Created)
@@ -219,7 +218,7 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 	)
 	wg.Add(1)
 	go func() {
-		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, testAC2, testAC3)
+		newAC = acOp.RecreateACToLVGSC(testCtx, apiV1.StorageClassHDDLVG, testAC2, testAC3)
 		wg.Done()
 	}()
 	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Failed)
@@ -235,46 +234,6 @@ func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
 	assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
 	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[1].Spec.StorageClass)
 	assert.Equal(t, int64(0), acList.Items[1].Spec.Size)
-}
-
-func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
-	acOp := setupACOperationsTest(t)
-	lvgCR := testLVG
-	lvgCR.Spec.Status = apiV1.Created
-
-	err := acOp.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR)
-	assert.Nil(t, err)
-
-	// lvgCR have Created status
-	lvg := acOp.waitUntilLVGWillBeCreated(testCtx, lvgCR.Name)
-	assert.NotNil(t, lvg)
-	assert.Equal(t, lvgCR.Spec, *lvg)
-
-	// lvgCR have Failed status
-	lvgCR.Spec.Status = apiV1.Failed
-	err = acOp.k8sClient.UpdateCR(testCtx, &lvgCR)
-	lvg = acOp.waitUntilLVGWillBeCreated(testCtx, lvgCR.Name)
-	assert.Nil(t, lvg)
-
-	// context is done
-	var (
-		wg           sync.WaitGroup
-		ctx, closeFn = context.WithTimeout(context.Background(), time.Second*2)
-		lvg2         *api.LogicalVolumeGroup
-	)
-	defer closeFn()
-	lvgCR.Spec.Status = apiV1.Creating
-	err = acOp.k8sClient.UpdateCR(testCtx, &lvgCR)
-	assert.Nil(t, err)
-	wg.Add(1)
-	go func() {
-		lvg2 = acOp.waitUntilLVGWillBeCreated(ctx, lvgCR.Name)
-		wg.Done()
-	}()
-	ctx.Done()
-	println("ctx was done")
-	wg.Wait()
-	assert.Nil(t, lvg2)
 }
 
 func TestACOperationsImpl_acNodeMapping(t *testing.T) {

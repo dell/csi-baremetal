@@ -44,11 +44,3 @@ func (vo *VolumeOperationsMock) WaitStatus(ctx context.Context, volumeID string,
 
 	return args.Error(0)
 }
-
-// ReadVolumeAndChangeStatus is the mock implementation of ReadVolumeAndChangeStatus. Simulates updating of Volume CR
-// with newStatus
-func (vo *VolumeOperationsMock) ReadVolumeAndChangeStatus(volumeID string, newStatus string) error {
-	args := vo.Mock.Called(volumeID, newStatus)
-
-	return args.Error(0)
-}

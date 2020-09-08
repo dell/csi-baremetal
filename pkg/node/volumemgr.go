@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -176,7 +177,56 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	var newStatus string
 	switch volume.Spec.CSIStatus {
+	case apiV1.Waiting:
+		// consider that underlying structure hasn't ready yet
+		lvg := &lvgcrd.LVG{}
+		ll.Debugf("Volume is in Waiting status, reading LVG %s", volume.Spec.Location)
+		if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
+			ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
+			if k8sError.IsNotFound(err) {
+				ll.Errorf("LVG %s doesn't exist. Unable to create volume on non-existed lvg.", volume.Spec.Location)
+				volume.Spec.CSIStatus = apiV1.Failed
+				if err = m.k8sClient.UpdateCR(ctx, volume); err == nil {
+					return ctrl.Result{}, nil // no need to retry
+				}
+				ll.Errorf("Unable to update volume CR and set status for failed: %v", err)
+			}
+			// retry because of LVG wasn't read or Volume status wasn't updated
+			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+		}
+		switch lvg.Spec.Status {
+		case apiV1.Creating:
+			ll.Debugf("Underlying LVG %s hasn't created yet.", lvg.Name)
+			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+		case apiV1.Failed:
+			ll.Errorf("Underlying LVG %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
+			volume.Spec.CSIStatus = apiV1.Failed
+			if err = m.k8sClient.UpdateCR(ctx, volume); err == nil {
+				return ctrl.Result{}, err // no need to retry
+			}
+			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
+			// retry because of volume status wasn't updated
+			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+		case apiV1.Created:
+			ll.Debugf("Underlying LVG %s has reached Created status", lvg.Name)
+			volume.Spec.CSIStatus = apiV1.Creating
+			if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
+				ll.Errorf("Unable to update volume CR (set status to creating): %v", err)
+				return ctrl.Result{Requeue: true}, err // need to retry to set CSIStatus
+			}
+			return ctrl.Result{Requeue: true}, nil // reconcile with new CSIStatus
+		default:
+			ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
+			return ctrl.Result{Requeue: true}, err
+		}
 	case apiV1.Creating:
+		// add volume ID to the corresponding lvg volume references
+		if util.IsStorageClassLVG(volume.Spec.StorageClass) {
+			if err = m.addVolumeToLVG(volume.Spec.Location, volume.Spec.Id); err != nil {
+				ll.Errorf("Unable to add volume reference to LVG %s: %v", volume.Spec.Location, err)
+			}
+		}
+
 		err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
 		if err != nil {
 			ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
@@ -559,7 +609,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	}
 
 	for _, lvg := range lvgList.Items {
-		if lvg.Spec.Node == m.nodeID && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
+		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
 			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
@@ -790,6 +840,28 @@ func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reas
 	args ...interface{}) {
 	messageFmt += prepareDriveDescription(drive)
 	m.recorder.Eventf(drive, eventtype, reason, messageFmt, args...)
+}
+
+// addVolumeToLVG tries to add volume ID into VolumeRefs slice from LVG struct and updates according LVG
+// Receives LVG and volumeID of a Volume CR which should be added
+// Returns error if something went wrong
+func (m *VolumeManager) addVolumeToLVG(lvgName, volID string) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "addVolumeToLVG",
+		"volumeID": volID,
+	})
+	lvg := &lvgcrd.LVG{}
+	if err := m.k8sClient.ReadCR(context.Background(), lvgName, lvg); err != nil {
+		return fmt.Errorf("unable to get LVG %s: %v. Volume %s wasn't added to the list of volumes",
+			lvgName, volID, err)
+	}
+
+	if util.ContainsString(lvg.Spec.VolumeRefs, volID) {
+		return nil
+	}
+	lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volID)
+	ll.Infof("Append volume %s to LVG %v", volID, lvg)
+	return m.k8sClient.UpdateCR(context.Background(), lvg)
 }
 
 func prepareDriveDescription(drive *drivecrd.Drive) string {

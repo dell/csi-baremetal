@@ -307,58 +307,6 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	assert.Equal(t, testAC4.Spec.Size+v1.Spec.Size, updatedAC.Spec.Size)
 }
 
-func TestVolumeOperationsImpl_ReadVolumeAndChangeStatus(t *testing.T) {
-	svc := setupVOOperationsTest(t)
-
-	var (
-		v             = testVolume1
-		updatedVolume = volumecrd.Volume{}
-		newStatus     = apiV1.Created
-		err           error
-	)
-
-	v.Spec.CSIStatus = apiV1.Creating
-	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
-	assert.Nil(t, err)
-
-	err = svc.ReadVolumeAndChangeStatus(testVolume1Name, newStatus)
-	assert.Nil(t, err)
-
-	err = svc.k8sClient.ReadCR(testCtx, testVolume1Name, &updatedVolume)
-	assert.Nil(t, err)
-	assert.Equal(t, newStatus, updatedVolume.Spec.CSIStatus)
-
-	// volume doesn't exist scenario
-	err = svc.ReadVolumeAndChangeStatus("notExisting", newStatus)
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "not found")
-}
-
-func TestVolumeOperationsImpl_addVolumeToLVG(t *testing.T) {
-	svc := setupVOOperationsTest(t)
-	volumeID := "volumeID"
-	err := svc.addVolumeToLVG(&testLVG, volumeID)
-	assert.NotNil(t, err)
-	assert.True(t, k8sError.IsNotFound(err))
-
-	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
-	assert.Nil(t, err)
-
-	err = svc.addVolumeToLVG(&testLVG, volumeID)
-	assert.Nil(t, err)
-	lvg := &lvgcrd.LVG{}
-	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
-
-	err = svc.addVolumeToLVG(&testLVG, volumeID)
-	assert.Nil(t, err)
-	lvg = &lvgcrd.LVG{}
-	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, lvg)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
-}
-
 func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	svc := setupVOOperationsTest(t)
 	volumeID := "volumeID"
