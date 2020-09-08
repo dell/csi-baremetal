@@ -31,7 +31,7 @@ func AddAC(k8sClient *k8s.KubeClient, acs ...*accrd.AvailableCapacity) error {
 	return nil
 }
 
-// Returns error if something went wrong
+// ReadVolumeAndChangeStatus returns error if something went wrong
 func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, newStatus string) error {
 	var (
 		v        = &volumecrd.Volume{}
