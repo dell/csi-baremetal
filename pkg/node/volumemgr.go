@@ -489,7 +489,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 			NodeId:       nodeID,
 		}
 
-		name := capacity.NodeId + "-" + strings.ToLower(capacity.Location)
+		name := uuid.New().String()
 
 		// check whether appropriate AC exists or not
 		acExist := false
