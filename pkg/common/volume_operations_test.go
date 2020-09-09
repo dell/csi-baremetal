@@ -105,7 +105,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 			StorageClass:      acToReturn.Spec.StorageClass,
 			NodeId:            acToReturn.Spec.NodeId,
 			Size:              requiredBytes,
-			CSIStatus:         apiV1.Waiting,
+			CSIStatus:         apiV1.Creating,
 			Health:            apiV1.HealthGood,
 			LocationType:      apiV1.LocationTypeLVM,
 			OperationalStatus: apiV1.OperationalStatusOperative,
