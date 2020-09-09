@@ -350,7 +350,7 @@ func lvgReconcileImitation(k8sClient *k8s.KubeClient, newStatus string) error {
 	return k8sClient.UpdateCR(context.Background(), &lvgCRList.Items[0])
 }
 
-func Test_alignSizeByPE(t *testing.T) {
+func Test_AlignSizeByPE(t *testing.T) {
 	type args struct {
 		size int64
 	}
@@ -397,7 +397,7 @@ func Test_alignSizeByPE(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := alignSizeByPE(tt.args.size); got != tt.want {
+			if got := AlignSizeByPE(tt.args.size); got != tt.want {
 				t.Errorf("alignSizeByPE() = %v, want %v", got, tt.want)
 			}
 		})

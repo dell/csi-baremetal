@@ -264,14 +264,14 @@ func TestExtender_filterSuccess(t *testing.T) {
 	acs := []accrd.AvailableCapacity{
 		// NODE-1 ACs, HDD[50Gb, 100Gb]
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 50*int64(util.GBYTE) + int64(util.MBYTE)}),
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)}),
 		// NODE-2 ACs, HDD[100Gb], SSD[50Gb]
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)}),
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 50*int64(util.GBYTE) + int64(util.MBYTE)}),
 		// NODE-3 ACs, HDDLVG[150Gb], SSDLVG[100Gb]
 		*e.k8sClient.ConstructACCR(uuid.New().String(),
 			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)}),

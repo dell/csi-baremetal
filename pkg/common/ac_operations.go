@@ -32,6 +32,7 @@ const AcSizeMinThresholdBytes = int64(util.MBYTE) // 1MB
 const LvgDefaultMetadataSize = int64(util.MBYTE) // 1MB
 
 // DefaultPESize is the default extent size we should align with
+// TODO: AK8S-1332 use non default PE size
 const DefaultPESize = 4 * int64(util.MBYTE)
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
@@ -98,7 +99,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 		}
 	} else {
 		if util.IsStorageClassLVG(sc) {
-			requiredBytes = alignSizeByPE(requiredBytes)
+			requiredBytes = AlignSizeByPE(requiredBytes)
 		}
 		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 	}
@@ -129,8 +130,9 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	return foundAC
 }
 
-// Make size aligned with PE
-func alignSizeByPE(size int64) int64 {
+// AlignSizeByPE make size aligned with default PE
+// TODO: AK8S-1332 use non default PE size
+func AlignSizeByPE(size int64) int64 {
 	var alignement int64
 	reminder := size % DefaultPESize
 	if reminder != 0 {
