@@ -102,7 +102,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		expectedVolume = api.Volume{
 			Id:                volumeID,
 			Location:          acToReturn.Spec.Location,
-			StorageClass:      acToReturn.Spec.StorageClass,
+			StorageClass:      requiredSC,
 			NodeId:            acToReturn.Spec.NodeId,
 			Size:              requiredBytes,
 			CSIStatus:         apiV1.Creating,
@@ -114,57 +114,17 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		err           error
 	)
 
-	// expect volume with "waiting" CSIStatus because of LVG has "creating" status
-	svc = setupVOOperationsTest(t)
-	svc.acProvider = acProvider
-
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
-		Return(&acToReturn).Times(1)
-
-	createdVolume, err = svc.CreateVolume(testCtx, api.Volume{
-		Id:           volumeID,
-		StorageClass: requiredSC,
-		NodeId:       requiredNode,
-		Size:         requiredBytes,
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, expectedVolume, *createdVolume)
-
-	// expect volume with "waiting" CSIStatus and AC was recreated from HDD to HDDLVG
-	svc = setupVOOperationsTest(t)
-	svc.acProvider = acProvider
-
-	acToReturnHDD := acToReturn
-	acToReturnHDD.Spec.StorageClass = apiV1.StorageClassHDD
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
-		Return(nil).Times(1)
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, util.GetSubStorageClass(requiredSC)).
-		Return(&acToReturnHDD).Times(1)
-	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, mock.Anything).
-		Return(&acToReturn).Times(1)
-
-	createdVolume, err = svc.CreateVolume(testCtx, api.Volume{
-		Id:           volumeID,
-		StorageClass: requiredSC,
-		NodeId:       requiredNode,
-		Size:         requiredBytes,
-	})
-	assert.Nil(t, err)
-	assert.NotNil(t, createdVolume)
-	assert.Equal(t, expectedVolume, *createdVolume)
-
 	// expect volume with "creating" CSIStatus, AC with HDDLVG exists and LVG has "created" status
 	svc = setupVOOperationsTest(t)
 	svc.acProvider = acProvider
-	testLVGCopy := testLVG
-	testLVGCopy.Spec.Status = apiV1.Created
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+	recreatedAC := acToReturn
+	recreatedAC.Spec.StorageClass = requiredSC
+
 	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
 		Return(&acToReturn).Times(1)
+	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, &acToReturn).
+		Return(&recreatedAC).Times(1)
 
-	expectedVolumeCopy := expectedVolume
-	expectedVolumeCopy.CSIStatus = apiV1.Creating
 	createdVolume, err = svc.CreateVolume(testCtx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,
