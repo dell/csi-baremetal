@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
@@ -83,14 +84,14 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 // Volume CR was successfully created, HDDLVG SC
 func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	var (
-		svc           = setupVOOperationsTest(t)
+		svc           *VolumeOperationsImpl
 		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
 		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
 		requiredNode  = ""
-		requiredSC    = apiV1.StorageClassHDD
+		requiredSC    = apiV1.StorageClassHDDLVG
 		requiredBytes = int64(util.GBYTE)
-		expectedAC    = &accrd.AvailableCapacity{
+		acToReturn    = accrd.AvailableCapacity{
 			Spec: api.AvailableCapacity{
 				Location:     testLVG.Spec.Name,
 				NodeId:       testLVG.Spec.Node,
@@ -98,33 +99,94 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 				Size:         testLVG.Spec.Size,
 			},
 		}
+		expectedVolume = api.Volume{
+			Id:                volumeID,
+			Location:          acToReturn.Spec.Location,
+			StorageClass:      acToReturn.Spec.StorageClass,
+			NodeId:            acToReturn.Spec.NodeId,
+			Size:              requiredBytes,
+			CSIStatus:         apiV1.Waiting,
+			Health:            apiV1.HealthGood,
+			LocationType:      apiV1.LocationTypeLVM,
+			OperationalStatus: apiV1.OperationalStatusOperative,
+		}
+		createdVolume *api.Volume
+		err           error
 	)
-	err := svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
-	assert.Nil(t, err)
 
+	// expect volume with "waiting" CSIStatus because of LVG has "creating" status
+	svc = setupVOOperationsTest(t)
 	svc.acProvider = acProvider
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
-		Return(expectedAC).Times(1)
 
-	createdVolume, err := svc.CreateVolume(testCtx, api.Volume{
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
+		Return(&acToReturn).Times(1)
+
+	createdVolume, err = svc.CreateVolume(testCtx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,
 		NodeId:       requiredNode,
 		Size:         requiredBytes,
 	})
 	assert.Nil(t, err)
-	expectedVolume := &api.Volume{
-		Id:                volumeID,
-		Location:          expectedAC.Spec.Location,
-		StorageClass:      expectedAC.Spec.StorageClass,
-		NodeId:            expectedAC.Spec.NodeId,
-		Size:              requiredBytes,
-		CSIStatus:         apiV1.Creating,
-		Health:            apiV1.HealthGood,
-		LocationType:      apiV1.LocationTypeLVM,
-		OperationalStatus: apiV1.OperationalStatusOperative,
-	}
-	assert.Equal(t, expectedVolume, createdVolume)
+	assert.Equal(t, expectedVolume, *createdVolume)
+
+	// expect volume with "waiting" CSIStatus and AC was recreated from HDD to HDDLVG
+	svc = setupVOOperationsTest(t)
+	svc.acProvider = acProvider
+
+	acToReturnHDD := acToReturn
+	acToReturnHDD.Spec.StorageClass = apiV1.StorageClassHDD
+	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
+		Return(nil).Times(1)
+	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, util.GetSubStorageClass(requiredSC)).
+		Return(&acToReturnHDD).Times(1)
+	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, mock.Anything).
+		Return(&acToReturn).Times(1)
+
+	createdVolume, err = svc.CreateVolume(testCtx, api.Volume{
+		Id:           volumeID,
+		StorageClass: requiredSC,
+		NodeId:       requiredNode,
+		Size:         requiredBytes,
+	})
+	assert.Nil(t, err)
+	assert.NotNil(t, createdVolume)
+	assert.Equal(t, expectedVolume, *createdVolume)
+
+	// expect volume with "creating" CSIStatus, AC with HDDLVG exists and LVG has "created" status
+	svc = setupVOOperationsTest(t)
+	svc.acProvider = acProvider
+	testLVGCopy := testLVG
+	testLVGCopy.Spec.Status = apiV1.Created
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
+		Return(&acToReturn).Times(1)
+
+	expectedVolumeCopy := expectedVolume
+	expectedVolumeCopy.CSIStatus = apiV1.Creating
+	createdVolume, err = svc.CreateVolume(testCtx, api.Volume{
+		Id:           volumeID,
+		StorageClass: requiredSC,
+		NodeId:       requiredNode,
+		Size:         requiredBytes,
+	})
+	assert.Nil(t, err)
+	assert.NotNil(t, createdVolume)
+	assert.Equal(t, expectedVolume, *createdVolume)
+}
+
+// Volume CR exists and has "failed" CSIStatus
+func TestVolumeOperationsImpl_CreateVolume_FaileCauseExist(t *testing.T) {
+	svc := setupVOOperationsTest(t)
+
+	v := testVolume1
+	v.Spec.CSIStatus = apiV1.Failed
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v))
+
+	createdVolume, err := svc.CreateVolume(testCtx, api.Volume{Id: v.Spec.Id})
+	assert.NotNil(t, err)
+	assert.Nil(t, createdVolume)
 }
 
 // Volume CR exists and timeout for creation exceeded
@@ -172,12 +234,83 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 	assert.Nil(t, createdVolume)
 }
 
-func TestVolumeOperationsImpl_DeleteVolume_NotFound(t *testing.T) {
-	svc := setupVOOperationsTest(t)
+// Fail to recreate AC from HDD to LVG
+func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
+	var (
+		svc           *VolumeOperationsImpl
+		acProvider    = &mocks.ACOperationsMock{}
+		volumeID      = "pvc-aaaa-bbbb"
+		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
+		requiredNode  = ""
+		requiredSC    = apiV1.StorageClassHDDLVG
+		requiredBytes = int64(util.GBYTE)
+		acToReturn    = accrd.AvailableCapacity{
+			Spec: api.AvailableCapacity{
+				StorageClass: apiV1.StorageClassHDDLVG,
+			},
+		}
+	)
 
-	err := svc.DeleteVolume(testCtx, "unknown-volume")
+	// expect volume with "waiting" CSIStatus and AC was recreated from HDD to HDDLVG
+	svc = setupVOOperationsTest(t)
+	svc.acProvider = acProvider
+
+	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
+		Return(nil).Times(1)
+	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, util.GetSubStorageClass(requiredSC)).
+		Return(&acToReturn).Times(1)
+	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, mock.Anything).
+		Return(nil).Times(1)
+
+	createdVolume, err := svc.CreateVolume(testCtx, api.Volume{
+		Id:           volumeID,
+		StorageClass: requiredSC,
+		NodeId:       requiredNode,
+		Size:         requiredBytes,
+	})
+	assert.Nil(t, createdVolume)
+	assert.NotNil(t, err)
+	assert.Equal(t, codes.Internal, status.Code(err))
+}
+
+func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
+	var (
+		svc      *VolumeOperationsImpl
+		err      error
+		volumeCR volumecrd.Volume
+	)
+
+	svc = setupVOOperationsTest(t)
+
+	err = svc.DeleteVolume(testCtx, "unknown-volume")
 	assert.NotNil(t, err)
 	assert.True(t, k8sError.IsNotFound(err))
+
+	svc = setupVOOperationsTest(t)
+	volumeCR = testVolume1
+	volumeCR.Spec.CSIStatus = apiV1.Removed
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
+
+	err = svc.DeleteVolume(testCtx, volumeCR.Name)
+	assert.Nil(t, err)
+
+	svc = setupVOOperationsTest(t)
+	volumeCR = testVolume1
+	volumeCR.Spec.CSIStatus = ""
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
+
+	err = svc.DeleteVolume(testCtx, volumeCR.Name)
+	assert.NotNil(t, err)
+	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+
+	svc = setupVOOperationsTest(t)
+	volumeCR = testVolume1
+	volumeCR.Spec.Ephemeral = true
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
+
+	err = svc.DeleteVolume(testCtx, volumeCR.Name)
+	assert.NotNil(t, err)
+	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 }
 
 func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
