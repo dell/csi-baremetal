@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -95,6 +96,7 @@ func (l *LVM) PVRemove(name string) error {
 // Receives name of VG to create and names of physical volumes which VG should based on
 // Returns error if something went wrong
 func (l *LVM) VGCreate(name string, pvs ...string) error {
+	time.Sleep(time.Second * 30)
 	cmd := fmt.Sprintf(VGCreateCmdTmpl, name, strings.Join(pvs, " "))
 	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "already exists") {

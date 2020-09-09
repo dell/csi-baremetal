@@ -5,7 +5,6 @@ const (
 	CSICRsGroupVersion = "baremetal-csi.dellemc.com"
 	APIV1Version       = "baremetal-csi.dellemc.com/v1"
 	Creating           = "creating"
-	Waiting            = "waiting"
 	Created            = "created"
 	VolumeReady        = "volumeReady"
 	Published          = "published"
