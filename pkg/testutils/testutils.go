@@ -4,9 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
-
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 

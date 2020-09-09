@@ -875,28 +875,6 @@ func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reas
 	m.recorder.Eventf(drive, eventtype, reason, messageFmt, args...)
 }
 
-// addVolumeToLVG tries to add volume ID into VolumeRefs slice from LVG struct and updates according LVG
-// Receives LVG and volumeID of a Volume CR which should be added
-// Returns error if something went wrong
-func (m *VolumeManager) addVolumeToLVG(lvgName, volID string) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method":   "addVolumeToLVG",
-		"volumeID": volID,
-	})
-	lvg := &lvgcrd.LVG{}
-	if err := m.k8sClient.ReadCR(context.Background(), lvgName, lvg); err != nil {
-		return fmt.Errorf("unable to get LVG %s: %v. Volume %s wasn't added to the list of volumes",
-			lvgName, volID, err)
-	}
-
-	if util.ContainsString(lvg.Spec.VolumeRefs, volID) {
-		return nil
-	}
-	lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volID)
-	ll.Infof("Append volume %s to LVG %v", volID, lvg)
-	return m.k8sClient.UpdateCR(context.Background(), lvg)
-}
-
 func prepareDriveDescription(drive *drivecrd.Drive) string {
 	return fmt.Sprintf(" Drive Details: SN='%s', Node='%s',"+
 		" Type='%s', Model='%s %s',"+
