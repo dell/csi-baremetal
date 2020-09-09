@@ -23,6 +23,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -261,28 +262,38 @@ func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd
 	sc string, volumes []*genV1.Volume) bool {
 	for _, volume := range volumes {
 		subSC := util.GetSubStorageClass(sc)
-		forLVM := util.IsStorageClassLVG(sc)
+		LVM := util.IsStorageClassLVG(sc)
 
 		if len(scACMap[sc]) == 0 &&
 			len(scACMap[subSC]) == 0 &&
 			sc != v1.StorageClassAny {
 			return false
 		}
+		// make copy for temp transformations
+		size := volume.GetSize()
 
+		if LVM {
+			// TODO: AK8S-1332 use non default PE size
+			size = common.AlignSizeByPE(size)
+		}
 		var ac *accrd.AvailableCapacity
-		ac = e.searchClosestAC(scACMap[sc], volume)
+		ac = e.searchClosestAC(scACMap[sc], size)
 		if ac == nil {
-			if forLVM {
+			if LVM {
+				// for the new lvg we need some extra space
+				size += common.LvgDefaultMetadataSize
+
 				// search AC in sub storage class
-				ac = e.searchClosestAC(scACMap[subSC], volume)
+				ac = e.searchClosestAC(scACMap[subSC], size)
 			} else if sc == v1.StorageClassAny {
 				for _, acs := range scACMap {
-					ac = e.searchClosestAC(acs, volume)
+					ac = e.searchClosestAC(acs, size)
 					if ac != nil {
 						break
 					}
 				}
 			}
+
 			if ac == nil {
 				// as soon as for some volume in some SC there are no any AC - consider
 				// that whole volumes suite couldn't be provisioned based on available capacities
@@ -291,8 +302,8 @@ func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd
 		}
 		// here ac != nil
 		if ac.Spec.StorageClass != sc { // sc relates to LVG or sc == ANY
-			if util.IsStorageClassLVG(ac.Spec.StorageClass) || forLVM {
-				if forLVM {
+			if util.IsStorageClassLVG(ac.Spec.StorageClass) || LVM {
+				if LVM {
 					// remove AC with subSC
 					delete(scACMap[subSC], ac.Name)
 					ac.Spec.StorageClass = sc // e.g. HDD -> HDDLVG
@@ -301,14 +312,14 @@ func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd
 					}
 					scACMap[sc][ac.Name] = ac
 				}
-				ac.Spec.Size -= volume.Size
+				ac.Spec.Size -= size
 			} else {
 				// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
 				delete(scACMap[ac.Spec.StorageClass], ac.Name)
 			}
 		} else {
-			if forLVM {
-				ac.Spec.Size -= volume.Size
+			if LVM {
+				ac.Spec.Size -= size
 			} else {
 				delete(scACMap[sc], ac.Name)
 			}
@@ -319,14 +330,14 @@ func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd
 }
 
 // searchClosestAC search AC that match all requirements from volume (size)
-func (e *Extender) searchClosestAC(acs map[string]*accrd.AvailableCapacity, volume *genV1.Volume) *accrd.AvailableCapacity {
+func (e *Extender) searchClosestAC(acs map[string]*accrd.AvailableCapacity, size int64) *accrd.AvailableCapacity {
 	var (
 		maxSize  int64 = math.MaxInt64
 		pickedAC *accrd.AvailableCapacity
 	)
 
 	for _, ac := range acs {
-		if ac.Spec.Size >= volume.Size && ac.Spec.Size < maxSize {
+		if ac.Spec.Size >= size && ac.Spec.Size < maxSize {
 			pickedAC = ac
 			maxSize = ac.Spec.Size
 		}
