@@ -126,7 +126,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("there is no suitable drive for request"))
+			Expect(status.Code(err)).To(Equal(codes.ResourceExhausted))
 		})
 		It("Status Failed was set in Volume CR", func() {
 			err := testutils.AddAC(controller.k8sclient, &testAC1, &testAC2)

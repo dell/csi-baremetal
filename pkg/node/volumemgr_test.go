@@ -170,74 +170,35 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 }
 
-func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
+func TestVolumeManager_prepareVolume(t *testing.T) {
 	var (
-		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCRLVG.Name}}
-		volume = &vcrd.Volume{}
-	)
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-
-	err = vm.k8sClient.CreateCR(testCtx, volCRLVG.Name, &volCRLVG)
-	assert.Nil(t, err)
-
-	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
-
-	res, err := vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Created, volume.Spec.CSIStatus)
-
-	volume.Spec.CSIStatus = apiV1.Removing
-	err = vm.k8sClient.UpdateCR(testCtx, volume)
-	assert.Nil(t, err)
-	// reconciled second time
-	res, err = vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
-}
-
-func TestReconcile_SuccessCreatingAndRemovingDriveVolume(t *testing.T) {
-	var (
+		vm     = GetVolumeManagerForTest(t)
 		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 		volume = &vcrd.Volume{}
+		res    ctrl.Result
+		err    error
 	)
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
-	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
-	assert.Nil(t, err)
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR))
 
 	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err := vm.Reconcile(req)
+	testVol := volCR
+	res, err = vm.prepareVolume(testCtx, &testVol)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
 
-	volume.Spec.CSIStatus = apiV1.Removing
-	err = vm.k8sClient.UpdateCR(testCtx, volume)
-	assert.Nil(t, err)
-	// reconciled second time
-	res, err = vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
+	// failed to update
+	vm = GetVolumeManagerForTest(t)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+	res, err = vm.prepareVolume(testCtx, &testVol)
+	assert.NotNil(t, err)
+	assert.True(t, res.Requeue)
 }
 
 func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
@@ -695,4 +656,10 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		assert.True(t, expectEvent(drive1CR, eventing.ErrorType, eventing.DriveStatusOffline))
 		assert.True(t, expectEvent(drive1CR, eventing.WarningType, eventing.DriveHealthUnknown))
 	})
+}
+
+func GetVolumeManagerForTest(t *testing.T) *VolumeManager {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	return NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 }
