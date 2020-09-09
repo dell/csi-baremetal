@@ -100,6 +100,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 			if err == nil && lvgCR.DeletionTimestamp.IsZero() {
 				return foundAC
 			}
+			// TODO: should return nil here because of chosen LVG is being deleted
 		}
 	}
 
@@ -169,7 +170,7 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 
 // RecreateACToLVGSC creates LVG(based on ACs), ensure it become ready,
 // creates AC based on that LVG and set sise of provided ACs to 0.
-// Receives sc as string (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
+// Receives newSC as string (e.g. HDDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
 func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
@@ -206,18 +207,18 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, 
 	for _, ac := range acs {
 		ac.Spec.Size = 0
 		// nolint: scopelint
-		if err = a.k8sClient.UpdateCR(context.Background(), &ac); err != nil {
+		if err = a.k8sClient.UpdateCR(ctx, &ac); err != nil {
 			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
 		}
 	}
 
 	// create LVG CR based on ACs
 	lvg := a.k8sClient.ConstructLVGCR(name, apiLVG)
-	if err = a.k8sClient.CreateCR(context.Background(), name, lvg); err != nil {
+	if err = a.k8sClient.CreateCR(ctx, name, lvg); err != nil {
 		ll.Errorf("Unable to create LVG CR: %v", err)
 		return nil
 	}
-	ll.Infof("LVG %v was created. Wait until it become ready.", apiLVG)
+	ll.Infof("LVG %v was created.", apiLVG)
 
 	// create new AC
 	newACCRName := uuid.New().String()
@@ -238,12 +239,12 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, 
 
 //tryToFindAC is used to find proper AvailableCapacity based on provided storageClass and requiredBytes
 //If storageClass = "" then we search for AvailableCapacity with any storageClass
-func (a *ACOperationsImpl) tryToFindAC(acNodeMap []*accrd.AvailableCapacity, storageClass string, requiredBytes int64) *accrd.AvailableCapacity {
+func (a *ACOperationsImpl) tryToFindAC(acs []*accrd.AvailableCapacity, storageClass string, requiredBytes int64) *accrd.AvailableCapacity {
 	var (
 		allocatedCapacity int64 = math.MaxInt64
 		foundAC           *accrd.AvailableCapacity
 	)
-	for _, ac := range acNodeMap {
+	for _, ac := range acs {
 		if storageClass != "" {
 			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass {
 				foundAC = ac
