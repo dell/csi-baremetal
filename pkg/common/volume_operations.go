@@ -105,21 +105,8 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 				return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for volume %s", v.Id)
 			}
 			// here we get AC that should be recreated to LVG, LVG hasn't existed yet
-			csiStatus = apiV1.Waiting
-			newAC := vo.acProvider.RecreateACToLVGSC(ctxWithID, v.StorageClass, *ac) // here we got AC with SC related to LVG
-			if newAC == nil {
-				ll.Errorf("Unable to recreate AC %s to LVG.", ac.Name)
-				return nil, status.Errorf(codes.Internal,
-					"unable to prepare underlying storage for storage class %s", v.StorageClass)
-			}
-			ac = newAC
-		} else if util.IsStorageClassLVG(v.StorageClass) {
-			ll.Debugf("Found AC %s with SC %s. Check whether underlying LVG ready or not.", ac.Name, ac.Spec.StorageClass)
-			lvg := &lvgcrd.LVG{}
-			err = vo.k8sClient.ReadCR(ctxWithID, ac.Spec.Location, lvg)
-			if err != nil || lvg.Spec.Status != apiV1.Created {
-				ll.Errorf("Will use 'waiting' CSIStatus. Read LVG error: %v, LVG status - %s", err, lvg.Spec.Status)
-				csiStatus = apiV1.Waiting
+			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, v.StorageClass, *ac); ac == nil {
+				return nil, status.Errorf(codes.Internal, "unable to prepare underlying storage for storage class %s", v.StorageClass)
 			}
 		}
 		ll.Infof("AC %v was selected. Volume will be created with status %s", ac.Spec, csiStatus)

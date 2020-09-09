@@ -176,10 +176,11 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	switch volume.Spec.CSIStatus {
-	case apiV1.Waiting:
-		return m.handleWaitingStatus(ctx, volume)
 	case apiV1.Creating:
-		return m.handleCreatingStatus(ctx, volume)
+		if util.IsStorageClassLVG(volume.Spec.StorageClass) {
+			return m.handleCreatingVolumeInLVG(ctx, volume)
+		}
+		return m.prepareVolume(ctx, volume)
 	case apiV1.Removing:
 		return m.handleRemovingStatus(ctx, volume)
 	default:
@@ -187,10 +188,13 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 }
 
-func (m *VolumeManager) handleWaitingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+// handleCreatingVolumeInLVG handles volume CR that has storage class related to LVG and CSIStatus creating
+// check whether underlying LVG ready or not, add volume to LVG volumeRefs (if needed) and create real storage based on volume
+// uses as a step for Reconcile for Volume CR
+func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"method":   "handleWaitingStatus",
-		"volumeID": volume.Name,
+		"method":   "handleCreatingVolumeInLVG",
+		"volumeID": volume.Spec.Id,
 	})
 
 	var (
@@ -198,7 +202,7 @@ func (m *VolumeManager) handleWaitingStatus(ctx context.Context, volume *volumec
 		err error
 	)
 
-	if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
+	if err = m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
 		ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
 		if k8sError.IsNotFound(err) {
 			volume.Spec.CSIStatus = apiV1.Failed
@@ -213,6 +217,7 @@ func (m *VolumeManager) handleWaitingStatus(ctx context.Context, volume *volumec
 
 	switch lvg.Spec.Status {
 	case apiV1.Creating:
+		ll.Debugf("Underlying LVG %s is still being created", lvg.Name)
 		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, nil
 	case apiV1.Failed:
 		ll.Errorf("Underlying LVG %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
@@ -224,43 +229,35 @@ func (m *VolumeManager) handleWaitingStatus(ctx context.Context, volume *volumec
 		}
 		return ctrl.Result{}, nil // no need to retry
 	case apiV1.Created:
-		volume.Spec.CSIStatus = apiV1.Creating
-		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
-			ll.Errorf("Unable to update volume CR and set status to creating: %v", err)
-			return ctrl.Result{Requeue: true}, err // need to retry to set CSIStatus
+		// add volume ID to LVG.Spec.VolumeRefs
+		if !util.ContainsString(lvg.Spec.VolumeRefs, volume.Spec.Id) {
+			lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volume.Spec.Id)
+			if err = m.k8sClient.UpdateCR(ctx, lvg); err != nil {
+				ll.Errorf("Unable to add Volume ID to LVG %s volume refs: %v", lvg.Name, err)
+				return ctrl.Result{Requeue: true}, err
+			}
 		}
-		return ctrl.Result{Requeue: true}, nil // reconcile with new CSIStatus
+		return m.prepareVolume(ctx, volume)
 	default:
 		ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
 		return ctrl.Result{Requeue: true}, nil
 	}
 }
 
-func (m *VolumeManager) handleCreatingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+// prepareVolume prepares real storage based on provided volume and update corresponding volume CR's CSIStatus
+// uses as a step for Reconcile for Volume CR
+func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"method":   "handleCreatingStatus",
-		"volumeID": volume.Name,
+		"method":   "prepareVolume",
+		"volumeID": volume.Spec.Id,
 	})
 
-	var (
-		err       error
-		newStatus string
-	)
-	// add volume ID to the corresponding lvg volume references
-	if util.IsStorageClassLVG(volume.Spec.StorageClass) {
-		if err = m.addVolumeToLVG(volume.Spec.Location, volume.Spec.Id); err != nil {
-			ll.Errorf("Unable to add volume reference to LVG %s: %v", volume.Spec.Location, err)
-		}
-	}
+	newStatus := apiV1.Created
 
-	err = m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
+	err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
 	if err != nil {
-		ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
-			" Set volume status to Failed", volume.Spec.Size, err, ctx.Err())
+		ll.Errorf("Unable to create volume size of %d bytes: %v. Set volume status to Failed", volume.Spec.Size, err)
 		newStatus = apiV1.Failed
-	} else {
-		ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
-		newStatus = apiV1.Created
 	}
 
 	volume.Spec.CSIStatus = newStatus
@@ -272,6 +269,9 @@ func (m *VolumeManager) handleCreatingStatus(ctx context.Context, volume *volume
 	return ctrl.Result{}, nil
 }
 
+// handleRemovingStatus handles volume CR with removing CSIStatus - removed real storage (partition/lv) and
+// update corresponding volume CR's CSIStatus
+// uses as a step for Reconcile for Volume CR
 func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "handleRemovingStatus",
