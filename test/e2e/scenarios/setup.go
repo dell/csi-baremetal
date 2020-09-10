@@ -38,6 +38,25 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	})
 
 	curDriver := BaremetalDriver()
+
+	patcherCleanup := func() {}
+	ginkgo.BeforeSuite(func() {
+		if common.BMDriverTestContext.BMDeploySchedulerPatcher {
+			c, err := common.GetGlobalClientSet()
+			if err != nil {
+				ginkgo.Fail(err.Error())
+			}
+			patcherCleanup, err = common.DeployPatcher(c, "kube-system")
+			if err != nil {
+				ginkgo.Fail(err.Error())
+			}
+		}
+	})
+
+	ginkgo.AfterSuite(func() {
+		patcherCleanup()
+	})
+
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
 		DefineDriveHealthChangeTestSuite(curDriver)
