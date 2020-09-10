@@ -93,10 +93,10 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			err := c.k8sClient.ReadList(ctx, volumes)
 			if err != nil {
 				ll.Errorf("Unable to read volume list: %v", err)
-				return ctrl.Result{}, err
+				return ctrl.Result{Requeue: true}, err
 			}
 			// If Kubernetes has volumes with location of LVG, which is needed to be deleted,
-			//we prevent removing, because this LVG is still used. We set DeletionTimestamp as nil and update LVG
+			// we prevent removing, because this LVG is still used. We set DeletionTimestamp as nil and update LVG
 			for _, item := range volumes.Items {
 				if item.Spec.Location == lvg.Name {
 					ll.Debugf("There are volumes with location LVG %s, stop LVG deletion", lvg.Name)
@@ -104,7 +104,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 					err := c.k8sClient.UpdateCR(ctx, lvg)
 					if err != nil {
 						ll.Errorf("Unable to update %s LVG: %v", lvg.Name, err)
-						return ctrl.Result{}, err
+						return ctrl.Result{Requeue: true}, err
 					}
 					return ctrl.Result{}, nil
 				}
@@ -251,7 +251,7 @@ func (c *LVGController) removeLVGArtifacts(lvgName string) error {
 // todo LVG might use multiple LVM PV
 func (c *LVGController) increaseACSize(driveID string, size int64) {
 	ll := c.log.WithFields(logrus.Fields{
-		"method":  "removeChildAC",
+		"method":  "increaseACSize",
 		"driveID": driveID,
 	})
 

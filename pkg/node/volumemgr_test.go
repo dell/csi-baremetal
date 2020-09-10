@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,6 +37,7 @@ import (
 // todo refactor these UTs - https://jira.cec.lab.emc.com:8443/browse/AK8S-724
 
 var (
+	testErr            = errors.New("error")
 	lsblkAllDevicesCmd = fmt.Sprintf(lsblk.CmdTmpl, "")
 
 	drive1UUID = uuid.New().String()
@@ -84,25 +87,26 @@ var (
 		},
 	}
 
-	lvgCR = lvgcrd.LVG{
+	testLVGCR = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      lvgName,
+			Name:      testLVGName,
 			Namespace: testNs,
 		},
 		Spec: api.LogicalVolumeGroup{
-			Name:      lvgName,
-			Node:      nodeID,
-			Locations: []string{drive1.UUID},
-			Size:      int64(1024 * 500 * util.GBYTE),
-			Status:    apiV1.Created,
+			Name:       testLVGName,
+			Node:       nodeID,
+			Locations:  []string{drive1.UUID},
+			Size:       int64(1024 * 500 * util.GBYTE),
+			Status:     apiV1.Created,
+			VolumeRefs: []string{},
 		},
 	}
 
-	volCRLVG = vcrd.Volume{
+	testVolumeLVGCR = vcrd.Volume{
 		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{
 			Name:              volLVGName,
@@ -113,7 +117,7 @@ var (
 			Id:           volLVGName,
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: apiV1.StorageClassHDDLVG,
-			Location:     lvgCR.Name,
+			Location:     testLVGCR.Name,
 			CSIStatus:    apiV1.Creating,
 			NodeId:       nodeID,
 			Mode:         apiV1.ModeFS,
@@ -170,126 +174,238 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 }
 
-func TestReconcile_SuccessCreatingAndRemovingLVGVolume(t *testing.T) {
+func TestVolumeManager_prepareVolume(t *testing.T) {
 	var (
-		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCRLVG.Name}}
-		volume = &vcrd.Volume{}
-	)
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-
-	err = vm.k8sClient.CreateCR(testCtx, volCRLVG.Name, &volCRLVG)
-	assert.Nil(t, err)
-
-	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
-
-	res, err := vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Created, volume.Spec.CSIStatus)
-
-	volume.Spec.CSIStatus = apiV1.Removing
-	err = vm.k8sClient.UpdateCR(testCtx, volume)
-	assert.Nil(t, err)
-	// reconciled second time
-	res, err = vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
-}
-
-func TestReconcile_SuccessCreatingAndRemovingDriveVolume(t *testing.T) {
-	var (
+		vm     *VolumeManager
 		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 		volume = &vcrd.Volume{}
+		pMock  *mockProv.MockProvisioner
+		res    ctrl.Result
+		err    error
 	)
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
-	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
-	assert.Nil(t, err)
-
-	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	// happy pass
+	vm = GetVolumeManagerForTest(t)
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR))
+	pMock = mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err := vm.Reconcile(req)
+	testVol := volCR
+	res, err = vm.prepareVolume(testCtx, &testVol)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
 
-	volume.Spec.CSIStatus = apiV1.Removing
-	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	// failed to update
+	vm = GetVolumeManagerForTest(t)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err = vm.prepareVolume(testCtx, &testVol)
+	assert.NotNil(t, err)
+	assert.True(t, res.Requeue)
+
+	// PrepareVolume failed
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR))
+	pMock = &mockProv.MockProvisioner{}
+	pMock.On("PrepareVolume", volCR.Spec).Return(testErr)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err = vm.prepareVolume(testCtx, &volCR)
+	assert.NotNil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
 	assert.Nil(t, err)
-	// reconciled second time
-	res, err = vm.Reconcile(req)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+}
+
+func TestVolumeManager_handleRemovingStatus(t *testing.T) {
+	var (
+		vm     *VolumeManager
+		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+		volume = &vcrd.Volume{}
+		res    ctrl.Result
+		err    error
+	)
+
+	// happy path
+	vm = GetVolumeManagerForTest(t)
+	testVol := volCR
+	testVol.Spec.CSIStatus = apiV1.Removing
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &testVol))
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err = vm.handleRemovingStatus(testCtx, &testVol)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+
+	// failed to update
+	vm = GetVolumeManagerForTest(t)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err = vm.handleRemovingStatus(testCtx, &volCR)
+	assert.NotNil(t, err)
+	assert.True(t, res.Requeue)
+
+	// ReleaseVolume failed
+	testVol = volCR
+	testVol.Spec.CSIStatus = apiV1.Removing
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR))
+	pMock = &mockProv.MockProvisioner{}
+	pMock.On("ReleaseVolume", volCR.Spec).Return(testErr)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err = vm.handleRemovingStatus(testCtx, &volCR)
+	assert.NotNil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+
 }
 
-func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
+func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	var (
-		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
-		volume = &vcrd.Volume{}
+		vm                 *VolumeManager
+		pMock              *mockProv.MockProvisioner
+		vol                *vcrd.Volume
+		lvg                *lvgcrd.LVG
+		testVol            vcrd.Volume
+		testLVG            lvgcrd.LVG
+		expectedResRequeue = ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}
+		res                ctrl.Result
+		err                error
 	)
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
-	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
-	assert.Nil(t, err)
+	// unable to read LVG (not found) and unable to update corresponding volume CR
+	vm = GetVolumeManagerForTest(t)
 
-	pMock := &mockProv.MockProvisioner{}
-	pMock.On("PrepareVolume", mock.Anything).Return(fmt.Errorf("error"))
-	pMock.On("ReleaseVolume", mock.Anything).Return(fmt.Errorf("error"))
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
+	assert.Equal(t, expectedResRequeue, res)
 
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
-	res, err := vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+	// LVG is not found, volume CR was updated successfully (CSIStatus=failed)
+	vm = GetVolumeManagerForTest(t)
+	testVol = testVolumeLVGCR
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
 
-	volume.Spec.CSIStatus = apiV1.Removing
-	err = vm.k8sClient.UpdateCR(testCtx, volume)
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
 	assert.Nil(t, err)
-	// reconciled second time
-	res, err = vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
+	assert.Equal(t, ctrl.Result{}, res)
 
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	vol = &vcrd.Volume{}
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, vol))
+	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
+
+	// LVG in creating state
+	vm = GetVolumeManagerForTest(t)
+	testLVG = testLVGCR
+	testLVG.Spec.Status = apiV1.Creating
+	testVol = testVolumeLVGCR
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+	assert.Equal(t, expectedResRequeue, res)
+
+	// LVG in failed state and volume is updated successfully
+	vm = GetVolumeManagerForTest(t)
+	testLVG = testLVGCR
+	testLVG.Spec.Status = apiV1.Failed
+	testVol = testVolumeLVGCR
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
+
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
+	assert.Nil(t, err)
+	assert.Equal(t, ctrl.Result{}, res)
+
+	vol = &vcrd.Volume{}
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, vol))
+	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
+
+	// LVG in failed state and volume is failed to update
+	vm = GetVolumeManagerForTest(t)
+	testLVG = testLVGCR
+	testLVG.Spec.Status = apiV1.Failed
+	testVol = testVolumeLVGCR
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
+	assert.NotNil(t, err)
+	assert.Equal(t, expectedResRequeue, res)
+	assert.True(t, k8sError.IsNotFound(err))
+
+	// LVG in created state and volume.ID is not in VolumeRefs
+	vm = GetVolumeManagerForTest(t)
+	pMock = &mockProv.MockProvisioner{}
+	pMock.On("PrepareVolume", mock.Anything).Return(nil)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
+	testLVG = testLVGCR
+	testLVG.Spec.Status = apiV1.Created
+	testVol = testVolumeLVGCR
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
+
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
+	assert.Nil(t, err)
+	assert.Equal(t, ctrl.Result{}, res)
+
+	lvg = &lvgcrd.LVG{}
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, lvg))
+	assert.True(t, util.ContainsString(lvg.Spec.VolumeRefs, testVol.Spec.Id))
+
+	// LVG in created state and volume.ID is in VolumeRefs
+	vm = GetVolumeManagerForTest(t)
+	pMock = &mockProv.MockProvisioner{}
+	pMock.On("PrepareVolume", mock.Anything).Return(nil)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
+	testVol = testVolumeLVGCR
+	testLVG = testLVGCR
+	testLVG.Spec.Status = apiV1.Created
+	testLVG.Spec.VolumeRefs = []string{testVol.Spec.Id}
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
+
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
+	assert.Nil(t, err)
+	assert.Equal(t, ctrl.Result{}, res)
+
+	lvg = &lvgcrd.LVG{}
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, lvg))
+	assert.True(t, util.ContainsString(lvg.Spec.VolumeRefs, testVol.Spec.Id))
+	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
+
+	// LVG state wasn't recognized
+	vm = GetVolumeManagerForTest(t)
+	testLVG = testLVGCR
+	testLVG.Spec.Status = ""
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
+
+	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedResRequeue, res)
 }
 
 func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-	volCR.Spec.CSIStatus = apiV1.Failed
-	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
-	assert.Nil(t, err)
+	var (
+		vm  *VolumeManager
+		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+		res ctrl.Result
+		err error
+	)
 
-	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm = GetVolumeManagerForTest(t)
+	volCR.Spec.CSIStatus = apiV1.Published
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR))
 
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
-	res, err := vm.Reconcile(req)
+	res, err = vm.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -695,4 +811,26 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		assert.True(t, expectEvent(drive1CR, eventing.ErrorType, eventing.DriveStatusOffline))
 		assert.True(t, expectEvent(drive1CR, eventing.WarningType, eventing.DriveHealthUnknown))
 	})
+}
+
+func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
+	var (
+		vm  *VolumeManager
+		vol vcrd.Volume
+	)
+
+	vm = GetVolumeManagerForTest(t)
+	vol = testVolumeCR1
+	vol.Spec.NodeId = vm.nodeID
+	assert.True(t, vm.isCorrespondedToNodePredicate(&vol))
+
+	vol.Spec.NodeId = ""
+	assert.False(t, vm.isCorrespondedToNodePredicate(&vol))
+
+}
+
+func GetVolumeManagerForTest(t *testing.T) *VolumeManager {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	return NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 }

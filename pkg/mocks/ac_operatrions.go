@@ -33,3 +33,14 @@ func (a *ACOperationsMock) DeleteIfEmpty(ctx context.Context, acLocation string)
 	args := a.Mock.Called(ctx, acLocation)
 	return args.Error(0)
 }
+
+// RecreateACToLVGSC is the mock implementation of RecreateACToLVGSC method from AvailableCapacityOperations made for simulating
+// recreation of list of ACs to LVG AC
+// Returns error if user simulates error in tests or nil
+func (a *ACOperationsMock) RecreateACToLVGSC(ctx context.Context, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
+	args := a.Mock.Called(ctx, sc, acs)
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*accrd.AvailableCapacity)
+}

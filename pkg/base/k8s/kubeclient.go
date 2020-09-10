@@ -82,7 +82,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 			ll.Infof("Creating CR %s: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 			return k.Create(ctx, obj)
 		}
-		ll.Infof("Unable to check whether CR %s exist or no", name)
+		ll.Infof("Unable to check whether CR %s exist or not: %v", name, err)
 		return err
 	}
 	ll.Infof("CR %s has already exist", name)

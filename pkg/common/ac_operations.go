@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -14,7 +13,6 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
@@ -23,6 +21,7 @@ import (
 type AvailableCapacityOperations interface {
 	SearchAC(ctx context.Context, node string, requiredBytes int64, sc string) *accrd.AvailableCapacity
 	DeleteIfEmpty(ctx context.Context, acLocation string) error
+	RecreateACToLVGSC(ctx context.Context, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
 }
 
 // AcSizeMinThresholdBytes means that if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
@@ -74,7 +73,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 		acNodeMap map[string][]*accrd.AvailableCapacity
 	)
 
-	err := a.k8sClient.ReadList(context.Background(), acList)
+	err := a.k8sClient.ReadList(ctx, acList)
 	if err != nil {
 		ll.Errorf("Unable to read Available Capacity list, error: %v", err)
 		return nil
@@ -98,9 +97,6 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 			}
 		}
 	} else {
-		if util.IsStorageClassLVG(sc) {
-			requiredBytes = AlignSizeByPE(requiredBytes)
-		}
 		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 	}
 
@@ -108,23 +104,13 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 		if foundAC != nil {
 			// check whether LVG being deleted or no
 			lvgCR := &lvgcrd.LVG{}
-			err := a.k8sClient.ReadCR(context.Background(), foundAC.Spec.Location, lvgCR)
+			err := a.k8sClient.ReadCR(ctx, foundAC.Spec.Location, lvgCR)
 			if err == nil && lvgCR.DeletionTimestamp.IsZero() {
 				return foundAC
 			}
-		}
-		// increase wanted size for additional costs
-		requiredBytes += LvgDefaultMetadataSize
-		// if storageClass is related to LVG and there is no AC with that storageClass
-		// search drive with subclass on which LVG will be creating
-		subSC := util.GetSubStorageClass(sc)
-		ll.Infof("StorageClass is in LVG, search AC with subStorageClass %s with size %d", subSC, requiredBytes)
-		foundAC = a.SearchAC(ctx, node, requiredBytes, subSC)
-		if foundAC == nil {
+			ll.Errorf("LVG %s that was chosen is being deleted", lvgCR.Name)
 			return nil
 		}
-		ll.Infof("Got AC %v", foundAC)
-		return a.recreateACToLVGSC(sc, *foundAC)
 	}
 
 	return foundAC
@@ -202,12 +188,20 @@ func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapa
 	return node
 }
 
-// recreateACToLVGSC creates LVG(based on ACs), ensure it become ready,
-// creates AC based on that LVG and set sise of provided ACs to 0.
-// Receives sc as string (HDDLVG or SSDLVG) and AvailableCapacities where LVG should be based
+// RecreateACToLVGSC creates LVG(based on ACs) creates AC based on that LVG and set sise of provided ACs to 0.
+// Receives newSC as string (e.g. HDDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
-func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
-	ll := a.log.WithField("method", "recreateACToLVGSC")
+func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
+	ll := a.log.WithFields(logrus.Fields{
+		"method":   "RecreateACToLVGSC",
+		"volumeID": ctx.Value(k8s.RequestUUID),
+	})
+
+	if len(acs) == 0 {
+		return nil
+	}
+
+	ll.Debugf("Recreating ACs %v with SC %s to SC %s", acs[0], acs[0].Spec.StorageClass, newSC)
 
 	lvgLocations := make([]string, len(acs))
 	var lvgSize int64
@@ -232,38 +226,28 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...accrd.AvailableCa
 	for _, ac := range acs {
 		ac.Spec.Size = 0
 		// nolint: scopelint
-		if err = a.k8sClient.UpdateCR(context.Background(), &ac); err != nil {
+		if err = a.k8sClient.UpdateCR(ctx, &ac); err != nil {
 			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
 		}
 	}
 
 	// create LVG CR based on ACs
 	lvg := a.k8sClient.ConstructLVGCR(name, apiLVG)
-	if err = a.k8sClient.CreateCR(context.Background(), name, lvg); err != nil {
+	if err = a.k8sClient.CreateCR(ctx, name, lvg); err != nil {
 		ll.Errorf("Unable to create LVG CR: %v", err)
 		return nil
 	}
-	ll.Infof("LVG %v was created. Wait until it become ready.", apiLVG)
-	// here we should to wait until VG is reconciled by volumemgr
-	ctx, cancelFn := context.WithTimeout(context.Background(), base.DefaultTimeoutForOperations)
-	defer cancelFn()
-	var newAPILVG *api.LogicalVolumeGroup
-	if newAPILVG = a.waitUntilLVGWillBeCreated(ctx, name); newAPILVG == nil {
-		if err = a.k8sClient.DeleteCR(context.Background(), lvg); err != nil {
-			ll.Errorf("LVG creation failed and unable to remove LVG %v: %v", lvg.Spec, err)
-		}
-		return nil
-	}
+	ll.Infof("LVG %v was created.", apiLVG)
 
 	// create new AC
 	newACCRName := uuid.New().String()
 	newACCR := a.k8sClient.ConstructACCR(newACCRName, api.AvailableCapacity{
 		Location:     lvg.Name,
 		NodeId:       acs[0].Spec.NodeId,
-		StorageClass: sc,
-		Size:         newAPILVG.Size,
+		StorageClass: newSC,
+		Size:         lvgSize,
 	})
-	if err = a.k8sClient.CreateCR(context.Background(), newACCRName, newACCR); err != nil {
+	if err = a.k8sClient.CreateCR(ctx, newACCRName, newACCR); err != nil {
 		ll.Errorf("Unable to create AC %v, error: %v", newACCRName, err)
 		return nil
 	}
@@ -272,50 +256,14 @@ func (a *ACOperationsImpl) recreateACToLVGSC(sc string, acs ...accrd.AvailableCa
 	return newACCR
 }
 
-// waitUntilLVGWillBeCreated checks LVG CR status during timeout provided in context
-// Receives golang context with timeout and name of LVG
-// Returns LVG.Spec if LVG.Spec.Status == created, or return nil instead
-func (a *ACOperationsImpl) waitUntilLVGWillBeCreated(ctx context.Context, lvgName string) *api.LogicalVolumeGroup {
-	ll := a.log.WithFields(logrus.Fields{
-		"method":  "waitUntilLVGWillBeCreated",
-		"lvgName": lvgName,
-	})
-	ll.Infof("Pulling LVG")
-
-	var (
-		lvg = &lvgcrd.LVG{}
-		err error
-	)
-
-	for {
-		select {
-		case <-ctx.Done():
-			ll.Warnf("Context is done and LVG still not become created, consider that it was failed")
-			return nil
-		case <-time.After(1 * time.Second):
-			err = a.k8sClient.ReadCR(ctx, lvgName, lvg)
-			switch {
-			case err != nil:
-				ll.Errorf("Unable to read LVG CR: %v", err)
-			case lvg.Spec.Status == apiV1.Created:
-				ll.Info("LVG was created")
-				return &lvg.Spec
-			case lvg.Spec.Status == apiV1.Failed:
-				ll.Warn("LVG was reached Failed status")
-				return nil
-			}
-		}
-	}
-}
-
 //tryToFindAC is used to find proper AvailableCapacity based on provided storageClass and requiredBytes
 //If storageClass = "" then we search for AvailableCapacity with any storageClass
-func (a *ACOperationsImpl) tryToFindAC(acNodeMap []*accrd.AvailableCapacity, storageClass string, requiredBytes int64) *accrd.AvailableCapacity {
+func (a *ACOperationsImpl) tryToFindAC(acs []*accrd.AvailableCapacity, storageClass string, requiredBytes int64) *accrd.AvailableCapacity {
 	var (
 		allocatedCapacity int64 = math.MaxInt64
 		foundAC           *accrd.AvailableCapacity
 	)
-	for _, ac := range acNodeMap {
+	for _, ac := range acs {
 		if storageClass != "" {
 			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass {
 				foundAC = ac
