@@ -104,7 +104,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			if util.IsStorageClassLVG(v.StorageClass) {
 				subSC := util.GetSubStorageClass(v.StorageClass)
 				// increase wanted size for additional costs
-				requiredBytes := v.Size + LvgDefaultMetadataSize
+				requiredBytes += LvgDefaultMetadataSize
 				ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, requiredBytes, subSC) // search volume for LVG in subSC
 			}
 			if ac == nil {
