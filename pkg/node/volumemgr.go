@@ -152,6 +152,13 @@ func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
 	m.provisioners = provs
 }
 
+// isVolumeHasStatusForReconcile returns whether volume v has CSIStatus with which that volume should be reconciled or not
+func (m *VolumeManager) isVolumeHasStatusForReconcile(v *volumecrd.Volume) bool {
+	return v.Spec.CSIStatus == apiV1.Creating ||
+		v.Spec.CSIStatus == apiV1.Removing ||
+		v.Spec.CSIStatus == apiV1.Failed
+}
+
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
 // VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
 // Volume.Spec.CSIStatus is Removing.
@@ -206,10 +213,11 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 		ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
 		if k8sError.IsNotFound(err) {
 			volume.Spec.CSIStatus = apiV1.Failed
-			if err = m.k8sClient.UpdateCR(ctx, volume); err == nil {
+			err = m.k8sClient.UpdateCR(ctx, volume)
+			if err == nil {
 				return ctrl.Result{}, nil // no need to retry
 			}
-			ll.Errorf("Unable to update volume CR and set status for failed: %v", err)
+			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
 		}
 		// retry because of LVG wasn't read or Volume status wasn't updated
 		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, err
@@ -225,7 +233,7 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
 			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
 			// retry because of volume status wasn't updated
-			return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, nil
+			return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, err
 		}
 		return ctrl.Result{}, nil // no need to retry
 	case apiV1.Created:
@@ -240,7 +248,7 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 		return m.prepareVolume(ctx, volume)
 	default:
 		ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, nil
 	}
 }
 
@@ -261,12 +269,12 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 	}
 
 	volume.Spec.CSIStatus = newStatus
-	if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
-		ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
-		return ctrl.Result{Requeue: true}, err
+	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); updateErr != nil {
+		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
+		return ctrl.Result{Requeue: true}, updateErr
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
 
 // handleRemovingStatus handles volume CR with removing CSIStatus - removed real storage (partition/lv) and
@@ -292,11 +300,11 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	}
 
 	volume.Spec.CSIStatus = newStatus
-	if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); err != nil {
+	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{Requeue: true}, updateErr
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager registers VolumeManager to ControllerManager
@@ -310,27 +318,27 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return m.isCorrespondedToNodePredicate(e.Object)
+				return m.isShouldBeReconciled(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return m.isCorrespondedToNodePredicate(e.Object)
+				return m.isShouldBeReconciled(e.Object)
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return m.isCorrespondedToNodePredicate(e.ObjectOld)
+				return m.isShouldBeReconciled(e.ObjectOld)
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
-				return m.isCorrespondedToNodePredicate(e.Object)
+				return m.isShouldBeReconciled(e.Object)
 			},
 		}).
 		Complete(m)
 }
 
-// isCorrespondedToNodePredicate checks is a provided obj is aVolume CR object
+// isShouldBeReconciled checks is a provided obj is aVolume CR object
 // and that volume's node is and current manager node
-func (m *VolumeManager) isCorrespondedToNodePredicate(obj runtime.Object) bool {
+func (m *VolumeManager) isShouldBeReconciled(obj runtime.Object) bool {
 	if vol, ok := obj.(*volumecrd.Volume); ok {
 		if vol.Spec.NodeId == m.nodeID {
-			return true
+			return m.isVolumeHasStatusForReconcile(vol)
 		}
 	}
 
