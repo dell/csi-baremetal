@@ -26,8 +26,8 @@ const (
 	// DefaultTimeoutForVolumeOperations is the timeout in which we expect that any operation with volume should be finished
 	DefaultTimeoutForVolumeOperations = 10 * time.Minute
 
-	// DefaultRequeueAfterForVolume is the interval for volume reconcile
-	DefaultRequeueAfterForVolume = 5 * time.Second
+	// DefaultRequeueForVolume is the interval for volume reconcile
+	DefaultRequeueForVolume = 5 * time.Second
 
 	// SystemDriveAsLocation is the const to fill Location field in CRs if the location based on system drive
 	SystemDriveAsLocation = "system drive"

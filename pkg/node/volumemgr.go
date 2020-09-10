@@ -213,20 +213,20 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
 		}
 		// retry because of LVG wasn't read or Volume status wasn't updated
-		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, err
 	}
 
 	switch lvg.Spec.Status {
 	case apiV1.Creating:
 		ll.Debugf("Underlying LVG %s is still being created", lvg.Name)
-		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, nil
 	case apiV1.Failed:
 		ll.Errorf("Underlying LVG %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
 		volume.Spec.CSIStatus = apiV1.Failed
 		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
 			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
 			// retry because of volume status wasn't updated
-			return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, err
 		}
 		return ctrl.Result{}, nil // no need to retry
 	case apiV1.Created:
@@ -241,7 +241,7 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 		return m.prepareVolume(ctx, volume)
 	default:
 		ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
-		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, nil
 	}
 }
 

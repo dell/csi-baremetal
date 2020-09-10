@@ -277,7 +277,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 		lvg                *lvgcrd.LVG
 		testVol            vcrd.Volume
 		testLVG            lvgcrd.LVG
-		expectedResRequeue = ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueAfterForVolume}
+		expectedResRequeue = ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}
 		res                ctrl.Result
 		err                error
 	)
