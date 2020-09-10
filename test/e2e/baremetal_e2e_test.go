@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/test/e2e/framework"
 
+	"github.com/dell/csi-baremetal/test/e2e/common"
 	_ "github.com/dell/csi-baremetal/test/e2e/scenarios"
 )
 
@@ -20,9 +21,17 @@ func skipIfNotCI(t *testing.T) {
 	}
 }
 
+func registerBMDriverFlags(flags *flag.FlagSet) {
+	flags.BoolVar(&common.BMDriverTestContext.BMDeploySchedulerExtender, "bm-deploy-scheduler-extender",
+		true, "Deploy extender for scheduler")
+	flags.BoolVar(&common.BMDriverTestContext.BMWaitSchedulerRestart, "bm-wait-scheduler-restart",
+		true, "Wait for scheduler restart")
+}
+
 func init() {
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)
+	registerBMDriverFlags(flag.CommandLine)
 }
 
 func Test(t *testing.T) {

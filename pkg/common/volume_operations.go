@@ -89,16 +89,23 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		var (
 			ac             *accrd.AvailableCapacity
 			sc             string
+			requiredBytes  = v.Size
 			allocatedBytes int64
 			locationType   string
 			csiStatus      = apiV1.Creating
 		)
 
-		ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, v.Size, v.StorageClass)
+		if util.IsStorageClassLVG(sc) {
+			requiredBytes = AlignSizeByPE(requiredBytes)
+		}
+
+		ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, requiredBytes, v.StorageClass)
 		if ac == nil {
 			if util.IsStorageClassLVG(v.StorageClass) {
 				subSC := util.GetSubStorageClass(v.StorageClass)
-				ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, v.Size, subSC) // search volume for LVG in subSC
+				// increase wanted size for additional costs
+				requiredBytes := v.Size + LvgDefaultMetadataSize
+				ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, requiredBytes, subSC) // search volume for LVG in subSC
 			}
 			if ac == nil {
 				ll.Errorf("There is no suitable drive for volume with sc %s.", sc)
@@ -116,7 +123,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		sc = ac.Spec.StorageClass
 
 		if util.IsStorageClassLVG(sc) {
-			allocatedBytes = v.Size
+			allocatedBytes = requiredBytes
 			locationType = apiV1.LocationTypeLVM
 		} else {
 			allocatedBytes = ac.Spec.Size

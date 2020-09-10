@@ -1,8 +1,10 @@
 package common
 
 import (
+	"context"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -201,4 +203,82 @@ func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOpe
 		assert.Nil(t, err)
 	}
 	return NewACOperationsImpl(k8sClient, testLogger)
+}
+
+// lvgReconcileImitation this is an Reconcile imitation, expect only 1 LVG is present
+// read LVG list until it size in not 1 and then set status to newStatus for LVG CR
+func lvgReconcileImitation(k8sClient *k8s.KubeClient, newStatus string) error {
+	var (
+		lvgCRList lvgcrd.LVGList
+		err       error
+		ticker    = time.NewTicker(50 * time.Millisecond)
+	)
+	println("Reconciling ...")
+	for {
+		if err = k8sClient.ReadList(context.Background(), &lvgCRList); err != nil {
+			return err
+		}
+
+		if len(lvgCRList.Items) == 1 {
+			break
+		}
+		<-ticker.C
+	}
+	ticker.Stop()
+	lvgCRList.Items[0].Spec.Status = newStatus
+	return k8sClient.UpdateCR(context.Background(), &lvgCRList.Items[0])
+}
+
+func Test_AlignSizeByPE(t *testing.T) {
+	type args struct {
+		size int64
+	}
+	tests := []struct {
+		name string
+		args args
+		want int64
+	}{
+		{
+			name: "100Mi",
+			args: args{
+				size: 104857600,
+			},
+			want: 104857600,
+		},
+		{
+			name: "lower than 1Mi",
+			args: args{
+				size: 1,
+			},
+			want: DefaultPESize,
+		},
+		{
+			name: "slightly lower than 4Mi",
+			args: args{
+				size: 4194303,
+			},
+			want: DefaultPESize,
+		},
+		{
+			name: "slightly higher than 4Mi",
+			args: args{
+				size: 4194305,
+			},
+			want: 2 * DefaultPESize,
+		},
+		{
+			name: "Negative",
+			args: args{
+				size: -104857600,
+			},
+			want: -104857600,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AlignSizeByPE(tt.args.size); got != tt.want {
+				t.Errorf("alignSizeByPE() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

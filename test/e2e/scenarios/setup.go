@@ -11,10 +11,11 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
-	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/testfiles"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
+
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 var CSITestSuites = []func() testsuites.TestSuite{
@@ -27,10 +28,10 @@ var CSITestSuites = []func() testsuites.TestSuite{
 }
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
-	logrus.Infof("RepoRoot: %s", framework.TestContext.RepoRoot)
+	logrus.Infof("RepoRoot: %s", common.BMDriverTestContext.RepoRoot)
 
 	pathToTheManifests := path.Join(
-		framework.TestContext.RepoRoot, "/tmp/")
+		common.BMDriverTestContext.RepoRoot, "/tmp/")
 
 	testfiles.AddFileSource(testfiles.RootFileSource{
 		Root: pathToTheManifests,

@@ -27,6 +27,13 @@ type AvailableCapacityOperations interface {
 // AcSizeMinThresholdBytes means that if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
 const AcSizeMinThresholdBytes = int64(util.MBYTE) // 1MB
 
+// LvgDefaultMetadataSize is additional cost for new VG we should consider.
+const LvgDefaultMetadataSize = int64(util.MBYTE) // 1MB
+
+// DefaultPESize is the default extent size we should align with
+// TODO: AK8S-1332 use non default PE size
+const DefaultPESize = 4 * int64(util.MBYTE)
+
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
 type ACOperationsImpl struct {
 	k8sClient *k8s.KubeClient
@@ -92,6 +99,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 	} else {
 		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
 	}
+
 	if util.IsStorageClassLVG(sc) {
 		if foundAC != nil {
 			// check whether LVG being deleted or no
@@ -100,11 +108,23 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 			if err == nil && lvgCR.DeletionTimestamp.IsZero() {
 				return foundAC
 			}
-			// TODO: should return nil here because of chosen LVG is being deleted
+			ll.Errorf("LVG %s that was chosen is being deleted", lvgCR.Name)
+			return nil
 		}
 	}
 
 	return foundAC
+}
+
+// AlignSizeByPE make size aligned with default PE
+// TODO: AK8S-1332 use non default PE size
+func AlignSizeByPE(size int64) int64 {
+	var alignement int64
+	reminder := size % DefaultPESize
+	if reminder != 0 {
+		alignement = DefaultPESize - reminder
+	}
+	return size + alignement
 }
 
 // DeleteIfEmpty search AC by it's location and remove if it size is less then threshold
