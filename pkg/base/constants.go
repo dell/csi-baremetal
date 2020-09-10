@@ -23,10 +23,10 @@ const (
 	// NonRotationalNum points on SSD drive
 	NonRotationalNum = "0"
 
-	// DefaultTimeoutForVolumeOperations is the timeout in which we expect that any operation should be finished
+	// DefaultTimeoutForVolumeOperations is the timeout in which we expect that any operation with volume should be finished
 	DefaultTimeoutForVolumeOperations = 10 * time.Minute
 
-	// DefaultRequeueAfterForVolume is the timeout in which we expect that any operation with LVG should be finished
+	// DefaultRequeueAfterForVolume is the interval for volume reconcile
 	DefaultRequeueAfterForVolume = 5 * time.Second
 
 	// SystemDriveAsLocation is the const to fill Location field in CRs if the location based on system drive
