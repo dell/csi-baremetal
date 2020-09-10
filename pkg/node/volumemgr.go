@@ -152,13 +152,6 @@ func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
 	m.provisioners = provs
 }
 
-// isVolumeHasStatusForReconcile returns whether volume v has CSIStatus with which that volume should be reconciled or not
-func (m *VolumeManager) isVolumeHasStatusForReconcile(v *volumecrd.Volume) bool {
-	return v.Spec.CSIStatus == apiV1.Creating ||
-		v.Spec.CSIStatus == apiV1.Removing ||
-		v.Spec.CSIStatus == apiV1.Failed
-}
-
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
 // VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
 // Volume.Spec.CSIStatus is Removing.
@@ -318,27 +311,27 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return m.isShouldBeReconciled(e.Object)
+				return m.isCorrespondedToNodePredicate(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return m.isShouldBeReconciled(e.Object)
+				return m.isCorrespondedToNodePredicate(e.Object)
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return m.isShouldBeReconciled(e.ObjectOld)
+				return m.isCorrespondedToNodePredicate(e.ObjectOld)
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
-				return m.isShouldBeReconciled(e.Object)
+				return m.isCorrespondedToNodePredicate(e.Object)
 			},
 		}).
 		Complete(m)
 }
 
-// isShouldBeReconciled checks is a provided obj is aVolume CR object
+// isCorrespondedToNodePredicate checks is a provided obj is aVolume CR object
 // and that volume's node is and current manager node
-func (m *VolumeManager) isShouldBeReconciled(obj runtime.Object) bool {
+func (m *VolumeManager) isCorrespondedToNodePredicate(obj runtime.Object) bool {
 	if vol, ok := obj.(*volumecrd.Volume); ok {
 		if vol.Spec.NodeId == m.nodeID {
-			return m.isVolumeHasStatusForReconcile(vol)
+			return true
 		}
 	}
 

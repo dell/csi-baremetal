@@ -822,22 +822,10 @@ func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 	vm = GetVolumeManagerForTest(t)
 	vol = testVolumeCR1
 	vol.Spec.NodeId = vm.nodeID
+	assert.True(t, vm.isCorrespondedToNodePredicate(&vol))
 
-	vol.Spec.CSIStatus = apiV1.Creating
-	assert.True(t, vm.isShouldBeReconciled(&vol))
-
-	vol.Spec.CSIStatus = apiV1.Removing
-	assert.True(t, vm.isShouldBeReconciled(&vol))
-
-	vol.Spec.CSIStatus = apiV1.Failed
-	assert.True(t, vm.isShouldBeReconciled(&vol))
-
-	vol.Spec.CSIStatus = apiV1.Published
-	assert.False(t, vm.isShouldBeReconciled(&vol))
-
-	vol.Spec.CSIStatus = apiV1.Creating
 	vol.Spec.NodeId = ""
-	assert.False(t, vm.isShouldBeReconciled(&vol))
+	assert.False(t, vm.isCorrespondedToNodePredicate(&vol))
 
 }
 
