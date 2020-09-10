@@ -211,13 +211,15 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 		}
 	)
 
-	// expect volume with "waiting" CSIStatus and AC was recreated from HDD to HDDLVG
+	// AC was recreated from HDD to HDDLVG
+	requiredBytesForLVM := AlignSizeByPE(requiredBytes)
+	requiredBytesForLVMWithMetadata := requiredBytesForLVM + LvgDefaultMetadataSize
 	svc = setupVOOperationsTest(t)
 	svc.acProvider = acProvider
 
 	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
 		Return(nil).Times(1)
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, util.GetSubStorageClass(requiredSC)).
+	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytesForLVMWithMetadata, util.GetSubStorageClass(requiredSC)).
 		Return(&acToReturn).Times(1)
 	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, mock.Anything).
 		Return(nil).Times(1)
