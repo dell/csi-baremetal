@@ -24,6 +24,8 @@ func skipIfNotCI(t *testing.T) {
 func registerBMDriverFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&common.BMDriverTestContext.BMDeploySchedulerExtender, "bm-deploy-scheduler-extender",
 		true, "Deploy extender for scheduler")
+	flags.BoolVar(&common.BMDriverTestContext.BMDeploySchedulerPatcher, "bm-deploy-scheduler-patcher",
+		true, "Deploy patcher for scheduler config")
 	flags.BoolVar(&common.BMDriverTestContext.BMWaitSchedulerRestart, "bm-wait-scheduler-restart",
 		true, "Wait for scheduler restart")
 }
