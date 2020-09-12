@@ -29,7 +29,7 @@ build-controller:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ./cmd/${CONTROLLER}/main.go
 
 build-extender:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULER_EXTENDER_PKG}/${EXTENDER} ./cmd/${SCHEDULER_EXTENDER_PKG}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULER}/${EXTENDER}/${EXTENDER} ./cmd/${SCHEDULER}/${EXTENDER}/main.go
 
 ### Build images
 
