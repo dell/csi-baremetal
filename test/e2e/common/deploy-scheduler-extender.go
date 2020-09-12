@@ -3,6 +3,9 @@ package common
 import (
 	"fmt"
 	"io/ioutil"
+	"path"
+	"time"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,7 +13,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"sigs.k8s.io/yaml"
-	"time"
 )
 
 const (
@@ -19,35 +21,90 @@ const (
 	restartWaitTimeout      = time.Minute * 2
 )
 
-func DeploySchedulerExtender(f *framework.Framework) func() {
-	manifestsCleanupFunc := waitForRestart(f,
-		func() func() {
-			return deployManifests(f)
-		})
-
-	return func() {
-		waitForRestart(f,
-			func() func() {
-				manifestsCleanupFunc()
-				return func() {}
-			})
-	}
+func DeploySchedulerExtender(f *framework.Framework) (func(), error) {
+	return deployExtenderManifests(f)
 }
 
-func waitForRestart(f *framework.Framework, fu func() func()) func() {
+func deployExtenderManifests(f *framework.Framework) (func(), error) {
+	manifests := []string{
+		extenderManifestsFolder + "rbac.yaml",
+	}
+
+	daemonSetCleanup, err := buildDaemonSet(f.ClientSet, f.Namespace.Name, "scheduler-extender.yaml")
+	if err != nil {
+		return nil, err
+	}
+
+	manifestsCleanupFunc, err := f.CreateFromManifests(nil, manifests...)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanupFunc := func() {
+		daemonSetCleanup()
+		manifestsCleanupFunc()
+	}
+
+	return cleanupFunc, nil
+}
+
+func DeployPatcher(c clientset.Interface, namespace string) (func(), error) {
+	manifestsCleanupFunc, err := waitForRestart(c,
+		func() (func(), error) {
+			return deployPatcherManifests(c, namespace)
+		})
+	if err != nil {
+		return nil, err
+	}
+	return func() {
+		_, err := waitForRestart(c,
+			func() (func(), error) {
+				manifestsCleanupFunc()
+				return func() {}, nil
+			})
+		if err != nil {
+			e2elog.Logf("failed to cleanup patcher, err: %s", err.Error())
+		}
+	}, nil
+}
+
+func deployPatcherManifests(c clientset.Interface, namespace string) (func(), error) {
+	daemonSetCleanup, err := buildDaemonSet(c, namespace, "patcher.yaml")
+	if err != nil {
+		return nil, err
+	}
+	configMapCleanup, err := buildConfigMap(c, namespace)
+	if err != nil {
+		return nil, err
+	}
+	return func() {
+		daemonSetCleanup()
+		configMapCleanup()
+	}, nil
+}
+
+func waitForRestart(c clientset.Interface, fu func() (func(), error)) (func(), error) {
 	wait := BMDriverTestContext.BMWaitSchedulerRestart
 
-	rc := newSchedulerRestartChecker(f.ClientSet)
+	rc := newSchedulerRestartChecker(c)
 	if wait {
-		framework.ExpectNoError(rc.ReadInitialState())
+		err := rc.ReadInitialState()
+		if err != nil {
+			return nil, err
+		}
 	}
-	result := fu()
+	result, err := fu()
+	if err != nil {
+		return nil, err
+	}
 	if wait {
 		e2elog.Logf("Wait for scheduler restart")
 		deadline := time.Now().Add(restartWaitTimeout)
 		for {
 			ready, err := rc.CheckRestarted()
-			framework.ExpectNoError(err)
+			if err != nil {
+				return nil, err
+			}
 			if ready {
 				e2elog.Logf("Scheduler restarted")
 				break
@@ -62,64 +119,54 @@ func waitForRestart(f *framework.Framework, fu func() func()) func() {
 			time.Sleep(time.Second * 5)
 		}
 	}
-	return result
+	return result, nil
 }
 
-func deployManifests(f *framework.Framework) func() {
-	manifests := []string{
-		extenderManifestsFolder + "rbac.yaml",
-	}
-
-	daemonSetCleanup := buildDaemonSet(f)
-	configMapCleanup := buildConfigMap(f)
-	manifestsCleanupFunc, err := f.CreateFromManifests(nil, manifests...)
-	framework.ExpectNoError(err)
-
-	cleanupFunc := func() {
-		configMapCleanup()
-		daemonSetCleanup()
-		manifestsCleanupFunc()
-	}
-
-	return cleanupFunc
-}
-
-func buildConfigMap(f *framework.Framework) func() {
+func buildConfigMap(c clientset.Interface, namespace string) (func(), error) {
 	file, err := ioutil.ReadFile("/tmp/" + extenderManifestsFolder + "/patcher-configmap.yaml")
-	framework.ExpectNoError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	cm := &corev1.ConfigMap{}
 	err = yaml.Unmarshal(file, cm)
-	framework.ExpectNoError(err)
-
-	ns := f.Namespace.Name
-	f.PatchNamespace(&cm.ObjectMeta.Namespace)
-	cm, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(cm)
-	framework.ExpectNoError(err)
+	if err != nil {
+		return nil, err
+	}
+	cm.ObjectMeta.Namespace = namespace
+	cm, err = c.CoreV1().ConfigMaps(namespace).Create(cm)
+	if err != nil {
+		return nil, err
+	}
 	return func() {
-		if err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(cm.Name, &metav1.DeleteOptions{}); err != nil {
+		if err := c.CoreV1().ConfigMaps(namespace).Delete(cm.Name, &metav1.DeleteOptions{}); err != nil {
 			e2elog.Logf("Failed to delete SE configmap %s: %v", cm.Name, err)
 		}
-	}
+	}, nil
 }
 
-func buildDaemonSet(f *framework.Framework) func() {
-	file, err := ioutil.ReadFile("/tmp/" + extenderManifestsFolder + "/scheduler-extender.yaml")
-	framework.ExpectNoError(err)
+func buildDaemonSet(c clientset.Interface, namespace, manifestFile string) (func(), error) {
+	file, err := ioutil.ReadFile(path.Join("/tmp", extenderManifestsFolder, manifestFile))
+	if err != nil {
+		return nil, err
+	}
 
 	ds := &appsv1.DaemonSet{}
 	err = yaml.Unmarshal(file, ds)
-	framework.ExpectNoError(err)
-
-	ns := f.Namespace.Name
-	f.PatchNamespace(&ds.ObjectMeta.Namespace)
-	ds, err = f.ClientSet.AppsV1().DaemonSets(ns).Create(ds)
-	framework.ExpectNoError(err)
-	return func() {
-		if err := f.ClientSet.AppsV1().DaemonSets(ns).Delete(ds.Name, &metav1.DeleteOptions{}); err != nil {
-			e2elog.Logf("Failed to delete SE daemonset %s: %v", ds.Name, err)
-		}
+	if err != nil {
+		return nil, err
 	}
+
+	ds.ObjectMeta.Namespace = namespace
+	ds, err = c.AppsV1().DaemonSets(namespace).Create(ds)
+	if err != nil {
+		return nil, err
+	}
+	return func() {
+		if err := c.AppsV1().DaemonSets(namespace).Delete(ds.Name, &metav1.DeleteOptions{}); err != nil {
+			e2elog.Logf("Failed to delete daemonset %s: %v", ds.Name, err)
+		}
+	}, nil
 }
 
 func newSchedulerRestartChecker(client clientset.Interface) *schedulerRestartChecker {

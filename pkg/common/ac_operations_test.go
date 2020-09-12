@@ -3,17 +3,16 @@ package common
 import (
 	"context"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/stretchr/testify/assert"
+
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestACOperationsImpl_SearchAC(t *testing.T) {
@@ -54,66 +53,11 @@ func TestACOperationsImpl_SearchAC(t *testing.T) {
 	// expect that there is no suitable AC because of node
 	ac = acOp.SearchAC(testCtx, "some-another-node", int64(util.GBYTE), apiV1.StorageClassHDD)
 	assert.Nil(t, ac)
-}
 
-func TestNewACOperationsImpl_SearchAC_WithLVGCreationSuccess(t *testing.T) {
-	var (
-		acOp   = setupACOperationsTest(t, &testAC1)
-		ac     *accrd.AvailableCapacity
-		err    error
-		acList = accrd.AvailableCapacityList{}
-	)
-	// expect that AC is recreated to LVG
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		ac = acOp.SearchAC(testCtx, testNode1Name, int64(util.MBYTE)*500, apiV1.StorageClassHDDLVG)
-		wg.Done()
-	}()
-	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Created)
-	assert.Nil(t, err)
-	wg.Wait()
+	// expect AC2 (HDD 100Gb) was selected
+	ac = acOp.SearchAC(testCtx, testAC4.Spec.NodeId, int64(util.GBYTE)*80, apiV1.StorageClassAny)
 	assert.NotNil(t, ac)
-	assert.Equal(t, testAC1.Spec.Size, ac.Spec.Size)
-
-	err = acOp.k8sClient.ReadList(testCtx, &acList)
-	assert.Nil(t, err)
-	assert.Equal(t, 2, len(acList.Items))
-	// this is AC for corresponding drive. Size must be 0
-	driveACSpec := acList.Items[0].Spec
-	assert.Equal(t, apiV1.StorageClassHDD, driveACSpec.StorageClass)
-	assert.Equal(t, int64(0), driveACSpec.Size)
-	// this is AC for corresponding LVG. Size must not be 0
-	lvgACSpec := acList.Items[1].Spec
-	assert.Equal(t, apiV1.StorageClassHDDLVG, lvgACSpec.StorageClass)
-	assert.Equal(t, testAC1.Spec.Size, lvgACSpec.Size)
-}
-
-func TestNewACOperationsImpl_SearchAC_WithLVGCreationFail(t *testing.T) {
-	var (
-		acOp   = setupACOperationsTest(t, &testAC1)
-		ac     *accrd.AvailableCapacity
-		err    error
-		acList = accrd.AvailableCapacityList{}
-	)
-	// expect that AC is recreated to LVG
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		ac = acOp.SearchAC(testCtx, testNode1Name, int64(util.MBYTE)*500, apiV1.StorageClassHDDLVG)
-		wg.Done()
-	}()
-	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Failed)
-	assert.Nil(t, err)
-	wg.Wait()
-	assert.Nil(t, ac)
-
-	err = acOp.k8sClient.ReadList(testCtx, &acList)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(acList.Items))
-	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[0].Spec.StorageClass)
-	// 0 is expected since we don't have rollback when PV/VG/LV creation failed
-	assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
+	assert.Equal(t, testAC2.Name, ac.Name)
 }
 
 func TestACOperationsImpl_DeleteIfEmpty(t *testing.T) {
@@ -150,7 +94,14 @@ func TestACOperationsImpl_DeleteIfEmpty(t *testing.T) {
 }
 
 func Test_recreateACToLVGSC_Success(t *testing.T) {
-	acOp := setupACOperationsTest(t, &testAC2, &testAC3)
+	var (
+		acOp  = setupACOperationsTest(t, &testAC2, &testAC3)
+		newAC *accrd.AvailableCapacity
+	)
+
+	// there are no acs are provided
+	newAC = acOp.RecreateACToLVGSC(testCtx, apiV1.StorageClassHDDLVG)
+	assert.Nil(t, newAC)
 
 	// ensure that there are 2 ACs
 	acList := accrd.AvailableCapacityList{}
@@ -160,27 +111,14 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 
 	// expect that AC with SC HDDLVG will be created and will be size of 1Tb + 100Gb
 	// testAC2 and testAC3 should be removed
-	var (
-		wg    sync.WaitGroup
-		newAC *accrd.AvailableCapacity
-	)
-	wg.Add(1)
-	go func() {
-		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, testAC2, testAC3)
-		wg.Done()
-	}()
-	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Created)
-	assert.Nil(t, err)
-	wg.Wait()
-	assert.NotNil(t, newAC)
-	assert.Equal(t, testAC2.Spec.Size+testAC3.Spec.Size, newAC.Spec.Size)
-	assert.Equal(t, testAC2.Spec.NodeId, newAC.Spec.NodeId)
+	newAC = acOp.RecreateACToLVGSC(testCtx, apiV1.StorageClassHDDLVG, testAC2, testAC3)
 
-	// check LVG that was created
+	// check that LVG is in creating state
 	lvgList := lvgcrd.LVGList{}
 	err = acOp.k8sClient.ReadList(testCtx, &lvgList)
 	assert.Equal(t, 1, len(lvgList.Items))
 	lvg := lvgList.Items[0]
+	assert.Equal(t, apiV1.Creating, lvg.Spec.Status)
 	assert.Equal(t, testAC2.Spec.Size+testAC3.Spec.Size, lvg.Spec.Size)
 	assert.Equal(t, testAC2.Spec.NodeId, lvg.Spec.Node)
 	assert.Equal(t, 2, len(lvg.Spec.Locations))
@@ -199,81 +137,6 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[1].Spec.StorageClass)
 	assert.Equal(t, int64(0), acList.Items[1].Spec.Size)
 	assert.Equal(t, apiV1.StorageClassHDDLVG, acList.Items[2].Spec.StorageClass)
-}
-
-func TestACOperationsImpl_recreateACToLVGSC_Fail(t *testing.T) {
-	acOp := setupACOperationsTest(t, &testAC2, &testAC3)
-
-	// ensure that there are 2 ACs
-	acList := accrd.AvailableCapacityList{}
-	err := acOp.k8sClient.ReadList(testCtx, &acList)
-	assert.Nil(t, err)
-	assert.Equal(t, 2, len(acList.Items))
-
-	// expect that AC with SC HDDLVG will be created and will be size of 1Tb + 100Gb
-	// testAC2 and testAC3 should be removed
-	var (
-		wg    sync.WaitGroup
-		newAC *accrd.AvailableCapacity
-	)
-	wg.Add(1)
-	go func() {
-		newAC = acOp.recreateACToLVGSC(apiV1.StorageClassHDDLVG, testAC2, testAC3)
-		wg.Done()
-	}()
-	err = lvgReconcileImitation(acOp.k8sClient, apiV1.Failed)
-	assert.Nil(t, err)
-	wg.Wait()
-	assert.Nil(t, newAC)
-
-	// check that AC2 and AC3 size was set to 0 and new AC not created
-	acList = accrd.AvailableCapacityList{}
-	err = acOp.k8sClient.ReadList(testCtx, &acList)
-	assert.Equal(t, 2, len(acList.Items))
-	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[0].Spec.StorageClass)
-	assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
-	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[1].Spec.StorageClass)
-	assert.Equal(t, int64(0), acList.Items[1].Spec.Size)
-}
-
-func TestACOperationsImpl_waitUntilLVGWillBeCreated(t *testing.T) {
-	acOp := setupACOperationsTest(t)
-	lvgCR := testLVG
-	lvgCR.Spec.Status = apiV1.Created
-
-	err := acOp.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR)
-	assert.Nil(t, err)
-
-	// lvgCR have Created status
-	lvg := acOp.waitUntilLVGWillBeCreated(testCtx, lvgCR.Name)
-	assert.NotNil(t, lvg)
-	assert.Equal(t, lvgCR.Spec, *lvg)
-
-	// lvgCR have Failed status
-	lvgCR.Spec.Status = apiV1.Failed
-	err = acOp.k8sClient.UpdateCR(testCtx, &lvgCR)
-	lvg = acOp.waitUntilLVGWillBeCreated(testCtx, lvgCR.Name)
-	assert.Nil(t, lvg)
-
-	// context is done
-	var (
-		wg           sync.WaitGroup
-		ctx, closeFn = context.WithTimeout(context.Background(), time.Second*2)
-		lvg2         *api.LogicalVolumeGroup
-	)
-	defer closeFn()
-	lvgCR.Spec.Status = apiV1.Creating
-	err = acOp.k8sClient.UpdateCR(testCtx, &lvgCR)
-	assert.Nil(t, err)
-	wg.Add(1)
-	go func() {
-		lvg2 = acOp.waitUntilLVGWillBeCreated(ctx, lvgCR.Name)
-		wg.Done()
-	}()
-	ctx.Done()
-	println("ctx was done")
-	wg.Wait()
-	assert.Nil(t, lvg2)
 }
 
 func TestACOperationsImpl_acNodeMapping(t *testing.T) {
@@ -310,6 +173,22 @@ func TestACOperationsImpl_balanceAC(t *testing.T) {
 	// should return empty is acNodeMap is empty
 	balancedNode = acOp.balanceAC(map[string][]*accrd.AvailableCapacity{}, int64(util.TBYTE)*100, apiV1.StorageClassHDD)
 	assert.Equal(t, "", balancedNode)
+}
+
+func TestACOperationsImpl_tryToFindAC(t *testing.T) {
+	var (
+		acOp = NewACOperationsImpl(nil, testLogger)
+		acs  = []*accrd.AvailableCapacity{&testAC1, &testAC2, &testAC3, &testAC4}
+		ac   *accrd.AvailableCapacity
+	)
+
+	ac = acOp.tryToFindAC(acs, apiV1.StorageClassHDD, int64(util.GBYTE)*89)
+	assert.NotNil(t, ac)
+	assert.Equal(t, ac.Name, testAC2.Name)
+
+	ac = acOp.tryToFindAC(acs, "", int64(util.GBYTE)*89)
+	assert.NotNil(t, ac)
+	assert.Equal(t, ac.Name, testAC4.Name)
 }
 
 // creates fake k8s client and creates AC CRs based on provided acs
@@ -385,7 +264,7 @@ func Test_AlignSizeByPE(t *testing.T) {
 			args: args{
 				size: 4194305,
 			},
-			want: 2*DefaultPESize,
+			want: 2 * DefaultPESize,
 		},
 		{
 			name: "Negative",

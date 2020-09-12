@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"strings"
 	"time"
 
@@ -99,4 +100,12 @@ func GetDockerContainers() ([]string, error) {
 	}
 
 	return strings.Split(strings.TrimSpace(stdout), "\n"), nil
+}
+
+func GetGlobalClientSet() (clientset.Interface, error) {
+	conf, err := framework.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	return clientset.NewForConfig(conf)
 }

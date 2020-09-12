@@ -26,7 +26,7 @@ var (
 	testNs      = "default"
 	testID      = "volume-1-id"
 	volLVGName  = "volume-lvg"
-	lvgName     = "lvg-cr-1"
+	testLVGName = "lvg-cr-1"
 	driveUUID   = "drive-uuid"
 	nodeID      = "fake-node"
 	targetPath  = "/tmp/targetPath"

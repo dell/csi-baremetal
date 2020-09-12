@@ -7,6 +7,7 @@ import (
 type BMDriverTestContextType struct {
 	*framework.TestContextType
 	BMDeploySchedulerExtender bool
+	BMDeploySchedulerPatcher  bool
 	BMWaitSchedulerRestart    bool
 }
 

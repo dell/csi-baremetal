@@ -29,7 +29,6 @@ type VolumeOperations interface {
 	DeleteVolume(ctx context.Context, volumeID string) error
 	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string)
 	WaitStatus(ctx context.Context, volumeID string, statuses ...string) error
-	ReadVolumeAndChangeStatus(volumeID string, newStatus string) error
 }
 
 // VolumeOperationsImpl is the basic implementation of VolumeOperations interface
@@ -62,8 +61,9 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	ll.Infof("Creating volume %v", v)
 
 	var (
-		volumeCR = &volumecrd.Volume{}
-		err      error
+		ctxWithID = context.WithValue(context.Background(), k8s.RequestUUID, v.Id)
+		volumeCR  = &volumecrd.Volume{}
+		err       error
 	)
 	// at first check whether volume CR exist or no
 	err = vo.k8sClient.ReadCR(ctx, v.Id, volumeCR)
@@ -74,11 +74,11 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			return nil, fmt.Errorf("corresponding volume CR %s has failed status", volumeCR.Spec.Id)
 		}
 		// check that volume is in created state or time is over (for creating)
-		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForOperations)
+		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForVolumeOperations)
 		if expiredAt.Before(time.Now()) {
-			ll.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForOperations)
+			ll.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
 			volumeCR.Spec.CSIStatus = apiV1.Failed
-			_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
+			_ = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, volumeCR, 5)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
 	case !k8sError.IsNotFound(err):
@@ -87,24 +87,42 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	default:
 		// create volume
 		var (
-			ctxWithID      = context.WithValue(ctx, k8s.RequestUUID, v.Id)
 			ac             *accrd.AvailableCapacity
 			sc             string
+			requiredBytes  = v.Size
 			allocatedBytes int64
 			locationType   string
+			csiStatus      = apiV1.Creating
 		)
 
-		if ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, v.Size, v.StorageClass); ac == nil {
-			ll.Error("There is no suitable drive for volume")
-			return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for request %s", v.Id)
+		if util.IsStorageClassLVG(sc) {
+			requiredBytes = AlignSizeByPE(requiredBytes)
 		}
-		ll.Infof("AC %v was selected.", ac.Spec)
+
+		ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, requiredBytes, v.StorageClass)
+		if ac == nil {
+			if util.IsStorageClassLVG(v.StorageClass) {
+				subSC := util.GetSubStorageClass(v.StorageClass)
+				// requiredBytes increase wanted size for additional costs
+				ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, requiredBytes+LvgDefaultMetadataSize, subSC) // search volume for LVG in subSC
+			}
+			if ac == nil {
+				ll.Errorf("There is no suitable drive for volume with sc %s.", sc)
+				return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for volume %s", v.Id)
+			}
+			// here we get AC that should be recreated to LVG, LVG hasn't existed yet
+			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, v.StorageClass, *ac); ac == nil {
+				return nil, status.Errorf(codes.Internal, "unable to prepare underlying storage for storage class %s", v.StorageClass)
+			}
+		}
+		ll.Infof("AC %v was selected", ac.Spec)
+
 		// if sc was parsed as an ANY then we can choose AC with any storage class and then
 		// volume should be created with that particular SC
 		sc = ac.Spec.StorageClass
 
 		if util.IsStorageClassLVG(sc) {
-			allocatedBytes = v.Size
+			allocatedBytes = requiredBytes
 			locationType = apiV1.LocationTypeLVM
 		} else {
 			allocatedBytes = ac.Spec.Size
@@ -117,7 +135,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			NodeId:            ac.Spec.NodeId,
 			Size:              allocatedBytes,
 			Location:          ac.Spec.Location,
-			CSIStatus:         apiV1.Creating,
+			CSIStatus:         csiStatus,
 			StorageClass:      sc,
 			Ephemeral:         v.Ephemeral,
 			Health:            apiV1.HealthGood,
@@ -137,17 +155,6 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		ac.Spec.Size -= allocatedBytes
 		if err = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, ac, 5); err != nil {
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
-		}
-
-		if util.IsStorageClassLVG(sc) {
-			lvg := &lvgcrd.LVG{}
-			if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
-				ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
-				return &volumeCR.Spec, nil
-			}
-			if err := vo.addVolumeToLVG(lvg, v.Id); err != nil {
-				ll.Errorf("Unable to add volume reference to LVG %s: %v", volumeCR.Spec.Location, err)
-			}
 		}
 	}
 	return &volumeCR.Spec, nil
@@ -309,49 +316,6 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 			}
 		}
 	}
-}
-
-// ReadVolumeAndChangeStatus reads Volume CR (10 attempts) and updates it with newStatus (10 attempts)
-// Receives volumeID of a Volume CR which should be modified and Spec.CSIStatus - newStatus for that Volume CR
-// Returns error if something went wrong
-func (vo *VolumeOperationsImpl) ReadVolumeAndChangeStatus(volumeID string, newStatus string) error {
-	vo.log.WithFields(logrus.Fields{
-		"method":   "ReadVolumeAndChangeStatus",
-		"volumeID": volumeID,
-	}).Infof("Read volume and set status to %s", newStatus)
-
-	var (
-		v        = &volumecrd.Volume{}
-		attempts = 10
-		ctx      = context.WithValue(context.Background(), k8s.RequestUUID, volumeID)
-	)
-
-	if err := vo.k8sClient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
-		return err
-	}
-
-	// change status
-	v.Spec.CSIStatus = newStatus
-	if err := vo.k8sClient.UpdateCRWithAttempts(ctx, v, attempts); err != nil {
-		return err
-	}
-	return nil
-}
-
-// addVolumeToLVG tries to add volume ID into VolumeRefs slice from LVG struct and updates according LVG
-// Receives LVG and volumeID of a Volume CR which should be added
-// Returns error if something went wrong
-func (vo *VolumeOperationsImpl) addVolumeToLVG(lvg *lvgcrd.LVG, volID string) error {
-	ll := vo.log.WithFields(logrus.Fields{
-		"method":   "addVolumeToLVG",
-		"volumeID": volID,
-	})
-	if util.ContainsString(lvg.Spec.VolumeRefs, volID) {
-		return nil
-	}
-	lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volID)
-	ll.Infof("Append volume %s to LVG %v", volID, lvg)
-	return vo.k8sClient.UpdateCR(context.Background(), lvg)
 }
 
 // deleteLVGIfVolumesNotExistOrUpdate tries to remove volume ID into VolumeRefs slice from LVG struct

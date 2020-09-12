@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"fmt"
+	"github.com/dell/csi-baremetal/test/e2e/common"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -17,8 +18,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"sigs.k8s.io/yaml"
-
-	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 type baremetalDriver struct {
@@ -111,7 +110,8 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 
 	extenderCleanup := func() {}
 	if common.BMDriverTestContext.BMDeploySchedulerExtender {
-		extenderCleanup = common.DeploySchedulerExtender(f)
+		extenderCleanup, err = common.DeploySchedulerExtender(f)
+		framework.ExpectNoError(err)
 	}
 
 	cleanup := func() {
