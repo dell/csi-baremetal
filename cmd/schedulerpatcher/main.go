@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/scheduling/extender"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/scheduler"
 )
 
 const defaultSyncInterval = 60
@@ -37,7 +37,7 @@ func main() {
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler patcher ...")
 
-	patcher := scheduler.NewManifestPatcher(logger)
+	patcher := extender.NewManifestPatcher(logger)
 
 	ticker := time.NewTicker(time.Second * time.Duration(*syncInterval))
 	sigs := make(chan os.Signal, 1)
@@ -51,7 +51,7 @@ func main() {
 		}
 	}
 
-	config := scheduler.ManifestPatcherConfig{
+	config := extender.ManifestPatcherConfig{
 		ManifestPath:     *manifestPath,
 		SourceConfigPath: *sourceConfigPath,
 		TargetConfigPath: *targetConfigPath,

@@ -1,4 +1,4 @@
-package scheduler
+package extender
 
 import (
 	"context"
@@ -110,6 +110,40 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
 	}
 }
+
+// BindHandler does bind of a pod to specific node
+// todo it might fail - need to return error
+func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
+	sessionUUID := uuid.New().String()
+	ll := e.logger.WithFields(logrus.Fields{
+		"sessionUUID": sessionUUID,
+		"method":      "BindHandler",
+	})
+	ll.Infof("Processing request: %v", req)
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := json.NewEncoder(w)
+
+	var (
+		extenderBindingArgs schedulerapi.ExtenderBindingArgs
+		extenderBindingRes = &schedulerapi.ExtenderBindingResult{}
+	)
+
+	if err := json.NewDecoder(req.Body).Decode(&extenderBindingArgs); err != nil {
+		ll.Errorf("Unable to decode request body: %v", err)
+		extenderBindingRes.Error = err.Error()
+		if err := resp.Encode(extenderBindingRes); err != nil {
+			ll.Errorf("Unable to write response %v: %v", extenderBindingRes, err)
+		}
+		return
+	}
+
+	extenderBindingRes.Error = "don't know how to use bind API"
+	if err := resp.Encode(extenderBindingRes); err != nil {
+		ll.Errorf("Unable to write response %v: %v", extenderBindingRes, err)
+	}
+}
+
 
 // gatherVolumesByProvisioner search all volumes in pod' spec that should be provisioned
 // by provisioner e.provisioner and construct genV1.Volume struct for each of such volume
