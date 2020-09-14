@@ -59,6 +59,7 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
 	}
 
 	// create lv with name /dev/VG_NAME/vol.Id
+	// TODO: lvcreate should be idempotent here
 	ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, vgName)
 	if err = l.lvmOps.LVCreate(vol.Id, sizeStr, vgName); err != nil {
 		return fmt.Errorf("unable to create LV: %v", err)
@@ -66,6 +67,7 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
 
 	deviceFile := fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
 	ll.Debugf("Creating FS on %s", deviceFile)
+	// TODO: CreateFS should be idempotent here
 	return l.fsOps.CreateFS(fs.FileSystem(vol.Type), deviceFile)
 }
 

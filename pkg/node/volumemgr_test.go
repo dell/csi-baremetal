@@ -504,7 +504,7 @@ func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
 	err = vm.Discover()
 	assert.Nil(t, err)
 
-	err = vm.discoverAvailableCapacity(context.Background(), nodeID)
+	err = vm.discoverAvailableCapacity(context.Background())
 	assert.Nil(t, err)
 
 	acList := &accrd.AvailableCapacityList{}
@@ -527,7 +527,7 @@ func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	err = vm.Discover()
 	assert.Nil(t, err)
 
-	err = vm.discoverAvailableCapacity(context.Background(), nodeID)
+	err = vm.discoverAvailableCapacity(context.Background())
 	assert.Nil(t, err)
 
 	acList := &accrd.AvailableCapacityList{}

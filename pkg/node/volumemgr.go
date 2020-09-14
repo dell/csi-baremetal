@@ -358,7 +358,7 @@ func (m *VolumeManager) Discover() error {
 		return err
 	}
 
-	if err = m.discoverAvailableCapacity(ctx, m.nodeID); err != nil {
+	if err = m.discoverAvailableCapacity(ctx); err != nil {
 		return err
 	}
 
@@ -375,7 +375,7 @@ func (m *VolumeManager) Discover() error {
 // updateDrivesCRs updates Drives CRs based on provided list of Drives.
 // Receives golang context and slice of discovered api.Drive structs usually got from DriveManager
 // returns struct with information about drives updates
-func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []*api.Drive) *driveUpdates {
+func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*api.Drive) *driveUpdates {
 	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
 		"method":    "updateDrivesCRs",
@@ -384,10 +384,12 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 
 	updates := &driveUpdates{}
 
+	// TODO: if there is an error in GetDriveCRs then here we will get empty list and all drives from Mgr will be considered as newly create!
+	// TODO: if we get error here Discover should immediately end up with error
 	driveCRs := m.crHelper.GetDriveCRs(m.nodeID)
 
 	// Try to find not existing CR for discovered drives
-	for _, drivePtr := range discoveredDrives {
+	for _, drivePtr := range drivesFromMgr {
 		exist := false
 		for _, driveCR := range driveCRs {
 			driveCR := driveCR
@@ -430,9 +432,10 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 	}
 
 	// Try to find missing drive in drive CRs and update according CR
+	// TODO: do not ask second time
 	for _, d := range m.crHelper.GetDriveCRs(m.nodeID) {
 		wasDiscovered := false
-		for _, drive := range discoveredDrives {
+		for _, drive := range drivesFromMgr {
 			if m.drivesAreTheSame(&d.Spec, drive) {
 				wasDiscovered = true
 				break
@@ -444,7 +447,6 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, discoveredDrives []
 			isInLVG = m.isDriveIsInLVG(d.Spec)
 		}
 		if !wasDiscovered && !isInLVG {
-			// TODO: remove AC and aware Volumes here
 			ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
 			previousState := d.DeepCopy()
 			toUpdate := d
@@ -480,40 +482,66 @@ func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
 	return false
 }
 
-// discoverVolumeCRs updates volumes cache based on provided freeDrives.
+// drivesAreNotUsed search drives in drives CRs that isn't have any volumes
+// Returns slice of pointers on drivecrd.Drive structs
+func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
+	var (
+		drives = make([]*drivecrd.Drive, 0)
+		// TODO: if there is a error in GetVolumeCRs we get empty list and consider all drives as FREE!!! -> create AC for each drive(for busy drive too)!!!
+		// TODO: in that case Discover should immediately end up with ERROR
+		volumeCRs = m.crHelper.GetVolumeCRs(m.nodeID)
+		volumeLocations = make(map[string]struct{}, len(volumeCRs))
+	)
+
+	for _, v := range volumeCRs {
+		volumeLocations[v.Spec.Location] = struct{}{}
+	}
+
+	// TODO: it is ok to get error in GetDriveCRs here, because in that case we just consider that there are no any NEW free Drives
+	for _, d := range m.crHelper.GetDriveCRs(m.nodeID) {
+		if _, isUsed := volumeLocations[d.Spec.UUID]; !isUsed {
+			dInst := d
+			drives = append(drives, &dInst)
+		}
+	}
+	return drives
+}
+
+// discoverVolumeCRs updates volume CRs based on provided freeDrives
 // searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
-// partition uuid and create volume object
+// partition uuid and create volume CR object
 func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "discoverVolumeCRs",
 	})
 
 	// explore each drive from freeDrives
-	lsblk, err := m.listBlk.GetBlockDevices("")
+	blockDevices, err := m.listBlk.GetBlockDevices("")
 	if err != nil {
 		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
 
 	for _, d := range freeDrives {
-		for _, ld := range lsblk {
-			if strings.EqualFold(ld.Serial, d.Spec.SerialNumber) && len(ld.Children) > 0 {
+		for _, bdev := range blockDevices {
+			if strings.EqualFold(bdev.Serial, d.Spec.SerialNumber) && len(bdev.Children) > 0 {
 				if m.isDriveIsInLVG(d.Spec) {
-					ll.Debugf("Drive %v is in LVG and not a FREE", d.Spec)
+					ll.Debugf("Drive %v is in LVG and is not free", d.Spec)
 					break
 				}
+
 				var (
 					partUUID string
 					size     int64
 				)
-				partUUID = ld.PartUUID
+				partUUID = bdev.PartUUID
 				if partUUID == "" {
 					partUUID = uuid.New().String() // just generate random and exclude drive
 					ll.Warnf("UUID generated %s", partUUID)
 				}
-				if ld.Size != "" {
-					size, err = strconv.ParseInt(ld.Size, 10, 64)
+				if bdev.Size != "" {
+					size, err = strconv.ParseInt(bdev.Size, 10, 64)
 					if err != nil {
-						ll.Warnf("Unable parse string %s to int, for device %s, error: %v", ld.Size, ld.Name, err)
+						ll.Warnf("Unable parse string %s to int, for device %s, error: %v", bdev.Size, bdev.Name, err)
 					}
 				}
 
@@ -524,7 +552,7 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 					Location:     d.Spec.UUID,
 					LocationType: apiV1.LocationTypeDrive,
 					Mode:         apiV1.ModeFS,
-					Type:         ld.FSType,
+					Type:         bdev.FSType,
 					Health:       d.Spec.Health,
 					CSIStatus:    "",
 				})
@@ -542,10 +570,8 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 // hardware available capacity such as HDD or SSD. If drive is healthy and online and also it is not used in LVGs
 // and it doesn't contain volume then this drive is in AvailableCapacity CRs.
 // Returns error if at least one drive from cache was handled badly
-func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID string) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method": "discoverAvailableCapacity",
-	})
+func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
+	ll := m.log.WithField("method", "discoverAvailableCapacity")
 
 	var (
 		err      error
@@ -570,7 +596,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 			Size:         drive.Spec.Size,
 			Location:     drive.Spec.UUID,
 			StorageClass: util.ConvertDriveTypeToStorageClass(drive.Spec.Type),
-			NodeId:       nodeID,
+			NodeId:       m.nodeID,
 		}
 
 		name := uuid.New().String()
@@ -600,28 +626,6 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 	}
 
 	return nil
-}
-
-// drivesAreNotUsed search drives in drives CRs that isn't have any volumes
-// Returns slice of pointers on drivecrd.Drive structs
-func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
-	// search drives that don't have parent volume
-	drives := make([]*drivecrd.Drive, 0)
-	for _, d := range m.crHelper.GetDriveCRs(m.nodeID) {
-		isUsed := false
-		for _, v := range m.crHelper.GetVolumeCRs(m.nodeID) {
-			// expect only Drive LocationType, for Drive LocationType Location will be a UUID of the drive
-			if strings.EqualFold(d.Spec.UUID, v.Spec.Location) {
-				isUsed = true
-				break
-			}
-		}
-		if !isUsed {
-			dInst := d
-			drives = append(drives, &dInst)
-		}
-	}
-	return drives
 }
 
 // discoverLVGOnSystemDrive discovers LVG configuration on system SSD drive and creates LVG CR and AC CR,
