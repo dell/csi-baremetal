@@ -9,17 +9,6 @@ zz_generated.*.go
 *_output
 vendor
 build/
-# binaries
-pkg/controller/controller
-pkg/controller/health_probe
-pkg/node/node
-pkg/node/health_probe
-pkg/drivemgr/basemgr/basemgr
-pkg/drivemgr/halmgr/halmgr
-pkg/drivemgr/loopbackmgr/loopbackmgr
-pkg/drivemgr/idracmgr/idracmgr
-pkg/scheduling/extender/extender
-pkg/scheduling/extender/schedulerpatcher
 # tests results
 coverage.out
 coverage.html

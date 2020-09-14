@@ -1,7 +1,8 @@
-package scheduler
+package plugin
 
 import (
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
 )
 
@@ -31,6 +32,12 @@ var _ framework.UnreservePlugin = &CSISchedulerPlugin{}
 // Name returns name of plugin
 func (c CSISchedulerPlugin) Name() string {
 	return Name
+}
+
+// New initializes a new plugin and returns it.
+func New(configuration *runtime.Unknown, handle framework.FrameworkHandle) (framework.Plugin, error) {
+	sp := &CSISchedulerPlugin{frameworkHandle: handle}
+	return sp, nil
 }
 
 // Filter filters out nodes which don't have ACs match to PVCs

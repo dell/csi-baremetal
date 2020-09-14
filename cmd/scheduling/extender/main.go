@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	extender2 "github.com/dell/csi-baremetal/pkg/scheduling/extender"
 	"net/http"
 	"os"
 
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
 )
 
 var (
@@ -30,7 +30,7 @@ func main() {
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
-	extender, err := extender2.NewExtender(logger, *namespace, *provisioner)
+	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}
@@ -38,11 +38,11 @@ func main() {
 	logger.Infof("Starting extender on port %d ...", *port)
 	// filter stage
 	logger.Info("Registering for filter stage ... ")
-	http.HandleFunc(FILTER_PATTERN, extender.FilterHandler)
+	http.HandleFunc(FILTER_PATTERN, newExtender.FilterHandler)
 
 	// bind stage
 	logger.Infof("Registering for bind stage ... ")
-	http.HandleFunc(BIND_PATTERN, extender.BindHandler)
+	http.HandleFunc(BIND_PATTERN, newExtender.BindHandler)
 
 
 	var addr = fmt.Sprintf(":%d", *port)
