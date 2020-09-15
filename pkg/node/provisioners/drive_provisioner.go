@@ -100,20 +100,7 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 	ll.Infof("Partition was created successfully %v", partPtr)
 
 	// create FS
-	if err = d.fsOps.CreateFS(fs.FileSystem(vol.Type), partPtr.GetFullPath()); err != nil {
-		// Check whether partition has needed fs type or not
-		bdev, lsblkErr := d.listBlk.GetBlockDevices(device)
-		if lsblkErr == nil && len(bdev) > 0 {
-			for _, child := range bdev[0].Children {
-				if child.PartUUID == partUUID && child.FSType == vol.Type {
-					ll.Infof("Partition has already have file system with corresponding type")
-					return nil
-				}
-			}
-		}
-		return err
-	}
-	return nil
+	return d.fsOps.CreateFS(fs.FileSystem(vol.Type), partPtr.GetFullPath())
 }
 
 // ReleaseVolume remove FS and partition based on vol attributes.
