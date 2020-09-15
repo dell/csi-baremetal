@@ -23,7 +23,6 @@ type LivenessHelper interface {
 
 // NewLivenessCheckHelper returns new instance of LivenessCheckHelper
 func NewLivenessCheckHelper(logger *logrus.Logger, ttl *time.Duration, timeout *time.Duration) *LivenessCheckHelper {
-	now := time.Now()
 	tTTL := LivenessDefaultTTL
 	if ttl != nil {
 		tTTL = *ttl
@@ -35,7 +34,7 @@ func NewLivenessCheckHelper(logger *logrus.Logger, ttl *time.Duration, timeout *
 	return &LivenessCheckHelper{
 		ttl:     tTTL,
 		timeout: tTimeout,
-		lastOK:  now,
+		lastOK:  time.Now(),
 		isOK:    true,
 		logger:  logger.WithField("component", "LivenessCheckHelper"),
 	}
