@@ -22,7 +22,7 @@ const (
 	// DefaultPartitionLabel default label for each partition
 	DefaultPartitionLabel = "CSI"
 	// DefaultPartitionNumber partition number
-	DefaultPartitionNumber = "1"  // TODO: should be int
+	DefaultPartitionNumber = "1" // TODO: should be int
 )
 
 // DriveProvisioner is a implementation of Provisioner interface
@@ -103,10 +103,13 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 	if err = d.fsOps.CreateFS(fs.FileSystem(vol.Type), partPtr.GetFullPath()); err != nil {
 		// Check whether partition has needed fs type or not
 		bdev, lsblkErr := d.listBlk.GetBlockDevices(device)
-		// TODO: use bdev[0].Children[p.Num - 1] , p.Num should be an integer
-		if lsblkErr == nil && bdev[0].Children[0].FSType == vol.Type {
-			ll.Infof("Partition has already have file system with corresponding type")
-			return nil
+		if lsblkErr == nil && len(bdev) > 0 {
+			for _, child := range bdev[0].Children {
+				if child.PartUUID == partUUID && child.FSType == vol.Type {
+					ll.Infof("Partition has already have file system with corresponding type")
+					return nil
+				}
+			}
 		}
 		return err
 	}

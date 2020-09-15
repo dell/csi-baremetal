@@ -3,6 +3,8 @@ package provisioners
 import (
 	"testing"
 
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -104,8 +106,9 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	assert.Equal(t, errTest, err)
 
 	// all next scenarios rely that SearchDrivePath passes
+	devicePath := "/dev/test"
 	mockLsblk.On("SearchDrivePath", mock.Anything).
-		Return("some-path", nil)
+		Return(devicePath, nil)
 
 	// PreparePartition failed
 	mockPH.On("PreparePartition", mock.Anything).
@@ -119,6 +122,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	mockPH.On("PreparePartition", mock.Anything).
 		Return(&uw.Partition{}, nil).Once()
 	mockFS.On("CreateFS", fs.FileSystem(testVolume2.Type), mock.Anything).Return(errTest)
+	mockLsblk.On("GetBlockDevices", devicePath).Return([]lsblk.BlockDevice{}, nil).Once()
 
 	err = dp.PrepareVolume(testVolume2)
 	assert.Error(t, err)
