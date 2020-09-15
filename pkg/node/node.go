@@ -20,10 +20,6 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -38,8 +34,8 @@ type CSINodeService struct {
 	svc   common.VolumeOperations
 	reqMu sync.Mutex
 
-	log *logrus.Entry
-
+	log           *logrus.Entry
+	livenessCheck LivenessHelper
 	VolumeManager
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
@@ -69,6 +65,7 @@ func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *log
 		svc:            common.NewVolumeOperationsImpl(k8sclient, logger),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
+		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -78,10 +75,9 @@ func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *log
 // This method checks if CSI driver is ready to serve requests
 // overrides same method from identityServer struct in controller package
 func (s *CSINodeService) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	alive := s.checkK8SClient()
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{
-			Value: alive,
+			Value: s.livenessCheck.Check(),
 		},
 	}, nil
 }
@@ -432,26 +428,6 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	return vol, nil
 }
 
-//checkK8SClient check if node can access CRs in Kubernetes
-func (s *CSINodeService) checkK8SClient() bool {
-	if err := s.k8sClient.ReadList(context.Background(), &drivecrd.DriveList{}); err != nil {
-		return false
-	}
-
-	if err := s.k8sClient.ReadList(context.Background(), &volumecrd.VolumeList{}); err != nil {
-		return false
-	}
-
-	if err := s.k8sClient.ReadList(context.Background(), &accrd.AvailableCapacityList{}); err != nil {
-		return false
-	}
-
-	if err := s.k8sClient.ReadList(context.Background(), &lvgcrd.LVGList{}); err != nil {
-		return false
-	}
-	return true
-}
-
 // NodeUnpublishVolume is the implementation of CSI Spec NodePublishVolume. Performs each time pod stops consume a volume.
 // This method unmounts volume with appropriate VolumeID from the TargetPath.
 // Receives golang context and CSI Spec NodeUnpublishVolumeRequest
@@ -610,4 +586,9 @@ func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCh
 // Watch only dummy implemented just to satisfy the interface.
 func (s *CSINodeService) Watch(req *grpc_health_v1.HealthCheckRequest, srv grpc_health_v1.Health_WatchServer) error {
 	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
+}
+
+// GetLivenessHelper return instance of livenesshelper used by node service
+func (s *CSINodeService) GetLivenessHelper() LivenessHelper {
+	return s.livenessCheck
 }
