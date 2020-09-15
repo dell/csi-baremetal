@@ -350,12 +350,19 @@ func (m *VolumeManager) Discover() error {
 		return err
 	}
 
-	updates := m.updateDrivesCRs(ctx, drivesResponse.Disks)
+	updates, err := m.updateDrivesCRs(ctx, drivesResponse.Disks)
+	if err != nil {
+		return fmt.Errorf("updateDrivesCRs return erorr: %v", err)
+	}
 	m.handleDriveUpdates(ctx, updates)
 
-	freeDrives := m.drivesAreNotUsed()
+	freeDrives, err := m.drivesAreNotUsed()
+	if err != nil {
+		return fmt.Errorf("drivesAreNotUsed return erorr: %v", err)
+	}
+
 	if err = m.discoverVolumeCRs(freeDrives); err != nil {
-		return err
+		return fmt.Errorf("discoverVolumeCRs return erorr: %v", err)
 	}
 
 	if err = m.discoverAvailableCapacity(ctx); err != nil {
@@ -375,23 +382,27 @@ func (m *VolumeManager) Discover() error {
 // updateDrivesCRs updates Drives CRs based on provided list of Drives.
 // Receives golang context and slice of discovered api.Drive structs usually got from DriveManager
 // returns struct with information about drives updates
-func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*api.Drive) *driveUpdates {
+func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*api.Drive) (*driveUpdates, error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"component": "VolumeManager",
 		"method":    "updateDrivesCRs",
 	})
 	ll.Debugf("Processing")
 
-	updates := &driveUpdates{}
+	var (
+		driveCRs []drivecrd.Drive
+		err      error
+	)
 
-	// TODO: if there is an error in GetDriveCRs then here we will get empty list and all drives from Mgr will be considered as newly create!
-	// TODO: if we get error here Discover should immediately end up with error
-	driveCRs := m.crHelper.GetDriveCRs(m.nodeID)
+	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
+		return nil, err
+	}
 
+	var updates = new(driveUpdates)
 	// Try to find not existing CR for discovered drives
 	for _, drivePtr := range drivesFromMgr {
 		exist := false
-		for _, driveCR := range driveCRs {
+		for index, driveCR := range driveCRs {
 			driveCR := driveCR
 			// If drive CR already exist, try to update, if drive was changed
 			if m.drivesAreTheSame(drivePtr, &driveCR.Spec) {
@@ -407,6 +418,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
 					} else {
+						driveCRs[index] = toUpdate
 						updates.AddUpdated(previousState, &toUpdate)
 					}
 				}
@@ -428,12 +440,10 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 
 	// that means that it is a first round and drives are discovered first time
 	if len(driveCRs) == 0 {
-		return updates
+		return updates, nil
 	}
 
-	// Try to find missing drive in drive CRs and update according CR
-	// TODO: do not ask second time
-	for _, d := range m.crHelper.GetDriveCRs(m.nodeID) {
+	for _, d := range driveCRs {
 		wasDiscovered := false
 		for _, drive := range drivesFromMgr {
 			if m.drivesAreTheSame(&d.Spec, drive) {
@@ -461,7 +471,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			}
 		}
 	}
-	return updates
+	return updates, nil
 }
 
 func (m *VolumeManager) handleDriveUpdates(ctx context.Context, updates *driveUpdates) {
@@ -484,27 +494,32 @@ func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
 
 // drivesAreNotUsed search drives in drives CRs that isn't have any volumes
 // Returns slice of pointers on drivecrd.Drive structs
-func (m *VolumeManager) drivesAreNotUsed() []*drivecrd.Drive {
+func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 	var (
 		drives = make([]*drivecrd.Drive, 0)
 		// TODO: if there is a error in GetVolumeCRs we get empty list and consider all drives as FREE!!! -> create AC for each drive(for busy drive too)!!!
 		// TODO: in that case Discover should immediately end up with ERROR
 		volumeCRs = m.crHelper.GetVolumeCRs(m.nodeID)
-		volumeLocations = make(map[string]struct{}, len(volumeCRs))
+		driveCRs  []drivecrd.Drive
+		err       error
 	)
 
-	for _, v := range volumeCRs {
-		volumeLocations[v.Spec.Location] = struct{}{}
+	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
+		return nil, err
 	}
 
-	// TODO: it is ok to get error in GetDriveCRs here, because in that case we just consider that there are no any NEW free Drives
-	for _, d := range m.crHelper.GetDriveCRs(m.nodeID) {
-		if _, isUsed := volumeLocations[d.Spec.UUID]; !isUsed {
+	var volumesLocation = make(map[string]struct{}, len(volumeCRs))
+	for _, v := range volumeCRs {
+		volumesLocation[v.Spec.Location] = struct{}{}
+	}
+
+	for _, d := range driveCRs {
+		if _, isUsed := volumesLocation[d.Spec.UUID]; !isUsed {
 			dInst := d
 			drives = append(drives, &dInst)
 		}
 	}
-	return drives
+	return drives, nil
 }
 
 // discoverVolumeCRs updates volume CRs based on provided freeDrives
@@ -576,22 +591,31 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 	var (
 		err      error
 		wasError = false
-		lvgList  = &lvgcrd.LVGList{}
 		acList   = &accrd.AvailableCapacityList{}
+		driveCRs []drivecrd.Drive
 	)
 
-	if err = m.k8sClient.ReadList(ctx, lvgList); err != nil {
-		return fmt.Errorf("failed to get LVG CRs list: %v", err)
-	}
 	if err = m.k8sClient.ReadList(ctx, acList); err != nil {
 		return fmt.Errorf("unable to read AC list: %v", err)
 	}
+	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
+		return fmt.Errorf("unable to get corresponding Drive CRs: %v", err)
+	}
 
-	for _, drive := range m.crHelper.GetDriveCRs(m.nodeID) {
+	var acsLocation = make(map[string]struct{}, len(acList.Items))
+	for _, ac := range acList.Items {
+		acsLocation[ac.Spec.Location] = struct{}{}
+	}
+
+	for _, drive := range driveCRs {
 		if drive.Spec.Health != apiV1.HealthGood || drive.Spec.Status != apiV1.DriveStatusOnline {
 			continue
 		}
-
+		// check whether appropriate AC exists or not
+		if _, acExist := acsLocation[drive.Spec.UUID]; acExist {
+			continue
+		}
+		// create AC based on drive
 		capacity := &api.AvailableCapacity{
 			Size:         drive.Spec.Size,
 			Location:     drive.Spec.UUID,
@@ -601,23 +625,13 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 
 		name := uuid.New().String()
 
-		// check whether appropriate AC exists or not
-		acExist := false
-		for _, ac := range acList.Items {
-			if ac.Spec.Location == drive.Spec.UUID {
-				acExist = true
-				break
-			}
-		}
-		if !acExist {
-			newAC := m.k8sClient.ConstructACCR(name, *capacity)
-			ll.Infof("Creating Available Capacity %v", newAC)
-			if err := m.k8sClient.CreateCR(context.WithValue(ctx, k8s.RequestUUID, name),
-				name, newAC); err != nil {
-				ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v",
-					capacity, err)
-				wasError = true
-			}
+		newAC := m.k8sClient.ConstructACCR(name, *capacity)
+		ll.Infof("Creating Available Capacity %v", newAC)
+		if err := m.k8sClient.CreateCR(context.WithValue(ctx, k8s.RequestUUID, name),
+			name, newAC); err != nil {
+			ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v",
+				capacity, err)
+			wasError = true
 		}
 	}
 

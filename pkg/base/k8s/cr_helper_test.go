@@ -109,12 +109,12 @@ func TestCRHelper_GetDriveCRs(t *testing.T) {
 	assert.Nil(t, err)
 
 	// node as empty string - expected all drives
-	currentDs := ch.GetDriveCRs()
+	currentDs, _ := ch.GetDriveCRs()
 	assert.NotNil(t, currentDs)
 	assert.Equal(t, 2, len(currentDs))
 
 	// expected one volume
-	currentDs = ch.GetDriveCRs(d1.Spec.NodeId)
+	currentDs, _ = ch.GetDriveCRs(d1.Spec.NodeId)
 	assert.NotNil(t, currentDs)
 	assert.Equal(t, 1, len(currentDs))
 	assert.Equal(t, d1.Spec, currentDs[0].Spec)

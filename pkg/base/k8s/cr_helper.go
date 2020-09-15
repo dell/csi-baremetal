@@ -195,7 +195,7 @@ func (cs *CRHelper) GetVolumeCRs(node ...string) []volumecrd.Volume {
 func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateDrivesStatusOnNode", "nodeID": nodeID})
 	// todo check that drive status is valid
-	drives := cs.GetDriveCRs(nodeID)
+	drives, _ := cs.GetDriveCRs(nodeID)
 	// node might not have drives reported to CSI. For example, filtered in drive manager level
 	if drives == nil {
 		return nil
@@ -224,20 +224,18 @@ func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 // GetDriveCRs collect drive CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
 // if error occurs - return nil
-func (cs *CRHelper) GetDriveCRs(node ...string) []drivecrd.Drive {
+func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 	var (
 		dList = &drivecrd.DriveList{}
 		err   error
 	)
 
 	if err = cs.k8sClient.ReadList(context.Background(), dList); err != nil {
-		cs.log.WithField("method", "GetDriveCRs").
-			Errorf("Unable to read drive CRs list: %v", err)
-		return nil
+		return nil, err
 	}
 
 	if len(node) == 0 {
-		return dList.Items
+		return dList.Items, nil
 	}
 
 	// if node was provided, collect drives that are on that node
@@ -247,12 +245,13 @@ func (cs *CRHelper) GetDriveCRs(node ...string) []drivecrd.Drive {
 			res = append(res, d)
 		}
 	}
-	return res
+	return res, nil
 }
 
 // GetDriveCRByUUID reads drive CRs and returns drive CR with uuid dUUID
 func (cs *CRHelper) GetDriveCRByUUID(dUUID string) *drivecrd.Drive {
-	for _, d := range cs.GetDriveCRs() {
+	driveCRs, _ := cs.GetDriveCRs()
+	for _, d := range driveCRs {
 		if d.Spec.UUID == dUUID {
 			return &d
 		}
