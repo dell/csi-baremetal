@@ -54,44 +54,44 @@ type LivenessCheckHelper struct {
 }
 
 // OK marks check as OK, update TTL
-func (nlc *LivenessCheckHelper) OK() {
-	nlc.m.Lock()
-	nlc.lastOK = time.Now()
-	nlc.isOK = true
-	nlc.logger.Debug("updated with OK")
-	nlc.m.Unlock()
+func (h *LivenessCheckHelper) OK() {
+	h.m.Lock()
+	h.lastOK = time.Now()
+	h.isOK = true
+	h.logger.Debug("updated with OK")
+	h.m.Unlock()
 }
 
 // Fail marks check as failed
-func (nlc *LivenessCheckHelper) Fail() {
-	nlc.m.Lock()
-	nlc.isOK = false
-	nlc.logger.Debug("updated with Fail")
-	nlc.m.Unlock()
+func (h *LivenessCheckHelper) Fail() {
+	h.m.Lock()
+	h.isOK = false
+	h.logger.Debug("updated with Fail")
+	h.m.Unlock()
 }
 
 // Check returns computed liveness check result
-func (nlc *LivenessCheckHelper) Check() bool {
-	nlc.m.RLock()
-	defer nlc.m.RUnlock()
-	if time.Now().Before(nlc.lastOK.Add(nlc.ttl)) {
+func (h *LivenessCheckHelper) Check() bool {
+	h.m.RLock()
+	defer h.m.RUnlock()
+	if time.Now().Before(h.lastOK.Add(h.ttl)) {
 		// ttl not expired yet
-		nlc.logger.Debug("Check: OK")
+		h.logger.Debug("Check: OK")
 		return true
 	}
-	if !nlc.isOK {
+	if !h.isOK {
 		// ttl expired and a failed result detected
-		nlc.logger.Debug("Check: failed")
+		h.logger.Debug("Check: failed")
 		return false
 	}
-	if time.Since(nlc.lastOK) > nlc.timeout {
+	if time.Since(h.lastOK) > h.timeout {
 		// hard timeout: fail not detected, but there are no OKs for a long time
-		nlc.logger.Warn("Check: failed, hard timeout")
+		h.logger.Warn("Check: failed, hard timeout")
 		return false
 	}
 	// ttl expired but, fail not detected, hard timeout not happen yet
 	// we return true, because drive discover can still run
-	nlc.logger.Debug("Check: OK, ttl expired")
+	h.logger.Debug("Check: OK, ttl expired")
 	return true
 }
 
