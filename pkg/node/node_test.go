@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -660,8 +659,7 @@ var _ = Describe("CSINodeService Probe()", func() {
 	})
 	It("Should failed", func() {
 		node := newNodeService()
-		//client without scheme, so it should failed probe because k8s doesn't aware of CRD
-		node.k8sClient = k8s.NewKubeClient(fake.NewFakeClient(), testLogger, testNs)
+		node.livenessCheck = &DummyLivenessHelper{false}
 		resp, err := node.Probe(testCtx, &csi.ProbeRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
