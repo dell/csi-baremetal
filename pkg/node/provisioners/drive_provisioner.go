@@ -22,7 +22,7 @@ const (
 	// DefaultPartitionLabel default label for each partition
 	DefaultPartitionLabel = "CSI"
 	// DefaultPartitionNumber partition number
-	DefaultPartitionNumber = "1" // TODO: should be int
+	DefaultPartitionNumber = "1"
 )
 
 // DriveProvisioner is a implementation of Provisioner interface
