@@ -7,6 +7,14 @@ import (
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -16,13 +24,6 @@ import (
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	"github.com/dell/csi-baremetal/pkg/testutils"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/stretchr/testify/mock"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/status"
 )
 
 var (
