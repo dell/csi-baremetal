@@ -496,14 +496,15 @@ func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
 // Returns slice of pointers on drivecrd.Drive structs
 func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 	var (
-		drives = make([]*drivecrd.Drive, 0)
-		// TODO: if there is a error in GetVolumeCRs we get empty list and consider all drives as FREE!!! -> create AC for each drive(for busy drive too)!!!
-		// TODO: in that case Discover should immediately end up with ERROR
-		volumeCRs = m.crHelper.GetVolumeCRs(m.nodeID)
+		drives    = make([]*drivecrd.Drive, 0)
+		volumeCRs []volumecrd.Volume
 		driveCRs  []drivecrd.Drive
 		err       error
 	)
 
+	if volumeCRs, err = m.crHelper.GetVolumeCRs(m.nodeID); err != nil {
+		return nil, err
+	}
 	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
 		return nil, err
 	}

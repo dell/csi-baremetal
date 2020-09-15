@@ -85,12 +85,12 @@ func TestCRHelper_GetVolumeCRs(t *testing.T) {
 	assert.Nil(t, err)
 
 	// node as empty string - expected all volumes
-	currentVs := ch.GetVolumeCRs()
+	currentVs, _ := ch.GetVolumeCRs()
 	assert.NotNil(t, currentVs)
 	assert.Equal(t, 2, len(currentVs))
 
 	// expected one volume
-	currentVs = ch.GetVolumeCRs(v1.Spec.NodeId)
+	currentVs, _ = ch.GetVolumeCRs(v1.Spec.NodeId)
 	assert.NotNil(t, currentVs)
 	assert.Equal(t, 1, len(currentVs))
 	assert.Equal(t, v1.Spec, currentVs[0].Spec)
