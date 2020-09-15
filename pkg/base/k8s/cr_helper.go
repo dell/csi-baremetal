@@ -118,7 +118,7 @@ func (cs *CRHelper) GetVolumeByLocation(location string) *volumecrd.Volume {
 func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateVolumesOpStatus", "nodeID": nodeID})
 	// todo check that operational status is valid
-	volumes , err := cs.GetVolumeCRs(nodeID)
+	volumes, err := cs.GetVolumeCRs(nodeID)
 	if err != nil {
 		return err
 	}

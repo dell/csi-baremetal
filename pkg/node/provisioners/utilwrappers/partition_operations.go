@@ -32,8 +32,8 @@ const (
 // Partition is hold all attributes of partition on block device
 type Partition struct {
 	Device    string
-	Name      string  // TODO: do not use part name, instead of that use full path of partition
-	Num       string  // TODO: use int here
+	Name      string // TODO: do not use part name, instead of that use full path of partition
+	Num       string // TODO: use int here
 	TableType string
 	Label     string
 	PartUUID  string
