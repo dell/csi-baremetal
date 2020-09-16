@@ -111,8 +111,14 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// PrioritizeHandler assigns scores to the nodes
+// todo not implemented
+func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
+	panic("implement me")
+}
+
 // BindHandler does bind of a pod to specific node
-// todo it might fail - need to return error
+// todo - not implemented. Was used for testing purposes ONLY (fault injection)!
 func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 	sessionUUID := uuid.New().String()
 	ll := e.logger.WithFields(logrus.Fields{
@@ -126,7 +132,7 @@ func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 
 	var (
 		extenderBindingArgs schedulerapi.ExtenderBindingArgs
-		extenderBindingRes = &schedulerapi.ExtenderBindingResult{}
+		extenderBindingRes  = &schedulerapi.ExtenderBindingResult{}
 	)
 
 	if err := json.NewDecoder(req.Body).Decode(&extenderBindingArgs); err != nil {
@@ -143,7 +149,6 @@ func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Errorf("Unable to write response %v: %v", extenderBindingRes, err)
 	}
 }
-
 
 // gatherVolumesByProvisioner search all volumes in pod' spec that should be provisioned
 // by provisioner e.provisioner and construct genV1.Volume struct for each of such volume

@@ -19,10 +19,11 @@ var (
 	logLevel       = flag.String("loglevel", base.InfoLevel, "Log level")
 )
 
-// todo these values a defined in config file and should be passed as parameters
+// todo these values are defined in yaml config file and should be passed as parameters
 const (
-	FILTER_PATTERN string = "/filter"
-	BIND_PATTERN string = "/bind"
+	FilterPattern     string = "/filter"
+	PrioritizePattern string = "/prioritize"
+	BindPattern       string = "/bind"
 )
 
 func main() {
@@ -38,12 +39,15 @@ func main() {
 	logger.Infof("Starting extender on port %d ...", *port)
 	// filter stage
 	logger.Info("Registering for filter stage ... ")
-	http.HandleFunc(FILTER_PATTERN, newExtender.FilterHandler)
+	http.HandleFunc(FilterPattern, newExtender.FilterHandler)
+
+	// prioritize stage
+	logger.Info("Registering for prioritize stage ... ")
+	http.HandleFunc(PrioritizePattern, newExtender.PrioritizeHandler)
 
 	// bind stage
 	logger.Infof("Registering for bind stage ... ")
-	http.HandleFunc(BIND_PATTERN, newExtender.BindHandler)
-
+	http.HandleFunc(BindPattern, newExtender.BindHandler)
 
 	var addr = fmt.Sprintf(":%d", *port)
 	if *certFile != "" && *privateKeyFile != "" {
