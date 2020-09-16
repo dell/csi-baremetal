@@ -180,6 +180,13 @@ private String getArtifactsJson(final Map<String, Object> args) {
             "endpoint": "{{ ATLANTIC_REGISTRY }}",
             "path": "csi-node-driver-registrar",
     ])
+    artifacts.add([
+            "componentName": COMPONENT_NAME,
+            "version": LIVENESS_VERSION,
+            "type": "docker-image",
+            "endpoint": "{{ ATLANTIC_REGISTRY }}",
+            "path": "livenessprobe",
+    ])
     args.chartsPath.each {
         artifacts.add([
                 "componentName": COMPONENT_NAME,
