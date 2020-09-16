@@ -34,10 +34,10 @@ SCHEDULER_EXTENDER_PATCHER_PKG := scheduler/patcher
 NODE             := node
 DRIVE_MANAGER    := drivemgr
 CONTROLLER       := controller
-SCHEDULER		 := scheduler
+SCHEDULER        := scheduler
 EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
-PLUGIN			 := plugin
+PLUGIN           := plugin
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr

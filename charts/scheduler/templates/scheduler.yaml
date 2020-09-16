@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-#  labels:
-#    component: scheduler
-#    tier: control-plane
+  labels:
+    component: scheduler
+    tier: control-plane
   namespace: kube-system
   name: csi-baremetal-scheduler
 spec:
   selector:
     matchLabels:
       app: csi-baremetal-scheduler
-#      component: scheduler
-#      tier: control-plane
+      component: scheduler
+      tier: control-plane
   replicas: 1
   template:
     metadata:
       labels:
         app: csi-baremetal-scheduler
-#        component: scheduler
-#        tier: control-plane
-#        version: second
+        component: scheduler
+        tier: control-plane
+        version: second
     spec:
       serviceAccountName: csi-baremetal-scheduler-sa
       containers:
