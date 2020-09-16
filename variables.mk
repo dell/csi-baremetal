@@ -8,7 +8,7 @@ EXTENDER_CHARTS_PATH := charts/scheduler-extender
 ### version
 MAJOR            := 0
 MINOR            := 0
-PATCH            := 8
+PATCH            := 9
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
 BUILD_REL_B      := $(shell git rev-parse --short HEAD)
@@ -22,7 +22,7 @@ TAG              := ${FULL_VERSION}
 CSI_PROVISIONER_TAG := v1.2.2
 CSI_REGISTRAR_TAG   := v1.0.1-gke.0
 CSI_ATTACHER_TAG    := v1.0.1
-LIVENESS_PROBE_TAG  := v1.1.0
+LIVENESS_PROBE_TAG  := v2.1.0
 BUSYBOX_TAG         := 1.29
 
 ### PATH

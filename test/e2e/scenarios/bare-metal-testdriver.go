@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"fmt"
+	"github.com/dell/csi-baremetal/test/e2e/common"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -17,8 +18,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"sigs.k8s.io/yaml"
-
-	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 type baremetalDriver struct {
@@ -109,8 +108,11 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		framework.Failf("deploying csi baremetal driver: %v", err)
 	}
 
-	extenderCleanup := common.DeploySchedulerExtender(f)
-	time.Sleep(time.Second * 30) // quick hack, need to wait until default scheduler will be restarted
+	extenderCleanup := func() {}
+	if common.BMDriverTestContext.BMDeploySchedulerExtender {
+		extenderCleanup, err = common.DeploySchedulerExtender(f)
+		framework.ExpectNoError(err)
+	}
 
 	cleanup := func() {
 		driverCleanup()
@@ -170,9 +172,7 @@ func (d *baremetalDriver) GetStorageClassWithStorageType(config *testsuites.PerT
 
 // GetClaimSize is implementation of DynamicPVTestDriver interface method
 func (d *baremetalDriver) GetClaimSize() string {
-	// for LVM need to align with VG PE size
-	// todo address this issue in https://jira.cec.lab.emc.com:8443/browse/ATLDEF-56
-	return "96Mi"
+	return "100Mi"
 }
 
 // GetVolume is implementation of EphemeralTestDriver interface method

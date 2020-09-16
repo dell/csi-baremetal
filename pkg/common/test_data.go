@@ -84,7 +84,7 @@ var (
 			Name:      testLVGName,
 			Node:      testNode2Name,
 			Locations: []string{testDrive4UUID},
-			Size:      int64(util.GBYTE) * 100,
+			Size:      int64(util.GBYTE) * 90,
 			Status:    apiV1.Creating,
 		},
 	}

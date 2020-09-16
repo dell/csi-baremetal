@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -201,26 +202,100 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
-	var newStatus string
 	switch volume.Spec.CSIStatus {
 	case apiV1.Creating:
-		err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
-		if err != nil {
-			ll.Errorf("Unable to create volume size of %d bytes. Error: %v. Context Error: %v."+
-				" Set volume status to Failed", volume.Spec.Size, err, ctx.Err())
-			newStatus = apiV1.Failed
-		} else {
-			ll.Infof("CreateLocalVolume completed successfully. Set status to Created")
-			newStatus = apiV1.Created
+		if util.IsStorageClassLVG(volume.Spec.StorageClass) {
+			return m.handleCreatingVolumeInLVG(ctx, volume)
 		}
+		return m.prepareVolume(ctx, volume)
+	case apiV1.Removing:
+		return m.handleRemovingStatus(ctx, volume)
+	default:
+		return ctrl.Result{}, nil
+	}
+}
 
-		volume.Spec.CSIStatus = newStatus
-		if err = m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
-			// Here we can return error because Volume created successfully and we can try to change CR's status
-			// one more time
-			ll.Errorf("Unable to update volume status to %s: %v", newStatus, err)
-			return ctrl.Result{}, err
+// handleCreatingVolumeInLVG handles volume CR that has storage class related to LVG and CSIStatus creating
+// check whether underlying LVG ready or not, add volume to LVG volumeRefs (if needed) and create real storage based on volume
+// uses as a step for Reconcile for Volume CR
+func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "handleCreatingVolumeInLVG",
+		"volumeID": volume.Spec.Id,
+	})
+
+	var (
+		lvg = &lvgcrd.LVG{}
+		err error
+	)
+
+	if err = m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
+		ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
+		if k8sError.IsNotFound(err) {
+			volume.Spec.CSIStatus = apiV1.Failed
+			err = m.k8sClient.UpdateCR(ctx, volume)
+			if err == nil {
+				return ctrl.Result{}, nil // no need to retry
+			}
+			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
 		}
+		// retry because of LVG wasn't read or Volume status wasn't updated
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, err
+	}
+
+	switch lvg.Spec.Status {
+	case apiV1.Creating:
+		ll.Debugf("Underlying LVG %s is still being created", lvg.Name)
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, nil
+	case apiV1.Failed:
+		ll.Errorf("Underlying LVG %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
+		volume.Spec.CSIStatus = apiV1.Failed
+		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
+			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
+			// retry because of volume status wasn't updated
+			return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, err
+		}
+		return ctrl.Result{}, nil // no need to retry
+	case apiV1.Created:
+		// add volume ID to LVG.Spec.VolumeRefs
+		if !util.ContainsString(lvg.Spec.VolumeRefs, volume.Spec.Id) {
+			lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volume.Spec.Id)
+			if err = m.k8sClient.UpdateCR(ctx, lvg); err != nil {
+				ll.Errorf("Unable to add Volume ID to LVG %s volume refs: %v", lvg.Name, err)
+				return ctrl.Result{Requeue: true}, err
+			}
+		}
+		return m.prepareVolume(ctx, volume)
+	default:
+		ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
+		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, nil
+	}
+}
+
+// prepareVolume prepares real storage based on provided volume and update corresponding volume CR's CSIStatus
+// uses as a step for Reconcile for Volume CR
+func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "prepareVolume",
+		"volumeID": volume.Spec.Id,
+	})
+
+	newStatus := apiV1.Created
+
+	err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
+	if err != nil {
+		ll.Errorf("Unable to create volume size of %d bytes: %v. Set volume status to Failed", volume.Spec.Size, err)
+		newStatus = apiV1.Failed
+	}
+
+	volume.Spec.CSIStatus = newStatus
+	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); updateErr != nil {
+		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
+		return ctrl.Result{Requeue: true}, updateErr
+	}
+
+	return ctrl.Result{}, err
+}
 
 		return ctrl.Result{}, nil
 	case apiV1.Removing:
@@ -242,6 +317,34 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	default:
 		return ctrl.Result{}, nil
 	}
+// handleRemovingStatus handles volume CR with removing CSIStatus - removed real storage (partition/lv) and
+// update corresponding volume CR's CSIStatus
+// uses as a step for Reconcile for Volume CR
+func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "handleRemovingStatus",
+		"volumeID": volume.Name,
+	})
+
+	var (
+		err       error
+		newStatus string
+	)
+
+	if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
+		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
+		newStatus = apiV1.Failed
+	} else {
+		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
+		newStatus = apiV1.Removed
+	}
+
+	volume.Spec.CSIStatus = newStatus
+	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
+		ll.Error("Unable to set new status for volume")
+		return ctrl.Result{Requeue: true}, updateErr
+	}
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager registers VolumeManager to ControllerManager
@@ -517,7 +620,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, nodeID st
 			NodeId:       nodeID,
 		}
 
-		name := capacity.NodeId + "-" + strings.ToLower(capacity.Location)
+		name := uuid.New().String()
 
 		// check whether appropriate AC exists or not
 		acExist := false
@@ -587,7 +690,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	}
 
 	for _, lvg := range lvgList.Items {
-		if lvg.Spec.Node == m.nodeID && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
+		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
 			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
