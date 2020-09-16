@@ -681,7 +681,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
 	lvmOps.On("IsLVGExists", rootMountPoint).Return(true, nil)
-	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"})
+	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
 
 	// expect success, LVG CR and AC CR was created
 	err = m.discoverLVGOnSystemDrive()
@@ -694,10 +694,32 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	assert.Equal(t, 1, len(lvg.Spec.Locations))
 	assert.Equal(t, base.SystemDriveAsLocation, lvg.Spec.Locations[0])
 	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
+	assert.Equal(t, 2, len(lvg.Spec.VolumeRefs))
 
 	err = m.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(acList.Items))
+
+	// unable to read LVs in system vg
+	m = prepareSuccessVolumeManager()
+	// mocks were setup for previous scenario
+	m.listBlk = listBlk
+	m.fsOps = fsOps
+	m.lvmOps = lvmOps
+
+	lvmOps.On("GetLVsInVG", vgName).Return(nil, testErr)
+
+	err = m.discoverLVGOnSystemDrive()
+	assert.Nil(t, err)
+
+	assert.Nil(t, m.k8sClient.ReadList(testCtx, &lvgList))
+	assert.Equal(t, 1, len(lvgList.Items))
+	lvg = lvgList.Items[0]
+	assert.Equal(t, 1, len(lvg.Spec.Locations))
+	assert.Equal(t, base.SystemDriveAsLocation, lvg.Spec.Locations[0])
+	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
+	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
+	assert.Equal(t, base.DefaultRootLVName, lvg.Spec.VolumeRefs[0])
 }
 
 func prepareSuccessVolumeManager() *VolumeManager {

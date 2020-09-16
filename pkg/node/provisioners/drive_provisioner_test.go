@@ -151,14 +151,20 @@ func TestDriveProvisioner_ReleaseVolume_Success(t *testing.T) {
 	mockLsblk.On("SearchDrivePath",
 		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
 		Return(deviceFile, nil).Once()
-	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
-		Return(partName, nil).Once() // for SearchPartName
-	mockFS.On("WipeFS", deviceFile+partName).
-		Return(nil).Once()
-	mockPH.On("ReleasePartition", part).
-		Return(nil)
-	mockFS.On("WipeFS", deviceFile).
-		Return(nil).Once()
+	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).Return(partName, nil).Once()
+	mockFS.On("WipeFS", deviceFile+partName).Return(nil).Once()
+	mockPH.On("ReleasePartition", part).Return(nil)
+	mockFS.On("WipeFS", deviceFile).Return(nil).Once()
+
+	err = dp.ReleaseVolume(testVolume2)
+	assert.Nil(t, err)
+
+	// SearchPartName failed but partition isn't exist (was removed before)
+	mockLsblk.On("SearchDrivePath",
+		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
+		Return(deviceFile, nil).Once()
+	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).Return("", errTest).Once()
+	mockLsblk.On("GetBlockDevices", deviceFile).Return(nil, nil).Once()
 
 	err = dp.ReleaseVolume(testVolume2)
 	assert.Nil(t, err)
@@ -192,13 +198,15 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	mockLsblk.On("SearchDrivePath", mock.Anything).
 		Return(deviceFile, nil)
 
-	// SearchPartName returns empty string
+	// SearchPartName returns empty string and GetBlockDevices return error
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
 		Return("").Once()
+	mockLsblk.On("GetBlockDevices", deviceFile).
+		Return(nil, errTest)
 
 	err = dp.ReleaseVolume(testVolume2)
 	assert.Error(t, err)
-	assert.EqualError(t, err, "unable to find partition name")
+	assert.Contains(t, err.Error(), "unable to find partition name")
 
 	// next scenarios rely on SearchPartName passes
 	var partName = "p1n1"

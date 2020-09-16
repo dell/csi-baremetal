@@ -694,7 +694,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
-	lvs := m.lvmOps.GetLVsInVG(vgName)
+	lvs, err := m.lvmOps.GetLVsInVG(vgName)
+	if err != nil {
+		ll.Errorf("Unable to determine LVs in system VG %s: %v", vgName, err)
+		lvs = []string{base.DefaultRootLVName}
+	}
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{

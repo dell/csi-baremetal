@@ -167,8 +167,8 @@ func (d *DriveProvisioner) ReleaseVolume(vol api.Volume) error {
 // if there are no partition - return nil, if any - returns error err
 func (d *DriveProvisioner) thereAreNoPartitionOrError(device string, err error, ll *logrus.Entry) error {
 	// DriveProvisioner assumes that there could be only one partition per drive
-	bdevs, err := d.listBlk.GetBlockDevices(device)
-	if err == nil && bdevs[0].Children == nil {
+	bdevs, sErr := d.listBlk.GetBlockDevices(device)
+	if sErr == nil && (len(bdevs) == 0 || bdevs[0].Children == nil) {
 		ll.Infof("There are no any partition on device %s. Partition has been already removed", device)
 		return nil
 	}

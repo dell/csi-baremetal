@@ -91,11 +91,17 @@ func (l *LVMProvisioner) ReleaseVolume(vol api.Volume) error {
 		// check whether such LV exist or not
 		vgName, sErr := l.getVGName(&vol)
 		if sErr != nil {
-			return fmt.Errorf("unable to remove LV: %v and unable to determine VG name: %v", err, sErr)
+			return fmt.Errorf("unable to remove LV %s: %v and unable to determine VG name: %v",
+				deviceFile, err, sErr)
 		}
-		lvs := l.lvmOps.GetLVsInVG(vgName) // TODO: should return error here
+		lvs, sErr := l.lvmOps.GetLVsInVG(vgName)
+		if sErr != nil {
+			return fmt.Errorf("unable to remove LV %s: %v and unable to list LVs in VG %s: %v",
+				deviceFile, err, vgName, sErr)
+		}
 		if !util.ContainsString(lvs, vol.Id) {
 			ll.Infof("LV %s has been already removed", deviceFile)
+			return nil
 		}
 	}
 	return err

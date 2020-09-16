@@ -186,13 +186,15 @@ func TestLinuxUtils_GetLVsInVG(t *testing.T) {
 	)
 
 	e.OnCommand(cmd).Return("  asdf\n  adf", "", nil).Times(1)
-	res := l.GetLVsInVG(vg)
+	res, err := l.GetLVsInVG(vg)
+	assert.Nil(t, err)
 	assert.Equal(t, len(res), 2)
 	assert.Equal(t, res[0], "asdf")
 	assert.Equal(t, res[1], "adf")
 
 	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
-	res = l.GetLVsInVG(vg)
+	res, err = l.GetLVsInVG(vg)
+	assert.NotNil(t, err)
 	assert.Empty(t, res)
 }
 

@@ -87,8 +87,12 @@ func (m *MockWrapLVM) IsLVGExists(lvName string) (bool, error) {
 }
 
 // GetLVsInVG is a mock implementations
-func (m *MockWrapLVM) GetLVsInVG(vgName string) []string {
+func (m *MockWrapLVM) GetLVsInVG(vgName string) ([]string, error) {
 	args := m.Mock.Called(vgName)
 
-	return args.Get(0).([]string)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).([]string), args.Error(1)
 }
