@@ -3,7 +3,8 @@ kind: Policy
 extenders:
   - urlPrefix: "http://127.0.0.1:8889"
     filterVerb: filter
-    bindVerb: bind
+    #prioritizeVerb: prioritize
+    #bindVerb: bind
     enableHttps: false
     nodeCacheCapable: false
     ignorable: true
