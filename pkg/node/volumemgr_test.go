@@ -314,7 +314,6 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 }
 
-func TestReconcile_FailedToCreateAndRemoveVolume(t *testing.T) {
 func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	var (
 		vm                 *VolumeManager
@@ -349,8 +348,6 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, vol))
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
-	volCR.Spec.CSIStatus = apiV1.Creating
-	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
 	// LVG in creating state
 	vm = GetVolumeManagerForTest(t)
 	testLVG = testLVGCR
@@ -372,10 +369,6 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 
 	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
 	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Failed, volume.Spec.CSIStatus)
 	assert.Equal(t, ctrl.Result{}, res)
 
 	vol = &vcrd.Volume{}
