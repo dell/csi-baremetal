@@ -165,6 +165,7 @@ func TestDriveProvisioner_ReleaseVolume_Success(t *testing.T) {
 		Return(deviceFile, nil).Once()
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).Return("", errTest).Once()
 	mockLsblk.On("GetBlockDevices", deviceFile).Return(nil, nil).Once()
+	mockFS.On("WipeFS", deviceFile).Return(nil).Once()
 
 	err = dp.ReleaseVolume(testVolume2)
 	assert.Nil(t, err)

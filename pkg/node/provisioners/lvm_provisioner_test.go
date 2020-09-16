@@ -97,9 +97,8 @@ func TestLVMProvisioner_ReleaseVolume_Success(t *testing.T) {
 	err = lp.ReleaseVolume(testVolume1)
 	assert.Nil(t, err)
 
-	// LV isn't exist
-	fsOps.On("WipeFS", devFile).Return(nil).Times(1)
-	lvmOps.On("LVRemove", devFile).Return(errTest).Times(1)
+	// WipeFS failed, LV isn't exist
+	fsOps.On("WipeFS", devFile).Return(errTest).Times(1)
 	lvmOps.On("GetLVsInVG", testVolume1.Location).Return(nil, nil).Times(1)
 
 	err = lp.ReleaseVolume(testVolume1)
@@ -120,20 +119,18 @@ func TestLVMProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to determine VG name")
 
-	// WipeFS failed
+	// WipeFS failed and LV still exist
 	devFile := fmt.Sprintf("/dev/%s/%s", testVolume1.Location, testVolume1.Id)
-	fsOps.On("WipeFS", devFile).
-		Return(errTest).Times(1)
+	fsOps.On("WipeFS", devFile).Return(errTest).Times(1)
+	lvmOps.On("GetLVsInVG", testVolume1.Location).Return([]string{testVolume1.Id}, nil).Times(1)
 
 	err = lp.ReleaseVolume(testVolume1)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "failed to wipe FS")
 
-	// LVRemove failed and GetLVsInVG failed as well
-	fsOps.On("WipeFS", devFile).Return(nil).Times(1)
-	lvmOps.On("LVRemove", devFile).Return(errTest).Times(1)
-	lvmOps.On("GetLVsInVG", testVolume1.Location).
-		Return(nil, errTest).Times(1)
+	// WipeFS failed and GetLVsInVG failed as well
+	fsOps.On("WipeFS", devFile).Return(errTest).Times(1)
+	lvmOps.On("GetLVsInVG", testVolume1.Location).Return(nil, errTest).Times(1)
 
 	err = lp.ReleaseVolume(testVolume1)
 	assert.NotNil(t, err)

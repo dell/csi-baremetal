@@ -170,7 +170,7 @@ func (d *DriveProvisioner) thereAreNoPartitionOrError(device string, err error, 
 	bdevs, sErr := d.listBlk.GetBlockDevices(device)
 	if sErr == nil && (len(bdevs) == 0 || bdevs[0].Children == nil) {
 		ll.Infof("There are no any partition on device %s. Partition has been already removed", device)
-		return nil
+		return d.fsOps.WipeFS(device) // wipe partition table
 	}
 	return err
 }
