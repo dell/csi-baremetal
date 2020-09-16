@@ -147,7 +147,8 @@ private String getArtifactsJson(final Map<String, Object> args) {
             "baremetal-csi-plugin-basemgr",
             "baremetal-csi-plugin-loopbackmgr",
             "baremetal-csi-plugin-extender",
-            "baremetal-csi-plugin-scheduler-patcher"
+            "baremetal-csi-plugin-scheduler-patcher",
+            "baremetal-csi-plugin-scheduler"
     ]
     images.each { image ->
         artifacts.add([
