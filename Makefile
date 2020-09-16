@@ -20,7 +20,7 @@ all: build base-images images push
 build: compile-proto build-drivemgr build-node build-controller build-extender build-scheduler
 
 build-drivemgr:
-	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
+	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
 
 build-node:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${NODE}/${NODE} ./cmd/${NODE}/main.go
@@ -43,16 +43,16 @@ clean-drivemgr:
 	rm -rf ./build/${DRIVE_MANAGER}/*
 
 clean-node:
-	rm -rf ./build/${NODE}/${NODE}
+	rm -rf ./build/${NODE}/*
 
 clean-controller:
-	rm -rf ./build/${CONTROLLER}/${CONTROLLER}
+	rm -rf ./build/${CONTROLLER}/*
 
 clean-extender:
-	rm -rf ./build/${SCHEDULING_PKG}/${EXTENDER}/${EXTENDER}
+	rm -rf ./build/${SCHEDULING_PKG}/${EXTENDER}/*
 
 clean-scheduler:
-	rm -rf ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER}
+	rm -rf ./build/${SCHEDULING_PKG}/${SCHEDULER}/*
 
 clean-proto:
 	rm -rf ./api/generated/v1/*

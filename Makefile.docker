@@ -27,10 +27,9 @@ base-image-controller: download-grpc-health-probe
 	cp ./build/${HEALTH_PROBE} ./build/${CONTROLLER}/
 	docker build --network host --file ./build/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./build/${CONTROLLER}
 
-# todo migth be an issue with building multiple drive managers at a time
 image-drivemgr: base-image-drivemgr
-	cp ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/Dockerfile ./build/${DRIVE_MANAGER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./build/${DRIVE_MANAGER}
+	cp ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/Dockerfile ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
 
 image-node: base-image-node
 	cp ./pkg/${NODE}/Dockerfile ./build/${NODE}/

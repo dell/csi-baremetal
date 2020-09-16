@@ -1,4 +1,4 @@
-package scheduler
+package main
 
 import (
 	"math/rand"

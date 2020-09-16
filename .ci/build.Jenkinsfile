@@ -219,7 +219,7 @@ void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
 
     final String pathToPublish = "${ARTIFACTORY_COMPONENT_PATH}/${args.version}"
     final String artifactoryPathToFile = "${ARTIFACTORY_FILE_PATH}/${args.version}"
-    final String pathToFile = "pkg/scheduler/openshift_patcher.sh"
+    final String pathToFile = "pkg/scheduler/patcher/openshift_patcher.sh"
     sh("""
          export IMAGE=${args.version}
     """)
