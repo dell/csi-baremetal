@@ -87,9 +87,18 @@ func (l *LVMProvisioner) ReleaseVolume(vol api.Volume) error {
 		return fmt.Errorf("failed to wipe FS on device %s: %v", deviceFile, err)
 	}
 
-	ll.Debugf("Removing LV %s", deviceFile)
-	// TODO: might failed on big scale, should to be refactored, ATLDEF-64
-	return l.lvmOps.LVRemove(deviceFile)
+	if err = l.lvmOps.LVRemove(deviceFile); err != nil {
+		// check whether such LV exist or not
+		vgName, sErr := l.getVGName(&vol)
+		if sErr != nil {
+			return fmt.Errorf("unable to remove LV: %v and unable to determine VG name: %v", err, sErr)
+		}
+		lvs := l.lvmOps.GetLVsInVG(vgName) // TODO: should return error here
+		if !util.ContainsString(lvs, vol.Id) {
+			ll.Infof("LV %s has been already removed", deviceFile)
+		}
+	}
+	return err
 }
 
 // GetVolumePath search Volume Group name by vol attributes and construct

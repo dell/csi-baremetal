@@ -150,8 +150,8 @@ func (l *LVM) IsVGContainsLVs(vgName string) bool {
 			Errorf("Unable to check whether VG %s contains LVs or no. Assume that - yes.", vgName)
 		return true
 	}
-	res := len(strings.TrimSpace(stdout)) > 0
-	return res
+
+	return len(strings.TrimSpace(stdout)) > 0
 }
 
 // GetLVsInVG collects LVs for given volume group
