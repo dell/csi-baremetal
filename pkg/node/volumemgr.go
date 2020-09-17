@@ -175,7 +175,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if requeue, err := m.handleDeleteVolume(ctx, volume); requeue {
+	if requeue, err := m.handleVolumeDelete(ctx, volume); requeue {
 		return ctrl.Result{}, err
 	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
@@ -192,20 +192,20 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 }
 
-// handleDeleteVolume check volume DeletionTimestamp and append or delete finalizer depends on timestamp value,
-// Depending of CSI status function either delete finalizer or set status to removing
+// handleVolumeDelete check volume DeletionTimestamp and append or delete finalizer depends on timestamp value,
+// If DeletionTimestamp is not nil, function either delete finalizer or set status to removing depending of CSI status
 // Parameter: context and volume, needed to be handle
 // Return: boolean value, which represents if we should return ctrl.Result{} in Reconcile; error
-func (m *VolumeManager) handleDeleteVolume(ctx context.Context, volume *volumecrd.Volume) (bool, error) {
+func (m *VolumeManager) handleVolumeDelete(ctx context.Context, volume *volumecrd.Volume) (bool, error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"method":   "handleDeleteVolume",
+		"method":   "handleVolumeDelete",
 		"volumeID": volume.Spec.Id,
 	})
 	if volume.DeletionTimestamp.IsZero() {
 		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
-			ll.Debugf("Appending finalizer for volume %s", volume.Spec.Id)
+			ll.Debug("Appending finalizer for volume")
 			volume.ObjectMeta.Finalizers = append(volume.ObjectMeta.Finalizers, volumeFinalizer)
-			if err := m.k8sClient.UpdateCR(context.Background(), volume); err != nil {
+			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
 				ll.Errorf("Unable to append finalizer %s to Volume, error: %v.", volumeFinalizer, err)
 				return true, err
 			}
@@ -216,14 +216,14 @@ func (m *VolumeManager) handleDeleteVolume(ctx context.Context, volume *volumecr
 			// We also don't change status for Creating and Removed, because for these statuses Volume was already released
 			if volume.Spec.CSIStatus != apiV1.Created && volume.Spec.CSIStatus != apiV1.Failed && volume.Spec.CSIStatus != apiV1.Removing {
 				volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
-				ll.Debugf("Remove finalizer for volume %s", volume.Spec.Id)
-				if err := m.k8sClient.UpdateCR(context.Background(), volume); err != nil {
-					ll.Errorf("Unable to update Volume's finalizers: %v", err)
+				ll.Debug("Remove finalizer for volume")
+				if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+					ll.Errorf("Unable to update Volume's finalizers")
 					return true, err
 				}
 				return true, nil
 			}
-			ll.Debugf("Changing status to Removing for volume %s", volume.Spec.Id)
+			ll.Debug("Changing status to Removing for volume")
 			volume.Spec.CSIStatus = apiV1.Removing
 		}
 	}
