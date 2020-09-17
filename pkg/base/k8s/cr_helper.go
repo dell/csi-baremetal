@@ -162,7 +162,7 @@ func (cs *CRHelper) GetVolumeByID(volID string) *volumecrd.Volume {
 
 // GetVolumeCRs collect volume CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
-// if error occurs - return nil
+// if error occurs - return nil and error
 func (cs *CRHelper) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
 	var (
 		vList = &volumecrd.VolumeList{}
@@ -221,7 +221,7 @@ func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 
 // GetDriveCRs collect drive CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
-// if error occurs - return nil
+// if error occurs - return nil and error
 func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 	var (
 		dList = &drivecrd.DriveList{}
