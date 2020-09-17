@@ -361,12 +361,11 @@ func (m *VolumeManager) Discover() error {
 		return fmt.Errorf("drivesAreNotUsed return error: %v", err)
 	}
 
-	updatedFreeDrives, err := m.discoverBlockDevices(freeDrives)
-	if err != nil {
-		return fmt.Errorf("discoverBlockDevices return error: %v", err)
+	if err = m.discoverVolumeCRs(freeDrives); err != nil {
+		return fmt.Errorf("discoverVolumeCRs return error: %v", err)
 	}
 
-	if err = m.discoverAvailableCapacity(ctx, updatedFreeDrives); err != nil {
+	if err = m.discoverAvailableCapacity(ctx, freeDrives); err != nil {
 		return fmt.Errorf("discoverAvailableCapacity return error: %v", err)
 	}
 
@@ -456,20 +455,22 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			}
 		}
 
-		if !wasDiscovered && m.isDriveIsInLVG(d.Spec) {
-			continue
-		}
+		if !wasDiscovered {
+			if m.isDriveIsInLVG(d.Spec) {
+				continue
+			}
 
-		ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
-		previousState := d.DeepCopy()
-		toUpdate := d
-		toUpdate.Spec.Status = apiV1.DriveStatusOffline
-		toUpdate.Spec.Health = apiV1.HealthUnknown
-		if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
-			ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
-			updates.AddNotChanged(previousState)
-		} else {
-			updates.AddUpdated(previousState, &toUpdate)
+			ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
+			previousState := d.DeepCopy()
+			toUpdate := d
+			toUpdate.Spec.Status = apiV1.DriveStatusOffline
+			toUpdate.Spec.Health = apiV1.HealthUnknown
+			if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
+				ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
+				updates.AddNotChanged(previousState)
+			} else {
+				updates.AddUpdated(previousState, &toUpdate)
+			}
 		}
 	}
 	return updates, nil
@@ -534,48 +535,33 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 	return drives, nil
 }
 
-// discoverBlockDevices matches system block devices with freeDrives
+// discoverVolumeCRs matches system block devices with freeDrives
 // searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
-// partition uuid and create volume CR object, that drive will not be included in response
-// if there is drive in freeDrives that wan't found in system block devices that drive will not be included in response
-// returns list of the drives that still free - volume CR wasn't created based on them and that drives was listed as block devices
-func (m *VolumeManager) discoverBlockDevices(freeDrives []*drivecrd.Drive) ([]*drivecrd.Drive, error) {
+// partition uuid and create volume CR object
+func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	ll := m.log.WithFields(logrus.Fields{
-		"method": "discoverBlockDevices",
+		"method": "discoverVolumeCRs",
 	})
 
-	var updatedFreeDrives = make([]*drivecrd.Drive, 0)
 	// explore each drive from freeDrives
 	blockDevices, err := m.listBlk.GetBlockDevices("")
 	if err != nil {
-		return nil, fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
+		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
 
 	bdevMap := make(map[string]lsblk.BlockDevice, len(blockDevices))
 	for _, bdev := range blockDevices {
 		bdevMap[bdev.Serial] = bdev
 	}
-	ll.Infof("Bdevmap: %v", bdevMap)
-	for _, fd := range freeDrives {
-		ll.Infof("FREE DRIVE: %v", *fd)
-	}
 
-	var isStillFree bool
 	for _, d := range freeDrives {
-		isStillFree = true
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
 		if !ok {
-			// TODO: send event here
+			// TODO: handle that scenario - set Drive CR status to offline, send event
 			ll.Errorf("For drive %v there is no corresponding block device.", *d)
 			continue
 		}
 		if len(bdev.Children) > 0 {
-			isStillFree = false
-			if m.isDriveIsInLVG(d.Spec) {
-				ll.Debugf("Drive %v is in LVG and is not free", d.Spec)
-				break
-			}
-
 			var (
 				partUUID string
 				size     int64
@@ -584,7 +570,7 @@ func (m *VolumeManager) discoverBlockDevices(freeDrives []*drivecrd.Drive) ([]*d
 			if bdev.Children[0].Size != "" {
 				size, err = strconv.ParseInt(bdev.Size, 10, 64)
 				if err != nil {
-					ll.Warnf("Unable parse string %s to int, for device %s, error: %v. Volume CR won't be created",
+					ll.Warnf("Unable parse string %s to int, for device %s: %v. Volume CR will be created with 0 size",
 						bdev.Size, bdev.Name, err)
 				}
 			}
@@ -612,11 +598,8 @@ func (m *VolumeManager) discoverBlockDevices(freeDrives []*drivecrd.Drive) ([]*d
 				ll.Errorf("Unable to create volume CR %s: %v", partUUID, err)
 			}
 		}
-		if isStillFree {
-			updatedFreeDrives = append(updatedFreeDrives, d)
-		}
 	}
-	return updatedFreeDrives, nil
+	return nil
 }
 
 // DiscoverAvailableCapacity inspect current available capacity on nodes and fill AC CRs. This method manages only
@@ -627,26 +610,48 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, freeDrive
 	ll := m.log.WithField("method", "discoverAvailableCapacity")
 
 	var (
-		err      error
-		wasError = false
-		acList   = &accrd.AvailableCapacityList{}
+		err        error
+		wasError   = false
+		acList     = &accrd.AvailableCapacityList{}
+		volumeList = &volumecrd.VolumeList{}
 	)
 
 	if err = m.k8sClient.ReadList(ctx, acList); err != nil {
 		return fmt.Errorf("unable to read AC list: %v", err)
 	}
+	if err = m.k8sClient.ReadList(ctx, volumeList); err != nil {
+		return fmt.Errorf("unable to read Volume list: %v", err)
+	}
 
-	var acsLocation = make(map[string]struct{}, len(acList.Items))
+	var (
+		// key - ac.Spec.Location that is Drive.Spec.UUID
+		acsLocations = make(map[string]*accrd.AvailableCapacity, len(acList.Items))
+		// key - volume.Spec.Location that is Drive.Spec.UUID or LVG.Spec.Name (don't need to use info about LVG here)
+		volumeLocations = make(map[string]struct{})
+	)
 	for _, ac := range acList.Items {
-		acsLocation[ac.Spec.Location] = struct{}{}
+		ac := ac
+		acsLocations[ac.Spec.Location] = &ac
+	}
+	for _, v := range volumeList.Items {
+		volumeLocations[v.Spec.Location] = struct{}{}
 	}
 
 	for _, drive := range freeDrives {
 		if drive.Spec.Health != apiV1.HealthGood || drive.Spec.Status != apiV1.DriveStatusOnline {
+			// AC that points on such drive was removed before (if they had existed)
 			continue
 		}
 		// check whether appropriate AC exists or not
-		if _, acExist := acsLocation[drive.Spec.UUID]; acExist {
+		if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
+			// check whether there is Volume CR that points on same drive
+			if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
+				ll.Warnf("There is Volume CR that points on same drive %s as AC %s",
+					drive.Name, acsLocations[drive.Spec.UUID].Name)
+				if err = m.k8sClient.DeleteCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
+					ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[drive.Spec.UUID].Name, err)
+				}
+			}
 			continue
 		}
 		// create AC based on drive

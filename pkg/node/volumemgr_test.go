@@ -526,7 +526,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "drivesAreNotUsed return error")
 
-	// expect: discoverBlockDevices failed
+	// expect: discoverVolumeCRs failed
 	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
 	listBlk := &mocklu.MockWrapLsblk{}
 	listBlk.On("GetBlockDevices", "").Return(nil, testErr).Once()
@@ -535,10 +535,9 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	err = vm.Discover()
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "discoverBlockDevices return error")
+	assert.Contains(t, err.Error(), "discoverVolumeCRs return error")
 
 	// expect: discoverAvailableCapacities failed
-	// expect: discoverBlockDevices failed
 	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
 	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{}, nil)
 	vm.listBlk = listBlk
@@ -573,12 +572,12 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 
 func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	/*
-	test scenario consists of 2 Discover iteration on first:
-	 - driveMgr returned 2 drives and there are no partition on them from lsblk response, expect that
-	   2 Drive CRs, 2 AC CRs and 0 Volume CR will be created
-	on second iteration:
-	 - driveMgr returned 2 drives and on one of them lsblk detect partition, expect that amount of Drive CRs won't be changed
-	   1 Volume CR will be created and on AC CR will be removed (1 AC remains)
+		test scenario consists of 2 Discover iteration on first:
+		 - driveMgr returned 2 drives and there are no partition on them from lsblk response, expect that
+		   2 Drive CRs, 2 AC CRs and 0 Volume CR will be created
+		on second iteration:
+		 - driveMgr returned 2 drives and on one of them lsblk detect partition, expect that amount of Drive CRs won't be changed
+		   1 Volume CR will be created and on AC CR will be removed (1 AC remains)
 	*/
 
 	// fist iteration
@@ -593,7 +592,7 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 
 	listBlk := &mocklu.MockWrapLsblk{}
 	vm.listBlk = listBlk
-	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2,}, nil).Once()
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2}, nil).Once()
 
 	err := vm.Discover()
 	assert.Nil(t, err)
@@ -608,7 +607,7 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	// second iteration
 	bdev2WithChildren := bdev2
 	bdev2WithChildren.Children = []lsblk.BlockDevice{{Name: "/dev/sda1", PartUUID: testPartUUID}}
-	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2WithChildren,}, nil).Once()
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2WithChildren}, nil).Once()
 
 	err = vm.Discover()
 	assert.Nil(t, err)
@@ -651,9 +650,9 @@ func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
 
 func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
 	var (
-		vm *VolumeManager
+		vm      *VolumeManager
 		listBlk = &mocklu.MockWrapLsblk{}
-		err error
+		err     error
 	)
 
 	// expected 1 available capacity because 1 drive is unhealthy
