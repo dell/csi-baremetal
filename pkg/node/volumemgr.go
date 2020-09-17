@@ -361,11 +361,12 @@ func (m *VolumeManager) Discover() error {
 		return fmt.Errorf("drivesAreNotUsed return erorr: %v", err)
 	}
 
-	if err = m.discoverVolumeCRs(freeDrives); err != nil {
+	updatedFreeDrives, err := m.discoverVolumeCRs(freeDrives)
+	if err != nil {
 		return fmt.Errorf("discoverVolumeCRs return erorr: %v", err)
 	}
 
-	if err = m.discoverAvailableCapacity(ctx); err != nil {
+	if err = m.discoverAvailableCapacity(ctx, updatedFreeDrives); err != nil {
 		return err
 	}
 
@@ -526,81 +527,92 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 // discoverVolumeCRs updates volume CRs based on provided freeDrives
 // searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
 // partition uuid and create volume CR object
-func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
+func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) ([]*drivecrd.Drive, error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "discoverVolumeCRs",
 	})
 
+	var updatedFreeDrives = make([]*drivecrd.Drive, 0)
 	// explore each drive from freeDrives
 	blockDevices, err := m.listBlk.GetBlockDevices("")
 	if err != nil {
-		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
+		return nil, fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
 
+	bdevMap := make(map[string]lsblk.BlockDevice, len(blockDevices))
+	for _, bdev := range blockDevices {
+		bdevMap[bdev.Serial] = bdev
+	}
+
+	var isStillFree bool
 	for _, d := range freeDrives {
-		for _, bdev := range blockDevices {
-			if strings.EqualFold(bdev.Serial, d.Spec.SerialNumber) && len(bdev.Children) > 0 {
-				if m.isDriveIsInLVG(d.Spec) {
-					ll.Debugf("Drive %v is in LVG and is not free", d.Spec)
-					break
-				}
+		isStillFree = true
+		bdev, ok := bdevMap[d.Spec.SerialNumber]
+		if !ok {
+			m.log.Error("========================================================================================================")
+			// TODO: handle that scenario
+		}
+		if len(bdev.Children) > 0 {
+			isStillFree = false
+			if m.isDriveIsInLVG(d.Spec) {
+				ll.Debugf("Drive %v is in LVG and is not free", d.Spec)
+				break
+			}
 
-				var (
-					partUUID string
-					size     int64
-				)
-				partUUID = bdev.PartUUID
-				if partUUID == "" {
-					partUUID = uuid.New().String() // just generate random and exclude drive
-					ll.Warnf("UUID generated %s", partUUID)
-				}
-				if bdev.Size != "" {
-					size, err = strconv.ParseInt(bdev.Size, 10, 64)
-					if err != nil {
-						ll.Warnf("Unable parse string %s to int, for device %s, error: %v", bdev.Size, bdev.Name, err)
-					}
-				}
-
-				volumeCR := m.k8sClient.ConstructVolumeCR(partUUID, api.Volume{
-					NodeId:       m.nodeID,
-					Id:           partUUID,
-					Size:         size,
-					Location:     d.Spec.UUID,
-					LocationType: apiV1.LocationTypeDrive,
-					Mode:         apiV1.ModeFS,
-					Type:         bdev.FSType,
-					Health:       d.Spec.Health,
-					CSIStatus:    "",
-				})
-				ll.Infof("Creating volume CR: %v", volumeCR)
-				if err = m.k8sClient.CreateCR(context.Background(), partUUID, volumeCR); err != nil {
-					ll.Errorf("Unable to create volume CR %s: %v", partUUID, err)
+			var (
+				partUUID string
+				size     int64
+			)
+			partUUID = bdev.PartUUID
+			if partUUID == "" {
+				partUUID = uuid.New().String() // just generate random and exclude drive
+				ll.Warnf("UUID generated %s", partUUID)
+			}
+			if bdev.Size != "" {
+				size, err = strconv.ParseInt(bdev.Size, 10, 64)
+				if err != nil {
+					ll.Warnf("Unable parse string %s to int, for device %s, error: %v", bdev.Size, bdev.Name, err)
 				}
 			}
+
+			volumeCR := m.k8sClient.ConstructVolumeCR(partUUID, api.Volume{
+				NodeId:       m.nodeID,
+				Id:           partUUID,
+				Size:         size,
+				Location:     d.Spec.UUID,
+				LocationType: apiV1.LocationTypeDrive,
+				Mode:         apiV1.ModeFS,
+				Type:         bdev.FSType,
+				Health:       d.Spec.Health,
+				CSIStatus:    "",
+			})
+			ll.Infof("Creating volume CR: %v", volumeCR)
+			if err = m.k8sClient.CreateCR(context.Background(), partUUID, volumeCR); err != nil {
+				ll.Errorf("Unable to create volume CR %s: %v", partUUID, err)
+			}
+		}
+		if isStillFree {
+			updatedFreeDrives = append(updatedFreeDrives, d)
 		}
 	}
-	return nil
+	return updatedFreeDrives, nil
 }
 
 // DiscoverAvailableCapacity inspect current available capacity on nodes and fill AC CRs. This method manages only
 // hardware available capacity such as HDD or SSD. If drive is healthy and online and also it is not used in LVGs
 // and it doesn't contain volume then this drive is in AvailableCapacity CRs.
 // Returns error if at least one drive from cache was handled badly
-func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
+func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, freeDrives []*drivecrd.Drive) error {
 	ll := m.log.WithField("method", "discoverAvailableCapacity")
 
 	var (
 		err      error
 		wasError = false
 		acList   = &accrd.AvailableCapacityList{}
-		driveCRs []drivecrd.Drive
 	)
 
 	if err = m.k8sClient.ReadList(ctx, acList); err != nil {
 		return fmt.Errorf("unable to read AC list: %v", err)
-	}
-	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
-		return fmt.Errorf("unable to get corresponding Drive CRs: %v", err)
 	}
 
 	var acsLocation = make(map[string]struct{}, len(acList.Items))
@@ -608,7 +620,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 		acsLocation[ac.Spec.Location] = struct{}{}
 	}
 
-	for _, drive := range driveCRs {
+	for _, drive := range freeDrives {
 		if drive.Spec.Health != apiV1.HealthGood || drive.Spec.Status != apiV1.DriveStatusOnline {
 			continue
 		}
@@ -627,7 +639,6 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 		name := uuid.New().String()
 
 		newAC := m.k8sClient.ConstructACCR(name, *capacity)
-		ll.Infof("Creating Available Capacity %v", newAC)
 		if err := m.k8sClient.CreateCR(context.WithValue(ctx, k8s.RequestUUID, name),
 			name, newAC); err != nil {
 			ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v",

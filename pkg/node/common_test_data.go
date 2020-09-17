@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -127,9 +129,20 @@ func assertLenVListItemsEqualsTo(t *testing.T, k8sClient *k8s.KubeClient, expect
 
 func getVolumeCRsListItems(t *testing.T, k8sClient *k8s.KubeClient) []vcrd.Volume {
 	vList := &vcrd.VolumeList{}
-	err := k8sClient.ReadList(testCtx, vList)
-	assert.Nil(t, err)
+	assert.Nil(t, k8sClient.ReadList(testCtx, vList))
 	return vList.Items
+}
+
+func getDriveCRsListItems(t *testing.T, k8sClient *k8s.KubeClient) []drivecrd.Drive {
+	dList := &drivecrd.DriveList{}
+	assert.Nil(t, k8sClient.ReadList(testCtx, dList))
+	return dList.Items
+}
+
+func getACCRsListItems(t *testing.T, k8sClient *k8s.KubeClient) []accrd.AvailableCapacity {
+	acList := &accrd.AvailableCapacityList{}
+	assert.Nil(t, k8sClient.ReadList(testCtx, acList))
+	return acList.Items
 }
 
 func getTestLogger() *logrus.Logger {
