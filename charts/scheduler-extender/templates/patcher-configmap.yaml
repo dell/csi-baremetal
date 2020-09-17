@@ -22,6 +22,9 @@ data:
     extenders:
       - urlPrefix: "http://127.0.0.1:{{ .Values.port }}"
         filterVerb: filter
+        #todo stages below aren't implemented yet
+        #prioritizeVerb: prioritize
+        #bindVerb: bind
         enableHttps: false
         nodeCacheCapable: false
         ignorable: true

@@ -26,15 +26,18 @@ LIVENESS_PROBE_TAG  := v2.1.0
 BUSYBOX_TAG         := 1.29
 
 ### PATH
-SCHEDULER_EXTENDER_PKG := scheduler
-SCHEDULER_EXTENDER_PATCHER_PKG := scheduler-patcher
+SCHEDULING_PKG := scheduling
+SCHEDULER_EXTENDER_PKG := extender
+SCHEDULER_EXTENDER_PATCHER_PKG := scheduler/patcher
 
 ### components
 NODE             := node
 DRIVE_MANAGER    := drivemgr
 CONTROLLER       := controller
+SCHEDULER        := scheduler
 EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
+PLUGIN           := plugin
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr
