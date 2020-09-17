@@ -352,22 +352,22 @@ func (m *VolumeManager) Discover() error {
 
 	updates, err := m.updateDrivesCRs(ctx, drivesResponse.Disks)
 	if err != nil {
-		return fmt.Errorf("updateDrivesCRs return erorr: %v", err)
+		return fmt.Errorf("updateDrivesCRs return error: %v", err)
 	}
 	m.handleDriveUpdates(ctx, updates)
 
 	freeDrives, err := m.drivesAreNotUsed()
 	if err != nil {
-		return fmt.Errorf("drivesAreNotUsed return erorr: %v", err)
+		return fmt.Errorf("drivesAreNotUsed return error: %v", err)
 	}
 
 	updatedFreeDrives, err := m.discoverVolumeCRs(freeDrives)
 	if err != nil {
-		return fmt.Errorf("discoverVolumeCRs return erorr: %v", err)
+		return fmt.Errorf("discoverVolumeCRs return error: %v", err)
 	}
 
 	if err = m.discoverAvailableCapacity(ctx, updatedFreeDrives); err != nil {
-		return err
+		return fmt.Errorf("discoverAvailableCapacity return error: %v", err)
 	}
 
 	if m.discoverLvgSSD {

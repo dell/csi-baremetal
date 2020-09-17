@@ -17,6 +17,9 @@ type MockWrapLsblk struct {
 func (m *MockWrapLsblk) GetBlockDevices(device string) ([]lsblk.BlockDevice, error) {
 	args := m.Mock.Called(device)
 
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]lsblk.BlockDevice), args.Error(1)
 }
 
