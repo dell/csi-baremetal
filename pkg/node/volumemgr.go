@@ -391,13 +391,15 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 	ll.Debugf("Processing")
 
 	var (
-		driveCRs []drivecrd.Drive
-		err      error
+		driveCRs       []drivecrd.Drive
+		firstIteration bool
+		err            error
 	)
 
 	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
 		return nil, err
 	}
+	firstIteration = len(driveCRs) == 0
 
 	var updates = new(driveUpdates)
 	// Try to find not existing CR for discovered drives
@@ -436,11 +438,12 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				ll.Errorf("Failed to create drive CR %v, error: %v", driveCR, err)
 			}
 			updates.AddCreated(driveCR)
+			driveCRs = append(driveCRs, *driveCR)
 		}
 	}
 
 	// that means that it is a first round and drives are discovered first time
-	if len(driveCRs) == 0 {
+	if firstIteration {
 		return updates, nil
 	}
 
@@ -452,24 +455,21 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				break
 			}
 		}
-		isInLVG := false
-		if !wasDiscovered {
-			ll.Debugf("Check whether drive %v in LVG or no", d)
-			isInLVG = m.isDriveIsInLVG(d.Spec)
+
+		if !wasDiscovered && m.isDriveIsInLVG(d.Spec) {
+			continue
 		}
-		if !wasDiscovered && !isInLVG {
-			ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
-			previousState := d.DeepCopy()
-			toUpdate := d
-			toUpdate.Spec.Status = apiV1.DriveStatusOffline
-			toUpdate.Spec.Health = apiV1.HealthUnknown
-			err := m.k8sClient.UpdateCR(ctx, &toUpdate)
-			if err != nil {
-				ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
-				updates.AddNotChanged(previousState)
-			} else {
-				updates.AddUpdated(previousState, &toUpdate)
-			}
+
+		ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
+		previousState := d.DeepCopy()
+		toUpdate := d
+		toUpdate.Spec.Status = apiV1.DriveStatusOffline
+		toUpdate.Spec.Health = apiV1.HealthUnknown
+		if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
+			ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
+			updates.AddNotChanged(previousState)
+		} else {
+			updates.AddUpdated(previousState, &toUpdate)
 		}
 	}
 	return updates, nil
@@ -493,13 +493,14 @@ func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
 	return false
 }
 
-// drivesAreNotUsed search drives in drives CRs that isn't have any volumes
+// drivesAreNotUsed search drives in Drives CRs that isn't have any Volume CR or LVG CR
 // Returns slice of pointers on drivecrd.Drive structs
 func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 	var (
 		drives    = make([]*drivecrd.Drive, 0)
 		volumeCRs []volumecrd.Volume
 		driveCRs  []drivecrd.Drive
+		lvgCRs    []lvgcrd.LVG
 		err       error
 	)
 
@@ -509,14 +510,23 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
 		return nil, err
 	}
+	lvgCRs = m.crHelper.GetLVGCRs(m.nodeID)
 
-	var volumesLocation = make(map[string]struct{}, len(volumeCRs))
+	var locations = make(map[string]struct{}, len(volumeCRs))
 	for _, v := range volumeCRs {
-		volumesLocation[v.Spec.Location] = struct{}{}
+		locations[v.Spec.Location] = struct{}{}
+	}
+	for _, lvg := range lvgCRs {
+		if lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
+			continue
+		}
+		for _, location := range lvg.Spec.Locations {
+			locations[location] = struct{}{}
+		}
 	}
 
 	for _, d := range driveCRs {
-		if _, isUsed := volumesLocation[d.Spec.UUID]; !isUsed {
+		if _, isUsed := locations[d.Spec.UUID]; !isUsed {
 			dInst := d
 			drives = append(drives, &dInst)
 		}

@@ -531,7 +531,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	listBlk := &mocklu.MockWrapLsblk{}
 	listBlk.On("GetBlockDevices", "").Return(nil, testErr).Once()
 	vm.listBlk = listBlk
-	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
+	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(4)
 
 	err = vm.Discover()
 	assert.NotNil(t, err)
@@ -542,7 +542,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
 	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{}, nil)
 	vm.listBlk = listBlk
-	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
+	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(4)
 	mockK8sClient.On("List", mock.Anything, &accrd.AvailableCapacityList{}, mock.Anything).Return(testErr).Once()
 
 	err = vm.Discover()
