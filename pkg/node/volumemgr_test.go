@@ -466,8 +466,9 @@ func TestVolumeManager_DrivesNotInUse_Success(t *testing.T) {
 
 func TestVolumeManager_DrivesNotInUse_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
-	vm := prepareSuccessVolumeManager(t)
-	vm.k8sClient = k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+	vm := NewVolumeManager(nil, nil, testLogger,
+		k8s.NewKubeClient(mockK8sClient, testLogger, testNs),
+		new(mocks.NoOpRecorder), nodeID)
 
 	var (
 		res []*drivecrd.Drive
