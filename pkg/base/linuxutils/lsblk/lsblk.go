@@ -26,7 +26,6 @@ const (
 type WrapLsblk interface {
 	GetBlockDevices(device string) ([]BlockDevice, error)
 	SearchDrivePath(drive *drivecrd.Drive) (string, error)
-	SetExecutor(e command.CmdExecutor)
 }
 
 // LSBLK is a wrap for system lsblk util
@@ -40,11 +39,6 @@ func NewLSBLK(log *logrus.Logger) *LSBLK {
 	e.SetLogger(log)
 	e.SetLevel(logrus.TraceLevel)
 	return &LSBLK{e: e}
-}
-
-// SetExecutor is a setter for LSBLK Executor field
-func (l *LSBLK) SetExecutor(e command.CmdExecutor) {
-	l.e = e
 }
 
 // BlockDevice is the struct that represents output of lsblk command for a device

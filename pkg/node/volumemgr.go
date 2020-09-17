@@ -361,9 +361,9 @@ func (m *VolumeManager) Discover() error {
 		return fmt.Errorf("drivesAreNotUsed return error: %v", err)
 	}
 
-	updatedFreeDrives, err := m.discoverVolumeCRs(freeDrives)
+	updatedFreeDrives, err := m.discoverBlockDevices(freeDrives)
 	if err != nil {
-		return fmt.Errorf("discoverVolumeCRs return error: %v", err)
+		return fmt.Errorf("discoverBlockDevices return error: %v", err)
 	}
 
 	if err = m.discoverAvailableCapacity(ctx, updatedFreeDrives); err != nil {
@@ -524,12 +524,14 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 	return drives, nil
 }
 
-// discoverVolumeCRs updates volume CRs based on provided freeDrives
+// discoverBlockDevices matches system block devices with freeDrives
 // searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
-// partition uuid and create volume CR object
-func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) ([]*drivecrd.Drive, error) {
+// partition uuid and create volume CR object, that drive will not be included in response
+// if there is drive in freeDrives that wan't found in system block devices that drive will not be included in response
+// returns list of the drives that still free - volume CR wasn't created based on them and that drives was listed as block devices
+func (m *VolumeManager) discoverBlockDevices(freeDrives []*drivecrd.Drive) ([]*drivecrd.Drive, error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"method": "discoverVolumeCRs",
+		"method": "discoverBlockDevices",
 	})
 
 	var updatedFreeDrives = make([]*drivecrd.Drive, 0)
@@ -543,14 +545,19 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) ([]*driv
 	for _, bdev := range blockDevices {
 		bdevMap[bdev.Serial] = bdev
 	}
+	ll.Infof("Bdevmap: %v", bdevMap)
+	for _, fd := range freeDrives {
+		ll.Infof("FREE DRIVE: %v", *fd)
+	}
 
 	var isStillFree bool
 	for _, d := range freeDrives {
 		isStillFree = true
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
 		if !ok {
-			m.log.Error("========================================================================================================")
-			// TODO: handle that scenario
+			// TODO: send event here
+			ll.Errorf("For drive %v there is no corresponding block device.", *d)
+			continue
 		}
 		if len(bdev.Children) > 0 {
 			isStillFree = false
@@ -563,16 +570,19 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) ([]*driv
 				partUUID string
 				size     int64
 			)
-			partUUID = bdev.PartUUID
-			if partUUID == "" {
-				partUUID = uuid.New().String() // just generate random and exclude drive
-				ll.Warnf("UUID generated %s", partUUID)
-			}
-			if bdev.Size != "" {
+
+			if bdev.Children[0].Size != "" {
 				size, err = strconv.ParseInt(bdev.Size, 10, 64)
 				if err != nil {
-					ll.Warnf("Unable parse string %s to int, for device %s, error: %v", bdev.Size, bdev.Name, err)
+					ll.Warnf("Unable parse string %s to int, for device %s, error: %v. Volume CR won't be created",
+						bdev.Size, bdev.Name, err)
 				}
+			}
+
+			partUUID = bdev.Children[0].PartUUID
+			if partUUID == "" {
+				partUUID = uuid.New().String() // just generate random and exclude drive
+				ll.Warnf("There is no part UUID for partition from device %v, UUID has been generated %s", bdev, partUUID)
 			}
 
 			volumeCR := m.k8sClient.ConstructVolumeCR(partUUID, api.Volume{
@@ -586,8 +596,9 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) ([]*driv
 				Health:       d.Spec.Health,
 				CSIStatus:    "",
 			})
-			ll.Infof("Creating volume CR: %v", volumeCR)
-			if err = m.k8sClient.CreateCR(context.Background(), partUUID, volumeCR); err != nil {
+
+			ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, volumeCR.Name)
+			if err = m.k8sClient.CreateCR(ctxWithID, partUUID, volumeCR); err != nil {
 				ll.Errorf("Unable to create volume CR %s: %v", partUUID, err)
 			}
 		}

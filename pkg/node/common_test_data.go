@@ -122,11 +122,6 @@ var (
 	}
 )
 
-// assertLenVListItemsEqualsTo read volumes CR List and assert it len is equals to expected, used t for asserting
-func assertLenVListItemsEqualsTo(t *testing.T, k8sClient *k8s.KubeClient, expected int) {
-	assert.Equal(t, expected, len(getVolumeCRsListItems(t, k8sClient)))
-}
-
 func getVolumeCRsListItems(t *testing.T, k8sClient *k8s.KubeClient) []vcrd.Volume {
 	vList := &vcrd.VolumeList{}
 	assert.Nil(t, k8sClient.ReadList(testCtx, vList))
