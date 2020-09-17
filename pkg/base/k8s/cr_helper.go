@@ -118,13 +118,12 @@ func (cs *CRHelper) GetVolumeByLocation(location string) *volumecrd.Volume {
 func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateVolumesOpStatus", "nodeID": nodeID})
 	// todo check that operational status is valid
-	volumes := cs.GetVolumeCRs(nodeID)
-	if volumes == nil {
-		return nil
+	volumes, err := cs.GetVolumeCRs(nodeID)
+	if err != nil {
+		return err
 	}
 
 	isError := false
-
 	for _, volume := range volumes {
 		if volume.Spec.OperationalStatus != opStatus {
 			volume.Spec.OperationalStatus = opStatus
@@ -147,7 +146,8 @@ func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 
 // GetVolumeByID reads volume CRs and returns volumes CR if it .Spec.Id == volId
 func (cs *CRHelper) GetVolumeByID(volID string) *volumecrd.Volume {
-	for _, v := range cs.GetVolumeCRs() {
+	volumeCRs, _ := cs.GetVolumeCRs()
+	for _, v := range volumeCRs {
 		if v.Spec.Id == volID {
 			return &v
 		}
@@ -162,21 +162,19 @@ func (cs *CRHelper) GetVolumeByID(volID string) *volumecrd.Volume {
 
 // GetVolumeCRs collect volume CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
-// if error occurs - return nil
-func (cs *CRHelper) GetVolumeCRs(node ...string) []volumecrd.Volume {
+// if error occurs - return nil and error
+func (cs *CRHelper) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
 	var (
 		vList = &volumecrd.VolumeList{}
 		err   error
 	)
 
 	if err = cs.k8sClient.ReadList(context.Background(), vList); err != nil {
-		cs.log.WithField("method", "GetVolumeCRs").
-			Errorf("Unable to read volume CRs list: %v", err)
-		return nil
+		return nil, err
 	}
 
 	if len(node) == 0 {
-		return vList.Items
+		return vList.Items, nil
 	}
 
 	// if node was provided, collect volumes that are on that node
@@ -186,7 +184,7 @@ func (cs *CRHelper) GetVolumeCRs(node ...string) []volumecrd.Volume {
 			res = append(res, v)
 		}
 	}
-	return res
+	return res, nil
 }
 
 // UpdateDrivesStatusOnNode updates status of drives on a node without taking into account current state
@@ -195,7 +193,7 @@ func (cs *CRHelper) GetVolumeCRs(node ...string) []volumecrd.Volume {
 func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateDrivesStatusOnNode", "nodeID": nodeID})
 	// todo check that drive status is valid
-	drives := cs.GetDriveCRs(nodeID)
+	drives, _ := cs.GetDriveCRs(nodeID)
 	// node might not have drives reported to CSI. For example, filtered in drive manager level
 	if drives == nil {
 		return nil
@@ -223,21 +221,19 @@ func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 
 // GetDriveCRs collect drive CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
-// if error occurs - return nil
-func (cs *CRHelper) GetDriveCRs(node ...string) []drivecrd.Drive {
+// if error occurs - return nil and error
+func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 	var (
 		dList = &drivecrd.DriveList{}
 		err   error
 	)
 
 	if err = cs.k8sClient.ReadList(context.Background(), dList); err != nil {
-		cs.log.WithField("method", "GetDriveCRs").
-			Errorf("Unable to read drive CRs list: %v", err)
-		return nil
+		return nil, err
 	}
 
 	if len(node) == 0 {
-		return dList.Items
+		return dList.Items, nil
 	}
 
 	// if node was provided, collect drives that are on that node
@@ -247,12 +243,13 @@ func (cs *CRHelper) GetDriveCRs(node ...string) []drivecrd.Drive {
 			res = append(res, d)
 		}
 	}
-	return res
+	return res, nil
 }
 
 // GetDriveCRByUUID reads drive CRs and returns drive CR with uuid dUUID
 func (cs *CRHelper) GetDriveCRByUUID(dUUID string) *drivecrd.Drive {
-	for _, d := range cs.GetDriveCRs() {
+	driveCRs, _ := cs.GetDriveCRs()
+	for _, d := range driveCRs {
 		if d.Spec.UUID == dUUID {
 			return &d
 		}
