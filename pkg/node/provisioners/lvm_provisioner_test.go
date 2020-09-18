@@ -97,7 +97,7 @@ func TestLVMProvisioner_ReleaseVolume_Success(t *testing.T) {
 	err = lp.ReleaseVolume(testVolume1)
 	assert.Nil(t, err)
 
-	// WipeFS failed, LV isn't exist
+	// WipeFS failed, LV isn't exist - ReleaseVolume success
 	fsOps.On("WipeFS", devFile).Return(errTest).Times(1)
 	lvmOps.On("GetLVsInVG", testVolume1.Location).Return(nil, nil).Times(1)
 
