@@ -1,9 +1,9 @@
 package node
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -40,30 +40,49 @@ var (
 	testErr            = errors.New("error")
 	lsblkAllDevicesCmd = fmt.Sprintf(lsblk.CmdTmpl, "")
 
-	drive1UUID = uuid.New().String()
-	drive2UUID = uuid.New().String()
+	drive1UUID   = uuid.New().String()
+	drive2UUID   = uuid.New().String()
+	testPartUUID = uuid.New().String()
 
-	drive1 = &api.Drive{
+	drive1 = api.Drive{
 		UUID:         drive1UUID,
-		SerialNumber: "hdd1",
+		SerialNumber: "hdd1-serial",
 		Size:         1024 * 1024 * 1024 * 500,
 		NodeId:       nodeID,
 		Type:         apiV1.DriveTypeHDD,
 		Status:       apiV1.DriveStatusOnline,
 		Health:       apiV1.HealthGood,
+		Path:         "/dev/sda",
 	} // /dev/sda in LsblkTwoDevices
 
-	drive2 = &api.Drive{
+	drive2 = api.Drive{
 		UUID:         drive2UUID,
-		SerialNumber: "hdd2",
+		SerialNumber: "hdd2-serial",
 		Size:         1024 * 1024 * 1024 * 200,
 		NodeId:       nodeID,
 		Type:         apiV1.DriveTypeHDD,
 		Status:       apiV1.DriveStatusOnline,
 		Health:       apiV1.HealthGood,
+		Path:         "/dev/sdb",
 	} // /dev/sdb in LsblkTwoDevices
 
-	driveMgrRespDrives = []*api.Drive{drive1, drive2}
+	// block device that corresponds to the drive1
+	bdev1 = lsblk.BlockDevice{
+		Name:     drive1.Path,
+		Type:     drive1.Type,
+		Size:     strconv.FormatInt(drive1.Size, 10),
+		Serial:   drive1.SerialNumber,
+		Children: nil,
+	}
+
+	// block device that corresponds to the drive2
+	bdev2 = lsblk.BlockDevice{
+		Name:     drive2.Path,
+		Type:     drive2.Type,
+		Size:     strconv.FormatInt(drive1.Size, 10),
+		Serial:   drive2.SerialNumber,
+		Children: nil,
+	}
 
 	// todo don't hardcode device name
 	lsblkSingleDeviceCmd = fmt.Sprintf(lsblk.CmdTmpl, "/dev/sda")
@@ -185,7 +204,7 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 	)
 
 	// happy pass
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR))
 	pMock = mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
@@ -199,7 +218,7 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
 
 	// failed to update
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 	res, err = vm.prepareVolume(testCtx, &testVol)
@@ -230,7 +249,7 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	)
 
 	// happy path
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	testVol := volCR
 	testVol.Spec.CSIStatus = apiV1.Removing
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &testVol))
@@ -245,7 +264,7 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
 
 	// failed to update
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 	res, err = vm.handleRemovingStatus(testCtx, &volCR)
@@ -328,7 +347,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	)
 
 	// unable to read LVG (not found) and unable to update corresponding volume CR
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 
 	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
 	assert.NotNil(t, err)
@@ -336,7 +355,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, expectedResRequeue, res)
 
 	// LVG is not found, volume CR was updated successfully (CSIStatus=failed)
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	testVol = testVolumeLVGCR
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
 
@@ -349,7 +368,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
 	// LVG in creating state
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = apiV1.Creating
 	testVol = testVolumeLVGCR
@@ -360,7 +379,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, expectedResRequeue, res)
 
 	// LVG in failed state and volume is updated successfully
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = apiV1.Failed
 	testVol = testVolumeLVGCR
@@ -376,7 +395,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
 	// LVG in failed state and volume is failed to update
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = apiV1.Failed
 	testVol = testVolumeLVGCR
@@ -388,7 +407,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.True(t, k8sError.IsNotFound(err))
 
 	// LVG in created state and volume.ID is not in VolumeRefs
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	pMock = &mockProv.MockProvisioner{}
 	pMock.On("PrepareVolume", mock.Anything).Return(nil)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
@@ -407,7 +426,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.True(t, util.ContainsString(lvg.Spec.VolumeRefs, testVol.Spec.Id))
 
 	// LVG in created state and volume.ID is in VolumeRefs
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	pMock = &mockProv.MockProvisioner{}
 	pMock.On("PrepareVolume", mock.Anything).Return(nil)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
@@ -428,7 +447,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
 
 	// LVG state wasn't recognized
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = ""
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
@@ -446,7 +465,7 @@ func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
 		err error
 	)
 
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	volCR.Spec.CSIStatus = apiV1.Published
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR))
 
@@ -462,162 +481,279 @@ func TestNewVolumeManager_SetProvisioners(t *testing.T) {
 	assert.Equal(t, newProv, vm.provisioners[p.DriveBasedVolumeType])
 }
 
-func TestVolumeManager_DrivesNotInUse(t *testing.T) {
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+func TestVolumeManager_DrivesNotInUse_Success(t *testing.T) {
+	vm := prepareSuccessVolumeManager(t)
+
+	addDriveCRs(vm.k8sClient,
+		vm.k8sClient.ConstructDriveCR(drive1UUID, drive1),
+		vm.k8sClient.ConstructDriveCR(drive2UUID, drive2),
+	)
+
+	drivesNotInUse, err := vm.drivesAreNotUsed()
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-
-	driveCR1 := vm.k8sClient.ConstructDriveCR(
-		"hdd1", api.Drive{UUID: "hdd1", SerialNumber: "hdd1", Type: apiV1.DriveTypeHDD, NodeId: nodeID})
-	driveCR2 := vm.k8sClient.ConstructDriveCR(
-		"nvme1", api.Drive{UUID: "nvme1", SerialNumber: "nvme1", Type: apiV1.DriveTypeNVMe, NodeId: nodeID})
-	addDriveCRs(kubeClient, driveCR1, driveCR2)
-
-	drivesNotInUse := vm.drivesAreNotUsed()
-	// empty volumes cache, method should return all drives
+	// there are no Volume CRs, method should return all drives
 	assert.NotNil(t, drivesNotInUse)
 	assert.Equal(t, 2, len(drivesNotInUse))
 
-	volumeCR := kubeClient.ConstructVolumeCR("test_name", api.Volume{
+	// add Volume CR that points on drive1
+	volumeCR := vm.k8sClient.ConstructVolumeCR("test_name", api.Volume{
 		NodeId:       nodeID,
 		LocationType: apiV1.LocationTypeDrive,
-		Location:     "hdd1",
+		Location:     drive1.UUID,
 	})
-	err = kubeClient.CreateCR(testCtx, volumeCR.Name, volumeCR)
-	assert.Nil(t, err)
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volumeCR.Name, volumeCR))
 
-	// expect that nvme drive is not used
-	drivesNotInUse = vm.drivesAreNotUsed()
+	// expect drive2 isn't in use
+	drivesNotInUse, err = vm.drivesAreNotUsed()
+	assert.Nil(t, err)
 	assert.Equal(t, 1, len(drivesNotInUse))
-	assert.Equal(t, "nvme1", drivesNotInUse[0].Spec.UUID)
+	assert.Equal(t, drive2.UUID, drivesNotInUse[0].Spec.UUID)
+}
+
+func TestVolumeManager_DrivesNotInUse_Fail(t *testing.T) {
+	mockK8sClient := &mocks.K8Client{}
+	vm := NewVolumeManager(nil, nil, testLogger,
+		k8s.NewKubeClient(mockK8sClient, testLogger, testNs),
+		new(mocks.NoOpRecorder), nodeID)
+
+	var (
+		res []*drivecrd.Drive
+		err error
+	)
+
+	// unable to list Volume CRs
+	mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(testErr).Once()
+
+	res, err = vm.drivesAreNotUsed()
+	assert.Nil(t, res)
+	assert.Equal(t, testErr, err)
+
+	// unable to list Drive CRs
+	mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(nil).Once()
+	mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(testErr).Once()
+
+	res, err = vm.drivesAreNotUsed()
+	assert.Nil(t, res)
+	assert.Equal(t, testErr, err)
 }
 
 func TestVolumeManager_DiscoverFail(t *testing.T) {
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	var (
+		vm  *VolumeManager
+		err error
+	)
+
 	// expect: hwMgrClient request fail with error
+	vm = prepareSuccessVolumeManager(t)
 	vm.driveMgrClient = mocks.MockDriveMgrClientFail{}
+
 	err = vm.Discover()
 	assert.NotNil(t, err)
 	assert.Equal(t, "drivemgr error", err.Error())
 
-	// expect: lsblk fail with error
-	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, mocks.EmptyExecutorFail{}, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-	vm.listBlk.SetExecutor(mocks.EmptyExecutorFail{})
+	// used in next scenarios
+	mockK8sClient := &mocks.K8Client{}
+
+	// expect: updateDrivesCRs failed
+	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Once()
+
 	err = vm.Discover()
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "error")
+	assert.Contains(t, err.Error(), "updateDrivesCRs return error")
+
+	// expect: driveAreNotUsed failed
+	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(nil).Once()
+	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Once()
+
+	err = vm.Discover()
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "drivesAreNotUsed return error")
+
+	// expect: discoverVolumeCRs failed
+	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	listBlk := &mocklu.MockWrapLsblk{}
+	listBlk.On("GetBlockDevices", "").Return(nil, testErr).Once()
+	vm.listBlk = listBlk
+	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(4)
+
+	err = vm.Discover()
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "discoverVolumeCRs return error")
+
+	// expect: discoverAvailableCapacities failed
+	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{}, nil)
+	vm.listBlk = listBlk
+	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(4)
+	mockK8sClient.On("List", mock.Anything, &accrd.AvailableCapacityList{}, mock.Anything).Return(testErr).Once()
+
+	err = vm.Discover()
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "discoverAvailableCapacity return error")
 
 }
 
 func TestVolumeManager_DiscoverSuccess(t *testing.T) {
-	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-	vm.listBlk.SetExecutor(e1)
-	// expect that cache is empty because of all drives has not children
-	err = vm.Discover()
-	assert.Nil(t, err)
-	assertLenVListItemsEqualsTo(t, vm.k8sClient, 0)
+	var (
+		vm             *VolumeManager
+		listBlk        = &mocklu.MockWrapLsblk{}
+		driveMgrClient = mocks.NewMockDriveMgrClient(getDriveMgrRespBasedOnDrives(drive1, drive2))
+		err            error
+	)
 
-	// expect that one volume will appear in cache
-	expectedCmdOut2 := map[string]mocks.CmdOut{
-		lsblkAllDevicesCmd:         mocks.LsblkDevWithChildren,
-		"sgdisk /dev/sdb --info=1": {Stdout: "Partition unique GUID: uniq-guid-for-dev-sdb"},
-	}
-	e3 := mocks.NewMockExecutor(expectedCmdOut2)
-	vm = NewVolumeManager(*hwMgrClient, e3, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-	vm.listBlk.SetExecutor(e3)
+	vm = prepareSuccessVolumeManager(t)
+	vm.driveMgrClient = driveMgrClient
+	vm.listBlk = listBlk
+
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2}, nil).Once()
+	// expect that Volume CRs won't be created because of all drives don't have children
 	err = vm.Discover()
 	assert.Nil(t, err)
-	// LsblkDevWithChildren contains 2 devices with children however one of them without size
-	// that because we expect one item in volumes cache
+	assert.Equal(t, 0, len(getVolumeCRsListItems(t, vm.k8sClient)))
+	assert.Equal(t, 2, len(getACCRsListItems(t, vm.k8sClient)))
+}
+
+func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
+	/*
+		test scenario consists of 2 Discover iteration on first:
+		 - driveMgr returned 2 drives and there are no partition on them from lsblk response, expect that
+		   2 Drive CRs, 2 AC CRs and 0 Volume CR will be created
+		on second iteration:
+		 - driveMgr returned 2 drives and on one of them lsblk detect partition, expect that amount of Drive CRs won't be changed
+		   1 Volume CR will be created and on AC CR will be removed (1 AC remains)
+	*/
+
+	// fist iteration
+	vm := prepareSuccessVolumeManager(t)
+	vm.driveMgrClient = mocks.NewMockDriveMgrClient([]*api.Drive{&drive1, &drive2})
 	vItems := getVolumeCRsListItems(t, vm.k8sClient)
+	dItems := getDriveCRsListItems(t, vm.k8sClient)
+	acItems := getACCRsListItems(t, vm.k8sClient)
+	assert.Equal(t, 0, len(dItems))
+	assert.Equal(t, 0, len(vItems))
+	assert.Equal(t, 0, len(acItems))
+
+	listBlk := &mocklu.MockWrapLsblk{}
+	vm.listBlk = listBlk
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2}, nil).Once()
+
+	err := vm.Discover()
+	assert.Nil(t, err)
+
+	vItems = getVolumeCRsListItems(t, vm.k8sClient)
+	dItems = getDriveCRsListItems(t, vm.k8sClient)
+	acItems = getACCRsListItems(t, vm.k8sClient)
+	assert.Equal(t, 2, len(dItems))
+	assert.Equal(t, 2, len(acItems))
+	assert.Equal(t, 0, len(vItems))
+
+	// second iteration
+	bdev2WithChildren := bdev2
+	bdev2WithChildren.Children = []lsblk.BlockDevice{{Name: "/dev/sda1", PartUUID: testPartUUID}}
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2WithChildren}, nil).Once()
+
+	err = vm.Discover()
+	assert.Nil(t, err)
+
+	vItems = getVolumeCRsListItems(t, vm.k8sClient)
+	dItems = getDriveCRsListItems(t, vm.k8sClient)
+	acItems = getACCRsListItems(t, vm.k8sClient)
+	assert.Equal(t, 2, len(dItems))
+	assert.Equal(t, 1, len(acItems))
 	assert.Equal(t, 1, len(vItems))
+
+	var (
+		sdaDriveUUID string
+		sdbDriveUUID string
+	)
+	for _, d := range dItems {
+		if d.Spec.SerialNumber == drive1.SerialNumber {
+			sdaDriveUUID = d.Spec.UUID
+		} else if d.Spec.SerialNumber == drive2.SerialNumber {
+			sdbDriveUUID = d.Spec.UUID
+		}
+	}
+	assert.Equal(t, vItems[0].Spec.Location, sdbDriveUUID)
+	assert.Equal(t, acItems[0].Spec.Location, sdaDriveUUID)
 }
 
 func TestVolumeManager_DiscoverAvailableCapacitySuccess(t *testing.T) {
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := prepareSuccessVolumeManager(t)
+	vm.driveMgrClient = mocks.NewMockDriveMgrClient(getDriveMgrRespBasedOnDrives(drive1, drive2))
+	listBlk := &mocklu.MockWrapLsblk{}
+	vm.listBlk = listBlk
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2}, nil).Once()
 
-	err = vm.Discover()
-	assert.Nil(t, err)
-
-	err = vm.discoverAvailableCapacity(context.Background(), nodeID)
+	err := vm.Discover()
 	assert.Nil(t, err)
 
-	acList := &accrd.AvailableCapacityList{}
-	err = vm.k8sClient.ReadList(context.Background(), acList)
-
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(acList.Items))
+	assert.Equal(t, 2, len(getACCRsListItems(t, vm.k8sClient)))
 }
 
 func TestVolumeManager_DiscoverAvailableCapacityDriveUnhealthy(t *testing.T) {
-	//expected 1 available capacity because 1 drive is unhealthy
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	hwMgrDrivesWithBad := driveMgrRespDrives
-	hwMgrDrivesWithBad[1].Health = apiV1.HealthBad
-	hwMgrClient := mocks.NewMockDriveMgrClient(hwMgrDrivesWithBad)
-	e1 := mocks.NewMockExecutor(map[string]mocks.CmdOut{lsblkAllDevicesCmd: {Stdout: mocks.LsblkTwoDevicesStr}})
-	vm := NewVolumeManager(*hwMgrClient, e1, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	var (
+		vm      *VolumeManager
+		listBlk = &mocklu.MockWrapLsblk{}
+		err     error
+	)
+
+	// expected 1 available capacity because 1 drive is unhealthy
+	vm = prepareSuccessVolumeManager(t)
+	d2 := drive2
+	d2.Health = apiV1.HealthBad
+	vm.driveMgrClient = mocks.NewMockDriveMgrClient(getDriveMgrRespBasedOnDrives(drive1, d2))
+	vm.listBlk = listBlk
+	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2}, nil).Once()
 
 	err = vm.Discover()
 	assert.Nil(t, err)
 
-	err = vm.discoverAvailableCapacity(context.Background(), nodeID)
-	assert.Nil(t, err)
-
 	acList := &accrd.AvailableCapacityList{}
-	err = vm.k8sClient.ReadList(context.Background(), acList)
+	err = vm.k8sClient.ReadList(testCtx, acList)
 
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(acList.Items))
 }
 
-func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
-	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
+	vm := prepareSuccessVolumeManager(t)
+	driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
+	vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+
+	updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	driveCRs, err := vm.crHelper.GetDriveCRs(vm.nodeID)
 	assert.Nil(t, err)
-	assert.Empty(t, vm.crHelper.GetDriveCRs(vm.nodeID))
-	ctx := context.Background()
-	updates := vm.updateDrivesCRs(ctx, driveMgrRespDrives)
-	assert.Nil(t, err)
-	assert.Equal(t, len(vm.crHelper.GetDriveCRs(vm.nodeID)), 2)
+	assert.Equal(t, len(driveCRs), 2)
 	assert.Len(t, updates.Created, 2)
 
 	driveMgrRespDrives[0].Health = apiV1.HealthBad
-	updates = vm.updateDrivesCRs(ctx, driveMgrRespDrives)
+	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 	assert.Nil(t, err)
 	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthBad)
 	assert.Len(t, updates.Updated, 1)
 	assert.Len(t, updates.NotChanged, 1)
 
 	drives := driveMgrRespDrives[1:]
-	updates = vm.updateDrivesCRs(ctx, drives)
+	updates, err = vm.updateDrivesCRs(testCtx, drives)
 	assert.Nil(t, err)
 	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthUnknown)
 	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Status, apiV1.DriveStatusOffline)
 	assert.Len(t, updates.Updated, 1)
 	assert.Len(t, updates.NotChanged, 1)
 
-	kubeClient, err = k8s.GetFakeKubeClient(testNs, testLogger)
+	vm = prepareSuccessVolumeManager(t)
+	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
 	assert.Nil(t, err)
-	vm = NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	assert.Empty(t, driveCRs)
+	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 	assert.Nil(t, err)
-	assert.Empty(t, vm.crHelper.GetDriveCRs(vm.nodeID))
-	updates = vm.updateDrivesCRs(ctx, driveMgrRespDrives)
+	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
 	assert.Nil(t, err)
-	assert.Equal(t, len(vm.crHelper.GetDriveCRs(vm.nodeID)), 2)
+	assert.Equal(t, len(driveCRs), 2)
 	assert.Len(t, updates.Created, 2)
 	driveMgrRespDrives = append(driveMgrRespDrives, &api.Drive{
 		UUID:         uuid.New().String(),
@@ -627,18 +763,50 @@ func TestVolumeManager_updatesDrivesCRs(t *testing.T) {
 		Size:         1024 * 1024 * 1024 * 150,
 		NodeId:       nodeID,
 	})
-	updates = vm.updateDrivesCRs(ctx, driveMgrRespDrives)
+	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 	assert.Nil(t, err)
-	assert.Equal(t, len(vm.crHelper.GetDriveCRs(vm.nodeID)), 3)
+	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
+	assert.Nil(t, err)
+	assert.Equal(t, len(driveCRs), 3)
 	assert.Len(t, updates.Created, 1)
 	assert.Len(t, updates.NotChanged, 2)
 }
 
+func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
+	mockK8sClient := &mocks.K8Client{}
+	vm := NewVolumeManager(nil, nil, testLogger,
+		k8s.NewKubeClient(mockK8sClient, testLogger, testNs),
+		new(mocks.NoOpRecorder), nodeID)
+
+	var (
+		res *driveUpdates
+		err error
+	)
+
+	// GetDriveCRs failed
+	mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(testErr).Once()
+
+	res, err = vm.updateDrivesCRs(testCtx, nil)
+	assert.Nil(t, res)
+	assert.NotNil(t, err)
+	assert.Equal(t, testErr, err)
+
+	// CreateCR failed
+	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+	mockK8sClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Twice() // CreateCR will failed
+
+	d1 := drive1
+	res, err = vm.updateDrivesCRs(testCtx, []*api.Drive{&d1})
+	assert.Nil(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, 1, len(res.Created))
+}
+
 func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
-	vm := prepareSuccessVolumeManagerWithDrives(nil)
+	vm := prepareSuccessVolumeManagerWithDrives(nil, t)
 
 	ac := acCR
-	err := vm.k8sClient.CreateCR(context.Background(), ac.Name, &ac)
+	err := vm.k8sClient.CreateCR(testCtx, ac.Name, &ac)
 	assert.Nil(t, err)
 
 	drive := drive1
@@ -646,7 +814,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	drive.Health = apiV1.HealthBad
 
 	// Check AC deletion
-	vm.handleDriveStatusChange(context.Background(), drive)
+	vm.handleDriveStatusChange(testCtx, &drive)
 	acList := &accrd.AvailableCapacityList{}
 	err = vm.k8sClient.ReadList(testCtx, acList)
 	assert.Nil(t, err)
@@ -654,20 +822,20 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 
 	vol := volCR
 	vol.Spec.Location = driveUUID
-	err = vm.k8sClient.CreateCR(context.Background(), testID, &vol)
+	err = vm.k8sClient.CreateCR(testCtx, testID, &vol)
 	assert.Nil(t, err)
 
 	// Check volume's health change
-	vm.handleDriveStatusChange(context.Background(), drive)
+	vm.handleDriveStatusChange(testCtx, &drive)
 	rVolume := &vcrd.Volume{}
-	err = vm.k8sClient.ReadCR(context.Background(), testID, rVolume)
+	err = vm.k8sClient.ReadCR(testCtx, testID, rVolume)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.HealthBad, rVolume.Spec.Health)
 }
 
 func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	var (
-		m     = prepareSuccessVolumeManager()
+		m     = prepareSuccessVolumeManager(t)
 		lvgCR = m.k8sClient.ConstructLVGCR("some-name", api.LogicalVolumeGroup{
 			Name:      "some-name",
 			Node:      m.nodeID,
@@ -706,7 +874,7 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 
 func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	var (
-		m       = prepareSuccessVolumeManager()
+		m       = prepareSuccessVolumeManager(t)
 		lvgList = lvgcrd.LVGList{}
 		acList  = accrd.AvailableCapacityList{}
 		listBlk = &mocklu.MockWrapLsblk{}
@@ -743,45 +911,6 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	err = m.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(acList.Items))
-}
-
-func prepareSuccessVolumeManager() *VolumeManager {
-	c := mocks.NewMockDriveMgrClient(nil)
-	// create map of commands which must be mocked
-	cmds := make(map[string]mocks.CmdOut)
-	// list of all devices
-	cmds[lsblkAllDevicesCmd] = mocks.CmdOut{Stdout: mocks.LsblkTwoDevicesStr}
-	// list partitions of specific device
-	cmds[lsblkSingleDeviceCmd] = mocks.CmdOut{Stdout: mocks.LsblkListPartitionsStr}
-	e := mocks.NewMockExecutor(cmds)
-	e.SetSuccessIfNotFound(true)
-
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	if err != nil {
-		panic(err)
-	}
-	return NewVolumeManager(c, e, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-}
-
-func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive) *VolumeManager {
-	nVM := prepareSuccessVolumeManager()
-	nVM.driveMgrClient = mocks.NewMockDriveMgrClient(drives)
-	for _, d := range drives {
-		dCR := nVM.k8sClient.ConstructDriveCR(d.UUID, *d)
-		if err := nVM.k8sClient.CreateCR(testCtx, dCR.Name, dCR); err != nil {
-			panic(err)
-		}
-	}
-	return nVM
-}
-
-func addDriveCRs(k *k8s.KubeClient, drives ...*drivecrd.Drive) {
-	var err error
-	for _, d := range drives {
-		if err = k.CreateCR(testCtx, d.Name, d); err != nil {
-			panic(err)
-		}
-	}
 }
 
 func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
@@ -864,7 +993,7 @@ func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 		vol vcrd.Volume
 	)
 
-	vm = GetVolumeManagerForTest(t)
+	vm = prepareSuccessVolumeManager(t)
 	vol = testVolumeCR1
 	vol.Spec.NodeId = vm.nodeID
 	assert.True(t, vm.isCorrespondedToNodePredicate(&vol))
@@ -874,8 +1003,61 @@ func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 
 }
 
-func GetVolumeManagerForTest(t *testing.T) *VolumeManager {
+func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
+	vm := prepareSuccessVolumeManager(t)
+	// there are no LVG CRs
+	assert.False(t, vm.isDriveIsInLVG(drive1))
+	// create LVG CR
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVGCR.Name, &testLVGCR))
+
+	assert.True(t, vm.isDriveIsInLVG(drive1))
+	assert.False(t, vm.isDriveIsInLVG(drive2))
+}
+
+func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
+	c := mocks.NewMockDriveMgrClient(nil)
+	// create map of commands which must be mocked
+	cmds := make(map[string]mocks.CmdOut)
+	// list of all devices
+	cmds[lsblkAllDevicesCmd] = mocks.CmdOut{Stdout: mocks.LsblkTwoDevicesStr}
+	// list partitions of specific device
+	cmds[lsblkSingleDeviceCmd] = mocks.CmdOut{Stdout: mocks.LsblkListPartitionsStr}
+	e := mocks.NewMockExecutor(cmds)
+	e.SetSuccessIfNotFound(true)
+
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	return NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(c, e, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm.discoverLvgSSD = false
+	return vm
+}
+
+func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive, t *testing.T) *VolumeManager {
+	nVM := prepareSuccessVolumeManager(t)
+	nVM.driveMgrClient = mocks.NewMockDriveMgrClient(drives)
+	for _, d := range drives {
+		dCR := nVM.k8sClient.ConstructDriveCR(d.UUID, *d)
+		if err := nVM.k8sClient.CreateCR(testCtx, dCR.Name, dCR); err != nil {
+			panic(err)
+		}
+	}
+	return nVM
+}
+
+func addDriveCRs(k *k8s.KubeClient, drives ...*drivecrd.Drive) {
+	var err error
+	for _, d := range drives {
+		if err = k.CreateCR(testCtx, d.Name, d); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func getDriveMgrRespBasedOnDrives(drives ...api.Drive) []*api.Drive {
+	resp := make([]*api.Drive, len(drives))
+	for i, d := range drives {
+		dd := d
+		resp[i] = &dd
+	}
+	return resp
 }

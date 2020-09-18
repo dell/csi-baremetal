@@ -1,4 +1,4 @@
-package scheduler
+package extender
 
 import (
 	"context"
@@ -108,6 +108,45 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 
 	if err := resp.Encode(extenderRes); err != nil {
 		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
+	}
+}
+
+// PrioritizeHandler assigns scores to the nodes
+// todo not implemented
+func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
+	panic("implement me")
+}
+
+// BindHandler does bind of a pod to specific node
+// todo - not implemented. Was used for testing purposes ONLY (fault injection)!
+func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
+	sessionUUID := uuid.New().String()
+	ll := e.logger.WithFields(logrus.Fields{
+		"sessionUUID": sessionUUID,
+		"method":      "BindHandler",
+	})
+	ll.Infof("Processing request: %v", req)
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := json.NewEncoder(w)
+
+	var (
+		extenderBindingArgs schedulerapi.ExtenderBindingArgs
+		extenderBindingRes  = &schedulerapi.ExtenderBindingResult{}
+	)
+
+	if err := json.NewDecoder(req.Body).Decode(&extenderBindingArgs); err != nil {
+		ll.Errorf("Unable to decode request body: %v", err)
+		extenderBindingRes.Error = err.Error()
+		if err := resp.Encode(extenderBindingRes); err != nil {
+			ll.Errorf("Unable to write response %v: %v", extenderBindingRes, err)
+		}
+		return
+	}
+
+	extenderBindingRes.Error = "don't know how to use bind API"
+	if err := resp.Encode(extenderBindingRes); err != nil {
+		ll.Errorf("Unable to write response %v: %v", extenderBindingRes, err)
 	}
 }
 
