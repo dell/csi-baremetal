@@ -869,7 +869,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	assert.Equal(t, 0, len(acList.Items))
 
 	// unable to read LVs in system vg
-	m = prepareSuccessVolumeManager()
+	m = prepareSuccessVolumeManager(t)
 	// mocks were setup for previous scenario
 	m.listBlk = listBlk
 	m.fsOps = fsOps
