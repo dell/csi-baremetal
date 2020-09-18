@@ -4,7 +4,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 )
 
@@ -28,9 +27,4 @@ func (m *MockWrapLsblk) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	args := m.Mock.Called(drive)
 
 	return args.String(0), args.Error(1)
-}
-
-// SetExecutor is a mock implementations
-func (m *MockWrapLsblk) SetExecutor(e command.CmdExecutor) {
-	m.Mock.Called(e)
 }

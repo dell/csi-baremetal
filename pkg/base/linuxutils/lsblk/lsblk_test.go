@@ -30,7 +30,7 @@ var (
 func TestLSBLK_GetBlockDevices_Success(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewLSBLK(testLogger)
-	l.SetExecutor(e)
+	l.e = e
 	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 
 	out, err := l.GetBlockDevices("")
@@ -43,7 +43,7 @@ func TestLSBLK_GetBlockDevices_Success(t *testing.T) {
 func TestLSBLK_GetBlockDevices_Fail(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewLSBLK(testLogger)
-	l.SetExecutor(e)
+	l.e = e
 	e.On(mocks.RunCmd, allDevicesCmd).Return("not a json", "", nil).Times(1)
 	out, err := l.GetBlockDevices("")
 	assert.Nil(t, out)
@@ -67,7 +67,7 @@ func TestLSBLK_GetBlockDevices_Fail(t *testing.T) {
 func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewLSBLK(testLogger)
-	l.SetExecutor(e)
+	l.e = e
 	// path is in drive spec
 	dCR := testDriveCR
 	path := "/dev/sda"
@@ -92,7 +92,7 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 func TestLSBLK_SearchDrivePath(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewLSBLK(testLogger)
-	l.SetExecutor(e)
+	l.e = e
 	// lsblk fail
 	expectedErr := errors.New("lsblk error")
 	e.On("RunCmd", allDevicesCmd).Return("", "", expectedErr)

@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/scheduler"
+	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
 )
 
 var (
@@ -19,18 +19,35 @@ var (
 	logLevel       = flag.String("loglevel", base.InfoLevel, "Log level")
 )
 
+// todo these values are defined in yaml config file and should be passed as parameters
+const (
+	FilterPattern     string = "/filter"
+	PrioritizePattern string = "/prioritize"
+	BindPattern       string = "/bind"
+)
+
 func main() {
 	flag.Parse()
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
-	extender, err := scheduler.NewExtender(logger, *namespace, *provisioner)
+	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}
 
 	logger.Infof("Starting extender on port %d ...", *port)
-	http.HandleFunc("/filter", extender.FilterHandler)
+	// filter stage
+	logger.Info("Registering for filter stage ... ")
+	http.HandleFunc(FilterPattern, newExtender.FilterHandler)
+
+	// prioritize stage
+	logger.Info("Registering for prioritize stage ... ")
+	http.HandleFunc(PrioritizePattern, newExtender.PrioritizeHandler)
+
+	// bind stage
+	logger.Infof("Registering for bind stage ... ")
+	http.HandleFunc(BindPattern, newExtender.BindHandler)
 
 	var addr = fmt.Sprintf(":%d", *port)
 	if *certFile != "" && *privateKeyFile != "" {

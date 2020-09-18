@@ -116,7 +116,8 @@ void runTests() {
                                               "baremetal-csi-plugin-halmgr",
                                               "baremetal-csi-plugin-loopbackmgr",
                                               "baremetal-csi-plugin-extender",
-                                              "baremetal-csi-plugin-scheduler-patcher"]
+                                              "baremetal-csi-plugin-scheduler-patcher",
+                                              "baremetal-csi-plugin-scheduler"]
                         // retag in asdrepo
                         repos.each { String repo ->
                             String image = "${registry}/${repo}"
