@@ -4,7 +4,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 )
 
@@ -17,6 +16,9 @@ type MockWrapLsblk struct {
 func (m *MockWrapLsblk) GetBlockDevices(device string) ([]lsblk.BlockDevice, error) {
 	args := m.Mock.Called(device)
 
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]lsblk.BlockDevice), args.Error(1)
 }
 
@@ -25,9 +27,4 @@ func (m *MockWrapLsblk) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	args := m.Mock.Called(drive)
 
 	return args.String(0), args.Error(1)
-}
-
-// SetExecutor is a mock implementations
-func (m *MockWrapLsblk) SetExecutor(e command.CmdExecutor) {
-	m.Mock.Called(e)
 }
