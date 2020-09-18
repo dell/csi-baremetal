@@ -878,16 +878,11 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	lvmOps.On("GetLVsInVG", vgName).Return(nil, testErr)
 
 	err = m.discoverLVGOnSystemDrive()
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unable to determine LVs in system VG")
 
 	assert.Nil(t, m.k8sClient.ReadList(testCtx, &lvgList))
-	assert.Equal(t, 1, len(lvgList.Items))
-	lvg = lvgList.Items[0]
-	assert.Equal(t, 1, len(lvg.Spec.Locations))
-	assert.Equal(t, base.SystemDriveAsLocation, lvg.Spec.Locations[0])
-	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
-	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
-	assert.Equal(t, base.DefaultRootLVName, lvg.Spec.VolumeRefs[0])
+	assert.Equal(t, 0, len(lvgList.Items))
 }
 
 func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {

@@ -31,8 +31,6 @@ const (
 
 	// SystemDriveAsLocation is the const to fill Location field in CRs if the location based on system drive
 	SystemDriveAsLocation = "system drive"
-	// DefaultRootLVName holds default name for root logical volume
-	DefaultRootLVName = "root-lv"
 
 	// DefaultFsType FS type that used by default
 	DefaultFsType = "xfs"

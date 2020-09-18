@@ -752,8 +752,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	}
 	lvs, err := m.lvmOps.GetLVsInVG(vgName)
 	if err != nil {
-		ll.Errorf("Unable to determine LVs in system VG %s: %v", vgName, err)
-		lvs = []string{base.DefaultRootLVName}
+		return fmt.Errorf("unable to determine LVs in system VG %s: %v", vgName, err)
 	}
 	var (
 		vgCRName = uuid.New().String()
