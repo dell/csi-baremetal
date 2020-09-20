@@ -37,6 +37,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
+const volumeFinalizer = "dell.emc.csi/volume-cleanup"
+
 // eventRecorder interface for sending events
 type eventRecorder interface {
 	Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{})
@@ -173,7 +175,18 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
+	if volume.DeletionTimestamp.IsZero() {
+		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
+			ll.Debug("Appending finalizer for volume")
+			volume.ObjectMeta.Finalizers = append(volume.ObjectMeta.Finalizers, volumeFinalizer)
+			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+				ll.Errorf("Unable to append finalizer %s to Volume, error: %v.", volumeFinalizer, err)
+				return ctrl.Result{Requeue: true}, err
+			}
+		}
+	} else if req, err := m.handleVolumeDelete(ctx, volume); req {
+		return ctrl.Result{}, err
+	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	switch volume.Spec.CSIStatus {
 	case apiV1.Creating:
@@ -186,6 +199,33 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	default:
 		return ctrl.Result{}, nil
 	}
+}
+
+// handleVolumeDelete check volume DeletionTimestamp and append or delete finalizer depends on timestamp value,
+// If DeletionTimestamp is not nil, function either delete finalizer or set status to removing depending of CSI status
+// Parameter: context and volume, needed to be handle
+// Return: boolean value, which represents if we should return ctrl.Result{} in Reconcile; error
+func (m *VolumeManager) handleVolumeDelete(ctx context.Context, volume *volumecrd.Volume) (bool, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "handleVolumeDelete",
+		"volumeID": volume.Spec.Id,
+	})
+	if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
+		// We shouldn't try to release volume with Published or VolumeReady status, because this volume is mount,and ReleaseVolume will fail.
+		// We also don't change status for Creating and Removed, because for these statuses Volume was already released
+		if volume.Spec.CSIStatus != apiV1.Created && volume.Spec.CSIStatus != apiV1.Removing {
+			volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
+			ll.Debug("Remove finalizer for volume")
+			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+				ll.Errorf("Unable to update Volume's finalizers")
+				return true, err
+			}
+			return true, nil
+		}
+		ll.Debug("Changing status to Removing for volume")
+		volume.Spec.CSIStatus = apiV1.Removing
+	}
+	return false, nil
 }
 
 // handleCreatingVolumeInLVG handles volume CR that has storage class related to LVG and CSIStatus creating
@@ -283,15 +323,15 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 		err       error
 		newStatus string
 	)
-
 	if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		newStatus = apiV1.Failed
+		// If status is failed, we don't try to delete this volume again
+		volume.DeletionTimestamp = nil
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 		newStatus = apiV1.Removed
 	}
-
 	volume.Spec.CSIStatus = newStatus
 	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
 		ll.Error("Unable to set new status for volume")

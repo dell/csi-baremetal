@@ -146,7 +146,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}
 
 	var (
-		fsType = "None"
+		fsType string
 		err    error
 		mode   string
 		vol    *api.Volume
@@ -155,6 +155,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
 		fsType = strings.ToLower(accessType.Mount.FsType) // ext4 by default (from request)
 		mode = apiV1.ModeFS
+	} else {
+		return nil, status.Error(codes.Unimplemented, "Block mode is unimplemented")
 	}
 
 	c.reqMu.Lock()
