@@ -115,6 +115,10 @@ spec:
           mountPath: /sys
         - name: host-run-udev
           mountPath: /run/udev
+        - name: host-run-lvm
+          mountPath: /run/lvm
+        - name: host-run-lock
+          mountPath: /run/lock
         - name: csi-socket-dir
           mountPath: /csi
         - name: mountpoint-dir
@@ -227,6 +231,14 @@ spec:
       - name: host-run-udev
         hostPath:
           path: /run/udev
+          type: Directory
+      - name: host-run-lvm
+        hostPath:
+          path: /run/lvm
+          type: Directory
+      - name: host-run-lock
+        hostPath:
+          path: /run/lock
           type: Directory
       - name: csi-socket-dir
         hostPath:
