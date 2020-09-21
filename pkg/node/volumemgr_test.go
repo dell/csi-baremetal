@@ -288,6 +288,51 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 
 }
 
+func TestReconcile_SuccessDeleteVolume(t *testing.T) {
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	volCR.Spec.CSIStatus = apiV1.Removed
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	//successfully add finalizer
+	res, err := vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	//successfully remove finalizer
+	volCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	err = vm.k8sClient.UpdateCR(testCtx, &volCR)
+	assert.Nil(t, err)
+
+	res, err = vm.Reconcile(req)
+	assert.NotNil(t, k8sError.IsNotFound(err))
+	assert.Equal(t, res, ctrl.Result{})
+
+	volCR.Spec.CSIStatus = apiV1.Created
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	//successfully add finalizer
+	res, err = vm.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	volCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+	err = vm.k8sClient.UpdateCR(testCtx, &volCR)
+	assert.Nil(t, err)
+
+	//successfully release volume
+	res, err = vm.Reconcile(req)
+	assert.NotNil(t, k8sError.IsNotFound(err))
+	assert.Equal(t, res, ctrl.Result{})
+}
+
 func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	var (
 		vm                 *VolumeManager
