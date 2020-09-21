@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	keymutex "k8s.io/utils/keymutex"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -81,7 +81,7 @@ type VolumeManager struct {
 	// sink where we write events
 	recorder eventRecorder
 	// reconcile lock
-	volMu sync.Mutex
+	volMu keymutex.KeyMutex
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -147,6 +147,7 @@ func NewVolumeManager(
 		log:            logger.WithField("component", "VolumeManager"),
 		recorder:       recorder,
 		discoverLvgSSD: true,
+		volMu:          keymutex.NewHashed(0),
 	}
 	return vm
 }
@@ -171,8 +172,13 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		"method":   "Reconcile",
 		"volumeID": req.Name,
 	})
-	m.volMu.Lock()
-	defer m.volMu.Unlock()
+	m.volMu.LockKey(req.Name)
+	defer func() {
+		err := m.volMu.UnlockKey(req.Name)
+		if err != nil {
+			ll.Warnf("Unlocking  volume with error %s", err)
+		}
+	}()
 	volume := &volumecrd.Volume{}
 
 	err := m.k8sClient.ReadCR(ctx, req.Name, volume)
