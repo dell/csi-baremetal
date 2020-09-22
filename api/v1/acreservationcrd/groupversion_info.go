@@ -18,5 +18,5 @@ var (
 	SchemeBuilderACR = &crScheme.Builder{GroupVersion: GroupVersionACR}
 
 	// AddToSchemeAvailableCapacity adds the types in this group-version to the given scheme.
-	AddToSchemeAvailableCapacity = SchemeBuilderACR.AddToScheme
+	AddToSchemeACR = SchemeBuilderACR.AddToScheme
 )

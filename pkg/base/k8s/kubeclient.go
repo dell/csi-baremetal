@@ -360,7 +360,7 @@ func PrepareScheme() (*runtime.Scheme, error) {
 		return nil, err
 	}
 	// register available capacity reservation crd
-	if err := acrcrd.AddToSchemeAvailableCapacity(scheme); err != nil {
+	if err := acrcrd.AddToSchemeACR(scheme); err != nil {
 		return nil, err
 	}
 	// register drive crd
