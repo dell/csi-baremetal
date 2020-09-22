@@ -208,10 +208,11 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
 					ll.Errorf("Unable to update Volume's finalizers")
 				}
+				return ctrl.Result{}, err
 			}
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		default:
-			volume.ObjectMeta.DeletionTimestamp = nil
+			volume.DeletionTimestamp = nil
 			ll.Warnf("Volume wasn't deleted, because it has CSI status %s", volume.Spec.CSIStatus)
 			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
 				ll.Errorf("Unable to update Volume's finalizers")
