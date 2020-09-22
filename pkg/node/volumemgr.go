@@ -211,8 +211,8 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 }
 
-// handleVolumeDelete check volume DeletionTimestamp and append or delete finalizer depends on timestamp value,
-// If DeletionTimestamp is not nil, function either delete finalizer or set status to removing depending of CSI status
+// handleVolumeDelete change CSI status for volume to Removing if it equals Created or Removing,
+// otherwise it deletes finalizer
 // Parameter: context and volume, needed to be handle
 // Return: boolean value, which represents if we should return ctrl.Result{} in Reconcile; error
 func (m *VolumeManager) handleVolumeDelete(ctx context.Context, volume *volumecrd.Volume) (bool, error) {
