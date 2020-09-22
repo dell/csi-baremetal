@@ -6,6 +6,8 @@ package volumecrd
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	crScheme "sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	"github.com/dell/csi-baremetal/api/v1"
 )
 
 var (
