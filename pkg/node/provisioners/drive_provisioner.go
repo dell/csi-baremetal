@@ -138,14 +138,14 @@ func (d *DriveProvisioner) ReleaseVolume(vol api.Volume) error {
 	if vol.Ephemeral { // TODO temporary solution because of ephemeral volumes volume id AK8S-749
 		part.PartUUID, err = d.partOps.GetPartitionUUID(device, DefaultPartitionNumber)
 		if err != nil {
-			return d.wipeDeviceIfThereIsNoPartition(device,
+			return d.wipeDevice(device,
 				fmt.Errorf("unable to determine partition UUID for ephemeral volume: %v", err), ll)
 		}
 	}
 
 	part.Name = d.partOps.SearchPartName(device, part.PartUUID)
 	if part.Name == "" {
-		return d.wipeDeviceIfThereIsNoPartition(device,
+		return d.wipeDevice(device,
 			fmt.Errorf("unable to find partition name for volume %s", vol.Id), ll)
 	}
 
@@ -163,10 +163,10 @@ func (d *DriveProvisioner) ReleaseVolume(vol api.Volume) error {
 	return d.fsOps.WipeFS(device)
 }
 
-// wipeDeviceIfThereIsNoPartition check is there any partition on device or not,
+// wipeDevice check is there any partition on device or not,
 // if there are no partition - wipe device and return nil, if any - returns error that had been provided
 // device - device to check, err - error to return, ll - logger for logging
-func (d *DriveProvisioner) wipeDeviceIfThereIsNoPartition(device string, err error, ll *logrus.Entry) error {
+func (d *DriveProvisioner) wipeDevice(device string, err error, ll *logrus.Entry) error {
 	// DriveProvisioner assumes that there could be only one partition per drive
 	bdevs, sErr := d.listBlk.GetBlockDevices(device)
 	if sErr == nil && (len(bdevs) == 0 || bdevs[0].Children == nil) {
