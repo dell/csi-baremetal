@@ -8,27 +8,28 @@ import (
 
 // +kubebuilder:object:root=true
 
-// AvailableCapacityReservation is the Schema for the ACRs API
-type AvailableCapacityReservation struct {
+// ACReservation is the Schema for the availablecapacitiereservations API
+type ACReservation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              api.AvailableCapacityReservation `json:"spec,omitempty"`
 }
 
-// AvailableCapacityReservationList contains a list of AvailableCapacityReservations (ACRs)
+// +kubebuilder:object:root=true
+
+// ACReservationList contains a list of ACReservations
 //+kubebuilder:object:generate=true
-type AvailableCapacityReservationList struct {
+type ACReservationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []AvailableCapacityReservation `json:"items"`
+	Items           []ACReservation `json:"items"`
 }
 
 func init() {
-	SchemeBuilderACR.Register(&AvailableCapacityReservation{}, &AvailableCapacityReservationList{})
+	SchemeBuilderACR.Register(&ACReservation{}, &ACReservationList{})
 }
 
-// DeepCopyInto, need to declare this method because api.AvailableCapacityReservation doesn't have DeepCopyInto
-func (in *AvailableCapacityReservation) DeepCopyInto(out *AvailableCapacityReservation) {
+func (in *ACReservation) DeepCopyInto(out *ACReservation) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)

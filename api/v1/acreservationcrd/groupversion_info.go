@@ -1,4 +1,4 @@
-// Package acreservationcrd contains API Schema definitions for the AvailableCapacityReservation v1 API group
+// Package acreservationcrd contains API Schema definitions for the available capacity v1 API group
 // +groupName=baremetal-csi.dellemc.com
 // +versionName=v1
 package acreservationcrd
@@ -11,12 +11,12 @@ import (
 )
 
 var (
-	// GroupVersionACR is group version used to register these objects
+	// GroupVersionAvailableCapacity is group version used to register these objects
 	GroupVersionACR = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilderACR is used to add go types to the GroupVersionKind scheme
 	SchemeBuilderACR = &crScheme.Builder{GroupVersion: GroupVersionACR}
 
-	// AddToSchemeACR adds the types in this group-version to the given scheme
+	// AddToSchemeAvailableCapacity adds the types in this group-version to the given scheme.
 	AddToSchemeACR = SchemeBuilderACR.AddToScheme
 )
