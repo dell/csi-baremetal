@@ -53,7 +53,7 @@ type WrapLVM interface {
 	FindVgNameByLvName(lvName string) (string, error)
 	GetVgFreeSpace(vgName string) (int64, error)
 	IsLVGExists(lvName string) (bool, error)
-	GetLVsInVG(vgName string) []string
+	GetLVsInVG(vgName string) ([]string, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -150,26 +150,24 @@ func (l *LVM) IsVGContainsLVs(vgName string) bool {
 			Errorf("Unable to check whether VG %s contains LVs or no. Assume that - yes.", vgName)
 		return true
 	}
-	res := len(strings.TrimSpace(stdout)) > 0
-	return res
+
+	return len(strings.TrimSpace(stdout)) > 0
 }
 
 // GetLVsInVG collects LVs for given volume group
 // Receives Volume Group name
 // Returns slice of found logical volumes
-func (l *LVM) GetLVsInVG(vgName string) []string {
+func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
 	stdout, _, err := l.e.RunCmd(cmd)
 	if err != nil {
-		l.log.WithField("method", "GetLVsInVG").
-			Errorf("Unable to get logical volumes for VG %s", vgName)
-		return nil
+		return nil, err
 	}
 	lvg := strings.Split(stdout, "\n")
 	for i := range lvg {
 		lvg[i] = strings.TrimSpace(lvg[i])
 	}
-	return lvg
+	return lvg, nil
 }
 
 // RemoveOrphanPVs removes PVs that do not have VG
