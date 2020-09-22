@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	// GroupVersionACR is a group version used to register these objects
+	// GroupVersionACR is group version used to register these objects
 	GroupVersionACR = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilderACR is used to add go types to the GroupVersionKind scheme

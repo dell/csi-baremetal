@@ -1,8 +1,9 @@
 package acreservationcrd
 
 import (
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 )
 
 // +kubebuilder:object:root=true
@@ -14,7 +15,7 @@ type AvailableCapacityReservation struct {
 	Spec              api.AvailableCapacityReservation `json:"spec,omitempty"`
 }
 
-// AvailableCapacityReservationList contains a list of ACRs
+// AvailableCapacityReservationList contains a list of AvailableCapacityReservations (ACRs)
 //+kubebuilder:object:generate=true
 type AvailableCapacityReservationList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -26,7 +27,7 @@ func init() {
 	SchemeBuilderACR.Register(&AvailableCapacityReservation{}, &AvailableCapacityReservationList{})
 }
 
-//Need to declare this method because api.LogicalVolumeGroup doesn't have DeepCopyInto
+// DeepCopyInto, need to declare this method because api.AvailableCapacityReservation doesn't have DeepCopyInto
 func (in *AvailableCapacityReservation) DeepCopyInto(out *AvailableCapacityReservation) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
