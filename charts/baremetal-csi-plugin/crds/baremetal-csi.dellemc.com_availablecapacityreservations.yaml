@@ -20,7 +20,8 @@ spec:
   scope: ""
   validation:
     openAPIV3Schema:
-      description: AvailableCapacityReservation is the Schema for the ACRs API
+      description: AvailableCapacityReservation is the Schema for the availablecapacitiereservations
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

@@ -1,4 +1,4 @@
-package acreservationcrd
+package acrcrd
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -8,8 +8,8 @@ import (
 
 // +kubebuilder:object:root=true
 
-// ACReservation is the Schema for the availablecapacitiereservations API
-type ACReservation struct {
+// AvailableCapacityReservation is the Schema for the availablecapacitiereservations API
+type AvailableCapacityReservation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              api.AvailableCapacityReservation `json:"spec,omitempty"`
@@ -17,19 +17,19 @@ type ACReservation struct {
 
 // +kubebuilder:object:root=true
 
-// ACReservationList contains a list of ACReservations
+// AvailableCapacityReservationList contains a list of AvailableCapacityReservation
 //+kubebuilder:object:generate=true
-type ACReservationList struct {
+type AvailableCapacityReservationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ACReservation `json:"items"`
+	Items           []AvailableCapacityReservation `json:"items"`
 }
 
 func init() {
-	SchemeBuilderACR.Register(&ACReservation{}, &ACReservationList{})
+	SchemeBuilderACR.Register(&AvailableCapacityReservation{}, &AvailableCapacityReservationList{})
 }
 
-func (in *ACReservation) DeepCopyInto(out *ACReservation) {
+func (in *AvailableCapacityReservation) DeepCopyInto(out *AvailableCapacityReservation) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)

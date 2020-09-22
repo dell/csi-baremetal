@@ -19,6 +19,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
@@ -350,19 +351,23 @@ func PrepareScheme() (*runtime.Scheme, error) {
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
-	//register volume crd
+	// register volume crd
 	if err := volumecrd.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
-	//register available capacity crd
+	// register available capacity crd
 	if err := accrd.AddToSchemeAvailableCapacity(scheme); err != nil {
 		return nil, err
 	}
-	//register drive crd
+	// register available capacity reservation crd
+	if err := acrcrd.AddToSchemeAvailableCapacity(scheme); err != nil {
+		return nil, err
+	}
+	// register drive crd
 	if err := drivecrd.AddToSchemeDrive(scheme); err != nil {
 		return nil, err
 	}
-	//register LVG crd
+	// register LVG crd
 	if err := lvgcrd.AddToSchemeLVG(scheme); err != nil {
 		return nil, err
 	}
