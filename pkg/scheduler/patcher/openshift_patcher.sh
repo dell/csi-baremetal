@@ -41,7 +41,7 @@ exit_status=$?
 if [ $exit_status -eq 0 ]; then
    # If ConfigMap contains predicates and priorities we will lost them in case of removing and replacing configmap.
    # But it hard to edit ConfigMap in bash script. Should we allow user to edit ConfigMap by its own.
-   oc delete configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
+   oc delete configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config 2> /dev/null
    checkErr "error during execution \"os delete configmap\" command."
 fi
 oc create configmap -n openshift-config --from-file=policy.cfg ${POLICY_CONFIGMAP_NAME}
