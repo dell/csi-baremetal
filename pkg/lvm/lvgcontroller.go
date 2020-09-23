@@ -99,13 +99,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			// we prevent removing, because this LVG is still used. We set DeletionTimestamp as nil and update LVG
 			for _, item := range volumes.Items {
 				if item.Spec.Location == lvg.Name {
-					ll.Debugf("There are volumes with location LVG %s, stop LVG deletion", lvg.Name)
-					lvg.DeletionTimestamp = nil
-					err := c.k8sClient.UpdateCR(ctx, lvg)
-					if err != nil {
-						ll.Errorf("Unable to update %s LVG: %v", lvg.Name, err)
-						return ctrl.Result{Requeue: true}, err
-					}
+					ll.Warnf("There are volumes with location LVG %s, stop LVG deletion", lvg.Name)
 					return ctrl.Result{}, nil
 				}
 			}

@@ -212,12 +212,8 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 			return ctrl.Result{}, nil
 		default:
-			volume.DeletionTimestamp = nil
 			ll.Warnf("Volume wasn't deleted, because it has CSI status %s", volume.Spec.CSIStatus)
-			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
-				ll.Errorf("Unable to update Volume's finalizers")
-			}
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		}
 	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
@@ -333,7 +329,6 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		newStatus = apiV1.Failed
 		// If status is failed, we don't try to delete this volume again
-		volume.DeletionTimestamp = nil
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 		newStatus = apiV1.Removed
