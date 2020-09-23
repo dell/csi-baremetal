@@ -1,8 +1,0 @@
-include variables.mk
-
-.PHONY: install-hal
-
-install-hal:
-	# NOTE: Root privileges are required for installing or uninstalling packages.
-	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://big-bang.lss.emc.com/export/home/emc/csi-hal/viprhal-3.6.0.0-1924.e392a71.SLES.x86_64.rpm
-	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://big-bang.lss.emc.com/export/home/emc/csi-hal/viprhal-devel-3.6.0.0-1924.e392a71.SLES.x86_64.rpm
