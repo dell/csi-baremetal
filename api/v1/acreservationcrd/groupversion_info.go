@@ -1,7 +1,7 @@
-// Package accrd contains API Schema definitions for the available capacity v1 API group
+// Package acrcrd contains API Schema definitions for the available capacity reservation v1 API group
 // +groupName=baremetal-csi.dellemc.com
 // +versionName=v1
-package accrd
+package acrcrd
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -12,11 +12,11 @@ import (
 
 var (
 	// GroupVersionAvailableCapacity is group version used to register these objects
-	GroupVersionAvailableCapacity = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
+	GroupVersionACR = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilderAvailableCapacity = &crScheme.Builder{GroupVersion: GroupVersionAvailableCapacity}
+	SchemeBuilderACR = &crScheme.Builder{GroupVersion: GroupVersionACR}
 
 	// AddToSchemeAvailableCapacity adds the types in this group-version to the given scheme.
-	AddToSchemeAvailableCapacity = SchemeBuilderAvailableCapacity.AddToScheme
+	AddToSchemeACR = SchemeBuilderACR.AddToScheme
 )
