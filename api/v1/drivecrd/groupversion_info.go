@@ -21,7 +21,7 @@ package drivecrd
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
+	crScheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/dell/csi-baremetal/api/v1"
 )
@@ -31,7 +31,7 @@ var (
 	GroupVersionDrive = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilderDrive is used to add go types to the GroupVersionKind scheme
-	SchemeBuilderDrive = &scheme.Builder{GroupVersion: GroupVersionDrive}
+	SchemeBuilderDrive = &crScheme.Builder{GroupVersion: GroupVersionDrive}
 
 	// AddToSchemeDrive adds the types in this group-version to the given scheme.
 	AddToSchemeDrive = SchemeBuilderDrive.AddToScheme

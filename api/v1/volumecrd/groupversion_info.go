@@ -5,7 +5,7 @@ package volumecrd
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
+	crScheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/dell/csi-baremetal/api/v1"
 )
@@ -15,7 +15,7 @@ var (
 	GroupVersion = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+	SchemeBuilder = &crScheme.Builder{GroupVersion: GroupVersion}
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
