@@ -2,4 +2,4 @@ FROM    ubuntu:20.04
 
 RUN     apt update --no-install-recommends -y -q \
 &&      apt install --no-install-recommends -y -q lsscsi smartmontools \
-&&      apt-get install nvme-cli
+&&      apt-get install -y nvme-cli
