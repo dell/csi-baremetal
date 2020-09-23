@@ -199,7 +199,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		case apiV1.Created:
 			volume.Spec.CSIStatus = apiV1.Removing
 			ll.Debug("Change volume status from Created to Removing")
-			fallthrough
 		case apiV1.Removing:
 		case apiV1.Removed:
 			if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
@@ -328,7 +327,6 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		newStatus = apiV1.Failed
-		// If status is failed, we don't try to delete this volume again
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 		newStatus = apiV1.Removed
