@@ -49,9 +49,10 @@ message AvailableCapacity {
 
 message AvailableCapacityReservation {
     string Name = 1;
-    string StorageClass = 2;
-    int64 Size = 3;
-    repeated string Reservations = 4;
+    string Node = 2;
+    string StorageClass = 3;
+    int64 Size = 4;
+    repeated string Reservations = 5;
 }
 
 message LogicalVolumeGroup {
