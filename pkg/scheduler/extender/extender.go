@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
@@ -261,14 +263,20 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		return nodes, failedNodesMap, err
 	}
 
-	var acList = &accrd.AvailableCapacityList{}
+	var (
+		acList  = &accrd.AvailableCapacityList{}
+		acrList = &acrcrd.AvailableCapacityReservationList{}
+	)
+
 	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
-		err = fmt.Errorf("unable to read AvailableCapacity list: %v", err)
-		return
+		return matchedNodes, failedNodesMap, fmt.Errorf("unable to read AvailableCapacity list: %v", err)
+	}
+	if err = e.k8sClient.ReadList(context.Background(), acrList); err != nil {
+		return matchedNodes, failedNodesMap, fmt.Errorf("unable to read AvailableCapacityReservation list: %v", err)
 	}
 
 	// map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
-	acByNodeAndSCMap := e.acByNodeAndSCMap(acList.Items)
+	acByNodeAndSCMap := e.freeACByNodeAndSCMap(acList.Items, acrList.Items)
 	// map[StorageClass]*Volume
 	scVolumeMapping := e.scVolumeMapping(volumes)
 
@@ -427,7 +435,7 @@ func (e *Extender) scVolumeMapping(volumes []*genV1.Volume) map[string][]*genV1.
 }
 
 /**
-	acByNodeAndSCMap constructs map with next structure:
+	freeACByNodeAndSCMap constructs map with next structure:
 	map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
 	{
 		NodeID_1: {
@@ -443,10 +451,32 @@ func (e *Extender) scVolumeMapping(volumes []*genV1.Volume) map[string][]*genV1.
 			...................
 		}
 	}
+	construct map based on provided list of AC and list of ACR,
+	if there is ACR that points on some AC that AC will not appeared in resulting map
 **/
-func (e *Extender) acByNodeAndSCMap(acs []accrd.AvailableCapacity) map[string]map[string]map[string]*accrd.AvailableCapacity {
-	var acByNodeAndSCMap = map[string]map[string]map[string]*accrd.AvailableCapacity{}
+func (e *Extender) freeACByNodeAndSCMap(acs []accrd.AvailableCapacity,
+	acrs []acrcrd.AvailableCapacityReservation) map[string]map[string]map[string]*accrd.AvailableCapacity {
+	var (
+		acByNodeAndSCMap = map[string]map[string]map[string]*accrd.AvailableCapacity{}
+		// key - AC name
+		reservedAC = map[string]struct{}{}
+	)
+
+	// fill reservedAC map
+	for _, acr := range acrs {
+		for _, acName := range acr.Spec.Reservations {
+			if _, ok := reservedAC[acName]; ok {
+				continue
+			}
+			reservedAC[acName] = struct{}{}
+		}
+	}
+
 	for _, ac := range acs {
+		if _, ok := reservedAC[ac.Name]; ok {
+			// that AC was reserved before
+			continue
+		}
 		node := ac.Spec.NodeId
 		if _, ok := acByNodeAndSCMap[node]; !ok {
 			acByNodeAndSCMap[node] = map[string]map[string]*accrd.AvailableCapacity{}
