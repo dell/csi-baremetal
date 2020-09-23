@@ -44,7 +44,6 @@ boolean validatePullRequest(String commit) {
                 stage('Get dependencies') {
                     depExitCode = sh(script: '''
                                         make install-compile-proto
-                                        make install-hal
                                         make install-controller-gen
                                         make generate-deepcopy
                                         make dependency

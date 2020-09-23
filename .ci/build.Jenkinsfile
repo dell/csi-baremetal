@@ -56,7 +56,6 @@ void runJob() {
                 stage('Get Dependencies') {
                     sh('''
                         make install-compile-proto
-                        make install-hal
                         make install-controller-gen
                         make generate-deepcopy
                         make dependency
