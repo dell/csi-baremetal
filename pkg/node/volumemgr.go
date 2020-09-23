@@ -330,7 +330,6 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 		newStatus = apiV1.Removed
-		volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
 	}
 	volume.Spec.CSIStatus = newStatus
 	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
