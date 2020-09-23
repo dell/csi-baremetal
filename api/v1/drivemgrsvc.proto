@@ -3,7 +3,7 @@ syntax = "proto3";
 package v1api;
 option go_package="v1api";
 
-import "instances.proto";
+import "types.proto";
 
 message DrivesRequest {
     string nodeId = 1;
