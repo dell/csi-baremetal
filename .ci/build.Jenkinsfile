@@ -243,7 +243,7 @@ void publishCSIArtifactsToArtifactory(final Map<String, Object> args) {
     writeFile(file: "artifacts.json",
             text: text)
 
-    common.publishFileToArtifactory("artifacts.json", pathToPublish, common.ARTIFACTORY.ATLANTIC_PUBLISH_CREDENTIALS_ID)
+    common.publishManifest(COMPONENT_NAME, args.version)
 }
 
 

@@ -140,9 +140,7 @@ void runTests() {
                         println('Manifest check failed')
                         common.setBuildFailure()
                     } else {
-                        permalink = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/latest"
-                        artifactRepo = "${ARTIFACTORY_ATLANTIC_DIR_PATH}/${COMPONENT_NAME}/${csiVersion}"
-                        common.publishPermalinkToArtifactory(permalink, artifactRepo, ARTIFACTORY_NAME)
+                        common.promoteVersion(COMPONENT_NAME, csiVersion, 'latest')
                     }
                 } else {
                     println('Skip pushing artifacts..')
