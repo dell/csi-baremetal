@@ -167,6 +167,23 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 	}
 }
 
+// ConstructACRCR constructs AvailableCapacityReservation custom resource from api.AvailableCapacityReservation struct
+// Receives an instance of api.AvailableCapacityReservation struct
+// Returns pointer on AvailableCapacityReservation CR struct
+func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *acrcrd.AvailableCapacityReservation {
+	return &acrcrd.AvailableCapacityReservation{
+		TypeMeta: apisV1.TypeMeta{
+			Kind:       "AvailableCapacityReservation",
+			APIVersion: crdV1.APIV1Version,
+		},
+		ObjectMeta: apisV1.ObjectMeta{
+			Name:      apiACR.Name,
+			Namespace: k.Namespace,
+		},
+		Spec: apiACR,
+	}
+}
+
 // ConstructLVGCR constructs LVG custom resource from api.LogicalVolumeGroup struct
 // Receives a name for k8s ObjectMeta and an instance of api.LogicalVolumeGroup struct
 // Returns an instance of LVG CR struct
