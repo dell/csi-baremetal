@@ -83,14 +83,6 @@ void runJob() {
                     ''')
                 }
 
-                stage('Base images') {
-                    sh('''
-                        make DRIVE_MANAGER_TYPE=basemgr base-images
-                        make DRIVE_MANAGER_TYPE=loopbackmgr base-image-drivemgr
-                        make DRIVE_MANAGER_TYPE=halmgr base-image-drivemgr
-                    ''')
-                }
-
                 stage('Images') {
                     sh('''
                         make DRIVE_MANAGER_TYPE=basemgr images
