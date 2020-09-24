@@ -17,6 +17,7 @@ import (
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -25,6 +26,7 @@ import (
 
 var (
 	testLogger = logrus.New()
+	testCtx    = context.Background()
 
 	testNs          = "default"
 	testProvisioner = "baremetal-csi"
@@ -123,7 +125,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	// create PVCs and SC
 	applyObjs(t, e.k8sClient, &testPVC1, &testPVC2, &testSC1)
 
-	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err := e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(volumes))
 }
@@ -133,7 +135,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 
 	// sc mapping empty
 	pod := testPod
-	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err := e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
 	assert.NotNil(t, err)
 
@@ -148,7 +150,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	// create SC
 	applyObjs(t, e.k8sClient, &testSC1)
 
-	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(volumes))
 	assert.True(t, volumes[0].Ephemeral)
@@ -165,7 +167,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 			},
 		},
 	})
-	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
 	assert.NotNil(t, err)
 
@@ -183,7 +185,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 		},
 	}}
 
-	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.NotNil(t, volumes)
 	assert.Equal(t, 1, len(volumes))
@@ -281,7 +283,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 
 	// create all AC
 	for _, ac := range acs {
-		assert.Nil(t, e.k8sClient.Create(context.Background(), &ac))
+		assert.Nil(t, e.k8sClient.Create(testCtx, &ac))
 	}
 
 	testCases := []struct {
@@ -365,6 +367,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 			assert.True(t, util.ContainsString(matchedNodeNames, n),
 				fmt.Sprintf("Matched nodes: %v, msg - %s", matchedNodeNames, testCase.Msg))
 		}
+		removeAllACRs(e.k8sClient, t)
 	}
 }
 
@@ -373,7 +376,7 @@ func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 	// create 2 storage classes
 	applyObjs(t, e.k8sClient, &testSC1, &testSC2)
 
-	m, err := e.scNameStorageTypeMapping(context.Background())
+	m, err := e.scNameStorageTypeMapping(testCtx)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(m))
 	assert.Equal(t, m[testSCName1], testStorageType)
@@ -382,7 +385,7 @@ func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 func TestExtender_getSCNameStorageType_Fail(t *testing.T) {
 	e := setup(t)
 
-	m, err := e.scNameStorageTypeMapping(context.Background())
+	m, err := e.scNameStorageTypeMapping(testCtx)
 	assert.Nil(t, m)
 	assert.NotNil(t, err)
 }
@@ -402,7 +405,7 @@ func setup(t *testing.T) *Extender {
 
 func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...runtime.Object) {
 	for _, obj := range objs {
-		assert.Nil(t, k8sClient.Create(context.Background(), obj))
+		assert.Nil(t, k8sClient.Create(testCtx, obj))
 	}
 }
 
@@ -412,4 +415,12 @@ func getNodeNames(nodes []coreV1.Node) []string {
 		nodeNames = append(nodeNames, n.Name)
 	}
 	return nodeNames
+}
+
+func removeAllACRs(k *k8s.KubeClient, t *testing.T) {
+	acrList := acrcrd.AvailableCapacityReservationList{}
+	assert.Nil(t, k.ReadList(testCtx, &acrList))
+	for _, acr := range acrList.Items {
+		assert.Nil(t, k.DeleteCR(testCtx, &acr))
+	}
 }
