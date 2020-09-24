@@ -28,7 +28,7 @@ var (
 	logPath    = flag.String("logpath", "", "Log path for Controller service")
 	useACRs    = flag.Bool("extender", false,
 		"Whether controller should read AvailableCapacityReservation CR during CreateVolume request or not")
-	logLevel   = flag.String("loglevel", base.InfoLevel,
+	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 )
 

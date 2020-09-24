@@ -43,12 +43,12 @@ type CSIControllerService struct {
 
 	svc        common.VolumeOperations
 	acProvider common.AvailableCapacityOperations
-	useACRs    bool
 
 	// to track node health status
 	nodeServicesStateMonitor *node.ServicesStateMonitor
 
-	ready bool
+	useACRs bool
+	ready   bool
 
 	csi.IdentityServer
 	grpc_health_v1.HealthServer

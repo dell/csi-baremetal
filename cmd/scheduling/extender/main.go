@@ -18,7 +18,7 @@ var (
 	privateKeyFile = flag.String("privateKeyFile", "", "path to the private key file")
 	logLevel       = flag.String("loglevel", base.InfoLevel, "Log level")
 	// TODO: remove that flag
-	useACRs        = flag.Bool("extender", false, "whether ACRs should be created as part of filter or not")
+	useACRs = flag.Bool("extender", false, "whether ACRs should be created as part of filter or not")
 )
 
 // todo these values are defined in yaml config file and should be passed as parameters
