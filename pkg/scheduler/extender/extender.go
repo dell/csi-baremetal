@@ -277,10 +277,11 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	scVolumeMapping := e.scVolumeMapping(volumes)
 
 	matched := false
-	nodeVolACs := map[string]map[*genV1.Volume]*accrd.AvailableCapacity{}
+	// map[NodeId]map[*Volume]*AC
+	nodeVoumelACs := map[string]map[*genV1.Volume]*accrd.AvailableCapacity{}
 	for _, node := range nodes {
 		nodeUID := string(node.UID)
-		nodeVolACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
+		nodeVoumelACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
 		matched = true
 		for sc, scVolumes := range scVolumeMapping {
 			volACMap := e.isACsMatchVolumeRequests(acByNodeAndSCMap[nodeUID], sc, scVolumes)
@@ -289,14 +290,14 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 				break
 			}
 			for k, v := range volACMap {
-				nodeVolACs[nodeUID][k] = v
+				nodeVoumelACs[nodeUID][k] = v
 			}
 		}
 
 		if matched {
 			matchedNodes = append(matchedNodes, node)
 		} else {
-			delete(nodeVolACs, nodeUID)
+			delete(nodeVoumelACs, nodeUID)
 			if failedNodesMap == nil {
 				failedNodesMap = map[string]string{}
 			}
@@ -305,15 +306,15 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	}
 
 	if e.useACRs {
-		err = e.createACRs(nodeVolACs, volumes)
+		err = e.createACRs(nodeVoumelACs, volumes)
 	}
 
 	return matchedNodes, failedNodesMap, err
 }
 
 // createACRs create ACR CRs based on provided map, map has next structure: map[NodeId]map[*Volume]*AvailableCapacity
-// at first map with keys *Volume and values - list of AC names is build based on nodeVolumeACMap
-// then corresponding ACR CRs is created (based on map that was build on previous step), if error occurs during ACRs creating it will be returned,
+// at first map with keys *Volume and values - list of AC names is built based on nodeVolumeACMap
+// then corresponding ACR CRs is created (based on map that was built on previous step), if error occurs during ACRs creating it will be returned,
 // and method will try to remove previously create ACR if any
 func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity, volumes []*genV1.Volume) error {
 	volumeACRsMap := make(map[*genV1.Volume][]string, len(volumes)) // value - list of AC names

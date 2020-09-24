@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -323,6 +325,9 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error
 // DeleteObjectByName read runtime.Object by its name and then delete it
 func (cs *CRHelper) DeleteObjectByName(name string, obj runtime.Object) error {
 	if err := cs.k8sClient.ReadCR(context.Background(), name, obj); err != nil {
+		if k8sError.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
 

@@ -8,7 +8,6 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func setup() *CRHelper {
@@ -177,8 +176,9 @@ func TestCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 
 func TestCRHelper_DeleteObjectByName(t *testing.T) {
 	mock := setup()
+	// object does not exist
 	err := mock.DeleteObjectByName("aaaa", &accrd.AvailableCapacity{})
-	assert.True(t, k8serrors.IsNotFound(err))
+	assert.Nil(t, err)
 
 	assert.Nil(t, mock.k8sClient.CreateCR(testCtx, testVolumeCR.Name, &testVolumeCR))
 	assert.Nil(t, mock.DeleteObjectByName(testVolumeCR.Name, &volumecrd.Volume{}))

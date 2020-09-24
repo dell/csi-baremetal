@@ -156,7 +156,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *accrd.AvailableCapacity {
 	return &accrd.AvailableCapacity{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "AvailableCapacity",
+			Kind:       crdV1.AvailableCapacityKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -173,7 +173,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *acrcrd.AvailableCapacityReservation {
 	return &acrcrd.AvailableCapacityReservation{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "AvailableCapacityReservation",
+			Kind:       crdV1.AvailableCapacityReservationKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -190,7 +190,7 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LVG {
 	return &lvgcrd.LVG{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "LVG",
+			Kind:       crdV1.LVGKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -207,7 +207,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "Volume",
+			Kind:       crdV1.VolumeKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -224,7 +224,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd.Drive {
 	return &drivecrd.Drive{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "Drive",
+			Kind:       crdV1.DriveKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
