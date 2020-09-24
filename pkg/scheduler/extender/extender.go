@@ -272,23 +272,26 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	scVolumeMapping := e.scVolumeMapping(volumes)
 
 	matched := false
-	nodeACs := map[string][]*accrd.AvailableCapacity{}
+	nodeVolACs := map[string]map[*genV1.Volume]*accrd.AvailableCapacity{}
 	for _, node := range nodes {
+		nodeUID := string(node.UID)
+		nodeVolACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
 		matched = true
-		acs := make([]*accrd.AvailableCapacity, 0) // based on them ACR CRs will be created
 		for sc, scVolumes := range scVolumeMapping {
-			scACs := e.isACsMatchVolumeRequests(acByNodeAndSCMap[string(node.UID)], sc, scVolumes)
-			if scACs == nil {
+			volACMap := e.isACsMatchVolumeRequests(acByNodeAndSCMap[nodeUID], sc, scVolumes)
+			if volACMap == nil {
 				matched = false
 				break
 			}
-			acs = append(acs, scACs...)
+			for k, v := range volACMap {
+				nodeVolACs[nodeUID][k] = v
+			}
 		}
 
 		if matched {
 			matchedNodes = append(matchedNodes, node)
-			nodeACs[string(node.UID)] = acs
 		} else {
+			delete(nodeVolACs, nodeUID)
 			if failedNodesMap == nil {
 				failedNodesMap = map[string]string{}
 			}
@@ -296,18 +299,29 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		}
 	}
 
+	volumeACRsMap := make(map[*genV1.Volume][]string, len(volumes)) // value - list of AC names
+	for _, v := range volumes {
+		if _, ok := volumeACRsMap[v]; !ok {
+			volumeACRsMap[v] = make([]string, len(matchedNodes))
+		}
+		nodeNum := 0
+		for _, volumeACsMap := range nodeVolACs {
+			volumeACRsMap[v][nodeNum] = volumeACsMap[v].Name
+			nodeNum++
+		}
+	}
+
 	// create ACR CR based node ACs
-	for _, acs := range nodeACs {
-		for _, ac := range acs {
-			acrCR := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
-				Name:         uuid.New().String(),
-				StorageClass: ac.Spec.StorageClass,
-				Size:         ac.Spec.Size,
-				Reservations: []string{ac.Name},
-			})
-			if err := e.k8sClient.CreateCR(context.Background(), acrCR.Name, acrCR); err != nil {
-				e.logger.WithField("method", "filter").Errorf("Unable to create ACR CR %v: %v", acrCR.Spec, err)
-			}
+	for v, acs := range volumeACRsMap {
+		acrCR := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
+			Name:         uuid.New().String(),
+			StorageClass: v.StorageClass,
+			Size:         v.Size,
+			Reservations: acs,
+		})
+		if err := e.k8sClient.CreateCR(context.Background(), acrCR.Name, acrCR); err != nil {
+			return matchedNodes, failedNodesMap,
+				fmt.Errorf("unable to create ACR CR %v for volume %v: %v", acrCR.Spec, v, err)
 		}
 	}
 
@@ -317,9 +331,9 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 // isACsMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
 func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
-	sc string, volumes []*genV1.Volume) []*accrd.AvailableCapacity { // list based on which ACR will be created
-	resultingACs := make([]*accrd.AvailableCapacity, len(volumes))
-	for index, volume := range volumes {
+	sc string, volumes []*genV1.Volume) map[*genV1.Volume]*accrd.AvailableCapacity { // list based on which ACR will be created
+	resultingACs := make(map[*genV1.Volume]*accrd.AvailableCapacity, len(volumes))
+	for _, volume := range volumes {
 		subSC := util.GetSubStorageClass(sc)
 		LVM := util.IsStorageClassLVG(sc)
 
@@ -360,7 +374,8 @@ func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd
 			}
 		}
 		// here ac != nil
-		resultingACs[index] = ac
+		vol := volume
+		resultingACs[vol] = ac
 		if ac.Spec.StorageClass != sc { // sc relates to LVG or sc == ANY
 			if util.IsStorageClassLVG(ac.Spec.StorageClass) || LVM {
 				if LVM {
@@ -483,16 +498,13 @@ func (e *Extender) freeACByNodeAndSCMap() (map[string]map[string]map[string]*acc
 
 	var (
 		acByNodeAndSCMap = map[string]map[string]map[string]*accrd.AvailableCapacity{}
-		// key - AC name
+		// key - AC name, holds AC names that were reserved (are in ACR.Spec.Locations)
 		reservedAC = map[string]struct{}{}
 	)
 
 	// fill reservedAC map
 	for _, acr := range acrList.Items {
 		for _, acName := range acr.Spec.Reservations {
-			if _, ok := reservedAC[acName]; ok {
-				continue
-			}
 			reservedAC[acName] = struct{}{}
 		}
 	}
@@ -500,6 +512,7 @@ func (e *Extender) freeACByNodeAndSCMap() (map[string]map[string]map[string]*acc
 	for _, ac := range acList.Items {
 		if _, ok := reservedAC[ac.Name]; ok {
 			// that AC was reserved before
+			e.logger.WithField("method", "freeACByNodeAndSCMap").Infof("AC %s was reserved before, skip ...", ac.Name)
 			continue
 		}
 		node := ac.Spec.NodeId
@@ -514,6 +527,9 @@ func (e *Extender) freeACByNodeAndSCMap() (map[string]map[string]map[string]*acc
 			acByNodeAndSCMap[node][sc][ac.Name] = &ac
 		}
 	}
+
+	e.logger.WithField("method", "freeACByNodeAndSCMap").
+		Infof("Read %d ACs, %d ACRs. Amount of reserved ACs is %d", len(acList.Items), len(acrList.Items), len(reservedAC))
 
 	return acByNodeAndSCMap, nil
 }
