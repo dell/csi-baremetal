@@ -121,17 +121,12 @@ boolean validatePullRequest(String commit) {
                     }
                 )
                 stage('Make images') {
-                    baseImageExitCode = sh(script: '''
-                        make DRIVE_MANAGER_TYPE=basemgr base-images
-                        make DRIVE_MANAGER_TYPE=loopbackmgr base-image-drivemgr
-                        make DRIVE_MANAGER_TYPE=halmgr base-image-drivemgr
-                    ''', returnStatus: true)
                     imageExitCode = sh(script: '''
                         make DRIVE_MANAGER_TYPE=basemgr images
                         make DRIVE_MANAGER_TYPE=loopbackmgr image-drivemgr
                         make DRIVE_MANAGER_TYPE=halmgr image-drivemgr
                     ''', returnStatus: true)
-                    if ((imageExitCode != 0) || (baseImageExitCode != 0)) {
+                    if (imageExitCode != 0) {
                         currentBuild.result = 'FAILURE'
                         throw new Exception("Image stage failed, check logs")
                     }
