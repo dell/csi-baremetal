@@ -254,7 +254,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 		node2UID  = "node-2222-uuid"
 		node3UID  = "node-3333-uuid"
 
-		e = setup(t)
+		e *Extender
 	)
 
 	nodes := []coreV1.Node{
@@ -262,6 +262,16 @@ func TestExtender_filterSuccess(t *testing.T) {
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node2UID), Name: node2Name}},
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node3UID), Name: node3Name}},
 	}
+
+	// empty volumes
+	e = setup(t)
+	matched, failed, err := e.filter(nodes, nil)
+	assert.Nil(t, err)
+	assert.Nil(t, failed)
+	assert.Equal(t, len(nodes), len(matched))
+
+	// different scenarios
+	e = setup(t)
 
 	acs := []accrd.AvailableCapacity{
 		// NODE-1 ACs, HDD[50Gb, 100Gb]
@@ -362,6 +372,16 @@ func TestExtender_filterSuccess(t *testing.T) {
 		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
 			fmt.Sprintf("Matched nodes %v. Test case: %v", matchedNodeNames, testCase.Msg))
 		assert.Nil(t, err, testCase.Msg)
+
+		// check ACRs
+		acrList := &acrcrd.AvailableCapacityReservationList{}
+		assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList))
+		assert.Equal(t, len(testCase.Volumes), len(acrList.Items))
+		reservedACCount := 0
+		for _, acr := range acrList.Items {
+			reservedACCount += len(acr.Spec.Reservations)
+		}
+		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.Volumes), reservedACCount)
 
 		for _, n := range testCase.ExpectedNodeNames {
 			assert.True(t, util.ContainsString(matchedNodeNames, n),
