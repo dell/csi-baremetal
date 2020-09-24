@@ -411,14 +411,17 @@ func TestExtender_getSCNameStorageType_Fail(t *testing.T) {
 }
 
 func setup(t *testing.T) *Extender {
-	e, err := NewExtender(testLogger, testNs, testProvisioner, true)
-	assert.Nil(t, err)
 	k, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 
-	e.k8sClient = k8s.NewKubeClient(k, testLogger, testNs)
-	e.crHelper = k8s.NewCRHelper(e.k8sClient, testLogger)
-	return e
+	kubeClient := k8s.NewKubeClient(k, testLogger, testNs)
+	return &Extender{
+		k8sClient:   kubeClient,
+		namespace:   testNs,
+		provisioner: testProvisioner,
+		useACRs:     true,
+		logger:      testLogger.WithField("component", "Extender"),
+	}
 }
 
 func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...runtime.Object) {
