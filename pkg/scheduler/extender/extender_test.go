@@ -375,13 +375,16 @@ func TestExtender_filterSuccess(t *testing.T) {
 
 		// check ACRs
 		acrList := &acrcrd.AvailableCapacityReservationList{}
-		assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList))
-		assert.Equal(t, len(testCase.Volumes), len(acrList.Items))
+		assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList), testCase.Msg)
+		if len(testCase.ExpectedNodeNames) > 0 {
+			assert.Equal(t, len(testCase.Volumes), len(acrList.Items), testCase.Msg)
+		}
+
 		reservedACCount := 0
 		for _, acr := range acrList.Items {
 			reservedACCount += len(acr.Spec.Reservations)
 		}
-		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.Volumes), reservedACCount)
+		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.Volumes), reservedACCount, testCase.Msg)
 
 		for _, n := range testCase.ExpectedNodeNames {
 			assert.True(t, util.ContainsString(matchedNodeNames, n),

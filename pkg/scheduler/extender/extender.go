@@ -357,7 +357,7 @@ func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accr
 	// try to remove all created ACR
 	for _, acrName := range createdACRs {
 		if err := e.crHelper.DeleteObjectByName(acrName, &acrcrd.AvailableCapacityReservation{}); err != nil {
-			e.logger.WithField("method", "createACR").Errorf("Unable to remove ACR %s: %v", acrName, err)
+			e.logger.WithField("method", "createACRs").Errorf("Unable to remove ACR %s: %v", acrName, err)
 		}
 	}
 
