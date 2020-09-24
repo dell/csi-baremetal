@@ -98,7 +98,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 
 	e.Lock()
 	defer e.Unlock()
-	matchedNodes, failedNodes, err := e.filter(extenderArgs.Nodes.Items, volumes)
+	matchedNodes, failedNodes, err := e.filter(ctxWithVal, extenderArgs.Nodes.Items, volumes)
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		extenderRes.Error = err.Error()
@@ -262,7 +262,7 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 // nodes - list of node candidate, volumes - requested volumes
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // failedNodesMap - represents the filtered out nodes, with node names and failure messages
-func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
+func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
 	if len(volumes) == 0 {
 		return nodes, failedNodesMap, err
@@ -306,7 +306,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	}
 
 	if e.useACRs {
-		err = e.createACRs(nodeVoumelACs)
+		err = e.createACRs(ctx, nodeVoumelACs)
 	}
 
 	return matchedNodes, failedNodesMap, err
@@ -316,7 +316,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 // at first map with keys *Volume and values - list of AC names is built based on nodeVolumeACMap
 // then corresponding ACR CRs is created (based on map that was built on previous step), if error occurs during ACRs creating it will be returned,
 // and method will try to remove previously create ACR if any
-func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity) error {
+func (e *Extender) createACRs(ctx context.Context, nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity) error {
 	volumeReservationMap := make(map[*genV1.Volume][]string) // value - list of AC names
 	for _, volumeACMap := range nodeVolumeACMap {
 		for volume, ac := range volumeACMap {
@@ -342,7 +342,7 @@ func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accr
 			Size:         v.Size,
 			Reservations: acs,
 		})
-		if createErr = e.k8sClient.CreateCR(context.Background(), acrCR.Name, acrCR); createErr != nil {
+		if createErr = e.k8sClient.CreateCR(ctx, acrCR.Name, acrCR); createErr != nil {
 			createErr = fmt.Errorf("unable to create ACR CR %v for volume %v: %v", acrCR.Spec, v, createErr)
 			break
 		}
@@ -356,7 +356,7 @@ func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accr
 
 	// try to remove all created ACR
 	for _, acrName := range createdACRs {
-		if err := e.crHelper.DeleteObjectByName(acrName, &acrcrd.AvailableCapacityReservation{}); err != nil {
+		if err := e.crHelper.DeleteObjectByName(ctx, acrName, &acrcrd.AvailableCapacityReservation{}); err != nil {
 			e.logger.WithField("method", "createACRs").Errorf("Unable to remove ACR %s: %v", acrName, err)
 		}
 	}

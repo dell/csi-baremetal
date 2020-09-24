@@ -265,7 +265,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 
 	// empty volumes
 	e = setup(t)
-	matched, failed, err := e.filter(nodes, nil)
+	matched, failed, err := e.filter(testCtx, nodes, nil)
 	assert.Nil(t, err)
 	assert.Nil(t, failed)
 	assert.Equal(t, len(nodes), len(matched))
@@ -366,7 +366,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		matchedNodes, failedNode, err := e.filter(nodes, testCase.Volumes)
+		matchedNodes, failedNode, err := e.filter(testCtx, nodes, testCase.Volumes)
 		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
 		matchedNodeNames := getNodeNames(matchedNodes)
 		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
@@ -491,7 +491,7 @@ func TestExtender_createACRsSuccess(t *testing.T) {
 		e = setup(t)
 	)
 
-	err := e.createACRs(in)
+	err := e.createACRs(testCtx, in)
 	assert.Nil(t, err)
 
 	acrList := &acrcrd.AvailableCapacityReservationList{}

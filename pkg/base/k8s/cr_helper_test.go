@@ -177,11 +177,11 @@ func TestCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 func TestCRHelper_DeleteObjectByName(t *testing.T) {
 	mock := setup()
 	// object does not exist
-	err := mock.DeleteObjectByName("aaaa", &accrd.AvailableCapacity{})
+	err := mock.DeleteObjectByName(testCtx, "aaaa", &accrd.AvailableCapacity{})
 	assert.Nil(t, err)
 
 	assert.Nil(t, mock.k8sClient.CreateCR(testCtx, testVolumeCR.Name, &testVolumeCR))
-	assert.Nil(t, mock.DeleteObjectByName(testVolumeCR.Name, &volumecrd.Volume{}))
+	assert.Nil(t, mock.DeleteObjectByName(testCtx, testVolumeCR.Name, &volumecrd.Volume{}))
 
 	vList := &volumecrd.VolumeList{}
 	assert.Nil(t, mock.k8sClient.ReadList(testCtx, vList))
