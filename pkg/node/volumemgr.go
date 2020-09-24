@@ -207,7 +207,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
 					ll.Errorf("Unable to update Volume's finalizers")
 				}
-				return ctrl.Result{}, err
+				return ctrl.Result{Requeue: true}, err
 			}
 			return ctrl.Result{}, nil
 		default:
