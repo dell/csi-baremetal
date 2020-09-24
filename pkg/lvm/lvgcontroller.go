@@ -98,7 +98,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			// If Kubernetes has volumes with location of LVG, which is needed to be deleted,
 			// we prevent removing, because this LVG is still used. We set DeletionTimestamp as nil and update LVG
 			for _, item := range volumes.Items {
-				if item.Spec.Location == lvg.Name {
+				if item.Spec.Location == lvg.Name && item.DeletionTimestamp.IsZero() {
 					ll.Warnf("There are volumes with location LVG %s, stop LVG deletion", lvg.Name)
 					return ctrl.Result{}, nil
 				}
