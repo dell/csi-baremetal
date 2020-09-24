@@ -564,8 +564,5 @@ func (e *Extender) freeACByNodeAndSCMap() (map[string]map[string]map[string]*acc
 		}
 	}
 
-	e.logger.WithField("method", "freeACByNodeAndSCMap").
-		Infof("Read %d ACs, %d ACRs. Amount of reserved ACs is %d", len(acList.Items), len(acrList.Items), len(reservedAC))
-
 	return acByNodeAndSCMap, nil
 }
