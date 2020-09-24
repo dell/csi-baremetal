@@ -297,11 +297,10 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	}
 
 	// create ACR CR based node ACs
-	for node, acs := range nodeACs {
+	for _, acs := range nodeACs {
 		for _, ac := range acs {
 			acrCR := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
 				Name:         uuid.New().String(),
-				Node:         node,
 				StorageClass: ac.Spec.StorageClass,
 				Size:         ac.Spec.Size,
 				Reservations: []string{ac.Name},
