@@ -1,0 +1,264 @@
+diff --git a/pkg/mocks/provisioners/fs_operations.go b/pkg/mocks/provisioners/fs_operations.go
+index 2b928bb..55e186e 100644
+--- a/pkg/mocks/provisioners/fs_operations.go
++++ b/pkg/mocks/provisioners/fs_operations.go
+@@ -1,6 +1,9 @@
+ package provisioners
+ 
+-import mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
++import (
++	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
++	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
++)
+ 
+ // MockFsOpts is a mock implementation of FSOperation interface from volumeprovisioner package
+ type MockFsOpts struct {
+@@ -20,3 +23,10 @@ func (m *MockFsOpts) UnmountWithCheck(path string) error {
+ 
+ 	return args.Error(0)
+ }
++
++// UnmountWithCheck is a mock implementation
++func (m *MockFsOpts) CreateFSWithCheck(fsType fs.FileSystem, device string) error {
++	args := m.Mock.Called(fsType, device)
++
++	return args.Error(0)
++}
+diff --git a/pkg/node/provisioners/drive_provisioner.go b/pkg/node/provisioners/drive_provisioner.go
+index 9f9d023..556cca4 100644
+--- a/pkg/node/provisioners/drive_provisioner.go
++++ b/pkg/node/provisioners/drive_provisioner.go
+@@ -30,7 +30,7 @@ const (
+ type DriveProvisioner struct {
+ 	listBlk lsblk.WrapLsblk
+ 	// fsOps uses for operations with file systems
+-	fsOps fs.WrapFS
++	fsOps uw.FSOperations
+ 	// partOps uses for operations with partitions
+ 	partOps uw.PartitionOperations
+ 
+@@ -45,9 +45,14 @@ func NewDriveProvisioner(
+ 	e command.CmdExecutor,
+ 	k *k8s.KubeClient,
+ 	log *logrus.Logger) *DriveProvisioner {
++	var (
++		listBlk = lsblk.NewLSBLK(log)
++		fsOps   = uw.NewFSOperationsImpl(e, log, listBlk)
++	)
++
+ 	return &DriveProvisioner{
+-		listBlk:   lsblk.NewLSBLK(log),
+-		fsOps:     fs.NewFSImpl(e),
++		listBlk:   listBlk,
++		fsOps:     fsOps,
+ 		partOps:   uw.NewPartitionOperationsImpl(e, log),
+ 		k8sClient: k,
+ 		crHelper:  k8s.NewCRHelper(k, log),
+@@ -97,23 +102,9 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
+ 		ll.Errorf("Unable to prepare partition: %v", err)
+ 		return fmt.Errorf("unable to prepare partition for volume %v", vol)
+ 	}
+-	ll.Infof("Partition was created successfully %v", partPtr)
+-
+-	// create FS
+-	if err = d.fsOps.CreateFS(fs.FileSystem(vol.Type), partPtr.GetFullPath()); err != nil {
+-		// Check whether partition has needed fs type or not
+-		bdev, lsblkErr := d.listBlk.GetBlockDevices(device)
+-		if lsblkErr == nil && len(bdev) > 0 {
+-			for _, child := range bdev[0].Children {
+-				if child.PartUUID == partUUID && child.FSType == vol.Type {
+-					ll.Infof("Partition has already have file system with corresponding type")
+-					return nil
+-				}
+-			}
+-		}
+-		return err
+-	}
+-	return nil
++
++	ll.Infof("Creating FS %v on %s", vol.Type, partPtr.GetFullPath())
++	return d.fsOps.CreateFSWithCheck(fs.FileSystem(vol.Type), partPtr.GetFullPath())
+ }
+ 
+ // ReleaseVolume remove FS and partition based on vol attributes.
+diff --git a/pkg/node/provisioners/drive_provisioner_test.go b/pkg/node/provisioners/drive_provisioner_test.go
+index 5349377..c55ccba 100644
+--- a/pkg/node/provisioners/drive_provisioner_test.go
++++ b/pkg/node/provisioners/drive_provisioner_test.go
+@@ -24,7 +24,7 @@ import (
+ func setupTestDriveProvisioner() (dp *DriveProvisioner,
+ 	mockLsblk *mocklu.MockWrapLsblk,
+ 	mockPH *mockProv.MockPartitionOps,
+-	mockFS *mocklu.MockWrapFS) {
++	mockFS *mockProv.MockFsOpts) {
+ 	fakeK8s, err := k8s.GetFakeKubeClient(testNs, testLogger)
+ 	if err != nil {
+ 		panic(err)
+@@ -34,7 +34,7 @@ func setupTestDriveProvisioner() (dp *DriveProvisioner,
+ 	dp = NewDriveProvisioner(&command.Executor{}, fakeK8s, logger)
+ 	mockLsblk = &mocklu.MockWrapLsblk{}
+ 	mockPH = &mockProv.MockPartitionOps{}
+-	mockFS = &mocklu.MockWrapFS{}
++	mockFS = &mockProv.MockWrapFS{}
+ 
+ 	dp.listBlk = mockLsblk
+ 	dp.partOps = mockPH
+diff --git a/pkg/node/provisioners/lvm_provisioner.go b/pkg/node/provisioners/lvm_provisioner.go
+index f8a1f0f..a36410a 100644
+--- a/pkg/node/provisioners/lvm_provisioner.go
++++ b/pkg/node/provisioners/lvm_provisioner.go
+@@ -2,6 +2,8 @@ package provisioners
+ 
+ import (
+ 	"fmt"
++	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
++	uw "github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
+ 	"strconv"
+ 
+ 	"github.com/sirupsen/logrus"
+@@ -19,7 +21,7 @@ import (
+ // Work with volumes based on Volume Groups
+ type LVMProvisioner struct {
+ 	lvmOps   lvm.WrapLVM
+-	fsOps    fs.WrapFS
++	fsOps    uw.FSOperations
+ 	crHelper *k8s.CRHelper
+ 	log      *logrus.Entry
+ }
+@@ -28,7 +30,7 @@ type LVMProvisioner struct {
+ func NewLVMProvisioner(e command.CmdExecutor, k *k8s.KubeClient, log *logrus.Logger) *LVMProvisioner {
+ 	return &LVMProvisioner{
+ 		lvmOps:   lvm.NewLVM(e, log),
+-		fsOps:    fs.NewFSImpl(e),
++		fsOps:    uw.NewFSOperationsImpl(e, log, lsblk.NewLSBLK(log)),
+ 		crHelper: k8s.NewCRHelper(k, log),
+ 		log:      log.WithField("component", "LVMProvisioner"),
+ 	}
+@@ -59,16 +61,17 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
+ 	}
+ 
+ 	// create lv with name /dev/VG_NAME/vol.Id
+-	// TODO: lvcreate should be idempotent here
+ 	ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, vgName)
+ 	if err = l.lvmOps.LVCreate(vol.Id, sizeStr, vgName); err != nil {
+-		return fmt.Errorf("unable to create LV: %v", err)
++		// check whether vg has already contained lv with name name vol.Id or not
++		if !util.ContainsString(l.lvmOps.GetLVsInVG(vgName), vol.Id) {
++			return fmt.Errorf("unable to create LV: %v", err)
++		}
+ 	}
+ 
+ 	deviceFile := fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
+-	ll.Debugf("Creating FS on %s", deviceFile)
+-	// TODO: CreateFS should be idempotent here
+-	return l.fsOps.CreateFS(fs.FileSystem(vol.Type), deviceFile)
++	ll.Infof("Creating FS %v on %s", vol.Type, deviceFile)
++	return l.fsOps.CreateFSWithCheck(fs.FileSystem(vol.Type), deviceFile)
+ }
+ 
+ // ReleaseVolume search volume group based on vol attributes, remove Logical Volume
+diff --git a/pkg/node/provisioners/utilwrappers/fs_operations.go b/pkg/node/provisioners/utilwrappers/fs_operations.go
+index efa0cb8..11cb247 100644
+--- a/pkg/node/provisioners/utilwrappers/fs_operations.go
++++ b/pkg/node/provisioners/utilwrappers/fs_operations.go
+@@ -8,6 +8,7 @@ import (
+ 
+ 	"github.com/dell/csi-baremetal/pkg/base/command"
+ 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
++	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+ )
+ 
+ // FSOperations is holds idempotent methods that consists of WrapFS methods
+@@ -17,19 +18,23 @@ type FSOperations interface {
+ 	PrepareAndPerformMount(src, dst string, bindMount bool) error
+ 	// UnmountWithCheck unmount operation
+ 	UnmountWithCheck(path string) error
++	// CreateFSWithCheck idempotent wrapper for CreateFS method from WrapFS interface
++	CreateFSWithCheck(fsType fs.FileSystem, path string) error
+ 	fs.WrapFS
+ }
+ 
+ // FSOperationsImpl is a base implementation for FSOperation interface
+ type FSOperationsImpl struct {
+ 	fs.WrapFS
+-	log *logrus.Entry
++	listBlk lsblk.WrapLsblk
++	log     *logrus.Entry
+ }
+ 
+ // NewFSOperationsImpl constructor for FSOperationsImpl and returns pointer on it
+-func NewFSOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *FSOperationsImpl {
++func NewFSOperationsImpl(e command.CmdExecutor, log *logrus.Logger, listBlk lsblk.WrapLsblk) *FSOperationsImpl {
+ 	return &FSOperationsImpl{
+ 		WrapFS: fs.NewFSImpl(e),
++		listBlk: listBlk,
+ 		log:    log.WithField("component", "FSOperations"),
+ 	}
+ }
+@@ -83,7 +88,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount
+ 	return nil
+ }
+ 
+-// UnmountWithCheck idempotent implemetation of unmount operation
++// UnmountWithCheck idempotent implementation of unmount operation
+ // check whether path is mounted and only if yes - try to unmount
+ func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
+ 	isMounted, err := fsOp.IsMounted(path)
+@@ -97,3 +102,22 @@ func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
+ 
+ 	return fsOp.Unmount(path)
+ }
++
++// CreateFSWithCheck idempotent implementation of CreateFS operation
++func (fsOp *FSOperationsImpl) CreateFSWithCheck(fsType fs.FileSystem, path string) error {
++	// create FS
++	var err error
++	if err = fsOp.CreateFS(fsType, path); err != nil {
++		// Check whether partition has needed fs type or not
++		bdev, lsblkErr := fsOp.listBlk.GetBlockDevices(path)
++		if lsblkErr == nil && len(bdev) > 0 {
++			if bdev[0].FSType == string(fsType) {
++				fsOp.log.WithField("method", "CreateFSWithCheck").
++					Infof("Path %s already has file system with corresponding type - %v", path, fsType)
++				return nil
++			}
++
++		}
++	}
++	return err
++}
+diff --git a/pkg/node/volumemgr.go b/pkg/node/volumemgr.go
+index 12e35e5..2f3d48b 100644
+--- a/pkg/node/volumemgr.go
++++ b/pkg/node/volumemgr.go
+@@ -125,7 +125,10 @@ func NewVolumeManager(
+ 	logger *logrus.Logger,
+ 	k8sclient *k8s.KubeClient,
+ 	recorder eventRecorder, nodeID string) *VolumeManager {
+-	vm := &VolumeManager{
++	var(
++		listBlk = lsblk.NewLSBLK(logger)
++	)
++	return &VolumeManager{
+ 		k8sClient:      k8sclient,
+ 		crHelper:       k8s.NewCRHelper(k8sclient, logger),
+ 		driveMgrClient: client,
+@@ -134,16 +137,15 @@ func NewVolumeManager(
+ 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
+ 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
+ 		},
+-		fsOps:          utilwrappers.NewFSOperationsImpl(executor, logger),
++		fsOps:          utilwrappers.NewFSOperationsImpl(executor, logger, listBlk),
+ 		lvmOps:         lvm.NewLVM(executor, logger),
+-		listBlk:        lsblk.NewLSBLK(logger),
++		listBlk:        listBlk,
+ 		partOps:        ph.NewWrapPartitionImpl(executor, logger),
+ 		nodeID:         nodeID,
+ 		log:            logger.WithField("component", "VolumeManager"),
+ 		recorder:       recorder,
+ 		discoverLvgSSD: true,
+ 	}
+-	return vm
+ }
+ 
+ // SetProvisioners sets provisioners for current VolumeManager instance

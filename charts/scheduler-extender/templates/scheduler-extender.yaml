@@ -26,6 +26,7 @@ spec:
             - --loglevel={{ .Values.log.level }}
             - --certFile={{ .Values.tls.certFile }}
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
+            - --extender={{ .Values.extender }}  # TODO: remove that flag
           ports:
             - containerPort: {{  .Values.port }}
           env:
@@ -34,6 +35,8 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+            - name: LOG_FORMAT
+              value: text
       hostNetwork: true
       tolerations:
         - key: CriticalAddonsOnly

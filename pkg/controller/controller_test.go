@@ -535,7 +535,7 @@ func newSvc() *CSIControllerService {
 	if err != nil {
 		panic(err)
 	}
-	nSvc := NewControllerService(kubeclient, testLogger)
+	nSvc := NewControllerService(kubeclient, testLogger, false)
 	return nSvc
 }
 

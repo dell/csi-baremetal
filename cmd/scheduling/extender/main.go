@@ -17,6 +17,8 @@ var (
 	certFile       = flag.String("certFile", "", "path to the cert file")
 	privateKeyFile = flag.String("privateKeyFile", "", "path to the private key file")
 	logLevel       = flag.String("loglevel", base.InfoLevel, "Log level")
+	// TODO: remove that flag
+	useACRs        = flag.Bool("extender", false, "whether ACRs should be created as part of filter or not")
 )
 
 // todo these values are defined in yaml config file and should be passed as parameters
@@ -31,7 +33,7 @@ func main() {
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
-	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner)
+	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner, *useACRs)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}

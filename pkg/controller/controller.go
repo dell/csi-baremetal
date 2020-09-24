@@ -43,6 +43,7 @@ type CSIControllerService struct {
 
 	svc        common.VolumeOperations
 	acProvider common.AvailableCapacityOperations
+	useACRs    bool
 
 	// to track node health status
 	nodeServicesStateMonitor *node.ServicesStateMonitor
@@ -56,11 +57,12 @@ type CSIControllerService struct {
 // NewControllerService is the constructor for CSIControllerService struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of CSIControllerService
-func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger) *CSIControllerService {
+func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger, useACRs bool) *CSIControllerService {
 	c := &CSIControllerService{
 		k8sclient:                k8sClient,
 		log:                      logger.WithField("component", "CSIControllerService"),
 		acProvider:               common.NewACOperationsImpl(k8sClient, logger),
+		useACRs:                  useACRs,
 		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
 		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),

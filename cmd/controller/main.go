@@ -26,6 +26,8 @@ var (
 	healthPort = flag.Int("healthport", base.DefaultHealthPort, "Port for health service")
 	endpoint   = flag.String("endpoint", "", "Endpoint for controller service")
 	logPath    = flag.String("logpath", "", "Log path for Controller service")
+	useACRs    = flag.Bool("extender", false,
+		"Whether controller should read AvailableCapacityReservation CR during CreateVolume request or not")
 	logLevel   = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 )
@@ -47,7 +49,7 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 	kubeClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	controllerService := controller.NewControllerService(kubeClient, logger)
+	controllerService := controller.NewControllerService(kubeClient, logger, *useACRs)
 	go util.SetupSignalHandler(csiControllerServer)
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controllerService)

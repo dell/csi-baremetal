@@ -46,7 +46,9 @@ var (
 	nodeID           = flag.String("nodeid", "", "node identification by k8s")
 	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
 	eventConfigPath  = flag.String("eventConfigPath", "/etc/config/alerts.yaml", "path for the events config file")
-	logLevel         = flag.String("loglevel", base.InfoLevel,
+	useACRs          = flag.Bool("extender", false,
+		"Whether node svc should read AvailableCapacityReservation CR during NodePublish request for ephemeral volumes or not")
+	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 )
 
@@ -89,7 +91,7 @@ func main() {
 
 	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder)
+	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder, *useACRs)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,

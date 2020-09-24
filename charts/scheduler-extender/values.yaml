@@ -1,6 +1,9 @@
 # Docker registry to pull images
 registry: asdrepo.isus.emc.com:9042
 
+# TODO: remove that flag
+extender: false
+
 port: 8889
 
 env:

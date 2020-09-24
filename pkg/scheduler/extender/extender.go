@@ -35,12 +35,15 @@ type Extender struct {
 	// namespace in which Extender will be search Available Capacity
 	namespace   string
 	provisioner string
+	// TODO: remove that key
+	useACRs bool
 	sync.Mutex
 	logger *logrus.Entry
 }
 
 // NewExtender returns new instance of Extender struct
-func NewExtender(logger *logrus.Logger, namespace, provisioner string) (*Extender, error) {
+// TODO: remove useACRs flag
+func NewExtender(logger *logrus.Logger, namespace, provisioner string, useACRs bool) (*Extender, error) {
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
 		return nil, err
@@ -51,6 +54,7 @@ func NewExtender(logger *logrus.Logger, namespace, provisioner string) (*Extende
 		crHelper:    k8s.NewCRHelper(kubeClient, logger),
 		provisioner: provisioner,
 		logger:      logger.WithField("component", "Extender"),
+		useACRs:     useACRs,
 	}, nil
 }
 
@@ -300,7 +304,10 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		}
 	}
 
-	err = e.createACRs(nodeVolACs, volumes)
+	if e.useACRs {
+		err = e.createACRs(nodeVolACs, volumes)
+	}
+
 	return matchedNodes, failedNodesMap, err
 }
 
