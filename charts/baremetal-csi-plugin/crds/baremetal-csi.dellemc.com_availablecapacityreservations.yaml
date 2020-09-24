@@ -39,8 +39,6 @@ spec:
           properties:
             Name:
               type: string
-            Node:
-              type: string
             Reservations:
               items:
                 type: string
