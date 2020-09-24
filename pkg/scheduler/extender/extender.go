@@ -317,7 +317,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 // then corresponding ACR CRs is created (based on map that was built on previous step), if error occurs during ACRs creating it will be returned,
 // and method will try to remove previously create ACR if any
 func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity) error {
-	volumeReservationMap := make(map[*genV1.Volume][]string, 0) // value - list of AC names
+	volumeReservationMap := make(map[*genV1.Volume][]string) // value - list of AC names
 	for _, volumeACMap := range nodeVolumeACMap {
 		for volume, ac := range volumeACMap {
 			if _, ok := volumeReservationMap[volume]; !ok {
