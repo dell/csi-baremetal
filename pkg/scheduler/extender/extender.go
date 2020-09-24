@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
-
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
@@ -21,6 +19,7 @@ import (
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -32,6 +31,7 @@ import (
 // based on pod volumes requirements and Available Capacities
 type Extender struct {
 	k8sClient *k8s.KubeClient
+	crHelper  *k8s.CRHelper
 	// namespace in which Extender will be search Available Capacity
 	namespace   string
 	provisioner string
@@ -48,6 +48,7 @@ func NewExtender(logger *logrus.Logger, namespace, provisioner string) (*Extende
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
 	return &Extender{
 		k8sClient:   kubeClient,
+		crHelper:    k8s.NewCRHelper(kubeClient, logger),
 		provisioner: provisioner,
 		logger:      logger.WithField("component", "Extender"),
 	}, nil
@@ -299,19 +300,34 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 		}
 	}
 
+	err = e.createACRs(nodeVolACs, volumes)
+	return matchedNodes, failedNodesMap, err
+}
+
+// createACRs create ACR CRs based on provided map, map has next structure: map[NodeId]map[*Volume]*AvailableCapacity
+// at first map with keys *Volume and values - list of AC names is build based on nodeVolumeACMap
+// then corresponding ACR CRs is created (based on map that was build on previous step), if error occurs during ACRs creating it will be returned,
+// and method will try to remove previously create ACR if any
+func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity, volumes []*genV1.Volume) error {
 	volumeACRsMap := make(map[*genV1.Volume][]string, len(volumes)) // value - list of AC names
 	for _, v := range volumes {
 		if _, ok := volumeACRsMap[v]; !ok {
-			volumeACRsMap[v] = make([]string, len(matchedNodes))
+			volumeACRsMap[v] = make([]string, len(nodeVolumeACMap))
 		}
 		nodeNum := 0
-		for _, volumeACsMap := range nodeVolACs {
+		for _, volumeACsMap := range nodeVolumeACMap {
 			volumeACRsMap[v][nodeNum] = volumeACsMap[v].Name
 			nodeNum++
 		}
 	}
 
 	// create ACR CR based node ACs
+	var (
+		createdACRs = make([]string, len(volumeACRsMap))
+		index       = 0
+		createErr   error
+	)
+
 	for v, acs := range volumeACRsMap {
 		acrCR := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
 			Name:         uuid.New().String(),
@@ -319,13 +335,26 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 			Size:         v.Size,
 			Reservations: acs,
 		})
-		if err := e.k8sClient.CreateCR(context.Background(), acrCR.Name, acrCR); err != nil {
-			return matchedNodes, failedNodesMap,
-				fmt.Errorf("unable to create ACR CR %v for volume %v: %v", acrCR.Spec, v, err)
+		if createErr = e.k8sClient.CreateCR(context.Background(), acrCR.Name, acrCR); createErr != nil {
+			createErr = fmt.Errorf("unable to create ACR CR %v for volume %v: %v", acrCR.Spec, v, createErr)
+			break
+		}
+		createdACRs[index] = acrCR.Name
+		index++
+	}
+
+	if createErr == nil {
+		return nil
+	}
+
+	// try to remove all created ACR
+	for _, acrName := range createdACRs {
+		if err := e.crHelper.DeleteObjectByName(acrName, &acrcrd.AvailableCapacityReservation{}); err != nil {
+			e.logger.WithField("method", "createACR").Errorf("Unable to remove ACR %s: %v", acrName, err)
 		}
 	}
 
-	return matchedNodes, failedNodesMap, err
+	return createErr
 }
 
 // isACsMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
@@ -463,7 +492,10 @@ func (e *Extender) scVolumeMapping(volumes []*genV1.Volume) map[string][]*genV1.
 }
 
 /**
-	freeACByNodeAndSCMap constructs map with next structure:
+	construct map based on list of ACs and list of ACRs,
+	if there is ACR that points on some AC that AC will not appeared in resulting map
+
+	resulting map has next structure:
 	map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
 	{
 		NodeID_1: {
@@ -479,8 +511,6 @@ func (e *Extender) scVolumeMapping(volumes []*genV1.Volume) map[string][]*genV1.
 			...................
 		}
 	}
-	construct map based on list of ACs and list of ACRs,
-	if there is ACR that points on some AC that AC will not appeared in resulting map
 **/
 func (e *Extender) freeACByNodeAndSCMap() (map[string]map[string]map[string]*accrd.AvailableCapacity, error) {
 	var (
@@ -512,7 +542,6 @@ func (e *Extender) freeACByNodeAndSCMap() (map[string]map[string]map[string]*acc
 	for _, ac := range acList.Items {
 		if _, ok := reservedAC[ac.Name]; ok {
 			// that AC was reserved before
-			e.logger.WithField("method", "freeACByNodeAndSCMap").Infof("AC %s was reserved before, skip ...", ac.Name)
 			continue
 		}
 		node := ac.Spec.NodeId
