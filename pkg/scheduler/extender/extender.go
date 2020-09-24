@@ -306,7 +306,7 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 	}
 
 	if e.useACRs {
-		err = e.createACRs(nodeVoumelACs, volumes)
+		err = e.createACRs(nodeVoumelACs)
 	}
 
 	return matchedNodes, failedNodesMap, err
@@ -316,27 +316,26 @@ func (e *Extender) filter(nodes []coreV1.Node, volumes []*genV1.Volume) (matched
 // at first map with keys *Volume and values - list of AC names is built based on nodeVolumeACMap
 // then corresponding ACR CRs is created (based on map that was built on previous step), if error occurs during ACRs creating it will be returned,
 // and method will try to remove previously create ACR if any
-func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity, volumes []*genV1.Volume) error {
-	volumeACRsMap := make(map[*genV1.Volume][]string, len(volumes)) // value - list of AC names
-	for _, v := range volumes {
-		if _, ok := volumeACRsMap[v]; !ok {
-			volumeACRsMap[v] = make([]string, len(nodeVolumeACMap))
-		}
-		nodeNum := 0
-		for _, volumeACsMap := range nodeVolumeACMap {
-			volumeACRsMap[v][nodeNum] = volumeACsMap[v].Name
-			nodeNum++
+func (e *Extender) createACRs(nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity) error {
+	volumeReservationMap := make(map[*genV1.Volume][]string, 0) // value - list of AC names
+	for _, volumeACMap := range nodeVolumeACMap {
+		for volume, ac := range volumeACMap {
+			if _, ok := volumeReservationMap[volume]; !ok {
+				volumeReservationMap[volume] = []string{ac.Name}
+				continue
+			}
+			volumeReservationMap[volume] = append(volumeReservationMap[volume], ac.Name)
 		}
 	}
 
 	// create ACR CR based node ACs
 	var (
-		createdACRs = make([]string, len(volumeACRsMap))
+		createdACRs = make([]string, len(volumeReservationMap))
 		index       = 0
 		createErr   error
 	)
 
-	for v, acs := range volumeACRsMap {
+	for v, acs := range volumeReservationMap {
 		acrCR := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
 			Name:         uuid.New().String(),
 			StorageClass: v.StorageClass,
