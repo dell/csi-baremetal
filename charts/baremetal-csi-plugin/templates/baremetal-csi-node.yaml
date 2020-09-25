@@ -125,7 +125,6 @@ spec:
           mountPath: /var/lib/kubelet/pods
           mountPropagation: "Bidirectional"
       # ********************** baremetal-csi-drivemgr container definition **********************
-      # TODO: FABRIC-8595 Replace DriveMgr to DaemonSet
       - name: drivemgr
         image: {{- if .Values.env.test }} baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
                {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
