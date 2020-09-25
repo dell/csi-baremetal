@@ -284,7 +284,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 		nodeVoumelACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
 		matched = true
 		for sc, scVolumes := range scVolumeMapping {
-			volACMap := e.isACsMatchVolumeRequests(acByNodeAndSCMap[nodeUID], sc, scVolumes)
+			volACMap := e.searchAppropriateACs(acByNodeAndSCMap[nodeUID], sc, scVolumes)
 			if volACMap == nil {
 				matched = false
 				break
@@ -364,9 +364,9 @@ func (e *Extender) createACRs(ctx context.Context, nodeVolumeACMap map[string]ma
 	return createErr
 }
 
-// isACsMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
+// searchAppropriateACs searches the most appropriate AC for each volume from volumes in scACMap
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
-func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd.AvailableCapacity,
+func (e *Extender) searchAppropriateACs(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) map[*genV1.Volume]*accrd.AvailableCapacity { // list based on which ACR will be created
 	resultingACs := make(map[*genV1.Volume]*accrd.AvailableCapacity, len(volumes))
 	for _, volume := range volumes {
