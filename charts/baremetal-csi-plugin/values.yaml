@@ -5,7 +5,9 @@ global:
 env:
  test: false
 
-#format of logs
+extender: false
+
+# format of logs
 log:
   format: text
   level: info

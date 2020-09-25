@@ -1,3 +1,5 @@
+# git diff files
+*.diff
 # idea files
 .idea
 *.iml
