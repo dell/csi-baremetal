@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -182,6 +183,41 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	assert.NotNil(t, vm.crHelper)
 }
 
+func TestReconcile_MultipleRequest(t *testing.T) {
+	//Try to create volume multiple time in go routine, expect that CSI status Created and volume was created without error
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	volCR.Spec.CSIStatus = apiV1.Creating
+	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
+	assert.Nil(t, err)
+
+	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		res, err := vm.Reconcile(req)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+		wg.Done()
+	}()
+	wg.Add(1)
+	go func() {
+		res, err := vm.Reconcile(req)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+		wg.Done()
+	}()
+	wg.Wait()
+	volume := &vcrd.Volume{}
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	assert.Nil(t, err)
+	assert.Equal(t, apiV1.Created, volume.Spec.CSIStatus)
+}
+
 func TestReconcile_SuccessNotFound(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
@@ -310,24 +346,6 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	err = vm.k8sClient.UpdateCR(testCtx, &volCR)
 	assert.Nil(t, err)
 
-	res, err = vm.Reconcile(req)
-	assert.NotNil(t, k8sError.IsNotFound(err))
-	assert.Equal(t, res, ctrl.Result{})
-
-	volCR.Spec.CSIStatus = apiV1.Created
-	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
-	assert.Nil(t, err)
-
-	//successfully add finalizer
-	res, err = vm.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-
-	volCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
-	err = vm.k8sClient.UpdateCR(testCtx, &volCR)
-	assert.Nil(t, err)
-
-	//successfully release volume
 	res, err = vm.Reconcile(req)
 	assert.NotNil(t, k8sError.IsNotFound(err))
 	assert.Equal(t, res, ctrl.Result{})
