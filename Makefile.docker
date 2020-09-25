@@ -7,10 +7,10 @@ images: image-drivemgr image-node image-controller image-extender image-extender
 
 base-images: base-image-drivemgr base-image-node base-image-controller
 
-# todo get rid of arg_hal_version in public github repository
 base-image-drivemgr:
 	docker build --network host --file ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/Dockerfile.build \
-	--build-arg arg_hal_version=${HAL_PACKAGE_VER} --tag ${DRIVE_MANAGER_TYPE}:base ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
+	--tag ${DRIVE_MANAGER_TYPE}:base ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE} \
+	${BASE_IMAGE_DRIVEMGR_ARGS_${shell echo $(DRIVE_MANAGER_TYPE) | tr '[a-z]' '[A-Z]'}}
 
 download-grpc-health-probe:
 	if [ ! -s build/health_probe ]; then curl -s ${HEALTH_PROBE_BIN_URL} -o build/health_probe; fi
