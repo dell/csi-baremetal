@@ -5,7 +5,10 @@ import (
 	"errors"
 	"strings"
 
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
@@ -317,4 +320,16 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error
 
 	volumeCR.Spec = newSpec
 	return cs.k8sClient.UpdateCR(ctxWithID, volumeCR)
+}
+
+// DeleteObjectByName read runtime.Object by its name and then delete it
+func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, obj runtime.Object) error {
+	if err := cs.k8sClient.ReadCR(ctx, name, obj); err != nil {
+		if k8sError.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	return cs.k8sClient.DeleteCR(context.Background(), obj)
 }

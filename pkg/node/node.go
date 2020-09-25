@@ -31,8 +31,9 @@ import (
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
-	svc   common.VolumeOperations
-	reqMu sync.Mutex
+	svc     common.VolumeOperations
+	useACRs bool
+	reqMu   sync.Mutex
 
 	log           *logrus.Entry
 	livenessCheck LivenessHelper
@@ -57,12 +58,18 @@ const (
 // Receives an instance of DriveServiceClient to interact with DriveManager, ID of a node where it works, logrus logger
 // and base.KubeClient
 // Returns an instance of CSINodeService
-func NewCSINodeService(client api.DriveServiceClient, nodeID string, logger *logrus.Logger, k8sclient *k8s.KubeClient, recorder eventRecorder) *CSINodeService {
+func NewCSINodeService(client api.DriveServiceClient,
+	nodeID string,
+	logger *logrus.Logger,
+	k8sclient *k8s.KubeClient,
+	recorder eventRecorder,
+	useACRs bool) *CSINodeService {
 	e := &command.Executor{}
 	e.SetLogger(logger)
 	s := &CSINodeService{
 		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
 		svc:            common.NewVolumeOperationsImpl(k8sclient, logger),
+		useACRs:        useACRs,
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
 		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),

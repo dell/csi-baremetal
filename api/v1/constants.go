@@ -1,6 +1,12 @@
 package v1
 
 const (
+	VolumeKind                       = "Volume"
+	AvailableCapacityKind            = "AvailableCapacity"
+	AvailableCapacityReservationKind = "AvailableCapacityReservation"
+	LVGKind                          = "LVG"
+	DriveKind                        = "Drive"
+
 	Version            = "v1"
 	CSICRsGroupVersion = "baremetal-csi.dellemc.com"
 	APIV1Version       = "baremetal-csi.dellemc.com/v1"

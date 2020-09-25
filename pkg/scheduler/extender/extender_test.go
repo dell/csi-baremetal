@@ -17,6 +17,7 @@ import (
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -25,6 +26,7 @@ import (
 
 var (
 	testLogger = logrus.New()
+	testCtx    = context.Background()
 
 	testNs          = "default"
 	testProvisioner = "baremetal-csi"
@@ -123,7 +125,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	// create PVCs and SC
 	applyObjs(t, e.k8sClient, &testPVC1, &testPVC2, &testSC1)
 
-	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err := e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(volumes))
 }
@@ -133,7 +135,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 
 	// sc mapping empty
 	pod := testPod
-	volumes, err := e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err := e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
 	assert.NotNil(t, err)
 
@@ -148,7 +150,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	// create SC
 	applyObjs(t, e.k8sClient, &testSC1)
 
-	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(volumes))
 	assert.True(t, volumes[0].Ephemeral)
@@ -165,7 +167,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 			},
 		},
 	})
-	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
 	assert.NotNil(t, err)
 
@@ -183,7 +185,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 		},
 	}}
 
-	volumes, err = e.gatherVolumesByProvisioner(context.Background(), &pod)
+	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.NotNil(t, volumes)
 	assert.Equal(t, 1, len(volumes))
@@ -252,7 +254,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 		node2UID  = "node-2222-uuid"
 		node3UID  = "node-3333-uuid"
 
-		e = setup(t)
+		e *Extender
 	)
 
 	nodes := []coreV1.Node{
@@ -260,6 +262,16 @@ func TestExtender_filterSuccess(t *testing.T) {
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node2UID), Name: node2Name}},
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node3UID), Name: node3Name}},
 	}
+
+	// empty volumes
+	e = setup(t)
+	matched, failed, err := e.filter(testCtx, nodes, nil)
+	assert.Nil(t, err)
+	assert.Nil(t, failed)
+	assert.Equal(t, len(nodes), len(matched))
+
+	// different scenarios
+	e = setup(t)
 
 	acs := []accrd.AvailableCapacity{
 		// NODE-1 ACs, HDD[50Gb, 100Gb]
@@ -281,7 +293,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 
 	// create all AC
 	for _, ac := range acs {
-		assert.Nil(t, e.k8sClient.Create(context.Background(), &ac))
+		assert.Nil(t, e.k8sClient.Create(testCtx, &ac))
 	}
 
 	testCases := []struct {
@@ -354,17 +366,31 @@ func TestExtender_filterSuccess(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		matchedNodes, failedNode, err := e.filter(nodes, testCase.Volumes)
+		matchedNodes, failedNode, err := e.filter(testCtx, nodes, testCase.Volumes)
 		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
 		matchedNodeNames := getNodeNames(matchedNodes)
 		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
 			fmt.Sprintf("Matched nodes %v. Test case: %v", matchedNodeNames, testCase.Msg))
 		assert.Nil(t, err, testCase.Msg)
 
+		// check ACRs
+		acrList := &acrcrd.AvailableCapacityReservationList{}
+		assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList), testCase.Msg)
+		if len(testCase.ExpectedNodeNames) > 0 {
+			assert.Equal(t, len(testCase.Volumes), len(acrList.Items), testCase.Msg)
+		}
+
+		reservedACCount := 0
+		for _, acr := range acrList.Items {
+			reservedACCount += len(acr.Spec.Reservations)
+		}
+		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.Volumes), reservedACCount, testCase.Msg)
+
 		for _, n := range testCase.ExpectedNodeNames {
 			assert.True(t, util.ContainsString(matchedNodeNames, n),
 				fmt.Sprintf("Matched nodes: %v, msg - %s", matchedNodeNames, testCase.Msg))
 		}
+		removeAllACRs(e.k8sClient, t)
 	}
 }
 
@@ -373,7 +399,7 @@ func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 	// create 2 storage classes
 	applyObjs(t, e.k8sClient, &testSC1, &testSC2)
 
-	m, err := e.scNameStorageTypeMapping(context.Background())
+	m, err := e.scNameStorageTypeMapping(testCtx)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(m))
 	assert.Equal(t, m[testSCName1], testStorageType)
@@ -382,9 +408,107 @@ func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 func TestExtender_getSCNameStorageType_Fail(t *testing.T) {
 	e := setup(t)
 
-	m, err := e.scNameStorageTypeMapping(context.Background())
+	m, err := e.scNameStorageTypeMapping(testCtx)
 	assert.Nil(t, m)
 	assert.NotNil(t, err)
+}
+
+func TestExtender_freeACByNodeAndSCMap(t *testing.T) {
+	var (
+		node1 = "node-1111"
+		node2 = "node-2222"
+	)
+	e := setup(t)
+	ac1 := e.k8sClient.ConstructACCR(uuid.New().String(), genV1.AvailableCapacity{NodeId: node1, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)})
+	ac2 := e.k8sClient.ConstructACCR(uuid.New().String(), genV1.AvailableCapacity{NodeId: node2, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)})
+	acr1 := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
+		Name:         uuid.New().String(),
+		StorageClass: ac1.Spec.StorageClass,
+		Size:         0,
+		Reservations: []string{ac1.Name},
+	})
+
+	applyObjs(t, e.k8sClient, ac1, ac2)
+
+	res, err := e.unreservedACByNodeAndSCMap()
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(res))
+	assert.Equal(t, res[node1][v1.StorageClassHDD][ac1.Name], ac1)
+	assert.Equal(t, res[node2][v1.StorageClassHDD][ac2.Name], ac2)
+
+	e = setup(t)
+	applyObjs(t, e.k8sClient, ac1, ac2, acr1)
+
+	res, err = e.unreservedACByNodeAndSCMap()
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(res))
+	assert.Equal(t, res[node2][v1.StorageClassHDD][ac2.Name], ac2)
+}
+
+func TestExtender_scVolumeMapping(t *testing.T) {
+	var (
+		volumes = []*genV1.Volume{
+			{StorageClass: v1.StorageClassHDD},
+			{StorageClass: v1.StorageClassHDD},
+			{StorageClass: v1.StorageClassHDDLVG},
+		}
+
+		e = setup(t)
+	)
+
+	res := e.scVolumeMapping(volumes)
+	assert.Equal(t, 2, len(res))
+	assert.Equal(t, 2, len(res[v1.StorageClassHDD]))
+	assert.Equal(t, 1, len(res[v1.StorageClassHDDLVG]))
+}
+
+func TestExtender_createACRsSuccess(t *testing.T) {
+	var (
+		node1 = "node-1111"
+		node2 = "node-2222"
+		vol1  = &genV1.Volume{StorageClass: v1.StorageClassHDD}
+		vol2  = &genV1.Volume{StorageClass: v1.StorageClassHDDLVG}
+		ac11  = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
+			Spec: genV1.AvailableCapacity{NodeId: node1, StorageClass: v1.StorageClassHDD}}
+		ac12 = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
+			Spec: genV1.AvailableCapacity{NodeId: node1, StorageClass: v1.StorageClassHDDLVG}}
+		ac21 = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
+			Spec: genV1.AvailableCapacity{NodeId: node2, StorageClass: v1.StorageClassHDD}}
+		ac22 = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
+			Spec: genV1.AvailableCapacity{NodeId: node2, StorageClass: v1.StorageClassHDDLVG}}
+
+		in = map[string]map[*genV1.Volume]*accrd.AvailableCapacity{
+			node1: {
+				vol1: ac11,
+				vol2: ac12,
+			},
+			node2: {
+				vol1: ac21,
+				vol2: ac22,
+			},
+		}
+
+		e = setup(t)
+	)
+
+	err := e.createACRs(testCtx, in)
+	assert.Nil(t, err)
+
+	acrList := &acrcrd.AvailableCapacityReservationList{}
+	assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList))
+
+	assert.Equal(t, 2, len(acrList.Items))
+
+	for _, acr := range acrList.Items {
+		assert.Equal(t, 2, len(acr.Spec.Reservations))
+		if acr.Spec.StorageClass == v1.StorageClassHDD {
+			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac11.Name))
+			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac21.Name))
+		} else {
+			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac12.Name))
+			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac22.Name))
+		}
+	}
 }
 
 func setup(t *testing.T) *Extender {
@@ -396,13 +520,14 @@ func setup(t *testing.T) *Extender {
 		k8sClient:   kubeClient,
 		namespace:   testNs,
 		provisioner: testProvisioner,
+		useACRs:     true,
 		logger:      testLogger.WithField("component", "Extender"),
 	}
 }
 
 func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...runtime.Object) {
 	for _, obj := range objs {
-		assert.Nil(t, k8sClient.Create(context.Background(), obj))
+		assert.Nil(t, k8sClient.Create(testCtx, obj))
 	}
 }
 
@@ -412,4 +537,12 @@ func getNodeNames(nodes []coreV1.Node) []string {
 		nodeNames = append(nodeNames, n.Name)
 	}
 	return nodeNames
+}
+
+func removeAllACRs(k *k8s.KubeClient, t *testing.T) {
+	acrList := acrcrd.AvailableCapacityReservationList{}
+	assert.Nil(t, k.ReadList(testCtx, &acrList))
+	for _, acr := range acrList.Items {
+		assert.Nil(t, k.DeleteCR(testCtx, &acr))
+	}
 }
