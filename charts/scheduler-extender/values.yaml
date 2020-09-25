@@ -2,7 +2,7 @@
 registry: asdrepo.isus.emc.com:9042
 
 # TODO: remove that flag
-extender: false
+enableReservation: false
 
 port: 8889
 
