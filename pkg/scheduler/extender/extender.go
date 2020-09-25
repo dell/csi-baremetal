@@ -312,7 +312,7 @@ func (e *Extender) isACsMatchVolumeRequests(scACMap map[string]map[string]*accrd
 		size := volume.GetSize()
 
 		if LVM {
-			// TODO: AK8S-1332 use non default PE size
+			// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
 			size = common.AlignSizeByPE(size)
 		}
 		var ac *accrd.AvailableCapacity
