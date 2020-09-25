@@ -268,6 +268,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 		return nodes, failedNodesMap, err
 	}
 
+	// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
 	// map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
 	acByNodeAndSCMap, err := e.unreservedACByNodeAndSCMap()
 	if err != nil {
