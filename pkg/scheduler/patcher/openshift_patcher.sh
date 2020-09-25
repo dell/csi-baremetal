@@ -35,7 +35,7 @@ cat <<EOF >./policy.cfg
 }
 EOF
 
-oc get configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
+oc get configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config 2> /dev/null
 exit_status=$?
 
 if [ $exit_status -eq 0 ]; then
