@@ -230,7 +230,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 
 	// This is a temporary solution to clear all owners during NodeUnstage
 	// because NodeUnpublishRequest doesn't contain info about pod
-	// TODO AK8S-466 Remove owner from Owners slice during Unpublish properly
+	// TODO: remove owner from Owners slice during Unpublish properly - https://github.com/dell/csi-baremetal/issues/86
 	//volumeCR.Spec.Owners = nil
 	volumeCR.Spec.CSIStatus = apiV1.Created
 
@@ -352,7 +352,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
 	}
 
-	//TODO need to provide better logic for volumes Owners AK8S-466
+	//TODO: need to provide better logic for volumes Owners https://github.com/dell/csi-baremetal/issues/86
 	//add volume owner info
 	//var podName string
 	//podName, ok := req.VolumeContext[PodNameKey]

@@ -135,7 +135,8 @@ func (d *DriveProvisioner) ReleaseVolume(vol api.Volume) error {
 		}
 	)
 
-	if vol.Ephemeral { // TODO temporary solution because of ephemeral volumes volume id AK8S-749
+	// TODO: temporary solution because of ephemeral volumes volume id - https://github.com/dell/csi-baremetal/issues/87
+	if vol.Ephemeral {
 		part.PartUUID, err = d.partOps.GetPartitionUUID(device, DefaultPartitionNumber)
 		if err != nil {
 			return d.wipeDevice(device,
@@ -198,7 +199,8 @@ func (d *DriveProvisioner) GetVolumePath(vol api.Volume) (string, error) {
 	ll.Debugf("Got device %s", device)
 
 	var volumeUUID = vol.Id
-	if vol.Ephemeral { // TODO temporary solution because of ephemeral volumes volume id AK8S-749
+	// TODO: temporary solution because of ephemeral volumes volume id - https://github.com/dell/csi-baremetal/issues/87
+	if vol.Ephemeral {
 		volumeUUID, err = d.partOps.GetPartitionUUID(device, DefaultPartitionNumber)
 		if err != nil {
 			return "", fmt.Errorf("unable to determine partition UUID: %v", err)

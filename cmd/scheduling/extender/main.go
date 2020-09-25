@@ -21,7 +21,7 @@ var (
 	useACRs = flag.Bool("enableReservation", false, "whether ACRs should be created as part of filter or not")
 )
 
-// todo these values are defined in yaml config file and should be passed as parameters
+// TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
 const (
 	FilterPattern     string = "/filter"
 	PrioritizePattern string = "/prioritize"

@@ -104,7 +104,6 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				}
 			}
 			// update AC size that point on that LVG
-			// todo handle case when multiple LVM PVs are used
 			c.increaseACSize(lvg.Spec.Locations[0], lvg.Spec.Size)
 
 			if len(lvg.Spec.Locations) == 0 {
@@ -242,7 +241,6 @@ func (c *LVGController) removeLVGArtifacts(lvgName string) error {
 }
 
 // increaseACSize updates size of AC related to drive
-// todo LVG might use multiple LVM PV
 func (c *LVGController) increaseACSize(driveID string, size int64) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "increaseACSize",

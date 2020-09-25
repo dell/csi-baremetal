@@ -349,7 +349,7 @@ func GetK8SClient() (k8sCl.Client, error) {
 // GetFakeKubeClient returns fake KubeClient  for test purposes
 // Receives namespace to work
 // Returns instance of mocked KubeClient or error if something went wrong
-// todo test code shouldn't be in base package
+// TODO: test code shouldn't be in base package - https://github.com/dell/csi-baremetal/issues/81
 func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error) {
 	scheme, err := PrepareScheme()
 	if err != nil {

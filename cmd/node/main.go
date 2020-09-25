@@ -129,7 +129,6 @@ func main() {
 }
 
 // Discovering performs Discover method of the Node each 30 seconds
-// TODO: implement logic for discover  AK8S-64
 func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	var err error
 	discoveringWaitTime := 10 * time.Second

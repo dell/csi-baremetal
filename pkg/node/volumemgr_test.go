@@ -35,7 +35,7 @@ import (
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 )
 
-// todo refactor these UTs - https://jira.cec.lab.emc.com:8443/browse/AK8S-724
+// TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
 
 var (
 	testErr            = errors.New("error")

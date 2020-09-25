@@ -22,7 +22,7 @@ data:
     extenders:
       - urlPrefix: "http://127.0.0.1:{{ .Values.port }}"
         filterVerb: filter
-        #todo stages below aren't implemented yet
+        # TODO: implement prioritize verb https://github.com/dell/csi-baremetal/issues/77
         #prioritizeVerb: prioritize
         #bindVerb: bind
         enableHttps: false

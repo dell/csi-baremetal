@@ -596,7 +596,6 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	for _, d := range freeDrives {
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
 		if !ok {
-			// TODO: handle that scenario - set Drive CR status to offline, send event
 			ll.Errorf("For drive %v there is no corresponding block device.", *d)
 			continue
 		}
@@ -863,7 +862,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 
 	// Handle resources with LVG
 	// This is not work for the current moment because HAL doesn't monitor disks with LVM
-	// TODO AK8S-472 Handle disk health which are used by LVGs
+	// TODO: Handle disk health which are used by LVGs - https://github.com/dell/csi-baremetal/issues/88
 }
 
 // drivesAreTheSame check whether two drive represent same node drive or no

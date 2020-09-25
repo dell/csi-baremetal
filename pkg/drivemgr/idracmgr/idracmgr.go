@@ -34,7 +34,6 @@ type IDRACManager struct {
 // Receives logrus logger, timeout for HTTP client, user's credentials for iDRAC and iDRAC IP
 // Returns an instance of IDRACManager
 func NewIDRACManager(log *logrus.Logger, timeout time.Duration, user string, password string, ip string) *IDRACManager {
-	//TODO AK8S-210 - Integrate CSI with Vault
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}

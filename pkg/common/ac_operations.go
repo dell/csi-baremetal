@@ -31,7 +31,7 @@ const AcSizeMinThresholdBytes = int64(util.MBYTE) // 1MB
 const LvgDefaultMetadataSize = int64(util.MBYTE) // 1MB
 
 // DefaultPESize is the default extent size we should align with
-// TODO: AK8S-1332 use non default PE size
+// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
 const DefaultPESize = 4 * int64(util.MBYTE)
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
@@ -117,7 +117,7 @@ func (a *ACOperationsImpl) SearchAC(ctx context.Context,
 }
 
 // AlignSizeByPE make size aligned with default PE
-// TODO: AK8S-1332 use non default PE size
+// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
 func AlignSizeByPE(size int64) int64 {
 	var alignement int64
 	reminder := size % DefaultPESize
