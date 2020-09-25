@@ -19,7 +19,7 @@ var (
 	logLevel       = flag.String("loglevel", base.InfoLevel, "Log level")
 )
 
-// todo these values are defined in yaml config file and should be passed as parameters
+// TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
 const (
 	FilterPattern     string = "/filter"
 	PrioritizePattern string = "/prioritize"

@@ -117,7 +117,7 @@ func (cs *CRHelper) GetVolumeByLocation(location string) *volumecrd.Volume {
 // Returns error or nil
 func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateVolumesOpStatus", "nodeID": nodeID})
-	// todo check that operational status is valid
+	// TODO: check that operational status is valid https://github.com/dell/csi-baremetal/issues/80
 	volumes, err := cs.GetVolumeCRs(nodeID)
 	if err != nil {
 		return err
@@ -192,7 +192,7 @@ func (cs *CRHelper) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
 // Returns error or nil
 func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateDrivesStatusOnNode", "nodeID": nodeID})
-	// todo check that drive status is valid
+	// TODO: check that drive status is valid - https://github.com/dell/csi-baremetal/issues/80
 	drives, _ := cs.GetDriveCRs(nodeID)
 	// node might not have drives reported to CSI. For example, filtered in drive manager level
 	if drives == nil {

@@ -7,7 +7,7 @@ const (
 	// PluginName is a name of current CSI plugin
 	PluginName = "baremetal-csi"
 	// PluginVersion is a version of current CSI plugin
-	// todo get rid of hardcoded value
+	// TODO: get rid of hardcoded value https://github.com/dell/csi-baremetal/issues/79
 	PluginVersion = "0.0.9"
 	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
 	DefaultDriveMgrEndpoint = "tcp://:8888"

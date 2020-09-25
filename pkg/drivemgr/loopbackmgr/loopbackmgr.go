@@ -485,7 +485,6 @@ func (mgr *LoopBackManager) Init() {
 // GetDrivesList returns list of loopback devices as *api.Drive slice
 // Returns *api.Drive slice or error if something went wrong
 func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
-	// TODO AK8S-896 Make process of config updating asynchronous
 	mgr.Lock()
 	defer mgr.Unlock()
 	drives := make([]*api.Drive, 0, len(mgr.devices))
