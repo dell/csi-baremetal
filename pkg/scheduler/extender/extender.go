@@ -278,10 +278,10 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 
 	matched := false
 	// map[NodeId]map[*Volume]*AC
-	nodeVoumelACs := map[string]map[*genV1.Volume]*accrd.AvailableCapacity{}
+	nodeVolumeACs := map[string]map[*genV1.Volume]*accrd.AvailableCapacity{}
 	for _, node := range nodes {
 		nodeUID := string(node.UID)
-		nodeVoumelACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
+		nodeVolumeACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
 		matched = true
 		for sc, scVolumes := range scVolumeMapping {
 			volACMap := e.searchAppropriateACs(acByNodeAndSCMap[nodeUID], sc, scVolumes)
@@ -290,14 +290,14 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 				break
 			}
 			for k, v := range volACMap {
-				nodeVoumelACs[nodeUID][k] = v
+				nodeVolumeACs[nodeUID][k] = v
 			}
 		}
 
 		if matched {
 			matchedNodes = append(matchedNodes, node)
 		} else {
-			delete(nodeVoumelACs, nodeUID)
+			delete(nodeVolumeACs, nodeUID)
 			if failedNodesMap == nil {
 				failedNodesMap = map[string]string{}
 			}
@@ -306,7 +306,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 	}
 
 	if e.useACRs {
-		err = e.createACRs(ctx, nodeVoumelACs)
+		err = e.createACRs(ctx, nodeVolumeACs)
 	}
 
 	return matchedNodes, failedNodesMap, err
