@@ -430,7 +430,7 @@ func TestExtender_freeACByNodeAndSCMap(t *testing.T) {
 
 	applyObjs(t, e.k8sClient, ac1, ac2)
 
-	res, err := e.freeACByNodeAndSCMap()
+	res, err := e.unreservedACByNodeAndSCMap()
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(res))
 	assert.Equal(t, res[node1][v1.StorageClassHDD][ac1.Name], ac1)
@@ -439,7 +439,7 @@ func TestExtender_freeACByNodeAndSCMap(t *testing.T) {
 	e = setup(t)
 	applyObjs(t, e.k8sClient, ac1, ac2, acr1)
 
-	res, err = e.freeACByNodeAndSCMap()
+	res, err = e.unreservedACByNodeAndSCMap()
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(res))
 	assert.Equal(t, res[node2][v1.StorageClassHDD][ac2.Name], ac2)

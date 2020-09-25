@@ -269,7 +269,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 	}
 
 	// map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
-	acByNodeAndSCMap, err := e.freeACByNodeAndSCMap()
+	acByNodeAndSCMap, err := e.unreservedACByNodeAndSCMap()
 	if err != nil {
 		return matchedNodes, failedNodesMap, err
 	}
@@ -284,13 +284,13 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 		nodeVolumeACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
 		matched = true
 		for sc, scVolumes := range scVolumeMapping {
-			volACMap := e.searchAppropriateACs(acByNodeAndSCMap[nodeUID], sc, scVolumes)
+			volACMap := e.searchSuitableACs(acByNodeAndSCMap[nodeUID], sc, scVolumes)
 			if volACMap == nil {
 				matched = false
 				break
 			}
-			for k, v := range volACMap {
-				nodeVolumeACs[nodeUID][k] = v
+			for vol, ac := range volACMap {
+				nodeVolumeACs[nodeUID][vol] = ac
 			}
 		}
 
@@ -364,9 +364,9 @@ func (e *Extender) createACRs(ctx context.Context, nodeVolumeACMap map[string]ma
 	return createErr
 }
 
-// searchAppropriateACs searches the most appropriate AC for each volume from volumes in scACMap
+// searchSuitableACs searches the most appropriate AC for each volume from volumes in scACMap
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
-func (e *Extender) searchAppropriateACs(scACMap map[string]map[string]*accrd.AvailableCapacity,
+func (e *Extender) searchSuitableACs(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) map[*genV1.Volume]*accrd.AvailableCapacity { // list based on which ACR will be created
 	resultingACs := make(map[*genV1.Volume]*accrd.AvailableCapacity, len(volumes))
 	for _, volume := range volumes {
@@ -519,7 +519,7 @@ func (e *Extender) scVolumeMapping(volumes []*genV1.Volume) map[string][]*genV1.
 		}
 	}
 **/
-func (e *Extender) freeACByNodeAndSCMap() (map[string]map[string]map[string]*accrd.AvailableCapacity, error) {
+func (e *Extender) unreservedACByNodeAndSCMap() (map[string]map[string]map[string]*accrd.AvailableCapacity, error) {
 	var (
 		acList  = &accrd.AvailableCapacityList{}
 		acrList = &acrcrd.AvailableCapacityReservationList{}
