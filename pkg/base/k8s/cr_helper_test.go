@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 )
 
 func setup() *CRHelper {
@@ -147,7 +149,7 @@ func TestCRHelper_DeleteACsByNodeID(t *testing.T) {
 }
 
 // test Drive status update
-func TestNewCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
+func TestCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
 	mock := setup()
 	err := mock.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
 	assert.Nil(t, err)
@@ -160,7 +162,7 @@ func TestNewCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
 }
 
 // test Volume operational status update
-func TestNewCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
+func TestCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 	mock := setup()
 	err := mock.k8sClient.CreateCR(testCtx, testVolume.Name, &testVolume)
 	assert.Nil(t, err)
@@ -170,4 +172,18 @@ func TestNewCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 
 	volume := mock.GetVolumeByID(testVolume.Name)
 	assert.Equal(t, volume.Spec.OperationalStatus, v1.OperationalStatusMissing)
+}
+
+func TestCRHelper_DeleteObjectByName(t *testing.T) {
+	mock := setup()
+	// object does not exist
+	err := mock.DeleteObjectByName(testCtx, "aaaa", &accrd.AvailableCapacity{})
+	assert.Nil(t, err)
+
+	assert.Nil(t, mock.k8sClient.CreateCR(testCtx, testVolumeCR.Name, &testVolumeCR))
+	assert.Nil(t, mock.DeleteObjectByName(testCtx, testVolumeCR.Name, &volumecrd.Volume{}))
+
+	vList := &volumecrd.VolumeList{}
+	assert.Nil(t, mock.k8sClient.ReadList(testCtx, vList))
+	assert.Equal(t, 0, len(vList.Items))
 }

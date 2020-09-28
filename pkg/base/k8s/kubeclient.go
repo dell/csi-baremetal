@@ -156,7 +156,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *accrd.AvailableCapacity {
 	return &accrd.AvailableCapacity{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "AvailableCapacity",
+			Kind:       crdV1.AvailableCapacityKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -167,13 +167,30 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 	}
 }
 
+// ConstructACRCR constructs AvailableCapacityReservation custom resource from api.AvailableCapacityReservation struct
+// Receives an instance of api.AvailableCapacityReservation struct
+// Returns pointer on AvailableCapacityReservation CR struct
+func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *acrcrd.AvailableCapacityReservation {
+	return &acrcrd.AvailableCapacityReservation{
+		TypeMeta: apisV1.TypeMeta{
+			Kind:       crdV1.AvailableCapacityReservationKind,
+			APIVersion: crdV1.APIV1Version,
+		},
+		ObjectMeta: apisV1.ObjectMeta{
+			Name:      apiACR.Name,
+			Namespace: k.Namespace,
+		},
+		Spec: apiACR,
+	}
+}
+
 // ConstructLVGCR constructs LVG custom resource from api.LogicalVolumeGroup struct
 // Receives a name for k8s ObjectMeta and an instance of api.LogicalVolumeGroup struct
 // Returns an instance of LVG CR struct
 func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LVG {
 	return &lvgcrd.LVG{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "LVG",
+			Kind:       crdV1.LVGKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -190,7 +207,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "Volume",
+			Kind:       crdV1.VolumeKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -207,7 +224,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd.Drive {
 	return &drivecrd.Drive{
 		TypeMeta: apisV1.TypeMeta{
-			Kind:       "Drive",
+			Kind:       crdV1.DriveKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
@@ -332,7 +349,7 @@ func GetK8SClient() (k8sCl.Client, error) {
 // GetFakeKubeClient returns fake KubeClient  for test purposes
 // Receives namespace to work
 // Returns instance of mocked KubeClient or error if something went wrong
-// todo test code shouldn't be in base package
+// TODO: test code shouldn't be in base package - https://github.com/dell/csi-baremetal/issues/81
 func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error) {
 	scheme, err := PrepareScheme()
 	if err != nil {

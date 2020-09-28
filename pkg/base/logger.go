@@ -23,7 +23,7 @@ const (
 // Returns created logrus.Logger or error if something went wrong
 func InitLogger(logPath string, logLevel string) (*logrus.Logger, error) {
 	logger := logrus.New()
-	// TODO: should be configured in helm chart AK8S-1260
+	// TODO: should be configured in helm chart https://github.com/dell/csi-baremetal/issues/83
 	if os.Getenv("LOG_FORMAT") == "text" {
 		logger.SetFormatter(&nested.Formatter{
 			HideKeys:    true,

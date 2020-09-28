@@ -286,7 +286,6 @@ func (n *ServicesStateMonitor) updateCRs() {
 		}
 		n.lock.RUnlock()
 
-		// todo possible issue with racing on bootstrap - AK8S-1129
 		// delete AC for unready
 		for _, id := range unready {
 			err := n.crHelper.DeleteACsByNodeID(id)
@@ -301,7 +300,7 @@ func (n *ServicesStateMonitor) updateCRs() {
 			if err != nil {
 				log.Tracef("Error occurred during drives status update: %s", err)
 			}
-			// todo create JIRA to return volume back to OPERATIVE state when node is up
+			// todo create issue to return volume back to OPERATIVE state when node is up
 			err = n.crHelper.UpdateVolumesOpStatusOnNode(id, apiV1.OperationalStatusMissing)
 			if err != nil {
 				log.Tracef("Error occurred during volumes status update: %s", err)

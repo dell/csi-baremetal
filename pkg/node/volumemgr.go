@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	keymutex "k8s.io/utils/keymutex"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -79,6 +80,8 @@ type VolumeManager struct {
 	log *logrus.Entry
 	// sink where we write events
 	recorder eventRecorder
+	// reconcile lock
+	volMu keymutex.KeyMutex
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -144,6 +147,7 @@ func NewVolumeManager(
 		log:            logger.WithField("component", "VolumeManager"),
 		recorder:       recorder,
 		discoverLvgSSD: true,
+		volMu:          keymutex.NewHashed(0),
 	}
 	return vm
 }
@@ -159,15 +163,21 @@ func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
 // Volume.Spec.CSIStatus is Removing.
 // Returns reconcile result as ctrl.Result or error if something went wrong
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx, cancelFn := context.WithTimeout(
-		context.WithValue(context.Background(), k8s.RequestUUID, req.Name),
-		VolumeOperationsTimeout)
-	defer cancelFn()
-
+	m.volMu.LockKey(req.Name)
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "Reconcile",
 		"volumeID": req.Name,
 	})
+	defer func() {
+		err := m.volMu.UnlockKey(req.Name)
+		if err != nil {
+			ll.Warnf("Unlocking  volume with error %s", err)
+		}
+	}()
+	ctx, cancelFn := context.WithTimeout(
+		context.WithValue(context.Background(), k8s.RequestUUID, req.Name),
+		VolumeOperationsTimeout)
+	defer cancelFn()
 
 	volume := &volumecrd.Volume{}
 
@@ -184,8 +194,26 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				return ctrl.Result{Requeue: true}, err
 			}
 		}
-	} else if req, err := m.handleVolumeDelete(ctx, volume); req {
-		return ctrl.Result{}, err
+	} else {
+		switch volume.Spec.CSIStatus {
+		case apiV1.Created:
+			volume.Spec.CSIStatus = apiV1.Removing
+			ll.Debug("Change volume status from Created to Removing")
+		case apiV1.Removing:
+		case apiV1.Removed:
+			if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
+				volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
+				ll.Debug("Remove finalizer for volume")
+				if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+					ll.Errorf("Unable to update Volume's finalizers")
+				}
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		default:
+			ll.Warnf("Volume wasn't deleted, because it has CSI status %s", volume.Spec.CSIStatus)
+			return ctrl.Result{}, nil
+		}
 	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
 	switch volume.Spec.CSIStatus {
@@ -199,33 +227,6 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	default:
 		return ctrl.Result{}, nil
 	}
-}
-
-// handleVolumeDelete check volume DeletionTimestamp and append or delete finalizer depends on timestamp value,
-// If DeletionTimestamp is not nil, function either delete finalizer or set status to removing depending of CSI status
-// Parameter: context and volume, needed to be handle
-// Return: boolean value, which represents if we should return ctrl.Result{} in Reconcile; error
-func (m *VolumeManager) handleVolumeDelete(ctx context.Context, volume *volumecrd.Volume) (bool, error) {
-	ll := m.log.WithFields(logrus.Fields{
-		"method":   "handleVolumeDelete",
-		"volumeID": volume.Spec.Id,
-	})
-	if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
-		// We shouldn't try to release volume with Published or VolumeReady status, because this volume is mount,and ReleaseVolume will fail.
-		// We also don't change status for Creating and Removed, because for these statuses Volume was already released
-		if volume.Spec.CSIStatus != apiV1.Created && volume.Spec.CSIStatus != apiV1.Removing {
-			volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
-			ll.Debug("Remove finalizer for volume")
-			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
-				ll.Errorf("Unable to update Volume's finalizers")
-				return true, err
-			}
-			return true, nil
-		}
-		ll.Debug("Changing status to Removing for volume")
-		volume.Spec.CSIStatus = apiV1.Removing
-	}
-	return false, nil
 }
 
 // handleCreatingVolumeInLVG handles volume CR that has storage class related to LVG and CSIStatus creating
@@ -326,8 +327,6 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		newStatus = apiV1.Failed
-		// If status is failed, we don't try to delete this volume again
-		volume.DeletionTimestamp = nil
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 		newStatus = apiV1.Removed
@@ -597,7 +596,6 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	for _, d := range freeDrives {
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
 		if !ok {
-			// TODO: handle that scenario - set Drive CR status to offline, send event
 			ll.Errorf("For drive %v there is no corresponding block device.", *d)
 			continue
 		}
@@ -864,7 +862,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 
 	// Handle resources with LVG
 	// This is not work for the current moment because HAL doesn't monitor disks with LVM
-	// TODO AK8S-472 Handle disk health which are used by LVGs
+	// TODO: Handle disk health which are used by LVGs - https://github.com/dell/csi-baremetal/issues/88
 }
 
 // drivesAreTheSame check whether two drive represent same node drive or no

@@ -5,7 +5,10 @@ import (
 	"errors"
 	"strings"
 
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
@@ -117,7 +120,7 @@ func (cs *CRHelper) GetVolumeByLocation(location string) *volumecrd.Volume {
 // Returns error or nil
 func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateVolumesOpStatus", "nodeID": nodeID})
-	// todo check that operational status is valid
+	// TODO: check that operational status is valid https://github.com/dell/csi-baremetal/issues/80
 	volumes, err := cs.GetVolumeCRs(nodeID)
 	if err != nil {
 		return err
@@ -192,7 +195,7 @@ func (cs *CRHelper) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
 // Returns error or nil
 func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateDrivesStatusOnNode", "nodeID": nodeID})
-	// todo check that drive status is valid
+	// TODO: check that drive status is valid - https://github.com/dell/csi-baremetal/issues/80
 	drives, _ := cs.GetDriveCRs(nodeID)
 	// node might not have drives reported to CSI. For example, filtered in drive manager level
 	if drives == nil {
@@ -317,4 +320,16 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error
 
 	volumeCR.Spec = newSpec
 	return cs.k8sClient.UpdateCR(ctxWithID, volumeCR)
+}
+
+// DeleteObjectByName read runtime.Object by its name and then delete it
+func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, obj runtime.Object) error {
+	if err := cs.k8sClient.ReadCR(ctx, name, obj); err != nil {
+		if k8sError.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	return cs.k8sClient.DeleteCR(context.Background(), obj)
 }
