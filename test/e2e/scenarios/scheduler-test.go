@@ -25,6 +25,8 @@ import (
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
@@ -231,8 +233,73 @@ func schedulingTest(driver testsuites.TestDriver) {
 		createTestPod([]string{storageClassSSDLVG, storageClassSSDLVG})
 	})
 
+	ginkgo.It("PODs should distribute across nodes with sequential deploy", func() {
+		testPodsDisksPerPod := 1
+		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 0)
+		testPodsCount := len(nodes)
+		defaultDriveCount := 0
+
+		var lmNodes []common.LoopBackManagerConfigNode
+		for _, n := range nodes {
+			nodeName := n
+			// we need to make sure we have capacity for all pod in a single node
+			nodeDriveCount := testPodsCount * testPodsDisksPerPod
+			lmNodes = append(lmNodes,
+				common.LoopBackManagerConfigNode{
+					NodeID:     &nodeName,
+					DriveCount: &nodeDriveCount})
+		}
+		lmConfig := &common.LoopBackManagerConfig{
+			DefaultDriveCount: &defaultDriveCount,
+			Nodes:             lmNodes}
+		init(lmConfig)
+		defer cleanup()
+
+		// create pods sequential
+		for p := 0; p < testPodsCount; p++ {
+			createTestPod([]string{"ANY"})
+		}
+		volumes := getVolumesByNodes(f)
+		e2elog.Logf("volumes by nodes %v", volumes)
+
+		err := hostsNeedToHaveEqualNumberVolumes(volumes, 1)
+		framework.ExpectNoError(err)
+
+	})
+
 }
 
+func getVolumesByNodes(f *framework.Framework) map[string][]string {
+	volumesUnstructuredList, err := f.DynamicClient.Resource(volumeGVR).List(metav1.ListOptions{})
+	framework.ExpectNoError(err)
+	volumes := make(map[string][]string)
+	for _, targetVolume := range volumesUnstructuredList.Items {
+		nodeUIDOfVolume, _, err := unstructured.NestedString(targetVolume.Object, "spec", "NodeId")
+		framework.ExpectNoError(err)
+		nodeNameOfVolume, err := findNodeNameByUID(f, nodeUIDOfVolume)
+		framework.ExpectNoError(err)
+		if _, ok := volumes[nodeNameOfVolume]; ok {
+			volumes[nodeNameOfVolume] = append(volumes[nodeNameOfVolume], nodeUIDOfVolume)
+			continue
+		}
+		volumes[nodeNameOfVolume] = []string{nodeUIDOfVolume}
+	}
+	return volumes
+
+}
+func hostsNeedToHaveEqualNumberVolumes(volumes map[string][]string, count int) error {
+	problemHosts := make([]string, 0)
+	for host, volumes := range volumes {
+		if count != len(volumes) {
+			problemHosts = append(problemHosts, host)
+		}
+	}
+	if len(problemHosts) == 0 {
+		return nil
+	}
+	return fmt.Errorf("hosts %v don't have expected number of volumes", problemHosts)
+
+}
 func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevice) *common.LoopBackManagerConfigNode {
 	drivesCount := len(drives)
 	return &common.LoopBackManagerConfigNode{

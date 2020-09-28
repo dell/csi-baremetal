@@ -4,7 +4,7 @@ extenders:
   - urlPrefix: "http://127.0.0.1:8889"
     filterVerb: filter
     #todo stages below aren't implemented yet
-    #prioritizeVerb: prioritize
+    prioritizeVerb: prioritize
     #bindVerb: bind
     enableHttps: false
     nodeCacheCapable: false

@@ -30,13 +30,14 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
+	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -134,10 +135,45 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// PrioritizeHandler assigns scores to the nodes
-// todo not implemented
+// PrioritizeHandler helps with even distribution of the volumes across the nodes.
+// It will set priority based on the formula:
+// rank of node X = max number of volumes - number of volume on node X.
 func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
-	panic("implement me")
+	sessionUUID := uuid.New().String()
+	ll := e.logger.WithFields(logrus.Fields{
+		"sessionUUID": sessionUUID,
+		"method":      "PrioritizeHandler",
+	})
+	ll.Infof("Processing request: %v", req)
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := json.NewEncoder(w)
+
+	var (
+		extenderArgs schedulerapi.ExtenderArgs
+	)
+
+	if err := json.NewDecoder(req.Body).Decode(&extenderArgs); err != nil {
+		ll.Errorf("Unable to decode request body: %v", err)
+		return
+	}
+
+	ll.Info("Scoring")
+
+	e.Lock()
+	defer e.Unlock()
+
+	hostPriority, err := e.score(extenderArgs.Nodes.Items)
+	if err != nil {
+		ll.Errorf("Unable to score %v", err)
+		return
+	}
+	ll.Infof("Score results: %v", hostPriority)
+	extenderRes := (schedulerapi.HostPriorityList)(hostPriority)
+
+	if err := resp.Encode(&extenderRes); err != nil {
+		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
+	}
 }
 
 // BindHandler does bind of a pod to specific node
@@ -382,6 +418,69 @@ func (e *Extender) createACRs(ctx context.Context, nodeVolumeACMap map[string]ma
 }
 
 // searchSuitableACs searches the most appropriate AC for each volume from volumes in scACMap
+func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {
+	ll := e.logger.WithFields(logrus.Fields{
+		"method": "score",
+	})
+
+	var volumeList = &volcrd.VolumeList{}
+	if err := e.k8sClient.ReadList(context.Background(), volumeList); err != nil {
+		err = fmt.Errorf("unable to read volumes list: %v", err)
+		return nil, err
+	}
+
+	ll.Debugf("Got %d volumes", len(volumeList.Items))
+
+	nodeMapping := nodeVolumeCountMapping(volumeList)
+
+	priorityFromVolumes, maxVolumeCount := nodePrioritize(nodeMapping)
+
+	ll.Debugf("nodes were ranked by their volumes %+v", priorityFromVolumes)
+	hostPriority := make([]schedulerapi.HostPriority, 0, len(nodes))
+	for _, node := range nodes {
+		// set the highest priority if node doesn't have any volumes
+		rank := maxVolumeCount
+		if r, ok := priorityFromVolumes[string(node.GetUID())]; ok {
+			rank = r
+		}
+		hostPriority = append(hostPriority, schedulerapi.HostPriority{
+			Host:  node.GetName(),
+			Score: rank,
+		})
+	}
+	return hostPriority, nil
+}
+
+func nodeVolumeCountMapping(vollist *volcrd.VolumeList) map[string][]volcrd.Volume {
+	nodeMapping := make(map[string][]volcrd.Volume)
+	for _, volume := range vollist.Items {
+		nID := volume.Spec.NodeId
+		if _, found := nodeMapping[nID]; found {
+			nodeMapping[nID] = append(nodeMapping[nID], volume)
+			continue
+		}
+		nodeMapping[nID] = []volcrd.Volume{volume}
+	}
+	return nodeMapping
+}
+
+// nodePrioritize will set priority for nodes and also return the maximum priority
+func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int, int) {
+	var maxCount int
+	for _, volumes := range nodeMapping {
+		volCount := len(volumes)
+		if maxCount < volCount {
+			maxCount = volCount
+		}
+	}
+	nrank := make(map[string]int, len(nodeMapping))
+	for node, volumes := range nodeMapping {
+		nrank[node] = maxCount - len(volumes)
+	}
+	return nrank, maxCount
+}
+
+// isACsMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
 func (e *Extender) searchSuitableACs(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) map[*genV1.Volume]*accrd.AvailableCapacity { // list based on which ACR will be created
