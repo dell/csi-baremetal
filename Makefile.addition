@@ -1,8 +1,0 @@
-include variables.mk
-
-.PHONY: install-hal
-
-install-hal:
-	# NOTE: Root privileges are required for installing or uninstalling packages.
-	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal/${HAL_PACKAGE_VER}/viprhal-${HAL_PACKAGE_VER}.x86_64.rpm
-	sudo zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends http://asdrepo.isus.emc.com:8081/artifactory/ecs-prerelease-local/com/emc/asd/vipr/sles12/viprhal/viprhal-devel/${HAL_PACKAGE_VER}/viprhal-devel-${HAL_PACKAGE_VER}.x86_64.rpm

@@ -46,7 +46,7 @@ node:
       port: 9999
 
 drivemgr:
-  type: halmgr
+  type: basemgr
   image:
     tag:
   grpc:
