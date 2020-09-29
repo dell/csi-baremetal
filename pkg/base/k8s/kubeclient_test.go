@@ -50,6 +50,7 @@ var (
 	testLogger = logrus.New()
 	testCtx    = context.Background()
 	testUUID   = uuid.New().String()
+	testUUID2  = uuid.New().String()
 	testVolume = vcrd.Volume{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
@@ -87,11 +88,31 @@ var (
 		Size:         1024 * 1024,
 		Status:       apiV1.DriveStatusOnline,
 	}
+
+	testApiDrive2 = api.Drive{
+		UUID:         testUUID2,
+		VID:          "testVID2",
+		PID:          "testPID2",
+		SerialNumber: "testSN2",
+		NodeId:       testNode1Name,
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
+		Size:         1024 * 1024,
+		Status:       apiV1.DriveStatusOnline,
+		IsSystem:     true,
+	}
+
 	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version}
 	testDriveCR       = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID, Namespace: testNs},
 		Spec:       testApiDrive,
+	}
+
+	testDriveCR2 = drivecrd.Drive{
+		TypeMeta:   testDriveTypeMeta,
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID2, Namespace: testNs},
+		Spec:       testApiDrive2,
 	}
 
 	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version}
@@ -376,6 +397,23 @@ var _ = Describe("Working with CRD", func() {
 			Expect(len(driveList.Items)).To(Equal(0))
 		})
 
+	})
+	Context("GetSystemDriveUUID", func() {
+		It("Success", func() {
+			err := k8sclient.CreateCR(testCtx, testUUID, &testDriveCR)
+			Expect(err).To(BeNil())
+
+			driveUUID := k8sclient.GetSystemDriveUUID(testCtx, testNode1Name)
+			Expect(err).To(BeNil())
+			Expect(driveUUID).To(Equal(""))
+
+			err = k8sclient.CreateCR(testCtx, testUUID2, &testDriveCR2)
+			Expect(err).To(BeNil())
+
+			driveUUID = k8sclient.GetSystemDriveUUID(testCtx, testNode1Name)
+			Expect(err).To(BeNil())
+			Expect(driveUUID).To(Equal(testDriveCR2.Spec.UUID))
+		})
 	})
 })
 

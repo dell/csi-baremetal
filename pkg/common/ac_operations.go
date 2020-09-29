@@ -29,6 +29,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
@@ -278,15 +279,23 @@ func (a *ACOperationsImpl) tryToFindAC(acs []*accrd.AvailableCapacity, storageCl
 	var (
 		allocatedCapacity int64 = math.MaxInt64
 		foundAC           *accrd.AvailableCapacity
+		driveUUID         string
 	)
 	for _, ac := range acs {
+		// Available capacity with system disk location won't be allocated
+		if driveUUID == "" {
+			driveUUID = a.k8sClient.GetSystemDriveUUID(context.Background(), ac.Spec.NodeId)
+			if driveUUID == "" {
+				driveUUID = base.SystemDriveAsLocation
+			}
+		}
 		if storageClass != "" {
-			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass && ac.Spec.Location != driveUUID {
 				foundAC = ac
 				allocatedCapacity = ac.Spec.Size
 			}
 		} else {
-			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.Location != driveUUID {
 				foundAC = ac
 				allocatedCapacity = ac.Spec.Size
 			}

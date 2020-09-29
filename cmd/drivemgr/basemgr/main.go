@@ -48,7 +48,7 @@ func main() {
 	e := &command.Executor{}
 	e.SetLogger(logger)
 
-	driveMgr := basemgr.NewLinuxUtilManager(e, logger)
+	driveMgr := basemgr.NewBaseManager(e, logger)
 
 	dmsetup.SetupAndRunDriveMgr(driveMgr, serverRunner, nil, logger)
 }

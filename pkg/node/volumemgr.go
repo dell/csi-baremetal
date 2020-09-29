@@ -28,7 +28,7 @@ import (
 	"github.com/sirupsen/logrus"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	keymutex "k8s.io/utils/keymutex"
+	"k8s.io/utils/keymutex"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -98,6 +98,8 @@ type VolumeManager struct {
 	recorder eventRecorder
 	// reconcile lock
 	volMu keymutex.KeyMutex
+	// systemDriveUUID represent system drive uuid, used to avoid unnecessary calls to Kubernetes API
+	systemDriveUUID string
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -155,15 +157,16 @@ func NewVolumeManager(
 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
 		},
-		fsOps:          utilwrappers.NewFSOperationsImpl(executor, logger),
-		lvmOps:         lvm.NewLVM(executor, logger),
-		listBlk:        lsblk.NewLSBLK(logger),
-		partOps:        ph.NewWrapPartitionImpl(executor, logger),
-		nodeID:         nodeID,
-		log:            logger.WithField("component", "VolumeManager"),
-		recorder:       recorder,
-		discoverLvgSSD: true,
-		volMu:          keymutex.NewHashed(0),
+		fsOps:           utilwrappers.NewFSOperationsImpl(executor, logger),
+		lvmOps:          lvm.NewLVM(executor, logger),
+		listBlk:         lsblk.NewLSBLK(logger),
+		partOps:         ph.NewWrapPartitionImpl(executor, logger),
+		nodeID:          nodeID,
+		log:             logger.WithField("component", "VolumeManager"),
+		recorder:        recorder,
+		discoverLvgSSD:  true,
+		volMu:           keymutex.NewHashed(0),
+		systemDriveUUID: base.SystemDriveAsLocation,
 	}
 	return vm
 }
@@ -412,16 +415,9 @@ func (m *VolumeManager) Discover() error {
 	m.handleDriveUpdates(ctx, updates)
 
 	freeDrives, err := m.drivesAreNotUsed()
+
 	if err != nil {
 		return fmt.Errorf("drivesAreNotUsed return error: %v", err)
-	}
-
-	if err = m.discoverVolumeCRs(freeDrives); err != nil {
-		return fmt.Errorf("discoverVolumeCRs return error: %v", err)
-	}
-
-	if err = m.discoverAvailableCapacity(ctx, freeDrives); err != nil {
-		return fmt.Errorf("discoverAvailableCapacity return error: %v", err)
 	}
 
 	if m.discoverLvgSSD {
@@ -430,6 +426,14 @@ func (m *VolumeManager) Discover() error {
 				Errorf("unable to inspect system LVG: %v", err)
 		}
 	}
+	if err = m.discoverVolumeCRs(freeDrives); err != nil {
+		return fmt.Errorf("discoverVolumeCRs return error: %v", err)
+	}
+
+	if err = m.discoverAvailableCapacity(ctx, freeDrives); err != nil {
+		return fmt.Errorf("discoverAvailableCapacity return error: %v", err)
+	}
+
 	m.initialized = true
 	return nil
 }
@@ -487,6 +491,14 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec := *drivePtr
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
+			isSystem, err := m.isDriveSystem(drivePtr.Path)
+			if err != nil {
+				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
+			}
+			if isSystem {
+				m.systemDriveUUID = toCreateSpec.UUID
+			}
+			toCreateSpec.IsSystem = isSystem
 			driveCR := m.k8sClient.ConstructDriveCR(toCreateSpec.UUID, toCreateSpec)
 			if err := m.k8sClient.CreateCR(ctx, driveCR.Name, driveCR); err != nil {
 				ll.Errorf("Failed to create drive CR %v, error: %v", driveCR, err)
@@ -511,7 +523,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 		}
 
 		if !wasDiscovered {
-			if m.isDriveIsInLVG(d.Spec) {
+			if m.isDriveInLVG(d.Spec) {
 				continue
 			}
 
@@ -538,8 +550,8 @@ func (m *VolumeManager) handleDriveUpdates(ctx context.Context, updates *driveUp
 	m.createEventsForDriveUpdates(updates)
 }
 
-// isDriveIsInLVG check whether drive is a part of some LVG or no
-func (m *VolumeManager) isDriveIsInLVG(d api.Drive) bool {
+// isDriveInLVG check whether drive is a part of some LVG or no
+func (m *VolumeManager) isDriveInLVG(d api.Drive) bool {
 	lvgs := m.crHelper.GetLVGCRs(m.nodeID)
 	for _, lvg := range lvgs {
 		if util.ContainsString(lvg.Spec.Locations, d.UUID) {
@@ -573,7 +585,7 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 		locations[v.Spec.Location] = struct{}{}
 	}
 	for _, lvg := range lvgCRs {
-		if lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
+		if len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == m.systemDriveUUID {
 			continue
 		}
 		for _, location := range lvg.Spec.Locations {
@@ -610,6 +622,11 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 	}
 
 	for _, d := range freeDrives {
+		if d.Spec.IsSystem {
+			if m.isDriveInLVG(d.Spec) {
+				continue
+			}
+		}
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
 		if !ok {
 			ll.Errorf("For drive %v there is no corresponding block device.", *d)
@@ -676,7 +693,6 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, freeDrive
 	if err = m.k8sClient.ReadList(ctx, volumeList); err != nil {
 		return fmt.Errorf("unable to read Volume list: %v", err)
 	}
-
 	var (
 		// key - ac.Spec.Location that is Drive.Spec.UUID
 		acsLocations = make(map[string]*accrd.AvailableCapacity, len(acList.Items))
@@ -716,6 +732,11 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, freeDrive
 			NodeId:       m.nodeID,
 		}
 
+		if drive.Spec.IsSystem {
+			if m.isDriveInLVG(drive.Spec) {
+				capacity.Size = 0
+			}
+		}
 		name := uuid.New().String()
 
 		newAC := m.k8sClient.ConstructACCR(name, *capacity)
@@ -751,9 +772,8 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if err = m.k8sClient.ReadList(context.Background(), &lvgList); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
-
 	for _, lvg := range lvgList.Items {
-		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == base.SystemDriveAsLocation {
+		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == m.systemDriveUUID {
 			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
@@ -813,7 +833,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		vg       = api.LogicalVolumeGroup{
 			Name:       vgName,
 			Node:       m.nodeID,
-			Locations:  []string{base.SystemDriveAsLocation},
+			Locations:  []string{m.systemDriveUUID},
 			Size:       vgFreeSpace,
 			Status:     apiV1.Created,
 			VolumeRefs: lvs,
@@ -995,4 +1015,30 @@ func prepareDriveDescription(drive *drivecrd.Drive) string {
 		" Size='%d', Firmware='%s'",
 		drive.Spec.SerialNumber, drive.Spec.NodeId, drive.Spec.Type,
 		drive.Spec.VID, drive.Spec.PID, drive.Spec.Size, drive.Spec.Firmware)
+}
+
+// isDriveSystem check whether drive is system
+// Parameters: path string - drive path
+// Returns true if drive is system, false in opposite; error
+func (m *VolumeManager) isDriveSystem(path string) (bool, error) {
+	devices, err := m.listBlk.GetBlockDevices(path)
+	if err != nil {
+		return false, err
+	}
+	return m.isRootMountpoint(devices), nil
+}
+
+// isRootMountpoint check whether devices has root mountpoint
+// Parameters: BlockDevice from lsblk output
+// Returns true if device has root mountpoint, false in opposite
+func (m *VolumeManager) isRootMountpoint(dev []lsblk.BlockDevice) bool {
+	for _, device := range dev {
+		if strings.TrimSpace(device.MountPoint) == base.KubeletRootPath {
+			return true
+		}
+		if m.isRootMountpoint(device.Children) {
+			return true
+		}
+	}
+	return false
 }

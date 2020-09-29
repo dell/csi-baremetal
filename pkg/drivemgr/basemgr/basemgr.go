@@ -29,8 +29,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/smartctl"
 )
 
-//LinuxUtilManager is a drive manager based on Linux system utils
-type LinuxUtilManager struct {
+//BaseManager is a drive manager based on Linux system utils
+type BaseManager struct {
 	exec     command.CmdExecutor
 	log      *logrus.Entry
 	lsscsi   lsscsi.WrapLsscsi
@@ -39,7 +39,7 @@ type LinuxUtilManager struct {
 }
 
 //GetDrivesList gets api.Drive slice using Linux system utils
-func (mgr LinuxUtilManager) GetDrivesList() ([]*api.Drive, error) {
+func (mgr BaseManager) GetDrivesList() ([]*api.Drive, error) {
 	ll := mgr.log.WithField("method", "GetDrivesList")
 	var (
 		devices    []*api.Drive
@@ -56,11 +56,11 @@ func (mgr LinuxUtilManager) GetDrivesList() ([]*api.Drive, error) {
 	return devices, nil
 }
 
-//NewLinuxUtilManager is a constructor LinuxUtilManager
-func NewLinuxUtilManager(exec command.CmdExecutor, logger *logrus.Logger) *LinuxUtilManager {
-	return &LinuxUtilManager{
+//NewBaseManager is a constructor BaseManager
+func NewBaseManager(exec command.CmdExecutor, logger *logrus.Logger) *BaseManager {
+	return &BaseManager{
 		exec:     exec,
-		log:      logger.WithField("component", "LinuxUtilManager"),
+		log:      logger.WithField("component", "BaseManager"),
 		lsscsi:   lsscsi.NewLSSCSI(exec, logger),
 		smartctl: smartctl.NewSMARTCTL(exec),
 		nvme:     nvmecli.NewNVMECLI(exec, logger),
@@ -68,7 +68,7 @@ func NewLinuxUtilManager(exec command.CmdExecutor, logger *logrus.Logger) *Linux
 }
 
 //GetSCSIDevices get []*api.Drive using lsscsi system util
-func (mgr *LinuxUtilManager) GetSCSIDevices() ([]*api.Drive, error) {
+func (mgr *BaseManager) GetSCSIDevices() ([]*api.Drive, error) {
 	ll := mgr.log.WithField("method", "GetSCSIDevices")
 	allDevices := make([]*api.Drive, 0)
 	scsiDevices, err := mgr.lsscsi.GetSCSIDevices()
@@ -114,7 +114,7 @@ func (mgr *LinuxUtilManager) GetSCSIDevices() ([]*api.Drive, error) {
 }
 
 //GetNVMDevices get []*api.Drive using nvme_cli system util
-func (mgr *LinuxUtilManager) GetNVMDevices() ([]*api.Drive, error) {
+func (mgr *BaseManager) GetNVMDevices() ([]*api.Drive, error) {
 	ll := mgr.log.WithField("method", "GetNVMDevices")
 	devices := make([]*api.Drive, 0)
 	nvmeDevices, err := mgr.nvme.GetNVMDevices()
