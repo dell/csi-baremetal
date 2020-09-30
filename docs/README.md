@@ -97,7 +97,7 @@ not less then you required and will be equal size of whole underlying HDD drive 
 
 Provide `baremetal-csi-sc-hddlvg` storage class for PVC in PVC manifest or persistenVolumeClameTemapate section if you 
 need to provision PVC based on logical volume. In that case logical volume group is created on the system based on one 
-drive and there are could be multiple logical volumes associated with multiple PVCs from one logical volume group. 
+drive and there could be multiple logical volumes associated with multiple PVCs from one logical volume group. 
 Size of PVC will be as is requested in manifest.
   
 For developers
