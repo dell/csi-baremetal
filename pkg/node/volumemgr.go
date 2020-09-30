@@ -99,7 +99,7 @@ type VolumeManager struct {
 	// reconcile lock
 	volMu keymutex.KeyMutex
 	// systemDriveUUID represent system drive uuid, used to avoid unnecessary calls to Kubernetes API
-	systemDriveUUID string
+	systemDriveUUID []string
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -166,7 +166,7 @@ func NewVolumeManager(
 		recorder:        recorder,
 		discoverLvgSSD:  true,
 		volMu:           keymutex.NewHashed(0),
-		systemDriveUUID: base.SystemDriveAsLocation,
+		systemDriveUUID: []string{base.SystemDriveAsLocation},
 	}
 	return vm
 }
@@ -496,7 +496,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
 			}
 			if isSystem {
-				m.systemDriveUUID = toCreateSpec.UUID
+				m.systemDriveUUID = append(m.systemDriveUUID, toCreateSpec.UUID)
 			}
 			toCreateSpec.IsSystem = isSystem
 			driveCR := m.k8sClient.ConstructDriveCR(toCreateSpec.UUID, toCreateSpec)
@@ -585,7 +585,7 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 		locations[v.Spec.Location] = struct{}{}
 	}
 	for _, lvg := range lvgCRs {
-		if len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == m.systemDriveUUID {
+		if len(lvg.Spec.Locations) > 0 && util.IsDriveSystem(lvg.Spec.Locations[0], m.systemDriveUUID) {
 			continue
 		}
 		for _, location := range lvg.Spec.Locations {
@@ -773,7 +773,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf(errTmpl, err)
 	}
 	for _, lvg := range lvgList.Items {
-		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == m.systemDriveUUID {
+		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.IsDriveSystem(lvg.Spec.Locations[0], m.systemDriveUUID) {
 			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
@@ -828,12 +828,21 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if err != nil {
 		return fmt.Errorf("unable to determine LVs in system VG %s: %v", vgName, err)
 	}
+
+	systemDriveUUID := base.SystemDriveAsLocation
+	for _, driveUUID := range m.systemDriveUUID {
+		drive := m.crHelper.GetDriveCRByUUID(driveUUID)
+		if drive != nil && drive.Spec.SerialNumber == devices[0].Serial {
+			systemDriveUUID = drive.Spec.UUID
+		}
+	}
+
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
 			Name:       vgName,
 			Node:       m.nodeID,
-			Locations:  []string{m.systemDriveUUID},
+			Locations:  []string{systemDriveUUID},
 			Size:       vgFreeSpace,
 			Status:     apiV1.Created,
 			VolumeRefs: lvs,

@@ -405,14 +405,14 @@ var _ = Describe("Working with CRD", func() {
 
 			driveUUID := k8sclient.GetSystemDriveUUID(testCtx, testNode1Name)
 			Expect(err).To(BeNil())
-			Expect(driveUUID).To(Equal(""))
+			Expect(driveUUID).To(Equal([]string{}))
 
 			err = k8sclient.CreateCR(testCtx, testUUID2, &testDriveCR2)
 			Expect(err).To(BeNil())
 
 			driveUUID = k8sclient.GetSystemDriveUUID(testCtx, testNode1Name)
 			Expect(err).To(BeNil())
-			Expect(driveUUID).To(Equal(testDriveCR2.Spec.UUID))
+			Expect(driveUUID).To(Equal([]string{testDriveCR2.Spec.UUID}))
 		})
 	})
 })
