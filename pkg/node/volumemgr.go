@@ -829,20 +829,12 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf("unable to determine LVs in system VG %s: %v", vgName, err)
 	}
 
-	systemDriveUUID := base.SystemDriveAsLocation
-	for _, driveUUID := range m.systemDriveUUID {
-		drive := m.crHelper.GetDriveCRByUUID(driveUUID)
-		if drive != nil && drive.Spec.SerialNumber == devices[0].Serial {
-			systemDriveUUID = drive.Spec.UUID
-		}
-	}
-
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
 			Name:       vgName,
 			Node:       m.nodeID,
-			Locations:  []string{systemDriveUUID},
+			Locations:  m.systemDriveUUID,
 			Size:       vgFreeSpace,
 			Status:     apiV1.Created,
 			VolumeRefs: lvs,
