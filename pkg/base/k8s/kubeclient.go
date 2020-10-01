@@ -345,10 +345,10 @@ func (k *KubeClient) GetNodes(ctx context.Context) ([]coreV1.Node, error) {
 	return nodes.Items, nil
 }
 
-// GetSystemDriveUUID returns system drive uuid
+// GetSystemDriveUUID returns system drives uuid
 // Receives golang context
-// Returns return string - drive uuid, error
-func (k *KubeClient) GetSystemDriveUUID(ctx context.Context, node string) []string {
+// Returns return slice of string - system drives uuid
+func (k *KubeClient) GetSystemDriveUUID(ctx context.Context) []string {
 	ll := k.log.WithField("method", "GetSystemDriveUUID")
 	var driveList drivecrd.DriveList
 	if err := k.ReadList(ctx, &driveList); err != nil {
@@ -357,7 +357,7 @@ func (k *KubeClient) GetSystemDriveUUID(ctx context.Context, node string) []stri
 	}
 	driveUUID := make([]string, 0)
 	for _, drive := range driveList.Items {
-		if drive.Spec.IsSystem && drive.Spec.NodeId == node {
+		if drive.Spec.IsSystem {
 			driveUUID = append(driveUUID, drive.Spec.UUID)
 		}
 	}

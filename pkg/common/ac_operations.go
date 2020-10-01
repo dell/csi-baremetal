@@ -284,16 +284,19 @@ func (a *ACOperationsImpl) tryToFindAC(acs []*accrd.AvailableCapacity, storageCl
 	for _, ac := range acs {
 		// Available capacity with system disk location won't be allocated
 		if len(driveUUID) == 0 {
-			driveUUID = a.k8sClient.GetSystemDriveUUID(context.Background(), ac.Spec.NodeId)
+			driveUUID = a.k8sClient.GetSystemDriveUUID(context.Background())
+			driveUUID = append(driveUUID, base.SystemDriveAsLocation)
 		}
-		driveUUID = append(driveUUID, base.SystemDriveAsLocation)
+		if util.IsDriveSystem(ac.Spec.Location, driveUUID) {
+			continue
+		}
 		if storageClass != "" {
-			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass && !util.IsDriveSystem(ac.Spec.Location, driveUUID) {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass {
 				foundAC = ac
 				allocatedCapacity = ac.Spec.Size
 			}
 		} else {
-			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && !util.IsDriveSystem(ac.Spec.Location, driveUUID) {
+			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes {
 				foundAC = ac
 				allocatedCapacity = ac.Spec.Size
 			}

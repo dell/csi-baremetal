@@ -346,7 +346,7 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 		"volumeID": volID,
 	})
 
-	driveUUID := append(vo.k8sClient.GetSystemDriveUUID(context.Background(), lvg.Spec.Node), base.SystemDriveAsLocation)
+	driveUUID := append(vo.k8sClient.GetSystemDriveUUID(context.Background()), base.SystemDriveAsLocation)
 	// if only one volume remains - remove AC first and LVG then
 	if len(lvg.Spec.VolumeRefs) == 1 && !util.IsDriveSystem(lvg.Spec.Locations[0], driveUUID) {
 		if err := vo.k8sClient.DeleteCR(context.Background(), ac); err != nil {
