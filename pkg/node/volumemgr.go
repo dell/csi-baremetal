@@ -166,7 +166,7 @@ func NewVolumeManager(
 		recorder:        recorder,
 		discoverLvgSSD:  true,
 		volMu:           keymutex.NewHashed(0),
-		systemDriveUUID: []string{base.SystemDriveAsLocation},
+		systemDriveUUID: make([]string, 0),
 	}
 	return vm
 }
@@ -507,7 +507,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			driveCRs = append(driveCRs, *driveCR)
 		}
 	}
-
+	if len(m.systemDriveUUID) == 0 {
+		m.systemDriveUUID = append(m.systemDriveUUID, base.SystemDriveAsLocation)
+	}
 	// that means that it is a first round and drives are discovered first time
 	if firstIteration {
 		return updates, nil
