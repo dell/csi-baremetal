@@ -361,6 +361,9 @@ func (k *KubeClient) GetSystemDriveUUID(ctx context.Context) []string {
 			driveUUID = append(driveUUID, drive.Spec.UUID)
 		}
 	}
+	if len(driveUUID) == 0 {
+		ll.Errorf("Failed to collect system drives, there are no system disks")
+	}
 	return driveUUID
 }
 
