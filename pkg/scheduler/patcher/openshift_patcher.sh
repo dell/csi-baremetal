@@ -34,7 +34,7 @@ function usage()
 {
    cat << HEREDOC
 
-   Usage: openshift_patcher [--help] [--install] [--remove]
+   Usage: openshift_patcher [--help] [--install] [--uninstall]
    Available environment variable: IMAGE, PATH_TO_CHART, RELEASE_NAME, POLICY_CONFIGMAP_NAME, PORT.
    IMAGE - scheduler extender docker image (example: 0.0.8-245.3f9fabc)
    PATH_TO_CHART - path to scheduler extender charts (example: csi-baremetal/chart/scheduler-extender)
@@ -44,7 +44,7 @@ function usage()
    arguments:
      -h, --help           show this help message and exit
      -i, --install        install and configure scheduler extender
-     -r, --remove         remove scheduler extender
+     -u, --uninstall      uninstall scheduler extender
 
 HEREDOC
 }
@@ -87,7 +87,7 @@ EOF
     rm policy.cfg
 }
 
-function remove() {
+function uninstall() {
     helm delete ${RELEASE_NAME}
     checkErr "error during scheduler-extender removing."
     oc delete configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
@@ -99,7 +99,7 @@ function remove() {
 case "$1" in
     -h | --help ) usage; exit; ;;
     -i | --install ) install; ;;
-    -r | --remove )  remove; ;;
+    -u | --uninstall ) uninstall; ;;
     * ) echo "Invalid argument"; exit 1; ;;
 esac
 
