@@ -30,10 +30,30 @@ checkErr() {
 	fi
 }
 
-helm install ${RELEASE_NAME} ${PATH_TO_CHART} --set image.tag=${IMAGE} --set registry=${REGISTRY} --set port=${PORT}
-checkErr "error during scheduler-extender installation."
+function usage()
+{
+   cat << HEREDOC
 
-cat <<EOF >./policy.cfg
+   Usage: openshift_patcher [--help] [--install] [--uninstall]
+   Available environment variable: IMAGE, PATH_TO_CHART, RELEASE_NAME, POLICY_CONFIGMAP_NAME, PORT.
+   IMAGE - scheduler extender docker image (example: 0.0.8-245.3f9fabc)
+   PATH_TO_CHART - path to scheduler extender charts (example: csi-baremetal/chart/scheduler-extender)
+   RELEASE_NAME - name of scherduler extender helm release (example: scheduler-extender)
+   POLICY_CONFIGMAP_NAME - name of scheduler policy ConfigMap (example: scheduler-policy)
+   PORT - port, used by scheduler extender (example: 8889)
+   arguments:
+     -h, --help           show this help message and exit
+     -i, --install        install and configure scheduler extender
+     -u, --uninstall      uninstall scheduler extender
+
+HEREDOC
+}
+
+function install() {
+    helm install ${RELEASE_NAME} ${PATH_TO_CHART} --set image.tag=${IMAGE} --set registry=${REGISTRY} --set port=${PORT}
+    checkErr "error during scheduler-extender installation."
+
+    cat <<EOF >./policy.cfg
 {
    "kind" : "Policy",
    "apiVersion" : "v1",
@@ -49,21 +69,39 @@ cat <<EOF >./policy.cfg
 }
 EOF
 
-oc get configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config 2> /dev/null
-exit_status=$?
+    oc get configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config 2> /dev/null
+    exit_status=$?
 
-if [ $exit_status -eq 0 ]; then
-   # If ConfigMap contains predicates and priorities we will lost them in case of removing and replacing configmap.
-   # But it hard to edit ConfigMap in bash script. Should we allow user to edit ConfigMap by its own.
-   oc delete configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
-   checkErr "error during execution \"os delete configmap\" command."
-fi
-oc create configmap -n openshift-config --from-file=policy.cfg ${POLICY_CONFIGMAP_NAME}
-checkErr "error during execution \"oc create configmap\" command."
+    if [ $exit_status -eq 0 ]; then
+       # If ConfigMap contains predicates and priorities we will lost them in case of removing and replacing configmap.
+       # But it hard to edit ConfigMap in bash script. Should we allow user to edit ConfigMap by its own.
+       oc delete configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
+       checkErr "error during execution \"os delete configmap\" command."
+    fi
+    oc create configmap -n openshift-config --from-file=policy.cfg ${POLICY_CONFIGMAP_NAME}
+    checkErr "error during execution \"oc create configmap\" command."
 
-oc patch Scheduler cluster --type='merge' -p '{"spec":{"policy":{"name":"'${POLICY_CONFIGMAP_NAME}'"}}}' --type=merge
-checkErr "error during execution \"oc patch Scheduler cluster\" command."
+    oc patch Scheduler cluster --type='merge' -p '{"spec":{"policy":{"name":"'${POLICY_CONFIGMAP_NAME}'"}}}' --type=merge
+    checkErr "error during execution \"oc patch Scheduler cluster\" command."
 
-rm policy.cfg
+    rm policy.cfg
+}
+
+function uninstall() {
+    helm delete ${RELEASE_NAME}
+    checkErr "error during scheduler-extender removing."
+    oc delete configmap ${POLICY_CONFIGMAP_NAME} -n openshift-config
+    checkErr "error during execution \"os delete configmap\" command."
+    oc patch Scheduler cluster --type='merge' -p '{"spec":{"policy":{"name":""}}}' --type=merge
+    checkErr "error during execution \"oc patch Scheduler cluster\" command."
+}
+# Support only one argument per execution
+case "$1" in
+    -h | --help ) usage; exit; ;;
+    -i | --install ) install; ;;
+    -u | --uninstall ) uninstall; ;;
+    * ) echo "Invalid argument"; exit 1; ;;
+esac
+
 
 
