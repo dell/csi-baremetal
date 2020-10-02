@@ -56,8 +56,8 @@ func (mgr BaseManager) GetDrivesList() ([]*api.Drive, error) {
 	return devices, nil
 }
 
-//NewBaseManager is a constructor BaseManager
-func NewBaseManager(exec command.CmdExecutor, logger *logrus.Logger) *BaseManager {
+//New is a constructor BaseManager
+func New(exec command.CmdExecutor, logger *logrus.Logger) *BaseManager {
 	return &BaseManager{
 		exec:     exec,
 		log:      logger.WithField("component", "BaseManager"),

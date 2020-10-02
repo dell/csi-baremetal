@@ -29,7 +29,6 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
@@ -279,17 +278,8 @@ func (a *ACOperationsImpl) tryToFindAC(acs []*accrd.AvailableCapacity, storageCl
 	var (
 		allocatedCapacity int64 = math.MaxInt64
 		foundAC           *accrd.AvailableCapacity
-		driveUUID         = make([]string, 0)
 	)
 	for _, ac := range acs {
-		// Available capacity with system disk location won't be allocated
-		if len(driveUUID) == 0 {
-			driveUUID = a.k8sClient.GetSystemDriveUUID(context.Background())
-			driveUUID = append(driveUUID, base.SystemDriveAsLocation)
-		}
-		if util.IsDriveSystem(ac.Spec.Location, driveUUID) {
-			continue
-		}
 		if storageClass != "" {
 			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass {
 				foundAC = ac
