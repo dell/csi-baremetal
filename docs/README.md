@@ -1,128 +1,75 @@
 Bare-metal CSI Plugin
 =====================
 
-CSI spec implementation for local volumes.
+Bare-metal CSI Plugin is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached drives for Kubernetes.
+
+- **Project status**: Alpha - no backward compatibility is provided   
 
 Supported environments
 ----------------------
-- Kubernetes
-  - 1.15
-- Node OS
-  - Ubuntu 18.10
-  - Ubuntu 16 ?
-  - CentOS 7, 8 ?
-- Helm
-  - 2.13
-  - 3.0
+- **Kubernetes**: 1.18
+- **Node OS**: Ubuntu 18.10  
+- **Helm**: 3.0
   
 Features
 --------
 
 - [Dynamic provisioning](https://kubernetes-csi.github.io/docs/external-provisioner.html): Volumes are created dynamically when `PersistentVolumeClaim` objects are created.
-- Handle REST calls for disk node mapping
+- Inline volumes
+- LVM support
+- Storage classes for the different drive types: HDD, SSD, NVMe
+- Drive health detection
+- Scheduler extender
 
 ### Planned features
-- Custom scheduler
+- Service procedures - node and disk replacement
 - Volume expand support
 - User defined storage classes
-- NVMe/NVMeOf devices support
+- NVMeOf support
+- Cross-platform
+- Raw block mode
 
 Installation process
 ---------------------
 
-Installation depend weather you use Helm 2 or Helm 3. If you use Helm 2 you have to setup correspond service account and clusterrolebinding for Tiller  component.
+1. Pre-requisites
+ 
+    1.1. *go version 1.14.2*
+    
+    1.2. *protoc version 3*
+    
+    1.3. [*helm*](https://helm.sh/docs/intro/install/)
+    
+    1.4. *kubectl*
 
-1. [Install helm on your local machine.](https://helm.sh/docs/intro/install/)  
-    1.1 Prepare Tiller account (for Helm 2)
-    ```
-    1) kubectl create serviceaccount tiller --namespace kube-system 
-    serviceaccount/tiller created
-     
-    2) kubectl create clusterrolebinding tiller-cluster-admin  --clusterrole=cluster-admin --serviceaccount=kube-system:tiller
-    clusterrolebinding.rbac.authorization.k8s.io/tiller-cluster-admin created
-     
-    3) helm init --service-account tiller --wait
-    ......
-    Happy Helming!
+2. Build and deploy CSI plugin
     
-    4) Ensure that Tiller pod is running
-    $ kubectl get pods -n kube-system | grep -i tiller
-    tiller-deploy-7d44fddf6c-jgtjf             1/1     Running   0          2m35s
-    ```
+    2.1 Build Bare-metal CSI Plugin images and push them to your registry server
+    
+    ```REGISTRY=<your-registry.com> make generate-api build images```
 
-2. Install CSI plugin:
+    2.2 Deploy CSI plugin 
+    
+    ```cd charts && helm install csi-baremetal baremetal-csi-plugin --set global.registry=<your-registry.com> --set image.tag=<tag>```
+    
+    2.3 Deploy Kubernetes scheduler extender 
+        
+    ```cd charts && helm install csi-scheduler-extender scheduler-extender --set  global.registry=<your-registry.com> --set image.tag=<tag>```
+    
+3. Check default storage classes available
 
-    2.1 For Helm 3 
+    ```kubectl get storageclasses```
     
-    ```cd charts && helm install baremetal-csi ./baremetal-csi-plugin```
-    
-    2.2 For Helm 2
-    
-    ```helm install --name baremetal-csi ./baremetal-csi-plugin```
-    
-    2.2 Customization
-    
-    There is an ability to customize any value from `values.yaml` file via helm option `--set X.Y.Z=NEW_VALUE`,
-    
-    E.g. plugin installation with custom image tag for node, controller and drivemgr:
-    
-    ```helm install --name baremetal-csi ./baremetal-csi-plugin --set image.tag=CUSTOM_TAG``` 
-    
-    Check CSI pods readiness
-    
-    ```
-    $ kubectl get pods -o wide
-    NAME                         READY   STATUS    RESTARTS   AGE
-    baremetal-csi-controller-0   3/3     Running   0          179m
-    baremetal-csi-node-2hp2k     3/3     Running   0          179m
-    baremetal-csi-node-lz7xb     3/3     Running   0          179m
-    baremetal-csi-node-p7r7w     3/3     Running   0          179m
-    baremetal-csi-node-zjxzq     3/3     Running   0          179m   
-    ```
-    Check Storage Class
-    
-    ``` 
-    $ kubectl get storageclass
-    NAME                         PROVISIONER     RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-    baremetal-csi-sc (default)   baremetal-csi   Delete          WaitForFirstConsumer   false                  3h
-    baremetal-csi-sc-hddlvg      baremetal-csi   Delete          WaitForFirstConsumer   false                  3h
-    ```
-
-Usages
+Usage
 ------
  
-Provide `baremetal-csi-sc` storage class for PVC in PVC manifest or in persistenVolumeClameTemapate section if you need 
-to provision PVC based on HDD disk and that whole disk will be consumed by that PVC. In that case size of PVC will be 
-not less then you required and will be equal size of whole underlying HDD drive size.
+Use `baremetal-csi-sc` storage class for PVC in PVC manifest or in persistentVolumeClaimTemplate section if you need to 
+provision PV bypassing LVM. Size of the resulting PV will be equal to the size of underlying physical drive.
 
-Provide `baremetal-csi-sc-hddlvg` storage class for PVC in PVC manifest or persistenVolumeClameTemapate section if you 
-need to provision PVC based on logical volume. In that case logical volume group is created on the system based on one 
-drive and there are could be multiple logical volumes associated with multiple PVCs from one logical volume group. 
-Size of PVC will be as is requested in manifest.
-  
-For developers
----------------------
+Use `baremetal-csi-sc-hddlvg` or `baremetal-csi-sc-ssdlvg` storage classes for PVC in PVC manifest or in 
+persistentVolumeClaimTemplate section if you need to provision PVC based on the logical volume. Size of the resulting PV
+will be equal to the size of PVC.
 
-1. Compile proto files
-    1.1 There is `make` target 'compile-proto' that will generate GO code from proto files:
-    ```
-    make compile-proto
-    ``` 
-    Proto files are located under `/api/API_VERSION/` folder. Generated GO files will be located under `/api/generated/API_VERSION` folder.
-    Default API_VERSION is `v1`
-2. Installs controller-gen tool
-    ```
-   make install-controller-gen
-    ```
-3. Generate CRDs manifests and code
-    2.1 There is `make` target 'generate-crd' that will generate CRD yaml manifests:
-    ```
-    make generate-crd
-    ```
-    Manifests are located under `charts/baremetal-csi-plugin/crds` folder.
-   
-    2.2 There is `make` target 'generate-deepcopy' that will generate GO deepcopy code for CRDs instances:
-    ```
-    make generate-deepcopy 
-    ```
-    Go files are located under `api/vi/SOME_CRD/` folder
+Contribution
+------
+Please refer [Contribution Guideline](https://github.com/dell/csi-baremetal/blob/master/docs/CONTRIBUTING.md) fo details
