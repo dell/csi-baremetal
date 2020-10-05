@@ -6,10 +6,10 @@ _Describe your changes_
 - [ ] Choose PR label
 - [ ] New unit tests added
 - [ ] Modified code has meaningful comments
-- [ ] All TODOs are linked with issues
+- [ ] All TODOs are linked with the issues
 - [ ] All comments are resolved
-- [ ] PR validation passed
-- [ ] Custom CI passed
+- [ ] PR validation is passed
+- [ ] Custom CI is passed
 
 ## Testing
 _Link to custom CI build_

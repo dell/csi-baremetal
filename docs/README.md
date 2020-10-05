@@ -64,29 +64,4 @@ provision PV bypassing LVM. Size of the resulting PV will be equal to the size o
 
 Use `baremetal-csi-sc-hddlvg` or `baremetal-csi-sc-ssdlvg` storage classes for PVC in PVC manifest or in 
 persistentVolumeClaimTemplate section if you need to provision PVC based on the logical volume. Size of the resulting PV
-will be equal to the size of PVC. 
-  
-For developers
----------------------
-
-1. Compile proto files  
-    ```
-    make compile-proto
-    ```     
-2. Install controller-gen tool
-    ```
-   make install-controller-gen
-    ```
-3. Generate CRD manifests and code
-
-    2.1 There is `make` target 'generate-crd' that will generate CRD yaml manifests:
-    ```
-    make generate-crd
-    ```
-    Manifests are located under `charts/baremetal-csi-plugin/crds` folder.
-   
-    2.2 There is `make` target 'generate-deepcopy' that will generate GO deepcopy code for CRDs instances:
-    ```
-    make generate-deepcopy 
-    ```
-    Go files are located under `api/vi/SOME_CRD/` folder
+will be equal to the size of PVC.

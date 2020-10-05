@@ -1,4 +1,4 @@
-# Baremetal CSI Plugin Contribution Guide
+# Bare-metal CSI Plugin Contribution Guide
 
 ## Workflow overview
 
@@ -6,37 +6,37 @@
 
 #### Issue
 Before you file an issue, make sure you've checked the following for existing issues:
-    - Before you create a new issue, please do a search in [open issues](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/issues) to see if the issue or feature request has already been filed.
+    - Before you create a new issue, please do a search in [open issues](https://github.com/dell/csi-baremetal/issues) to see if the issue or feature request has already been filed.
     - If you find your issue already exists, make relevant comments and add your [reaction](https://github.com/blog/2119-add-reaction-to-pull-requests-issues-and-comments). Use a reaction:
         - 👍 up-vote
         - 👎 down-vote
-#### There are 4 types of issues:
+#### There are 4 major types of issues:
 
-- Issue/Bug: You've found a bug with the code, and want to report it, or create an issue to track the bug.
-- Issue/Discussion: You have something on your mind, which requires input form others in a discussion, before it eventually manifests as a proposal.
-- Issue/Proposal: Used for items that propose a new idea or functionality. This allows feedback from others before code is written.
-- Issue/Question: Use this issue type, if you need help or have a question.
+- ***Bug***: You've found a bug with the code, and want to report it, or create an issue to track the bug.
+- ***Enhancement***: New feature or request.
+- ***Proposal***: Used for items that propose a new idea or functionality. This allows feedback from others before code is written.
+- ***Discussion***: You have something on your mind, which requires input form others in a discussion, before it eventually manifests as a proposal.
+- ***Question***: Use this issue type, if you need help or have a question.
 
 ### Pull Requests
 
 All contributions come through pull requests. To submit a proposed change, we recommend following this workflow:
 
-1. Make sure there's an issue (bug or proposal) raised, which sets the expectations for the contribution you are about to make.
+1. Make sure there's an issue (bug or enhancement) raised, which sets the expectations for the contribution you are about to make.
 2. Fork the relevant repo and create a new branch
    - The branch name should be **bugfix** or **feature** based on the issue type: ```feature/bugfix-<Issue ID>-<short descriptionj```
 3. Create your change
-    - Code changes require tests(Unit and Kubernetes e2e)
+    - Code changes require tests (Unit and Kubernetes e2e)
 4. Update relevant documentation for the change
-5. Commit and open a PR with title "[Issue-ID] <short description>"
+5. Commit and open a PR with title "[ISSUE-ID] <short description>"
 6. Fill "Purpose" of Pull Request Template:
     - Add detailed description of the issue/feature and how it was solved/developed to simplify review process
     - Make actions from PR Checklist
 7. Choose label for your Pull Request:
-    - "Feature" - for PRs with feature
-    - "Bugfix" - for PRs with bugfix
-    - "Enhancement" - for PRs with some enhancement like refactoring or test adding
-    - "Critical" - for PRs with something that should be merge as soon as possible
-8. Wait for the CI process to finish and make sure all checks are green
+    - "Enhancement" - for PRs with feature or some enhancement
+    - "Bug" - for PRs with bugfix    
+    - "Documentation" - for PRs with something that require documentation update
+8. Make sure that unit and e2e tests are passed
 9. A maintainer of the project will be assigned, and you can expect a review within a few days
 
 #### Use draft PRs for early feedback
@@ -97,17 +97,22 @@ You have to commit the changes to go.mod, go.sum and before submitting the pull 
 ### Preparing Build Environment
 
 #### Local build
-Setup all requirement dependencies:
+Setup all required dependencies:
 ```
-export DRIVE_MANAGER_TYPE=loopbackmgr
 make install-compile-proto
 make install-controller-gen
 make generate-deepcopy
 make dependency
+export DRIVE_MANAGER_TYPE=loopbackmgr
 ```
-Build:
+Build binaries:
 ```
- make build
+make build
+```
+Build docker images:
+```
+export REGISTRY="myregistry.com"
+make images
 ```
 Run Unit tests:
 ```
@@ -125,26 +130,26 @@ make test
 ##### Running Baremetal CSI E2E tests locally
 
 * Install `lvm2` package on your machine
-* Create kind (version >= v0.7.0) cluster with the specified config. Note that kind workers must be run with host IPC
+* Create kind (version >= v0.7.0) cluster with the specified config. *Note that kind workers must be run with host IPC*
 ```
 kind create cluster --config  test/kind/kind.yaml
 ```
 * KIND can't pull images from remote repository, to load images to local docker repository on nodes:
 ```
-export csiVersion=`make version`
-export registry="asdrepo.isus.emc.com:9042"
+export CSI_VERSION=`make version`
+export REGISTRY="asdrepo.isus.emc.com:9042"
 
-make kind-pull-images TAG=${csiVersion} REGISTRY=${registry}
-make kind-tag-images TAG=${csiVersion} REGISTRY=${registry}
-make kind-load-images TAG=${csiVersion} REGISTRY=${registry}
+make kind-pull-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
+make kind-tag-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
+make kind-load-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
 ```
 * E2E tests need yaml files with baremetal-csi resources (plugin, controller, rbac). To create yaml files use helm command:
 ```
 helm template charts/baremetal-csi-plugin \
-    --output-dir /tmp --set image.tag=${csiVersion} \
+    --output-dir /tmp --set image.tag=${CSI_VERSION} \
     --set env.test=true --set drivemgr.type=loopbackmgr \
     --set drivemgr.deployConfig=true \
-    --set image.pullPolicy=IfNotPresent    
+    --set image.pullPolicy=IfNotPresent
 ``` 
 If you set `--output-dir` to another directory, you should change this line in [code](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/blob/feature-FABRIC-8422-implement-base-csi-e2e-tests-with-Kind/test/test/csi-volume.go#L22) to your directory, so framework can find yaml files.
 
