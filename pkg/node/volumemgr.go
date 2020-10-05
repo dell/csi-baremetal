@@ -587,7 +587,7 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 		locations[v.Spec.Location] = struct{}{}
 	}
 	for _, lvg := range lvgCRs {
-		if len(lvg.Spec.Locations) > 0 && util.IsDriveSystem(lvg.Spec.Locations[0], m.systemDriveUUID) {
+		if len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDriveUUID, lvg.Spec.Locations[0]) {
 			continue
 		}
 		for _, location := range lvg.Spec.Locations {
@@ -775,7 +775,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf(errTmpl, err)
 	}
 	for _, lvg := range lvgList.Items {
-		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.IsDriveSystem(lvg.Spec.Locations[0], m.systemDriveUUID) {
+		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDriveUUID, lvg.Spec.Locations[0]) {
 			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
@@ -1034,8 +1034,8 @@ func (m *VolumeManager) isDriveSystem(path string) (bool, error) {
 // isRootMountpoint check whether devices has root mountpoint
 // Parameters: BlockDevice from lsblk output
 // Returns true if device has root mountpoint, false in opposite
-func (m *VolumeManager) isRootMountpoint(dev []lsblk.BlockDevice) bool {
-	for _, device := range dev {
+func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
+	for _, device := range devs {
 		if strings.TrimSpace(device.MountPoint) == base.KubeletRootPath {
 			return true
 		}

@@ -345,14 +345,14 @@ func (k *KubeClient) GetNodes(ctx context.Context) ([]coreV1.Node, error) {
 	return nodes.Items, nil
 }
 
-// GetSystemDriveUUID returns system drives uuid
+// GetSystemDriveUUIDs returns system drives uuid
 // Receives golang context
-// Returns return slice of string - system drives uuid
-func (k *KubeClient) GetSystemDriveUUID(ctx context.Context) []string {
-	ll := k.log.WithField("method", "GetSystemDriveUUID")
+// Returns return slice of string - system drives uuids
+func (k *KubeClient) GetSystemDriveUUIDs(ctx context.Context) []string {
+	ll := k.log.WithField("method", "GetSystemDriveUUIDs")
 	var driveList drivecrd.DriveList
 	if err := k.ReadList(ctx, &driveList); err != nil {
-		ll.Errorf("Failed to get system disk uuid, error: %v", err)
+		ll.Errorf("Failed to read Drive list, error: %v", err)
 		return nil
 	}
 	driveUUID := make([]string, 0)
