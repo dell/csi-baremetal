@@ -941,7 +941,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
 
 	// expect success, LVG CR and AC CR was created
-	m.systemDriveUUID = append(m.systemDriveUUID, base.SystemDriveAsLocation)
+	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, base.SystemDriveAsLocation)
 	err = m.discoverLVGOnSystemDrive()
 	assert.Nil(t, err)
 

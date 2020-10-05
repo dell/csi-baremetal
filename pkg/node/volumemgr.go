@@ -98,8 +98,9 @@ type VolumeManager struct {
 	recorder eventRecorder
 	// reconcile lock
 	volMu keymutex.KeyMutex
-	// systemDriveUUID represent system drive uuid, used to avoid unnecessary calls to Kubernetes API
-	systemDriveUUID []string
+	// systemDrivesUUIDs represent system drive uuids, used to avoid unnecessary calls to Kubernetes API.
+	// We use slice in case of RAID and multiple system disks
+	systemDrivesUUIDs []string
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -157,16 +158,16 @@ func NewVolumeManager(
 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
 		},
-		fsOps:           utilwrappers.NewFSOperationsImpl(executor, logger),
-		lvmOps:          lvm.NewLVM(executor, logger),
-		listBlk:         lsblk.NewLSBLK(logger),
-		partOps:         ph.NewWrapPartitionImpl(executor, logger),
-		nodeID:          nodeID,
-		log:             logger.WithField("component", "VolumeManager"),
-		recorder:        recorder,
-		discoverLvgSSD:  true,
-		volMu:           keymutex.NewHashed(0),
-		systemDriveUUID: make([]string, 0),
+		fsOps:             utilwrappers.NewFSOperationsImpl(executor, logger),
+		lvmOps:            lvm.NewLVM(executor, logger),
+		listBlk:           lsblk.NewLSBLK(logger),
+		partOps:           ph.NewWrapPartitionImpl(executor, logger),
+		nodeID:            nodeID,
+		log:               logger.WithField("component", "VolumeManager"),
+		recorder:          recorder,
+		discoverLvgSSD:    true,
+		volMu:             keymutex.NewHashed(0),
+		systemDrivesUUIDs: make([]string, 0),
 	}
 	return vm
 }
@@ -496,7 +497,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
 			}
 			if isSystem {
-				m.systemDriveUUID = append(m.systemDriveUUID, toCreateSpec.UUID)
+				m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, toCreateSpec.UUID)
 			}
 			toCreateSpec.IsSystem = isSystem
 			driveCR := m.k8sClient.ConstructDriveCR(toCreateSpec.UUID, toCreateSpec)
@@ -507,8 +508,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			driveCRs = append(driveCRs, *driveCR)
 		}
 	}
-	if len(m.systemDriveUUID) == 0 {
-		m.systemDriveUUID = append(m.systemDriveUUID, base.SystemDriveAsLocation)
+	// If CSI can't find system disks, it appends "system drive" to systemDrivesUUIDs slice and uses it as a location for LVG
+	if len(m.systemDrivesUUIDs) == 0 {
+		m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, base.SystemDriveAsLocation)
 	}
 	// that means that it is a first round and drives are discovered first time
 	if firstIteration {
@@ -587,7 +589,7 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 		locations[v.Spec.Location] = struct{}{}
 	}
 	for _, lvg := range lvgCRs {
-		if len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDriveUUID, lvg.Spec.Locations[0]) {
+		if len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDrivesUUIDs, lvg.Spec.Locations[0]) {
 			continue
 		}
 		for _, location := range lvg.Spec.Locations {
@@ -775,7 +777,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf(errTmpl, err)
 	}
 	for _, lvg := range lvgList.Items {
-		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDriveUUID, lvg.Spec.Locations[0]) {
+		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDrivesUUIDs, lvg.Spec.Locations[0]) {
 			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
@@ -836,7 +838,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		vg       = api.LogicalVolumeGroup{
 			Name:       vgName,
 			Node:       m.nodeID,
-			Locations:  m.systemDriveUUID,
+			Locations:  m.systemDrivesUUIDs,
 			Size:       vgFreeSpace,
 			Status:     apiV1.Created,
 			VolumeRefs: lvs,

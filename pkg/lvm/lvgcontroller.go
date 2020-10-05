@@ -125,8 +125,8 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			if len(lvg.Spec.Locations) == 0 {
 				ll.Warn("Location fields is empty")
 			} else {
-				driveUUIDs := append(c.k8sClient.GetSystemDriveUUIDs(context.Background()), base.SystemDriveAsLocation)
-				if !util.ContainsString(driveUUIDs, lvg.Spec.Locations[0]) {
+				drivesUUIDs := append(c.k8sClient.GetSystemDriveUUIDs(context.Background()), base.SystemDriveAsLocation)
+				if !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
 					// cleanup LVM artifacts
 					if err := c.removeLVGArtifacts(lvg.Name); err != nil {
 						ll.Errorf("Unable to cleanup LVM artifacts: %v", err)

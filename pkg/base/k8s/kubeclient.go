@@ -355,16 +355,16 @@ func (k *KubeClient) GetSystemDriveUUIDs(ctx context.Context) []string {
 		ll.Errorf("Failed to read Drive list, error: %v", err)
 		return nil
 	}
-	driveUUID := make([]string, 0)
+	drivesUUIDs := make([]string, 0)
 	for _, drive := range driveList.Items {
 		if drive.Spec.IsSystem {
-			driveUUID = append(driveUUID, drive.Spec.UUID)
+			drivesUUIDs = append(drivesUUIDs, drive.Spec.UUID)
 		}
 	}
-	if len(driveUUID) == 0 {
+	if len(drivesUUIDs) == 0 {
 		ll.Errorf("Failed to collect system drives, there are no system disks")
 	}
-	return driveUUID
+	return drivesUUIDs
 }
 
 // GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources
