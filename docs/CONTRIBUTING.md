@@ -10,7 +10,7 @@ Before you file an issue, make sure you've checked the following for existing is
     - If you find your issue already exists, make relevant comments and add your [reaction](https://github.com/blog/2119-add-reaction-to-pull-requests-issues-and-comments). Use a reaction:
         - 👍 up-vote
         - 👎 down-vote
-#### There are 4 major types of issues:
+#### You can submit the following issues:
 
 - ***Bug***: You've found a bug with the code, and want to report it, or create an issue to track the bug.
 - ***Enhancement***: New feature or request.
@@ -44,16 +44,15 @@ All contributions come through pull requests. To submit a proposed change, we re
 A good way to communicate before investing too much time is to create a draft PR and share it with your reviewers. The standard way of doing this is to click on "Create Draft Pull Request". This will let people looking at your PR know that it is not well baked yet.
 
 ### Code style
-Baremetal CSI Plugin is written in Golang. Our plugin uses [Effective Go](https://golang.org/doc/effective_go.html) .
-#### imports
-- Imports statement should be divided into 3 blocks each block is separated from others by empty line.
+Bare-metal CSI Plugin is written in Golang. Our plugin uses [Effective Go](https://golang.org/doc/effective_go.html) .
+#### Imports
+- Imports statement should be divided into 4 blocks each block is separated from others by empty line.
   * First block - only imports from standard library. 
   * Second block - external libraries imports.
   * Third block - our internal imports that don't relate to that repository (baremetal-csi-plugin).
   * Forth block - internal imports that relates to that repository (baremetal-csi-plugin).
 - If there are no imports from some block, that block should be omitted.
-
-2. If some structure have a field with logger, that field should be the last in the structure declaration.
+- If some structure have a field with logger, that field should be the last in the structure declaration.
 #### Linter
 For auto-detecting code style inconsistencies we use [golangci-lint](https://github.com/golangci/golangci-lint).
 Run `make lint` if you want to check your changes.
@@ -150,8 +149,7 @@ helm template charts/baremetal-csi-plugin \
     --set env.test=true --set drivemgr.type=loopbackmgr \
     --set drivemgr.deployConfig=true \
     --set image.pullPolicy=IfNotPresent
-``` 
-If you set `--output-dir` to another directory, you should change this line in [code](https://eos2git.cec.lab.emc.com/ECS/baremetal-csi-plugin/blob/feature-FABRIC-8422-implement-base-csi-e2e-tests-with-Kind/test/test/csi-volume.go#L22) to your directory, so framework can find yaml files.
+```
 
 You can configure Loopback DriveManager's devices through ConfigMap. The default one is in charts.
 For example:
@@ -167,7 +165,7 @@ data:
   config.yaml: |-
     defaultDrivePerNodeCount: 8
     nodes:
-    - nodeID: layton-oil.ecs.lab.emc.com
+    - nodeID: mynode.com
       driveCount: 10
       drives:
         - serialNumber: LOOPBACK1318634239
@@ -201,4 +199,4 @@ go run cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=<kubec
 kind delete cluster
 ```
 ## Contacts
-If you have any questions, please, contact Baremetal CSI Plugin team in our ??? chat or email.
+If you have any questions, please, open [GitHub issue](https://github.com/dell/csi-baremetal/issues/new) in this repository with the ***question*** label.
