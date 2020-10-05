@@ -3,7 +3,7 @@ Bare-metal CSI Plugin
 
 Bare-metal CSI Plugin is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached drives for Kubernetes.
 
-- **Project status**: Alpha - no backward compatibility guaranteed   
+- **Project status**: Alpha - no backward compatibility is provided   
 
 Supported environments
 ----------------------
@@ -15,8 +15,11 @@ Features
 --------
 
 - [Dynamic provisioning](https://kubernetes-csi.github.io/docs/external-provisioner.html): Volumes are created dynamically when `PersistentVolumeClaim` objects are created.
+- Inline volumes
 - LVM support
 - Storage classes for the different drive types: HDD, SSD, NVMe
+- Drive health detection
+- Scheduler extender
 
 ### Planned features
 - Service procedures - node and disk replacement
@@ -24,6 +27,7 @@ Features
 - User defined storage classes
 - NVMeOf support
 - Cross-platform
+- Raw block mode
 
 Installation process
 ---------------------
@@ -65,3 +69,7 @@ provision PV bypassing LVM. Size of the resulting PV will be equal to the size o
 Use `baremetal-csi-sc-hddlvg` or `baremetal-csi-sc-ssdlvg` storage classes for PVC in PVC manifest or in 
 persistentVolumeClaimTemplate section if you need to provision PVC based on the logical volume. Size of the resulting PV
 will be equal to the size of PVC.
+
+Contribution
+------
+Please refer [Contribution Guideline](https://github.com/dell/csi-baremetal/blob/master/docs/CONTRIBUTING.md) fo details
