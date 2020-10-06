@@ -417,7 +417,7 @@ func (e *Extender) createACRs(ctx context.Context, nodeVolumeACMap map[string]ma
 	return createErr
 }
 
-// searchSuitableACs searches the most appropriate AC for each volume from volumes in scACMap
+
 func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {
 	ll := e.logger.WithFields(logrus.Fields{
 		"method": "score",
@@ -480,6 +480,7 @@ func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int, int
 	return nrank, maxCount
 }
 
+// searchSuitableACs searches the most appropriate AC for each volume from volumes in scACMap
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
 func (e *Extender) searchSuitableACs(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) map[*genV1.Volume]*accrd.AvailableCapacity { // list based on which ACR will be created
