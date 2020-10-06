@@ -198,6 +198,10 @@ func TestACOperationsImpl_tryToFindAC(t *testing.T) {
 		ac   *accrd.AvailableCapacity
 	)
 
+	kubeClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+	assert.Nil(t, err)
+	acOp.k8sClient = kubeClient
+
 	ac = acOp.tryToFindAC(acs, apiV1.StorageClassHDD, int64(util.GBYTE)*89)
 	assert.NotNil(t, ac)
 	assert.Equal(t, ac.Name, testAC2.Name)
