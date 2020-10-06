@@ -44,6 +44,8 @@ spec:
               type: string
             Health:
               type: string
+            IsSystem:
+              type: boolean
             LEDState:
               type: string
             NodeId:
