@@ -28,7 +28,7 @@ import (
 func SetupSignalHandler(server *rpc.ServerRunner) {
 	sigint := make(chan os.Signal, 1)
 
-	signal.Notify(sigint, syscall.SIGTERM)
+	signal.Notify(sigint, syscall.SIGHUP)
 
 	//Wait SIGTERM handler
 	<-sigint

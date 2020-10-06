@@ -41,7 +41,7 @@ func SetupAndRunDriveMgr(d drivemgr.DriveManager, sr *rpc.ServerRunner, cleanupF
 		logger.Fatalf("Failed to serve on %s. Error: %v", sr.Endpoint, err)
 	}
 
-	logger.Info("Got SIGTERM signal")
+	logger.Info("Got SIGHUP signal")
 	// clean loop devices after drivemgr deletion
 	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
 	// kubernetes sends SIGTERM signal to containers for pods terminating
