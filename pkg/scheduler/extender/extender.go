@@ -417,7 +417,6 @@ func (e *Extender) createACRs(ctx context.Context, nodeVolumeACMap map[string]ma
 	return createErr
 }
 
-
 func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {
 	ll := e.logger.WithFields(logrus.Fields{
 		"method": "score",
