@@ -480,7 +480,6 @@ func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int, int
 	return nrank, maxCount
 }
 
-// isACsMatchVolumeRequests checks whether volumes suite with storage class sc could be provisioned based on available capacities
 // scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
 func (e *Extender) searchSuitableACs(scACMap map[string]map[string]*accrd.AvailableCapacity,
 	sc string, volumes []*genV1.Volume) map[*genV1.Volume]*accrd.AvailableCapacity { // list based on which ACR will be created
