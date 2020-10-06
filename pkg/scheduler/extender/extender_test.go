@@ -22,14 +22,6 @@ import (
 	"reflect"
 	"testing"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
-	v1 "github.com/dell/csi-baremetal/api/v1"
-	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -39,6 +31,15 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 var (

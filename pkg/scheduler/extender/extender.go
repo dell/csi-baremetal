@@ -30,7 +30,7 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
+	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
