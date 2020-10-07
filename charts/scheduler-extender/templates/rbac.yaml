@@ -11,6 +11,9 @@ metadata:
   name: csi-baremetal-extender-cr
 rules:
   - apiGroups: ["baremetal-csi.dellemc.com"]
+    resources: ["volumes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["availablecapacities"]
     verbs: ["get", "list"]
   - apiGroups: ["baremetal-csi.dellemc.com"]

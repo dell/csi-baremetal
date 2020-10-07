@@ -19,6 +19,7 @@ package extender
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -35,6 +36,7 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -560,5 +562,60 @@ func removeAllACRs(k *k8s.KubeClient, t *testing.T) {
 	assert.Nil(t, k.ReadList(testCtx, &acrList))
 	for _, acr := range acrList.Items {
 		assert.Nil(t, k.DeleteCR(testCtx, &acr))
+	}
+}
+
+func Test_nodePrioritize(t *testing.T) {
+	type args struct {
+		nodeMapping map[string][]volcrd.Volume
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  map[string]int
+		want1 int
+	}{{
+		name: "Zero volumes",
+		args: args{
+			nodeMapping: map[string][]volcrd.Volume{"node1": nil, "node2": nil},
+		},
+		want:  map[string]int{"node1": 0, "node2": 0},
+		want1: 0,
+	},
+		{
+			name: "2 volumes with equal number of volumes",
+			args: args{
+				nodeMapping: map[string][]volcrd.Volume{"node1": {volcrd.Volume{}}, "node2": {volcrd.Volume{}}},
+			},
+			want:  map[string]int{"node1": 0, "node2": 0},
+			want1: 1,
+		},
+		{
+			name: "Node2 must have higher priority",
+			args: args{
+				nodeMapping: map[string][]volcrd.Volume{"node1": {volcrd.Volume{}, volcrd.Volume{}}, "node2": {volcrd.Volume{}}},
+			},
+			want:  map[string]int{"node1": 0, "node2": 1},
+			want1: 2,
+		},
+		{
+			name: "Node3 must have higher priority",
+			args: args{
+				nodeMapping: map[string][]volcrd.Volume{"node1": {volcrd.Volume{}, volcrd.Volume{}}, "node2": {volcrd.Volume{}, volcrd.Volume{}}, "node3": {volcrd.Volume{}}},
+			},
+			want:  map[string]int{"node1": 0, "node2": 0, "node3": 1},
+			want1: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := nodePrioritize(tt.args.nodeMapping)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("nodePrioritize() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("nodePrioritize() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
 	}
 }

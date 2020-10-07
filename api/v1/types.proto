@@ -22,6 +22,7 @@ message Drive {
     string Firmware = 14;
     int64 Endurance = 15;
     string LEDState = 16;
+    bool IsSystem = 17;
 }
 
 message Volume {

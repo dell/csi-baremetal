@@ -345,6 +345,28 @@ func (k *KubeClient) GetNodes(ctx context.Context) ([]coreV1.Node, error) {
 	return nodes.Items, nil
 }
 
+// GetSystemDriveUUIDs returns system drives uuid
+// Receives golang context
+// Returns return slice of string - system drives uuids
+func (k *KubeClient) GetSystemDriveUUIDs() []string {
+	ll := k.log.WithField("method", "GetSystemDriveUUIDs")
+	var driveList drivecrd.DriveList
+	if err := k.ReadList(context.Background(), &driveList); err != nil {
+		ll.Errorf("Failed to read Drive list, error: %v", err)
+		return nil
+	}
+	drivesUUIDs := make([]string, 0)
+	for _, drive := range driveList.Items {
+		if drive.Spec.IsSystem {
+			drivesUUIDs = append(drivesUUIDs, drive.Spec.UUID)
+		}
+	}
+	if len(drivesUUIDs) == 0 {
+		ll.Errorf("Failed to collect system drives, there are no system disks")
+	}
+	return drivesUUIDs
+}
+
 // GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources
 // Returns controller-runtime/pkg/Client which can work with CSI CRs or error if something went wrong
 func GetK8SClient() (k8sCl.Client, error) {
