@@ -80,6 +80,15 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		}
 	}
 
+	pods, err := GetNodePodsNames(f)
+	if err != nil {
+		e2elog.Logf("Failed to get node pods names, error: ", err)
+	}
+
+	for _, pod := range pods {
+		f.ExecCommandInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
+	}
+
 	// wait for SC deletion
 	storageClasses, err := f.ClientSet.StorageV1().StorageClasses().List(metav1.ListOptions{})
 	if err != nil {
@@ -124,4 +133,19 @@ func GetGlobalClientSet() (clientset.Interface, error) {
 		return nil, err
 	}
 	return clientset.NewForConfig(conf)
+}
+
+func GetNodePodsNames(f *framework.Framework) ([]string, error) {
+	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	podsNames := make([]string, 0)
+	for _, pod := range pods.Items {
+		if strings.Contains(pod.Name, "baremetal-csi-node") {
+			podsNames = append(podsNames, pod.Name)
+		}
+	}
+	e2elog.Logf("Find node pods: ", podsNames)
+	return podsNames, nil
 }
