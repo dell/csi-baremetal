@@ -22,8 +22,8 @@ data:
     extenders:
       - urlPrefix: "http://127.0.0.1:{{ .Values.port }}"
         filterVerb: filter
-        # TODO: implement prioritize verb https://github.com/dell/csi-baremetal/issues/77
-        #prioritizeVerb: prioritize
+        prioritizeVerb: prioritize
+        weight: 1
         #bindVerb: bind
         enableHttps: false
         nodeCacheCapable: false
