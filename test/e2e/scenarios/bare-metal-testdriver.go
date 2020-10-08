@@ -131,6 +131,11 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	}
 
 	cleanup := func() {
+		framework.Logf("Delete loopback devices")
+		err := CleanupLoopbackDevices(f)
+		if err != nil {
+			framework.Logf("Failed to clean up devices, error: ", err)
+		}
 		driverCleanup()
 		extenderCleanup()
 	}
@@ -221,4 +226,30 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 	}
 
 	return &cm
+}
+
+func CleanupLoopbackDevices(f *framework.Framework) error {
+	pods, err := getNodePodsNames(f)
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods {
+		f.ExecShellInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
+	}
+	return nil
+}
+
+func getNodePodsNames(f *framework.Framework) ([]string, error) {
+	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	podsNames := make([]string, 0)
+	for _, pod := range pods.Items {
+		if strings.Contains(pod.Name, "baremetal-csi-node") {
+			podsNames = append(podsNames, pod.Name)
+		}
+	}
+	framework.Logf("Find node pods: ", podsNames)
+	return podsNames, nil
 }
