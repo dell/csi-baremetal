@@ -86,7 +86,6 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 	}
 
 	for _, pod := range pods {
-		e2elog.Logf("Execute command in pod: %s", pod)
 		f.ExecShellInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
 	}
 
@@ -137,7 +136,6 @@ func GetGlobalClientSet() (clientset.Interface, error) {
 }
 
 func getNodePodsNames(f *framework.Framework) ([]string, error) {
-	e2elog.Logf("Namespace: %s", f.Namespace.Name)
 	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -145,7 +143,6 @@ func getNodePodsNames(f *framework.Framework) ([]string, error) {
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
 		if strings.Contains(pod.Name, "baremetal-csi-node") {
-			e2elog.Logf("Found pod: %s", pod.Name)
 			podsNames = append(podsNames, pod.Name)
 		}
 	}
