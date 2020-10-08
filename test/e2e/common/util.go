@@ -23,6 +23,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -51,7 +52,17 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 
 	for _, p := range pod {
 		e2elog.Logf("Deleting Pod %s", p.Name)
-		err = pode2e.DeletePodWithWait(f.ClientSet, p)
+		err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Delete(p.Name, nil)
+		if err != nil {
+			if apierrs.IsNotFound(err) {
+				continue
+			}
+			e2elog.Logf("Failed to delete pod %s: %v", p.Name, err)
+		}
+	}
+	for _, p := range pod {
+		e2elog.Logf("Wait up to %v for pod %q to be fully deleted", pode2e.PodDeleteTimeout, p.Name)
+		err = pode2e.WaitForPodNotFoundInNamespace(f.ClientSet, p.Name, f.Namespace.Name, pode2e.PodDeleteTimeout)
 		if err != nil {
 			e2elog.Logf("Failed to delete pod %s: %v", p.Name, err)
 		}
