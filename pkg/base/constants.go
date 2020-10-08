@@ -24,7 +24,7 @@ const (
 	PluginName = "baremetal-csi"
 	// PluginVersion is a version of current CSI plugin
 	// TODO: get rid of hardcoded value https://github.com/dell/csi-baremetal/issues/79
-	PluginVersion = "0.0.9"
+	PluginVersion = "0.0.10"
 	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
 	DefaultDriveMgrEndpoint = "tcp://:8888"
 	// DefaultHealthIP is the default gRPC IP for Health server
