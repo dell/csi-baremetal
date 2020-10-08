@@ -24,14 +24,14 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 )
 
-// SetupSIGTERMHandler try to shutdown service, when SIGTERM is caught
+// SetupSIGTERMHandler tries to shutdown service, when SIGTERM is caught
 func SetupSIGTERMHandler(server *rpc.ServerRunner) {
 	setupSignalHandler(syscall.SIGTERM)
 	// We received an interrupt signal, shut down.
 	server.StopServer()
 }
 
-// SetupSIGHUPHandler try to make cleanup, when SIGHUP is caught
+// SetupSIGHUPHandler tries to make cleanup, when SIGHUP is caught
 func SetupSIGHUPHandler(cleanupFn func()) {
 	setupSignalHandler(syscall.SIGHUP)
 	// We received an SIGHUP signal, clean up.
@@ -40,7 +40,7 @@ func SetupSIGHUPHandler(cleanupFn func()) {
 	}
 }
 
-// setupSignalHandler set up channel for signal
+// setupSignalHandler sets up channel for signal
 func setupSignalHandler(sig syscall.Signal) {
 	signalChan := make(chan os.Signal, 1)
 
