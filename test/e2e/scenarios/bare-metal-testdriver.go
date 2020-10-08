@@ -228,6 +228,8 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 	return &cm
 }
 
+// CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
+// Returns error if it's failed to get node pods
 func CleanupLoopbackDevices(f *framework.Framework) error {
 	pods, err := getNodePodsNames(f)
 	if err != nil {
@@ -239,6 +241,9 @@ func CleanupLoopbackDevices(f *framework.Framework) error {
 	return nil
 }
 
+// getNodePodsNames tries to get slice of node pods names
+// Receives framework.Framewor
+// Returns slice of pods name, error if it's failed to get node pods
 func getNodePodsNames(f *framework.Framework) ([]string, error) {
 	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
 	if err != nil {
