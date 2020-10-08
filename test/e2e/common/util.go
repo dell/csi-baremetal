@@ -79,14 +79,15 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}
 	}
-
-	pods, err := GetNodePodsNames(f)
+	e2elog.Logf("Delete loopback devices")
+	pods, err := getNodePodsNames(f)
 	if err != nil {
 		e2elog.Logf("Failed to get node pods names, error: ", err)
 	}
 
 	for _, pod := range pods {
-		f.ExecCommandInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
+		e2elog.Logf("Execute command in pod: %s", pod)
+		f.ExecShellInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
 	}
 
 	// wait for SC deletion
@@ -135,7 +136,8 @@ func GetGlobalClientSet() (clientset.Interface, error) {
 	return clientset.NewForConfig(conf)
 }
 
-func GetNodePodsNames(f *framework.Framework) ([]string, error) {
+func getNodePodsNames(f *framework.Framework) ([]string, error) {
+	e2elog.Logf("Namespace: %s", f.Namespace.Name)
 	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -143,6 +145,7 @@ func GetNodePodsNames(f *framework.Framework) ([]string, error) {
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
 		if strings.Contains(pod.Name, "baremetal-csi-node") {
+			e2elog.Logf("Found pod: %s", pod.Name)
 			podsNames = append(podsNames, pod.Name)
 		}
 	}

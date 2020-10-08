@@ -35,10 +35,11 @@ func SetupAndRunDriveMgr(d drivemgr.DriveManager, sr *rpc.ServerRunner, cleanupF
 
 	api.RegisterDriveServiceServer(sr.GRPCServer, &driveServiceServer)
 
-	go util.SetupSIGHUPHandler(cleanupFn, logger)
+	go util.SetupSIGTERMHandler(sr)
+
+	go util.SetupSIGHUPHandler(cleanupFn)
 
 	if err := sr.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("Failed to serve on %s. Error: %v", sr.Endpoint, err)
 	}
-
 }

@@ -22,33 +22,30 @@ import (
 	"syscall"
 
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
-	"github.com/sirupsen/logrus"
 )
 
-//SetupSignalHandler set up channel for SIGTERM signal, when SIGTERM is caught function try to shutdown service
-func SetupSignalHandler(server *rpc.ServerRunner) {
-	sigint := make(chan os.Signal, 1)
-
-	signal.Notify(sigint, syscall.SIGUSR1)
-
-	//Wait SIGTERM handler
-	<-sigint
-
+// SetupSIGTERMHandler try to shutdown service, when SIGTERM is caught
+func SetupSIGTERMHandler(server *rpc.ServerRunner) {
+	setupSignalHandler(syscall.SIGTERM)
 	// We received an interrupt signal, shut down.
 	server.StopServer()
 }
 
-func SetupSIGHUPHandler(cleanupFn func(), logger *logrus.Logger) {
-	sigint := make(chan os.Signal, 1)
-
-	signal.Notify(sigint, syscall.SIGUSR1)
-
-	//Wait SIGTERM handler
-	<-sigint
-
-	logger.Info("Got SIGHUP signal")
-	// We received an interrupt signal, shut down.
+// SetupSIGHUPHandler try to make cleanup, when SIGHUP is caught
+func SetupSIGHUPHandler(cleanupFn func()) {
+	setupSignalHandler(syscall.SIGHUP)
+	// We received an SIGHUP signal, clean up.
 	if cleanupFn != nil {
 		cleanupFn()
 	}
+}
+
+// setupSignalHandler set up channel for signal
+func setupSignalHandler(sig syscall.Signal) {
+	signalChan := make(chan os.Signal, 1)
+
+	signal.Notify(signalChan, sig)
+
+	//Wait signal
+	<-signalChan
 }
