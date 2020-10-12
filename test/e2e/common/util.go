@@ -90,7 +90,6 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}
 	}
-
 	// wait for SC deletion
 	storageClasses, err := f.ClientSet.StorageV1().StorageClasses().List(metav1.ListOptions{})
 	if err != nil {

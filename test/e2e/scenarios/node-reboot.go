@@ -84,7 +84,6 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 	}
 
 	ginkgo.It("Pod should consume same PVC after node with it was rebooted", func() {
-		ginkgo.Skip("Skip node reboot test, see ATLDEF-93")
 		init()
 		defer cleanup()
 

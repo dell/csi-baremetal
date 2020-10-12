@@ -117,8 +117,8 @@ func main() {
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiNodeService)
-
-	go util.SetupSignalHandler(csiUDSServer)
+	handler := util.NewSignalHandler(logger)
+	go handler.SetupSIGTERMHandler(csiUDSServer)
 
 	go func() {
 		logger.Info("Starting Node Health server ...")
