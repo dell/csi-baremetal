@@ -40,6 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/capacityplanner"
 )
 
 var (
@@ -431,115 +432,17 @@ func TestExtender_getSCNameStorageType_Fail(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestExtender_freeACByNodeAndSCMap(t *testing.T) {
-	var (
-		node1 = "node-1111"
-		node2 = "node-2222"
-	)
-	e := setup(t)
-	ac1 := e.k8sClient.ConstructACCR(uuid.New().String(), genV1.AvailableCapacity{NodeId: node1, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)})
-	ac2 := e.k8sClient.ConstructACCR(uuid.New().String(), genV1.AvailableCapacity{NodeId: node2, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)})
-	acr1 := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
-		Name:         uuid.New().String(),
-		StorageClass: ac1.Spec.StorageClass,
-		Size:         0,
-		Reservations: []string{ac1.Name},
-	})
-
-	applyObjs(t, e.k8sClient, ac1, ac2)
-
-	res, err := e.unreservedACByNodeAndSCMap()
-	assert.Nil(t, err)
-	assert.Equal(t, 2, len(res))
-	assert.Equal(t, res[node1][v1.StorageClassHDD][ac1.Name], ac1)
-	assert.Equal(t, res[node2][v1.StorageClassHDD][ac2.Name], ac2)
-
-	e = setup(t)
-	applyObjs(t, e.k8sClient, ac1, ac2, acr1)
-
-	res, err = e.unreservedACByNodeAndSCMap()
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(res))
-	assert.Equal(t, res[node2][v1.StorageClassHDD][ac2.Name], ac2)
-}
-
-func TestExtender_scVolumeMapping(t *testing.T) {
-	var (
-		volumes = []*genV1.Volume{
-			{StorageClass: v1.StorageClassHDD},
-			{StorageClass: v1.StorageClassHDD},
-			{StorageClass: v1.StorageClassHDDLVG},
-		}
-
-		e = setup(t)
-	)
-
-	res := e.scVolumeMapping(volumes)
-	assert.Equal(t, 2, len(res))
-	assert.Equal(t, 2, len(res[v1.StorageClassHDD]))
-	assert.Equal(t, 1, len(res[v1.StorageClassHDDLVG]))
-}
-
-func TestExtender_createACRsSuccess(t *testing.T) {
-	var (
-		node1 = "node-1111"
-		node2 = "node-2222"
-		vol1  = &genV1.Volume{StorageClass: v1.StorageClassHDD}
-		vol2  = &genV1.Volume{StorageClass: v1.StorageClassHDDLVG}
-		ac11  = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
-			Spec: genV1.AvailableCapacity{NodeId: node1, StorageClass: v1.StorageClassHDD}}
-		ac12 = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
-			Spec: genV1.AvailableCapacity{NodeId: node1, StorageClass: v1.StorageClassHDDLVG}}
-		ac21 = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
-			Spec: genV1.AvailableCapacity{NodeId: node2, StorageClass: v1.StorageClassHDD}}
-		ac22 = &accrd.AvailableCapacity{ObjectMeta: metaV1.ObjectMeta{Name: uuid.New().String()},
-			Spec: genV1.AvailableCapacity{NodeId: node2, StorageClass: v1.StorageClassHDDLVG}}
-
-		in = map[string]map[*genV1.Volume]*accrd.AvailableCapacity{
-			node1: {
-				vol1: ac11,
-				vol2: ac12,
-			},
-			node2: {
-				vol1: ac21,
-				vol2: ac22,
-			},
-		}
-
-		e = setup(t)
-	)
-
-	err := e.createACRs(testCtx, in)
-	assert.Nil(t, err)
-
-	acrList := &acrcrd.AvailableCapacityReservationList{}
-	assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList))
-
-	assert.Equal(t, 2, len(acrList.Items))
-
-	for _, acr := range acrList.Items {
-		assert.Equal(t, 2, len(acr.Spec.Reservations))
-		if acr.Spec.StorageClass == v1.StorageClassHDD {
-			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac11.Name))
-			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac21.Name))
-		} else {
-			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac12.Name))
-			assert.True(t, util.ContainsString(acr.Spec.Reservations, ac22.Name))
-		}
-	}
-}
-
 func setup(t *testing.T) *Extender {
 	k, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 
 	kubeClient := k8s.NewKubeClient(k, testLogger, testNs)
 	return &Extender{
-		k8sClient:   kubeClient,
-		namespace:   testNs,
-		provisioner: testProvisioner,
-		useACRs:     true,
-		logger:      testLogger.WithField("component", "Extender"),
+		k8sClient:              kubeClient,
+		namespace:              testNs,
+		provisioner:            testProvisioner,
+		logger:                 testLogger.WithField("component", "Extender"),
+		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}
 }
 
