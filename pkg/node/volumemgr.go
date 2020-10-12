@@ -48,6 +48,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
@@ -928,7 +929,7 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 	if acCR != nil {
 		return nil
 	}
-	if size > common.AcSizeMinThresholdBytes {
+	if size > capacityplanner.AcSizeMinThresholdBytes {
 		acName := uuid.New().String()
 		acCR = m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
 			Location:     location,
