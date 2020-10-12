@@ -46,6 +46,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/events"
+	"github.com/dell/csi-baremetal/pkg/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/lvm"
 	"github.com/dell/csi-baremetal/pkg/node"
 )
@@ -70,6 +71,9 @@ var (
 
 func main() {
 	flag.Parse()
+
+	featureConf := featureconfig.NewFeatureConfig()
+	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
 
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
@@ -107,7 +111,8 @@ func main() {
 
 	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder, *useACRs)
+	csiNodeService := node.NewCSINodeService(
+		clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,

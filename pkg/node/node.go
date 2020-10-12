@@ -42,14 +42,14 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/featureconfig"
 )
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
-	svc     common.VolumeOperations
-	useACRs bool
-	reqMu   sync.Mutex
+	svc   common.VolumeOperations
+	reqMu sync.Mutex
 
 	log           *logrus.Entry
 	livenessCheck LivenessHelper
@@ -79,13 +79,12 @@ func NewCSINodeService(client api.DriveServiceClient,
 	logger *logrus.Logger,
 	k8sclient *k8s.KubeClient,
 	recorder eventRecorder,
-	useACRs bool) *CSINodeService {
+	featureConf featureconfig.FeatureChecker) *CSINodeService {
 	e := &command.Executor{}
 	e.SetLogger(logger)
 	s := &CSINodeService{
 		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
-		svc:            common.NewVolumeOperationsImpl(k8sclient, logger),
-		useACRs:        useACRs,
+		svc:            common.NewVolumeOperationsImpl(k8sclient, logger, featureConf),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
 		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),

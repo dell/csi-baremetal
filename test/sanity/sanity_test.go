@@ -37,6 +37,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	"github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	"github.com/dell/csi-baremetal/pkg/node"
@@ -112,7 +113,7 @@ func TestDriverWithSanity(t *testing.T) {
 func newControllerSvc(kubeClient *k8s.KubeClient) {
 	ll, _ := base.InitLogger("", base.DebugLevel)
 
-	controllerService := controller.NewControllerService(kubeClient, ll, false)
+	controllerService := controller.NewControllerService(kubeClient, ll, featureconfig.NewFeatureConfig())
 
 	csiControllerServer := rpc.NewServerRunner(nil, controllerEndpoint, ll)
 
@@ -163,7 +164,8 @@ func prepareNodeMock(kubeClient *k8s.KubeClient, log *logrus.Logger) *node.CSINo
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(lsblk.CmdTmpl, ""): {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
 
-	nodeService := node.NewCSINodeService(nil, nodeId, log, kubeClient, new(mocks.NoOpRecorder), false)
+	nodeService := node.NewCSINodeService(nil, nodeId, log, kubeClient,
+		new(mocks.NoOpRecorder), featureconfig.NewFeatureConfig())
 
 	nodeService.VolumeManager = *node.NewVolumeManager(c, e, log, kubeClient, new(mocks.NoOpRecorder), nodeId)
 

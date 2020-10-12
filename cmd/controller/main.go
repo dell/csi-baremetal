@@ -34,6 +34,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/featureconfig"
 )
 
 var (
@@ -51,6 +52,9 @@ var (
 func main() {
 	flag.Parse()
 
+	featureConf := featureconfig.NewFeatureConfig()
+	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
+
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
@@ -65,7 +69,7 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 	kubeClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	controllerService := controller.NewControllerService(kubeClient, logger, *useACRs)
+	controllerService := controller.NewControllerService(kubeClient, logger, featureConf)
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiControllerServer)
 

@@ -41,6 +41,7 @@ import (
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 
@@ -551,7 +552,7 @@ func newSvc() *CSIControllerService {
 	if err != nil {
 		panic(err)
 	}
-	nSvc := NewControllerService(kubeclient, testLogger, false)
+	nSvc := NewControllerService(kubeclient, testLogger, featureconfig.NewFeatureConfig())
 	return nSvc
 }
 

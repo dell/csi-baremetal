@@ -36,6 +36,7 @@ import (
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
@@ -721,7 +722,8 @@ func newNodeService() *CSINodeService {
 	if err != nil {
 		panic(err)
 	}
-	node := NewCSINodeService(client, nodeID, testLogger, kubeClient, new(mocks.NoOpRecorder), false)
+	node := NewCSINodeService(client, nodeID, testLogger, kubeClient,
+		new(mocks.NoOpRecorder), featureconfig.NewFeatureConfig())
 
 	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)
 	driveCR2 := node.k8sClient.ConstructDriveCR(disk2.UUID, disk2)
