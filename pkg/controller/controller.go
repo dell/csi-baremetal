@@ -58,8 +58,7 @@ type CSIControllerService struct {
 	reqMu sync.Mutex
 	log   *logrus.Entry
 
-	svc        common.VolumeOperations
-	acProvider common.AvailableCapacityOperations
+	svc common.VolumeOperations
 
 	// to track node health status
 	nodeServicesStateMonitor *node.ServicesStateMonitor
