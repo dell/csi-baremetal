@@ -47,16 +47,6 @@ var (
 	testDrive4UUID = "drive4-uuid"
 
 	// Available Capacity variables
-	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDrive1UUID))
-	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNS},
-		Spec: api.AvailableCapacity{
-			Size:         int64(util.GBYTE),
-			StorageClass: apiV1.StorageClassHDD,
-			Location:     testDrive1UUID,
-			NodeId:       testNode1Name},
-	}
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
 	testAC2     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
