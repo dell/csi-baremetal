@@ -36,6 +36,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/capacityplanner"
+	"github.com/dell/csi-baremetal/pkg/featureconfig"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
@@ -49,20 +51,25 @@ type VolumeOperations interface {
 
 // VolumeOperationsImpl is the basic implementation of VolumeOperations interface
 type VolumeOperationsImpl struct {
-	acProvider AvailableCapacityOperations
-	k8sClient  *k8s.KubeClient
+	acProvider             AvailableCapacityOperations
+	k8sClient              *k8s.KubeClient
+	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 
-	log *logrus.Entry
+	acReservationEnabled bool
+	log                  *logrus.Entry
 }
 
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of VolumeOperationsImpl
-func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger) *VolumeOperationsImpl {
+func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger,
+	featureConf featureconfig.FeatureChecker) *VolumeOperationsImpl {
 	return &VolumeOperationsImpl{
-		k8sClient:  k8sClient,
-		acProvider: NewACOperationsImpl(k8sClient, logger),
-		log:        logger.WithField("component", "VolumeOperationsImpl"),
+		k8sClient:              k8sClient,
+		acProvider:             NewACOperationsImpl(k8sClient, logger),
+		log:                    logger.WithField("component", "VolumeOperationsImpl"),
+		acReservationEnabled:   featureConf.IsEnabled(featureconfig.FeatureACReservation),
+		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}
 }
 
@@ -112,23 +119,37 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		)
 
 		if util.IsStorageClassLVG(sc) {
-			requiredBytes = AlignSizeByPE(requiredBytes)
+			requiredBytes = capacityplanner.AlignSizeByPE(requiredBytes)
 		}
 
-		ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, requiredBytes, v.StorageClass)
+		capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
+		resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, true)
+
+		capacityManager := vo.createCapacityManager(v, capReader, resReader)
+		plan, err := capacityManager.PlanVolumesPlacing(ctxWithID, []*api.Volume{&v})
+		if err != nil {
+			ll.Errorf("error while planning placing for volume: %s", err.Error())
+			return nil, err
+		}
+		noResourceErr := status.Errorf(
+			codes.ResourceExhausted, "there is no suitable drive for volume %s", v.Id)
+		if plan == nil {
+			return nil, noResourceErr
+		}
+		if v.NodeId == "" {
+			v.NodeId = plan.SelectNode()
+		}
+		ll.Infof("Try to create volume on node %s", v.NodeId)
+		ac = plan.GetACForVolume(v.NodeId, &v)
 		if ac == nil {
-			if util.IsStorageClassLVG(v.StorageClass) {
-				subSC := util.GetSubStorageClass(v.StorageClass)
-				// requiredBytes increase wanted size for additional costs
-				ac = vo.acProvider.SearchAC(ctxWithID, v.NodeId, requiredBytes+LvgDefaultMetadataSize, subSC) // search volume for LVG in subSC
-			}
-			if ac == nil {
-				ll.Errorf("There is no suitable drive for volume with sc %s.", sc)
-				return nil, status.Errorf(codes.ResourceExhausted, "there is no suitable drive for volume %s", v.Id)
-			}
-			// here we get AC that should be recreated to LVG, LVG hasn't existed yet
+			return nil, noResourceErr
+		}
+		origAC := ac
+		if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
+			// AC needs to be converted to LVG AC, LVG doesn't exist yet
 			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, v.StorageClass, *ac); ac == nil {
-				return nil, status.Errorf(codes.Internal, "unable to prepare underlying storage for storage class %s", v.StorageClass)
+				return nil, status.Errorf(codes.Internal,
+					"unable to prepare underlying storage for storage class %s", v.StorageClass)
 			}
 		}
 		ll.Infof("AC %v was selected", ac.Spec)
@@ -172,8 +193,30 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		if err = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, ac, 5); err != nil {
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
+		if vo.useACReservationForVolume(v) {
+			resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
+			if err = resHelper.ReleaseReservation(ctxWithID, origAC, ac); err != nil {
+				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)
+			}
+		}
 	}
 	return &volumeCR.Spec, nil
+}
+
+func (vo *VolumeOperationsImpl) useACReservationForVolume(volume api.Volume) bool {
+	if volume.Ephemeral {
+		return false
+	}
+	return vo.acReservationEnabled
+}
+
+func (vo *VolumeOperationsImpl) createCapacityManager(volume api.Volume,
+	capReader capacityplanner.CapacityReader,
+	resReader capacityplanner.ReservationReader) capacityplanner.CapacityPlaner {
+	if vo.useACReservationForVolume(volume) {
+		return vo.capacityManagerBuilder.GetReservedCapacityManger(vo.log, capReader, resReader)
+	}
+	return vo.capacityManagerBuilder.GetCapacityManger(vo.log, capReader)
 }
 
 // DeleteVolume changes volume CR state and updates it,
