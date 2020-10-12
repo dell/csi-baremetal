@@ -35,17 +35,13 @@ func SetupAndRunDriveMgr(d drivemgr.DriveManager, sr *rpc.ServerRunner, cleanupF
 
 	api.RegisterDriveServiceServer(sr.GRPCServer, &driveServiceServer)
 
-	go util.SetupSignalHandler(sr)
+	handler := util.NewSignalHandler(logger)
+
+	go handler.SetupSIGTERMHandler(sr)
+
+	go handler.SetupSIGHUPHandler(cleanupFn)
 
 	if err := sr.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("Failed to serve on %s. Error: %v", sr.Endpoint, err)
-	}
-
-	logger.Info("Got SIGTERM signal")
-	// clean loop devices after drivemgr deletion
-	// using defer is the bad practice because defer isn't invoking during SIGTERM or SIGINT
-	// kubernetes sends SIGTERM signal to containers for pods terminating
-	if cleanupFn != nil {
-		cleanupFn()
 	}
 }

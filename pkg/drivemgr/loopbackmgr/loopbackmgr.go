@@ -477,24 +477,29 @@ func (mgr *LoopBackManager) Init() {
 	for i := 0; i < len(mgr.devices); i++ {
 		// check that loopback device exists
 		fileName := mgr.devices[i].fileName
-		loopDevs, ok := loopDeviceMapping[fileName]
-		if ok && len(loopDevs) > 0 {
-			mgr.devices[i].devicePath = loopDevs[0]
-			continue
+		var found bool
+		for file, loopDevs := range loopDeviceMapping {
+			if strings.Contains(fileName, file) && len(loopDevs) > 0 {
+				mgr.devices[i].devicePath = loopDevs[0]
+				found = true
+				break
+			}
 		}
+		if !found {
+			// check that system has unused device for troubleshooting purposes
+			_, _, err = mgr.exec.RunCmd(findUnusedLoopBackDeviceCmdTmpl)
+			if err != nil {
+				ll.Error("System doesn't have unused loopback devices")
+			}
 
-		// check that system has unused device for troubleshooting purposes
-		_, _, err = mgr.exec.RunCmd(findUnusedLoopBackDeviceCmdTmpl)
-		if err != nil {
-			ll.Error("System doesn't have unused loopback devices")
+			// create new device
+			stdout, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(setupLoopBackDeviceCmdTmpl, fileName))
+			if errcode != nil {
+				ll.Fatalf("Unable to create loopback device for %s: %s", fileName, stderr)
+			}
+			mgr.devices[i].devicePath = strings.TrimSuffix(stdout, "\n")
+			mgr.devices[i].Removed = false
 		}
-
-		// create new device
-		stdout, stderr, errcode := mgr.exec.RunCmd(fmt.Sprintf(setupLoopBackDeviceCmdTmpl, fileName))
-		if errcode != nil {
-			ll.Fatalf("Unable to create loopback device for %s: %s", fileName, stderr)
-		}
-		mgr.devices[i].devicePath = strings.TrimSuffix(stdout, "\n")
 	}
 }
 
@@ -558,8 +563,9 @@ func (mgr *LoopBackManager) GetBackFileToLoopMap() (map[string][]string, error) 
 
 // CleanupLoopDevices detaches loop devices that are occupied by LoopBackManager
 func (mgr *LoopBackManager) CleanupLoopDevices() {
-	for _, device := range mgr.devices {
+	for i, device := range mgr.devices {
 		mgr.deleteLoopbackDevice(device)
+		mgr.devices[i].Removed = true
 	}
 }
 
