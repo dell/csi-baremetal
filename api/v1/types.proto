@@ -66,6 +66,6 @@ message LogicalVolumeGroup {
 
 message CSINode {
     string UUID = 1;
-    repeated string Ip = 2;
+    repeated string IPs = 2;
     string Hostname = 3;
 }
