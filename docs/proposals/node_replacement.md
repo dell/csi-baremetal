@@ -40,6 +40,16 @@ If node is replaced it's ID will be changed and on "new" node replica of `node s
 Add new annotation (`csi-baremetal.node/id`) for each node in the cluster. Value for that annotation will be a some ID that will be unique across the K8s cluster. CSI `node svc` will be manage storage resources on the node only if node contains such annotation and uses annotation value as an ID for each managed resource. 
 
 When node is replaced something or someone should set required annotation for the node (with "old" value) only after it `node svc` will manage drives on that node.
+It is logical to delegate ID generation for another component that will be a part of CSI plugin project. We can implement operator pattern here.
+Create new custom resource called `dell.csi-baremetal.nodes` that could hold information about particular node. Information that will be stored are:
+```
+type CSIBMNodeSpec {
+    Hostmame string
+    IPs      []string
+    ID       string
+}
+```
+Operator will generate ID for each node and then set `csi-baremetal.node/id` annotation to the each node based on ID that had been generated before. When node will be replaced it should be added to the cluster with same IPs and hostname. Then operator will detect that node and restore it ID - sets node annotation value to an corresponding CSIBMNode.ID value. 
 
 ## Compatibility
 
