@@ -18,7 +18,6 @@ package scenarios
 
 import (
 	"fmt"
-	"github.com/dell/csi-baremetal/test/e2e/common"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -31,9 +30,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"sigs.k8s.io/yaml"
+
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 type baremetalDriver struct {
@@ -139,7 +141,12 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		driverCleanup()
 		extenderCleanup()
 	}
-
+	err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0,
+		90*time.Second, nil)
+	if err != nil {
+		cleanup()
+		framework.Failf("Pods not ready, error: %s", err.Error())
+	}
 	return &testsuites.PerTestConfig{
 			Driver:    d,
 			Prefix:    "baremetal",
