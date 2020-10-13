@@ -66,7 +66,8 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	controllerService := controller.NewControllerService(kubeClient, logger, *useACRs)
-	go util.SetupSignalHandler(csiControllerServer)
+	handler := util.NewSignalHandler(logger)
+	go handler.SetupSIGTERMHandler(csiControllerServer)
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controllerService)
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)

@@ -21,18 +21,45 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 )
 
-//SetupSignalHandler set up channel for SIGTERM signal, when SIGTERM is caught function try to shutdown service
-func SetupSignalHandler(server *rpc.ServerRunner) {
-	sigint := make(chan os.Signal, 1)
+// SignalHandler is a structure which contains methods for signal handling
+type SignalHandler struct {
+	log *logrus.Entry
+}
 
-	signal.Notify(sigint, syscall.SIGTERM)
+// NewSignalHandler is a constructor for SignalHandler
+func NewSignalHandler(logger *logrus.Logger) *SignalHandler {
+	return &SignalHandler{log: logger.WithField("component", "SignalHandler")}
+}
 
-	//Wait SIGTERM handler
-	<-sigint
-
+// SetupSIGTERMHandler tries to shutdown service, when SIGTERM is caught
+func (sh *SignalHandler) SetupSIGTERMHandler(server *rpc.ServerRunner) {
+	sh.setupSignalHandler(syscall.SIGTERM)
 	// We received an interrupt signal, shut down.
 	server.StopServer()
+}
+
+// SetupSIGHUPHandler tries to make cleanup, when SIGHUP is caught
+func (sh *SignalHandler) SetupSIGHUPHandler(cleanupFn func()) {
+	sh.setupSignalHandler(syscall.SIGHUP)
+	// We received an SIGHUP signal, clean up.
+	if cleanupFn != nil {
+		cleanupFn()
+	}
+}
+
+// setupSignalHandler sets up channel for signal
+func (sh *SignalHandler) setupSignalHandler(sig syscall.Signal) {
+	signalChan := make(chan os.Signal, 1)
+
+	signal.Notify(signalChan, sig)
+
+	//Wait signal
+	<-signalChan
+
+	sh.log.WithField("method", "setupSignalHandler").Debugf("Got %v signal", sig)
 }
