@@ -54,8 +54,21 @@ Negotiation between CSI and Operator is optional and will be done though annotat
 * Storage class annotation:
   - `volumerelease.csi-baremetal/support: yes` - inform CSI that volume release feature is supported by Operator
 * [Volume CRD]() annotations:
-  - `volumerelease.csi-baremetal/process: start|pause|stop` inform to start|pause|stop volume release process
-  - `volumerelease.csi-baremetal/release: processing` system is working on data recovery/graceful IO shutdown
-#### CSI
+  - `volumehealth.csi-baremetal/health: good/unknown/suspect/bad` - health of the underlying drive(s) 
+  - `volumerelease.csi-baremetal/process: start|pause|stop` - inform to start|pause|stop volume release process
+  - `volumerelease.csi-baremetal/release: processing` - system is working on data recovery/graceful IO shutdown
+  - `volumerelease.csi-baremetal/release: completed` - volume is released
+  - `volumerelease.csi-baremetal/release: failed` - system failed to release volume
+  - `volumerelease.csi-baremetal/recovery [0:100]` - percent of recovery progress
+  - `volumerelease.csi-baremetal/status: <status description>` - extra information. can be used to provide description for the release process. For example, *release=failed, recovery=50, status="recovery failed by timeout"*
 #### User
+To trigger physical drive replacement user must put the following annotation on the corresponding Drive custom resource:
+  - `driveremove.csi-baremetal/replacement: ready` - informs that drive replacement is ready
+### Detailed workflow
+1. When drive health changed from `GOOD` to `SUSPECT` or `BAD` CSI will:
+  - Set drive operational status to `RELEASING`
+  - Put `volumehealth.csi-baremetal/health: suspect/bad` and `releasevolume.process: start` annotations on corresponding volumes custom resources.    
+2. 
+
 ## Test plans
+Drive replacement workflow must be covered by E2E tests in CI. *TBD - add test cases*
