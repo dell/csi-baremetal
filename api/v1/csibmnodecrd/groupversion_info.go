@@ -27,12 +27,12 @@ import (
 )
 
 var (
-	// GroupVersionCSINode is group version used to register these objects
-	GroupVersionCSINode = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
+	// GroupVersionCSIBMNodee is group version used to register these objects
+	GroupVersionCSIBMNode = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilderACR = &crScheme.Builder{GroupVersion: GroupVersionCSINode}
+	SchemeBuilderACR = &crScheme.Builder{GroupVersion: GroupVersionCSIBMNode}
 
-	// AddToSchemeCSINode adds the types in this group-version to the given scheme.
-	AddToSchemeCSINode = SchemeBuilderACR.AddToScheme
+	// AddToSchemeCSIBMNode adds the types in this group-version to the given scheme.
+	AddToSchemeCSIBMNode = SchemeBuilderACR.AddToScheme
 )

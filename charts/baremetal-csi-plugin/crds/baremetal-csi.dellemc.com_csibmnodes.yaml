@@ -6,18 +6,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: csinodes.baremetal-csi.dellemc.com
+  name: csibmnodes.baremetal-csi.dellemc.com
 spec:
   group: baremetal-csi.dellemc.com
   names:
-    kind: CSINode
-    listKind: CSINodeList
-    plural: csinodes
-    singular: csinode
+    kind: CSIBMNode
+    listKind: CSIBMNodeList
+    plural: csibmnodes
+    singular: csibmnode
   scope: ""
   validation:
     openAPIV3Schema:
-      description: CSINode is the Schema for the CSINode API
+      description: CSIBMNode is the Schema for the CSIBMNode API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -35,10 +35,12 @@ spec:
           properties:
             Hostname:
               type: string
-            Ip:
+            IPs:
               items:
                 type: string
               type: array
+            Status:
+              type: string
             UUID:
               type: string
           type: object

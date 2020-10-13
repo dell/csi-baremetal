@@ -37,7 +37,7 @@ import (
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	nodecrd "github.com/dell/csi-baremetal/api/v1/csinodecrd"
+	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -429,7 +429,7 @@ func PrepareScheme() (*runtime.Scheme, error) {
 	}
 
 	// register csi node crd
-	if err := nodecrd.AddToSchemeCSINode(scheme); err != nil {
+	if err := nodecrd.AddToSchemeCSIBMNode(scheme); err != nil {
 		return nil, err
 	}
 
