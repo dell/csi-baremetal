@@ -29,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
@@ -70,10 +69,6 @@ func driveStressTest(driver testsuites.TestDriver) {
 
 		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
-		framework.ExpectNoError(err)
-
-		// wait for csi pods to be running and ready
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, int32(amountOfCSINodes), 0, 90*time.Second, nil)
 		framework.ExpectNoError(err)
 	}
 

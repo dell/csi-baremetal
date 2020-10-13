@@ -66,10 +66,6 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
 		framework.ExpectNoError(err)
-
-		// waiting for baremetal csi pods become ready
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0, 90*time.Second, nil)
-		framework.ExpectNoError(err)
 	}
 
 	cleanup := func() {

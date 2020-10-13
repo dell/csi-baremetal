@@ -19,7 +19,6 @@ package scenarios
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo"
@@ -31,7 +30,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -93,11 +91,6 @@ func schedulingTest(driver testsuites.TestDriver) {
 			framework.ExpectNoError(err)
 			storageClasses[scName] = sc
 		}
-
-		// wait for csi pods to be running and ready
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns,
-			2, 0, 90*time.Second, nil)
-		framework.ExpectNoError(err)
 	}
 
 	cleanup := func() {
