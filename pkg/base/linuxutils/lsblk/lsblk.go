@@ -104,10 +104,9 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	return res, nil
 }
 
-// SearchDrivePath if not defined returns drive path based on drive S/N.
+// SearchDrivePath if not defined returns drive path based on drive S/N, VID and PID.
 // Receives an instance of drivecrd.Drive struct
 // Returns drive's path based on provided drivecrd.Drive or error if something went wrong
-// TODO: check VID/PID as well - https://github.com/dell/csi-baremetal/issues/82
 func (l *LSBLK) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	// device path might be already set by hwmgr
 	device := drive.Spec.Path
