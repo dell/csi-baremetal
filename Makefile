@@ -83,6 +83,8 @@ generate-deepcopy:
 	controller-gen object paths=api/v1/acreservationcrd/availablecapacityreservation_types.go paths=api/v1/acreservationcrd/groupversion_info.go  output:dir=api/v1/acreservationcrd
 	controller-gen object paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go  output:dir=api/v1/drivecrd
 	controller-gen object paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go  output:dir=api/v1/lvgcrd
+	controller-gen object paths=api/v1/csinodecrd/csinode_types.go paths=api/v1/csinodecrd/groupversion_info.go  output:dir=api/v1/csinodecrd
+
 
 generate-crds:
     # Generate CRDs based on Volume and AvailableCapacity type and group info
@@ -91,5 +93,6 @@ generate-crds:
 	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/csinodecrd/csinode_types.go paths=api/v1/csinodecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 
 generate-api: compile-proto generate-crds generate-deepcopy

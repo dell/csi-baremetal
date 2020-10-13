@@ -63,3 +63,9 @@ message LogicalVolumeGroup {
     repeated string VolumeRefs = 5;
     string Status = 6;
 }
+
+message CSINode {
+    string UUID = 1;
+    repeated string Ip = 2;
+    string Hostname = 3;
+}
