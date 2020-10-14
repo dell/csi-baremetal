@@ -68,5 +68,4 @@ message CSIBMNode {
     string UUID = 1;
     repeated string IPs = 2;
     string Hostname = 3;
-    string Status = 4;
 }
