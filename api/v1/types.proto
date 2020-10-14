@@ -63,3 +63,9 @@ message LogicalVolumeGroup {
     repeated string VolumeRefs = 5;
     string Status = 6;
 }
+
+message CSIBMNode {
+    string UUID = 1;
+    repeated string IPs = 2;
+    string Hostname = 3;
+}
