@@ -7,7 +7,7 @@ env:
 
 extender: false
 
-# format of logs
+# logging settings
 log:
   format: text
   level: info

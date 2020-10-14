@@ -1,0 +1,16 @@
+# Docker registry to pull images
+global:
+  registry: asdrepo.isus.emc.com:9042
+
+# logging settings
+log:
+  format: text
+  level: info
+
+image:
+  tag: green
+  pullPolicy: Always
+
+controller:
+  image:
+    tag: green

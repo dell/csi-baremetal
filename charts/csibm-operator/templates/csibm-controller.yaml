@@ -1,0 +1,31 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: csibm-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csibm-controller
+  template:
+    metadata:
+      labels:
+        app: csibm-controller
+    spec:
+      serviceAccount: csibm-sa
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: controller
+        image: {{ .Values.global.registry }}/csibm-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+          - --namespace=$(NAMESPACE)
+          - --loglevel={{ .Values.log.level }}
+          - --logformat={{ .Values.log.format }}
+        env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
