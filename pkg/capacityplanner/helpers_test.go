@@ -22,16 +22,18 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
 func TestReservationHelper_CreateReservation(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()
-	rh := createReservationHelper(t, logger, nil, nil)
+	rh := createReservationHelper(t, logger, nil, nil, getKubeClient(t))
 	err := rh.CreateReservation(ctx, getSimpleVolumePlacingPlan())
 	assert.Nil(t, err)
 	// check reservations exist
@@ -44,12 +46,136 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 	assert.Len(t, acrList.Items[0].Spec.Reservations, 2)
 }
 
+func TestReservationHelper_ReleaseReservation(t *testing.T) {
+	logger := testLogger.WithField("component", "test")
+	ctx := context.Background()
+
+	callReleaseReservation := func(client *k8s.KubeClient, capReader CapacityReader, resReader ReservationReader,
+		ac, acReplacement *accrd.AvailableCapacity) error {
+		rh := createReservationHelper(t, logger, capReader, resReader, client)
+		return rh.ReleaseReservation(ctx, ac, acReplacement)
+	}
+	t.Run("Error update data", func(t *testing.T) {
+		rh := createReservationHelper(t, logger,
+			getCapReaderMock(nil, testErr),
+			getResReaderMock(nil, testErr),
+			getKubeClient(t))
+		err := rh.ReleaseReservation(ctx, nil, nil)
+		assert.Equal(t, testErr, err)
+	})
+	t.Run("Reservation not found", func(t *testing.T) {
+		testACs := []*accrd.AvailableCapacity{
+			getTestAC("", testSmallSize, apiV1.StorageClassHDD),
+		}
+		err := callReleaseReservation(
+			getKubeClient(t),
+			getCapReaderMock(testACs, nil),
+			getResReaderMock(nil, nil),
+			testACs[0], testACs[0])
+		assert.Nil(t, err)
+	})
+	t.Run("Single ACR found", func(t *testing.T) {
+		testACs := []*accrd.AvailableCapacity{
+			getTestAC("", testSmallSize, apiV1.StorageClassHDD),
+		}
+		testACRs := []*acrcrd.AvailableCapacityReservation{
+			getTestACR(testSmallSize, apiV1.StorageClassHDD, testACs),
+		}
+		client := getKubeClient(t)
+		createACRsInAPi(t, client, testACRs[:1])
+		err := callReleaseReservation(
+			client,
+			getCapReaderMock(testACs, nil),
+			getResReaderMock(testACRs, nil),
+			testACs[0], testACs[0])
+		assert.Nil(t, err)
+		checkACRNotExist(t, client, testACRs[0])
+	})
+	t.Run("Replace AC in ACR", func(t *testing.T) {
+		replacementAC := getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDDLVG)
+		testACs := []*accrd.AvailableCapacity{
+			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
+		}
+		testACRs := []*acrcrd.AvailableCapacityReservation{
+			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs),
+			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs),
+		}
+		client := getKubeClient(t)
+		createACRsInAPi(t, client, testACRs)
+		err := callReleaseReservation(
+			client,
+			getCapReaderMock(testACs, nil),
+			getResReaderMock(testACRs, nil),
+			testACs[0], replacementAC)
+		assert.Nil(t, err)
+		acrList := &acrcrd.AvailableCapacityReservationList{}
+		err = client.List(ctx, acrList )
+		assert.Nil(t, err)
+		assert.Contains(t, acrList.Items[0].Spec.Reservations, replacementAC.Name)
+	})
+}
+
+func TestReservationFilter(t *testing.T) {
+	testACs := []accrd.AvailableCapacity{
+		*getTestAC(testNode1, testLargeSize, apiV1.StorageClassHDD),
+		*getTestAC(testNode1, testSmallSize, apiV1.StorageClassSSD),
+		*getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
+	}
+	testACRs := []acrcrd.AvailableCapacityReservation{
+		*getTestACR(testLargeSize, apiV1.StorageClassHDD, []*accrd.AvailableCapacity{&testACs[0]}),
+		*getTestACR(testSmallSize, apiV1.StorageClassSSD, []*accrd.AvailableCapacity{&testACs[1]}),
+	}
+	t.Run("Filter reserved", func(t *testing.T) {
+		filter := NewReservationFilter(nil, nil)
+		assert.ElementsMatch(t, testACs[:2], filter.FilterByReservation(true, testACs, testACRs))
+	})
+	t.Run("Filter unreserved", func(t *testing.T) {
+		filter := NewReservationFilter(nil, nil)
+		assert.ElementsMatch(t, testACs[2:], filter.FilterByReservation(false, testACs, testACRs))
+	})
+	t.Run("ACR filter", func(t *testing.T) {
+		filter := NewReservationFilter(func(acr acrcrd.AvailableCapacityReservation) bool {
+			return acr.Spec.StorageClass == apiV1.StorageClassSSD
+		}, nil)
+		assert.ElementsMatch(t, testACs[1:2], filter.FilterByReservation(true, testACs, testACRs))
+	})
+	t.Run("AC filter", func(t *testing.T) {
+		filter := NewReservationFilter(nil, func(ac accrd.AvailableCapacity) bool {
+			return ac.Spec.Size == testLargeSize
+		})
+		assert.ElementsMatch(t, testACs[0:1], filter.FilterByReservation(true, testACs, testACRs))
+	})
+}
+
+func createACRsInAPi(t *testing.T, client *k8s.KubeClient, acrs []*acrcrd.AvailableCapacityReservation) {
+	for _, acr := range acrs {
+		err := client.CreateCR(context.Background(), acr.Name, acr)
+		assert.Nil(t, err)
+	}
+}
+
+func createACsInAPi(t *testing.T, client *k8s.KubeClient, acs []*accrd.AvailableCapacity) {
+	for _, acs := range acs {
+		err := client.CreateCR(context.Background(), acs.Name, acs)
+		assert.Nil(t, err)
+	}
+}
+
+func checkACRNotExist(t *testing.T, client *k8s.KubeClient, acr *acrcrd.AvailableCapacityReservation) {
+	err := client.ReadCR(context.Background(), acr.Name, acr)
+	assert.True(t, k8serrors.IsNotFound(err))
+}
+
 func createReservationHelper(t *testing.T, logger *logrus.Entry,
-	capReader CapacityReader, resReader ReservationReader) *ReservationHelper {
-	k, err := k8s.GetFakeKubeClient(testNS, testLogger)
-	assert.Nil(t, err)
+	capReader CapacityReader, resReader ReservationReader, client *k8s.KubeClient) *ReservationHelper {
 	return NewReservationHelper(logger,
-		k, capReader, resReader)
+		client, capReader, resReader)
+}
+
+func getKubeClient(t *testing.T) *k8s.KubeClient {
+	client, err := k8s.GetFakeKubeClient(testNS, testLogger)
+	assert.Nil(t, err)
+	return client
 }
 
 func getSimpleVolumePlacingPlan() *VolumesPlacingPlan {

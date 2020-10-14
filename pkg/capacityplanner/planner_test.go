@@ -24,7 +24,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
@@ -332,26 +331,4 @@ func TestReservedCapacityManager(t *testing.T) {
 			assert.Equal(t, testACS[0], plan.GetACForVolume(testNode1, testVols[0]))
 		}
 	})
-}
-
-func getCapReaderMock(acList []*accrd.AvailableCapacity, err error) *CapacityReaderMock {
-	acListV := make([]accrd.AvailableCapacity, len(acList))
-	for i := 0; i < len(acList); i++ {
-		acListV[i] = *acList[i]
-	}
-	capReaderMock := &CapacityReaderMock{}
-	capReaderMock.On("ReadCapacity", mock.Anything).Return(
-		acListV, err)
-	return capReaderMock
-}
-
-func getResReaderMock(acrList []*acrcrd.AvailableCapacityReservation, err error) *CapacityReaderMock {
-	acrListV := make([]acrcrd.AvailableCapacityReservation, len(acrList))
-	for i := 0; i < len(acrList); i++ {
-		acrListV[i] = *acrList[i]
-	}
-	resReaderMock := &CapacityReaderMock{}
-	resReaderMock.On("ReadReservations", mock.Anything).Return(
-		acrListV, err)
-	return resReaderMock
 }

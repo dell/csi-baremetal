@@ -48,8 +48,8 @@ type ReservationReaderMock struct {
 }
 
 // ReadReservations is a mock implementation of ReadReservations
-func (cr *CapacityReaderMock) ReadReservations(ctx context.Context) ([]acrcrd.AvailableCapacityReservation, error) {
-	args := cr.Mock.Called(ctx)
+func (rrm *ReservationReaderMock) ReadReservations(ctx context.Context) ([]acrcrd.AvailableCapacityReservation, error) {
+	args := rrm.Mock.Called(ctx)
 	var ret []acrcrd.AvailableCapacityReservation
 	if args.Get(0) != nil {
 		ret = args.Get(0).([]acrcrd.AvailableCapacityReservation)
@@ -102,4 +102,26 @@ func (mcb *MockCapacityManagerBuilder) GetCapacityManager(logger *logrus.Entry, 
 func (mcb *MockCapacityManagerBuilder) GetReservedCapacityManager(logger *logrus.Entry,
 	capReader CapacityReader, resReader ReservationReader) CapacityPlaner {
 	return mcb.Manager
+}
+
+func getCapReaderMock(acList []*accrd.AvailableCapacity, err error) *CapacityReaderMock {
+	acListV := make([]accrd.AvailableCapacity, len(acList))
+	for i := 0; i < len(acList); i++ {
+		acListV[i] = *acList[i]
+	}
+	capReaderMock := &CapacityReaderMock{}
+	capReaderMock.On("ReadCapacity", mock.Anything).Return(
+		acListV, err)
+	return capReaderMock
+}
+
+func getResReaderMock(acrList []*acrcrd.AvailableCapacityReservation, err error) *ReservationReaderMock {
+	acrListV := make([]acrcrd.AvailableCapacityReservation, len(acrList))
+	for i := 0; i < len(acrList); i++ {
+		acrListV[i] = *acrList[i]
+	}
+	resReaderMock := &ReservationReaderMock{}
+	resReaderMock.On("ReadReservations", mock.Anything).Return(
+		acrListV, err)
+	return resReaderMock
 }
