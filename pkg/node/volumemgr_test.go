@@ -814,6 +814,20 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	assert.Equal(t, len(driveCRs), 3)
 	assert.Len(t, updates.Created, 1)
 	assert.Len(t, updates.NotChanged, 2)
+
+	driveMgrRespDrives = append(driveMgrRespDrives, &api.Drive{
+		UUID:         uuid.New().String(),
+		SerialNumber: "",
+		Health:       apiV1.HealthGood,
+		Type:         apiV1.DriveTypeHDD,
+		Size:         1024 * 1024 * 1024 * 150,
+		NodeId:       nodeID,
+	})
+	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+	assert.Nil(t, err)
+	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
+	assert.Nil(t, err)
+	assert.Equal(t, len(driveCRs), 3)
 }
 
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
