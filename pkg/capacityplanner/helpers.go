@@ -217,8 +217,13 @@ func (rh *ReservationFilter) FilterByReservation(reserved bool, acs []accrd.Avai
 	acs, acrs = rh.filter(acs, acrs)
 	acInACR := buildACInACRMap(acrs)
 	return FilterACList(acs, func(ac accrd.AvailableCapacity) bool {
-		_, ok := acInACR[ac.Name]
-		return reserved == ok
+		_, acIsReserved := acInACR[ac.Name]
+		if reserved {
+			// we looking for reserved ACs
+			return acIsReserved
+		}
+		// we looking for unreserved ACs
+		return !acIsReserved
 	})
 }
 
@@ -258,6 +263,7 @@ func FilterACList(
 	return result
 }
 
+// buildACInACRMap build map with AC names which included at least in one ACR
 func buildACInACRMap(acrs []acrcrd.AvailableCapacityReservation) map[string]struct{} {
 	acMap := map[string]struct{}{}
 	for _, acr := range acrs {
