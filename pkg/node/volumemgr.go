@@ -488,7 +488,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				break
 			}
 		}
-		if !exist {
+		if !exist && drivePtr.SerialNumber != "" {
 			// Drive CR is not exist, try to create it
 			toCreateSpec := *drivePtr
 			toCreateSpec.NodeId = m.nodeID
