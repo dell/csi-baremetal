@@ -126,4 +126,13 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 	assert.Equal(t, "", res)
 	assert.NotNil(t, err)
 
+	//different VID and PID
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
+	sn = "hdd1" // from mocks.LsblkTwoDevicesStr
+	dCR.Spec.SerialNumber = sn
+	dCR.Spec.VID = "vendor"
+	dCR.Spec.PID = "pid"
+
+	res, err = l.SearchDrivePath(&dCR)
+	assert.NotNil(t, err)
 }
