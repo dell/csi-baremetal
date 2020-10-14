@@ -59,16 +59,28 @@ Negotiation between CSI and Operator is optional and will be done though annotat
   - `volumerelease.csi-baremetal/release: processing` - system is working on data recovery/graceful IO shutdown
   - `volumerelease.csi-baremetal/release: completed` - volume is released
   - `volumerelease.csi-baremetal/release: failed` - system failed to release volume
-  - `volumerelease.csi-baremetal/recovery [0:100]` - percent of recovery progress
+  - `volumerelease.csi-baremetal/recovery: [0:100]` - percent of recovery progress
   - `volumerelease.csi-baremetal/status: <status description>` - extra information. can be used to provide description for the release process. For example, *release=failed, recovery=50, status="recovery failed by timeout"*
 #### User
 To trigger physical drive replacement user must put the following annotation on the corresponding Drive custom resource:
   - `driveremove.csi-baremetal/replacement: ready` - informs that drive replacement is ready
 ### Detailed workflow
-1. When drive health changed from `GOOD` to `SUSPECT` or `BAD` CSI will:
+* When drive health changed from `GOOD` to `SUSPECT` or `BAD` CSI will:
   - Set drive operational status to `RELEASING`
   - Put `volumehealth.csi-baremetal/health: suspect/bad` and `releasevolume.process: start` annotations on corresponding volumes custom resources.    
-2. 
-
+* If `volumerelease.csi-baremetal/support: yes` annotation is set for corresponding PVC(s) CSI waits for recovery completion
+  - During recovery being in progress Operator can expose recovery status via `volumerelease.csi-baremetal/recovery: %` annotation on volume CR(s)
+* Once recovery completed Operator must put `volumerelease.csi-baremetal/release: completed` annotation on volume CR(s)
+  - CSI sets drive operational status to `RELEASED`
+* If recovery failed due to some reason Operator must put `volumerelease.csi-baremetal/release: failed` annotation on volume CR(s)
+  - In addition Operator can provide additional information about error `volumerelease.csi-baremetal/status: <status description>`
+  - CSI sets drive operational status to `FAILED`
+* When drive operation status is `RELEASED` user can initiate physical drive replacement by setting `driveremove.csi-baremetal/replacement: ready` annotation on drive CR
+  - CSI sets drive operational status to `REMOVING`
+  - Operator deletes PV(s)
+  - CSI prepares drive for safe removal and starts LED locate
+  - CSI sets drive operational status to `REMOVED` if all operations are passed successfully and `FAILED` otherwise
+* When drive operation status is `REMOVED`
+  - Use does physical replacement
 ## Test plans
-Drive replacement workflow must be covered by E2E tests in CI. *TBD - add test cases*
+Drive replacement workflow must be covered by E2E tests in CI.
