@@ -21,18 +21,18 @@ Single drive can be used to store one or more persistent volumes. Persistent vol
 ## Proposal
 To perform replacement of failed drive negotiation between CSI, Operator and User is required:
 
-- BM CSI
-  1. Detects drive health
-  2. Triggers replacement process
-  3. Sends alerts
-  4. Prepares drive for physical replacement
-- Operator
-  1. Subscribes for procedure support by setting corresponding PVC annotation.
-  2. Instantiates recovery process and monitor its progress if needed
-  3. Might reject procedure if system cannot release corresponding volume(s)
-  4. Deletes persistent volumes
-- User
-  1. Triggers physical drive replacement process since drive might not be shipped yet when recovery of data is completed
+* BM CSI
+  - Detects drive health
+  - Triggers replacement process
+  - Sends alerts
+  - Prepares drive for physical replacement
+* Operator
+  - Subscribes for procedure support by setting corresponding PVC annotation.
+  - Instantiates recovery process and monitor its progress if needed
+  - Might reject procedure if system cannot release corresponding volume(s)
+  - Deletes persistent volumes
+* User
+  - Triggers physical drive replacement process since drive might not be shipped yet when recovery of data is completed
 ## Design Details
 ### Drive health detection
 Drive health is detected by drive manager and stored in the health field of [Drives CRD](https://github.com/dell/csi-baremetal/blob/master/charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_drives.yaml): 
