@@ -72,24 +72,24 @@ type CapacityPlaner interface {
 
 // CapacityManagerBuilder interface for capacity managers creation
 type CapacityManagerBuilder interface {
-	// GetCapacityManger returns CapacityManager
-	GetCapacityManger(logger *logrus.Entry, capReader CapacityReader) CapacityPlaner
-	// GetReservedCapacityManger returns ReservedCapacityManager
-	GetReservedCapacityManger(logger *logrus.Entry,
+	// GetCapacityManager returns CapacityManager
+	GetCapacityManager(logger *logrus.Entry, capReader CapacityReader) CapacityPlaner
+	// GetReservedCapacityManager returns ReservedCapacityManager
+	GetReservedCapacityManager(logger *logrus.Entry,
 		capReader CapacityReader, resReader ReservationReader) CapacityPlaner
 }
 
 // DefaultCapacityManagerBuilder is a builder for default CapacityManagers
 type DefaultCapacityManagerBuilder struct{}
 
-// GetCapacityManger returns default implementation of CapacityManger
-func (dcmb *DefaultCapacityManagerBuilder) GetCapacityManger(
+// GetCapacityManager returns default implementation of CapacityManager
+func (dcmb *DefaultCapacityManagerBuilder) GetCapacityManager(
 	logger *logrus.Entry, capReader CapacityReader) CapacityPlaner {
 	return NewCapacityManager(logger, capReader)
 }
 
-// GetReservedCapacityManger returns default implementation of ReservedCapacityManger
-func (dcmb *DefaultCapacityManagerBuilder) GetReservedCapacityManger(
+// GetReservedCapacityManager returns default implementation of ReservedCapacityManager
+func (dcmb *DefaultCapacityManagerBuilder) GetReservedCapacityManager(
 	logger *logrus.Entry, capReader CapacityReader, resReader ReservationReader) CapacityPlaner {
 	return NewReservedCapacityManager(logger, capReader, resReader)
 }

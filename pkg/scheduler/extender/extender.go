@@ -319,7 +319,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 	acReader := capacityplanner.NewACReader(e.k8sClient, e.logger, true)
 	acrReader := capacityplanner.NewACRReader(e.k8sClient, e.logger, true)
 	reservedCapReader := capacityplanner.NewReservedACReader(e.logger, acReader, acrReader, false)
-	capManager := e.capacityManagerBuilder.GetCapacityManger(e.logger, reservedCapReader)
+	capManager := e.capacityManagerBuilder.GetCapacityManager(e.logger, reservedCapReader)
 
 	placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes)
 	if err != nil {

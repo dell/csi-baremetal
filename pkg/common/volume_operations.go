@@ -214,9 +214,9 @@ func (vo *VolumeOperationsImpl) createCapacityManager(volume api.Volume,
 	capReader capacityplanner.CapacityReader,
 	resReader capacityplanner.ReservationReader) capacityplanner.CapacityPlaner {
 	if vo.useACReservationForVolume(volume) {
-		return vo.capacityManagerBuilder.GetReservedCapacityManger(vo.log, capReader, resReader)
+		return vo.capacityManagerBuilder.GetReservedCapacityManager(vo.log, capReader, resReader)
 	}
-	return vo.capacityManagerBuilder.GetCapacityManger(vo.log, capReader)
+	return vo.capacityManagerBuilder.GetCapacityManager(vo.log, capReader)
 }
 
 // DeleteVolume changes volume CR state and updates it,
