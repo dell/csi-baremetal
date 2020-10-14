@@ -125,7 +125,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
 		resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, true)
 
-		capacityManager := vo.createCapacityManager(v, capReader, resReader)
+		capacityManager := vo.createCapacityManager(capReader, resReader)
 		plan, err := capacityManager.PlanVolumesPlacing(ctxWithID, []*api.Volume{&v})
 		if err != nil {
 			ll.Errorf("error while planning placing for volume: %s", err.Error())
@@ -193,7 +193,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		if err = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, ac, 5); err != nil {
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
-		if vo.useACReservationForVolume(v) {
+		if vo.acReservationEnabled {
 			resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
 			if err = resHelper.ReleaseReservation(ctxWithID, origAC, ac); err != nil {
 				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)
@@ -203,17 +203,9 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	return &volumeCR.Spec, nil
 }
 
-func (vo *VolumeOperationsImpl) useACReservationForVolume(volume api.Volume) bool {
-	if volume.Ephemeral {
-		return false
-	}
-	return vo.acReservationEnabled
-}
-
-func (vo *VolumeOperationsImpl) createCapacityManager(volume api.Volume,
-	capReader capacityplanner.CapacityReader,
+func (vo *VolumeOperationsImpl) createCapacityManager(capReader capacityplanner.CapacityReader,
 	resReader capacityplanner.ReservationReader) capacityplanner.CapacityPlaner {
-	if vo.useACReservationForVolume(volume) {
+	if vo.acReservationEnabled {
 		return vo.capacityManagerBuilder.GetReservedCapacityManager(vo.log, capReader, resReader)
 	}
 	return vo.capacityManagerBuilder.GetCapacityManager(vo.log, capReader)
