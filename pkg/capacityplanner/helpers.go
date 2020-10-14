@@ -63,7 +63,7 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 
 	var (
 		createErr   error
-		createdACRs = make([]*acrcrd.AvailableCapacityReservation, len(volToAC))
+		createdACRs = make([]*acrcrd.AvailableCapacityReservation, 0, len(volToAC))
 	)
 
 	for v, acs := range volToAC {
