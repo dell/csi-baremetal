@@ -99,29 +99,26 @@ func (acr *ACRReader) ReadReservations(ctx context.Context) ([]acrcrd.AvailableC
 	return acrList.Items, nil
 }
 
-// NewReservedACReader returns instance of ReservedACReader
-func NewReservedACReader(logger *logrus.Entry, capReader CapacityReader,
-	resReader ReservationReader, reserved bool) *ReservedACReader {
-	return &ReservedACReader{
+// NewUnreservedACReader returns instance of UnreservedACReader
+func NewUnreservedACReader(logger *logrus.Entry, capReader CapacityReader,
+	resReader ReservationReader) *UnreservedACReader {
+	return &UnreservedACReader{
 		capReader: capReader,
 		resReader: resReader,
 		logger:    logger,
-		reserved:  reserved,
 	}
 }
 
-// ReservedACReader capReader which returns ACs reserved in ACR
-type ReservedACReader struct {
+// UnreservedACReader capReader which returns ACs reserved in ACR
+type UnreservedACReader struct {
 	capReader CapacityReader
 	resReader ReservationReader
 	logger    *logrus.Entry
-	// if true will return reserved ACs, otherwise free ACs
-	reserved bool
 }
 
-// ReadCapacity returns reserved ACs
-func (rar *ReservedACReader) ReadCapacity(ctx context.Context) ([]accrd.AvailableCapacity, error) {
-	logger := util.AddCommonFields(ctx, rar.logger, "ReservedACReader.ReadCapacity")
+// ReadCapacity returns unreserved ACs
+func (rar *UnreservedACReader) ReadCapacity(ctx context.Context) ([]accrd.AvailableCapacity, error) {
+	logger := util.AddCommonFields(ctx, rar.logger, "UnreservedACReader.ReadCapacity")
 
 	acList, err := rar.capReader.ReadCapacity(ctx)
 	if err != nil {
@@ -136,7 +133,7 @@ func (rar *ReservedACReader) ReadCapacity(ctx context.Context) ([]accrd.Availabl
 	}
 
 	reservationHelper := NewReservationFilter(nil, nil)
-	reservedAC := reservationHelper.FilterByReservation(rar.reserved, acList, acrList)
+	reservedAC := reservationHelper.FilterByReservation(false, acList, acrList)
 	logger.Tracef("Read AvailableCapacity: %+v", reservedAC)
 	return reservedAC, nil
 }

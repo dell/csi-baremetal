@@ -318,7 +318,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 	// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
 	acReader := capacityplanner.NewACReader(e.k8sClient, e.logger, true)
 	acrReader := capacityplanner.NewACRReader(e.k8sClient, e.logger, true)
-	reservedCapReader := capacityplanner.NewReservedACReader(e.logger, acReader, acrReader, false)
+	reservedCapReader := capacityplanner.NewUnreservedACReader(e.logger, acReader, acrReader)
 	capManager := e.capacityManagerBuilder.GetCapacityManager(e.logger, reservedCapReader)
 
 	placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes)
