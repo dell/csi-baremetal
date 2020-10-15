@@ -82,22 +82,21 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
 	}
-
 	ll := k.log.WithFields(logrus.Fields{
 		"method":      "CreateCR",
 		"requestUUID": requestUUID.(string),
 	})
-
-	err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+	crKind := obj.GetObjectKind().GroupVersionKind().Kind
+	ll.Infof("Creating CR %s: %v", crKind, obj)
+	err := k.Create(ctx, obj)
 	if err != nil {
-		if k8sError.IsNotFound(err) {
-			ll.Infof("Creating CR %s: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
-			return k.Create(ctx, obj)
+		if k8sError.IsAlreadyExists(err) {
+			ll.Infof("CR %s %s already exist", crKind, name)
+			return nil
 		}
-		ll.Infof("Unable to check whether CR %s exist or not: %v", name, err)
-		return err
+		ll.Errorf("Failed to create CR %s %s", crKind, name)
 	}
-	ll.Infof("CR %s has already exist", name)
+	ll.Infof("CR %s %s created", crKind, name)
 	return nil
 }
 
