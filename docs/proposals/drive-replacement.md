@@ -51,7 +51,7 @@ Drive health is detected by drive manager and stored in the health field of [Dri
 ### API
 #### Operator
 Negotiation between CSI and Operator is optional and will be done though annotation on different objects.
-* Storage class annotation:
+* Persistent volume claim annotation:
   - `volumerelease.csi-baremetal/support: yes` - inform CSI that volume release feature is supported by Operator
 * [Volume CRD]() annotations:
   - `volumehealth.csi-baremetal/health: good/unknown/suspect/bad` - health of the underlying drive(s) 
