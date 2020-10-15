@@ -256,7 +256,7 @@ func (rcm *ReservedCapacityManager) update(ctx context.Context, volume *genV1.Vo
 	filteredACRs := FilterACRList(acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
 		return acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size
 	})
-	resFilter := NewReservationFilter(nil, nil)
+	resFilter := NewReservationFilter()
 	reservedACs := resFilter.FilterByReservation(true, acList, filteredACRs)
 	rcm.nodeCapacityMap = buildNodeCapacityMap(reservedACs)
 	rcm.acrMap, rcm.acNameToACRNamesMap = buildACRMaps(filteredACRs)

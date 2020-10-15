@@ -132,7 +132,7 @@ func (rar *UnreservedACReader) ReadCapacity(ctx context.Context) ([]accrd.Availa
 		return nil, err
 	}
 
-	reservationHelper := NewReservationFilter(nil, nil)
+	reservationHelper := NewReservationFilter()
 	reservedAC := reservationHelper.FilterByReservation(false, acList, acrList)
 	logger.Tracef("Read AvailableCapacity: %+v", reservedAC)
 	return reservedAC, nil

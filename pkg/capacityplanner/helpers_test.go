@@ -126,24 +126,12 @@ func TestReservationFilter(t *testing.T) {
 		*getTestACR(testSmallSize, apiV1.StorageClassSSD, []*accrd.AvailableCapacity{&testACs[1]}),
 	}
 	t.Run("Filter reserved", func(t *testing.T) {
-		filter := NewReservationFilter(nil, nil)
+		filter := NewReservationFilter()
 		assert.ElementsMatch(t, testACs[:2], filter.FilterByReservation(true, testACs, testACRs))
 	})
 	t.Run("Filter unreserved", func(t *testing.T) {
-		filter := NewReservationFilter(nil, nil)
+		filter := NewReservationFilter()
 		assert.ElementsMatch(t, testACs[2:], filter.FilterByReservation(false, testACs, testACRs))
-	})
-	t.Run("ACR filter", func(t *testing.T) {
-		filter := NewReservationFilter(func(acr acrcrd.AvailableCapacityReservation) bool {
-			return acr.Spec.StorageClass == apiV1.StorageClassSSD
-		}, nil)
-		assert.ElementsMatch(t, testACs[1:2], filter.FilterByReservation(true, testACs, testACRs))
-	})
-	t.Run("AC filter", func(t *testing.T) {
-		filter := NewReservationFilter(nil, func(ac accrd.AvailableCapacity) bool {
-			return ac.Spec.Size == testLargeSize
-		})
-		assert.ElementsMatch(t, testACs[0:1], filter.FilterByReservation(true, testACs, testACRs))
 	})
 }
 

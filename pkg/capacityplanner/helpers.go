@@ -194,27 +194,16 @@ func (rh *ReservationHelper) replaceACInACR(ctx context.Context, removedACR stri
 }
 
 // NewReservationFilter returns new instance of ReservationFilter
-func NewReservationFilter(
-	acrFilter func(acr acrcrd.AvailableCapacityReservation) bool,
-	acFilter func(ac accrd.AvailableCapacity) bool) *ReservationFilter {
-	return &ReservationFilter{
-		acrFilter: acrFilter,
-		acFilter:  acFilter,
-	}
+func NewReservationFilter() *ReservationFilter {
+	return &ReservationFilter{}
 }
 
 // ReservationFilter helper for working with ACR based reservations
-type ReservationFilter struct {
-	// additional filter for ACR
-	acrFilter func(acr acrcrd.AvailableCapacityReservation) bool
-	// additional filter for AC
-	acFilter func(ac accrd.AvailableCapacity) bool
-}
+type ReservationFilter struct{}
 
 // FilterByReservation returns AC which are reserved if reserved == true, or not reserved otherwise
-func (rh *ReservationFilter) FilterByReservation(reserved bool, acs []accrd.AvailableCapacity,
+func (rf *ReservationFilter) FilterByReservation(reserved bool, acs []accrd.AvailableCapacity,
 	acrs []acrcrd.AvailableCapacityReservation) []accrd.AvailableCapacity {
-	acs, acrs = rh.filter(acs, acrs)
 	acInACR := buildACInACRMap(acrs)
 	return FilterACList(acs, func(ac accrd.AvailableCapacity) bool {
 		_, acIsReserved := acInACR[ac.Name]
@@ -225,17 +214,6 @@ func (rh *ReservationFilter) FilterByReservation(reserved bool, acs []accrd.Avai
 		// we looking for unreserved ACs
 		return !acIsReserved
 	})
-}
-
-func (rh *ReservationFilter) filter(acs []accrd.AvailableCapacity, acrs []acrcrd.AvailableCapacityReservation) (
-	[]accrd.AvailableCapacity, []acrcrd.AvailableCapacityReservation) {
-	if rh.acFilter != nil {
-		acs = FilterACList(acs, rh.acFilter)
-	}
-	if rh.acrFilter != nil {
-		acrs = FilterACRList(acrs, rh.acrFilter)
-	}
-	return acs, acrs
 }
 
 // FilterACRList filter for ACR list
