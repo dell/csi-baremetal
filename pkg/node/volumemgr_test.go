@@ -851,7 +851,7 @@ func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 
 	// CreateCR failed
 	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-	mockK8sClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Twice() // CreateCR will failed
+	mockK8sClient.On("Create", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Twice() // CreateCR will failed
 
 	d1 := drive1
 	res, err = vm.updateDrivesCRs(testCtx, []*api.Drive{&d1})

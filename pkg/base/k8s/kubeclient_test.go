@@ -294,6 +294,17 @@ var _ = Describe("Working with CRD", func() {
 			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
 		})
 
+		It("Create CR should be idempotent", func() {
+			err := k8sclient.CreateCR(testCtx, testACName, &testACCR)
+			Expect(err).To(BeNil())
+			err = k8sclient.CreateCR(testCtx, testACName, &testACCR)
+			Expect(err).To(BeNil())
+			rAC := &accrd.AvailableCapacity{}
+			err = k8sclient.ReadCR(testCtx, testACName, rAC)
+			Expect(err).To(BeNil())
+			Expect(rAC.ObjectMeta.Name).To(Equal(testACName))
+		})
+
 		It("Should read volumes CR List", func() {
 			err := k8sclient.CreateCR(context.Background(), testACName, &testVolume)
 			Expect(err).To(BeNil())
