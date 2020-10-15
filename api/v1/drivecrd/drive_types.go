@@ -51,7 +51,7 @@ func (in *Drive) DeepCopyInto(out *Drive) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec = out.Spec
+	out.Spec = in.Spec
 }
 
 func init() {
