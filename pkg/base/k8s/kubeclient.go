@@ -19,7 +19,6 @@ package k8s
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -62,8 +61,6 @@ type KubeClient struct {
 	k8sCl.Client
 	log       *logrus.Entry
 	Namespace string
-	//mutex for crd request
-	sync.Mutex
 }
 
 // NewKubeClient is the constructor for KubeClient struct
@@ -81,9 +78,6 @@ func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, namespace stri
 // Receives golang context, name of the created object, and object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	requestUUID := ctx.Value(RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
@@ -111,9 +105,6 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
 func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 }
 
@@ -121,9 +112,6 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object
 // Receives golang context, and List object pointer where to read
 // Returns error if something went wrong
 func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	return k.List(ctx, obj, k8sCl.InNamespace(k.Namespace))
 }
 
@@ -131,9 +119,6 @@ func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	requestUUID := ctx.Value(RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
@@ -151,9 +136,6 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 // Receives golang context and removable object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	requestUUID := ctx.Value(RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
