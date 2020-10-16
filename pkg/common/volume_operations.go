@@ -131,10 +131,9 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			ll.Errorf("error while planning placing for volume: %s", err.Error())
 			return nil, err
 		}
-		noResourceErr := status.Errorf(
-			codes.ResourceExhausted, "there is no suitable drive for volume %s", v.Id)
+		noResourceMsg := fmt.Sprintf("there is no suitable drive for volume %s", v.Id)
 		if plan == nil {
-			return nil, noResourceErr
+			return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
 		}
 		if v.NodeId == "" {
 			v.NodeId = plan.SelectNode()
@@ -142,7 +141,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		ll.Infof("Try to create volume on node %s", v.NodeId)
 		ac = plan.GetACForVolume(v.NodeId, &v)
 		if ac == nil {
-			return nil, noResourceErr
+			return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
 		}
 		origAC := ac
 		if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
