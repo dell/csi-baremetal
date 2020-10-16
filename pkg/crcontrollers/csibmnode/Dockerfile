@@ -2,6 +2,6 @@ FROM    ubuntu:20.04
 
 LABEL   description="CSI-Baremetal node CR controller"
 
-ADD     node-operator  node-operator
+ADD     csibmnode  csibmnode-controller
 
-ENTRYPOINT ["/node-operator"]
+ENTRYPOINT ["/csibmnode-controller"]

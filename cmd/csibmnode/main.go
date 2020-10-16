@@ -28,7 +28,7 @@ import (
 
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/operator"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
 )
 
 var (
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	logger.Info("Starting CSI Bare-metal operator controller ...")
-	op, err := operator.NewCSIBMController(*namespace, logger)
+	op, err := csibmnode.NewCSIBMController(*namespace, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -80,12 +80,6 @@ func main() {
 	// bind K8s Controller Manager as a controller for CSIBMNode CR
 	if err = op.SetupWithManager(mgr); err != nil {
 		logger.Fatalf("unable to create controller for volume: %v", err)
-	}
-
-	logger.Infof("Running initial Reconcile")
-
-	if _, err = op.Reconcile(ctrl.Request{}); err != nil {
-		logger.Fatalf("Initial reconcile finished with error: %v", err)
 	}
 
 	logger.Info("Starting CR Controller Manager ...")

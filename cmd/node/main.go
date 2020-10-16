@@ -21,6 +21,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
 	"io/ioutil"
 	"net"
 	"strconv"
@@ -46,7 +47,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/events"
-	"github.com/dell/csi-baremetal/pkg/lvm"
 	"github.com/dell/csi-baremetal/pkg/node"
 )
 
@@ -111,7 +111,7 @@ func main() {
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvm.NewLVGController(k8sClientForLVG, nodeUID, logger),
+		lvg.NewLVGController(k8sClientForLVG, nodeUID, logger),
 		logger)
 
 	// register CSI calls handler
@@ -164,7 +164,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 }
 
 // prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources
-func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.LVGController,
+func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.Controller,
 	logger *logrus.Logger) manager.Manager {
 	var (
 		ll     = logger.WithField("method", "prepareCRDControllerManagers")

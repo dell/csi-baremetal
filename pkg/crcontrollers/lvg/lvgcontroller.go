@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lvm
+package lvg
 
 import (
 	"context"
@@ -45,7 +45,7 @@ import (
 const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 
 // LVGController is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
-type LVGController struct {
+type Controller struct {
 	k8sClient *k8s.KubeClient
 
 	listBlk lsblk.WrapLsblk
@@ -59,10 +59,10 @@ type LVGController struct {
 // NewLVGController is the constructor for LVGController struct
 // Receives an instance of base.KubeClient, ID of a node where it works and logrus logger
 // Returns an instance of LVGController
-func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger) *LVGController {
+func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger) *Controller {
 	e := &command.Executor{}
 	e.SetLogger(log)
-	return &LVGController{
+	return &Controller{
 		k8sClient: k8sClient,
 		node:      nodeID,
 		log:       log.WithField("component", "LVGController"),
@@ -76,7 +76,7 @@ func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logg
 // LVGController's node if LVG.Spec.Status is Creating. Also this loop handles VG deletion on the node if
 // LVG.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
 // Returns reconcile result as ctrl.Result or error if something went wrong
-func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancelFn()
 
@@ -162,7 +162,7 @@ func (c *LVGController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 // SetupWithManager registers LVGController to ControllerManager
-func (c *LVGController) SetupWithManager(mgr ctrl.Manager) error {
+func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lvgcrd.LVG{}).
 		WithEventFilter(predicate.Funcs{
@@ -182,7 +182,7 @@ func (c *LVGController) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(c)
 }
 
-func (c *LVGController) filterCRs(obj runtime.Object) bool {
+func (c *Controller) filterCRs(obj runtime.Object) bool {
 	if lvg, ok := obj.(*lvgcrd.LVG); ok {
 		if lvg.Spec.Node == c.node {
 			return true
@@ -194,7 +194,7 @@ func (c *LVGController) filterCRs(obj runtime.Object) bool {
 // createSystemLVG creates LVG in the system and put all drives from lvg.Spec.Location in that LVG
 // if some drive doesn't read that drive will not pass in lvg.Location
 // return list of drives in LVG that should be used as a locations for this LVG
-func (c *LVGController) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, err error) {
+func (c *Controller) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, err error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "createSystemLVG",
 		"lvgName": lvg.Name,
@@ -239,7 +239,7 @@ func (c *LVGController) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, er
 
 // removeLVGArtifacts removes LVG and PVs that doesn't correspond to particular LVG
 // when LVG is removed all PVs that were in that LVG becomes orphans
-func (c *LVGController) removeLVGArtifacts(lvgName string) error {
+func (c *Controller) removeLVGArtifacts(lvgName string) error {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "removeLVGArtifacts",
 		"lvgName": lvgName,
@@ -260,7 +260,7 @@ func (c *LVGController) removeLVGArtifacts(lvgName string) error {
 }
 
 // increaseACSize updates size of AC related to drive
-func (c *LVGController) increaseACSize(driveID string, size int64) {
+func (c *Controller) increaseACSize(driveID string, size int64) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "increaseACSize",
 		"driveID": driveID,

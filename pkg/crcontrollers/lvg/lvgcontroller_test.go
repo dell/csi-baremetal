@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lvm
+package lvg
 
 import (
 	"context"
@@ -430,7 +430,7 @@ func Test_increaseACSize(t *testing.T) {
 }
 
 // setup creates drive CRs and LVG CRs and returns LVGController instance
-func setup(t *testing.T, node string) *LVGController {
+func setup(t *testing.T, node string) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)
 	// create Drive CRs
@@ -447,7 +447,7 @@ func setup(t *testing.T, node string) *LVGController {
 }
 
 // teardown removes drive CRs and LVG CRs
-func teardown(t *testing.T, c *LVGController) {
+func teardown(t *testing.T, c *Controller) {
 	var (
 		driveList = &drivecrd.DriveList{}
 		lvgList   = &lvgcrd.LVGList{}
