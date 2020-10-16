@@ -18,7 +18,6 @@ package controller
 
 import (
 	"fmt"
-
 	"strings"
 	"testing"
 	"time"
@@ -39,9 +38,9 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
-	"github.com/dell/csi-baremetal/pkg/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 

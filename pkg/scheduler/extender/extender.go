@@ -36,9 +36,9 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/capacityplanner"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering

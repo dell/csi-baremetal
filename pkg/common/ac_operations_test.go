@@ -25,8 +25,8 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/capacityplanner"
 )
 
 var DefaultPESize = capacityplanner.DefaultPESize
