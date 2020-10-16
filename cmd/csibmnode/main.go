@@ -55,35 +55,50 @@ func main() {
 	}
 
 	logger.Info("Starting CSI Bare-metal operator controller ...")
-	op, err := csibmnode.NewCSIBMController(*namespace, logger)
+	nodeCtrl, err := csibmnode.NewCSIBMController(*namespace, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	scheme := runtime.NewScheme()
-	if err = clientgoscheme.AddToScheme(scheme); err != nil {
+	mgr, err := prepareK8sRuntimeManager()
+	if err != nil {
 		logger.Fatal(err)
 	}
-	// register volume crd
-	if err = nodecrd.AddToSchemeCSIBMNode(scheme); err != nil {
+
+	// bind K8s Controller Manager as a controller for CSIBMNode CR
+	if err = nodeCtrl.SetupWithManager(mgr); err != nil {
 		logger.Fatal(err)
+	}
+
+	logger.Info("Starting CSIBMNode Controller Manager ...")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		logger.Fatalf("CRD Controller Manager failed with error: %v", err)
+	}
+}
+
+func prepareK8sRuntimeManager() (ctrl.Manager, error) {
+	var (
+		scheme = runtime.NewScheme()
+		err    error
+	)
+
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	// register CSIBMNode CRD
+	if err = nodecrd.AddToSchemeCSIBMNode(scheme); err != nil {
+		return nil, err
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:    scheme,
 		Namespace: *namespace,
 	})
+
 	if err != nil {
-		logger.Fatalf("Unable to create new CRD Controller Manager: %v", err)
+		return nil, err
 	}
 
-	// bind K8s Controller Manager as a controller for CSIBMNode CR
-	if err = op.SetupWithManager(mgr); err != nil {
-		logger.Fatalf("unable to create controller for volume: %v", err)
-	}
-
-	logger.Info("Starting CR Controller Manager ...")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		logger.Fatalf("CRD Controller Manager failed with error: %v", err)
-	}
+	return mgr, nil
 }
