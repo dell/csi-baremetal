@@ -252,6 +252,20 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
+func (k *KubeClient) ConstructCSIBMNodeCR(csiNode api.CSIBMNode) *nodecrd.CSIBMNode {
+	return &nodecrd.CSIBMNode{
+		TypeMeta: apisV1.TypeMeta{
+			Kind:       crdV1.CSIBMNodeKind,
+			APIVersion: crdV1.APIV1Version,
+		},
+		ObjectMeta: apisV1.ObjectMeta{
+			Name:      csiNode.UUID,
+			Namespace: k.Namespace,
+		},
+		Spec: csiNode,
+	}
+}
+
 // ReadCRWithAttempts reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
 // with specified amount of attempts. Fails right away if resource is not found
 // Receives golang context, name of the read object, and object pointer where to read

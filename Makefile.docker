@@ -3,7 +3,7 @@ include variables.mk
 ####################
 ### Build images ###
 ####################
-images: image-drivemgr image-node image-controller image-extender image-extender-patcher image-scheduler
+images: image-drivemgr image-node image-controller image-extender image-extender-patcher image-scheduler image-operator
 
 base-images: base-image-drivemgr base-image-node base-image-controller
 
@@ -51,10 +51,14 @@ image-scheduler:
 	cp ./pkg/${SCHEDULER}/${PLUGIN}/Dockerfile ./build/${SCHEDULING_PKG}/${SCHEDULER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ./build/${SCHEDULING_PKG}/${SCHEDULER}
 
+image-operator:
+	cp ./pkg/${OPERATOR_PKG}/Dockerfile ./build/${OPERATOR_PKG}/
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE_OPERATOR}:${TAG} ./build/${OPERATOR_PKG}
+
 ###################
 ### Push images ###
 ###################
-push: push-drivemgr push-node push-controller push-extender push-extender-patcher push-scheduler
+push: push-drivemgr push-node push-controller push-extender push-extender-patcher push-scheduler push-operator
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -74,10 +78,19 @@ push-extender-patcher:
 push-scheduler:
 	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
+push-operator:
+	docker push ${REGISTRY}/${PROJECT}-${NODE_OPERATOR}:${TAG}
+
 ####################
 ### Clean images ###
 ####################
-clean-images: clean-image-node clean-image-controller clean-image-drivemgr clean-image-extender clean-image-extender-patcher clean-image-scheduler
+clean-images: clean-image-node \
+clean-image-controller \
+clean-image-drivemgr \
+clean-image-extender \
+clean-image-extender-patcher \
+clean-image-scheduler \
+clean-image-operator
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -96,3 +109,6 @@ clean-image-extender-patcher:
 
 clean-image-scheduler:
 	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
+
+clean-image-operator:
+	docker rmi ${REGISTRY}/${PROJECT}-${NODE_OPERATOR}:${TAG}

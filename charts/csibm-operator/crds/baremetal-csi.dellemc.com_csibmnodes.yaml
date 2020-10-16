@@ -39,8 +39,6 @@ spec:
               items:
                 type: string
               type: array
-            Status:
-              type: string
             UUID:
               type: string
           type: object

@@ -22,6 +22,7 @@ const (
 	AvailableCapacityReservationKind = "AvailableCapacityReservation"
 	LVGKind                          = "LVG"
 	DriveKind                        = "Drive"
+	CSIBMNodeKind                    = "CSIBMNode"
 
 	Version            = "v1"
 	CSICRsGroupVersion = "baremetal-csi.dellemc.com"

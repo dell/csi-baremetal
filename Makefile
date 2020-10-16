@@ -17,7 +17,7 @@ dependency:
 all: build base-images images push
 
 ### Build binaries
-build: compile-proto build-drivemgr build-node build-controller build-extender build-scheduler
+build: compile-proto build-drivemgr build-node build-controller build-extender build-scheduler build-operator
 
 build-drivemgr:
 	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
@@ -33,6 +33,9 @@ build-extender:
 
 build-scheduler:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER} ./cmd/${SCHEDULING_PKG}/${SCHEDULER}/main.go
+
+build-operator:
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${OPERATOR_PKG}/${NODE_OPERATOR} ./cmd/${OPERATOR_PKG}/main.go
 
 ### Clean artifacts
 clean-all: clean clean-images
@@ -53,6 +56,9 @@ clean-extender:
 
 clean-scheduler:
 	rm -rf ./build/${SCHEDULING_PKG}/${SCHEDULER}/*
+
+clean-operator:
+	rm -rf ./build/${OPERATOR_PKG}/*
 
 clean-proto:
 	rm -rf ./api/generated/v1/*

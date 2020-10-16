@@ -29,6 +29,7 @@ BUSYBOX_TAG         := 1.29
 SCHEDULING_PKG := scheduling
 SCHEDULER_EXTENDER_PKG := extender
 SCHEDULER_EXTENDER_PATCHER_PKG := scheduler/patcher
+OPERATOR_PKG := operator
 
 ### components
 NODE             := node
@@ -37,6 +38,7 @@ CONTROLLER       := controller
 SCHEDULER        := scheduler
 EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
+NODE_OPERATOR    := node-operator
 PLUGIN           := plugin
 
 BASE_DRIVE_MGR     := basemgr
