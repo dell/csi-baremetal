@@ -137,8 +137,7 @@ func (cm *CapacityManager) PlanVolumesPlacing(
 }
 
 func (cm *CapacityManager) selectCapacityOnNode(ctx context.Context, node string, volumes []*genV1.Volume) VolToACMap {
-	logger := util.AddCommonFields(
-		ctx, cm.logger, "CapacityManager.selectCapacityOnNode").WithField("node", node)
+	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.selectCapacityOnNode")
 	nodeCap := cm.nodesCapacity[node]
 
 	result := VolToACMap{}
@@ -146,13 +145,13 @@ func (cm *CapacityManager) selectCapacityOnNode(ctx context.Context, node string
 	for _, vol := range volumes {
 		ac := nodeCap.selectACForVolume(vol)
 		if ac == nil {
-			logger.Tracef("AC for vol: %s not found on node", vol.Id)
+			logger.Tracef("AC for vol: %s not found on node %s", vol.Id, node)
 			return nil
 		}
-		logger.Tracef("AC for vol: %s found on node", vol.Id)
+		logger.Tracef("AC %v selected for vol: %s found on node %s", ac, vol.Id, node)
 		result[vol] = ac
 	}
-	logger.Tracef("AC for all volumes found on node %s", node)
+	logger.Debugf("AC for all volumes found on node %s", node)
 	return result
 }
 

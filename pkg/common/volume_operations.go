@@ -152,7 +152,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 					"unable to prepare underlying storage for storage class %s", v.StorageClass)
 			}
 		}
-		ll.Infof("AC %v was selected", ac.Spec)
+		ll.Infof("AC %v was selected", ac)
 
 		// if sc was parsed as an ANY then we can choose AC with any storage class and then
 		// volume should be created with that particular SC
