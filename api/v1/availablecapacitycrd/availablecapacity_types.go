@@ -49,5 +49,5 @@ func (in *AvailableCapacity) DeepCopyInto(out *AvailableCapacity) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec = out.Spec
+	out.Spec = in.Spec
 }
