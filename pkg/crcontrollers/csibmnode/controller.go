@@ -23,8 +23,8 @@ import (
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	source "sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
@@ -58,43 +58,7 @@ func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMControll
 func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(m).
 		For(&nodecrd.CSIBMNode{}).
-		Owns(&coreV1.Node{}).
-		WithEventFilter(predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				switch e.Object.(type) {
-				case *coreV1.Node:
-					bmc.log.Infof("CreateEvent. Type - Node, name - %s", e.Object.(*coreV1.Node).Name)
-				case *nodecrd.CSIBMNode:
-					bmc.log.Infof("CreateEvent. Type - CSIBMNode, name - %s", e.Object.(*nodecrd.CSIBMNode).Name)
-				default:
-					bmc.log.Infof("CreateEvent. Not interesting object, kind - ", e.Object.GetObjectKind())
-				}
-				return true
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				switch e.Object.(type) {
-				case *coreV1.Node:
-					bmc.log.Infof("DeleteEvent. Type - Node, name - %s", e.Object.(*coreV1.Node).Name)
-				case *nodecrd.CSIBMNode:
-					bmc.log.Infof("DeleteEvent. Type - CSIBMNode, name - %s", e.Object.(*nodecrd.CSIBMNode).Name)
-				default:
-					bmc.log.Infof("DeleteEvent. Not interesting object, kind - ", e.Object.GetObjectKind())
-				}
-				return true
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				switch e.ObjectOld.(type) {
-				case *coreV1.Node:
-					bmc.log.Infof("UpdateEvent. Type - Node, name - %s", e.ObjectOld.(*coreV1.Node).Name)
-				case *nodecrd.CSIBMNode:
-					bmc.log.Infof("UpdateEvent. Type - CSIBMNode, name - %s", e.ObjectOld.(*nodecrd.CSIBMNode).Name)
-				default:
-					bmc.log.Infof("UpdateEvent. Not interesting object, kind - ", e.ObjectOld.GetObjectKind())
-				}
-				return true
-			},
-			GenericFunc: nil,
-		}).
+		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}).
 		Complete(bmc)
 }
 

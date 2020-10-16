@@ -17,7 +17,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: controller
-        image: {{ .Values.image.registry }}/baremetal-csi-plugin-node-operator:{{ .Values.image.tag }}
+        image: {{ .Values.image.registry }}/baremetal-csi-plugin-csibmnode:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
           - --namespace=$(NAMESPACE)
