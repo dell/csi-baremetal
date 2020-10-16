@@ -120,15 +120,15 @@ type UnreservedACReader struct {
 func (rar *UnreservedACReader) ReadCapacity(ctx context.Context) ([]accrd.AvailableCapacity, error) {
 	logger := util.AddCommonFields(ctx, rar.logger, "UnreservedACReader.ReadCapacity")
 
-	acList, err := rar.capReader.ReadCapacity(ctx)
-	if err != nil {
-		logger.Errorf("failed to read AC list: %s", err.Error())
-		return nil, err
-	}
-
 	acrList, err := rar.resReader.ReadReservations(ctx)
 	if err != nil {
 		logger.Errorf("failed to read ACR list: %s", err.Error())
+		return nil, err
+	}
+
+	acList, err := rar.capReader.ReadCapacity(ctx)
+	if err != nil {
+		logger.Errorf("failed to read AC list: %s", err.Error())
 		return nil, err
 	}
 
