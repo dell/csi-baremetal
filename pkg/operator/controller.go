@@ -42,11 +42,17 @@ type CSIBMController struct {
 	log *logrus.Entry
 }
 
-func NewCSIBMController(cl *k8s.KubeClient, logger *logrus.Logger) *CSIBMController {
-	return &CSIBMController{
-		k8sClient: cl,
-		log:       logrus.WithField("component", "CSIBMController"),
+func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMController, error) {
+	k8sClient, err := k8s.GetK8SClient()
+	if err != nil {
+		return nil, err
 	}
+	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
+
+	return &CSIBMController{
+		k8sClient: kubeClient,
+		log:       logrus.WithField("component", "CSIBMController"),
+	}, nil
 }
 
 func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
