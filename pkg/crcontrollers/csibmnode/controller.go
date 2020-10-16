@@ -123,12 +123,19 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	var k8sNodeToCSINode = make(map[*coreV1.Node]*nodecrd.CSIBMNode, len(k8sNodesList.Items))
 	for i := 0; i < len(k8sNodesList.Items); i++ {
 		exist := false
+		k8sNode := &k8sNodesList.Items[i]
 		for j := 0; j < len(csiNodesList.Items); j++ {
-			if bmc.isCRRepresentsNode(&csiNodesList.Items[j], &k8sNodesList.Items[i]) {
+			csiNode := &csiNodesList.Items[j]
+
+			matchedAddresses := bmc.matchedAddressesCount(csiNode, k8sNode)
+			if matchedAddresses == len(k8sNode.Status.Addresses) {
 				// TODO: what if we have more then 1 CR points on same k8s node?
 				k8sNodeToCSINode[&k8sNodesList.Items[i]] = &csiNodesList.Items[j]
 				exist = true
 				break
+			}
+			if matchedAddresses > 0 {
+				// TODO: match but not fully
 			}
 		}
 		if !exist {
@@ -139,9 +146,8 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	for k8sNode, csiNode := range k8sNodeToCSINode {
 		if csiNode == nil {
 			toCreate := bmc.k8sClient.ConstructCSIBMNodeCR(api.CSIBMNode{
-				UUID:     uuid.New().String(),
-				IPs:      []string{bmc.getK8sNodeAddr(k8sNode, coreV1.NodeInternalIP)},
-				Hostname: bmc.getK8sNodeAddr(k8sNode, coreV1.NodeHostName),
+				UUID:        uuid.New().String(),
+				NodeAddress: bmc.constructAddresses(k8sNode),
 			})
 
 			ll.Infof("Going to create CSIBMNode CR with spec: %v", toCreate.Spec)
@@ -187,21 +193,23 @@ func (bmc *CSIBMController) getK8sNodeAddr(k8sNode *coreV1.Node, addrType coreV1
 	return ""
 }
 
-func (bmc *CSIBMController) isCRRepresentsNode(bmNodeCR *nodecrd.CSIBMNode, k8sNode *coreV1.Node) bool {
-	comparesCount := 0
+func (bmc *CSIBMController) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k8sNode *coreV1.Node) int {
+	matchedCount := 0
 	for _, addr := range k8sNode.Status.Addresses {
-		switch addr.Type {
-		case coreV1.NodeHostName:
-			if addr.Address != bmNodeCR.Spec.Hostname {
-				return false
-			}
-			comparesCount++
-		case coreV1.NodeInternalIP:
-			if addr.Address != bmNodeCR.Spec.IPs[0] {
-				return false
-			}
-			comparesCount++
+		crAddr, ok := bmNodeCR.Spec.NodeAddress[string(addr.Type)]
+		if ok && crAddr == addr.Address {
+			matchedCount++
 		}
 	}
-	return comparesCount == 2 // expect that hostname and Internal IP address are the same
+
+	return matchedCount
+}
+
+func (bmc *CSIBMController) constructAddresses(k8sNode *coreV1.Node) map[string]string {
+	res := make(map[string]string, len(k8sNode.Status.Addresses))
+	for _, addr := range k8sNode.Status.Addresses {
+		res[string(addr.Type)] = addr.Address
+	}
+
+	return res
 }
