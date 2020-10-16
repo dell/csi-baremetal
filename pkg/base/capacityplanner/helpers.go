@@ -86,7 +86,9 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 	if createErr == nil {
 		return nil
 	}
-	// try to remove all created ACR
+	// try to remove all created ACRs
+	// ctx can be canceled at this moment, so we will create new one
+	ctx = context.Background()
 	for _, acr := range createdACRs {
 		if err := rh.client.DeleteCR(ctx, acr); err != nil {
 			logger.Errorf("Unable to remove ACR %s: %v", acr.Name, err)
