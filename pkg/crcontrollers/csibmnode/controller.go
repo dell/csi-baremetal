@@ -218,7 +218,7 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 	case ok && val == bmNode.Spec.UUID:
 		return ctrl.Result{}, nil
 	case ok && val != bmNode.Spec.UUID:
-		ll.Warnf("Node's annotation %s value is %s, however should have (according to corresponding CSIBMNode's UUID) %s. Going to update annotation's value.",
+		ll.Warnf("Node's annotation %s value is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
 			NodeIDAnnotationKey, val, bmNode.Spec.UUID)
 		fallthrough
 	default:
@@ -286,7 +286,7 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 	case ok && val == bmNode.Spec.UUID:
 		return ctrl.Result{}, nil
 	case ok && val != bmNode.Spec.UUID:
-		ll.Warnf("Node's annotation %s value is %s, however should have (according to corresponding CSIBMNode's UUID) %s. Going to update annotation's value.",
+		ll.Warnf("Node's annotation %s value is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
 			NodeIDAnnotationKey, val, bmNode.Spec.UUID)
 		fallthrough
 	default:
