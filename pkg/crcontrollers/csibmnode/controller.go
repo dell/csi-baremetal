@@ -45,7 +45,7 @@ const (
 
 type CSIBMController struct {
 	k8sClient *k8s.KubeClient
-	cache     *nodesCache
+	cache     nodesCache
 
 	log *logrus.Entry
 }
@@ -64,7 +64,11 @@ func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMControll
 
 	return &CSIBMController{
 		k8sClient: kubeClient,
-		log:       logrus.WithField("component", "CSIBMController"),
+		cache: nodesCache{
+			k8sToBMNode: make(map[string]string),
+			bmToK8sNode: make(map[string]string),
+		},
+		log: logrus.WithField("component", "CSIBMController"),
 	}, nil
 }
 
