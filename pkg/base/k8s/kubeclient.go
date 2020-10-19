@@ -126,7 +126,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "UpdateCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Tracef("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 
 	return k.Update(ctx, obj)
 }
