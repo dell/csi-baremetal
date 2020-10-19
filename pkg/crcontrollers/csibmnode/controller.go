@@ -18,17 +18,16 @@ package csibmnode
 
 import (
 	"context"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	source "sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
@@ -64,39 +63,22 @@ func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 		For(&nodecrd.CSIBMNode{}).
 		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}).
 		WithEventFilter(predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return bmc.enqueueReconcileForObj("CreateEvent", e.Object)
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return bmc.enqueueReconcileForObj("DeleteEvent", e.Object)
-			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return bmc.enqueueReconcileForObj("UpdateEvent", e.ObjectOld)
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return bmc.enqueueReconcileForObj("GenericEvent", e.Object)
+				if _, ok := e.ObjectOld.(*nodecrd.CSIBMNode); ok {
+					return true
+				}
+
+				nodeOld, ok := e.ObjectOld.(*coreV1.Node)
+				if !ok {
+					return false
+				}
+				nodeNew := e.ObjectNew.(*coreV1.Node)
+
+				return !reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations()) ||
+					!reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)
 			},
 		}).
 		Complete(bmc)
-}
-
-func (bmc *CSIBMController) enqueueReconcileForObj(eventType string, obj runtime.Object) bool {
-	ll := bmc.log.WithFields(logrus.Fields{
-		"method":    "enqueueReconcileForObj",
-		"eventType": eventType,
-	})
-
-	switch obj.(type) {
-	case *nodecrd.CSIBMNode:
-		ll.Infof("CSIBMNode %s", obj.(*nodecrd.CSIBMNode).Name)
-	case *coreV1.Node:
-		ll.Infof("Node %s", obj.(*coreV1.Node).Name)
-	default:
-		ll.Errorf("UNKNOWN object %v", obj)
-		return false
-	}
-
-	return true
 }
 
 func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
