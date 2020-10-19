@@ -7,6 +7,11 @@ env:
 
 extender: false
 
+# to deploy on specific nodes kubeclt get nodes -l <key>=<value>
+nodeSelector:
+  key:
+  value:
+
 # format of logs
 log:
   format: text
