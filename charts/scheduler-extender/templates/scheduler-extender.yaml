@@ -26,7 +26,6 @@ spec:
             - --loglevel={{ .Values.log.level }}
             - --certFile={{ .Values.tls.certFile }}
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
-            - --enableReservation={{ .Values.enableReservation }}  # TODO: remove that flag
           ports:
             - containerPort: {{  .Values.port }}
           env:

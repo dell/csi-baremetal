@@ -50,7 +50,7 @@ Installation process
 
     2.2 Deploy CSI plugin 
     
-    ```cd charts && helm install csi-baremetal baremetal-csi-plugin --set global.registry=<your-registry.com> --set image.tag=<tag>```
+    ```cd charts && helm install csi-baremetal baremetal-csi-plugin --set global.registry=<your-registry.com> --set image.tag=<tag> --extender=true```
     
     2.3 Deploy Kubernetes scheduler extender 
         
