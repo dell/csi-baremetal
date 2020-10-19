@@ -80,11 +80,10 @@ func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 				}
 				nodeNew := e.ObjectNew.(*coreV1.Node)
 
-				ll := bmc.log.WithField("UpdateEvent", nodeOld.Name)
-
 				annotationAreTheSame := reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations())
 				addressesAreTheSame := reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)
-				ll.Infof("Annotations are the same - %v. Addresses are the same - %v.", annotationAreTheSame, addressesAreTheSame)
+				bmc.log.Debugf("UpdateEvent for k8s node %s. Annotations are the same - %v. Addresses are the same - %v.",
+					nodeOld.Name, annotationAreTheSame, addressesAreTheSame)
 
 				return !annotationAreTheSame || !addressesAreTheSame
 			},
