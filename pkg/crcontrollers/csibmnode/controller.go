@@ -68,7 +68,7 @@ func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMControll
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
-		log: logrus.WithField("component", "CSIBMController"),
+		log: logger.WithField("component", "CSIBMController"),
 	}, nil
 }
 
@@ -178,7 +178,7 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 			return ctrl.Result{Requeue: true}, err
 		}
 
-		matchedCRs := make([]string, 2)
+		matchedCRs := make([]string, 0)
 		for i := range bmNodeCRs.Items {
 			matchedAddresses := bmc.matchedAddressesCount(&bmNodeCRs.Items[i], k8sNode)
 			if matchedAddresses == len(k8sNode.Status.Addresses) {
@@ -208,7 +208,7 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 		}
 
 		if len(matchedCRs) > 1 {
-			ll.Warnf("More then one CSIBMNode CR corresponds to the current k8s node. Matched CSIBMNode CRs: %v", matchedCRs)
+			ll.Warnf("More then one CSIBMNode CR corresponds to the current k8s node (%d). Matched CSIBMNode CRs: %v", len(matchedCRs), matchedCRs)
 			return ctrl.Result{Requeue: false}, nil
 		}
 	}
