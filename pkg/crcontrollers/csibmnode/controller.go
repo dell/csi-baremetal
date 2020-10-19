@@ -181,7 +181,7 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 		matchedCRs := make([]string, 0)
 		for i := range bmNodeCRs.Items {
 			matchedAddresses := bmc.matchedAddressesCount(&bmNodeCRs.Items[i], k8sNode)
-			if matchedAddresses == len(k8sNode.Status.Addresses) {
+			if matchedAddresses == len(bmNodeCRs.Items[i].Spec.NodeAddress) {
 				bmNode = &bmNodeCRs.Items[i]
 				matchedCRs = append(matchedCRs, bmNode.Name)
 				continue
@@ -265,7 +265,7 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 		matchedNodes := make([]string, 2)
 		for i := range k8sNodes.Items {
 			matchedAddresses := bmc.matchedAddressesCount(bmNode, &k8sNodes.Items[i])
-			if matchedAddresses == len(k8sNode.Status.Addresses) {
+			if matchedAddresses == len(bmNode.Spec.NodeAddress) {
 				k8sNode = &k8sNodes.Items[i]
 				matchedNodes = append(matchedNodes, k8sNode.Name)
 				continue
