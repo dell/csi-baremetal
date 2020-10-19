@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -35,13 +34,11 @@ import (
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
-	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -52,26 +49,24 @@ type Extender struct {
 	// namespace in which Extender will be search Available Capacity
 	namespace   string
 	provisioner string
-	// TODO: remove that key
-	useACRs bool
 	sync.Mutex
-	logger *logrus.Entry
+	logger                 *logrus.Entry
+	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 }
 
 // NewExtender returns new instance of Extender struct
-// TODO: remove useACRs flag
-func NewExtender(logger *logrus.Logger, namespace, provisioner string, useACRs bool) (*Extender, error) {
+func NewExtender(logger *logrus.Logger, namespace, provisioner string) (*Extender, error) {
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
 		return nil, err
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
 	return &Extender{
-		k8sClient:   kubeClient,
-		crHelper:    k8s.NewCRHelper(kubeClient, logger),
-		provisioner: provisioner,
-		logger:      logger.WithField("component", "Extender"),
-		useACRs:     useACRs,
+		k8sClient:              kubeClient,
+		crHelper:               k8s.NewCRHelper(kubeClient, logger),
+		provisioner:            provisioner,
+		logger:                 logger.WithField("component", "Extender"),
+		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}, nil
 }
 
@@ -321,100 +316,40 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 	}
 
 	// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
-	// map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
-	acByNodeAndSCMap, err := e.unreservedACByNodeAndSCMap()
+	acReader := capacityplanner.NewACReader(e.k8sClient, e.logger, true)
+	acrReader := capacityplanner.NewACRReader(e.k8sClient, e.logger, true)
+	reservedCapReader := capacityplanner.NewUnreservedACReader(e.logger, acReader, acrReader)
+	capManager := e.capacityManagerBuilder.GetCapacityManager(e.logger, reservedCapReader)
+
+	placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes)
 	if err != nil {
 		return matchedNodes, failedNodesMap, err
 	}
-	// map[StorageClass]*Volume
-	scVolumeMapping := e.scVolumeMapping(volumes)
 
-	matched := false
-	// map[NodeId]map[*Volume]*AC
-	nodeVolumeACs := map[string]map[*genV1.Volume]*accrd.AvailableCapacity{}
+	noACForNodeMsg := "Node doesn't contain required amount of AvailableCapacity"
+
+	failedNodesMap = schedulerapi.FailedNodesMap{}
 	for _, node := range nodes {
-		nodeUID := string(node.UID)
-		nodeVolumeACs[nodeUID] = map[*genV1.Volume]*accrd.AvailableCapacity{}
-		matched = true
-		for sc, scVolumes := range scVolumeMapping {
-			volACMap := e.searchSuitableACs(acByNodeAndSCMap[nodeUID], sc, scVolumes)
-			if volACMap == nil {
-				matched = false
-				break
-			}
-			for vol, ac := range volACMap {
-				nodeVolumeACs[nodeUID][vol] = ac
-			}
+		if placingPlan == nil {
+			failedNodesMap[node.Name] = noACForNodeMsg
+			continue
 		}
-
-		if matched {
-			matchedNodes = append(matchedNodes, node)
-		} else {
-			delete(nodeVolumeACs, nodeUID)
-			if failedNodesMap == nil {
-				failedNodesMap = map[string]string{}
-			}
-			failedNodesMap[node.Name] = "Node doesn't contain required amount of AvailableCapacity"
+		placingForNode := placingPlan.GetVolumesToACMapping(string(node.UID))
+		if placingForNode == nil {
+			failedNodesMap[node.Name] = noACForNodeMsg
+			continue
 		}
+		matchedNodes = append(matchedNodes, node)
 	}
-
-	if e.useACRs {
-		err = e.createACRs(ctx, nodeVolumeACs)
+	if len(matchedNodes) != 0 {
+		reservationHelper := capacityplanner.NewReservationHelper(e.logger, e.k8sClient, acReader, acrReader)
+		err = reservationHelper.CreateReservation(ctx, placingPlan)
+		if err != nil {
+			e.logger.Errorf("failed to create reservation: %s", err.Error())
+		}
 	}
 
 	return matchedNodes, failedNodesMap, err
-}
-
-// createACRs create ACR CRs based on provided map, map has next structure: map[NodeId]map[*Volume]*AvailableCapacity
-// at first map with keys *Volume and values - list of AC names is built based on nodeVolumeACMap
-// then corresponding ACR CRs is created (based on map that was built on previous step), if error occurs during ACRs creating it will be returned,
-// and method will try to remove previously create ACR if any
-func (e *Extender) createACRs(ctx context.Context, nodeVolumeACMap map[string]map[*genV1.Volume]*accrd.AvailableCapacity) error {
-	volumeReservationMap := make(map[*genV1.Volume][]string) // value - list of AC names
-	for _, volumeACMap := range nodeVolumeACMap {
-		for volume, ac := range volumeACMap {
-			if _, ok := volumeReservationMap[volume]; !ok {
-				volumeReservationMap[volume] = []string{ac.Name}
-				continue
-			}
-			volumeReservationMap[volume] = append(volumeReservationMap[volume], ac.Name)
-		}
-	}
-
-	// create ACR CR based node ACs
-	var (
-		createdACRs = make([]string, len(volumeReservationMap))
-		index       = 0
-		createErr   error
-	)
-
-	for v, acs := range volumeReservationMap {
-		acrCR := e.k8sClient.ConstructACRCR(genV1.AvailableCapacityReservation{
-			Name:         uuid.New().String(),
-			StorageClass: v.StorageClass,
-			Size:         v.Size,
-			Reservations: acs,
-		})
-		if createErr = e.k8sClient.CreateCR(ctx, acrCR.Name, acrCR); createErr != nil {
-			createErr = fmt.Errorf("unable to create ACR CR %v for volume %v: %v", acrCR.Spec, v, createErr)
-			break
-		}
-		createdACRs[index] = acrCR.Name
-		index++
-	}
-
-	if createErr == nil {
-		return nil
-	}
-
-	// try to remove all created ACR
-	for _, acrName := range createdACRs {
-		if err := e.crHelper.DeleteObjectByName(ctx, acrName, &acrcrd.AvailableCapacityReservation{}); err != nil {
-			e.logger.WithField("method", "createACRs").Errorf("Unable to remove ACR %s: %v", acrName, err)
-		}
-	}
-
-	return createErr
 }
 
 func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {
@@ -479,98 +414,6 @@ func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int, int
 	return nrank, maxCount
 }
 
-// searchSuitableACs searches the most appropriate AC for each volume from volumes in scACMap
-// scACMap - map that represents available capacities and has next structure: map[StorageClass][AC.Name]*AC
-func (e *Extender) searchSuitableACs(scACMap map[string]map[string]*accrd.AvailableCapacity,
-	sc string, volumes []*genV1.Volume) map[*genV1.Volume]*accrd.AvailableCapacity { // list based on which ACR will be created
-	resultingACs := make(map[*genV1.Volume]*accrd.AvailableCapacity, len(volumes))
-	for _, volume := range volumes {
-		subSC := util.GetSubStorageClass(sc)
-		LVM := util.IsStorageClassLVG(sc)
-
-		if len(scACMap[sc]) == 0 &&
-			len(scACMap[subSC]) == 0 &&
-			sc != v1.StorageClassAny {
-			return nil
-		}
-		// make copy for temp transformations
-		size := volume.GetSize()
-
-		if LVM {
-			// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
-			size = common.AlignSizeByPE(size)
-		}
-		var ac *accrd.AvailableCapacity
-		ac = e.searchClosestAC(scACMap[sc], size)
-		if ac == nil {
-			if LVM {
-				// for the new lvg we need some extra space
-				size += common.LvgDefaultMetadataSize
-
-				// search AC in sub storage class
-				ac = e.searchClosestAC(scACMap[subSC], size)
-			} else if sc == v1.StorageClassAny {
-				for _, acs := range scACMap {
-					ac = e.searchClosestAC(acs, size)
-					if ac != nil {
-						break
-					}
-				}
-			}
-
-			if ac == nil {
-				// as soon as for some volume in some SC there are no any AC - consider
-				// that whole volumes suite couldn't be provisioned based on available capacities
-				return nil
-			}
-		}
-		// here ac != nil
-		vol := volume
-		resultingACs[vol] = ac
-		if ac.Spec.StorageClass != sc { // sc relates to LVG or sc == ANY
-			if util.IsStorageClassLVG(ac.Spec.StorageClass) || LVM {
-				if LVM {
-					// remove AC with subSC
-					delete(scACMap[subSC], ac.Name)
-					ac.Spec.StorageClass = sc // e.g. HDD -> HDDLVG
-					if _, ok := scACMap[sc]; !ok {
-						scACMap[sc] = map[string]*accrd.AvailableCapacity{}
-					}
-					scACMap[sc][ac.Name] = ac
-				}
-				ac.Spec.Size -= size
-			} else {
-				// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
-				delete(scACMap[ac.Spec.StorageClass], ac.Name)
-			}
-		} else {
-			if LVM {
-				ac.Spec.Size -= size
-			} else {
-				delete(scACMap[sc], ac.Name)
-			}
-		}
-	}
-
-	return resultingACs
-}
-
-// searchClosestAC search AC that match all requirements from volume (size)
-func (e *Extender) searchClosestAC(acs map[string]*accrd.AvailableCapacity, size int64) *accrd.AvailableCapacity {
-	var (
-		maxSize  int64 = math.MaxInt64
-		pickedAC *accrd.AvailableCapacity
-	)
-
-	for _, ac := range acs {
-		if ac.Spec.Size >= size && ac.Spec.Size < maxSize {
-			pickedAC = ac
-			maxSize = ac.Spec.Size
-		}
-	}
-	return pickedAC
-}
-
 // scNameStorageTypeMapping reads k8s storage class resources and collect map with key storage class name
 // and value .parameters.storageType for that sc, collect only sc that have provisioner e.provisioner
 func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]string, error) {
@@ -590,94 +433,4 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
 	return scNameTypeMap, nil
-}
-
-/**
-	scVolumeMapping constructs map with next structure:
-	map[StorageClass][]*Volume
-	{
-		StorageClass1: [volume1, ..., volumeN]
-		.............
-	}
-**/
-func (e *Extender) scVolumeMapping(volumes []*genV1.Volume) map[string][]*genV1.Volume {
-	var scVolumeMap = map[string][]*genV1.Volume{}
-	for _, v := range volumes {
-		sc := v.StorageClass
-		if _, ok := scVolumeMap[sc]; !ok {
-			scVolumeMap[sc] = []*genV1.Volume{v}
-		} else {
-			scVolumeMap[sc] = append(scVolumeMap[sc], v)
-		}
-	}
-	return scVolumeMap
-}
-
-/**
-	construct map based on list of ACs and list of ACRs,
-	if there is ACR that points on some AC that AC will not appeared in resulting map
-
-	resulting map has next structure:
-	map[NodeID]map[StorageClass]map[AC.Name]*accrd.AvailableCapacity{}
-	{
-		NodeID_1: {
-			StorageClass_1: {
-				AC1Name: ACCRD_1,
-				ACnName: ACCRD_n
-			},
-			StorageClass_M: {
-				AC1Name: ACCRD_1,
-				ACkName: ACCRD_k
-			},
-		NodeID_l: {
-			...................
-		}
-	}
-**/
-func (e *Extender) unreservedACByNodeAndSCMap() (map[string]map[string]map[string]*accrd.AvailableCapacity, error) {
-	var (
-		acList  = &accrd.AvailableCapacityList{}
-		acrList = &acrcrd.AvailableCapacityReservationList{}
-		err     error
-	)
-
-	if err = e.k8sClient.ReadList(context.Background(), acList); err != nil {
-		return nil, fmt.Errorf("unable to read AvailableCapacity list: %v", err)
-	}
-	if err = e.k8sClient.ReadList(context.Background(), acrList); err != nil {
-		return nil, fmt.Errorf("unable to read AvailableCapacityReservation list: %v", err)
-	}
-
-	var (
-		acByNodeAndSCMap = map[string]map[string]map[string]*accrd.AvailableCapacity{}
-		// key - AC name, holds AC names that were reserved (are in ACR.Spec.Locations)
-		reservedAC = map[string]struct{}{}
-	)
-
-	// fill reservedAC map
-	for _, acr := range acrList.Items {
-		for _, acName := range acr.Spec.Reservations {
-			reservedAC[acName] = struct{}{}
-		}
-	}
-
-	for _, ac := range acList.Items {
-		if _, ok := reservedAC[ac.Name]; ok {
-			// that AC was reserved before
-			continue
-		}
-		node := ac.Spec.NodeId
-		if _, ok := acByNodeAndSCMap[node]; !ok {
-			acByNodeAndSCMap[node] = map[string]map[string]*accrd.AvailableCapacity{}
-		}
-		sc := ac.Spec.StorageClass
-		ac := ac // ac uses in range and represent different value on each iteration but we need to put pointer in map
-		if _, ok := acByNodeAndSCMap[node][sc]; !ok {
-			acByNodeAndSCMap[node][sc] = map[string]*accrd.AvailableCapacity{ac.Name: &ac}
-		} else {
-			acByNodeAndSCMap[node][sc][ac.Name] = &ac
-		}
-	}
-
-	return acByNodeAndSCMap, nil
 }
