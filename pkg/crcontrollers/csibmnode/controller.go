@@ -104,14 +104,14 @@ func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 		Complete(bmc)
 }
 
-// Reconcile reconcile CSIBMNode CR and k8s Node objects.
+// Reconcile reconcile CSIBMNode CR and k8s Node objects
+// at first define for which object current Reconcile is triggered and then run corresponding reconciliation method
 func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "Reconcile",
 		"name":   req.Name,
 	})
 
-	// identify for which object that Reconcile loop is
 	_, isForBMNode := bmc.cache.bmToK8sNode[req.Name]
 	_, isForK8sNode := bmc.cache.k8sToBMNode[req.Name]
 
@@ -127,8 +127,6 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		case !k8sError.IsNotFound(err):
 			ll.Errorf("Unable to read node object: %v", err)
 			return ctrl.Result{Requeue: true}, err
-		default:
-			// it is not a reconciliation for k8s node obj
 		}
 	}
 
@@ -143,12 +141,10 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		case !k8sError.IsNotFound(err):
 			ll.Errorf("Unable to read CSIBMNode object: %v", err)
 			return ctrl.Result{Requeue: true}, err
-		default:
-			// it is not a reconciliation for CSIBMNode obj
 		}
 	}
 
-	ll.Error("Unable to detect for which object that reconcile is.")
+	ll.Error("Unable to detect for which object that reconcile is. The object may have been deleted.")
 	return ctrl.Result{Requeue: false}, nil
 }
 
@@ -269,6 +265,8 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
+// checkAnnotation checks NodeIDAnnotationKey annotation value for provided node and compare that value with goalValue
+// update k8sNode object if need, method is used as a last step of Reconcile
 func (bmc *CSIBMController) checkAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
 	ll := bmc.log.WithField("method", "checkAnnotation")
 	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
@@ -290,15 +288,7 @@ func (bmc *CSIBMController) checkAnnotation(k8sNode *coreV1.Node, goalValue stri
 	return ctrl.Result{}, nil
 }
 
-func (bmc *CSIBMController) getK8sNodeAddr(k8sNode *coreV1.Node, addrType coreV1.NodeAddressType) string {
-	for _, addr := range k8sNode.Status.Addresses {
-		if addr.Type == addrType {
-			return addr.Address
-		}
-	}
-	return ""
-}
-
+// matchedAddressesCount return amount of k8s node addresses that has corresponding address in bmNodeCR.Spec.NodeAddress map
 func (bmc *CSIBMController) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k8sNode *coreV1.Node) int {
 	matchedCount := 0
 	for _, addr := range k8sNode.Status.Addresses {
@@ -311,6 +301,7 @@ func (bmc *CSIBMController) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k
 	return matchedCount
 }
 
+// constructAddresses converts k8sNode.Status.Addresses into the the map[string]string, key - address type, value - address
 func (bmc *CSIBMController) constructAddresses(k8sNode *coreV1.Node) map[string]string {
 	res := make(map[string]string, len(k8sNode.Status.Addresses))
 	for _, addr := range k8sNode.Status.Addresses {
