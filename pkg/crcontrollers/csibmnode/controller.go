@@ -215,23 +215,7 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 		bmc.cache.k8sToBMNode[k8sNode.Name] = bmNode.Name
 	}
 
-	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
-	switch {
-	case ok && val == bmNode.Spec.UUID:
-		return ctrl.Result{}, nil
-	case ok && val != bmNode.Spec.UUID:
-		ll.Warnf("Node's annotation %s value is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
-			NodeIDAnnotationKey, val, bmNode.Spec.UUID)
-		fallthrough
-	default:
-		k8sNode.ObjectMeta.Annotations[NodeIDAnnotationKey] = bmNode.Spec.UUID
-		if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
-			ll.Errorf("Unable to update node object: %v", err)
-			return ctrl.Result{Requeue: true}, err
-		}
-	}
-
-	return ctrl.Result{}, nil
+	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
 func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Result, error) {
@@ -282,16 +266,21 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 		bmc.cache.bmToK8sNode[bmNode.Name] = k8sNode.Name
 	}
 
+	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
+}
+
+func (bmc *CSIBMController) checkAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
+	ll := bmc.log.WithField("method", "checkAnnotation")
 	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
 	switch {
-	case ok && val == bmNode.Spec.UUID:
-		return ctrl.Result{}, nil
-	case ok && val != bmNode.Spec.UUID:
-		ll.Warnf("Node's annotation %s value is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
-			NodeIDAnnotationKey, val, bmNode.Spec.UUID)
+	case ok && val == goalValue:
+		// nothing to do
+	case ok && val != goalValue:
+		ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
+			NodeIDAnnotationKey, k8sNode.Name, val, goalValue)
 		fallthrough
 	default:
-		k8sNode.ObjectMeta.Annotations[NodeIDAnnotationKey] = bmNode.Spec.UUID
+		k8sNode.ObjectMeta.Annotations[NodeIDAnnotationKey] = goalValue
 		if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
 			ll.Errorf("Unable to update node object: %v", err)
 			return ctrl.Result{Requeue: true}, err
