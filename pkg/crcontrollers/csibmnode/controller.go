@@ -19,6 +19,7 @@ package csibmnode
 import (
 	"context"
 	"reflect"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -43,6 +44,11 @@ type CSIBMController struct {
 	k8sClient *k8s.KubeClient
 
 	log *logrus.Entry
+}
+
+type nodesCache struct {
+	k8sToBMNode sync.Map
+	bmToK8sNode sync.Map
 }
 
 func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMController, error) {
@@ -74,20 +80,26 @@ func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 				}
 				nodeNew := e.ObjectNew.(*coreV1.Node)
 
-				return !reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations()) ||
-					!reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)
+				ll := bmc.log.WithField("UpdateEvent", nodeOld.Name)
+
+				annotationAreTheSame := reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations())
+				addressesAreTheSame := reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)
+				ll.Infof("Annotations are the same - %v. Addresses are the same - %v.", annotationAreTheSame, addressesAreTheSame)
+
+				return !annotationAreTheSame || !addressesAreTheSame
 			},
 		}).
 		Complete(bmc)
 }
 
+// Reconcile reconcile CSIBMNode CR objects and k8s Node objects. Should run only in one thread.
 func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method":  "Reconcile",
 		"reqName": req.Name,
 	})
 
-	ll.Info("Reconciling ...")
+	ll.Info("Reconciling")
 
 	var err error
 
@@ -165,6 +177,7 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 
+	ll.Info("end reconcile OK")
 	return ctrl.Result{}, nil
 }
 
