@@ -19,6 +19,10 @@ package csibmnode
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
@@ -59,7 +63,40 @@ func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(m).
 		For(&nodecrd.CSIBMNode{}).
 		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return bmc.enqueueReconcileForObj("CreateEvent", e.Object)
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return bmc.enqueueReconcileForObj("DeleteEvent", e.Object)
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return bmc.enqueueReconcileForObj("UpdateEvent", e.ObjectOld)
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return bmc.enqueueReconcileForObj("GenericEvent", e.Object)
+			},
+		}).
 		Complete(bmc)
+}
+
+func (bmc *CSIBMController) enqueueReconcileForObj(eventType string, obj runtime.Object) bool {
+	ll := bmc.log.WithFields(logrus.Fields{
+		"method":    "enqueueReconcileForObj",
+		"eventType": eventType,
+	})
+
+	switch obj.(type) {
+	case *nodecrd.CSIBMNode:
+		ll.Infof("CSIBMNode %s", obj.(*nodecrd.CSIBMNode).Name)
+	case *coreV1.Node:
+		ll.Infof("Node %s", obj.(*coreV1.Node).Name)
+	default:
+		ll.Errorf("UNKNOWN object %v", obj)
+		return false
+	}
+
+	return true
 }
 
 func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -109,7 +146,8 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	for k8sNode, csiNode := range k8sNodeToCSINode {
 		if csiNode == nil {
-			toCreate := bmc.k8sClient.ConstructCSIBMNodeCR(api.CSIBMNode{
+			name := uuid.New().String()
+			toCreate := bmc.k8sClient.ConstructCSIBMNodeCR(name, api.CSIBMNode{
 				UUID:        uuid.New().String(),
 				NodeAddress: bmc.constructAddresses(k8sNode),
 			})

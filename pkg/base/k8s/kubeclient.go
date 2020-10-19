@@ -126,7 +126,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "UpdateCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Debugf("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 
 	return k.Update(ctx, obj)
 }
@@ -233,7 +233,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
-func (k *KubeClient) ConstructCSIBMNodeCR(csiNode api.CSIBMNode) *nodecrd.CSIBMNode {
+func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.CSIBMNode {
 	return &nodecrd.CSIBMNode{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.CSIBMNodeKind,
