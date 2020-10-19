@@ -20,20 +20,18 @@ import (
 	"context"
 	"reflect"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/google/uuid"
-
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
@@ -43,6 +41,7 @@ const (
 	NodeIDAnnotationKey = "dell.csi-baremetal.node/id"
 )
 
+// CSIBMController is a controller for CSIBMNode CR
 type CSIBMController struct {
 	k8sClient *k8s.KubeClient
 	cache     nodesCache
@@ -50,11 +49,13 @@ type CSIBMController struct {
 	log *logrus.Entry
 }
 
+// nodesCache holds mapping between names for k8s node and BMCSINode CR objects
 type nodesCache struct {
 	k8sToBMNode map[string]string // k8s Node name to CSIBMNode CR name
 	bmToK8sNode map[string]string // CSIBMNode CR name to k8s Node name
 }
 
+// NewCSIBMController returns instance of CSIBMController
 func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMController, error) {
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
@@ -72,13 +73,14 @@ func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMControll
 	}, nil
 }
 
+// SetupWithManager registers CSIBMController to k8s controller manager
 func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(m).
-		For(&nodecrd.CSIBMNode{}).
+		For(&nodecrd.CSIBMNode{}). // primary resource
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 1, // reconcile all object by turn, concurrent reconciliation isn't supported
 		}).
-		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}). // secondary resource
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				if _, ok := e.ObjectOld.(*nodecrd.CSIBMNode); ok {
@@ -102,7 +104,7 @@ func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 		Complete(bmc)
 }
 
-// Reconcile reconcile CSIBMNode CR objects and k8s Node objects.
+// Reconcile reconcile CSIBMNode CR and k8s Node objects.
 func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "Reconcile",
@@ -190,6 +192,11 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 			}
 		}
 
+		if len(matchedCRs) > 1 {
+			ll.Warnf("More then one CSIBMNode CR corresponds to the current k8s node (%d). Matched CSIBMNode CRs: %v", len(matchedCRs), matchedCRs)
+			return ctrl.Result{Requeue: false}, nil
+		}
+
 		// create CSIBMNode CR
 		if len(matchedCRs) == 0 {
 			bmNodeName := uuid.New().String()
@@ -201,11 +208,6 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 				ll.Errorf("Unable to create CSIBMNode CR: %v", err)
 				return ctrl.Result{Requeue: true}, err
 			}
-		}
-
-		if len(matchedCRs) > 1 {
-			ll.Warnf("More then one CSIBMNode CR corresponds to the current k8s node (%d). Matched CSIBMNode CRs: %v", len(matchedCRs), matchedCRs)
-			return ctrl.Result{Requeue: false}, nil
 		}
 	}
 
@@ -263,7 +265,6 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 				k8sNode = &k8sNodes.Items[i]
 				matchedNodes = append(matchedNodes, k8sNode.Name)
 				continue
-
 			}
 			if matchedAddresses > 0 {
 				ll.Warnf("There is k8s node %s that partially match CSIBMNode CR %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
