@@ -109,8 +109,6 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		"name":   req.Name,
 	})
 
-	ll.Info("Reconciling")
-
 	// identify for which object that Reconcile loop is
 	_, isForBMNode := bmc.cache.bmToK8sNode[req.Name]
 	_, isForK8sNode := bmc.cache.k8sToBMNode[req.Name]
@@ -122,7 +120,7 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, k8sNode)
 		switch {
 		case err == nil:
-			ll.Info("Reconcile for k8s node")
+			ll.Infof("Reconcile for k8s node %s", k8sNode.Name)
 			return bmc.reconcileForK8sNode(k8sNode)
 		case !k8sError.IsNotFound(err):
 			ll.Errorf("Unable to read node object: %v", err)
@@ -138,7 +136,7 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, bmNode)
 		switch {
 		case err == nil:
-			ll.Info("Reconcile for CSIBMNode")
+			ll.Infof("Reconcile for CSIBMNode %s", bmNode.Name)
 			return bmc.reconcileForCSIBMNode(bmNode)
 		case !k8sError.IsNotFound(err):
 			ll.Errorf("Unable to read CSIBMNode object: %v", err)
@@ -157,8 +155,6 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 		"method": "reconcileForK8sNode",
 		"name":   k8sNode.Name,
 	})
-
-	ll.Info("Processing")
 
 	// get corresponding CSIBMNode CR name from cache or from k8s API
 	var (
@@ -242,8 +238,6 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 		"name":   bmNode.Name,
 	})
 
-	ll.Info("Processing")
-
 	// get corresponding k8s node name from cache or from k8s API
 	var (
 		k8sNode   = &coreV1.Node{}
@@ -262,7 +256,7 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 			return ctrl.Result{Requeue: true}, err
 		}
 
-		matchedNodes := make([]string, 2)
+		matchedNodes := make([]string, 0)
 		for i := range k8sNodes.Items {
 			matchedAddresses := bmc.matchedAddressesCount(bmNode, &k8sNodes.Items[i])
 			if matchedAddresses == len(bmNode.Spec.NodeAddress) {
