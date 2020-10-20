@@ -126,10 +126,30 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		framework.Failf("deploying csi baremetal driver: %v", err)
 	}
 
+	testConf :=  &testsuites.PerTestConfig{
+		Driver:    d,
+		Prefix:    "baremetal",
+		Framework: f,
+	}
+
 	extenderCleanup := func() {}
 	if common.BMDriverTestContext.BMDeploySchedulerExtender {
 		extenderCleanup, err = common.DeploySchedulerExtender(f)
 		framework.ExpectNoError(err)
+	}
+
+	// always create at least one SC, this required for Inline volumes testing
+	// TODO remove after ISSUE-128 will be solved
+	defaultSC, err := f.ClientSet.StorageV1().StorageClasses().Create(
+		d.GetDynamicProvisionStorageClass(testConf, ""))
+	if err != nil {
+		framework.Failf("Failed to create default SC, error: %s", err.Error())
+	}
+	defaultSCCleanup := func() {
+		err := f.ClientSet.StorageV1().StorageClasses().Delete(defaultSC.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			framework.Logf("Failed to remove default SC, error: ", err)
+		}
 	}
 
 	cleanup := func() {
@@ -140,6 +160,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		}
 		driverCleanup()
 		extenderCleanup()
+		defaultSCCleanup()
 	}
 	err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0,
 		90*time.Second, nil)
@@ -147,19 +168,15 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		cleanup()
 		framework.Failf("Pods not ready, error: %s", err.Error())
 	}
-	return &testsuites.PerTestConfig{
-			Driver:    d,
-			Prefix:    "baremetal",
-			Framework: f,
-		}, func() {
-			// wait until ephemeral volume will be deleted
-			time.Sleep(time.Second * 20)
-			err = f.ClientSet.AppsV1().Deployments(ns).Delete(deployment.Name, &metav1.DeleteOptions{})
-			framework.ExpectNoError(err)
-			ginkgo.By("uninstalling baremetal driver")
-			cleanup()
-			cancelLogging()
-		}
+	return testConf, func() {
+		// wait until ephemeral volume will be deleted
+		time.Sleep(time.Second * 20)
+		err = f.ClientSet.AppsV1().Deployments(ns).Delete(deployment.Name, &metav1.DeleteOptions{})
+		framework.ExpectNoError(err)
+		ginkgo.By("uninstalling baremetal driver")
+		cleanup()
+		cancelLogging()
+	}
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method

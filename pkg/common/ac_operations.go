@@ -19,8 +19,6 @@ package common
 
 import (
 	"context"
-	"fmt"
-	"math"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -28,27 +26,13 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 // AvailableCapacityOperations is the interface for interact with AvailableCapacity CRs from Controller
 type AvailableCapacityOperations interface {
-	SearchAC(ctx context.Context, node string, requiredBytes int64, sc string) *accrd.AvailableCapacity
-	DeleteIfEmpty(ctx context.Context, acLocation string) error
 	RecreateACToLVGSC(ctx context.Context, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
 }
-
-// AcSizeMinThresholdBytes means that if AC size becomes lower then AcSizeMinThresholdBytes that AC should be deleted
-const AcSizeMinThresholdBytes = int64(util.MBYTE) // 1MB
-
-// LvgDefaultMetadataSize is additional cost for new VG we should consider.
-const LvgDefaultMetadataSize = int64(util.MBYTE) // 1MB
-
-// DefaultPESize is the default extent size we should align with
-// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
-const DefaultPESize = 4 * int64(util.MBYTE)
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
 type ACOperationsImpl struct {
@@ -64,144 +48,6 @@ func NewACOperationsImpl(k8sClient *k8s.KubeClient, l *logrus.Logger) *ACOperati
 		k8sClient: k8sClient,
 		log:       l.WithField("component", "ACOperations"),
 	}
-}
-
-// SearchAC searches appropriate available capacity and remove it's CR
-// if SC is in LVM and there is no AC with such SC then LVG should be created based
-// on non-LVM AC's and new AC should be created on point in LVG
-// method shouldn't be used in separate goroutines without synchronizations.
-// Receives golang context, node string which means the node where to find AC, required bytes for volume
-// and storage class for created volume (For example HDD, HDDLVG, SSD, SSDLVG).
-// Returns found AvailableCapacity CR instance
-func (a *ACOperationsImpl) SearchAC(ctx context.Context,
-	node string, requiredBytes int64, sc string) *accrd.AvailableCapacity {
-	ll := a.log.WithFields(logrus.Fields{
-		"method":        "SearchAC",
-		"volumeID":      ctx.Value(k8s.RequestUUID),
-		"requiredBytes": fmt.Sprintf("%.3fG", float64(requiredBytes)/float64(util.GBYTE)),
-	})
-
-	ll.Info("Search appropriate available ac")
-
-	var (
-		foundAC   *accrd.AvailableCapacity
-		acList    = &accrd.AvailableCapacityList{}
-		acNodeMap map[string][]*accrd.AvailableCapacity
-	)
-
-	err := a.k8sClient.ReadList(ctx, acList)
-	if err != nil {
-		ll.Errorf("Unable to read Available Capacity list, error: %v", err)
-		return nil
-	}
-
-	acNodeMap = a.acNodeMapping(acList.Items)
-
-	if node == "" {
-		node = a.balanceAC(acNodeMap, requiredBytes, sc)
-	}
-
-	ll.Infof("Search AvailableCapacity on node %s with size not less %d bytes with storage class %s",
-		node, requiredBytes, sc)
-
-	if sc == apiV1.StorageClassAny {
-		//First try to find AC with hdd, then AC with ssd, if we couldn't find AC with HDD or SSD, try to find AC with any StorageCLass
-		for _, sc := range []string{apiV1.StorageClassHDD, apiV1.StorageClassSSD, ""} {
-			foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
-			if foundAC != nil {
-				break
-			}
-		}
-	} else {
-		foundAC = a.tryToFindAC(acNodeMap[node], sc, requiredBytes)
-	}
-
-	if util.IsStorageClassLVG(sc) {
-		if foundAC != nil {
-			// check whether LVG being deleted or no
-			lvgCR := &lvgcrd.LVG{}
-			err := a.k8sClient.ReadCR(ctx, foundAC.Spec.Location, lvgCR)
-			if err == nil && lvgCR.DeletionTimestamp.IsZero() {
-				return foundAC
-			}
-			ll.Errorf("LVG %s that was chosen is being deleted", lvgCR.Name)
-			return nil
-		}
-	}
-
-	return foundAC
-}
-
-// AlignSizeByPE make size aligned with default PE
-// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
-func AlignSizeByPE(size int64) int64 {
-	var alignement int64
-	reminder := size % DefaultPESize
-	if reminder != 0 {
-		alignement = DefaultPESize - reminder
-	}
-	return size + alignement
-}
-
-// DeleteIfEmpty search AC by it's location and remove if it size is less then threshold
-// Receives golang context and AC Location as a string (For example Location could be Drive uuid in case of HDD SC)
-// Returns error if something went wrong
-func (a *ACOperationsImpl) DeleteIfEmpty(ctx context.Context, acLocation string) error {
-	var acList = accrd.AvailableCapacityList{}
-	_ = a.k8sClient.ReadList(ctx, &acList)
-
-	for _, ac := range acList.Items {
-		if ac.Spec.Location == acLocation {
-			if ac.Spec.Size < AcSizeMinThresholdBytes {
-				return a.k8sClient.DeleteCR(ctx, &ac)
-			}
-			return nil
-		}
-	}
-
-	return fmt.Errorf("unable to find AC by location %s", acLocation)
-}
-
-// acNodeMapping constructs map with key - nodeID(hostname), value - AC CRs based on Spec.NodeID field of AC
-// Receives slice of AvailableCapacity custom resources
-// Returns map of AvailableCapacities where key is nodeID
-func (a *ACOperationsImpl) acNodeMapping(acs []accrd.AvailableCapacity) map[string][]*accrd.AvailableCapacity {
-	var (
-		acNodeMap = make(map[string][]*accrd.AvailableCapacity)
-		node      string
-	)
-
-	for _, ac := range acs {
-		node = ac.Spec.NodeId
-		if _, ok := acNodeMap[node]; !ok {
-			acNodeMap[node] = make([]*accrd.AvailableCapacity, 0)
-		}
-		acTmp := ac
-		acNodeMap[node] = append(acNodeMap[node], &acTmp)
-	}
-	return acNodeMap
-}
-
-// balanceAC looks for a node with appropriate AC and choose node with maximum AC, return node
-// Receives acNodeMap gathered from acNodeMapping method, size requested by a volume, and appropriate storage class
-// Returns the most unloaded node according to input parameters
-func (a *ACOperationsImpl) balanceAC(acNodeMap map[string][]*accrd.AvailableCapacity,
-	size int64, sc string) (node string) {
-	maxLen := 0
-	for nodeID, acs := range acNodeMap {
-		if len(acs) > maxLen {
-			// ensure that there is at least one AC with size not less than requiredBytes and with the same SC
-			for _, ac := range acs {
-				if ac.Spec.Size >= size && (ac.Spec.StorageClass == sc || sc == apiV1.StorageClassAny) {
-					node = nodeID
-					maxLen = len(acs)
-					break
-				}
-			}
-		}
-	}
-
-	return node
 }
 
 // RecreateACToLVGSC creates LVG(based on ACs) creates AC based on that LVG and set sise of provided ACs to 0.
@@ -270,27 +116,4 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, 
 
 	ll.Infof("AC was created: %v", newACCR)
 	return newACCR
-}
-
-//tryToFindAC is used to find proper AvailableCapacity based on provided storageClass and requiredBytes
-//If storageClass = "" then we search for AvailableCapacity with any storageClass
-func (a *ACOperationsImpl) tryToFindAC(acs []*accrd.AvailableCapacity, storageClass string, requiredBytes int64) *accrd.AvailableCapacity {
-	var (
-		allocatedCapacity int64 = math.MaxInt64
-		foundAC           *accrd.AvailableCapacity
-	)
-	for _, ac := range acs {
-		if storageClass != "" {
-			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes && ac.Spec.StorageClass == storageClass {
-				foundAC = ac
-				allocatedCapacity = ac.Spec.Size
-			}
-		} else {
-			if ac.Spec.Size < allocatedCapacity && ac.Spec.Size >= requiredBytes {
-				foundAC = ac
-				allocatedCapacity = ac.Spec.Size
-			}
-		}
-	}
-	return foundAC
 }
