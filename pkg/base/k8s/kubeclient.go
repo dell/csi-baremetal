@@ -158,8 +158,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiAC,
 	}
@@ -175,8 +174,7 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      apiACR.Name,
-			Namespace: k.Namespace,
+			Name: apiACR.Name,
 		},
 		Spec: apiACR,
 	}
@@ -192,8 +190,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiLVG,
 	}
@@ -209,8 +206,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiVolume,
 	}
@@ -226,8 +222,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiDrive,
 	}
