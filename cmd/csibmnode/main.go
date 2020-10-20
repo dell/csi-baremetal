@@ -28,6 +28,7 @@ import (
 
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
 )
 
@@ -54,8 +55,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Starting CSI Bare-metal operator controller ...")
-	nodeCtrl, err := csibmnode.NewCSIBMController(*namespace, logger)
+	k8sClient, err := k8s.GetK8SClient()
+	if err != nil {
+		logger.Fatalf("Unable to create k8s client: %v", err)
+	}
+	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
+
+	nodeCtrl, err := csibmnode.NewController(kubeClient, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

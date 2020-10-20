@@ -41,8 +41,8 @@ const (
 	NodeIDAnnotationKey = "dell.csi-baremetal.node/id"
 )
 
-// CSIBMController is a controller for CSIBMNode CR
-type CSIBMController struct {
+// Controller is a controller for CSIBMNode CR
+type Controller struct {
 	k8sClient *k8s.KubeClient
 	cache     nodesCache
 
@@ -55,26 +55,20 @@ type nodesCache struct {
 	bmToK8sNode map[string]string // CSIBMNode CR name to k8s CSIBMNode name
 }
 
-// NewCSIBMController returns instance of CSIBMController
-func NewCSIBMController(namespace string, logger *logrus.Logger) (*CSIBMController, error) {
-	k8sClient, err := k8s.GetK8SClient()
-	if err != nil {
-		return nil, err
-	}
-	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
-
-	return &CSIBMController{
-		k8sClient: kubeClient,
+// NewController returns instance of Controller
+func NewController(k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
+	return &Controller{
+		k8sClient: k8sClient,
 		cache: nodesCache{
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
-		log: logger.WithField("component", "CSIBMController"),
+		log: logger.WithField("component", "Controller"),
 	}, nil
 }
 
-// SetupWithManager registers CSIBMController to k8s controller manager
-func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
+// SetupWithManager registers Controller to k8s controller manager
+func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(m).
 		For(&nodecrd.CSIBMNode{}). // primary resource
 		WithOptions(controller.Options{
@@ -106,7 +100,7 @@ func (bmc *CSIBMController) SetupWithManager(m ctrl.Manager) error {
 
 // Reconcile reconcile CSIBMNode CR and k8s CSIBMNode objects
 // at first define for which object current Reconcile is triggered and then run corresponding reconciliation method
-func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "Reconcile",
 		"name":   req.Name,
@@ -148,7 +142,7 @@ func (bmc *CSIBMController) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{Requeue: false}, nil
 }
 
-func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, error) {
+func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "reconcileForK8sNode",
 		"name":   k8sNode.Name,
@@ -208,7 +202,7 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
-func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Result, error) {
+func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "reconcileForCSIBMNode",
 		"name":   bmNode.Name,
@@ -256,7 +250,7 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 
 // checkAnnotation checks NodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
 // update k8s CSIBMNode object if needed, method is used as a last step of Reconcile
-func (bmc *CSIBMController) checkAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
+func (bmc *Controller) checkAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
 	ll := bmc.log.WithField("method", "checkAnnotation")
 	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
 	switch {
@@ -278,7 +272,7 @@ func (bmc *CSIBMController) checkAnnotation(k8sNode *coreV1.Node, goalValue stri
 }
 
 // matchedAddressesCount return amount of k8s node addresses that has corresponding address in bmNodeCR.Spec.Addresses map
-func (bmc *CSIBMController) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k8sNode *coreV1.Node) int {
+func (bmc *Controller) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k8sNode *coreV1.Node) int {
 	matchedCount := 0
 	for _, addr := range k8sNode.Status.Addresses {
 		crAddr, ok := bmNodeCR.Spec.Addresses[string(addr.Type)]
@@ -291,7 +285,7 @@ func (bmc *CSIBMController) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k
 }
 
 // constructAddresses converts k8sNode.Status.Addresses into the the map[string]string, key - address type, value - address
-func (bmc *CSIBMController) constructAddresses(k8sNode *coreV1.Node) map[string]string {
+func (bmc *Controller) constructAddresses(k8sNode *coreV1.Node) map[string]string {
 	res := make(map[string]string, len(k8sNode.Status.Addresses))
 	for _, addr := range k8sNode.Status.Addresses {
 		res[string(addr.Type)] = addr.Address

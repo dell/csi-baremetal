@@ -177,7 +177,7 @@ var (
 )
 
 func Test_NewLVGController(t *testing.T) {
-	c := NewLVGController(nil, "node", testLogger)
+	c := NewController(nil, "node", testLogger)
 	assert.NotNil(t, c)
 }
 
@@ -443,7 +443,7 @@ func setup(t *testing.T, node string) *Controller {
 	assert.Nil(t, err)
 	err = k8sClient.CreateCR(tCtx, lvgCR2.Name, &lvgCR2)
 	assert.Nil(t, err)
-	return NewLVGController(k8sClient, node, testLogger)
+	return NewController(k8sClient, node, testLogger)
 }
 
 // teardown removes drive CRs and LVG CRs

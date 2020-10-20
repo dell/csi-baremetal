@@ -119,7 +119,7 @@ func main() {
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvg.NewLVGController(k8sClientForLVG, nodeID, logger),
+		lvg.NewController(k8sClientForLVG, nodeID, logger),
 		logger)
 
 	// register CSI calls handler

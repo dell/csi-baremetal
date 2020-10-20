@@ -56,10 +56,10 @@ type Controller struct {
 	log  *logrus.Entry
 }
 
-// NewLVGController is the constructor for Controller struct
+// NewController is the constructor for Controller struct
 // Receives an instance of base.KubeClient, ID of a node where it works and logrus logger
 // Returns an instance of Controller
-func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger) *Controller {
+func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger) *Controller {
 	e := &command.Executor{}
 	e.SetLogger(log)
 	return &Controller{
