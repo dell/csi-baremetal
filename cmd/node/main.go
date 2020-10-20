@@ -78,7 +78,6 @@ func main() {
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
-	featureConf.Update(featureconfig.CSIBMNodeUsages, *useNodeAnnotation)
 
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
@@ -104,7 +103,7 @@ func main() {
 
 	nodeID, err := getNodeID(k8SClient, *nodeName, *useNodeAnnotation)
 	if err != nil {
-		logger.Fatalf("fail to get uid of k8s Node object: %v", err)
+		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
 	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeID, logger)
 	if err != nil {

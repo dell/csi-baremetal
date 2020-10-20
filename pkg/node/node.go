@@ -43,6 +43,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
 )
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
@@ -578,7 +579,7 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 
 	topology := csi.Topology{
 		Segments: map[string]string{
-			"baremetal-csi/nodeid": s.nodeID,
+			csibmnode.NodeIDAnnotationKey: s.nodeID,
 		},
 	}
 
