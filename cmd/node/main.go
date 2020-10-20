@@ -225,7 +225,7 @@ func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*e
 	if err != nil {
 		return nil, fmt.Errorf("fail to create kubernetes client, error: %s", err)
 	}
-	eventInter := k8SClientset.CoreV1().Events(*namespace)
+	eventInter := k8SClientset.CoreV1().Events("")
 
 	// get the Scheme
 	// in our case we should use Scheme that aware of our CR
