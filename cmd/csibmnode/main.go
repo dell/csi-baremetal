@@ -42,7 +42,7 @@ var (
 func main() {
 	flag.Parse()
 
-	// TODO: this is hack
+	// TODO: refactor this after https://github.com/dell/csi-baremetal/issues/83 will be closed
 	err := os.Setenv("LOG_FORMAT", *logFormat)
 	if err != nil {
 		fmt.Printf("Unable to set LOG_FORMAT env: %v\n", err)

@@ -25,8 +25,10 @@ const (
 	CSIBMNodeKind                    = "Node"
 
 	Version               = "v1"
+	// TODO: remove that constanta with "Old" prefix as a part of https://github.com/dell/csi-baremetal/issues/134
 	CSICRsGroupVersionOld = "baremetal-csi.dellemc.com"
 	APIV1VersionOld       = "baremetal-csi.dellemc.com/v1"
+
 	CSICRsGroupVersion    = "csi-baremetal.dell.com"
 	APIV1Version          = "csi-baremetal.dell.com/v1"
 	Creating              = "creating"
