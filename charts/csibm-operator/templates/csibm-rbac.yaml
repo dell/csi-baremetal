@@ -12,7 +12,7 @@ rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch", "update"]
-  - apiGroups: ["baremetal-csi.dellemc.com"]
+  - apiGroups: ["csi-baremetal.dell.com"]
     resources: ["csibmnodes"]
     verbs: ["watch", "get", "list", "create", "delete"]
 ---
