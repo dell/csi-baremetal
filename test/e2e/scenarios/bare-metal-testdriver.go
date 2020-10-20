@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
+	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
@@ -161,6 +162,10 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		driverCleanup()
 		extenderCleanup()
 		defaultSCCleanup()
+		err = d.removeAllCRs(f)
+		if err != nil {
+			framework.Logf("Failed to clean up CRs, error: ", err)
+		}
 	}
 	err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0,
 		90*time.Second, nil)
@@ -250,6 +255,19 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 	}
 
 	return &cm
+}
+
+func (d *baremetalDriver) removeAllCRs(f *framework.Framework) error {
+	var savedErr error
+	for _, gvr := range common.AllGVRs {
+		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(
+			&metav1.DeleteOptions{}, metav1.ListOptions{})
+		if err != nil {
+			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
+			savedErr = err
+		}
+	}
+	return savedErr
 }
 
 // CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
