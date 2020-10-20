@@ -49,7 +49,7 @@ var (
 	// Available Capacity variables
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
 	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(util.GBYTE) * 100,
@@ -60,7 +60,7 @@ var (
 	}
 	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive3UUID))
 	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         int64(util.TBYTE),
@@ -71,7 +71,7 @@ var (
 	}
 	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive4UUID))
 	testAC4     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         testLVG.Spec.Size,
@@ -84,7 +84,7 @@ var (
 	// LVG variables
 	testLVGName = "lvg-1"
 	testLVG     = lvgcrd.LVG{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "LVG", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "LVG", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: testNS},
 		Spec: api.LogicalVolumeGroup{
 			Name:      testLVGName,
@@ -98,7 +98,7 @@ var (
 	// Volumes variables
 	testVolume1Name = "aaaa-1111"
 	testVolume1     = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testVolume1Name,
 			Namespace:         testNS,

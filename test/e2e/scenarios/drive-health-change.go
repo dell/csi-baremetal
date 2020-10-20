@@ -46,19 +46,19 @@ const (
 
 var (
 	driveGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
+		Group:    apiV1.CSICRsGroupVersionOld,
 		Version:  apiV1.Version,
 		Resource: "drives",
 	}
 
 	acGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
+		Group:    apiV1.CSICRsGroupVersionOld,
 		Version:  apiV1.Version,
 		Resource: "availablecapacities",
 	}
 
 	volumeGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
+		Group:    apiV1.CSICRsGroupVersionOld,
 		Version:  apiV1.Version,
 		Resource: "volumes",
 	}

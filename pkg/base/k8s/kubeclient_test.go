@@ -52,7 +52,7 @@ var (
 	testUUID   = uuid.New().String()
 	testUUID2  = uuid.New().String()
 	testVolume = vcrd.Volume{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
 		Spec: api.Volume{
 			Id:       testID,
@@ -69,7 +69,7 @@ var (
 		Location:     testDriveLocation1,
 		NodeId:       testNode1Name,
 	}
-	testACTypeMeta = k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version}
+	testACTypeMeta = k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld}
 	testACName     = fmt.Sprintf("%s-%s", testApiAC.NodeId, testApiAC.Location)
 	testACCR       = accrd.AvailableCapacity{
 		TypeMeta:   testACTypeMeta,
@@ -102,7 +102,7 @@ var (
 		IsSystem:     true,
 	}
 
-	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version}
+	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1VersionOld}
 	testDriveCR       = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID, Namespace: testNs},
@@ -115,7 +115,7 @@ var (
 		Spec:       testApiDrive2,
 	}
 
-	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version}
+	testVolumeTypeMeta = k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld}
 	testApiVolume      = api.Volume{
 		Id:       testID,
 		NodeId:   testNode1Name,
@@ -143,7 +143,7 @@ var (
 	testLVGCR   = lvgcrd.LVG{
 		TypeMeta: k8smetav1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: apiV1.APIV1Version,
+			APIVersion: apiV1.APIV1VersionOld,
 		},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:      testLVGName,

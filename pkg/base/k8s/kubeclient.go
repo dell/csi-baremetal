@@ -155,7 +155,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 	return &accrd.AvailableCapacity{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.AvailableCapacityKind,
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: crdV1.APIV1VersionOld,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -172,7 +172,7 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 	return &acrcrd.AvailableCapacityReservation{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.AvailableCapacityReservationKind,
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: crdV1.APIV1VersionOld,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      apiACR.Name,
@@ -189,7 +189,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 	return &lvgcrd.LVG{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.LVGKind,
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: crdV1.APIV1VersionOld,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -206,7 +206,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.VolumeKind,
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: crdV1.APIV1VersionOld,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -223,7 +223,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	return &drivecrd.Drive{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.DriveKind,
-			APIVersion: crdV1.APIV1Version,
+			APIVersion: crdV1.APIV1VersionOld,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -233,14 +233,17 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
-func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.CSIBMNode {
-	return &nodecrd.CSIBMNode{
+// ConstructCSIBMNodeCR constructs Node custom resource from api.CSIBMNode struct
+// Receives a name for k8s ObjectMeta and an instance of api.CSIBMNode struct
+// Returns an instance of Node CR struct
+func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.Node {
+	return &nodecrd.Node{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.CSIBMNodeKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      csiNode.UUID,
+			Name:      name,
 			Namespace: k.Namespace,
 		},
 		Spec: csiNode,

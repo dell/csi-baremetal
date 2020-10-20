@@ -53,7 +53,7 @@ func getTestVol(nodeID string, size int64, sc string) *genV1.Volume {
 
 func getTestAC(nodeID string, size int64, sc string) *accrd.AvailableCapacity {
 	return &accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
 		Spec: genV1.AvailableCapacity{
 			Size:         size,
@@ -70,7 +70,7 @@ func getTestACR(size int64, sc string,
 		acNames[i] = ac.Name
 	}
 	return &acrcrd.AvailableCapacityReservation{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
 		Spec: genV1.AvailableCapacityReservation{
 			Size:         size,

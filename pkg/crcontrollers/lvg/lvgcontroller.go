@@ -44,7 +44,7 @@ import (
 
 const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 
-// LVGController is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
+// Controller is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
 type Controller struct {
 	k8sClient *k8s.KubeClient
 
@@ -56,24 +56,24 @@ type Controller struct {
 	log  *logrus.Entry
 }
 
-// NewLVGController is the constructor for LVGController struct
+// NewLVGController is the constructor for Controller struct
 // Receives an instance of base.KubeClient, ID of a node where it works and logrus logger
-// Returns an instance of LVGController
+// Returns an instance of Controller
 func NewLVGController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger) *Controller {
 	e := &command.Executor{}
 	e.SetLogger(log)
 	return &Controller{
 		k8sClient: k8sClient,
 		node:      nodeID,
-		log:       log.WithField("component", "LVGController"),
+		log:       log.WithField("component", "Controller"),
 		e:         e,
 		lvmOps:    lvm.NewLVM(e, log),
 		listBlk:   lsblk.NewLSBLK(log),
 	}
 }
 
-// Reconcile is the main Reconcile loop of LVGController. This loop handles creation of VG matched to LVG CR on
-// LVGController's node if LVG.Spec.Status is Creating. Also this loop handles VG deletion on the node if
+// Reconcile is the main Reconcile loop of Controller. This loop handles creation of VG matched to LVG CR on
+// Controller's node if LVG.Spec.Status is Creating. Also this loop handles VG deletion on the node if
 // LVG.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
 // Returns reconcile result as ctrl.Result or error if something went wrong
 func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -161,7 +161,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager registers LVGController to ControllerManager
+// SetupWithManager registers Controller to ControllerManager
 func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lvgcrd.LVG{}).

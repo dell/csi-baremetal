@@ -65,12 +65,12 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	// bind K8s Controller Manager as a controller for CSIBMNode CR
+	// bind K8s Controller Manager as a controller for Node CR
 	if err = nodeCtrl.SetupWithManager(mgr); err != nil {
 		logger.Fatal(err)
 	}
 
-	logger.Info("Starting CSIBMNode Controller Manager ...")
+	logger.Info("Starting Node Controller Manager ...")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		logger.Fatalf("CRD Controller Manager failed with error: %v", err)
 	}
@@ -86,7 +86,7 @@ func prepareK8sRuntimeManager() (ctrl.Manager, error) {
 		return nil, err
 	}
 
-	// register CSIBMNode CRD
+	// register Node CRD
 	if err = nodecrd.AddToSchemeCSIBMNode(scheme); err != nil {
 		return nil, err
 	}

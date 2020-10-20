@@ -106,7 +106,7 @@ var (
 	lsblkSingleDeviceCmd = fmt.Sprintf(lsblk.CmdTmpl, "/dev/sda")
 
 	volCR = vcrd.Volume{
-		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: v1.ObjectMeta{
 			Name:              testID,
 			Namespace:         testNs,
@@ -127,7 +127,7 @@ var (
 	testLVGCR = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: apiV1.APIV1Version,
+			APIVersion: apiV1.APIV1VersionOld,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      testLVGName,
@@ -144,7 +144,7 @@ var (
 	}
 
 	testVolumeLVGCR = vcrd.Volume{
-		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: v1.ObjectMeta{
 			Name:              volLVGName,
 			Namespace:         testNs,
@@ -163,7 +163,7 @@ var (
 	}
 
 	acCR = accrd.AvailableCapacity{
-		TypeMeta:   v1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   v1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: v1.ObjectMeta{Name: driveUUID, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         drive1.Size,

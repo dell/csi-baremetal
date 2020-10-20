@@ -70,7 +70,7 @@ clean-scheduler:
 	rm -rf ./build/${SCHEDULING_PKG}/${SCHEDULER}/*
 
 clean-node-controller:
-	rm -rf ./build/${CR_CONTROLLERS}/${CSI_BM_NODE}*
+	rm -rf ./build/${CR_CONTROLLERS}/*
 
 clean-proto:
 	rm -rf ./api/generated/v1/*
@@ -111,6 +111,6 @@ generate-crds:
 	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/csibmnodecrd/csibmnode_types.go paths=api/v1/csibmnodecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/csibmnodecrd/node_types.go paths=api/v1/csibmnodecrd/groupversion_info.go output:crd:dir=charts/csibm-operator/crds
 
 generate-api: compile-proto generate-crds generate-deepcopy

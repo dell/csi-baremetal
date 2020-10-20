@@ -57,7 +57,7 @@ var (
 	disk2       = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID}
 	testAC1Name = fmt.Sprintf("%s-%s", nodeID, strings.ToLower(disk1.UUID))
 	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 1024,
@@ -68,7 +68,7 @@ var (
 	}
 	testAC2Name = fmt.Sprintf("%s-%s", nodeID, strings.ToLower(disk2.UUID))
 	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024,
@@ -99,7 +99,7 @@ var (
 	testVolume3 = api.Volume{Id: testV3ID, NodeId: nodeID, Location: ""}
 
 	testVolumeCR1 = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testVolume1.Id,
 			Namespace:         testNs,
@@ -108,7 +108,7 @@ var (
 		Spec: testVolume1,
 	}
 	testVolumeCR2 = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testVolume2.Id,
 			Namespace:         testNs,
@@ -117,7 +117,7 @@ var (
 		Spec: testVolume2,
 	}
 	testVolumeCR3 = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testVolume3.Id,
 			Namespace:         testNs,

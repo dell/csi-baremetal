@@ -152,7 +152,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	preferredNode := ""
 	if req.GetAccessibilityRequirements() != nil && len(req.GetAccessibilityRequirements().Preferred) > 0 {
-		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[NodeIDTopologyKey]
+		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnode.NodeIDAnnotationKey]
 		ll.Infof("Preferred node was provided: %s", preferredNode)
 	}
 
