@@ -13,7 +13,7 @@ spec:
     listKind: CSIBMNodeList
     plural: csibmnodes
     singular: csibmnode
-  scope: ""
+  scope: Cluster
   validation:
     openAPIV3Schema:
       description: CSIBMNode is the Schema for the CSIBMNode API

@@ -24,6 +24,7 @@ import (
 
 // +kubebuilder:object:root=true
 
+// +kubebuilder:resource:scope=Cluster
 // CSIBMNode is the Schema for the CSIBMNode API
 type CSIBMNode struct {
 	metav1.TypeMeta   `json:",inline"`

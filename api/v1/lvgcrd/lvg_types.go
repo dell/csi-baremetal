@@ -25,6 +25,7 @@ import (
 // +kubebuilder:object:root=true
 
 // LVG is the Schema for the LVGs API
+// +kubebuilder:resource:scope=Cluster
 type LVG struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
