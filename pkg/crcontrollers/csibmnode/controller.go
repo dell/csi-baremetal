@@ -255,8 +255,8 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
-// checkAnnotation checks NodeIDAnnotationKey annotation value for provided node and compare that value with goalValue
-// update k8sNode object if need, method is used as a last step of Reconcile
+// checkAnnotation checks NodeIDAnnotationKey annotation value for provided k8s Node and compare that value with goalValue
+// update k8s Node object if needed, method is used as a last step of Reconcile
 func (bmc *CSIBMController) checkAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
 	ll := bmc.log.WithField("method", "checkAnnotation")
 	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
