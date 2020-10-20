@@ -9,7 +9,12 @@ feature:
   extender: false
   usenodeannotation: false
 
-# logging settings
+# to deploy on specific nodes kubeclt get nodes -l <key>=<value>
+nodeSelector:
+  key:
+  value:
+
+# # logging settings
 log:
   format: text
   level: info

@@ -16,6 +16,10 @@ spec:
         app: baremetal-csi-controller
         role: csi-do
     spec:
+      {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
+      nodeSelector:
+          {{.Values.nodeSelector.key}}: {{.Values.nodeSelector.value}}
+      {{- end }}
       serviceAccount: csi-controller-sa
       terminationGracePeriodSeconds: 10
       containers:

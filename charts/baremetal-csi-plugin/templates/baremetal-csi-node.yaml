@@ -13,6 +13,10 @@ spec:
       labels:
         app: baremetal-csi-node
     spec:
+      {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
+      nodeSelector:
+        {{.Values.nodeSelector.key}}: {{.Values.nodeSelector.value}}
+      {{- end }}
       hostIPC: True
       serviceAccountName: csi-node-sa
       terminationGracePeriodSeconds: 10
