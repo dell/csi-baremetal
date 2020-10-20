@@ -174,7 +174,7 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 	matchedCRs := make([]string, 0)
 	for i := range bmNodeCRs.Items {
 		matchedAddresses := bmc.matchedAddressesCount(&bmNodeCRs.Items[i], k8sNode)
-		if matchedAddresses == len(bmNodeCRs.Items[i].Spec.NodeAddress) {
+		if matchedAddresses == len(bmNodeCRs.Items[i].Spec.Addresses) {
 			bmNode = &bmNodeCRs.Items[i]
 			matchedCRs = append(matchedCRs, bmNode.Name)
 			continue
@@ -196,8 +196,8 @@ func (bmc *CSIBMController) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Resu
 	if len(matchedCRs) == 0 {
 		bmNodeName := uuid.New().String()
 		bmNode = bmc.k8sClient.ConstructCSIBMNodeCR(bmNodeName, api.CSIBMNode{
-			UUID:        uuid.New().String(),
-			NodeAddress: bmc.constructAddresses(k8sNode),
+			UUID:      uuid.New().String(),
+			Addresses: bmc.constructAddresses(k8sNode),
 		})
 		if err := bmc.k8sClient.CreateCR(context.Background(), bmNodeName, bmNode); err != nil {
 			ll.Errorf("Unable to create CSIBMNode CR: %v", err)
@@ -235,7 +235,7 @@ func (bmc *CSIBMController) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ct
 	matchedNodes := make([]string, 0)
 	for i := range k8sNodes.Items {
 		matchedAddresses := bmc.matchedAddressesCount(bmNode, &k8sNodes.Items[i])
-		if matchedAddresses == len(bmNode.Spec.NodeAddress) {
+		if matchedAddresses == len(bmNode.Spec.Addresses) {
 			k8sNode = &k8sNodes.Items[i]
 			matchedNodes = append(matchedNodes, k8sNode.Name)
 			continue
@@ -278,11 +278,11 @@ func (bmc *CSIBMController) checkAnnotation(k8sNode *coreV1.Node, goalValue stri
 	return ctrl.Result{}, nil
 }
 
-// matchedAddressesCount return amount of k8s node addresses that has corresponding address in bmNodeCR.Spec.NodeAddress map
+// matchedAddressesCount return amount of k8s node addresses that has corresponding address in bmNodeCR.Spec.Addresses map
 func (bmc *CSIBMController) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k8sNode *coreV1.Node) int {
 	matchedCount := 0
 	for _, addr := range k8sNode.Status.Addresses {
-		crAddr, ok := bmNodeCR.Spec.NodeAddress[string(addr.Type)]
+		crAddr, ok := bmNodeCR.Spec.Addresses[string(addr.Type)]
 		if ok && crAddr == addr.Address {
 			matchedCount++
 		}
