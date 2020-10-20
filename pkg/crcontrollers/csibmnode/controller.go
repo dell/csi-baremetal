@@ -18,6 +18,7 @@ package csibmnode
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/google/uuid"
@@ -106,40 +107,34 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		"name":   req.Name,
 	})
 
-	_, isForBMNode := bmc.cache.bmToK8sNode[req.Name]
-	_, isForK8sNode := bmc.cache.k8sToBMNode[req.Name]
-
 	var err error
-	// try to read k8s CSIBMNode
-	if isForK8sNode || (!isForK8sNode && !isForBMNode) {
-		k8sNode := new(coreV1.Node)
-		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, k8sNode)
-		switch {
-		case err == nil:
-			ll.Infof("Reconcile for k8s node %s", k8sNode.Name)
-			return bmc.reconcileForK8sNode(k8sNode)
-		case !k8sError.IsNotFound(err):
-			ll.Errorf("Unable to read node object: %v", err)
-			return ctrl.Result{Requeue: true}, err
-		}
+	// try to read k8s node
+	k8sNode := new(coreV1.Node)
+	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, k8sNode)
+	switch {
+	case err == nil:
+		ll.Infof("Reconcile for k8s node %s", k8sNode.Name)
+		return bmc.reconcileForK8sNode(k8sNode)
+	case !k8sError.IsNotFound(err):
+		ll.Errorf("Unable to read node object: %v", err)
+		return ctrl.Result{Requeue: true}, err
 	}
 
 	// try to read CSIBMNode
-	if isForBMNode || (!isForK8sNode && !isForBMNode) {
-		bmNode := new(nodecrd.CSIBMNode)
-		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, bmNode)
-		switch {
-		case err == nil:
-			ll.Infof("Reconcile for CSIBMNode %s", bmNode.Name)
-			return bmc.reconcileForCSIBMNode(bmNode)
-		case !k8sError.IsNotFound(err):
-			ll.Errorf("Unable to read CSIBMNode object: %v", err)
-			return ctrl.Result{Requeue: true}, err
-		}
+	bmNode := new(nodecrd.CSIBMNode)
+	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, bmNode)
+	switch {
+	case err == nil:
+		ll.Infof("Reconcile for CSIBMNode %s", bmNode.Name)
+		return bmc.reconcileForCSIBMNode(bmNode)
+	case !k8sError.IsNotFound(err):
+		ll.Errorf("Unable to read CSIBMNode object: %v", err)
+		return ctrl.Result{Requeue: true}, err
 	}
 
-	ll.Error("Unable to detect for which object that reconcile is. The object may have been deleted.")
-	return ctrl.Result{Requeue: false}, nil
+	err = errors.New("unable to detect for which object that reconcile is. The object may have been deleted")
+	ll.Error(err)
+	return ctrl.Result{Requeue: false}, err
 }
 
 func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, error) {
