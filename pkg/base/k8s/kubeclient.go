@@ -233,11 +233,11 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
-// ConstructCSIBMNodeCR constructs Node custom resource from api.CSIBMNode struct
+// ConstructCSIBMNodeCR constructs CSIBMNode custom resource from api.CSIBMNode struct
 // Receives a name for k8s ObjectMeta and an instance of api.CSIBMNode struct
-// Returns an instance of Node CR struct
-func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.Node {
-	return &nodecrd.Node{
+// Returns an instance of CSIBMNode CR struct
+func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.CSIBMNode {
+	return &nodecrd.CSIBMNode{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.CSIBMNodeKind,
 			APIVersion: crdV1.APIV1Version,
@@ -333,7 +333,7 @@ func (k *KubeClient) GetPods(ctx context.Context, mask string) ([]*coreV1.Pod, e
 
 // GetNodes returns list of nodes
 // Receives golang context
-// Returns slice of coreV1.Node or error if something went wrong
+// Returns slice of coreV1.CSIBMNode or error if something went wrong
 func (k *KubeClient) GetNodes(ctx context.Context) ([]coreV1.Node, error) {
 	nodes := coreV1.NodeList{}
 

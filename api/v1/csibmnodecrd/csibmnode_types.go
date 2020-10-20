@@ -25,8 +25,8 @@ import (
 // +kubebuilder:object:root=true
 
 // +kubebuilder:resource:scope=Cluster
-// Node is the Schema for the Node API
-type Node struct {
+// CSIBMNode is the Schema for the CSIBMNode API
+type CSIBMNode struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              api.CSIBMNode `json:"spec,omitempty"`
@@ -34,19 +34,19 @@ type Node struct {
 
 // +kubebuilder:object:root=true
 
-// CSIBMNodeList contains a list of Node
+// CSIBMNodeList contains a list of CSIBMNode
 //+kubebuilder:object:generate=true
 type CSIBMNodeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Node `json:"items"`
+	Items           []CSIBMNode `json:"items"`
 }
 
 func init() {
-	SchemeBuilderACR.Register(&Node{}, &CSIBMNodeList{})
+	SchemeBuilderACR.Register(&CSIBMNode{}, &CSIBMNodeList{})
 }
 
-func (in *Node) DeepCopyInto(out *Node) {
+func (in *CSIBMNode) DeepCopyInto(out *CSIBMNode) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
