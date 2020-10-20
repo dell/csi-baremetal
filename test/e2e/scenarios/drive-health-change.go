@@ -350,13 +350,13 @@ func filterDrivesCRsForNode(nodeID string, drives *unstructured.UnstructuredList
 }
 
 func getUObjList(f *framework.Framework, resource schema.GroupVersionResource) *unstructured.UnstructuredList {
-	drivesU, err := f.DynamicClient.Resource(resource).Namespace(f.Namespace.Name).List(metav1.ListOptions{})
+	drivesU, err := f.DynamicClient.Resource(resource).Namespace("").List(metav1.ListOptions{})
 	framework.ExpectNoError(err)
 	return drivesU
 }
 
 func getUObj(f *framework.Framework, resource schema.GroupVersionResource, name string) (*unstructured.Unstructured, bool) {
-	driveU, err := f.DynamicClient.Resource(resource).Namespace(f.Namespace.Name).Get(name, metav1.GetOptions{})
+	driveU, err := f.DynamicClient.Resource(resource).Namespace("").Get(name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false
@@ -405,7 +405,7 @@ func checkExpectedEventsExistWithRetry(f *framework.Framework, object runtime.Ob
 }
 
 func checkExpectedEventsExist(f *framework.Framework, object runtime.Object, eventsReasons []string) bool {
-	evlist, err := f.ClientSet.CoreV1().Events(f.Namespace.Name).Search(runtime.NewScheme(), object)
+	evlist, err := f.ClientSet.CoreV1().Events("").Search(runtime.NewScheme(), object)
 	framework.ExpectNoError(err)
 	events := evlist.Items
 
