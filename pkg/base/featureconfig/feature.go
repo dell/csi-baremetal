@@ -21,6 +21,9 @@ import "sync"
 const (
 	// FeatureACReservation store name for ACReservation feature
 	FeatureACReservation = "ACReservation"
+
+	// CSIBMNodeUsages store name for CSIBMNode feature
+	CSIBMNodeUsages = "CSIBMNode"
 )
 
 // FeatureChecker is a "read" interface for FeatureConfig

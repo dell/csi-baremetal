@@ -54,9 +54,10 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
           - "--csiendpoint=$(CSI_ENDPOINT)"
-          - "--nodeid=$(KUBE_NODE_NAME)"
+          - "--nodename=$(KUBE_NODE_NAME)"
           - "--namespace=$(NAMESPACE)"
-          - --extender={{ .Values.extender }}
+          - --extender={{ .Values.feature.extender }}
+          - --usenodeannotation={{ .Values.feature.usenodeannotation }}
           - --loglevel={{ .Values.log.level }}
           {{- if .Values.logReceiver.create  }}
           - "--logpath=/var/log/csi.log"

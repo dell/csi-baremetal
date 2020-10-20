@@ -5,7 +5,9 @@ global:
 env:
  test: false
 
-extender: false
+feature:
+  extender: false
+  usenodeannotation: false
 
 # logging settings
 log:
