@@ -37,6 +37,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
@@ -525,7 +526,7 @@ var _ = Describe("CSINodeService NodeGetInfo()", func() {
 		resp, err := node.NodeGetInfo(testCtx, &csi.NodeGetInfoRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
-		val, ok := resp.AccessibleTopology.Segments["baremetal-csi/nodeid"]
+		val, ok := resp.AccessibleTopology.Segments[csibmnode.NodeIDAnnotationKey]
 		Expect(ok).To(BeTrue())
 		Expect(val).To(Equal(nodeID))
 	})
