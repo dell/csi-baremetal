@@ -238,7 +238,6 @@ func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *n
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
-			Namespace: k.Namespace,
 		},
 		Spec: csiNode,
 	}

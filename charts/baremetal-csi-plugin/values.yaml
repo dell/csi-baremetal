@@ -14,7 +14,7 @@ nodeSelector:
   key:
   value:
 
-# # logging settings
+# logging settings
 log:
   format: text
   level: info

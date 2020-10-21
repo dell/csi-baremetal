@@ -38,7 +38,7 @@ import (
 
 const (
 	// NodeIDAnnotationKey hold key for annotation for node object
-	NodeIDAnnotationKey = "dell.csi-baremetal.node/id"
+	NodeIDAnnotationKey = "csibmnodes.csi-baremetal.dell.com/uuid"
 )
 
 // Controller is a controller for CSIBMNode CR
