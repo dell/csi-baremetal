@@ -30,7 +30,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
@@ -158,8 +157,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiAC,
 	}
@@ -175,8 +173,7 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      apiACR.Name,
-			Namespace: k.Namespace,
+			Name: apiACR.Name,
 		},
 		Spec: apiACR,
 	}
@@ -192,8 +189,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiLVG,
 	}
@@ -209,8 +205,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiVolume,
 	}
@@ -226,8 +221,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiDrive,
 	}
@@ -381,18 +375,6 @@ func GetK8SClient() (k8sCl.Client, error) {
 	}
 
 	return cl, err
-}
-
-// GetFakeKubeClient returns fake KubeClient  for test purposes
-// Receives namespace to work
-// Returns instance of mocked KubeClient or error if something went wrong
-// TODO: test code shouldn't be in base package - https://github.com/dell/csi-baremetal/issues/81
-func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error) {
-	scheme, err := PrepareScheme()
-	if err != nil {
-		return nil, err
-	}
-	return NewKubeClient(fake.NewFakeClientWithScheme(scheme), logger, testNs), nil
 }
 
 // PrepareScheme registers CSI custom resources to runtime.Scheme

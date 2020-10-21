@@ -23,7 +23,7 @@ import (
 )
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:resource:scope=Cluster,shortName={ac,acs}
 // AvailableCapacity is the Schema for the availablecapacities API
 type AvailableCapacity struct {
 	metav1.TypeMeta   `json:",inline"`

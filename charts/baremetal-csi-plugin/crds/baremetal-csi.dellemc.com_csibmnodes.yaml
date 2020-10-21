@@ -1,4 +1,3 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -6,22 +5,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: availablecapacityreservations.baremetal-csi.dellemc.com
+  name: csibmnodes.baremetal-csi.dellemc.com
 spec:
   group: baremetal-csi.dellemc.com
   names:
-    kind: AvailableCapacityReservation
-    listKind: AvailableCapacityReservationList
-    plural: availablecapacityreservations
-    shortNames:
-    - acr
-    - acrs
-    singular: availablecapacityreservation
+    kind: CSIBMNode
+    listKind: CSIBMNodeList
+    plural: csibmnodes
+    singular: csibmnode
   scope: Cluster
   validation:
     openAPIV3Schema:
-      description: AvailableCapacityReservation is the Schema for the availablecapacitiereservations
-        API
+      description: CSIBMNode is the Schema for the CSIBMNode API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -37,16 +32,13 @@ spec:
           type: object
         spec:
           properties:
-            Name:
+            Hostname:
               type: string
-            Reservations:
+            IPs:
               items:
                 type: string
               type: array
-            Size:
-              format: int64
-              type: integer
-            StorageClass:
+            UUID:
               type: string
           type: object
       type: object

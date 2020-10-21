@@ -29,6 +29,7 @@ import (
 
 // Drive is the Schema for the drives API
 //kubebuilder:object:generate=false
+// +kubebuilder:resource:scope=Cluster
 type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

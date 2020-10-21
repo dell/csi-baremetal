@@ -14,7 +14,7 @@ spec:
     listKind: DriveList
     plural: drives
     singular: drive
-  scope: ""
+  scope: Cluster
   validation:
     openAPIV3Schema:
       description: Drive is the Schema for the drives API kubebuilder:object:generate=false
