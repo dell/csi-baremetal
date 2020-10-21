@@ -18,7 +18,6 @@ package csibmnode
 
 import (
 	"context"
-	"errors"
 	"reflect"
 
 	"github.com/google/uuid"
@@ -132,9 +131,8 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	err = errors.New("unable to detect for which object that reconcile is. The object may have been deleted")
-	ll.Error(err)
-	return ctrl.Result{Requeue: false}, err
+	ll.Warnf("unable to detect for which object (%s) that reconcile is. The object may have been deleted", req.String())
+	return ctrl.Result{}, nil
 }
 
 func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, error) {
@@ -234,13 +232,15 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 			return ctrl.Result{Requeue: false}, nil
 		}
 	}
-	if len(matchedNodes) > 1 {
-		ll.Warnf("More then one k8s node corresponds to the current CSIBMNode CR. Matched k8s nodes: %v", matchedNodes)
-		return ctrl.Result{Requeue: false}, nil
-	}
 
-	bmc.cache.bmToK8sNode[bmNode.Name] = k8sNode.Name
-	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
+	switch len(matchedNodes) {
+	case 1:
+		bmc.cache.bmToK8sNode[bmNode.Name] = k8sNode.Name
+		return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
+	default:
+		ll.Warnf("Unable to detect k8s node that corresponds to CSIBMNode %v, matched nodes: %v", bmNode, matchedNodes)
+		return ctrl.Result{}, nil
+	}
 }
 
 // checkAnnotation checks NodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
@@ -256,6 +256,9 @@ func (bmc *Controller) checkAnnotation(k8sNode *coreV1.Node, goalValue string) (
 			NodeIDAnnotationKey, k8sNode.Name, val, goalValue)
 		fallthrough
 	default:
+		if k8sNode.ObjectMeta.Annotations == nil {
+			k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
+		}
 		k8sNode.ObjectMeta.Annotations[NodeIDAnnotationKey] = goalValue
 		if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
 			ll.Errorf("Unable to update node object: %v", err)
