@@ -237,7 +237,7 @@ func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *n
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
+			Name: name,
 		},
 		Spec: csiNode,
 	}

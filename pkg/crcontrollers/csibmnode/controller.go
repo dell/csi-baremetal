@@ -19,6 +19,7 @@ package csibmnode
 import (
 	"context"
 	"reflect"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,8 @@ import (
 const (
 	// NodeIDAnnotationKey hold key for annotation for node object
 	NodeIDAnnotationKey = "csibmnodes.csi-baremetal.dell.com/uuid"
+	// namePrefix it is a prefix for CSIBMNode CR name
+	namePrefix = "csibmnode-"
 )
 
 // Controller is a controller for CSIBMNode CR
@@ -107,16 +110,19 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	})
 
 	var err error
-	// try to read k8s node
-	k8sNode := new(coreV1.Node)
-	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, k8sNode)
-	switch {
-	case err == nil:
-		ll.Infof("Reconcile k8s node %s", k8sNode.Name)
-		return bmc.reconcileForK8sNode(k8sNode)
-	case !k8sError.IsNotFound(err):
-		ll.Errorf("Unable to read node object: %v", err)
-		return ctrl.Result{Requeue: true}, err
+	// if name in request doesn't start with namePrefix controller tries to read k8s node object at first
+	// however if it get NotFound error it tries to read CSIBMNode object as well
+	if !strings.HasPrefix(req.Name, namePrefix) {
+		k8sNode := new(coreV1.Node)
+		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, k8sNode)
+		switch {
+		case err == nil:
+			ll.Infof("Reconcile k8s node %s", k8sNode.Name)
+			return bmc.reconcileForK8sNode(k8sNode)
+		case !k8sError.IsNotFound(err):
+			ll.Errorf("Unable to read node object: %v", err)
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 
 	// try to read CSIBMNode
@@ -180,7 +186,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 
 	// create CSIBMNode CR
 	if len(matchedCRs) == 0 {
-		bmNodeName := uuid.New().String()
+		bmNodeName := namePrefix + uuid.New().String()
 		bmNode = bmc.k8sClient.ConstructCSIBMNodeCR(bmNodeName, api.CSIBMNode{
 			UUID:      uuid.New().String(),
 			Addresses: bmc.constructAddresses(k8sNode),
