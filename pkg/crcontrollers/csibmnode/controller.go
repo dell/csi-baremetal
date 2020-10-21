@@ -52,10 +52,25 @@ type Controller struct {
 	log *logrus.Entry
 }
 
-// nodesCache holds mapping between names for k8s node and BMCSINode CR objects
+// not a thread safety cache that holds mapping between names for k8s node and BMCSINode CR objects
 type nodesCache struct {
 	k8sToBMNode map[string]string // k8s CSIBMNode name to CSIBMNode CR name
 	bmToK8sNode map[string]string // CSIBMNode CR name to k8s CSIBMNode name
+}
+
+func (nc *nodesCache) getK8sNodeName(bmNodeName string) (string, bool) {
+	res, ok := nc.bmToK8sNode[bmNodeName]
+	return res, ok
+}
+
+func (nc *nodesCache) getCSIBMNodeName(k8sNodeName string) (string, bool) {
+	res, ok := nc.k8sToBMNode[k8sNodeName]
+	return res, ok
+}
+
+func (nc *nodesCache) put(k8sNodeName, bmNodeName string) {
+	nc.k8sToBMNode[k8sNodeName] = bmNodeName
+	nc.bmToK8sNode[bmNodeName] = k8sNodeName
 }
 
 // NewController returns instance of Controller
@@ -149,7 +164,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 
 	// get corresponding CSIBMNode CR name from cache
 	var bmNode = &nodecrd.CSIBMNode{}
-	if bmNodeName, ok := bmc.cache.k8sToBMNode[k8sNode.Name]; ok {
+	if bmNodeName, ok := bmc.cache.getCSIBMNodeName(k8sNode.Name); ok {
 		if err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, bmNode); err != nil {
 			ll.Errorf("Unable to read CSIBMNode %s: %v", bmNodeName, err)
 			return ctrl.Result{Requeue: true}, err
@@ -197,7 +212,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 		}
 	}
 
-	bmc.cache.k8sToBMNode[k8sNode.Name] = bmNode.Name
+	bmc.cache.put(k8sNode.Name, bmNode.Name)
 	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
@@ -209,7 +224,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 
 	// get corresponding k8s node name from cache
 	var k8sNode = &coreV1.Node{}
-	if k8sNodeName, ok := bmc.cache.bmToK8sNode[bmNode.Name]; ok {
+	if k8sNodeName, ok := bmc.cache.getK8sNodeName(bmNode.Name); ok {
 		if err := bmc.k8sClient.ReadCR(context.Background(), k8sNodeName, k8sNode); err != nil {
 			ll.Errorf("Unable to read k8s node %s: %v", k8sNodeName, err)
 			return ctrl.Result{Requeue: true}, err
@@ -241,7 +256,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 
 	switch len(matchedNodes) {
 	case 1:
-		bmc.cache.bmToK8sNode[bmNode.Name] = k8sNode.Name
+		bmc.cache.put(k8sNode.Name, bmNode.Name)
 		return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
 	default:
 		ll.Warnf("Unable to detect k8s node that corresponds to CSIBMNode %v, matched nodes: %v", bmNode, matchedNodes)
