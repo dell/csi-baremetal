@@ -30,7 +30,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
@@ -359,18 +358,6 @@ func GetK8SClient() (k8sCl.Client, error) {
 	}
 
 	return cl, err
-}
-
-// GetFakeKubeClient returns fake KubeClient  for test purposes
-// Receives namespace to work
-// Returns instance of mocked KubeClient or error if something went wrong
-// TODO: test code shouldn't be in base package - https://github.com/dell/csi-baremetal/issues/81
-func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error) {
-	scheme, err := PrepareScheme()
-	if err != nil {
-		return nil, err
-	}
-	return NewKubeClient(fake.NewFakeClientWithScheme(scheme), logger, testNs), nil
 }
 
 // PrepareScheme registers CSI custom resources to runtime.Scheme
