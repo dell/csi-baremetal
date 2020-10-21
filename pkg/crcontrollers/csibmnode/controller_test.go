@@ -113,6 +113,69 @@ func TestReconcile(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, bmNode.Spec.UUID, val)
 	})
+
+	t.Run("Reconcile for nonexistent object", func(t *testing.T) {
+		c := setup(t)
+		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: "", Namespace: ""}})
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+	})
+}
+
+func Test_reconcileForK8sNode(t *testing.T) {
+
+}
+
+func Test_reconcileForCSIBMNode(t *testing.T) {
+
+}
+
+func Test_checkAnnotation(t *testing.T) {
+	t.Run("Node has needed annotation with goal value", func(t *testing.T) {
+
+	})
+
+	t.Run("Node has needed annotation with another value", func(t *testing.T) {
+
+	})
+
+	t.Run("Node doesnt have needed annotation", func(t *testing.T) {
+
+	})
+}
+
+func Test_constructAddresses(t *testing.T) {
+	t.Run("Empty addresses", func(t *testing.T) {
+		var (
+			c    = setup(t)
+			node = testNode1
+			res  map[string]string
+		)
+
+		res = c.constructAddresses(&node)
+		assert.NotNil(t, res)
+		assert.Equal(t, 0, len(res))
+	})
+
+	t.Run("Converted successfully", func(t *testing.T) {
+		var (
+			c     = setup(t)
+			node  = testNode1
+			res   map[string]string
+			key   = "Hostname"
+			value = "10.10.10.10"
+		)
+
+		node.Status.Addresses = []coreV1.NodeAddress{
+			{Type: coreV1.NodeAddressType(key), Address: value},
+		}
+
+		res = c.constructAddresses(&node)
+		assert.Equal(t, 1, len(res))
+		curr, ok := res[key]
+		assert.True(t, ok)
+		assert.Equal(t, value, curr)
+	})
 }
 
 func setup(t *testing.T) *Controller {

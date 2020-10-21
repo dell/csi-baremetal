@@ -112,7 +112,7 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, k8sNode)
 	switch {
 	case err == nil:
-		ll.Infof("Reconcile for k8s node %s", k8sNode.Name)
+		ll.Infof("Reconcile k8s node %s", k8sNode.Name)
 		return bmc.reconcileForK8sNode(k8sNode)
 	case !k8sError.IsNotFound(err):
 		ll.Errorf("Unable to read node object: %v", err)
@@ -124,7 +124,7 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, bmNode)
 	switch {
 	case err == nil:
-		ll.Infof("Reconcile for CSIBMNode %s", bmNode.Name)
+		ll.Infof("Reconcile CSIBMNode %s", bmNode.Name)
 		return bmc.reconcileForCSIBMNode(bmNode)
 	case !k8sError.IsNotFound(err):
 		ll.Errorf("Unable to read CSIBMNode object: %v", err)
