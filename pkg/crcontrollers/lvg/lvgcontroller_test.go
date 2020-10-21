@@ -84,7 +84,7 @@ var (
 	drive1CR = drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: apiV1.APIV1VersionOld,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      drive1UUID,
@@ -96,7 +96,7 @@ var (
 	drive2CR = drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Drive",
-			APIVersion: apiV1.APIV1VersionOld,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      drive2UUID,
@@ -108,7 +108,7 @@ var (
 	lvgCR1 = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: apiV1.APIV1VersionOld,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      lvg1Name,
@@ -126,7 +126,7 @@ var (
 	lvgCR2 = lvgcrd.LVG{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "LVG",
-			APIVersion: apiV1.APIV1VersionOld,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      lvg2Name,
@@ -145,7 +145,7 @@ var (
 	acCR1     = accrd.AvailableCapacity{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "AvailableCapacity",
-			APIVersion: apiV1.APIV1VersionOld,
+			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      acCR1Name,
@@ -167,7 +167,7 @@ var (
 	}
 
 	testVolumeCR1 = vccrd.Volume{
-		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      testVolume1.Id,
 			Namespace: ns,

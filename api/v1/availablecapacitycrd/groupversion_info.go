@@ -28,7 +28,7 @@ import (
 
 var (
 	// GroupVersionAvailableCapacity is group version used to register these objects
-	GroupVersionAvailableCapacity = schema.GroupVersion{Group: v1.CSICRsGroupVersionOld, Version: v1.Version}
+	GroupVersionAvailableCapacity = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilderAvailableCapacity = &crScheme.Builder{GroupVersion: GroupVersionAvailableCapacity}

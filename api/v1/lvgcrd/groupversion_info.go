@@ -28,7 +28,7 @@ import (
 
 var (
 	// GroupVersionLVG is group version used to register these objects
-	GroupVersionLVG = schema.GroupVersion{Group: v1.CSICRsGroupVersionOld, Version: v1.Version}
+	GroupVersionLVG = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilderLVG = &crScheme.Builder{GroupVersion: GroupVersionLVG}

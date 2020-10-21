@@ -59,7 +59,7 @@ var (
 	testNode4Name      = "preferredNode"
 
 	testVolume = vcrd.Volume{
-		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1VersionOld},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testID,
 			Namespace:         testNs,
@@ -77,7 +77,7 @@ var (
 
 	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation1))
 	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024,
@@ -87,7 +87,7 @@ var (
 	}
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation2))
 	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 1024,
@@ -98,7 +98,7 @@ var (
 	}
 	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
 	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1VersionOld},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
@@ -260,7 +260,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       "Volume",
-				APIVersion: apiV1.APIV1VersionOld,
+				APIVersion: apiV1.APIV1Version,
 			},
 			Spec: api.Volume{
 				Id:     uuid,
@@ -320,7 +320,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				volumeCrd = &vcrd.Volume{
 					TypeMeta: k8smetav1.TypeMeta{
 						Kind:       "Volume",
-						APIVersion: apiV1.APIV1VersionOld,
+						APIVersion: apiV1.APIV1Version,
 					},
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Name:      volumeID,

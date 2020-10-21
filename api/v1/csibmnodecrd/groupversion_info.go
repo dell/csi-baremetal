@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package nodecrd contains API Schema definitions for the csi node v1 API group
-// +groupName=csi-baremetal.dell.com
+// +groupName=baremetal-csi.dellemc.com
 // +versionName=v1
 package nodecrd
 

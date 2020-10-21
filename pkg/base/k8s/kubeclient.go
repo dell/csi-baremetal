@@ -155,7 +155,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 	return &accrd.AvailableCapacity{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.AvailableCapacityKind,
-			APIVersion: crdV1.APIV1VersionOld,
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -172,7 +172,7 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 	return &acrcrd.AvailableCapacityReservation{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.AvailableCapacityReservationKind,
-			APIVersion: crdV1.APIV1VersionOld,
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      apiACR.Name,
@@ -189,7 +189,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 	return &lvgcrd.LVG{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.LVGKind,
-			APIVersion: crdV1.APIV1VersionOld,
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -206,7 +206,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.VolumeKind,
-			APIVersion: crdV1.APIV1VersionOld,
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
@@ -223,7 +223,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	return &drivecrd.Drive{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.DriveKind,
-			APIVersion: crdV1.APIV1VersionOld,
+			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,

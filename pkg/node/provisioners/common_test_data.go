@@ -71,7 +71,7 @@ var (
 		Status:       apiV1.DriveStatusOnline,
 	}
 	testDriveCR = drivecrd.Drive{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1VersionOld},
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAPIDrive.UUID, Namespace: testNs},
 		Spec:       testAPIDrive,
 	}
