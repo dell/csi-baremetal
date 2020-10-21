@@ -24,6 +24,7 @@ import (
 
 // +kubebuilder:object:root=true
 
+// +kubebuilder:resource:scope=Cluster,shortName={acr,acrs}
 // AvailableCapacityReservation is the Schema for the availablecapacitiereservations API
 type AvailableCapacityReservation struct {
 	metav1.TypeMeta   `json:",inline"`
