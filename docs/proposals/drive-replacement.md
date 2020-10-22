@@ -81,6 +81,6 @@ To trigger physical drive replacement user must put the following annotation on 
   - CSI prepares drive for safe removal and starts LED locate
   - CSI sets drive operational status to `REMOVED` if all operations are passed successfully and `FAILED` otherwise
 * When drive operation status is `REMOVED`
-  - Use does physical replacement
+  - User does physical replacement
 ## Test plans
 Drive replacement workflow must be covered by E2E tests in CI.
