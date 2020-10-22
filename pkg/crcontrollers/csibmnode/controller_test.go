@@ -60,8 +60,24 @@ var (
 		},
 	}
 
-	testNode1 = coreV1.Node{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", Namespace: testNS, Annotations: map[string]string{}}}
-	testNode2 = coreV1.Node{ObjectMeta: metaV1.ObjectMeta{Name: "node-2", Namespace: testNS, Annotations: map[string]string{}}}
+	testNode1 = coreV1.Node{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:        "node-1",
+			Namespace:   testNS,
+			Annotations: map[string]string{}},
+		Status: coreV1.NodeStatus{
+			Addresses: convertCSIBMNodeAddrsToK8sNodeAddrs(testCSIBMNode1.Spec.Addresses),
+		},
+	}
+	testNode2 = coreV1.Node{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:        "node-2",
+			Namespace:   testNS,
+			Annotations: map[string]string{}},
+		Status: coreV1.NodeStatus{
+			Addresses: convertCSIBMNodeAddrsToK8sNodeAddrs(testCSIBMNode2.Spec.Addresses),
+		},
+	}
 )
 
 func TestNewCSIBMController(t *testing.T) {
@@ -76,6 +92,25 @@ func TestNewCSIBMController(t *testing.T) {
 	assert.NotNil(t, c.cache.k8sToBMNode)
 }
 
+func Test_nodesCache(t *testing.T) {
+	c := &nodesCache{
+		k8sToBMNode: make(map[string]string),
+		bmToK8sNode: make(map[string]string),
+	}
+
+	k8sNode := "k8s-node"
+	bmNode := "bm-node"
+
+	c.put(k8sNode, bmNode)
+	curr, ok := c.getK8sNodeName(bmNode)
+	assert.True(t, ok)
+	assert.Equal(t, k8sNode, curr)
+
+	curr, ok = c.getCSIBMNodeName(k8sNode)
+	assert.True(t, ok)
+	assert.Equal(t, bmNode, curr)
+}
+
 func TestReconcile(t *testing.T) {
 	t.Run("Reconcile for k8s node. Success", func(t *testing.T) {
 		var (
@@ -84,12 +119,18 @@ func TestReconcile(t *testing.T) {
 			bmNode = testCSIBMNode1
 		)
 
-		node.Annotations[NodeIDAnnotationKey] = bmNode.Spec.UUID
 		createObjects(t, c.k8sClient, &bmNode, &node)
 
 		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: node.Name, Namespace: testNS}})
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
+
+		nodeCR := new(coreV1.Node)
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, nodeCR))
+
+		val, ok := nodeCR.GetAnnotations()[NodeIDAnnotationKey]
+		assert.True(t, ok)
+		assert.Equal(t, bmNode.Spec.UUID, val)
 	})
 
 	t.Run("Reconcile for CSIBMNode. Success", func(t *testing.T) {
@@ -99,7 +140,6 @@ func TestReconcile(t *testing.T) {
 			bmNode = testCSIBMNode1
 		)
 
-		node.Status.Addresses = convertCSIBMNodeAddrsToK8sNodeAddrs(bmNode.Spec.Addresses)
 		createObjects(t, c.k8sClient, &bmNode, &node)
 
 		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: bmNode.Name, Namespace: testNS}})
@@ -123,25 +163,195 @@ func TestReconcile(t *testing.T) {
 }
 
 func Test_reconcileForK8sNode(t *testing.T) {
+	t.Run("K8s node addresses length is 0", func(t *testing.T) {
+		var (
+			c       = setup(t)
+			k8sNode = testNode1
+		)
 
+		k8sNode.Status.Addresses = nil
+		createObjects(t, c.k8sClient, &k8sNode)
+
+		res, err := c.reconcileForK8sNode(&k8sNode)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "addresses are missing")
+		assert.Equal(t, ctrl.Result{Requeue: false}, res)
+	})
+
+	t.Run("Unable to read corresponding CSIBMNode CR", func(t *testing.T) {
+		var (
+			c       = setup(t)
+			k8sNode = testNode1
+		)
+
+		createObjects(t, c.k8sClient, &k8sNode)
+		c.cache.put(k8sNode.Name, "")
+
+		res, err := c.reconcileForK8sNode(&k8sNode)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+	})
+
+	t.Run("There is CSIBMNode that partially match k8s node", func(t *testing.T) {
+		var (
+			c       = setup(t)
+			k8sNode = testNode1
+			bmNode  = testCSIBMNode1
+		)
+
+		k8sNode.Status.Addresses = []coreV1.NodeAddress{k8sNode.Status.Addresses[0]}
+		createObjects(t, c.k8sClient, &k8sNode, &bmNode)
+
+		res, err := c.reconcileForK8sNode(&k8sNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		// read node obj
+		nodeObj := new(coreV1.Node)
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		_, ok := nodeObj.GetAnnotations()[NodeIDAnnotationKey]
+		assert.False(t, ok)
+	})
+
+	t.Run("More then one CSIBMNode CR match k8s node", func(t *testing.T) {
+		var (
+			c       = setup(t)
+			k8sNode = testNode1
+			bmNode1 = testCSIBMNode1
+			bmNode2 = testCSIBMNode2
+		)
+
+		bmNode2.Spec.Addresses = bmNode1.Spec.Addresses
+		createObjects(t, c.k8sClient, &k8sNode, &bmNode1, &bmNode2)
+
+		res, err := c.reconcileForK8sNode(&k8sNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		// read node obj
+		nodeObj := new(coreV1.Node)
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		_, ok := nodeObj.GetAnnotations()[NodeIDAnnotationKey]
+		assert.False(t, ok)
+	})
 }
 
 func Test_reconcileForCSIBMNode(t *testing.T) {
+	t.Run("CSIBMNode addresses length is 0", func(t *testing.T) {
+		var (
+			c      = setup(t)
+			bmNode = testCSIBMNode1
+		)
 
+		bmNode.Spec.Addresses = map[string]string{}
+		createObjects(t, c.k8sClient, &bmNode)
+
+		res, err := c.reconcileForCSIBMNode(&bmNode)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "addresses are missing")
+		assert.Equal(t, ctrl.Result{Requeue: false}, res)
+	})
+
+	t.Run("Unable to read k8s node", func(t *testing.T) {
+		var (
+			c           = setup(t)
+			k8sNodeName = "k8s-node"
+			bmNode      = testCSIBMNode1
+		)
+
+		c.cache.put(k8sNodeName, bmNode.Name)
+
+		res, err := c.reconcileForCSIBMNode(&bmNode)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+	})
+
+	t.Run("There is CSIBMNode that partially match k8s node", func(t *testing.T) {
+		var (
+			c       = setup(t)
+			k8sNode = testNode1
+			bmNode  = testCSIBMNode1
+		)
+
+		k8sNode.Status.Addresses = []coreV1.NodeAddress{k8sNode.Status.Addresses[0]}
+		createObjects(t, c.k8sClient, &k8sNode, &bmNode)
+
+		res, err := c.reconcileForCSIBMNode(&bmNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		// read node obj
+		nodeObj := new(coreV1.Node)
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		_, ok := nodeObj.GetAnnotations()[NodeIDAnnotationKey]
+		assert.False(t, ok)
+	})
+
+	t.Run("More then one k8s node match CSIBMNode CR", func(t *testing.T) {
+		var (
+			c        = setup(t)
+			k8sNode1 = testNode1
+			k8sNode2 = testNode2
+			bmNode   = testCSIBMNode1
+		)
+
+		k8sNode2.Status.Addresses = k8sNode1.Status.Addresses
+		createObjects(t, c.k8sClient, &k8sNode1, &k8sNode2, &bmNode)
+
+		res, err := c.reconcileForCSIBMNode(&bmNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		// read node obj
+		nodeObj := new(coreV1.Node)
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode1.Name, nodeObj))
+		_, ok := nodeObj.GetAnnotations()[NodeIDAnnotationKey]
+		assert.False(t, ok)
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode2.Name, nodeObj))
+		_, ok = nodeObj.GetAnnotations()[NodeIDAnnotationKey]
+		assert.False(t, ok)
+	})
 }
 
 func Test_checkAnnotation(t *testing.T) {
-	t.Run("Node has needed annotation with goal value", func(t *testing.T) {
+	testCases := []struct {
+		description  string
+		currentValue string
+		goalValue    string
+	}{
+		{
+			description:  "Node has needed annotation with goal value",
+			currentValue: "aaaa-bbbb",
+			goalValue:    "aaaa-bbbb",
+		},
+		{
+			description:  "Node has needed annotation with another value",
+			currentValue: "aaaa-bbbb",
+			goalValue:    "ffff-dddd",
+		},
+	}
 
-	})
+	for _, testCase := range testCases {
+		t.Run(testCase.description, func(t *testing.T) {
+			var (
+				c    = setup(t)
+				node = testNode1
+			)
 
-	t.Run("Node has needed annotation with another value", func(t *testing.T) {
+			node.Annotations[NodeIDAnnotationKey] = testCase.currentValue
+			createObjects(t, c.k8sClient, &node)
+			res, err := c.updateAnnotation(&node, testCase.goalValue)
+			assert.Nil(t, err)
+			assert.Equal(t, ctrl.Result{}, res)
 
-	})
-
-	t.Run("Node doesnt have needed annotation", func(t *testing.T) {
-
-	})
+			// read node obj
+			nodeObj := new(coreV1.Node)
+			assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, nodeObj))
+			val, ok := nodeObj.GetAnnotations()[NodeIDAnnotationKey]
+			assert.True(t, ok)
+			assert.Equal(t, testCase.goalValue, val)
+		})
+	}
 }
 
 func Test_constructAddresses(t *testing.T) {
@@ -152,6 +362,7 @@ func Test_constructAddresses(t *testing.T) {
 			res  map[string]string
 		)
 
+		node.Status.Addresses = nil
 		res = c.constructAddresses(&node)
 		assert.NotNil(t, res)
 		assert.Equal(t, 0, len(res))

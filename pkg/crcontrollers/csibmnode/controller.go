@@ -18,6 +18,7 @@ package csibmnode
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 
@@ -162,6 +163,12 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 		"name":   k8sNode.Name,
 	})
 
+	if len(k8sNode.Status.Addresses) == 0 {
+		err := errors.New("addresses are missing for current k8s node instance")
+		ll.Error(err)
+		return ctrl.Result{Requeue: false}, err
+	}
+
 	// get corresponding CSIBMNode CR name from cache
 	var bmNode = &nodecrd.CSIBMNode{}
 	if bmNodeName, ok := bmc.cache.getCSIBMNodeName(k8sNode.Name); ok {
@@ -169,7 +176,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 			ll.Errorf("Unable to read CSIBMNode %s: %v", bmNodeName, err)
 			return ctrl.Result{Requeue: true}, err
 		}
-		return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
+		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
 	}
 
 	// search corresponding CSIBMNode CR name in k8s API
@@ -182,7 +189,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	matchedCRs := make([]string, 0)
 	for i := range bmNodeCRs.Items {
 		matchedAddresses := bmc.matchedAddressesCount(&bmNodeCRs.Items[i], k8sNode)
-		if matchedAddresses == len(bmNodeCRs.Items[i].Spec.Addresses) {
+		if len(bmNodeCRs.Items[i].Spec.Addresses) > 0 && matchedAddresses == len(bmNodeCRs.Items[i].Spec.Addresses) {
 			bmNode = &bmNodeCRs.Items[i]
 			matchedCRs = append(matchedCRs, bmNode.Name)
 			continue
@@ -190,20 +197,21 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 		if matchedAddresses > 0 {
 			ll.Warnf("There is CSIBMNode %s that partially match k8s node %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
 				bmNodeCRs.Items[i].Name, k8sNode.Name, bmNodeCRs.Items[i].Spec, k8sNode.Status.Addresses)
-			return ctrl.Result{Requeue: false}, nil
+			return ctrl.Result{}, nil
 		}
 	}
 
 	if len(matchedCRs) > 1 {
 		ll.Warnf("More then one CSIBMNode CR corresponds to the current k8s node (%d). Matched CSIBMNode CRs: %v", len(matchedCRs), matchedCRs)
-		return ctrl.Result{Requeue: false}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// create CSIBMNode CR
 	if len(matchedCRs) == 0 {
-		bmNodeName := namePrefix + uuid.New().String()
+		id := uuid.New().String()
+		bmNodeName := namePrefix + id
 		bmNode = bmc.k8sClient.ConstructCSIBMNodeCR(bmNodeName, api.CSIBMNode{
-			UUID:      uuid.New().String(),
+			UUID:      id,
 			Addresses: bmc.constructAddresses(k8sNode),
 		})
 		if err := bmc.k8sClient.CreateCR(context.Background(), bmNodeName, bmNode); err != nil {
@@ -213,7 +221,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	}
 
 	bmc.cache.put(k8sNode.Name, bmNode.Name)
-	return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
+	return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
 func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Result, error) {
@@ -222,6 +230,12 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		"name":   bmNode.Name,
 	})
 
+	if len(bmNode.Spec.Addresses) == 0 {
+		err := errors.New("addresses are missing for current CSIBMNode instance")
+		ll.Error(err)
+		return ctrl.Result{Requeue: false}, err
+	}
+
 	// get corresponding k8s node name from cache
 	var k8sNode = &coreV1.Node{}
 	if k8sNodeName, ok := bmc.cache.getK8sNodeName(bmNode.Name); ok {
@@ -229,7 +243,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 			ll.Errorf("Unable to read k8s node %s: %v", k8sNodeName, err)
 			return ctrl.Result{Requeue: true}, err
 		}
-		return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
+		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
 	}
 
 	// search corresponding k8s node name in k8s API
@@ -250,24 +264,24 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		if matchedAddresses > 0 {
 			ll.Warnf("There is k8s node %s that partially match CSIBMNode CR %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
 				k8sNodes.Items[i].Name, bmNode.Name, bmNode.Spec, k8sNodes.Items[i].Status.Addresses)
-			return ctrl.Result{Requeue: false}, nil
+			return ctrl.Result{}, nil
 		}
 	}
 
 	switch len(matchedNodes) {
 	case 1:
 		bmc.cache.put(k8sNode.Name, bmNode.Name)
-		return bmc.checkAnnotation(k8sNode, bmNode.Spec.UUID)
+		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
 	default:
 		ll.Warnf("Unable to detect k8s node that corresponds to CSIBMNode %v, matched nodes: %v", bmNode, matchedNodes)
 		return ctrl.Result{}, nil
 	}
 }
 
-// checkAnnotation checks NodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
+// updateAnnotation checks NodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
 // update k8s CSIBMNode object if needed, method is used as a last step of Reconcile
-func (bmc *Controller) checkAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
-	ll := bmc.log.WithField("method", "checkAnnotation")
+func (bmc *Controller) updateAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
+	ll := bmc.log.WithField("method", "updateAnnotation")
 	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
 	switch {
 	case ok && val == goalValue:
