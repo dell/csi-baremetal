@@ -125,7 +125,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "UpdateCR",
 		"requestUUID": requestUUID.(string),
-	}).Tracef("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Infof("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 
 	return k.Update(ctx, obj)
 }
@@ -326,7 +326,7 @@ func (k *KubeClient) GetPods(ctx context.Context, mask string) ([]*coreV1.Pod, e
 
 // GetNodes returns list of nodes
 // Receives golang context
-// Returns slice of coreV1.CSIBMNode or error if something went wrong
+// Returns slice of coreV1.Node or error if something went wrong
 func (k *KubeClient) GetNodes(ctx context.Context) ([]coreV1.Node, error) {
 	nodes := coreV1.NodeList{}
 
