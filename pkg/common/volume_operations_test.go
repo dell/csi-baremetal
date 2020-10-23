@@ -33,6 +33,8 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/mocks"
@@ -56,13 +58,14 @@ func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	var (
 		svc           = setupVOOperationsTest(t)
-		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
 		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(util.GBYTE)
 		expectedAC    = &accrd.AvailableCapacity{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "testAC"},
 			Spec: api.AvailableCapacity{
 				Location:     testDrive1UUID,
 				NodeId:       testNode1Name,
@@ -83,9 +86,10 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 		}
 	)
 
-	svc.acProvider = acProvider
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
-		Return(expectedAC).Times(1)
+	capMBuilder, capMMock := getCapacityManagerMock()
+	svc.capacityManagerBuilder = capMBuilder
+	capMMock.On("PlanVolumesPlacing", ctxWithID, mock.Anything).
+		Return(buildVolumePlacingPlan(testNode1Name, expectedVolume, expectedAC), nil).Times(1)
 
 	createdVolume, err := svc.CreateVolume(testCtx, api.Volume{
 		Id:           volumeID,
@@ -135,9 +139,10 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	svc.acProvider = acProvider
 	recreatedAC := acToReturn
 	recreatedAC.Spec.StorageClass = requiredSC
-
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
-		Return(&acToReturn).Times(1)
+	capMBuilder, capMMock := getCapacityManagerMock()
+	svc.capacityManagerBuilder = capMBuilder
+	capMMock.On("PlanVolumesPlacing", ctxWithID, mock.Anything).
+		Return(buildVolumePlacingPlan(testNode1Name, &expectedVolume, &acToReturn), nil).Times(1)
 	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, &acToReturn).
 		Return(&recreatedAC).Times(1)
 
@@ -222,21 +227,21 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 		requiredBytes = int64(util.GBYTE)
 		acToReturn    = accrd.AvailableCapacity{
 			Spec: api.AvailableCapacity{
-				StorageClass: apiV1.StorageClassHDDLVG,
+				StorageClass: apiV1.StorageClassHDD,
 			},
+		}
+		expectedVolume = api.Volume{
+			Id:                volumeID,
 		}
 	)
 
-	// AC was recreated from HDD to HDDLVG
-	requiredBytesForLVM := AlignSizeByPE(requiredBytes)
-	requiredBytesForLVMWithMetadata := requiredBytesForLVM + LvgDefaultMetadataSize
 	svc = setupVOOperationsTest(t)
 	svc.acProvider = acProvider
 
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
-		Return(nil).Times(1)
-	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytesForLVMWithMetadata, util.GetSubStorageClass(requiredSC)).
-		Return(&acToReturn).Times(1)
+	capMBuilder, capMMock := getCapacityManagerMock()
+	svc.capacityManagerBuilder = capMBuilder
+	capMMock.On("PlanVolumesPlacing", ctxWithID, mock.Anything).
+		Return(buildVolumePlacingPlan(testNode1Name, &expectedVolume, &acToReturn), nil).Times(1)
 	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, mock.Anything).
 		Return(nil).Times(1)
 
@@ -459,5 +464,23 @@ func setupVOOperationsTest(t *testing.T) *VolumeOperationsImpl {
 	assert.Nil(t, err)
 	assert.NotNil(t, k8sClient)
 
-	return NewVolumeOperationsImpl(k8sClient, testLogger)
+	return NewVolumeOperationsImpl(k8sClient, testLogger, featureconfig.NewFeatureConfig())
+}
+
+func buildVolumePlacingPlan(node string, vol *api.Volume,
+	ac *accrd.AvailableCapacity) *capacityplanner.VolumesPlacingPlan {
+	return capacityplanner.NewVolumesPlacingPlan(
+		capacityplanner.VolumesPlanMap{
+			node: capacityplanner.VolToACMap{
+				vol: ac,
+			},
+		},
+		capacityplanner.NodeCapacityMap{
+			node: capacityplanner.ACMap{ac.Name: ac},
+		})
+}
+
+func getCapacityManagerMock() (capacityplanner.CapacityManagerBuilder, *capacityplanner.PlannerMock) {
+	plannerMock := &capacityplanner.PlannerMock{}
+	return &capacityplanner.MockCapacityManagerBuilder{Manager: plannerMock}, plannerMock
 }

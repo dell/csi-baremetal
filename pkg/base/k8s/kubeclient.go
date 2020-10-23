@@ -19,7 +19,6 @@ package k8s
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -31,7 +30,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
@@ -62,8 +60,6 @@ type KubeClient struct {
 	k8sCl.Client
 	log       *logrus.Entry
 	Namespace string
-	//mutex for crd request
-	sync.Mutex
 }
 
 // NewKubeClient is the constructor for KubeClient struct
@@ -81,29 +77,25 @@ func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, namespace stri
 // Receives golang context, name of the created object, and object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	requestUUID := ctx.Value(RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
 	}
-
 	ll := k.log.WithFields(logrus.Fields{
 		"method":      "CreateCR",
 		"requestUUID": requestUUID.(string),
 	})
-
-	err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+	crKind := obj.GetObjectKind().GroupVersionKind().Kind
+	ll.Infof("Creating CR %s: %v", crKind, obj)
+	err := k.Create(ctx, obj)
 	if err != nil {
-		if k8sError.IsNotFound(err) {
-			ll.Infof("Creating CR %s: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
-			return k.Create(ctx, obj)
+		if k8sError.IsAlreadyExists(err) {
+			ll.Infof("CR %s %s already exist", crKind, name)
+			return nil
 		}
-		ll.Infof("Unable to check whether CR %s exist or not: %v", name, err)
-		return err
+		ll.Errorf("Failed to create CR %s %s", crKind, name)
 	}
-	ll.Infof("CR %s has already exist", name)
+	ll.Infof("CR %s %s created", crKind, name)
 	return nil
 }
 
@@ -111,9 +103,6 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
 func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
 }
 
@@ -121,9 +110,6 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object
 // Receives golang context, and List object pointer where to read
 // Returns error if something went wrong
 func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	return k.List(ctx, obj, k8sCl.InNamespace(k.Namespace))
 }
 
@@ -131,9 +117,6 @@ func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	requestUUID := ctx.Value(RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
@@ -151,9 +134,6 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 // Receives golang context and removable object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
-	k.Lock()
-	defer k.Unlock()
-
 	requestUUID := ctx.Value(RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
@@ -177,8 +157,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiAC,
 	}
@@ -194,8 +173,7 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      apiACR.Name,
-			Namespace: k.Namespace,
+			Name: apiACR.Name,
 		},
 		Spec: apiACR,
 	}
@@ -211,8 +189,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiLVG,
 	}
@@ -228,8 +205,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volum
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiVolume,
 	}
@@ -245,8 +221,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:      name,
-			Namespace: k.Namespace,
+			Name: name,
 		},
 		Spec: apiDrive,
 	}
@@ -383,18 +358,6 @@ func GetK8SClient() (k8sCl.Client, error) {
 	}
 
 	return cl, err
-}
-
-// GetFakeKubeClient returns fake KubeClient  for test purposes
-// Receives namespace to work
-// Returns instance of mocked KubeClient or error if something went wrong
-// TODO: test code shouldn't be in base package - https://github.com/dell/csi-baremetal/issues/81
-func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error) {
-	scheme, err := PrepareScheme()
-	if err != nil {
-		return nil, err
-	}
-	return NewKubeClient(fake.NewFakeClientWithScheme(scheme), logger, testNs), nil
 }
 
 // PrepareScheme registers CSI custom resources to runtime.Scheme

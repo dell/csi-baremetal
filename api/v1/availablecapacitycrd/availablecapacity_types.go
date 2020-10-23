@@ -23,7 +23,7 @@ import (
 )
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:resource:scope=Cluster,shortName={ac,acs}
 // AvailableCapacity is the Schema for the availablecapacities API
 type AvailableCapacity struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -49,5 +49,5 @@ func (in *AvailableCapacity) DeepCopyInto(out *AvailableCapacity) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec = out.Spec
+	out.Spec = in.Spec
 }

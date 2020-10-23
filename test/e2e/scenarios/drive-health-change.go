@@ -45,26 +45,7 @@ const (
 )
 
 var (
-	driveGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
-		Version:  apiV1.Version,
-		Resource: "drives",
-	}
-
-	acGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
-		Version:  apiV1.Version,
-		Resource: "availablecapacities",
-	}
-
-	volumeGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
-		Version:  apiV1.Version,
-		Resource: "volumes",
-	}
-
 	pvcName   = "baremetal-csi-pvc"
-	configKey = "config.yaml"
 )
 
 // DefineDriveHealthChangeTestSuite defines custom baremetal-csi e2e tests
@@ -119,7 +100,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		init(conf)
 		defer cleanup()
 
-		acUnstructuredList := getUObjList(f, acGVR)
+		acUnstructuredList := getUObjList(f, common.ACGVR)
 		// Save amount of ACs before drive's health changing
 		amountOfACBeforeDiskFailure := len(acUnstructuredList.Items)
 		e2elog.Logf("found %d ac", amountOfACBeforeDiskFailure)
@@ -131,7 +112,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		framework.ExpectNoError(err)
 		nodeNameOfAC, err := findNodeNameByUID(f, nodeUidOfAC)
 		framework.ExpectNoError(err)
-		targetDrive, found := getUObj(f, driveGVR, acLocation)
+		targetDrive, found := getUObj(f, common.DriveGVR, acLocation)
 		Expect(found).To(BeTrue())
 		targetDriveName, _, err := unstructured.NestedString(targetDrive.Object, "metadata", "name")
 		framework.ExpectNoError(err)
@@ -149,13 +130,13 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		applyLMConfig(f, conf)
 
 		// wait for drive health change
-		waitForObjStateChange(f, driveGVR, targetDriveName, driveStateChangeTimeout,
+		waitForObjStateChange(f, common.DriveGVR, targetDriveName, driveStateChangeTimeout,
 			targetDriveNewHealth, "spec", "Health")
 
 		// Read ACs one more time with retry
 		deadline := time.Now().Add(time.Second * 30)
 		for {
-			acUnstructuredList = getUObjList(f, acGVR)
+			acUnstructuredList = getUObjList(f, common.ACGVR)
 			if len(acUnstructuredList.Items) == amountOfACBeforeDiskFailure-1 {
 				e2elog.Logf("AC count decreased")
 				return
@@ -186,7 +167,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		testPODs = append(testPODs, pod)
 
 		// Get Volume CRs and save variables to identify on which drive the pod's Volume based on
-		volumesUnstructuredList, _ := f.DynamicClient.Resource(volumeGVR).List(metav1.ListOptions{})
+		volumesUnstructuredList, _ := f.DynamicClient.Resource(common.VolumeGVR).List(metav1.ListOptions{})
 		targetVolume := volumesUnstructuredList.Items[0]
 		location, _, err := unstructured.NestedString(targetVolume.Object, "spec", "Location")
 		framework.ExpectNoError(err)
@@ -196,7 +177,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		framework.ExpectNoError(err)
 		nodeNameOfVolume, err := findNodeNameByUID(f, nodeUidOfVolume)
 		framework.ExpectNoError(err)
-		targetDrive, found := getUObj(f, driveGVR, location)
+		targetDrive, found := getUObj(f, common.DriveGVR, location)
 		Expect(found).To(BeTrue())
 		targetDriveSN, _, err := unstructured.NestedString(targetDrive.Object, "spec", "SerialNumber")
 		framework.ExpectNoError(err)
@@ -212,7 +193,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		applyLMConfig(f, conf)
 
 		// wait for volume health change
-		waitForObjStateChange(f, volumeGVR, volumeName, driveStateChangeTimeout,
+		waitForObjStateChange(f, common.VolumeGVR, volumeName, driveStateChangeTimeout,
 			apiV1.HealthBad, "spec", "Health")
 
 		// check events for volume
@@ -229,7 +210,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		init(conf)
 		defer cleanup()
 
-		allDrives := getUObjList(f, driveGVR)
+		allDrives := getUObjList(f, common.DriveGVR)
 		Expect(len(allDrives.Items) > 2).To(BeTrue())
 		targetNodeID, _, err := unstructured.NestedString(
 			allDrives.Items[0].UnstructuredContent(), "spec", "NodeId")
@@ -267,9 +248,9 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 			}},
 		}}
 		applyLMConfig(f, conf)
-		waitForObjStateChange(f, driveGVR, driveUnderTest1Name, driveStateChangeTimeout,
+		waitForObjStateChange(f, common.DriveGVR, driveUnderTest1Name, driveStateChangeTimeout,
 			apiV1.HealthBad, "spec", "Health")
-		waitForObjStateChange(f, driveGVR, driveUnderTest2Name, driveStateChangeTimeout,
+		waitForObjStateChange(f, common.DriveGVR, driveUnderTest2Name, driveStateChangeTimeout,
 			apiV1.DriveStatusOffline, "spec", "Status")
 
 		// switch driveUnderTest1 health to "GOOD"
@@ -280,9 +261,9 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		// driveUnderTest2
 		conf.Nodes[0].Drives[1].Removed = nil
 		applyLMConfig(f, conf)
-		waitForObjStateChange(f, driveGVR, driveUnderTest1Name, driveStateChangeTimeout,
+		waitForObjStateChange(f, common.DriveGVR, driveUnderTest1Name, driveStateChangeTimeout,
 			apiV1.HealthGood, "spec", "Health")
-		waitForObjStateChange(f, driveGVR, driveUnderTest2Name, driveStateChangeTimeout,
+		waitForObjStateChange(f, common.DriveGVR, driveUnderTest2Name, driveStateChangeTimeout,
 			apiV1.DriveStatusOnline, "spec", "Status")
 
 		// check events
@@ -369,13 +350,13 @@ func filterDrivesCRsForNode(nodeID string, drives *unstructured.UnstructuredList
 }
 
 func getUObjList(f *framework.Framework, resource schema.GroupVersionResource) *unstructured.UnstructuredList {
-	drivesU, err := f.DynamicClient.Resource(resource).Namespace(f.Namespace.Name).List(metav1.ListOptions{})
+	drivesU, err := f.DynamicClient.Resource(resource).Namespace("").List(metav1.ListOptions{})
 	framework.ExpectNoError(err)
 	return drivesU
 }
 
 func getUObj(f *framework.Framework, resource schema.GroupVersionResource, name string) (*unstructured.Unstructured, bool) {
-	driveU, err := f.DynamicClient.Resource(resource).Namespace(f.Namespace.Name).Get(name, metav1.GetOptions{})
+	driveU, err := f.DynamicClient.Resource(resource).Namespace("").Get(name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false
@@ -424,7 +405,7 @@ func checkExpectedEventsExistWithRetry(f *framework.Framework, object runtime.Ob
 }
 
 func checkExpectedEventsExist(f *framework.Framework, object runtime.Object, eventsReasons []string) bool {
-	evlist, err := f.ClientSet.CoreV1().Events(f.Namespace.Name).Search(runtime.NewScheme(), object)
+	evlist, err := f.ClientSet.CoreV1().Events("").Search(runtime.NewScheme(), object)
 	framework.ExpectNoError(err)
 	events := evlist.Items
 

@@ -24,6 +24,7 @@ import (
 
 // +kubebuilder:object:root=true
 
+// +kubebuilder:resource:scope=Cluster,shortName={acr,acrs}
 // AvailableCapacityReservation is the Schema for the availablecapacitiereservations API
 type AvailableCapacityReservation struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -49,5 +50,5 @@ func (in *AvailableCapacityReservation) DeepCopyInto(out *AvailableCapacityReser
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec = out.Spec
+	out.Spec = in.Spec
 }

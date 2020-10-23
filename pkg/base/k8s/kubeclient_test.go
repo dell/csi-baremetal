@@ -73,7 +73,7 @@ var (
 	testACName     = fmt.Sprintf("%s-%s", testApiAC.NodeId, testApiAC.Location)
 	testACCR       = accrd.AvailableCapacity{
 		TypeMeta:   testACTypeMeta,
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testACName, Namespace: testNs},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testACName},
 		Spec:       testApiAC,
 	}
 
@@ -105,13 +105,13 @@ var (
 	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version}
 	testDriveCR       = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID, Namespace: testNs},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID},
 		Spec:       testApiDrive,
 	}
 
 	testDriveCR2 = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID2, Namespace: testNs},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testUUID2},
 		Spec:       testApiDrive2,
 	}
 
@@ -127,7 +127,6 @@ var (
 		TypeMeta: testVolumeTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testID,
-			Namespace:         testNs,
 			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
 		},
 		Spec: testApiVolume,
@@ -146,8 +145,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: k8smetav1.ObjectMeta{
-			Name:      testLVGName,
-			Namespace: testNs,
+			Name: testLVGName,
 		},
 		Spec: testApiLVG,
 	}
@@ -294,6 +292,17 @@ var _ = Describe("Working with CRD", func() {
 			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
 		})
 
+		It("Create CR should be idempotent", func() {
+			err := k8sclient.CreateCR(testCtx, testACName, &testACCR)
+			Expect(err).To(BeNil())
+			err = k8sclient.CreateCR(testCtx, testACName, &testACCR)
+			Expect(err).To(BeNil())
+			rAC := &accrd.AvailableCapacity{}
+			err = k8sclient.ReadCR(testCtx, testACName, rAC)
+			Expect(err).To(BeNil())
+			Expect(rAC.ObjectMeta.Name).To(Equal(testACName))
+		})
+
 		It("Should read volumes CR List", func() {
 			err := k8sclient.CreateCR(context.Background(), testACName, &testVolume)
 			Expect(err).To(BeNil())
@@ -313,7 +322,7 @@ var _ = Describe("Working with CRD", func() {
 			err = k8sclient.ReadList(context.Background(), dList)
 			Expect(err).To(BeNil())
 			Expect(len(dList.Items)).To(Equal(1))
-			Expect(dList.Items[0].Namespace).To(Equal(testNs))
+			Expect(dList.Items[0].Namespace).To(Equal(""))
 		})
 
 		It("Try to read CRD that doesn't exist", func() {

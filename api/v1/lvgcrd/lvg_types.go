@@ -25,6 +25,7 @@ import (
 // +kubebuilder:object:root=true
 
 // LVG is the Schema for the LVGs API
+// +kubebuilder:resource:scope=Cluster
 type LVG struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -50,5 +51,5 @@ func (in *LVG) DeepCopyInto(out *LVG) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec = out.Spec
+	out.Spec = in.Spec
 }

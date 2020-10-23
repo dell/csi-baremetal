@@ -157,7 +157,6 @@ func schedulingTest(driver testsuites.TestDriver) {
 	})
 
 	ginkgo.It("PODs should distribute across nodes", func() {
-		framework.Skipf("skip test. See ATLDEF-81 for details")
 		testPodsCount := 3
 		testPodsDisksPerPod := 3
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, testPodsCount)
@@ -263,7 +262,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 }
 
 func getVolumesByNodes(f *framework.Framework) map[string][]string {
-	volumesUnstructuredList, err := f.DynamicClient.Resource(volumeGVR).List(metav1.ListOptions{})
+	volumesUnstructuredList, err := f.DynamicClient.Resource(common.VolumeGVR).List(metav1.ListOptions{})
 	framework.ExpectNoError(err)
 	volumes := make(map[string][]string)
 	for _, targetVolume := range volumesUnstructuredList.Items {

@@ -25,6 +25,7 @@ import (
 // +kubebuilder:object:root=true
 
 // Volume is the Schema for the volumes API
+// +kubebuilder:resource:scope=Cluster
 type Volume struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -47,7 +48,7 @@ func (in *Volume) DeepCopyInto(out *Volume) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec = out.Spec
+	out.Spec = in.Spec
 }
 
 func init() {

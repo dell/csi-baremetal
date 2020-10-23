@@ -42,6 +42,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -70,6 +71,9 @@ var (
 
 func main() {
 	flag.Parse()
+
+	featureConf := featureconfig.NewFeatureConfig()
+	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
 
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
@@ -107,7 +111,8 @@ func main() {
 
 	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder, *useACRs)
+	csiNodeService := node.NewCSINodeService(
+		clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
@@ -220,7 +225,7 @@ func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*e
 	if err != nil {
 		return nil, fmt.Errorf("fail to create kubernetes client, error: %s", err)
 	}
-	eventInter := k8SClientset.CoreV1().Events(*namespace)
+	eventInter := k8SClientset.CoreV1().Events("")
 
 	// get the Scheme
 	// in our case we should use Scheme that aware of our CR

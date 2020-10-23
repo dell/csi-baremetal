@@ -14,7 +14,7 @@ spec:
     listKind: LVGList
     plural: lvgs
     singular: lvg
-  scope: ""
+  scope: Cluster
   validation:
     openAPIV3Schema:
       description: LVG is the Schema for the LVGs API

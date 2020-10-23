@@ -24,6 +24,7 @@ import (
 
 // +kubebuilder:object:root=true
 
+// +kubebuilder:resource:scope=Cluster
 // CSIBMNode is the Schema for the CSIBMNode API
 type CSIBMNode struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -49,5 +50,5 @@ func (in *CSIBMNode) DeepCopyInto(out *CSIBMNode) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec = out.Spec
+	out.Spec = in.Spec
 }

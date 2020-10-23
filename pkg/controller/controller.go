@@ -34,6 +34,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
@@ -57,14 +58,12 @@ type CSIControllerService struct {
 	reqMu sync.Mutex
 	log   *logrus.Entry
 
-	svc        common.VolumeOperations
-	acProvider common.AvailableCapacityOperations
+	svc common.VolumeOperations
 
 	// to track node health status
 	nodeServicesStateMonitor *node.ServicesStateMonitor
 
-	useACRs bool
-	ready   bool
+	ready bool
 
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
@@ -73,13 +72,12 @@ type CSIControllerService struct {
 // NewControllerService is the constructor for CSIControllerService struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of CSIControllerService
-func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger, useACRs bool) *CSIControllerService {
+func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
+	featureConf featureconfig.FeatureChecker) *CSIControllerService {
 	c := &CSIControllerService{
 		k8sclient:                k8sClient,
 		log:                      logger.WithField("component", "CSIControllerService"),
-		acProvider:               common.NewACOperationsImpl(k8sClient, logger),
-		useACRs:                  useACRs,
-		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger),
+		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, featureConf),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
 		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),
 	}
