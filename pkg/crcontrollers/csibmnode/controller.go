@@ -171,8 +171,8 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 
 	var (
 		bmNode          = &nodecrd.CSIBMNode{}
+		bmNodeFromCache = false
 		bmNodes         []nodecrd.CSIBMNode
-		bmNodeFromCache bool
 	)
 	// get corresponding CSIBMNode CR name from cache
 	if bmNodeName, bmNodeFromCache := bmc.cache.getCSIBMNodeName(k8sNode.Name); bmNodeFromCache {
@@ -243,34 +243,41 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		return ctrl.Result{Requeue: false}, err
 	}
 
+	var (
+		k8sNode          = &coreV1.Node{}
+		k8sNodes         []coreV1.Node
+		k8sNodeFromCache bool
+	)
+
 	// get corresponding k8s node name from cache
-	var k8sNode = &coreV1.Node{}
-	if k8sNodeName, ok := bmc.cache.getK8sNodeName(bmNode.Name); ok {
+	if k8sNodeName, k8sNodeFromCache := bmc.cache.getK8sNodeName(bmNode.Name); k8sNodeFromCache {
 		if err := bmc.k8sClient.ReadCR(context.Background(), k8sNodeName, k8sNode); err != nil {
 			ll.Errorf("Unable to read k8s node %s: %v", k8sNodeName, err)
 			return ctrl.Result{Requeue: true}, err
 		}
-		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
+		k8sNodes = []coreV1.Node{*k8sNode}
 	}
 
-	// search corresponding k8s node name in k8s API
-	k8sNodes := new(coreV1.NodeList)
-	if err := bmc.k8sClient.ReadList(context.Background(), k8sNodes); err != nil {
-		ll.Errorf("Unable to read k8s nodes list: %v", err)
-		return ctrl.Result{Requeue: true}, err
+	if !k8sNodeFromCache {
+		k8sNodeCRs := new(coreV1.NodeList)
+		if err := bmc.k8sClient.ReadList(context.Background(), k8sNodeCRs); err != nil {
+			ll.Errorf("Unable to read k8s nodes list: %v", err)
+			return ctrl.Result{Requeue: true}, err
+		}
+		k8sNodes = k8sNodeCRs.Items
 	}
 
 	matchedNodes := make([]string, 0)
-	for i := range k8sNodes.Items {
-		matchedAddresses := bmc.matchedAddressesCount(bmNode, &k8sNodes.Items[i])
+	for i := range k8sNodes {
+		matchedAddresses := bmc.matchedAddressesCount(bmNode, &k8sNodes[i])
 		if matchedAddresses == len(bmNode.Spec.Addresses) {
-			k8sNode = &k8sNodes.Items[i]
+			k8sNode = &k8sNodes[i]
 			matchedNodes = append(matchedNodes, k8sNode.Name)
 			continue
 		}
 		if matchedAddresses > 0 {
 			ll.Errorf("There is k8s node %s that partially match CSIBMNode CR %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
-				k8sNodes.Items[i].Name, bmNode.Name, bmNode.Spec, k8sNodes.Items[i].Status.Addresses)
+				k8sNodes[i].Name, bmNode.Name, bmNode.Spec, k8sNodes[i].Status.Addresses)
 			return ctrl.Result{}, nil
 		}
 	}
