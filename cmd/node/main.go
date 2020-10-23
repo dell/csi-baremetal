@@ -77,6 +77,7 @@ func main() {
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
+	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
 
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
@@ -100,7 +101,7 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 
-	nodeID, err := getNodeID(k8SClient, *nodeName, *useNodeAnnotation)
+	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
@@ -213,13 +214,13 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	return mgr
 }
 
-func getNodeID(client k8sClient.Client, nodeName string, fromAnnotation bool) (string, error) {
+func getNodeID(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	k8sNode := corev1.Node{}
 	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
 		return "", err
 	}
 
-	if fromAnnotation {
+	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
 		if val, ok := k8sNode.GetAnnotations()[csibmnode.NodeIDAnnotationKey]; ok {
 			return val, nil
 		}
