@@ -194,7 +194,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		}
 		if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
 			resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
-			if err = resHelper.ReleaseReservation(ctxWithID, origAC, ac); err != nil {
+			if err = resHelper.ReleaseReservation(ctxWithID, &v, origAC, ac); err != nil {
 				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)
 			}
 		}

@@ -50,6 +50,9 @@ type ReservationHelper struct {
 	resReader ReservationReader
 	capReader CapacityReader
 
+	acList  []accrd.AvailableCapacity
+	acrList []acrcrd.AvailableCapacityReservation
+
 	acMap       ACMap
 	acrMap      ACRMap
 	acNameToACR ACNameToACRNamesMap
@@ -102,13 +105,18 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 // Also, if AC was converted to AC with another SC, for example HDD-> HDDLVG,
 // we need to replace old AC with new in all ACRs
 func (rh *ReservationHelper) ReleaseReservation(
-	ctx context.Context, ac, acReplacement *accrd.AvailableCapacity) error {
+	ctx context.Context, volume *genV1.Volume, ac, acReplacement *accrd.AvailableCapacity) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ReleaseReservation")
 	err := rh.update(ctx)
 	if err != nil {
 		return err
 	}
-	_, acrToRemove := choseACinACRWithLessAC(ACMap{ac.Name: ac}, rh.acrMap, rh.acNameToACR)
+	// we should select ACR to remove from ACRs which have same size and SC as volume
+	filteredACRMap, filteredACNameToACR := buildACRMaps(
+		FilterACRList(rh.acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
+			return acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size
+		}))
+	_, acrToRemove := choseACinACRWithLessAC(ACMap{ac.Name: ac}, filteredACRMap, filteredACNameToACR)
 	if acrToRemove == nil {
 		logger.Infof("ACR holding AC %s not found. Skip deletion.", ac.Name)
 		return nil
@@ -127,18 +135,19 @@ func (rh *ReservationHelper) ReleaseReservation(
 
 func (rh *ReservationHelper) update(ctx context.Context) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.update")
-	acList, err := rh.capReader.ReadCapacity(ctx)
+	var err error
+	rh.acList, err = rh.capReader.ReadCapacity(ctx)
 	if err != nil {
 		logger.Errorf("failed to read AC list: %s", err.Error())
 		return err
 	}
-	acrList, err := rh.resReader.ReadReservations(ctx)
+	rh.acrList, err = rh.resReader.ReadReservations(ctx)
 	if err != nil {
 		logger.Errorf("failed to read ACR list: %s", err.Error())
 		return err
 	}
-	rh.acMap = buildACMap(acList)
-	rh.acrMap, rh.acNameToACR = buildACRMaps(acrList)
+	rh.acMap = buildACMap(rh.acList)
+	rh.acrMap, rh.acNameToACR = buildACRMaps(rh.acrList)
 
 	return nil
 }
