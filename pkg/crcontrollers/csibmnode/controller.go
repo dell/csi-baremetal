@@ -19,6 +19,7 @@ package csibmnode
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -47,10 +48,16 @@ const (
 
 // Controller is a controller for CSIBMNode CR
 type Controller struct {
-	k8sClient *k8s.KubeClient
-	cache     nodesMapping
+	k8sClient    *k8s.KubeClient
+	nodeSelector *label
+	cache        nodesMapping
 
 	log *logrus.Entry
+}
+
+type label struct {
+	key   string
+	value string
 }
 
 // nodesMapping it is not a thread safety cache that holds mapping between names for k8s node and BMCSINode CR objects
@@ -75,15 +82,39 @@ func (nc *nodesMapping) put(k8sNodeName, bmNodeName string) {
 }
 
 // NewController returns instance of Controller
-func NewController(k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
-	return &Controller{
+func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
+	c := &Controller{
 		k8sClient: k8sClient,
 		cache: nodesMapping{
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
 		log: logger.WithField("component", "Controller"),
-	}, nil
+	}
+
+	if nodeSelector != "" {
+		splitted := strings.Split(nodeSelector, ":")
+		if len(splitted) != 2 {
+			return nil, fmt.Errorf("unable to parse nodeSelector %s", nodeSelector)
+		}
+		c.nodeSelector = &label{key: splitted[0], value: splitted[1]}
+		c.log.Infof("will be working with nodes that matched next selector: %v", c.nodeSelector)
+	}
+
+	return c, nil
+}
+
+func (bmc *Controller) isMatchSelector(k8sNode *coreV1.Node) bool {
+	if bmc.nodeSelector == nil {
+		return true
+	}
+
+	val, ok := k8sNode.GetLabels()[bmc.nodeSelector.key]
+	matched := ok && val == bmc.nodeSelector.value
+	bmc.log.WithField("method", "isMatchSelector").
+		Debugf("Node %s matches node selector %v: %v", bmc.nodeSelector, matched)
+
+	return matched
 }
 
 // SetupWithManager registers Controller to k8s controller manager
@@ -95,6 +126,18 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 		}).
 		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}). // secondary resource
 		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				if _, ok := e.Object.(*nodecrd.CSIBMNode); ok {
+					return true
+				}
+
+				k8sNode, ok := e.Object.(*coreV1.Node)
+				if !ok {
+					return false
+				}
+
+				return bmc.isMatchSelector(k8sNode)
+			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				if _, ok := e.ObjectOld.(*nodecrd.CSIBMNode); ok {
 					return true
@@ -105,6 +148,10 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 					return false
 				}
 				nodeNew := e.ObjectNew.(*coreV1.Node)
+
+				if !bmc.isMatchSelector(nodeNew) {
+					return false
+				}
 
 				annotationAreTheSame := reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations())
 				addressesAreTheSame := reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)

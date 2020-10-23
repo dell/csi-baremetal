@@ -33,6 +33,7 @@ import (
 )
 
 var (
+	nodeSelector = flag.String("nodeselector", "", "controller will be work only with node with provided nodeSelector")
 	namespace = flag.String("namespace", "", "Namespace in which controller service run")
 	logLevel  = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
@@ -61,7 +62,7 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
 
-	nodeCtrl, err := csibmnode.NewController(kubeClient, logger)
+	nodeCtrl, err := csibmnode.NewController(*nodeSelector, kubeClient, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

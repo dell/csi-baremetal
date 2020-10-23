@@ -10,3 +10,8 @@ env:
 log:
   format: text
   level: info
+
+# to work only with node with such label
+nodeSelector:
+  key:
+  value:

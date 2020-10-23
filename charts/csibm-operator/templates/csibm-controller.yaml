@@ -22,6 +22,9 @@ spec:
                {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
+          {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
+          - --nodeselector="{{.Values.nodeSelector.key}}:{{.Values.nodeSelector.value}}"
+          {{- end }}
           - --namespace=$(NAMESPACE)
           - --loglevel={{ .Values.log.level }}
           - --logformat={{ .Values.log.format }}

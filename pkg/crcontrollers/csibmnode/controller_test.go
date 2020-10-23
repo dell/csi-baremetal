@@ -84,7 +84,7 @@ func TestNewCSIBMController(t *testing.T) {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 
-	c, err := NewController(k8sClient, testLogger)
+	c, err := NewController("", k8sClient, testLogger)
 	assert.Nil(t, err)
 	assert.NotNil(t, c)
 	assert.NotNil(t, c.cache)
@@ -417,7 +417,7 @@ func setup(t *testing.T) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 
-	c, err := NewController(k8sClient, testLogger)
+	c, err := NewController("", k8sClient, testLogger)
 	assert.Nil(t, err)
 	return c
 }
