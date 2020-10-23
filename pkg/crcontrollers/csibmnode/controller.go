@@ -98,7 +98,7 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 			return nil, fmt.Errorf("unable to parse nodeSelector %s", nodeSelector)
 		}
 		c.nodeSelector = &label{key: splitted[0], value: splitted[1]}
-		c.log.Infof("will be working with nodes that matched next selector: %v", c.nodeSelector)
+		c.log.Infof("Controller will be working with nodes that matched next selector: %v", c.nodeSelector)
 	}
 
 	return c, nil
@@ -112,7 +112,7 @@ func (bmc *Controller) isMatchSelector(k8sNode *coreV1.Node) bool {
 	val, ok := k8sNode.GetLabels()[bmc.nodeSelector.key]
 	matched := ok && val == bmc.nodeSelector.value
 	bmc.log.WithField("method", "isMatchSelector").
-		Debugf("Node %s matches node selector %v: %v", bmc.nodeSelector, matched)
+		Debugf("Node %s matches node selector %v: %v", k8sNode.Name, bmc.nodeSelector, matched)
 
 	return matched
 }
@@ -155,10 +155,9 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 
 				annotationAreTheSame := reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations())
 				addressesAreTheSame := reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)
-				bmc.log.Debugf("UpdateEvent for k8s node %s. Annotations are the same - %v. Addresses are the same - %v.",
-					nodeOld.Name, annotationAreTheSame, addressesAreTheSame)
+				labelsAreTheSame := bmc.nodeSelector == nil || reflect.DeepEqual(nodeOld.GetLabels(), nodeNew.GetLabels())
 
-				return !annotationAreTheSame || !addressesAreTheSame
+				return !annotationAreTheSame || !addressesAreTheSame || !labelsAreTheSame
 			},
 		}).
 		Complete(bmc)

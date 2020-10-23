@@ -34,8 +34,8 @@ import (
 
 var (
 	nodeSelector = flag.String("nodeselector", "", "controller will be work only with node with provided nodeSelector")
-	namespace = flag.String("namespace", "", "Namespace in which controller service run")
-	logLevel  = flag.String("loglevel", base.InfoLevel,
+	namespace    = flag.String("namespace", "", "Namespace in which controller service run")
+	logLevel     = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	logFormat = flag.String("logformat", base.LogFormatText,
 		fmt.Sprintf("Log level, supported value is %s. Json format is used by default", base.LogFormatText))

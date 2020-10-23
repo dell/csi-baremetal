@@ -84,12 +84,38 @@ func TestNewCSIBMController(t *testing.T) {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 
-	c, err := NewController("", k8sClient, testLogger)
-	assert.Nil(t, err)
-	assert.NotNil(t, c)
-	assert.NotNil(t, c.cache)
-	assert.NotNil(t, c.cache.bmToK8sNode)
-	assert.NotNil(t, c.cache.k8sToBMNode)
+	t.Run("Node selector is empty", func(t *testing.T) {
+		c, err := NewController("", k8sClient, testLogger)
+		assert.Nil(t, err)
+		assert.Nil(t, c.nodeSelector)
+		assert.NotNil(t, c)
+		assert.NotNil(t, c.cache)
+		assert.NotNil(t, c.cache.bmToK8sNode)
+		assert.NotNil(t, c.cache.k8sToBMNode)
+	})
+
+	t.Run("Node selector is provided", func(t *testing.T) {
+		var (
+			key = "key"
+			value = "value"
+		)
+
+		c, err := NewController("key:value", k8sClient, testLogger)
+		assert.Nil(t, err)
+		assert.NotNil(t, c)
+		assert.NotNil(t, c.cache)
+		assert.NotNil(t, c.cache.bmToK8sNode)
+		assert.NotNil(t, c.cache.k8sToBMNode)
+		assert.NotNil(t, c.nodeSelector)
+		assert.Equal(t, label{key, value}, *c.nodeSelector)
+	})
+
+	t.Run("Node selector is wrong", func(t *testing.T) {
+		c, err := NewController("key:dfdf:value", k8sClient, testLogger)
+		assert.Nil(t, c)
+		assert.NotNil(t, err)
+	})
+
 }
 
 func Test_nodesCache(t *testing.T) {

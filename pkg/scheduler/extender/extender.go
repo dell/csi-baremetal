@@ -338,6 +338,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 			failedNodesMap[node.Name] = noACForNodeMsg
 			continue
 		}
+		node := node
 		placingForNode := placingPlan.GetVolumesToACMapping(e.getNodeID(&node))
 		if placingForNode == nil {
 			failedNodesMap[node.Name] = noACForNodeMsg
