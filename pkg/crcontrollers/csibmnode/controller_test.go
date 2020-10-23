@@ -93,7 +93,7 @@ func TestNewCSIBMController(t *testing.T) {
 }
 
 func Test_nodesCache(t *testing.T) {
-	c := &nodesCache{
+	c := &nodesMapping{
 		k8sToBMNode: make(map[string]string),
 		bmToK8sNode: make(map[string]string),
 	}

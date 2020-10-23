@@ -48,28 +48,28 @@ const (
 // Controller is a controller for CSIBMNode CR
 type Controller struct {
 	k8sClient *k8s.KubeClient
-	cache     nodesCache
+	cache     nodesMapping
 
 	log *logrus.Entry
 }
 
-// not a thread safety cache that holds mapping between names for k8s node and BMCSINode CR objects
-type nodesCache struct {
-	k8sToBMNode map[string]string // k8s CSIBMNode name to CSIBMNode CR name
-	bmToK8sNode map[string]string // CSIBMNode CR name to k8s CSIBMNode name
+// nodesMapping it is not a thread safety cache that holds mapping between names for k8s node and BMCSINode CR objects
+type nodesMapping struct {
+	k8sToBMNode map[string]string // k8s node name to CSIBMNode CR name
+	bmToK8sNode map[string]string // CSIBMNode CR name to k8s node name
 }
 
-func (nc *nodesCache) getK8sNodeName(bmNodeName string) (string, bool) {
+func (nc *nodesMapping) getK8sNodeName(bmNodeName string) (string, bool) {
 	res, ok := nc.bmToK8sNode[bmNodeName]
 	return res, ok
 }
 
-func (nc *nodesCache) getCSIBMNodeName(k8sNodeName string) (string, bool) {
+func (nc *nodesMapping) getCSIBMNodeName(k8sNodeName string) (string, bool) {
 	res, ok := nc.k8sToBMNode[k8sNodeName]
 	return res, ok
 }
 
-func (nc *nodesCache) put(k8sNodeName, bmNodeName string) {
+func (nc *nodesMapping) put(k8sNodeName, bmNodeName string) {
 	nc.k8sToBMNode[k8sNodeName] = bmNodeName
 	nc.bmToK8sNode[bmNodeName] = k8sNodeName
 }
@@ -78,7 +78,7 @@ func (nc *nodesCache) put(k8sNodeName, bmNodeName string) {
 func NewController(k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
 	return &Controller{
 		k8sClient: k8sClient,
-		cache: nodesCache{
+		cache: nodesMapping{
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
@@ -195,7 +195,8 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 			continue
 		}
 		if matchedAddresses > 0 {
-			ll.Warnf("There is CSIBMNode %s that partially match k8s node %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
+			ll.Errorf("There is CSIBMNode %s that partially match k8s node %s. CSIBMNode.Spec: %v, k8s node addresses: %v. "+
+				"CSIBMNode Spec should be edited to match exactly one kubernetes node",
 				bmNodeCRs.Items[i].Name, k8sNode.Name, bmNodeCRs.Items[i].Spec, k8sNode.Status.Addresses)
 			return ctrl.Result{}, nil
 		}
@@ -262,20 +263,19 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 			continue
 		}
 		if matchedAddresses > 0 {
-			ll.Warnf("There is k8s node %s that partially match CSIBMNode CR %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
+			ll.Errorf("There is k8s node %s that partially match CSIBMNode CR %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
 				k8sNodes.Items[i].Name, bmNode.Name, bmNode.Spec, k8sNodes.Items[i].Status.Addresses)
 			return ctrl.Result{}, nil
 		}
 	}
 
-	switch len(matchedNodes) {
-	case 1:
+	if len(matchedNodes) == 1 {
 		bmc.cache.put(k8sNode.Name, bmNode.Name)
 		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
-	default:
-		ll.Warnf("Unable to detect k8s node that corresponds to CSIBMNode %v, matched nodes: %v", bmNode, matchedNodes)
-		return ctrl.Result{}, nil
 	}
+
+	ll.Warnf("Unable to detect k8s node that corresponds to CSIBMNode %v, matched nodes: %v", bmNode, matchedNodes)
+	return ctrl.Result{}, nil
 }
 
 // updateAnnotation checks NodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue

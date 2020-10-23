@@ -3,6 +3,9 @@ image:
   tag: green
   pullPolicy: Always
 
+env:
+  test: false
+
 # logging settings
 log:
   format: text
