@@ -169,41 +169,47 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 		return ctrl.Result{Requeue: false}, err
 	}
 
+	var (
+		bmNode          = &nodecrd.CSIBMNode{}
+		bmNodes         []nodecrd.CSIBMNode
+		bmNodeFromCache bool
+	)
 	// get corresponding CSIBMNode CR name from cache
-	var bmNode = &nodecrd.CSIBMNode{}
-	if bmNodeName, ok := bmc.cache.getCSIBMNodeName(k8sNode.Name); ok {
+	if bmNodeName, bmNodeFromCache := bmc.cache.getCSIBMNodeName(k8sNode.Name); bmNodeFromCache {
 		if err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, bmNode); err != nil {
 			ll.Errorf("Unable to read CSIBMNode %s: %v", bmNodeName, err)
 			return ctrl.Result{Requeue: true}, err
 		}
-		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
+		bmNodes = []nodecrd.CSIBMNode{*bmNode}
 	}
 
-	// search corresponding CSIBMNode CR name in k8s API
-	bmNodeCRs := new(nodecrd.CSIBMNodeList)
-	if err := bmc.k8sClient.ReadList(context.Background(), bmNodeCRs); err != nil {
-		ll.Errorf("Unable to read CSIBMNode CRs list: %v", err)
-		return ctrl.Result{Requeue: true}, err
+	if !bmNodeFromCache {
+		bmNodeCRs := new(nodecrd.CSIBMNodeList)
+		if err := bmc.k8sClient.ReadList(context.Background(), bmNodeCRs); err != nil {
+			ll.Errorf("Unable to read CSIBMNode CRs list: %v", err)
+			return ctrl.Result{Requeue: true}, err
+		}
+		bmNodes = bmNodeCRs.Items
 	}
 
 	matchedCRs := make([]string, 0)
-	for i := range bmNodeCRs.Items {
-		matchedAddresses := bmc.matchedAddressesCount(&bmNodeCRs.Items[i], k8sNode)
-		if len(bmNodeCRs.Items[i].Spec.Addresses) > 0 && matchedAddresses == len(bmNodeCRs.Items[i].Spec.Addresses) {
-			bmNode = &bmNodeCRs.Items[i]
+	for i := range bmNodes {
+		matchedAddresses := bmc.matchedAddressesCount(&bmNodes[i], k8sNode)
+		if len(bmNodes[i].Spec.Addresses) > 0 && matchedAddresses == len(bmNodes[i].Spec.Addresses) {
+			bmNode = &bmNodes[i]
 			matchedCRs = append(matchedCRs, bmNode.Name)
 			continue
 		}
 		if matchedAddresses > 0 {
 			ll.Errorf("There is CSIBMNode %s that partially match k8s node %s. CSIBMNode.Spec: %v, k8s node addresses: %v. "+
 				"CSIBMNode Spec should be edited to match exactly one kubernetes node",
-				bmNodeCRs.Items[i].Name, k8sNode.Name, bmNodeCRs.Items[i].Spec, k8sNode.Status.Addresses)
+				bmNodes[i].Name, k8sNode.Name, bmNodes[i].Spec, k8sNode.Status.Addresses)
 			return ctrl.Result{}, nil
 		}
 	}
 
 	if len(matchedCRs) > 1 {
-		ll.Warnf("More then one CSIBMNode CR corresponds to the current k8s node (%d). Matched CSIBMNode CRs: %v", len(matchedCRs), matchedCRs)
+		ll.Errorf("More then one CSIBMNode CR corresponds to the current k8s node (%d). Matched CSIBMNode CRs: %v", len(matchedCRs), matchedCRs)
 		return ctrl.Result{}, nil
 	}
 
@@ -283,22 +289,22 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 func (bmc *Controller) updateAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
 	ll := bmc.log.WithField("method", "updateAnnotation")
 	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
-	switch {
-	case ok && val == goalValue:
-		// nothing to do
-	case ok && val != goalValue:
+	if ok {
+		if val == goalValue {
+			ll.Debugf("%s value for node %s is already %s", NodeIDAnnotationKey, k8sNode.Name, goalValue)
+			return ctrl.Result{}, nil
+		}
 		ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
 			NodeIDAnnotationKey, k8sNode.Name, val, goalValue)
-		fallthrough
-	default:
-		if k8sNode.ObjectMeta.Annotations == nil {
-			k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
-		}
-		k8sNode.ObjectMeta.Annotations[NodeIDAnnotationKey] = goalValue
-		if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
-			ll.Errorf("Unable to update node object: %v", err)
-			return ctrl.Result{Requeue: true}, err
-		}
+	}
+
+	if k8sNode.ObjectMeta.Annotations == nil {
+		k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
+	}
+	k8sNode.ObjectMeta.Annotations[NodeIDAnnotationKey] = goalValue
+	if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
+		ll.Errorf("Unable to update node object: %v", err)
+		return ctrl.Result{Requeue: true}, err
 	}
 
 	return ctrl.Result{}, nil
