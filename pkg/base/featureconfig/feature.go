@@ -21,6 +21,8 @@ import "sync"
 const (
 	// FeatureACReservation store name for ACReservation feature
 	FeatureACReservation = "ACReservation"
+	// FeatureNodeIDFromAnnotation store name for NodeIDFromAnnotation feature
+	FeatureNodeIDFromAnnotation = "NodeIDFromAnnotation"
 )
 
 // FeatureChecker is a "read" interface for FeatureConfig

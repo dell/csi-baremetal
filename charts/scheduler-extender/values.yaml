@@ -11,6 +11,9 @@ env:
 # by storage class with provided provisioner name
 provisioner: baremetal-csi
 
+feature:
+  usenodeannotation: false
+
 tls:
   certFile: ""
   privateKeyFile: ""
