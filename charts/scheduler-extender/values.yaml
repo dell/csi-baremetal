@@ -1,5 +1,6 @@
 # Docker registry to pull images
-registry: asdrepo.isus.emc.com:9042
+global:
+  registry: asdrepo.isus.emc.com:9042
 
 
 port: 8889
