@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -70,8 +71,9 @@ func getTestACR(size int64, sc string,
 		acNames[i] = ac.Name
 	}
 	return &acrcrd.AvailableCapacityReservation{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+		TypeMeta: k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS,
+			CreationTimestamp: k8smetav1.NewTime(time.Now())},
 		Spec: genV1.AvailableCapacityReservation{
 			Size:         size,
 			StorageClass: sc,
@@ -307,7 +309,7 @@ func TestReservedCapacityManager(t *testing.T) {
 			assert.Equal(t, testACS[0], plan.GetACForVolume(testNode1, testVols[0]))
 		}
 	})
-	t.Run("Should select AC from reservation which holds less ACs", func(t *testing.T) {
+	t.Run("Should select AC from oldest reservation", func(t *testing.T) {
 		testVols := []*genV1.Volume{
 			getTestVol("", testSmallSize, apiV1.StorageClassAny),
 		}
@@ -316,10 +318,9 @@ func TestReservedCapacityManager(t *testing.T) {
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 			getTestAC(testNode2, testSmallSize, apiV1.StorageClassHDD),
 		}
-		testACRS := []*acrcrd.AvailableCapacityReservation{
-			getTestACR(testSmallSize, apiV1.StorageClassAny, testACS[1:]),
-			getTestACR(testSmallSize, apiV1.StorageClassAny, testACS[:1]),
-		}
+		acr1 := getTestACR(testSmallSize, apiV1.StorageClassAny, testACS[:1])
+		acr2 := getTestACR(testSmallSize, apiV1.StorageClassAny, testACS[1:])
+		testACRS := []*acrcrd.AvailableCapacityReservation{acr2, acr1}
 		plan, err := callPlanVolumesPlacing(
 			getCapReaderMock(testACS, nil),
 			getResReaderMock(testACRS, nil),

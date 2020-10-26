@@ -267,7 +267,7 @@ func (rcm *ReservedCapacityManager) update(ctx context.Context, volume *genV1.Vo
 func (rcm *ReservedCapacityManager) selectBestACForNodes() NodeCapacityMap {
 	selectedCapacityMap := NodeCapacityMap{}
 	for node := range rcm.nodeCapacityMap {
-		acForNode, _ := choseACinACRWithLessAC(rcm.nodeCapacityMap[node], rcm.acrMap, rcm.acNameToACRNamesMap)
+		acForNode, _ := choseACFromOldestACR(rcm.nodeCapacityMap[node], rcm.acrMap, rcm.acNameToACRNamesMap)
 		if acForNode == nil {
 			continue
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
@@ -101,7 +102,7 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 }
 
 // ReleaseReservation removes ACR for AC
-// if AC is in multiple ACRs, most suitable ACR will be remove, check choseACinACRWithLessAC function doc for details
+// if AC is in multiple ACRs, most suitable ACR will be remove, check choseACFromOldestACR function doc for details
 // Also, if AC was converted to AC with another SC, for example HDD-> HDDLVG,
 // we need to replace old AC with new in all ACRs
 func (rh *ReservationHelper) ReleaseReservation(
@@ -116,7 +117,7 @@ func (rh *ReservationHelper) ReleaseReservation(
 		FilterACRList(rh.acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
 			return acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size
 		}))
-	_, acrToRemove := choseACinACRWithLessAC(ACMap{ac.Name: ac}, filteredACRMap, filteredACNameToACR)
+	_, acrToRemove := choseACFromOldestACR(ACMap{ac.Name: ac}, filteredACRMap, filteredACNameToACR)
 	if acrToRemove == nil {
 		logger.Infof("ACR holding AC %s not found. Skip deletion.", ac.Name)
 		return nil
@@ -263,17 +264,13 @@ func buildACInACRMap(acrs []acrcrd.AvailableCapacityReservation) map[string]stru
 	return acMap
 }
 
-// choseACinACRWithLessAC chose best AC
-// multiple AC candidates can exist for volume on node,
-// this happen when there are multiple ACRs with same Size and SC
-// we should always select AC from ACR which has less reservations (ACR holds less reservations from other nodes)
-// returns best AC and ACR which holds this AC
-func choseACinACRWithLessAC(acMap ACMap, acrMAP ACRMap, acToACRs ACNameToACRNamesMap) (
+// choseACFromOldestACR chose AC from oldest ACR
+func choseACFromOldestACR(acMap ACMap, acrMAP ACRMap, acToACRs ACNameToACRNamesMap) (
 	*accrd.AvailableCapacity, *acrcrd.AvailableCapacityReservation) {
 	var (
-		minResCount int
-		bestAC      *accrd.AvailableCapacity
-		bestACR     *acrcrd.AvailableCapacityReservation
+		oldest  metaV1.Time
+		bestAC  *accrd.AvailableCapacity
+		bestACR *acrcrd.AvailableCapacityReservation
 	)
 
 	for acName, ac := range acMap {
@@ -286,9 +283,12 @@ func choseACinACRWithLessAC(acMap ACMap, acrMAP ACRMap, acToACRs ACNameToACRName
 			if !ok {
 				continue
 			}
-			resCount := len(acr.Spec.Reservations)
-			if minResCount == 0 || resCount < minResCount {
-				minResCount = resCount
+			acrCreationTimestamp := acr.GetCreationTimestamp()
+			if acrCreationTimestamp.IsZero() {
+				continue
+			}
+			if oldest.IsZero() || acrCreationTimestamp.Before(&oldest) {
+				oldest = acrCreationTimestamp
 				bestAC = ac
 				bestACR = acr
 			}

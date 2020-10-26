@@ -84,10 +84,10 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 		testACRs := []*acrcrd.AvailableCapacityReservation{
 			// ACR has 1 AC, but size don't match
 			getTestACR(testLargeSize, apiV1.StorageClassHDD, testACs[:1]),
-			// ACR size match, has 2 AC
+			// ACR size match, oldest one, this ACR should be removed
 			getTestACR(testSmallSize, apiV1.StorageClassHDD, testACs),
-			// ACR size match, has 1 AC, this ACR should be removed
-			getTestACR(testSmallSize, apiV1.StorageClassHDD, testACs[:1]),
+			// ACR size match
+			getTestACR(testSmallSize, apiV1.StorageClassHDD, testACs),
 		}
 		client := getKubeClient(t)
 		createACRsInAPi(t, client, testACRs)
@@ -98,7 +98,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 			getTestVol("", testSmallSize, apiV1.StorageClassHDD),
 			testACs[0], testACs[0])
 		assert.Nil(t, err)
-		checkACRNotExist(t, client, testACRs[2])
+		checkACRNotExist(t, client, testACRs[1])
 	})
 	t.Run("Replace AC in ACR", func(t *testing.T) {
 		replacementAC := getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDDLVG)
