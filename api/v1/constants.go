@@ -22,8 +22,10 @@ const (
 	AvailableCapacityReservationKind = "AvailableCapacityReservation"
 	LVGKind                          = "LVG"
 	DriveKind                        = "Drive"
+	CSIBMNodeKind                    = "Node"
 
-	Version            = "v1"
+	Version = "v1"
+	// TODO: change value, https://github.com/dell/csi-baremetal/issues/134
 	CSICRsGroupVersion = "baremetal-csi.dellemc.com"
 	APIV1Version       = "baremetal-csi.dellemc.com/v1"
 	Creating           = "creating"

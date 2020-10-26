@@ -37,8 +37,10 @@ import (
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -47,15 +49,16 @@ type Extender struct {
 	k8sClient *k8s.KubeClient
 	crHelper  *k8s.CRHelper
 	// namespace in which Extender will be search Available Capacity
-	namespace   string
-	provisioner string
+	namespace      string
+	provisioner    string
+	featureChecker fc.FeatureChecker
 	sync.Mutex
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 }
 
 // NewExtender returns new instance of Extender struct
-func NewExtender(logger *logrus.Logger, namespace, provisioner string) (*Extender, error) {
+func NewExtender(logger *logrus.Logger, namespace, provisioner string, featureConf fc.FeatureChecker) (*Extender, error) {
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
 		return nil, err
@@ -65,6 +68,7 @@ func NewExtender(logger *logrus.Logger, namespace, provisioner string) (*Extende
 		k8sClient:              kubeClient,
 		crHelper:               k8s.NewCRHelper(kubeClient, logger),
 		provisioner:            provisioner,
+		featureChecker:         featureConf,
 		logger:                 logger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}, nil
@@ -334,7 +338,8 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 			failedNodesMap[node.Name] = noACForNodeMsg
 			continue
 		}
-		placingForNode := placingPlan.GetVolumesToACMapping(string(node.UID))
+		node := node
+		placingForNode := placingPlan.GetVolumesToACMapping(e.getNodeID(&node))
 		if placingForNode == nil {
 			failedNodesMap[node.Name] = noACForNodeMsg
 			continue
@@ -433,4 +438,20 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
 	return scNameTypeMap, nil
+}
+
+// getNodeID returns node ID, it could be a k8s node UID or value of annotation
+func (e *Extender) getNodeID(node *coreV1.Node) string {
+	if e.featureChecker.IsEnabled(fc.FeatureNodeIDFromAnnotation) {
+		val, ok := node.GetAnnotations()[csibmnode.NodeIDAnnotationKey]
+		if !ok {
+			e.logger.WithField("method", "getNodeID").
+				Errorf("Annotation %s isn't set for node %s. Unable to detect node UUID.",
+					csibmnode.NodeIDAnnotationKey, node.Name)
+			return ""
+		}
+		return val
+	}
+
+	return string(node.UID)
 }

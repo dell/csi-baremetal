@@ -5,14 +5,16 @@ global:
 env:
  test: false
 
-extender: false
+feature:
+  extender: false
+  usenodeannotation: false
 
 # to deploy on specific nodes kubeclt get nodes -l <key>=<value>
 nodeSelector:
   key:
   value:
 
-# format of logs
+# logging settings
 log:
   format: text
   level: info

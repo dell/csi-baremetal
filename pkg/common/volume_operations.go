@@ -35,7 +35,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
@@ -55,20 +55,20 @@ type VolumeOperationsImpl struct {
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 
-	acReservationEnabled bool
-	log                  *logrus.Entry
+	featureChecker fc.FeatureChecker
+	log            *logrus.Entry
 }
 
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of VolumeOperationsImpl
 func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger,
-	featureConf featureconfig.FeatureChecker) *VolumeOperationsImpl {
+	featureConf fc.FeatureChecker) *VolumeOperationsImpl {
 	return &VolumeOperationsImpl{
 		k8sClient:              k8sClient,
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
 		log:                    logger.WithField("component", "VolumeOperationsImpl"),
-		acReservationEnabled:   featureConf.IsEnabled(featureconfig.FeatureACReservation),
+		featureChecker:         featureConf,
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}
 }
@@ -192,7 +192,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		if err = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, ac, 5); err != nil {
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
-		if vo.acReservationEnabled {
+		if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
 			resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
 			if err = resHelper.ReleaseReservation(ctxWithID, &v, origAC, ac); err != nil {
 				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)
@@ -204,7 +204,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 
 func (vo *VolumeOperationsImpl) createCapacityManager(capReader capacityplanner.CapacityReader,
 	resReader capacityplanner.ReservationReader) capacityplanner.CapacityPlaner {
-	if vo.acReservationEnabled {
+	if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
 		return vo.capacityManagerBuilder.GetReservedCapacityManager(vo.log, capReader, resReader)
 	}
 	return vo.capacityManagerBuilder.GetCapacityManager(vo.log, capReader)

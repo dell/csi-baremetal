@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lvm
+package lvg
 
 import (
 	"context"
@@ -177,7 +177,7 @@ var (
 )
 
 func Test_NewLVGController(t *testing.T) {
-	c := NewLVGController(nil, "node", testLogger)
+	c := NewController(nil, "node", testLogger)
 	assert.NotNil(t, c)
 }
 
@@ -429,8 +429,8 @@ func Test_increaseACSize(t *testing.T) {
 	assert.Equal(t, size+1, acList.Items[0].Spec.Size)
 }
 
-// setup creates drive CRs and LVG CRs and returns LVGController instance
-func setup(t *testing.T, node string) *LVGController {
+// setup creates drive CRs and LVG CRs and returns Controller instance
+func setup(t *testing.T, node string) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)
 	// create Drive CRs
@@ -443,11 +443,11 @@ func setup(t *testing.T, node string) *LVGController {
 	assert.Nil(t, err)
 	err = k8sClient.CreateCR(tCtx, lvgCR2.Name, &lvgCR2)
 	assert.Nil(t, err)
-	return NewLVGController(k8sClient, node, testLogger)
+	return NewController(k8sClient, node, testLogger)
 }
 
 // teardown removes drive CRs and LVG CRs
-func teardown(t *testing.T, c *LVGController) {
+func teardown(t *testing.T, c *Controller) {
 	var (
 		driveList = &drivecrd.DriveList{}
 		lvgList   = &lvgcrd.LVGList{}

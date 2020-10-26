@@ -43,6 +43,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
 )
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
@@ -570,7 +571,7 @@ func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeG
 // NodeGetInfo is the implementation of CSI Spec NodeGetInfo. It plays a role in CSI Topology feature when Controller
 // chooses a node where to deploy a volume.
 // Receives golang context and CSI Spec NodeGetInfoRequest
-// Returns CSI Spec NodeGetInfoResponse with topology "baremetal-csi/nodeid": NodeID and nil error
+// Returns CSI Spec NodeGetInfoResponse with topology NodeIDAnnotationKey: NodeID and nil error
 func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "NodeGetInfo",
@@ -578,7 +579,7 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 
 	topology := csi.Topology{
 		Segments: map[string]string{
-			"baremetal-csi/nodeid": s.nodeID,
+			csibmnode.NodeIDAnnotationKey: s.nodeID,
 		},
 	}
 

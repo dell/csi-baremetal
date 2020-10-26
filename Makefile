@@ -17,7 +17,13 @@ dependency:
 all: build base-images images push
 
 ### Build binaries
-build: compile-proto build-drivemgr build-node build-controller build-extender build-scheduler
+build: compile-proto \
+build-drivemgr \
+build-node \
+build-controller \
+build-extender \
+build-scheduler \
+build-node-controller
 
 build-drivemgr:
 	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
@@ -34,10 +40,19 @@ build-extender:
 build-scheduler:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER} ./cmd/${SCHEDULING_PKG}/${SCHEDULER}/main.go
 
+build-node-controller:
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${CSI_BM_NODE}/${CSI_BM_NODE} ./cmd/${CSI_BM_NODE}/main.go
+
 ### Clean artifacts
 clean-all: clean clean-images
 
-clean: clean-drivemgr clean-node clean-controller clean-extender clean-scheduler clean-proto
+clean: clean-drivemgr \
+clean-node \
+clean-controller \
+clean-extender \
+clean-scheduler \
+clean-node-controller \
+clean-proto
 
 clean-drivemgr:
 	rm -rf ./build/${DRIVE_MANAGER}/*
@@ -53,6 +68,9 @@ clean-extender:
 
 clean-scheduler:
 	rm -rf ./build/${SCHEDULING_PKG}/${SCHEDULER}/*
+
+clean-node-controller:
+	rm -rf ./build/${CR_CONTROLLERS}/*
 
 clean-proto:
 	rm -rf ./api/generated/v1/*
@@ -93,6 +111,6 @@ generate-crds:
 	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/csibmnodecrd/csibmnode_types.go paths=api/v1/csibmnodecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/csibmnodecrd/csibmnode_types.go paths=api/v1/csibmnodecrd/groupversion_info.go output:crd:dir=charts/csibm-operator/crds
 
 generate-api: compile-proto generate-crds generate-deepcopy

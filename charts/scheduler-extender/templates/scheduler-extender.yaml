@@ -26,6 +26,7 @@ spec:
             - --loglevel={{ .Values.log.level }}
             - --certFile={{ .Values.tls.certFile }}
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
+            - --usenodeannotation={{ .Values.feature.usenodeannotation }}
           ports:
             - containerPort: {{  .Values.port }}
           env:

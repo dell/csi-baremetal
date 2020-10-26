@@ -46,8 +46,9 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
 	"github.com/dell/csi-baremetal/pkg/events"
-	"github.com/dell/csi-baremetal/pkg/lvm"
 	"github.com/dell/csi-baremetal/pkg/node"
 )
 
@@ -60,11 +61,13 @@ var (
 	driveMgrEndpoint = flag.String("drivemgrendpoint", base.DefaultDriveMgrEndpoint, "Hardware Manager endpoint")
 	healthIP         = flag.String("healthip", base.DefaultHealthIP, "Node health server ip")
 	csiEndpoint      = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
-	nodeID           = flag.String("nodeid", "", "node identification by k8s")
+	nodeName         = flag.String("nodename", "", "node identification by k8s")
 	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
 	eventConfigPath  = flag.String("eventConfigPath", "/etc/config/alerts.yaml", "path for the events config file")
 	useACRs          = flag.Bool("extender", false,
 		"Whether node svc should read AvailableCapacityReservation CR during NodePublish request for ephemeral volumes or not")
+	useNodeAnnotation = flag.Bool("usenodeannotation", false,
+		"Whether node svc should read id from node annotation and use it as id for all CRs or not")
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 )
@@ -74,6 +77,7 @@ func main() {
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
+	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
 
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
@@ -97,11 +101,11 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 
-	nodeUID, err := getNodeUID(k8SClient, *nodeID)
+	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
 	if err != nil {
-		logger.Fatalf("fail to get uid of k8s Node object: %v", err)
+		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
-	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeUID, logger)
+	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeID, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
@@ -112,11 +116,11 @@ func main() {
 	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeUID, logger, k8sClientForVolume, eventRecorder, featureConf)
+		clientToDriveMgr, nodeID, logger, k8sClientForVolume, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvm.NewLVGController(k8sClientForLVG, nodeUID, logger),
+		lvg.NewController(k8sClientForLVG, nodeID, logger),
 		logger)
 
 	// register CSI calls handler
@@ -169,7 +173,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 }
 
 // prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources
-func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.LVGController,
+func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.Controller,
 	logger *logrus.Logger) manager.Manager {
 	var (
 		ll     = logger.WithField("method", "prepareCRDControllerManagers")
@@ -210,11 +214,19 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvm.
 	return mgr
 }
 
-func getNodeUID(client k8sClient.Client, nodeName string) (string, error) {
+func getNodeID(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	k8sNode := corev1.Node{}
 	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
 		return "", err
 	}
+
+	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
+		if val, ok := k8sNode.GetAnnotations()[csibmnode.NodeIDAnnotationKey]; ok {
+			return val, nil
+		}
+		return "", fmt.Errorf("annotation %s hadn't been set for node %s", csibmnode.NodeIDAnnotationKey, nodeName)
+	}
+
 	return string(k8sNode.UID), nil
 }
 

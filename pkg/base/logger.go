@@ -25,11 +25,14 @@ import (
 )
 
 const (
-	//DebugLevel represents debug level for logger
+	// LogFormatText represents human readable log format
+	LogFormatText = "text"
+
+	// DebugLevel represents debug level for logger
 	DebugLevel = "debug"
-	//TraceLevel represents trace level for logger
+	// TraceLevel represents trace level for logger
 	TraceLevel = "trace"
-	//InfoLevel represents info level for logger
+	// InfoLevel represents info level for logger
 	InfoLevel = "info"
 )
 

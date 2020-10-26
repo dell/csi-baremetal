@@ -23,16 +23,19 @@ import (
 	"os"
 
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
 )
 
 var (
-	namespace      = flag.String("namespace", "", "Namespace in which Node Service service run")
-	provisioner    = flag.String("provisioner", "", "Provisioner name which storage classes extener will be observing")
-	port           = flag.Int("port", base.DefaultExtenderPort, "Port for service")
-	certFile       = flag.String("certFile", "", "path to the cert file")
-	privateKeyFile = flag.String("privateKeyFile", "", "path to the private key file")
-	logLevel       = flag.String("loglevel", base.InfoLevel, "Log level")
+	namespace         = flag.String("namespace", "", "Namespace in which Node Service service run")
+	provisioner       = flag.String("provisioner", "", "Provisioner name which storage classes extener will be observing")
+	port              = flag.Int("port", base.DefaultExtenderPort, "Port for service")
+	certFile          = flag.String("certFile", "", "path to the cert file")
+	privateKeyFile    = flag.String("privateKeyFile", "", "path to the private key file")
+	logLevel          = flag.String("loglevel", base.InfoLevel, "Log level")
+	useNodeAnnotation = flag.Bool("usenodeannotation", false,
+		"Whether extender should read id from node annotation and use it as id for all CRs or not")
 )
 
 // TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
@@ -47,7 +50,10 @@ func main() {
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
-	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner)
+	featureConf := featureconfig.NewFeatureConfig()
+	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
+
+	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner, featureConf)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}

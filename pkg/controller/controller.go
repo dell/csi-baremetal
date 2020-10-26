@@ -39,16 +39,11 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller/node"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
 )
 
 // NodeID is the type for node hostname
 type NodeID string
-
-// todo these parameters must be passed via config map or input parameters
-const (
-	// NodeIDTopologyKey to read topology values created by NodeGetInfo
-	NodeIDTopologyKey = "baremetal-csi/nodeid"
-)
 
 // CSIControllerService is the implementation of ControllerServer interface from GO CSI specification
 type CSIControllerService struct {
@@ -157,7 +152,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	preferredNode := ""
 	if req.GetAccessibilityRequirements() != nil && len(req.GetAccessibilityRequirements().Preferred) > 0 {
-		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[NodeIDTopologyKey]
+		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnode.NodeIDAnnotationKey]
 		ll.Infof("Preferred node was provided: %s", preferredNode)
 	}
 
@@ -199,7 +194,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	ll.Infof("Construct response based on volume: %v", vol)
 	topologyList := []*csi.Topology{
-		{Segments: map[string]string{NodeIDTopologyKey: vol.NodeId}},
+		{Segments: map[string]string{csibmnode.NodeIDAnnotationKey: vol.NodeId}},
 	}
 
 	return &csi.CreateVolumeResponse{

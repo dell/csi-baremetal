@@ -65,7 +65,7 @@ spec:
         args:
         - "--endpoint=$(CSI_ENDPOINT)"
         - "--namespace=$(NAMESPACE)"
-        - --extender={{ .Values.extender }}
+        - --extender={{ .Values.feature.extender }}
         - --loglevel={{ .Values.log.level }}
         - --healthport={{ .Values.controller.health.server.port }}
         {{- if .Values.logReceiver.create  }}

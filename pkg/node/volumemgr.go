@@ -362,8 +362,6 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 
 // SetupWithManager registers VolumeManager to ControllerManager
 func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
-	m.log.WithField("method", "SetupWithManager").
-		Infof("MaxConcurrentReconciles - %d", maxConcurrentReconciles)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&volumecrd.Volume{}).
 		WithOptions(controller.Options{
