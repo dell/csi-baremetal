@@ -223,7 +223,7 @@ func (rcm *ReservedCapacityManager) PlanVolumesPlacing(
 	if err != nil {
 		return nil, err
 	}
-	selectedACs := rcm.selectBestACForNodes()
+	selectedACs := rcm.selectBestACForNodes(ctx)
 	if len(selectedACs) == 0 {
 		logger.Info("Required capacity for volumes not found")
 		return nil, nil
@@ -264,11 +264,16 @@ func (rcm *ReservedCapacityManager) update(ctx context.Context, volume *genV1.Vo
 }
 
 // selectBestACForNode select best AC for volume on node
-func (rcm *ReservedCapacityManager) selectBestACForNodes() NodeCapacityMap {
+func (rcm *ReservedCapacityManager) selectBestACForNodes(ctx context.Context) NodeCapacityMap {
+	logger := util.AddCommonFields(ctx, rcm.logger, "CapacityManager.selectBestACForNodes")
 	selectedCapacityMap := NodeCapacityMap{}
 	for node := range rcm.nodeCapacityMap {
 		acForNode, _ := choseACFromOldestACR(rcm.nodeCapacityMap[node], rcm.acrMap, rcm.acNameToACRNamesMap)
 		if acForNode == nil {
+			continue
+		}
+		if acForNode.Spec.Size == 0 {
+			logger.Warning("AvailableCapacity with zero size was selected. AvailableCapacity will be ignored.")
 			continue
 		}
 		selectedCapacityMap[node] = ACMap{acForNode.Name: acForNode}
