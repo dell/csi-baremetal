@@ -1158,6 +1158,13 @@ func TestVolumeManager_isDriveSystem(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, isSystem, true)
 
+	bdev1.MountPoint = "/var/lib/kubelet/pods/34ff691a-392d-41cb-9ad5-7c66581bfd52/volume-subpaths/etc/tuned/5"
+	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
+	vm.listBlk = listBlk
+	isSystem, err = vm.isDriveSystem("/dev/sdb")
+	assert.Nil(t, err)
+	assert.Equal(t, isSystem, true)
+
 	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, testErr).Once()
 	vm.listBlk = listBlk
 	isSystem, err = vm.isDriveSystem("/dev/sdb")
