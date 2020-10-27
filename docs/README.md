@@ -54,7 +54,7 @@ Installation process
     
     2.3 Deploy Kubernetes scheduler extender 
         
-    ```cd charts && helm install csi-scheduler-extender scheduler-extender --set  global.registry=<your-registry.com> --set image.tag=<tag>```
+    ```cd charts && helm install csi-scheduler-extender scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
     
 3. Check default storage classes available
 
