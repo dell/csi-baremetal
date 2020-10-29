@@ -35,7 +35,7 @@ func nrTest(driver testsuites.TestDriver) {
 		driverCleanup     func()
 		ns                string
 		kindNodeContainer string // represents kind node
-		f                 = framework.NewDefaultFramework("node-reboot")
+		f                 = framework.NewDefaultFramework("node-replacement")
 	)
 	logger.SetLevel(logrus.DebugLevel)
 	executor.SetLogger(logger)
@@ -46,11 +46,11 @@ func nrTest(driver testsuites.TestDriver) {
 			err         error
 		)
 
+		ns = f.Namespace.Name
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 		k8sSC = driver.(*baremetalDriver).GetStorageClassWithStorageType(perTestConf, storageClassHDD)
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
 		framework.ExpectNoError(err)
-		ns = f.Namespace.Name
 	}
 
 	cleanup := func() {
@@ -61,7 +61,7 @@ func nrTest(driver testsuites.TestDriver) {
 		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
-	ginkgo.Context("Pod should consume same PV after node had being replaced", func() {
+	ginkgo.It("Pod should consume same PV after node had being replaced", func() {
 		init()
 		defer cleanup()
 
