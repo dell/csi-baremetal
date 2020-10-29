@@ -151,6 +151,9 @@ func CopyPartitionConfig(fromDev, withPartUUID, toDev string, logger *logrus.Log
 	if err = partitionHelper.DeletePartition(fromDev, "1"); err != nil {
 		return err
 	}
+	if err = fsHelper.WipeFS(fromDev); err != nil {
+		return err
+	}
 	if err = partitionHelper.CreatePartition(toDev, "NRTest"); err != nil {
 		return err
 	}
