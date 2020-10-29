@@ -148,7 +148,7 @@ func (l *LVM) LVCreate(name, size, vgName string) error {
 // Returns error if something went wrong
 func (l *LVM) LVRemove(fullLVName string) error {
 	cmd := fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
-	_, stdErr, err := l.e.RunCmd(cmd)
+	_, stdErr, err := l.e.RunCmdWithAttempts(cmd, 5)
 	if err != nil && strings.Contains(stdErr, "Failed to find logical volume") {
 		return nil
 	}

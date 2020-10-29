@@ -31,6 +31,7 @@ type CmdExecutor interface {
 	RunCmd(cmd interface{}) (string, string, error)
 	SetLogger(logger *logrus.Logger)
 	SetLevel(level logrus.Level)
+	RunCmdWithAttempts(cmd interface{}, attempts int) (string, string, error)
 }
 
 // Executor is the implementation of CmdExecutor based on os/exec package
@@ -49,6 +50,31 @@ func (e *Executor) SetLogger(logger *logrus.Logger) {
 // Receives logrus Level
 func (e *Executor) SetLevel(level logrus.Level) {
 	e.msgLevel = level
+}
+
+// RunCmdWithAttempts runs specified command on OS with given attempts
+// Receives command as empty interface, It could be string or instance of exec.Cmd; number of attempts.
+// Returns stdout as string, stderr as string and golang error if something went wrong
+func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int) (string, string, error) {
+	ll := e.log.WithFields(logrus.Fields{
+		"method": "RunCmdWithAttempts",
+	})
+	var (
+		stdout string
+		stderr string
+		err    error
+		ticker = time.NewTicker(500 * time.Millisecond)
+	)
+	defer ticker.Stop()
+	for i := 0; i < attempts; i++ {
+		if stdout, stderr, err := e.RunCmd(cmd); err == nil {
+			return stdout, stderr, err
+		}
+		ll.Warnf("Unable to execute cmd: %v. Attempt %d out of %d.", err, i, attempts)
+		<-ticker.C
+	}
+	errMsg := fmt.Errorf("failed to execute command after %d attempt, error: %v", attempts, err)
+	return stdout, stderr, errMsg
 }
 
 // RunCmd runs specified command on OS
