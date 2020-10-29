@@ -119,12 +119,11 @@ func nrTest(driver testsuites.TestDriver) {
 
 		// save config of Drives on that node
 		allDrivesUnstr := getUObjList(f, common.DriveGVR)
-		allVolumesUnstr := getUObjList(f, common.VolumeGVR)
-		if len(allVolumesUnstr.Items) != 1 {
-			framework.Failf("Unable to found Volume CR that corresponds to the PVC %s. VolumeCR amount - %d. %v",
-				pvc.Name, len(allVolumesUnstr.Items), allVolumesUnstr.Items)
+		volumeUnstr, found := getUObj(f, common.VolumeGVR, pvc.Spec.VolumeName)
+		if !found {
+			framework.Failf("Unable to found Volume CR that corresponds to the PVC %s by name %s", pvc.Name, pvc.Spec.VolumeName)
 		}
-		volumeLocation, _, err := unstructured.NestedString(allVolumesUnstr.Items[0].Object, "spec", "Location")
+		volumeLocation, _, err := unstructured.NestedString(volumeUnstr.Object, "spec", "Location")
 		framework.ExpectNoError(err)
 
 		// found drive that corresponds to volumeCR
