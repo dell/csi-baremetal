@@ -98,6 +98,8 @@ func nrTest(driver testsuites.TestDriver) {
 		// find node UID that is used as a part of Drive.Spec.NodeID
 		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
 		framework.ExpectNoError(err)
+		var nodesCount = len(nodes.Items)
+		e2elog.Logf("Got nodesCount: %d", nodesCount)
 		var nodeID string
 		var masterNodeName string
 		for _, node := range nodes.Items {
@@ -186,6 +188,8 @@ func nrTest(driver testsuites.TestDriver) {
 		_, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s %s --ignore-preflight-errors=all", nodeToReplace, joinCommand))
 		framework.ExpectNoError(err)
 
+		_, err = e2enode.CheckReady(f.ClientSet, nodesCount, time.Minute*3)
+		framework.ExpectNoError(err)
 		// by drive.spec.serialNumber find drive.spec.path -> newBDev
 		// read config from bdev and apply it for newBDev
 		allDrivesUnstr = getUObjList(f, common.DriveGVR)
