@@ -25,6 +25,7 @@ type BMDriverTestContextType struct {
 	BMDeploySchedulerExtender bool
 	BMDeploySchedulerPatcher  bool
 	BMWaitSchedulerRestart    bool
+	BMDeployCSIBMNodeOperator bool
 }
 
 var BMDriverTestContext BMDriverTestContextType

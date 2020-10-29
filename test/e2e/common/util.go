@@ -31,6 +31,8 @@ import (
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 )
 
 var utilExecutor command.CmdExecutor
@@ -136,6 +138,32 @@ func GetGlobalClientSet() (clientset.Interface, error) {
 	return clientset.NewForConfig(conf)
 }
 
-func CopyPartitionConfig(fromDev, toDev string) error {
+func CopyPartitionConfig(fromDev, withPartUUID, toDev string, logger *logrus.Logger) error {
+	logger.Infof("replacing partition with UUID %s from device %s to device %s", withPartUUID, fromDev, toDev)
+	partitionHelper := ph.NewWrapPartitionImpl(utilExecutor, logger)
+	fsHelper := fs.NewFSImpl(utilExecutor)
+
+	var err error
+	// delete partition from fromDev
+	if err = fsHelper.WipeFS(fromDev); err != nil {
+		return err
+	}
+	if err = partitionHelper.DeletePartition(fromDev, "1"); err != nil {
+		return err
+	}
+	if err = partitionHelper.CreatePartition(toDev, "NRTest"); err != nil {
+		return err
+	}
+	if err = partitionHelper.SetPartitionUUID(toDev, "1", withPartUUID); err != nil {
+		return err
+	}
+	partName, err := partitionHelper.GetPartitionNameByUUID(toDev, withPartUUID)
+	if err != nil {
+		return err
+	}
+	if err = fsHelper.CreateFS(fs.XFS, toDev+partName); err != nil {
+		return err
+	}
+
 	return nil
 }

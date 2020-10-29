@@ -139,6 +139,12 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		framework.ExpectNoError(err)
 	}
 
+	operatorCleanup := func() {}
+	if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
+		operatorCleanup, err = common.DeployCSIBMNodeController(f)
+		framework.ExpectNoError(err)
+	}
+
 	// always create at least one SC, this required for Inline volumes testing
 	// TODO remove after ISSUE-128 will be solved
 	defaultSC, err := f.ClientSet.StorageV1().StorageClasses().Create(
@@ -162,6 +168,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		driverCleanup()
 		extenderCleanup()
 		defaultSCCleanup()
+		operatorCleanup()
 		err = d.removeAllCRs(f)
 		if err != nil {
 			framework.Logf("Failed to clean up CRs, error: ", err)

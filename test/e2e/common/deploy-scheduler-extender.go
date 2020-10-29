@@ -33,6 +33,7 @@ import (
 
 const (
 	extenderManifestsFolder = "scheduler-extender/templates/"
+	operatorManifestsFolder = "csibm-operator/templates/"
 	schedulerLabel          = "component=kube-scheduler"
 	restartWaitTimeout      = time.Minute * 2
 )
@@ -41,12 +42,37 @@ func DeploySchedulerExtender(f *framework.Framework) (func(), error) {
 	return deployExtenderManifests(f)
 }
 
+func DeployCSIBMNodeController(f *framework.Framework) (func(), error) {
+	rbacCleanupFn, err := f.CreateFromManifests(
+		nil,
+		path.Join("/tmp", operatorManifestsFolder, "csibm-rbac.yaml"))
+	if err != nil {
+		return nil, err
+	}
+
+	dmCleanupFm, err := buildDaemonSet(
+		f.ClientSet,
+		f.Namespace.Name,
+		path.Join("/tmp", operatorManifestsFolder, "csibm-controller.yaml"))
+	if err != nil {
+		return nil, err
+	}
+
+	return func() {
+		rbacCleanupFn()
+		dmCleanupFm()
+	}, nil
+}
+
 func deployExtenderManifests(f *framework.Framework) (func(), error) {
 	manifests := []string{
 		extenderManifestsFolder + "rbac.yaml",
 	}
 
-	daemonSetCleanup, err := buildDaemonSet(f.ClientSet, f.Namespace.Name, "scheduler-extender.yaml")
+	daemonSetCleanup, err := buildDaemonSet(
+		f.ClientSet,
+		f.Namespace.Name,
+		path.Join("/tmp", extenderManifestsFolder, "scheduler-extender.yaml"))
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +111,10 @@ func DeployPatcher(c clientset.Interface, namespace string) (func(), error) {
 }
 
 func deployPatcherManifests(c clientset.Interface, namespace string) (func(), error) {
-	daemonSetCleanup, err := buildDaemonSet(c, namespace, "patcher.yaml")
+	daemonSetCleanup, err := buildDaemonSet(
+		c,
+		namespace,
+		path.Join("/tmp", extenderManifestsFolder, "patcher.yaml"))
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +190,8 @@ func buildConfigMap(c clientset.Interface, namespace string) (func(), error) {
 	}, nil
 }
 
-func buildDaemonSet(c clientset.Interface, namespace, manifestFile string) (func(), error) {
-	file, err := ioutil.ReadFile(path.Join("/tmp", extenderManifestsFolder, manifestFile))
+func buildDaemonSet(c clientset.Interface, namespace, manifestFilePath string) (func(), error) {
+	file, err := ioutil.ReadFile(manifestFilePath)
 	if err != nil {
 		return nil, err
 	}

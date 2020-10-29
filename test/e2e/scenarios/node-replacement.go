@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
@@ -163,7 +164,15 @@ func nrTest(driver testsuites.TestDriver) {
 				if bdev == newBDev {
 					break
 				}
-				framework.ExpectNoError(common.CopyPartitionConfig(bdev, newBDev))
+				err = common.CopyPartitionConfig(
+					bdev,
+					strings.Replace(pvc.Name, "pvc-", "", 1),
+					newBDev,
+					logger)
+				if err != nil {
+					e2elog.Failf("CopyPartitionConfig finished with error: %v", err)
+				}
+				e2elog.Logf("Partition was restored successfully from %s to %s", bdev, newBDev)
 				break
 			}
 		}
