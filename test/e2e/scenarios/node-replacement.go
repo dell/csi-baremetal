@@ -99,25 +99,30 @@ func nrTest(driver testsuites.TestDriver) {
 		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
 		framework.ExpectNoError(err)
 		var nodeID string
-		var masterNodeName = framework.GetMasterHost()
-		e2elog.Logf("Master host is %s", masterNodeName)
+		var masterNodeName string
 		for _, node := range nodes.Items {
 			if node.Name == pod.Spec.NodeName {
 				nodeID = string(node.UID)
 				break
+			}
+			if _, ok := node.GetLabels()["node-role.kubernetes.io/master"]; ok {
+				masterNodeName = node.Name
 			}
 		}
 		if nodeID == "" {
 			framework.Failf("Unable to find UID for node %s", pod.Spec.NodeName)
 		}
 
+		e2elog.Logf("Master host is %s", masterNodeName)
+
 		// save config of Drives on that node
 		allDrivesUnstr := getUObjList(f, common.DriveGVR)
-		volumeUnstr, found := getUObj(f, common.VolumeGVR, pvc.Name)
-		if !found {
-			framework.Failf("Unable to found PVC with name %s. Pod spec is: %v", pvc.Name, pod.Spec)
+		allVolumesUnstr := getUObjList(f, common.VolumeGVR)
+		if len(allVolumesUnstr.Items) != 1 {
+			framework.Failf("Unable to found Volume CR that corresponds to the PVC %s. VolumeCR amount - %d. %v",
+				pvc.Name, len(allVolumesUnstr.Items), allVolumesUnstr.Items)
 		}
-		volumeLocation, _, err := unstructured.NestedString(volumeUnstr.Object, "spec", "Location")
+		volumeLocation, _, err := unstructured.NestedString(allVolumesUnstr.Items[0].Object, "spec", "Location")
 		framework.ExpectNoError(err)
 
 		// found drive that corresponds to volumeCR
