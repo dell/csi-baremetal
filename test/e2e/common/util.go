@@ -135,3 +135,7 @@ func GetGlobalClientSet() (clientset.Interface, error) {
 	}
 	return clientset.NewForConfig(conf)
 }
+
+func CopyPartitionConfig(fromDev, toDev string) error {
+	return nil
+}

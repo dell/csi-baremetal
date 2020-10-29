@@ -2,18 +2,19 @@ package scenarios
 
 import (
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/command"
+
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-	"time"
 
+	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
@@ -25,16 +26,15 @@ func DefineNodeReplacementTestSuite(driver testsuites.TestDriver) {
 
 func nrTest(driver testsuites.TestDriver) {
 	var (
-		pod           *corev1.Pod
-		pvc           *corev1.PersistentVolumeClaim
-		k8sSC         *storagev1.StorageClass
-		executor      = &command.Executor{}
-		logger        = logrus.New()
-		driverCleanup func()
-		ns            string
-		kindNodeContainer  string // represents kind node
-		started       = false
-		f             = framework.NewDefaultFramework("node-reboot")
+		pod               *corev1.Pod
+		pvc               *corev1.PersistentVolumeClaim
+		k8sSC             *storagev1.StorageClass
+		executor          = &command.Executor{}
+		logger            = logrus.New()
+		driverCleanup     func()
+		ns                string
+		kindNodeContainer string // represents kind node
+		f                 = framework.NewDefaultFramework("node-reboot")
 	)
 	logger.SetLevel(logrus.DebugLevel)
 	executor.SetLogger(logger)
@@ -85,16 +85,88 @@ func nrTest(driver testsuites.TestDriver) {
 		// node' name is the same as a docker container name by which this node is represented.
 		kindNodeContainer = pod.Spec.NodeName
 
+		// find node UID that is used as a part of Drive.Spec.NodeID
+		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
+		framework.ExpectNoError(err)
+		var nodeID string
+		for _, node := range nodes.Items {
+			if node.Name == pod.Spec.NodeName {
+				nodeID = string(node.UID)
+				break
+			}
+		}
+		if nodeID == "" {
+			framework.Failf("Unable to find UID for node %s", pod.Spec.NodeName)
+		}
+
 		// save config of Drives on that node
+		allDrivesUnstr := getUObjList(f, common.DriveGVR)
+		volumeUnstr, found := getUObj(f, common.VolumeGVR, pvc.Name)
+		if !found {
+			framework.Failf("Unable to found PVC with name %s. Pod spec is: %v", pvc.Name, pod.Spec)
+		}
+		volumeLocation, _, err := unstructured.NestedString(volumeUnstr.Object, "spec", "Location")
+		framework.ExpectNoError(err)
+
+		// found drive that corresponds to volumeCR
+		driveOnNode := make([]common.LoopBackManagerConfigDevice, 0)
+		bdev := ""
+		provisionedDriveSN := ""
+		for _, drive := range allDrivesUnstr.Items {
+			n, _, err := unstructured.NestedString(drive.Object, "spec", "NodeId")
+			framework.ExpectNoError(err)
+			if n == nodeID {
+				sn, _, err := unstructured.NestedString(drive.Object, "spec", "SerialNumber")
+				framework.ExpectNoError(err)
+				driveOnNode = append(driveOnNode, common.LoopBackManagerConfigDevice{SerialNumber: &sn})
+				path, _, err := unstructured.NestedString(drive.Object, "spec", "Path")
+				framework.ExpectNoError(err)
+				e2elog.Logf("Append drive with SN %s and path %s", sn, path)
+				if sn == volumeLocation {
+					e2elog.Logf("PVC %s location is drive with SN %s and path %s", sn, path)
+					bdev = path
+					provisionedDriveSN = sn
+				}
+			}
+		}
+		if len(driveOnNode) == 0 {
+			framework.Failf("Unable to detect which DriveCRs correspond to node %s (%s)", pod.Spec.NodeName, nodeID)
+		}
+
 		// change Loopback mgr config
-		// restart baremetal-csi-plugin-node
-		// ensure it ready
+		lmConfig := &common.LoopBackManagerConfig{
+			Nodes: []common.LoopBackManagerConfigNode{
+				{
+					NodeID: &pod.Spec.NodeName,
+					Drives: driveOnNode,
+				},
+			},
+		}
+		applyLMConfig(f, lmConfig)
 
 		// delete node and add it again
 		cmd := fmt.Sprintf("/tmp/delete_add_node.sh %s %s", kindNodeContainer, "kind-control-plane")
 		stdOut, stdErr, err := executor.RunCmd(cmd)
 		e2elog.Logf("Results of delete_add_node.sh script. STDOUT: %v. STDERR: %v", stdOut, stdErr)
 		framework.ExpectNoError(err)
+
+		// by drive.spec.serialNumber find drive.spec.path -> newBDev
+		// read config from bdev and apply it for newBDev
+		allDrivesUnstr = getUObjList(f, common.DriveGVR)
+		for _, drive := range allDrivesUnstr.Items {
+			sn, _, err := unstructured.NestedString(drive.Object, "spec", "SerialNumber")
+			framework.ExpectNoError(err)
+			if sn == provisionedDriveSN {
+				newBDev, _, err := unstructured.NestedString(drive.Object, "spec", "Path")
+				framework.ExpectNoError(err)
+				framework.Logf("Found drive with SN %s. bdev - %s, newBDev - %s", bdev, newBDev)
+				if bdev == newBDev {
+					break
+				}
+				framework.ExpectNoError(common.CopyPartitionConfig(bdev, newBDev))
+				break
+			}
+		}
 
 		// create pod again
 		pod, err = e2epod.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
