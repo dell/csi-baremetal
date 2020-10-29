@@ -54,6 +54,7 @@ func DeployCSIBMNodeController(f *framework.Framework) (func(), error) {
 		f.ClientSet,
 		f.Namespace.Name,
 		path.Join("/tmp", operatorManifestsFolder, "csibm-controller.yaml"))
+	time.Sleep(time.Minute * 2)
 	if err != nil {
 		return nil, err
 	}

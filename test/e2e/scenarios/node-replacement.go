@@ -3,11 +3,13 @@ package scenarios
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
@@ -27,15 +29,15 @@ func DefineNodeReplacementTestSuite(driver testsuites.TestDriver) {
 
 func nrTest(driver testsuites.TestDriver) {
 	var (
-		pod               *corev1.Pod
-		pvc               *corev1.PersistentVolumeClaim
-		k8sSC             *storagev1.StorageClass
-		executor          = &command.Executor{}
-		logger            = logrus.New()
-		driverCleanup     func()
-		ns                string
-		kindNodeContainer string // represents kind node
-		f                 = framework.NewDefaultFramework("node-replacement")
+		pod           *corev1.Pod
+		pvc           *corev1.PersistentVolumeClaim
+		k8sSC         *storagev1.StorageClass
+		executor      = &command.Executor{}
+		logger        = logrus.New()
+		driverCleanup func()
+		ns            string
+		nodeToReplace string // represents kind node
+		f             = framework.NewDefaultFramework("node-replacement")
 	)
 	logger.SetLevel(logrus.DebugLevel)
 	executor.SetLogger(logger)
@@ -79,17 +81,26 @@ func nrTest(driver testsuites.TestDriver) {
 		e2elog.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
 
 		// delete pod
-		err = e2epod.WaitForPodNotFoundInNamespace(f.ClientSet, pod.Name, f.Namespace.Name, e2epod.PodDeleteTimeout)
-		framework.ExpectNoError(err)
+		err = f.ClientSet.CoreV1().Pods(f.Namespace.Name).Delete(pod.Name, nil)
+		if err != nil {
+			if !apierrs.IsNotFound(err) {
+				framework.Failf("unable to delete pod %s: %v", pod.Name, err)
+			}
+		} else {
+			err = e2epod.WaitForPodNotFoundInNamespace(f.ClientSet, pod.Name, f.Namespace.Name, time.Minute*2)
+			framework.ExpectNoError(err)
+		}
 
 		// since test is run in Kind k8s cluster, each node is represented by docker container
 		// node' name is the same as a docker container name by which this node is represented.
-		kindNodeContainer = pod.Spec.NodeName
+		nodeToReplace = pod.Spec.NodeName
 
 		// find node UID that is used as a part of Drive.Spec.NodeID
 		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
 		framework.ExpectNoError(err)
 		var nodeID string
+		var masterNodeName = framework.GetMasterHost()
+		e2elog.Logf("Master host is %s", masterNodeName)
 		for _, node := range nodes.Items {
 			if node.Name == pod.Spec.NodeName {
 				nodeID = string(node.UID)
@@ -146,9 +157,28 @@ func nrTest(driver testsuites.TestDriver) {
 		applyLMConfig(f, lmConfig)
 
 		// delete node and add it again
-		cmd := fmt.Sprintf("/tmp/delete_add_node.sh %s %s", kindNodeContainer, "kind-control-plane")
-		stdOut, stdErr, err := executor.RunCmd(cmd)
-		e2elog.Logf("Results of delete_add_node.sh script. STDOUT: %v. STDERR: %v", stdOut, stdErr)
+		e := command.Executor{}
+		logger := logrus.New()
+		e.SetLogger(logger)
+		e.SetLevel(logrus.DebugLevel)
+
+		_, _, err = e.RunCmd(fmt.Sprintf("kubectl drain %s --ignore-daemonsets", nodeToReplace))
+		framework.ExpectNoError(err)
+		_, _, err = e.RunCmd(fmt.Sprintf("kubectl delete node %s", nodeToReplace))
+		framework.ExpectNoError(err)
+		_, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s kubeadm reset --force", nodeToReplace))
+		framework.ExpectNoError(err)
+		_, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s rm -rf /etc/kubernetes", nodeToReplace))
+		framework.ExpectNoError(err)
+		_, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s systemctl restart kubelet", nodeToReplace))
+		framework.ExpectNoError(err)
+
+		time.Sleep(time.Second * 5)
+
+		var joinCommand string
+		joinCommand, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s kubeadm token create --print-join-command", masterNodeName))
+		framework.ExpectNoError(err)
+		_, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s %s --ignore-preflight-errors=all", nodeToReplace, joinCommand))
 		framework.ExpectNoError(err)
 
 		// by drive.spec.serialNumber find drive.spec.path -> newBDev

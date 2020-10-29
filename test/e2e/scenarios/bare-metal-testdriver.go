@@ -98,6 +98,13 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 
 	cancelLogging := testsuites.StartPodLogs(f)
 
+	operatorCleanup := func() {}
+	if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
+		var err error
+		operatorCleanup, err = common.DeployCSIBMNodeController(f)
+		framework.ExpectNoError(err)
+	}
+
 	manifests := []string{
 		manifestsFolder + "controller-rbac.yaml",
 		manifestsFolder + "node-rbac.yaml",
@@ -136,12 +143,6 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	extenderCleanup := func() {}
 	if common.BMDriverTestContext.BMDeploySchedulerExtender {
 		extenderCleanup, err = common.DeploySchedulerExtender(f)
-		framework.ExpectNoError(err)
-	}
-
-	operatorCleanup := func() {}
-	if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
-		operatorCleanup, err = common.DeployCSIBMNodeController(f)
 		framework.ExpectNoError(err)
 	}
 

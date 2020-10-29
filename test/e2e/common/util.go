@@ -64,7 +64,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 	}
 	for _, p := range pod {
 		e2elog.Logf("Wait up to %v for pod %q to be fully deleted", pode2e.PodDeleteTimeout, p.Name)
-		err = pode2e.WaitForPodNotFoundInNamespace(f.ClientSet, p.Name, f.Namespace.Name, pode2e.PodDeleteTimeout)
+		err = pode2e.WaitForPodNotFoundInNamespace(f.ClientSet, p.Name, f.Namespace.Name, time.Minute * 2)
 		if err != nil {
 			e2elog.Logf("Failed to delete pod %s: %v", p.Name, err)
 		}
