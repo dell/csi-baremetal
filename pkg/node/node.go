@@ -259,7 +259,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		resp = nil
 	}
 
-	ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, req.GetVolumeId())
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
 	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 		ll.Errorf("Unable to update volume CR: %v", updateErr)
 		resp, errToReturn = nil, fmt.Errorf("failed to unstage volume: update volume CR error")
@@ -383,7 +383,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	//	volumeCR.Spec.Owners = owners
 	//}
 
-	ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, volumeID)
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	volumeCR.Spec.CSIStatus = newStatus
 	if err = s.k8sClient.UpdateCR(ctxWithID, volumeCR); err != nil {
 		ll.Errorf("Unable to update volume CR to %v, error: %v", volumeCR, err)
@@ -495,7 +495,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.FailedPrecondition, msg)
 	}
 
-	ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, req.GetVolumeId())
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
 	if err := s.fsOps.UnmountWithCheck(req.GetTargetPath()); err != nil {
 		ll.Errorf("Unable to unmount volume: %v", err)
 		volumeCR.Spec.CSIStatus = apiV1.Failed

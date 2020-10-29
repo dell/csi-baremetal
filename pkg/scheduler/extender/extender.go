@@ -101,7 +101,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ll.Info("Filtering")
-	ctxWithVal := context.WithValue(req.Context(), k8s.RequestUUID, sessionUUID)
+	ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
 	volumes, err := e.gatherVolumesByProvisioner(ctxWithVal, extenderArgs.Pod)
 	if err != nil {
 		extenderRes.Error = err.Error()
@@ -212,7 +212,7 @@ func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 // by provisioner e.provisioner and construct genV1.Volume struct for each of such volume
 func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.Volume, error) {
 	ll := e.logger.WithFields(logrus.Fields{
-		"sessionUUID": ctx.Value(k8s.RequestUUID),
+		"sessionUUID": ctx.Value(base.RequestUUID),
 		"method":      "gatherVolumesByProvisioner",
 		"pod":         pod.Name,
 	})

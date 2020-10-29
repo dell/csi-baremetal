@@ -25,6 +25,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
@@ -81,7 +82,7 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 	ll.Infof("Processing for volume %v", vol)
 
 	var (
-		ctxWithID = context.WithValue(context.Background(), k8s.RequestUUID, vol.Id)
+		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, vol.Id)
 		drive     = &drivecrd.Drive{}
 		err       error
 	)

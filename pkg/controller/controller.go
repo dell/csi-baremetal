@@ -222,7 +222,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
-	ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, req.VolumeId)
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.VolumeId)
 
 	c.reqMu.Lock()
 	err := c.svc.DeleteVolume(ctxWithID, req.GetVolumeId())

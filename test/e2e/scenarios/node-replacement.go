@@ -45,12 +45,12 @@ func nrTest(driver testsuites.TestDriver) {
 			perTestConf *testsuites.PerTestConfig
 			err         error
 		)
-		ns = f.Namespace.Name
 
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 		k8sSC = driver.(*baremetalDriver).GetStorageClassWithStorageType(perTestConf, storageClassHDD)
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
 		framework.ExpectNoError(err)
+		ns = f.Namespace.Name
 	}
 
 	cleanup := func() {

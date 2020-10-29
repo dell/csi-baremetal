@@ -22,6 +22,7 @@ import (
 
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
@@ -51,7 +52,7 @@ func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, newSt
 	var (
 		v        = &volumecrd.Volume{}
 		attempts = 10
-		ctx      = context.WithValue(context.Background(), k8s.RequestUUID, volumeID)
+		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	)
 
 	if err := k8sClient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
