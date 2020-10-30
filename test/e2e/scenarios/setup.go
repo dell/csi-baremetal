@@ -23,13 +23,18 @@ limitations under the License.
 package scenarios
 
 import (
+	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"path"
 
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/kubernetes/test/e2e/framework/testfiles"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
+	"sigs.k8s.io/yaml"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -56,21 +61,51 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	curDriver := BaremetalDriver()
 
 	patcherCleanup := func() {}
+	csibmOperatorCleanup := func() {}
 	ginkgo.BeforeSuite(func() {
+		c, err := common.GetGlobalClientSet()
+		if err != nil {
+			ginkgo.Fail(err.Error())
+		}
+
 		if common.BMDriverTestContext.BMDeploySchedulerPatcher {
-			c, err := common.GetGlobalClientSet()
-			if err != nil {
-				ginkgo.Fail(err.Error())
-			}
 			patcherCleanup, err = common.DeployPatcher(c, "kube-system")
 			if err != nil {
 				ginkgo.Fail(err.Error())
+			}
+		}
+		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
+			e2elog.Logf("===== INSTALLING CSIBMNODECONTROLLER")
+			file, err := ioutil.ReadFile(path.Join(chartsDir, operatorManifestsFolder, "csibm-controller.yaml"))
+			if err != nil {
+				ginkgo.Fail(err.Error())
+			}
+
+			deployment := &appsv1.Deployment{}
+			err = yaml.Unmarshal(file, deployment)
+			if err != nil {
+				ginkgo.Fail(err.Error())
+			}
+
+			depl, err := c.AppsV1().Deployments("default").Create(deployment)
+			if err != nil {
+				ginkgo.Fail(err.Error())
+			}
+
+			// TODO: wait until nodes will be tagged
+
+			csibmOperatorCleanup = func() {
+				e2elog.Logf("=========== DELETING CSIBMNODEDEPL %s", depl.Name)
+				if err := c.AppsV1().Deployments("default").Delete(depl.Name, &metav1.DeleteOptions{}); err != nil {
+					e2elog.Logf("Failed to delete deployment %s: %v", depl.Name, err)
+				}
 			}
 		}
 	})
 
 	ginkgo.AfterSuite(func() {
 		patcherCleanup()
+		csibmOperatorCleanup()
 	})
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {

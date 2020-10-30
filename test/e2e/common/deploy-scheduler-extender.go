@@ -33,36 +33,12 @@ import (
 
 const (
 	extenderManifestsFolder = "scheduler-extender/templates/"
-	operatorManifestsFolder = "csibm-operator/templates/"
 	schedulerLabel          = "component=kube-scheduler"
 	restartWaitTimeout      = time.Minute * 2
 )
 
 func DeploySchedulerExtender(f *framework.Framework) (func(), error) {
 	return deployExtenderManifests(f)
-}
-
-func DeployCSIBMNodeController(f *framework.Framework) (func(), error) {
-	rbacCleanupFn, err := f.CreateFromManifests(
-		nil,
-		path.Join("/tmp", operatorManifestsFolder, "csibm-rbac.yaml"))
-	if err != nil {
-		return nil, err
-	}
-
-	dmCleanupFm, err := buildDaemonSet(
-		f.ClientSet,
-		f.Namespace.Name,
-		path.Join("/tmp", operatorManifestsFolder, "csibm-controller.yaml"))
-	time.Sleep(time.Minute * 2)
-	if err != nil {
-		return nil, err
-	}
-
-	return func() {
-		rbacCleanupFn()
-		dmCleanupFm()
-	}, nil
 }
 
 func deployExtenderManifests(f *framework.Framework) (func(), error) {

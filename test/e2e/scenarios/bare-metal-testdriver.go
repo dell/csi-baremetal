@@ -45,9 +45,11 @@ type baremetalDriver struct {
 }
 
 var (
-	BaremetalDriver = InitBaremetalDriver
-	cmName          = "loopback-config"
-	manifestsFolder = "baremetal-csi-plugin/templates/"
+	BaremetalDriver         = InitBaremetalDriver
+	cmName                  = "loopback-config"
+	chartsDir               = "/tmp"
+	manifestsFolder         = "baremetal-csi-plugin/templates/"
+	operatorManifestsFolder = "csibm-operator/templates"
 )
 
 func initBaremetalDriver(name string) testsuites.TestDriver {
@@ -99,11 +101,6 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	cancelLogging := testsuites.StartPodLogs(f)
 
 	operatorCleanup := func() {}
-	if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
-		var err error
-		operatorCleanup, err = common.DeployCSIBMNodeController(f)
-		framework.ExpectNoError(err)
-	}
 
 	manifests := []string{
 		manifestsFolder + "controller-rbac.yaml",
@@ -134,7 +131,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		framework.Failf("deploying csi baremetal driver: %v", err)
 	}
 
-	testConf :=  &testsuites.PerTestConfig{
+	testConf := &testsuites.PerTestConfig{
 		Driver:    d,
 		Prefix:    "baremetal",
 		Framework: f,
