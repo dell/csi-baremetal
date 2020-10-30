@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -156,14 +157,14 @@ func TestLinuxUtils_LVRemove(t *testing.T) {
 		expectedErr = errors.New("error")
 	)
 
-	e.OnCommandWithAttempts(cmd, 5).Return("", "", nil).Times(1)
+	e.OnCommandWithAttempts(cmd, 5, 500*time.Millisecond).Return("", "", nil).Times(1)
 	err = l.LVRemove(fullLVName)
 	assert.Nil(t, err)
-	e.OnCommandWithAttempts(cmd, 5).Return("", "Failed to find logical volume", expectedErr).Times(1)
+	e.OnCommandWithAttempts(cmd, 5, 500*time.Millisecond).Return("", "Failed to find logical volume", expectedErr).Times(1)
 	err = l.LVRemove(fullLVName)
 	assert.Nil(t, err)
 
-	e.OnCommandWithAttempts(cmd, 5).Return("", "", expectedErr).Times(1)
+	e.OnCommandWithAttempts(cmd, 5, 500*time.Millisecond).Return("", "", expectedErr).Times(1)
 	err = l.LVRemove(fullLVName)
 	assert.Equal(t, expectedErr, err)
 }
