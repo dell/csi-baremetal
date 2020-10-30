@@ -19,7 +19,7 @@ base-image-drivemgr:
 	${BASE_IMAGE_DRIVEMGR_ARGS_${shell echo $(DRIVE_MANAGER_TYPE) | tr '[a-z]' '[A-Z]'}}
 
 download-grpc-health-probe:
-	if [ ! -s build/health_probe ]; then curl -sL ${HEALTH_PROBE_BIN_URL} -o build/health_probe; fi
+	if [ ! -s build/health_probe ]; then curl -L ${HEALTH_PROBE_BIN_URL} -o build/health_probe; fi
 	chmod +x build/health_probe
 
 # NOTE: Output directory for binary file should be in Docker context.
