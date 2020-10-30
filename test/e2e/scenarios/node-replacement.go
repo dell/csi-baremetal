@@ -2,14 +2,15 @@ package scenarios
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
@@ -17,6 +18,7 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -32,15 +34,11 @@ func nrTest(driver testsuites.TestDriver) {
 		pod           *corev1.Pod
 		pvc           *corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
-		executor      = &command.Executor{}
-		logger        = logrus.New()
 		driverCleanup func()
 		ns            string
 		nodeToReplace string // represents kind node
 		f             = framework.NewDefaultFramework("node-replacement")
 	)
-	logger.SetLevel(logrus.DebugLevel)
-	executor.SetLogger(logger)
 
 	init := func() {
 		var (
@@ -95,20 +93,21 @@ func nrTest(driver testsuites.TestDriver) {
 		// node' name is the same as a docker container name by which this node is represented.
 		nodeToReplace = pod.Spec.NodeName
 
-		// find node UID that is used as a part of Drive.Spec.NodeID
-		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
+		// find node UID that is used as a part of Drive.Spec.NodeID and master node name
+		nodes, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 		framework.ExpectNoError(err)
 		var nodesCount = len(nodes.Items)
 		e2elog.Logf("Got nodesCount: %d", nodesCount)
 		var nodeID string
 		var masterNodeName string
 		for _, node := range nodes.Items {
+			e2elog.Logf("Inspecting node %s with labels %v", node.Name, node.GetLabels())
 			if node.Name == pod.Spec.NodeName {
 				nodeID = string(node.UID)
-				break
 			}
 			if _, ok := node.GetLabels()["node-role.kubernetes.io/master"]; ok {
 				masterNodeName = node.Name
+				//nodesCount-- // we are interested only in worker nodes count
 			}
 		}
 		if nodeID == "" {
@@ -119,7 +118,10 @@ func nrTest(driver testsuites.TestDriver) {
 
 		// save config of Drives on that node
 		allDrivesUnstr := getUObjList(f, common.DriveGVR)
-		volumeUnstr, found := getUObj(f, common.VolumeGVR, pvc.Spec.VolumeName)
+		createdPVC, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Get(pvc.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		e2elog.Logf("Read created PVC: %v", createdPVC)
+		volumeUnstr, found := getUObj(f, common.VolumeGVR, createdPVC.Spec.VolumeName)
 		if !found {
 			framework.Failf("Unable to found Volume CR that corresponds to the PVC %s by name %s", pvc.Name, pvc.Spec.VolumeName)
 		}
@@ -140,8 +142,10 @@ func nrTest(driver testsuites.TestDriver) {
 				path, _, err := unstructured.NestedString(drive.Object, "spec", "Path")
 				framework.ExpectNoError(err)
 				e2elog.Logf("Append drive with SN %s and path %s", sn, path)
-				if sn == volumeLocation {
-					e2elog.Logf("PVC %s location is drive with SN %s and path %s", sn, path)
+				name, _, err := unstructured.NestedString(drive.Object, "metadata", "Name")
+				framework.ExpectNoError(err)
+				if name == volumeLocation {
+					e2elog.Logf("PVC %s location is drive with SN %s, path %s, name %s", sn, path, name)
 					bdev = path
 					provisionedDriveSN = sn
 				}
@@ -163,10 +167,11 @@ func nrTest(driver testsuites.TestDriver) {
 		applyLMConfig(f, lmConfig)
 
 		// delete node and add it again
-		e := command.Executor{}
-		logger := logrus.New()
+		e := &command.Executor{}
+		_ = os.Setenv("LOG_FORMAT", "text")
+		logger, err := base.InitLogger("", "debug")
+		framework.ExpectNoError(err)
 		e.SetLogger(logger)
-		e.SetLevel(logrus.DebugLevel)
 
 		_, _, err = e.RunCmd(fmt.Sprintf("kubectl drain %s --ignore-daemonsets", nodeToReplace))
 		framework.ExpectNoError(err)
@@ -179,7 +184,10 @@ func nrTest(driver testsuites.TestDriver) {
 		_, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s systemctl restart kubelet", nodeToReplace))
 		framework.ExpectNoError(err)
 
-		time.Sleep(time.Second * 5)
+		// wait until node will be removed from cluster
+		shouldBe := nodesCount - 1
+		_, err = e2enode.CheckReady(f.ClientSet, shouldBe, time.Minute*3)
+		framework.ExpectNoError(err)
 
 		var joinCommand string
 		joinCommand, _, err = e.RunCmd(fmt.Sprintf("docker exec -i %s kubeadm token create --print-join-command", masterNodeName))
