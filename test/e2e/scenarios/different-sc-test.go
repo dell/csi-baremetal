@@ -118,9 +118,9 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 	})
 }
 
-//createPVCs create PVCs in Kubernetes
-//Params: E2E test framework, numberOfPVC to create, size of PVC, name of PVC storageClass, PVC namespace
-//Returns: slice of created PVCs
+//  reatePVCs create PVCs in Kubernetes
+// Params: E2E test framework, numberOfPVC to create, size of PVC, name of PVC storageClass, PVC namespace
+// Returns: slice of created PVCs
 func createPVCs(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) []*corev1.PersistentVolumeClaim {
 	var pvcs []*corev1.PersistentVolumeClaim
 	for i := 0; i < numberOfPVC; i++ {
@@ -131,9 +131,9 @@ func createPVCs(f *framework.Framework, numberOfPVC int, size string, scName str
 	return pvcs
 }
 
-//startAndWaitForPodWithPVCRunning launch test Pod with PVC and wait until it has Running state
-//Params: E2E test framework, Pod namespace, slice of PVC for Pod
-//Returns: created Pod
+// startAndWaitForPodWithPVCRunning launch test Pod with PVC and wait until it has Running state
+// Params: E2E test framework, Pod namespace, slice of PVC for Pod
+// Returns: created Pod
 func startAndWaitForPodWithPVCRunning(f *framework.Framework, ns string, pvc []*corev1.PersistentVolumeClaim) *corev1.Pod {
 	// Create test pod that consumes the pvc
 	pod, err := e2epod.CreatePod(f.ClientSet, ns, nil, pvc, false, "sleep 3600")

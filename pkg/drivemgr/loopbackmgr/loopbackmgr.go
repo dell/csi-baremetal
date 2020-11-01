@@ -226,7 +226,7 @@ func (d *LoopBackDevice) Equals(device *LoopBackDevice) bool {
 // fillEmptyFieldsWithDefaults fills fields of LoopBackDevice which are not provided in configuration with defaults
 func (d *LoopBackDevice) fillEmptyFieldsWithDefaults() {
 	if d.Health == "" {
-		d.Health = defaultHealth //apiV1.HealthGood
+		d.Health = defaultHealth // apiV1.HealthGood
 	}
 	if d.VendorID == "" {
 		d.VendorID = defaultVID
@@ -235,7 +235,7 @@ func (d *LoopBackDevice) fillEmptyFieldsWithDefaults() {
 		d.ProductID = defaultPID
 	}
 	if d.DriveType == "" {
-		d.DriveType = defaultDriveType //apiV1.DriveTypeHDD
+		d.DriveType = defaultDriveType // apiV1.DriveTypeHDD
 	}
 	if d.Size == "" {
 		d.Size = defaultSize
@@ -307,7 +307,7 @@ func (mgr *LoopBackManager) updateDevicesFromConfig() {
 	if drives != nil {
 		mgr.overrideDevicesFromNodeConfig(driveCount, drives)
 	}
-	//If default size from config was changed, then we change size of the drive, which are not overrode on config
+	// If default size from config was changed, then we change size of the drive, which are not overrode on config
 	for _, device := range mgr.devices {
 		var found bool
 		for _, drive := range drives {
@@ -353,7 +353,7 @@ func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devic
 						case device.Size != mgrDevice.Size && device.Size != "":
 							ll.Infof("Size of device changes from %s to %s", mgrDevice.Size, device.Size)
 							mgr.deleteLoopbackDevice(mgrDevice)
-						//If device Size is not specified and size of existing drive is not equal default size from config
+						// If device Size is not specified and size of existing drive is not equal default size from config
 						case mgr.config != nil && device.Size == "" && mgr.config.DefaultDriveSize != "" &&
 							mgrDevice.Size != mgr.config.DefaultDriveSize:
 							ll.Infof("Size of device changes from %s to %s", mgrDevice.Size, mgr.config.DefaultDriveSize)
@@ -385,7 +385,7 @@ func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devic
 				} else {
 					device.fileName = fmt.Sprintf(imagesFolder+"/%s-%s.img", mgr.hostname, device.SerialNumber)
 				}
-				//If device Size is not specified then use default size from config
+				// If device Size is not specified then use default size from config
 				if mgr.config != nil && device.Size == "" && mgr.config.DefaultDriveSize != "" {
 					device.Size = mgr.config.DefaultDriveSize
 				}
@@ -406,7 +406,7 @@ func (mgr *LoopBackManager) createDefaultDevices(deviceCount int) {
 			SerialNumber: fmt.Sprintf("LOOPBACK%d", deviceID),
 			fileName:     fmt.Sprintf(imagesFolder+"/%s-%d.img", mgr.hostname, deviceID),
 		}
-		//If device Size is not specified then use default size from config
+		// If device Size is not specified then use default size from config
 		if device.Size == "" && mgr.config != nil && mgr.config.DefaultDriveSize != "" {
 			device.Size = mgr.config.DefaultDriveSize
 		}

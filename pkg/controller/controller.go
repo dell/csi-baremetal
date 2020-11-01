@@ -49,7 +49,7 @@ type NodeID string
 type CSIControllerService struct {
 	k8sclient *k8s.KubeClient
 
-	//mutex for csi request
+	// mutex for csi request
 	reqMu sync.Mutex
 	log   *logrus.Entry
 
@@ -111,7 +111,7 @@ func (c *CSIControllerService) Check(context.Context, *grpc_health_v1.HealthChec
 	ll := c.log.WithFields(logrus.Fields{
 		"method": "Check",
 	})
-	//If controller service is ready we don't need to update cache often
+	// If controller service is ready we don't need to update cache often
 	if !c.ready {
 		c.nodeServicesStateMonitor.UpdateNodeHealthCache()
 	}
