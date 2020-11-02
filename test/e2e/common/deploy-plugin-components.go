@@ -18,12 +18,9 @@ package common
 
 import (
 	"fmt"
-	_const "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 	"io/ioutil"
 	"path"
 	"time"
-
-	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 
 	"github.com/onsi/ginkgo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,7 +29,10 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"sigs.k8s.io/yaml"
+
+	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 const (
@@ -321,21 +321,21 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 			e2elog.Logf("Failed to delete RBAC for CSIBMNode operator: %v", err)
 		}
 		// remove annotations
-		nodes, err := e2enode.GetReadySchedulableNodesOrDie(c)
+		nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 		if err != nil {
 			e2elog.Logf("Unable to get nodes list for cleaning annotations: %v", err)
 			return
 		}
 		for _, node := range nodes.Items {
-			if _, ok := node.GetAnnotations()[_const.NodeIDAnnotationKey]; ok {
-				delete(node.Annotations, _const.NodeIDAnnotationKey)
+			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; ok {
+				delete(node.Annotations, akey.NodeIDAnnotationKey)
 				if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
 					e2elog.Logf("Unable to unset %s annotation from node %s: %v",
-						_const.NodeIDAnnotationKey, node.Name, err)
+						akey.NodeIDAnnotationKey, node.Name, err)
 				}
 			}
 		}
-		e2elog.Logf("------------------------ ALL ANNOTATIONS %s WERE REMOVED", _const.NodeIDAnnotationKey)
+		e2elog.Logf("------------------------ ALL ANNOTATIONS %s WERE REMOVED", akey.NodeIDAnnotationKey)
 	}, nil
 }
 
@@ -352,14 +352,14 @@ func waitUntilAllNodesWillBeTagged(c clientset.Interface) error {
 		}
 
 		for _, node := range nodes.Items {
-			if _, ok := node.GetAnnotations()[_const.NodeIDAnnotationKey]; !ok {
-				e2elog.Logf("Not all nodes has annotation %s. Sleep and retry", _const.NodeIDAnnotationKey)
+			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; !ok {
+				e2elog.Logf("Not all nodes has annotation %s. Sleep and retry", akey.NodeIDAnnotationKey)
 				allHas = false
 				break
 			}
 		}
 		if allHas {
-			e2elog.Logf("Annotation %s was set for all nodes", _const.NodeIDAnnotationKey)
+			e2elog.Logf("Annotation %s was set for all nodes", akey.NodeIDAnnotationKey)
 			return nil
 		}
 		time.Sleep(sleepTime)

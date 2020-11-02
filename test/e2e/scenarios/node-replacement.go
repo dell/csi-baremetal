@@ -20,6 +20,7 @@ import (
 
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
@@ -103,7 +104,11 @@ func nrTest(driver testsuites.TestDriver) {
 		for _, node := range nodes.Items {
 			e2elog.Logf("Inspecting node %s with labels %v", node.Name, node.GetLabels())
 			if node.Name == pod.Spec.NodeName {
-				nodeID = string(node.UID)
+				var ok bool
+				nodeID, ok = node.GetAnnotations()[akey.NodeIDAnnotationKey]
+				if !ok {
+					framework.Failf("Unable to get %s annotation value for node %s", akey.NodeIDAnnotationKey, node.Name)
+				}
 			}
 			if _, ok := node.GetLabels()["node-role.kubernetes.io/master"]; ok {
 				masterNodeName = node.Name
