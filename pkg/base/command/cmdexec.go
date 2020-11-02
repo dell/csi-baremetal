@@ -63,15 +63,13 @@ func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout tim
 		stdout string
 		stderr string
 		err    error
-		ticker = time.NewTicker(timeout)
 	)
-	defer ticker.Stop()
 	for i := 0; i < attempts; i++ {
 		if stdout, stderr, err := e.RunCmd(cmd); err == nil {
 			return stdout, stderr, err
 		}
 		ll.Warnf("Unable to execute cmd: %v. Attempt %d out of %d.", err, i, attempts)
-		<-ticker.C
+		<-time.After(timeout)
 	}
 	errMsg := fmt.Errorf("failed to execute command after %d attempt, error: %v", attempts, err)
 	return stdout, stderr, errMsg
