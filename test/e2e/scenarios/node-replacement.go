@@ -62,7 +62,6 @@ func nrTest(driver testsuites.TestDriver) {
 	}
 
 	ginkgo.It("Pod should consume same PV after node had being replaced", func() {
-		return
 		init()
 		defer cleanup()
 

@@ -37,11 +37,12 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 const (
 	// NodeIDAnnotationKey hold key for annotation for node object
-	NodeIDAnnotationKey = "csibmnodes.csi-baremetal.dell.com/uuid"
+	NodeIDAnnotationKey = common.NodeIDAnnotationKey
 	// namePrefix it is a prefix for CSIBMNode CR name
 	namePrefix = "csibmnode-"
 )

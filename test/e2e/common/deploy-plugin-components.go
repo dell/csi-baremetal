@@ -18,10 +18,14 @@ package common
 
 import (
 	"fmt"
+	_const "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 	"io/ioutil"
 	"path"
 	"time"
 
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
+
+	"github.com/onsi/ginkgo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -269,4 +273,97 @@ func findSchedulerPods(client clientset.Interface) (*corev1.PodList, error) {
 	}
 	e2elog.Logf("Find %d scheduler pods", len(pods.Items))
 	return pods, nil
+}
+
+func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
+	var (
+		chartsDir               = "/tmp"
+		operatorManifestsFolder = "csibm-operator/templates"
+	)
+
+	e2elog.Logf("===== INSTALLING CSIBMNODECONTROLLER")
+	// TODO: apply rbac here
+	setupRBACCMD := fmt.Sprintf("kubectl apply -f %s",
+		path.Join(chartsDir, operatorManifestsFolder, "csibm-rbac.yaml"))
+	cleanupRBACCMD := fmt.Sprintf("kubectl delete -f %s",
+		path.Join(chartsDir, operatorManifestsFolder, "csibm-rbac.yaml"))
+
+	if _, _, err := GetExecutor().RunCmd(setupRBACCMD); err != nil {
+		ginkgo.Fail(err.Error())
+	}
+	e2elog.Logf("===== RBAC for CSIBMNode was installed")
+
+	file, err := ioutil.ReadFile(path.Join(chartsDir, operatorManifestsFolder, "csibm-controller.yaml"))
+	if err != nil {
+		ginkgo.Fail(err.Error())
+	}
+
+	deployment := &appsv1.Deployment{}
+	err = yaml.Unmarshal(file, deployment)
+	if err != nil {
+		ginkgo.Fail(err.Error())
+	}
+
+	depl, err := c.AppsV1().Deployments("default").Create(deployment)
+	if err != nil {
+		ginkgo.Fail(err.Error())
+	}
+
+	if err = waitUntilAllNodesWillBeTagged(c); err != nil {
+		ginkgo.Fail(err.Error())
+	}
+
+	return func() {
+		if err := c.AppsV1().Deployments("default").Delete(depl.Name, &metav1.DeleteOptions{}); err != nil {
+			e2elog.Logf("Failed to delete deployment %s: %v", depl.Name, err)
+		}
+		if _, _, err = GetExecutor().RunCmd(cleanupRBACCMD); err != nil {
+			e2elog.Logf("Failed to delete RBAC for CSIBMNode operator: %v", err)
+		}
+		// remove annotations
+		nodes, err := e2enode.GetReadySchedulableNodesOrDie(c)
+		if err != nil {
+			e2elog.Logf("Unable to get nodes list for cleaning annotations: %v", err)
+			return
+		}
+		for _, node := range nodes.Items {
+			if _, ok := node.GetAnnotations()[_const.NodeIDAnnotationKey]; ok {
+				delete(node.Annotations, _const.NodeIDAnnotationKey)
+				if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
+					e2elog.Logf("Unable to unset %s annotation from node %s: %v",
+						_const.NodeIDAnnotationKey, node.Name, err)
+				}
+			}
+		}
+		e2elog.Logf("------------------------ ALL ANNOTATIONS %s WERE REMOVED", _const.NodeIDAnnotationKey)
+	}, nil
+}
+
+func waitUntilAllNodesWillBeTagged(c clientset.Interface) error {
+	timeout := time.Minute * 2
+	sleepTime := time.Second * 5
+	for start := time.Now(); time.Since(start) < timeout; time.Sleep(sleepTime) {
+		nodes, err := e2enode.GetReadySchedulableNodesOrDie(c)
+		allHas := true
+
+		if err != nil {
+			e2elog.Logf("Got error during waitUntilAllNodesWillBeTagged: %v. Sleep and retry", err)
+			allHas = false
+		}
+
+		for _, node := range nodes.Items {
+			if _, ok := node.GetAnnotations()[_const.NodeIDAnnotationKey]; !ok {
+				e2elog.Logf("Not all nodes has annotation %s. Sleep and retry", _const.NodeIDAnnotationKey)
+				allHas = false
+				break
+			}
+		}
+		if allHas {
+			e2elog.Logf("Annotation %s was set for all nodes", _const.NodeIDAnnotationKey)
+			return nil
+		}
+		time.Sleep(sleepTime)
+	}
+
+	return nil
 }
