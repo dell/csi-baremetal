@@ -47,9 +47,7 @@ type baremetalDriver struct {
 var (
 	BaremetalDriver         = InitBaremetalDriver
 	cmName                  = "loopback-config"
-	chartsDir               = "/tmp"
 	manifestsFolder         = "baremetal-csi-plugin/templates/"
-	operatorManifestsFolder = "csibm-operator/templates"
 )
 
 func initBaremetalDriver(name string) testsuites.TestDriver {

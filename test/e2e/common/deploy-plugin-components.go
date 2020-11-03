@@ -281,8 +281,6 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 		operatorManifestsFolder = "csibm-operator/templates"
 	)
 
-	e2elog.Logf("===== INSTALLING CSIBMNODECONTROLLER")
-	// TODO: apply rbac here
 	setupRBACCMD := fmt.Sprintf("kubectl apply -f %s",
 		path.Join(chartsDir, operatorManifestsFolder, "csibm-rbac.yaml"))
 	cleanupRBACCMD := fmt.Sprintf("kubectl delete -f %s",
@@ -291,7 +289,6 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 	if _, _, err := GetExecutor().RunCmd(setupRBACCMD); err != nil {
 		ginkgo.Fail(err.Error())
 	}
-	e2elog.Logf("===== RBAC for CSIBMNode was installed")
 
 	file, err := ioutil.ReadFile(path.Join(chartsDir, operatorManifestsFolder, "csibm-controller.yaml"))
 	if err != nil {
@@ -335,7 +332,6 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 				}
 			}
 		}
-		e2elog.Logf("------------------------ ALL ANNOTATIONS %s WERE REMOVED", akey.NodeIDAnnotationKey)
 	}, nil
 }
 

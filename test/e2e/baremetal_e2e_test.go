@@ -45,7 +45,7 @@ func registerBMDriverFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&common.BMDriverTestContext.BMWaitSchedulerRestart, "bm-wait-scheduler-restart",
 		true, "Wait for scheduler restart")
 	flags.BoolVar(&common.BMDriverTestContext.BMDeployCSIBMNodeOperator, "bm-deploy-csi-bm-node-operator",
-		true, "Deploy controller for CSIBMNode CR or not")
+		true, "Deploy controller for CSIBMNode CRs")
 }
 
 func init() {
