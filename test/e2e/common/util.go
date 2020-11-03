@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,8 +31,6 @@ import (
 
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
-	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 )
 
 var utilExecutor command.CmdExecutor
@@ -128,37 +125,4 @@ func GetGlobalClientSet() (clientset.Interface, error) {
 		return nil, err
 	}
 	return clientset.NewForConfig(conf)
-}
-
-func CopyPartitionConfig(fromDev, withPartUUID, toDev string, logger *logrus.Logger) error {
-	logger.Infof("replacing partition with UUID %s from device %s to device %s", withPartUUID, fromDev, toDev)
-	partitionHelper := ph.NewWrapPartitionImpl(GetExecutor(), logger)
-	fsHelper := fs.NewFSImpl(GetExecutor())
-
-	var err error
-	// delete partition from fromDev
-	if err = fsHelper.WipeFS(fromDev); err != nil {
-		return err
-	}
-	if err = partitionHelper.DeletePartition(fromDev, "1"); err != nil {
-		return err
-	}
-	if err = fsHelper.WipeFS(fromDev); err != nil {
-		return err
-	}
-	if err = partitionHelper.CreatePartition(toDev, "NRTest"); err != nil {
-		return err
-	}
-	if err = partitionHelper.SetPartitionUUID(toDev, "1", withPartUUID); err != nil {
-		return err
-	}
-	partName, err := partitionHelper.GetPartitionNameByUUID(toDev, withPartUUID)
-	if err != nil {
-		return err
-	}
-	if err = fsHelper.CreateFS(fs.XFS, toDev+partName); err != nil {
-		return err
-	}
-
-	return nil
 }

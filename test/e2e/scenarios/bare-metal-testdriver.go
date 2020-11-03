@@ -45,9 +45,9 @@ type baremetalDriver struct {
 }
 
 var (
-	BaremetalDriver         = InitBaremetalDriver
-	cmName                  = "loopback-config"
-	manifestsFolder         = "baremetal-csi-plugin/templates/"
+	BaremetalDriver = InitBaremetalDriver
+	cmName          = "loopback-config"
+	manifestsFolder = "baremetal-csi-plugin/templates/"
 )
 
 func initBaremetalDriver(name string) testsuites.TestDriver {
@@ -97,8 +97,6 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	ginkgo.By("deploying baremetal driver")
 
 	cancelLogging := testsuites.StartPodLogs(f)
-
-	operatorCleanup := func() {}
 
 	manifests := []string{
 		manifestsFolder + "controller-rbac.yaml",
@@ -164,7 +162,6 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		driverCleanup()
 		extenderCleanup()
 		defaultSCCleanup()
-		operatorCleanup()
 		err = d.removeAllCRs(f)
 		if err != nil {
 			framework.Logf("Failed to clean up CRs, error: ", err)
