@@ -35,6 +35,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -45,7 +46,7 @@ const (
 )
 
 var (
-	pvcName   = "baremetal-csi-pvc"
+	pvcName = "baremetal-csi-pvc"
 )
 
 // DefineDriveHealthChangeTestSuite defines custom baremetal-csi e2e tests
@@ -317,7 +318,14 @@ func findNodeNameByUID(f *framework.Framework, nodeUID string) (string, error) {
 	}
 	var nodeName string
 	for _, node := range nodeList.Items {
-		if string(node.UID) == nodeUID {
+		var currID string
+		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
+			currID, _ = node.GetAnnotations()[akey.NodeIDAnnotationKey]
+			e2elog.Logf("Node ID is: %s", currID)
+		} else {
+			currID = string(node.UID)
+		}
+		if currID == nodeUID {
 			nodeName = node.Name
 			break
 		}
