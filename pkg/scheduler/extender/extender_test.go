@@ -465,18 +465,18 @@ func Test_getNodeId(t *testing.T) {
 		res string
 	)
 
-	res = e.getNodeID(&node)
+	res = e.getNodeID(node)
 	assert.Equal(t, uid, res)
 
 	featureConf := fc.NewFeatureConfig()
 	featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 	e.featureChecker = featureConf
 
-	res = e.getNodeID(&node)
+	res = e.getNodeID(node)
 	assert.Equal(t, val, res)
 
 	node.Annotations = nil
-	res = e.getNodeID(&node)
+	res = e.getNodeID(node)
 	assert.Equal(t, "", res)
 }
 

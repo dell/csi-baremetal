@@ -339,7 +339,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 			continue
 		}
 		node := node
-		placingForNode := placingPlan.GetVolumesToACMapping(e.getNodeID(&node))
+		placingForNode := placingPlan.GetVolumesToACMapping(e.getNodeID(node))
 		if placingForNode == nil {
 			failedNodesMap[node.Name] = noACForNodeMsg
 			continue
@@ -379,7 +379,7 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 	for _, node := range nodes {
 		// set the highest priority if node doesn't have any volumes
 		rank := maxVolumeCount
-		if r, ok := priorityFromVolumes[e.getNodeID(&node)]; ok {
+		if r, ok := priorityFromVolumes[e.getNodeID(node)]; ok {
 			rank = r
 		}
 		hostPriority = append(hostPriority, schedulerapi.HostPriority{
@@ -441,7 +441,7 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 }
 
 // getNodeID returns node ID, it could be a k8s node UID or value of annotation
-func (e *Extender) getNodeID(node *coreV1.Node) string {
+func (e *Extender) getNodeID(node coreV1.Node) string {
 	if e.featureChecker.IsEnabled(fc.FeatureNodeIDFromAnnotation) {
 		val, ok := node.GetAnnotations()[csibmnode.NodeIDAnnotationKey]
 		if !ok {
