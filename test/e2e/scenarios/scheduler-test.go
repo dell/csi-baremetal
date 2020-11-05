@@ -270,11 +270,12 @@ func getVolumesByNodes(f *framework.Framework) map[string][]string {
 		framework.ExpectNoError(err)
 		nodeNameOfVolume, err := findNodeNameByUID(f, nodeUIDOfVolume)
 		framework.ExpectNoError(err)
+		volId, _, err := unstructured.NestedString(targetVolume.Object, "spec", "Id")
 		if _, ok := volumes[nodeNameOfVolume]; ok {
-			volumes[nodeNameOfVolume] = append(volumes[nodeNameOfVolume], nodeUIDOfVolume)
+			volumes[nodeNameOfVolume] = append(volumes[nodeNameOfVolume], volId)
 			continue
 		}
-		volumes[nodeNameOfVolume] = []string{nodeUIDOfVolume}
+		volumes[nodeNameOfVolume] = []string{volId}
 	}
 	return volumes
 

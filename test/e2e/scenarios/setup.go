@@ -25,6 +25,8 @@ package scenarios
 import (
 	"path"
 
+	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 	"k8s.io/kubernetes/test/e2e/framework/testfiles"
@@ -56,7 +58,7 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	curDriver := BaremetalDriver()
 
 	patcherCleanup := func() {}
-	csibmOperatorCleanup := func() {}
+	csibmOperatorCleanup := func(bool) {}
 	ginkgo.BeforeSuite(func() {
 		c, err := common.GetGlobalClientSet()
 		if err != nil {
@@ -75,11 +77,16 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 				ginkgo.Fail(err.Error())
 			}
 		}
+
+		stdOut, stdErr, err := common.GetExecutor().RunCmd("kubectl get pods -o wide -n default")
+		e2elog.Logf("All pods in default namespace is: %v. StdErr: %v, Error: %v", stdOut, stdErr, err)
+
+		csibmOperatorCleanup(false)
 	})
 
 	ginkgo.AfterSuite(func() {
 		patcherCleanup()
-		csibmOperatorCleanup()
+		//csibmOperatorCleanup(true)
 	})
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
