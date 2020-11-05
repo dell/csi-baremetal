@@ -318,13 +318,11 @@ func findNodeNameByUID(f *framework.Framework, nodeUID string) (string, error) {
 	}
 	var nodeName string
 	for _, node := range nodeList.Items {
-		var currID string
+		var currID = string(node.UID)
 		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
 			currID, _ = node.GetAnnotations()[akey.NodeIDAnnotationKey]
-			e2elog.Logf("Node ID is: %s", currID)
-		} else {
-			currID = string(node.UID)
 		}
+
 		if currID == nodeUID {
 			nodeName = node.Name
 			break

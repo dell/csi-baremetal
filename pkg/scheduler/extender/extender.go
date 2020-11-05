@@ -379,7 +379,7 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 	for _, node := range nodes {
 		// set the highest priority if node doesn't have any volumes
 		rank := maxVolumeCount
-		if r, ok := priorityFromVolumes[string(node.GetUID())]; ok {
+		if r, ok := priorityFromVolumes[e.getNodeID(&node)]; ok {
 			rank = r
 		}
 		hostPriority = append(hostPriority, schedulerapi.HostPriority{
