@@ -336,6 +336,8 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 }
 
 func waitUntilAllNodesWillBeTagged(c clientset.Interface) error {
+	nodeAnnotationMap := make(map[string]string, 0)
+
 	timeout := time.Minute * 2
 	sleepTime := time.Second * 5
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(sleepTime) {
@@ -353,9 +355,10 @@ func waitUntilAllNodesWillBeTagged(c clientset.Interface) error {
 				allHas = false
 				break
 			}
+			nodeAnnotationMap[node.Name] = node.GetAnnotations()[akey.NodeIDAnnotationKey]
 		}
 		if allHas {
-			e2elog.Logf("Annotation %s was set for all nodes", akey.NodeIDAnnotationKey)
+			e2elog.Logf("Annotation %s was set for all nodes: %v", akey.NodeIDAnnotationKey, nodeAnnotationMap)
 			return nil
 		}
 		time.Sleep(sleepTime)
