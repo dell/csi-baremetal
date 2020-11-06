@@ -39,7 +39,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller/node"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 // NodeID is the type for node hostname
@@ -152,7 +152,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	preferredNode := ""
 	if req.GetAccessibilityRequirements() != nil && len(req.GetAccessibilityRequirements().Preferred) > 0 {
-		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnode.NodeIDAnnotationKey]
+		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnodeconst.NodeIDAnnotationKey]
 		ll.Infof("Preferred node was provided: %s", preferredNode)
 	}
 
@@ -194,7 +194,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	ll.Infof("Construct response based on volume: %v", vol)
 	topologyList := []*csi.Topology{
-		{Segments: map[string]string{csibmnode.NodeIDAnnotationKey: vol.NodeId}},
+		{Segments: map[string]string{csibmnodeconst.NodeIDAnnotationKey: vol.NodeId}},
 	}
 
 	return &csi.CreateVolumeResponse{

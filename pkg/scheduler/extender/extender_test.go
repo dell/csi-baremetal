@@ -42,7 +42,7 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 var (
@@ -459,7 +459,7 @@ func Test_getNodeId(t *testing.T) {
 			ObjectMeta: metaV1.ObjectMeta{
 				UID:         types.UID(uid),
 				Name:        "node-1",
-				Annotations: map[string]string{csibmnode.NodeIDAnnotationKey: val},
+				Annotations: map[string]string{csibmnodeconst.NodeIDAnnotationKey: val},
 			},
 		}
 		res string

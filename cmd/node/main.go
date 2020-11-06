@@ -46,7 +46,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/node"
@@ -221,10 +221,10 @@ func getNodeID(client k8sClient.Client, nodeName string, featureChecker featurec
 	}
 
 	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
-		if val, ok := k8sNode.GetAnnotations()[csibmnode.NodeIDAnnotationKey]; ok {
+		if val, ok := k8sNode.GetAnnotations()[csibmnodeconst.NodeIDAnnotationKey]; ok {
 			return val, nil
 		}
-		return "", fmt.Errorf("annotation %s hadn't been set for node %s", csibmnode.NodeIDAnnotationKey, nodeName)
+		return "", fmt.Errorf("annotation %s hadn't been set for node %s", csibmnodeconst.NodeIDAnnotationKey, nodeName)
 	}
 
 	return string(k8sNode.UID), nil
