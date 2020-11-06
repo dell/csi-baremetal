@@ -226,6 +226,8 @@ func schedulingTest(driver testsuites.TestDriver) {
 	})
 
 	ginkgo.It("PODs should distribute across nodes with sequential deploy", func() {
+		// TODO: change result verification https://github.com/dell/csi-baremetal/issues/153
+		ginkgo.Skip("We shouldn't check prioritize work based on kube-scheduler decision, ISSUE-153")
 		testPodsDisksPerPod := 1
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 0)
 		testPodsCount := len(nodes)

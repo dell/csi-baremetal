@@ -274,7 +274,7 @@ func findSchedulerPods(client clientset.Interface) (*corev1.PodList, error) {
 	return pods, nil
 }
 
-func DeployCSIBMOperator(c clientset.Interface) (func(bool), error) {
+func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 	var (
 		chartsDir               = "/tmp"
 		operatorManifestsFolder = "csibm-operator/templates"
@@ -309,16 +309,14 @@ func DeployCSIBMOperator(c clientset.Interface) (func(bool), error) {
 		return nil, err
 	}
 
-	return func(unsetAnnotation bool) {
+	return func() {
 		if err := c.AppsV1().Deployments("default").Delete(depl.Name, &metav1.DeleteOptions{}); err != nil {
 			e2elog.Logf("Failed to delete deployment %s: %v", depl.Name, err)
 		}
 		if _, _, err = GetExecutor().RunCmd(cleanupRBACCMD); err != nil {
 			e2elog.Logf("Failed to delete RBAC for CSIBMNode operator: %v", err)
 		}
-		if !unsetAnnotation {
-			return
-		}
+
 		// remove annotations
 		nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 		if err != nil {

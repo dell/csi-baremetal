@@ -56,7 +56,7 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	curDriver := BaremetalDriver()
 
 	patcherCleanup := func() {}
-	csibmOperatorCleanup := func(bool) {}
+	csibmOperatorCleanup := func() {}
 	ginkgo.BeforeSuite(func() {
 		c, err := common.GetGlobalClientSet()
 		if err != nil {
@@ -75,13 +75,10 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 				ginkgo.Fail(err.Error())
 			}
 		}
-
-		//operator is removed before tests for avoiding influence on scheduling decision in tests
-		// when we expect that pods will be evenly distributed across the nodes
-		csibmOperatorCleanup(false)
 	})
 
 	ginkgo.AfterSuite(func() {
+		csibmOperatorCleanup()
 		patcherCleanup()
 	})
 
