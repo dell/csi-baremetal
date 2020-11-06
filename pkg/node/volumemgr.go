@@ -636,7 +636,11 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 			continue
 		}
 		if len(bdev.Children) > 0 {
-			var size int64
+			var (
+				partUUID string
+				size     int64
+			)
+
 			if bdev.Children[0].Size != "" {
 				size, err = strconv.ParseInt(bdev.Size, 10, 64)
 				if err != nil {
@@ -645,11 +649,17 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 				}
 			}
 
+			partUUID = bdev.Children[0].PartUUID
+			if partUUID == "" {
+				partUUID = uuid.New().String() // just generate random and exclude drive
+				ll.Warnf("There is no part UUID for partition from device %v, UUID has been generated %s", bdev, partUUID)
+			}
+
 			volUUID := uuid.New().String() // just generate random and exclude drive
 
 			volumeCR := m.k8sClient.ConstructVolumeCR(volUUID, api.Volume{
 				NodeId:       m.nodeID,
-				Id:           volUUID,
+				Id:           partUUID,
 				Size:         size,
 				Location:     d.Spec.UUID,
 				LocationType: apiV1.LocationTypeDrive,
