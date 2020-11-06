@@ -19,6 +19,7 @@ package mocks
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
@@ -53,6 +54,12 @@ func (e EmptyExecutorSuccess) RunCmd(interface{}) (string, string, error) {
 	return "", "", nil
 }
 
+// RunCmdWithAttempts simulates successful execution of a command with attempts and given timeout between attempts
+// Returns "" as stdout, "" as stderr and nil as error
+func (e EmptyExecutorSuccess) RunCmdWithAttempts(interface{}, int, time.Duration) (string, string, error) {
+	return "", "", nil
+}
+
 // EmptyExecutorFail implements CmdExecutor interface for test purposes, each command will finish with error
 type EmptyExecutorFail struct {
 	LoggerSetter
@@ -61,6 +68,12 @@ type EmptyExecutorFail struct {
 // RunCmd simulates failed execution of a command
 // Returns "error happened" as stdout, "error" as stderr and errors.New("error") as error
 func (e EmptyExecutorFail) RunCmd(interface{}) (string, string, error) {
+	return "error happened", "error", errors.New("error")
+}
+
+// RunCmdWithAttempts simulates failed execution of a command with attempts and given timeout between attempts
+// Returns "error happened" as stdout, "error" as stderr and errors.New("error") as error
+func (e EmptyExecutorFail) RunCmdWithAttempts(interface{}, int, time.Duration) (string, string, error) {
 	return "error happened", "error", errors.New("error")
 }
 
@@ -147,13 +160,29 @@ func (e *MockExecutor) RunCmd(cmd interface{}) (string, string, error) {
 	return res.Stdout, res.Stderr, res.Err
 }
 
+// RunCmdWithAttempts simulates execution of a command. Execute RunCmd.
+// Receives cmd as interface, number of attempts, timeout
+// Returns stdout, stderr, error for a given command
+func (e *MockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error) {
+	return e.RunCmd(cmd)
+}
+
 // RunCmd is the name of CmdExecutor method name
-var RunCmd = "RunCmd"
+var (
+	RunCmd             = "RunCmd"
+	RunCmdWithAttempts = "RunCmdWithAttempts"
+)
 
 // GoMockExecutor implements CmdExecutor based on stretchr/testify/mock
 type GoMockExecutor struct {
 	mock.Mock
 	LoggerSetter
+}
+
+// RunCmdWithAttempts simulates execution of a command with OnCommandWithAttempts where user can set what the method should return
+func (g *GoMockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error) {
+	args := g.Mock.Called(cmd.(string), attempts, timeout)
+	return args.String(0), args.String(1), args.Error(2)
 }
 
 // RunCmd simulates execution of a command with OnCommand where user can set what the method should return
@@ -167,4 +196,11 @@ func (g *GoMockExecutor) RunCmd(cmd interface{}) (string, string, error) {
 // Returns mock.Call where need to set what to return with Return() method
 func (g *GoMockExecutor) OnCommand(cmd string) *mock.Call {
 	return g.On(RunCmd, cmd)
+}
+
+// OnCommandWithAttempts is the method of mock.Mock where user can set what to return on specified command
+// For example e.OnCommandWithAttempts("/sbin/lvm pvcreate --yes /dev/sda", 5, time.Second).Return("", "", errors.New("pvcreate failed"))
+// Returns mock.Call where need to set what to return with Return() method
+func (g *GoMockExecutor) OnCommandWithAttempts(cmd string, attempts int, timeout time.Duration) *mock.Call {
+	return g.On(RunCmdWithAttempts, cmd, attempts, timeout)
 }
