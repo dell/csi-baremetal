@@ -22,7 +22,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/onsi/ginkgo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -287,27 +286,27 @@ func DeployCSIBMOperator(c clientset.Interface) (func(bool), error) {
 		path.Join(chartsDir, operatorManifestsFolder, "csibm-rbac.yaml"))
 
 	if _, _, err := GetExecutor().RunCmd(setupRBACCMD); err != nil {
-		ginkgo.Fail(err.Error())
+		return nil, err
 	}
 
 	file, err := ioutil.ReadFile(path.Join(chartsDir, operatorManifestsFolder, "csibm-controller.yaml"))
 	if err != nil {
-		ginkgo.Fail(err.Error())
+		return nil, err
 	}
 
 	deployment := &appsv1.Deployment{}
 	err = yaml.Unmarshal(file, deployment)
 	if err != nil {
-		ginkgo.Fail(err.Error())
+		return nil, err
 	}
 
 	depl, err := c.AppsV1().Deployments("default").Create(deployment)
 	if err != nil {
-		ginkgo.Fail(err.Error())
+		return nil, err
 	}
 
 	if err = waitUntilAllNodesWillBeTagged(c); err != nil {
-		ginkgo.Fail(err.Error())
+		return nil, err
 	}
 
 	return func(unsetAnnotation bool) {

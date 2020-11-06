@@ -25,8 +25,6 @@ package scenarios
 import (
 	"path"
 
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
-
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 	"k8s.io/kubernetes/test/e2e/framework/testfiles"
@@ -78,15 +76,13 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 			}
 		}
 
-		stdOut, stdErr, err := common.GetExecutor().RunCmd("kubectl get pods -o wide -n default")
-		e2elog.Logf("All pods in default namespace is: %v. StdErr: %v, Error: %v", stdOut, stdErr, err)
-
+		//operator is removed before tests for avoiding influence on scheduling decision in tests
+		// when we expect that pods will be evenly distributed across the nodes
 		csibmOperatorCleanup(false)
 	})
 
 	ginkgo.AfterSuite(func() {
 		patcherCleanup()
-		//csibmOperatorCleanup(true)
 	})
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
