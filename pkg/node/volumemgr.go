@@ -655,7 +655,7 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 				ll.Warnf("There is no part UUID for partition from device %v, UUID has been generated %s", bdev, partUUID)
 			}
 
-			volUUID := uuid.New().String() // just generate random and exclude drive
+			volUUID := uuid.New().String() // generate new uuid to use it for  volume CR name
 
 			volumeCR := m.k8sClient.ConstructVolumeCR(volUUID, api.Volume{
 				NodeId:       m.nodeID,
