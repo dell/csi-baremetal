@@ -84,7 +84,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	ll.Infof("Creating volume %v", v)
 
 	var (
-		ctxWithID = context.WithValue(context.Background(), k8s.RequestUUID, v.Id)
+		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, v.Id)
 		volumeCR  = &volumecrd.Volume{}
 		err       error
 	)
@@ -262,7 +262,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "UpdateCRsAfterVolumeDeletion",
-		"volumeID": ctx.Value(k8s.RequestUUID),
+		"volumeID": ctx.Value(base.RequestUUID),
 	})
 
 	var (

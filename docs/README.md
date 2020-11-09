@@ -20,6 +20,7 @@ Features
 - Storage classes for the different drive types: HDD, SSD, NVMe
 - Drive health detection
 - Scheduler extender
+- Support unique ID for each node in the K8s cluster
 
 ### Planned features
 - Service procedures - node and disk replacement
@@ -59,7 +60,16 @@ Installation process
 3. Check default storage classes available
 
     ```kubectl get storageclasses```
+
+4. Unique node ID support
+   In order to support physical [node replacement](https://github.com/dell/csi-baremetal/blob/master/docs/proposals/node_replacement.md) during which drives remain same CSIBMNode operator should be installed before plugin and extender installation.
     
+    ``` helm install operator charts/csibm-operator --set image.registry=<your-registry.com> --set image.tag=<tag> ```
+   All options could be found in [values.yaml](https://github.com/dell/csi-baremetal/blob/master/charts/csibm-operator/values.yaml)'
+
+   For using generated ID in plugin and extender they should be installed with next feature option:
+   ``` --set feature.usenodeannotation=true ```
+
 Usage
 ------
  

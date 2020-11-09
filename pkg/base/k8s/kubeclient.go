@@ -39,15 +39,13 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 )
 
 // CtxKey variable type uses for keys in context WithValue
 type CtxKey string
 
 const (
-	// RequestUUID is the constant for context request
-	RequestUUID CtxKey = "RequestUUID"
-
 	// DefaultVolumeID is the constant to avoid linter error
 	DefaultVolumeID = "Unknown"
 
@@ -77,7 +75,7 @@ func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, namespace stri
 // Receives golang context, name of the created object, and object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Object) error {
-	requestUUID := ctx.Value(RequestUUID)
+	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
 	}
@@ -117,7 +115,7 @@ func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
-	requestUUID := ctx.Value(RequestUUID)
+	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
 	}
@@ -134,7 +132,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 // Receives golang context and removable object that implements k8s runtime.Object interface
 // Returns error if something went wrong
 func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
-	requestUUID := ctx.Value(RequestUUID)
+	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
 	}
@@ -283,7 +281,7 @@ func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Objec
 	var (
 		err    error
 		ticker = time.NewTicker(TickerStep)
-		ctxVal = context.WithValue(context.Background(), RequestUUID, ctx.Value(RequestUUID))
+		ctxVal = context.WithValue(context.Background(), base.RequestUUID, ctx.Value(base.RequestUUID))
 	)
 
 	defer ticker.Stop()

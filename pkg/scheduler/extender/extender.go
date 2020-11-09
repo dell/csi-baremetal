@@ -40,7 +40,7 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -101,7 +101,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ll.Info("Filtering")
-	ctxWithVal := context.WithValue(req.Context(), k8s.RequestUUID, sessionUUID)
+	ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
 	volumes, err := e.gatherVolumesByProvisioner(ctxWithVal, extenderArgs.Pod)
 	if err != nil {
 		extenderRes.Error = err.Error()
@@ -212,7 +212,7 @@ func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 // by provisioner e.provisioner and construct genV1.Volume struct for each of such volume
 func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.Volume, error) {
 	ll := e.logger.WithFields(logrus.Fields{
-		"sessionUUID": ctx.Value(k8s.RequestUUID),
+		"sessionUUID": ctx.Value(base.RequestUUID),
 		"method":      "gatherVolumesByProvisioner",
 		"pod":         pod.Name,
 	})
@@ -339,7 +339,7 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 			continue
 		}
 		node := node
-		placingForNode := placingPlan.GetVolumesToACMapping(e.getNodeID(&node))
+		placingForNode := placingPlan.GetVolumesToACMapping(e.getNodeID(node))
 		if placingForNode == nil {
 			failedNodesMap[node.Name] = noACForNodeMsg
 			continue
@@ -379,7 +379,7 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 	for _, node := range nodes {
 		// set the highest priority if node doesn't have any volumes
 		rank := maxVolumeCount
-		if r, ok := priorityFromVolumes[string(node.GetUID())]; ok {
+		if r, ok := priorityFromVolumes[e.getNodeID(node)]; ok {
 			rank = r
 		}
 		hostPriority = append(hostPriority, schedulerapi.HostPriority{
@@ -441,13 +441,13 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 }
 
 // getNodeID returns node ID, it could be a k8s node UID or value of annotation
-func (e *Extender) getNodeID(node *coreV1.Node) string {
+func (e *Extender) getNodeID(node coreV1.Node) string {
 	if e.featureChecker.IsEnabled(fc.FeatureNodeIDFromAnnotation) {
-		val, ok := node.GetAnnotations()[csibmnode.NodeIDAnnotationKey]
+		val, ok := node.GetAnnotations()[csibmnodeconst.NodeIDAnnotationKey]
 		if !ok {
 			e.logger.WithField("method", "getNodeID").
 				Errorf("Annotation %s isn't set for node %s. Unable to detect node UUID.",
-					csibmnode.NodeIDAnnotationKey, node.Name)
+					csibmnodeconst.NodeIDAnnotationKey, node.Name)
 			return ""
 		}
 		return val

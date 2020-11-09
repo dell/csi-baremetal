@@ -112,7 +112,7 @@ type Config struct {
 // Returns an instance of LoopBackManager
 func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBackManager {
 	// read hostname variable - this is pod's name.
-	// since pod might restart and change name better to user real hostname
+	// since pod might restart and change name better to use real hostname
 	hostname := os.Getenv("HOSTNAME")
 	if hostname == "" {
 		/* if not defined set to default - will not break anything but
