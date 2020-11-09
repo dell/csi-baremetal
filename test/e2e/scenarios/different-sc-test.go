@@ -118,7 +118,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 	})
 }
 
-//  reatePVCs create PVCs in Kubernetes
+// CreatePVCs create PVCs in Kubernetes
 // Params: E2E test framework, numberOfPVC to create, size of PVC, name of PVC storageClass, PVC namespace
 // Returns: slice of created PVCs
 func createPVCs(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) []*corev1.PersistentVolumeClaim {
