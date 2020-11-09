@@ -127,7 +127,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		framework.Failf("deploying csi baremetal driver: %v", err)
 	}
 
-	testConf :=  &testsuites.PerTestConfig{
+	testConf := &testsuites.PerTestConfig{
 		Driver:    d,
 		Prefix:    "baremetal",
 		Framework: f,

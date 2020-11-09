@@ -63,13 +63,13 @@ spec:
                {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
-        - "--endpoint=$(CSI_ENDPOINT)"
-        - "--namespace=$(NAMESPACE)"
+        - --endpoint=$(CSI_ENDPOINT)
+        - --namespace=$(NAMESPACE)
         - --extender={{ .Values.feature.extender }}
         - --loglevel={{ .Values.log.level }}
         - --healthport={{ .Values.controller.health.server.port }}
         {{- if .Values.logReceiver.create  }}
-        - "--logpath=/var/log/csi.log"
+        - --logpath=/var/log/csi.log
         {{- end }}
         env:
         - name: POD_IP

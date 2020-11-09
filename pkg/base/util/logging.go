@@ -21,12 +21,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base"
 )
 
 // AddCommonFields read common fields from ctx and add them to logger
 func AddCommonFields(ctx context.Context, logger *logrus.Entry, method string) *logrus.Entry {
 	return logger.WithFields(logrus.Fields{
-		"volumeID": ctx.Value(k8s.RequestUUID),
+		"volumeID": ctx.Value(base.RequestUUID),
 		"method":   method})
 }

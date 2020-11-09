@@ -2,8 +2,9 @@
 PROJECT          := baremetal-csi-plugin
 
 ### file paths
-CHARTS_PATH		 := charts/baremetal-csi-plugin
-EXTENDER_CHARTS_PATH := charts/scheduler-extender
+PLUGIN_CHART_PATH		:= charts/baremetal-csi-plugin
+EXTENDER_CHART_PATH		:= charts/scheduler-extender
+OPERATOR_CHART_PATH		:= charts/csibm-operator
 
 ### version
 MAJOR            := 0

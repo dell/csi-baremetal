@@ -19,7 +19,12 @@ package base
 
 import "time"
 
+// CtxKey variable type uses for keys in context WithValue
+type CtxKey string
+
 const (
+	// RequestUUID is the constant for context request
+	RequestUUID CtxKey = "RequestUUID"
 	// PluginName is a name of current CSI plugin
 	PluginName = "baremetal-csi"
 	// PluginVersion is a version of current CSI plugin

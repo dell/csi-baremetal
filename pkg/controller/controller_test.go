@@ -41,7 +41,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 
@@ -580,7 +580,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.C
 		req.AccessibilityRequirements = &csi.TopologyRequirement{
 			Preferred: []*csi.Topology{
 				{
-					Segments: map[string]string{csibmnode.NodeIDAnnotationKey: preferredNode},
+					Segments: map[string]string{csibmnodeconst.NodeIDAnnotationKey: preferredNode},
 				},
 			},
 		}

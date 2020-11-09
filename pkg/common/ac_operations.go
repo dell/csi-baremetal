@@ -26,6 +26,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
@@ -56,7 +57,7 @@ func NewACOperationsImpl(k8sClient *k8s.KubeClient, l *logrus.Logger) *ACOperati
 func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":   "RecreateACToLVGSC",
-		"volumeID": ctx.Value(k8s.RequestUUID),
+		"volumeID": ctx.Value(base.RequestUUID),
 	})
 
 	if len(acs) == 0 {

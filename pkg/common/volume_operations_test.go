@@ -33,6 +33,7 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -59,13 +60,13 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	var (
 		svc           = setupVOOperationsTest(t)
 		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
+		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(util.GBYTE)
 		expectedAC    = &accrd.AvailableCapacity{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "testAC"},
+				Name: "testAC"},
 			Spec: api.AvailableCapacity{
 				Location:     testDrive1UUID,
 				NodeId:       testNode1Name,
@@ -107,7 +108,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		svc           *VolumeOperationsImpl
 		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
+		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDDLVG
 		requiredBytes = int64(util.GBYTE)
@@ -194,7 +195,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 		svc           = setupVOOperationsTest(t)
 		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
+		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDD
 		requiredBytes = int64(util.GBYTE)
@@ -221,7 +222,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 		svc           *VolumeOperationsImpl
 		acProvider    = &mocks.ACOperationsMock{}
 		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, k8s.RequestUUID, volumeID)
+		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
 		requiredNode  = ""
 		requiredSC    = apiV1.StorageClassHDDLVG
 		requiredBytes = int64(util.GBYTE)
@@ -231,7 +232,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 			},
 		}
 		expectedVolume = api.Volume{
-			Id:                volumeID,
+			Id: volumeID,
 		}
 	)
 
