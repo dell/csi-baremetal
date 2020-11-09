@@ -156,15 +156,14 @@ func TestLinuxUtils_LVRemove(t *testing.T) {
 		expectedErr = errors.New("error")
 	)
 
-	e.OnCommand(cmd).Return("", "", nil).Times(1)
+	e.OnCommandWithAttempts(cmd, 5, timeoutBetweenAttempts).Return("", "", nil).Times(1)
+	err = l.LVRemove(fullLVName)
+	assert.Nil(t, err)
+	e.OnCommandWithAttempts(cmd, 5, timeoutBetweenAttempts).Return("", "Failed to find logical volume", expectedErr).Times(1)
 	err = l.LVRemove(fullLVName)
 	assert.Nil(t, err)
 
-	e.OnCommand(cmd).Return("", "Failed to find logical volume", expectedErr).Times(1)
-	err = l.LVRemove(fullLVName)
-	assert.Nil(t, err)
-
-	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
+	e.OnCommandWithAttempts(cmd, 5, timeoutBetweenAttempts).Return("", "", expectedErr).Times(1)
 	err = l.LVRemove(fullLVName)
 	assert.Equal(t, expectedErr, err)
 }
