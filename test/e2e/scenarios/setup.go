@@ -56,13 +56,21 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	curDriver := BaremetalDriver()
 
 	patcherCleanup := func() {}
+	csibmOperatorCleanup := func() {}
 	ginkgo.BeforeSuite(func() {
+		c, err := common.GetGlobalClientSet()
+		if err != nil {
+			ginkgo.Fail(err.Error())
+		}
+
 		if common.BMDriverTestContext.BMDeploySchedulerPatcher {
-			c, err := common.GetGlobalClientSet()
+			patcherCleanup, err = common.DeployPatcher(c, "kube-system")
 			if err != nil {
 				ginkgo.Fail(err.Error())
 			}
-			patcherCleanup, err = common.DeployPatcher(c, "kube-system")
+		}
+		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
+			csibmOperatorCleanup, err = common.DeployCSIBMOperator(c)
 			if err != nil {
 				ginkgo.Fail(err.Error())
 			}
@@ -70,6 +78,7 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 	})
 
 	ginkgo.AfterSuite(func() {
+		csibmOperatorCleanup()
 		patcherCleanup()
 	})
 

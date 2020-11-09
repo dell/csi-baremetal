@@ -37,11 +37,12 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 const (
-	// NodeIDAnnotationKey hold key for annotation for node object
-	NodeIDAnnotationKey = "csibmnodes.csi-baremetal.dell.com/uuid"
+	// nodeIDAnnotationKey hold key for annotation for node object
+	nodeIDAnnotationKey = common.NodeIDAnnotationKey
 	// namePrefix it is a prefix for CSIBMNode CR name
 	namePrefix = "csibmnode-"
 )
@@ -337,24 +338,24 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-// updateAnnotation checks NodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
+// updateAnnotation checks nodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
 // update k8s CSIBMNode object if needed, method is used as a last step of Reconcile
 func (bmc *Controller) updateAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
 	ll := bmc.log.WithField("method", "updateAnnotation")
-	val, ok := k8sNode.GetAnnotations()[NodeIDAnnotationKey]
+	val, ok := k8sNode.GetAnnotations()[nodeIDAnnotationKey]
 	if ok {
 		if val == goalValue {
-			ll.Debugf("%s value for node %s is already %s", NodeIDAnnotationKey, k8sNode.Name, goalValue)
+			ll.Debugf("%s value for node %s is already %s", nodeIDAnnotationKey, k8sNode.Name, goalValue)
 			return ctrl.Result{}, nil
 		}
 		ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
-			NodeIDAnnotationKey, k8sNode.Name, val, goalValue)
+			nodeIDAnnotationKey, k8sNode.Name, val, goalValue)
 	}
 
 	if k8sNode.ObjectMeta.Annotations == nil {
 		k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
-	k8sNode.ObjectMeta.Annotations[NodeIDAnnotationKey] = goalValue
+	k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
 	if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
 		ll.Errorf("Unable to update node object: %v", err)
 		return ctrl.Result{Requeue: true}, err
