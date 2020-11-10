@@ -107,7 +107,7 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 		return 0, err
 	}
 	split := strings.Split(stdout, "\n")
-	//Skip headers Mounter on and Available
+	// Skip headers Mounter on and Available
 	for j := 1; j < len(split); j++ {
 		output := strings.Split(strings.TrimSpace(split[j]), " ")
 		if len(output) > 1 {

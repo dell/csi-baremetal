@@ -29,28 +29,28 @@ import (
 )
 
 const (
-	//LsscsiCmdImpl is a base CMD for lsscsi
+	// LsscsiCmdImpl is a base CMD for lsscsi
 	LsscsiCmdImpl = "lsscsi --no-nvme"
-	//SCSIDeviceSizeCmdImpl is a CMD to get devices size by id
+	// SCSIDeviceSizeCmdImpl is a CMD to get devices size by id
 	SCSIDeviceSizeCmdImpl = LsscsiCmdImpl + " --brief --size %s"
-	//SCSIDeviceCmdImpl is a CMD to get devices information about Vendor, Model and etc
+	// SCSIDeviceCmdImpl is a CMD to get devices information about Vendor, Model and etc
 	SCSIDeviceCmdImpl = LsscsiCmdImpl + " --classic %s"
-	//SCSIType is a type of devices we search in lsscsi output
+	// SCSIType is a type of devices we search in lsscsi output
 	SCSIType = "disk"
 )
 
-//WrapLsscsi is an interface that encapsulates operation with system lsscsi util
+// WrapLsscsi is an interface that encapsulates operation with system lsscsi util
 type WrapLsscsi interface {
 	GetSCSIDevices() ([]*SCSIDevice, error)
 }
 
-//LSSCSI is a wrap for system lsscsi util
+// LSSCSI is a wrap for system lsscsi util
 type LSSCSI struct {
 	e   command.CmdExecutor
 	log *logrus.Entry
 }
 
-//SCSIDevice represents devices in lsscsi output
+// SCSIDevice represents devices in lsscsi output
 type SCSIDevice struct {
 	ID       string
 	Path     string
@@ -60,12 +60,12 @@ type SCSIDevice struct {
 	Firmware string
 }
 
-//NewLSSCSI is a constructor for LSSCSI
+// NewLSSCSI is a constructor for LSSCSI
 func NewLSSCSI(e command.CmdExecutor, logger *logrus.Logger) *LSSCSI {
 	return &LSSCSI{e: e, log: logger.WithField("component", "LSSCSI")}
 }
 
-//GetSCSIDevices gets information about SCSIDevice using lsscsi util
+// GetSCSIDevices gets information about SCSIDevice using lsscsi util
 func (la *LSSCSI) GetSCSIDevices() ([]*SCSIDevice, error) {
 	ll := la.log.WithField("method", "GetSCSIDevices")
 	devices, err := la.getSCSIDevicesBasicInfo()
@@ -83,11 +83,11 @@ func (la *LSSCSI) GetSCSIDevices() ([]*SCSIDevice, error) {
 	return devices, nil
 }
 
-//getSCSIDevicesBasicInfo returns information about device path and id, We call lsscsi --no-nvme.
-//Using this command we can get list of all SCSI device and their Path and Id from the output of this command
-//The output is easy to parse, because we know, that the Path and Id are on the last and the first positions in the output
-//This command doesn't provide information about size.
-//To facilitates the parsing of the output we use separate command lsscsi --no-nvme --brief --size to get information about size
+// getSCSIDevicesBasicInfo returns information about device path and id, We call lsscsi --no-nvme.
+// Using this command we can get list of all SCSI device and their Path and Id from the output of this command
+// The output is easy to parse, because we know, that the Path and Id are on the last and the first positions in the output
+// This command doesn't provide information about size.
+// To facilitates the parsing of the output we use separate command lsscsi --no-nvme --brief --size to get information about size
 func (la *LSSCSI) getSCSIDevicesBasicInfo() ([]*SCSIDevice, error) {
 	//	/*Example output
 	//	[0:0:0:0]    disk    VMware   Virtual disk     2.0   /dev/sda
@@ -114,8 +114,8 @@ func (la *LSSCSI) getSCSIDevicesBasicInfo() ([]*SCSIDevice, error) {
 	return devices, nil
 }
 
-//fillDeviceSize fill information about device size
-//lsscsi --no-nvme --brief --size is easy to parse because size on the last position.
+// fillDeviceSize fill information about device size
+// lsscsi --no-nvme --brief --size is easy to parse because size on the last position.
 func (la *LSSCSI) fillDeviceSize(device *SCSIDevice) error {
 	/*
 	 [2:0:0:0]    /dev/sda   32.3GB
@@ -135,7 +135,7 @@ func (la *LSSCSI) fillDeviceSize(device *SCSIDevice) error {
 	return nil
 }
 
-//fillDeviceInfo returns information about device model, vendor and firmware
+// fillDeviceInfo returns information about device model, vendor and firmware
 func (la *LSSCSI) fillDeviceInfo(device *SCSIDevice) error {
 	/*
 		Attached devices:
@@ -164,17 +164,17 @@ func (la *LSSCSI) fillDeviceInfo(device *SCSIDevice) error {
 	return nil
 }
 
-//parseLSSCSIOutput parses the output of the command. Example:
+// parseLSSCSIOutput parses the output of the command. Example:
 // Vendor: VMware   Model: Virtual disk     Rev: 2.0
-//We do not know exactly when the name of the model, vendor and rev ends, for example, a model may consist of several words.
-//Since the line contains both the vendor, the model, and the revision, we must precisely distinguish each value.
-//We know that the vendor starts with the keyword Vendor:, a model with keyword Model: etc.
-//Therefore, we look for the given keyword in the line, after that we take each word after the keyword,
-//until we meet the next keyword.
-//Everything between the keywords is the searched value, separated by spaces.
-//searchString is a keyword. The value of this keyword we want to find in output. For example Vendor:
-//lsscsiOutput is the command output
-//keywords are the keyword we can met after the value. We use them to highlight the value between keywords.
+// We do not know exactly when the name of the model, vendor and rev ends, for example, a model may consist of several words.
+// Since the line contains both the vendor, the model, and the revision, we must precisely distinguish each value.
+// We know that the vendor starts with the keyword Vendor:, a model with keyword Model: etc.
+// Therefore, we look for the given keyword in the line, after that we take each word after the keyword,
+// until we meet the next keyword.
+// Everything between the keywords is the searched value, separated by spaces.
+// searchString is a keyword. The value of this keyword we want to find in output. For example Vendor:
+// lsscsiOutput is the command output
+// keywords are the keyword we can met after the value. We use them to highlight the value between keywords.
 func (la *LSSCSI) parseLSSCSIOutput(searchString string, lsscsiOutput string, keywords ...string) string {
 	newLine := strings.Split(lsscsiOutput, " ")
 	var idx int

@@ -57,7 +57,7 @@ func (i *IPMI) GetBmcIP() string {
 	}
 	ipAddrStr := "ip address"
 	var ip string
-	//Regular expr to find ip address
+	// Regular expr to find ip address
 	regex := regexp.MustCompile(`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$`)
 	for _, str := range strings.Split(strOut, "\n") {
 		str = strings.ToLower(str)
