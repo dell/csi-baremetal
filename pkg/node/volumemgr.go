@@ -655,7 +655,9 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 				ll.Warnf("There is no part UUID for partition from device %v, UUID has been generated %s", bdev, partUUID)
 			}
 
-			volumeCR := m.k8sClient.ConstructVolumeCR(partUUID, api.Volume{
+			volUUID := uuid.New().String() // generate new uuid to use it for  volume CR name
+
+			volumeCR := m.k8sClient.ConstructVolumeCR(volUUID, api.Volume{
 				NodeId:       m.nodeID,
 				Id:           partUUID,
 				Size:         size,
@@ -668,8 +670,8 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 			})
 
 			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeCR.Name)
-			if err = m.k8sClient.CreateCR(ctxWithID, partUUID, volumeCR); err != nil {
-				ll.Errorf("Unable to create volume CR %s: %v", partUUID, err)
+			if err = m.k8sClient.CreateCR(ctxWithID, volUUID, volumeCR); err != nil {
+				ll.Errorf("Unable to create volume CR %s: %v", volUUID, err)
 			}
 		}
 	}
