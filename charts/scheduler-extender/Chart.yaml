@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.0.10
+appVersion: 0.0.11
 description: Kubernetes scheduler extender for CSI-Baremetal plugin
 name: scheduler-extender
-version: 0.0.10
+version: 0.0.11

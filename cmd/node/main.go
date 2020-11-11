@@ -166,7 +166,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 		} else {
 			checker.OK()
 			logger.Info("Discover finished successful")
-			//Increase wait time, because we don't need to call API often after node initialization
+			// Increase wait time, because we don't need to call API often after node initialization
 			discoveringWaitTime = 30 * time.Second
 		}
 	}

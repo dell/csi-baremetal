@@ -24,37 +24,37 @@ import (
 )
 
 const (
-	//SmartctlCmdImpl is a base CMD for smartctl util
+	// SmartctlCmdImpl is a base CMD for smartctl util
 	SmartctlCmdImpl = "smartctl"
-	//SmartctlDeviceInfoCmdImpl is a CMD to get basic SMART information and health about device in JSON format
+	// SmartctlDeviceInfoCmdImpl is a CMD to get basic SMART information and health about device in JSON format
 	SmartctlDeviceInfoCmdImpl = SmartctlCmdImpl + " --info --json %s"
-	//SmartctlHealthCmdImpl is a CMD to get  SMART status of device in JSON format
+	// SmartctlHealthCmdImpl is a CMD to get  SMART status of device in JSON format
 	SmartctlHealthCmdImpl = SmartctlCmdImpl + " --health --json %s"
 )
 
-//WrapSmartctl is an interface that encapsulates operation with system smartctl util
+// WrapSmartctl is an interface that encapsulates operation with system smartctl util
 type WrapSmartctl interface {
 	GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error)
 }
 
-//DeviceSMARTInfo represents SMART information about device
+// DeviceSMARTInfo represents SMART information about device
 type DeviceSMARTInfo struct {
 	SerialNumber string          `json:"serial_number"`
 	SmartStatus  map[string]bool `json:"smart_status"`
 	Rotation     int             `json:"rotation_rate"`
 }
 
-//SMARTCTL is a wrap for system smartctl util
+// SMARTCTL is a wrap for system smartctl util
 type SMARTCTL struct {
 	e command.CmdExecutor
 }
 
-//NewSMARTCTL is a constructor for SMARTCTL
+// NewSMARTCTL is a constructor for SMARTCTL
 func NewSMARTCTL(e command.CmdExecutor) *SMARTCTL {
 	return &SMARTCTL{e: e}
 }
 
-//GetDriveInfoByPath gets SMART information about device by its Path using smartctl util
+// GetDriveInfoByPath gets SMART information about device by its Path using smartctl util
 func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, path))
 	if err != nil {
@@ -73,7 +73,7 @@ func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 	return deviceInfo, nil
 }
 
-//fillSmartStatus fill smart_status field in DeviceSMARTInfo using smartctl command
+// fillSmartStatus fill smart_status field in DeviceSMARTInfo using smartctl command
 func (sa *SMARTCTL) fillSmartStatus(dev *DeviceSMARTInfo, path string) error {
 	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlHealthCmdImpl, path))
 	if err != nil {

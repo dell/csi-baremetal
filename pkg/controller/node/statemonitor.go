@@ -233,6 +233,7 @@ func (n *ServicesStateMonitor) getPodToNodeList() (map[string]stateComponents, e
 		}
 
 		if podNode == nil {
+			//nolint
 			log.Fatalf("Unable to find node for pod %s", pod.Name)
 		}
 		nodeID := string(podNode.ObjectMeta.UID)
