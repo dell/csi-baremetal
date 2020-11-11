@@ -947,7 +947,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 
 	rootMountPoint := "/dev/sda"
 	vgName := "root-vg"
-	fsOps.On("FindMountPoint", base.KubeletRootPath).Return(rootMountPoint, nil)
+	fsOps.On("FindMountPoint", base.HostRootPath).Return(rootMountPoint, nil)
 	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
 	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
@@ -1151,14 +1151,7 @@ func TestVolumeManager_isDriveSystem(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, false, isSystem)
 
-	bdev1.MountPoint = base.KubeletRootPath
-	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
-	vm.listBlk = listBlk
-	isSystem, err = vm.isDriveSystem("/dev/sdb")
-	assert.Nil(t, err)
-	assert.Equal(t, isSystem, true)
-
-	bdev1.MountPoint = "/var/lib/kubelet/pods/34ff691a-392d-41cb-9ad5-7c66581bfd52/volume-subpaths/etc/tuned/5"
+	bdev1.MountPoint = base.HostRootPath
 	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
 	vm.listBlk = listBlk
 	isSystem, err = vm.isDriveSystem("/dev/sdb")

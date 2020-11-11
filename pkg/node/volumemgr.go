@@ -791,7 +791,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		vgFreeSpace            int64
 	)
 
-	if rootMountPoint, err = m.fsOps.FindMountPoint(base.KubeletRootPath); err != nil {
+	if rootMountPoint, err = m.fsOps.FindMountPoint(base.HostRootPath); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}
 
@@ -1037,7 +1037,7 @@ func (m *VolumeManager) isDriveSystem(path string) (bool, error) {
 // Returns true if device has root mountpoint, false in opposite
 func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
 	for _, device := range devs {
-		if strings.Contains(strings.TrimSpace(device.MountPoint), base.KubeletRootPath) {
+		if strings.TrimSpace(device.MountPoint) == base.HostRootPath || strings.TrimSpace(device.MountPoint) == base.OpenShiftHostRootPath {
 			return true
 		}
 		if m.isRootMountpoint(device.Children) {
