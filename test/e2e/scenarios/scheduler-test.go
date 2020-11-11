@@ -226,6 +226,8 @@ func schedulingTest(driver testsuites.TestDriver) {
 	})
 
 	ginkgo.It("PODs should distribute across nodes with sequential deploy", func() {
+		// TODO: change result verification https://github.com/dell/csi-baremetal/issues/153
+		ginkgo.Skip("We shouldn't check prioritize work based on kube-scheduler decision, ISSUE-153")
 		testPodsDisksPerPod := 1
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 0)
 		testPodsCount := len(nodes)
@@ -270,11 +272,12 @@ func getVolumesByNodes(f *framework.Framework) map[string][]string {
 		framework.ExpectNoError(err)
 		nodeNameOfVolume, err := findNodeNameByUID(f, nodeUIDOfVolume)
 		framework.ExpectNoError(err)
+		volId, _, err := unstructured.NestedString(targetVolume.Object, "spec", "Id")
 		if _, ok := volumes[nodeNameOfVolume]; ok {
-			volumes[nodeNameOfVolume] = append(volumes[nodeNameOfVolume], nodeUIDOfVolume)
+			volumes[nodeNameOfVolume] = append(volumes[nodeNameOfVolume], volId)
 			continue
 		}
-		volumes[nodeNameOfVolume] = []string{nodeUIDOfVolume}
+		volumes[nodeNameOfVolume] = []string{volId}
 	}
 	return volumes
 

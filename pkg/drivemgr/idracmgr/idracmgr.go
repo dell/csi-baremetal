@@ -144,7 +144,7 @@ func (mgr *IDRACManager) getControllerURLs() []string {
 		return controllerURLs
 	}
 	for _, member := range storage.Member {
-		//getting url of all controllers or enclosure in storage
+		// getting url of all controllers or enclosure in storage
 		controllerURLs = append(controllerURLs, fmt.Sprintf("https://%s%s", mgr.ip, member[keyURL]))
 	}
 	return controllerURLs
@@ -172,7 +172,7 @@ func (mgr *IDRACManager) getDrivesURLs(controllerURL string) []string {
 		return driveURLs
 	}
 	for _, odata := range controller.Drive {
-		//getting url of all drive in controller or enclosure
+		// getting url of all drive in controller or enclosure
 		driveURLs = append(driveURLs, fmt.Sprintf("https://%s%s", mgr.ip, odata[keyURL]))
 	}
 	return driveURLs

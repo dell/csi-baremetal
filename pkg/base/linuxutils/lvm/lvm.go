@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -54,6 +55,8 @@ const (
 	LVRemoveCmdTmpl = lvmPath + "lvremove --yes %s" // add full LV name
 	// LVsInVGCmdTmpl print LVs in VG cmd
 	LVsInVGCmdTmpl = lvmPath + "lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
+	// timeoutBetweenAttempts used for RunCmdWithAttempts as a timeout between calling lvremove
+	timeoutBetweenAttempts = 500 * time.Millisecond
 )
 
 // WrapLVM is an interface that encapsulates operation with system logical volume manager (/sbin/lvm)
@@ -148,7 +151,7 @@ func (l *LVM) LVCreate(name, size, vgName string) error {
 // Returns error if something went wrong
 func (l *LVM) LVRemove(fullLVName string) error {
 	cmd := fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
-	_, stdErr, err := l.e.RunCmd(cmd)
+	_, stdErr, err := l.e.RunCmdWithAttempts(cmd, 5, timeoutBetweenAttempts)
 	if err != nil && strings.Contains(stdErr, "Failed to find logical volume") {
 		return nil
 	}

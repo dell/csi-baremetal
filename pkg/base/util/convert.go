@@ -49,7 +49,7 @@ func StrToBytes(str string) (int64, error) {
 	if matches == nil {
 		return 0, fmt.Errorf("unparseable size definition: %v", str)
 	}
-	value, _ := strconv.ParseFloat(matches[0][1], 64) //We don't expect error here, because number is validated by regex
+	value, _ := strconv.ParseFloat(matches[0][1], 64) // We don't expect error here, because number is validated by regex
 	var mod int64
 	switch strings.ToLower(matches[0][3]) {
 	case "t", "tb", "ti", "tib", "e12":
@@ -77,7 +77,7 @@ func ToSizeUnit(value int64, from SizeUnit, to SizeUnit) (int64, error) {
 	var byteValue = fromMod * value
 	var res = byteValue / toMod
 	if byteValue%toMod != 0 {
-		//The error can be ignored, if precision loss is OK for you
+		// The error can be ignored, if precision loss is OK for you
 		return res, fmt.Errorf("precision loss prohibited in conversion from value %d with unit size %d to unit with size %d", value, fromMod, toMod)
 	}
 	return res, nil

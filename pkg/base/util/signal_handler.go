@@ -58,7 +58,7 @@ func (sh *SignalHandler) setupSignalHandler(sig syscall.Signal) {
 
 	signal.Notify(signalChan, sig)
 
-	//Wait signal
+	// Wait signal
 	<-signalChan
 
 	sh.log.WithField("method", "setupSignalHandler").Debugf("Got %v signal", sig)

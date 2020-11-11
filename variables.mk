@@ -2,13 +2,14 @@
 PROJECT          := baremetal-csi-plugin
 
 ### file paths
-CHARTS_PATH		 := charts/baremetal-csi-plugin
-EXTENDER_CHARTS_PATH := charts/scheduler-extender
+PLUGIN_CHART_PATH		:= charts/baremetal-csi-plugin
+EXTENDER_CHART_PATH		:= charts/scheduler-extender
+OPERATOR_CHART_PATH		:= charts/csibm-operator
 
 ### version
 MAJOR            := 0
 MINOR            := 0
-PATCH            := 10
+PATCH            := 11
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
 BUILD_REL_B      := $(shell git rev-parse --short HEAD)

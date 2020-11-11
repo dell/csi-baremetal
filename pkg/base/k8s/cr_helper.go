@@ -21,9 +21,8 @@ import (
 	"errors"
 	"strings"
 
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/sirupsen/logrus"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -31,6 +30,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 )
 
 // CRHelper is able to collect different CRs by different criteria
@@ -146,7 +146,7 @@ func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 	for _, volume := range volumes {
 		if volume.Spec.OperationalStatus != opStatus {
 			volume.Spec.OperationalStatus = opStatus
-			ctxWithID := context.WithValue(context.Background(), RequestUUID, volume.Spec.Id)
+			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volume.Spec.Id)
 			// todo fix linter issue - https://github.com/kyoh86/scopelint/issues/5
 			// nolint:scopelint
 			if err := cs.k8sClient.UpdateCR(ctxWithID, &volume); err != nil {
@@ -329,7 +329,7 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error
 		err      error
 	)
 
-	ctxWithID := context.WithValue(context.Background(), RequestUUID, volumeCR.Spec.Id)
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeCR.Spec.Id)
 	if err = cs.k8sClient.ReadCR(ctxWithID, volName, volumeCR); err != nil {
 		return err
 	}

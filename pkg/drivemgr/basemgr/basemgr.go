@@ -29,7 +29,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/smartctl"
 )
 
-//BaseManager is a drive manager based on Linux system utils
+// BaseManager is a drive manager based on Linux system utils
 type BaseManager struct {
 	exec     command.CmdExecutor
 	log      *logrus.Entry
@@ -38,7 +38,7 @@ type BaseManager struct {
 	nvme     nvmecli.WrapNvmecli
 }
 
-//GetDrivesList gets api.Drive slice using Linux system utils
+// GetDrivesList gets api.Drive slice using Linux system utils
 func (mgr BaseManager) GetDrivesList() ([]*api.Drive, error) {
 	ll := mgr.log.WithField("method", "GetDrivesList")
 	var (
@@ -56,7 +56,7 @@ func (mgr BaseManager) GetDrivesList() ([]*api.Drive, error) {
 	return devices, nil
 }
 
-//New is a constructor BaseManager
+// New is a constructor BaseManager
 func New(exec command.CmdExecutor, logger *logrus.Logger) *BaseManager {
 	return &BaseManager{
 		exec:     exec,
@@ -67,7 +67,7 @@ func New(exec command.CmdExecutor, logger *logrus.Logger) *BaseManager {
 	}
 }
 
-//GetSCSIDevices get []*api.Drive using lsscsi system util
+// GetSCSIDevices get []*api.Drive using lsscsi system util
 func (mgr *BaseManager) GetSCSIDevices() ([]*api.Drive, error) {
 	ll := mgr.log.WithField("method", "GetSCSIDevices")
 	allDevices := make([]*api.Drive, 0)
@@ -89,7 +89,7 @@ func (mgr *BaseManager) GetSCSIDevices() ([]*api.Drive, error) {
 	for i, device := range allDevices {
 		smartInfo, err := mgr.smartctl.GetDriveInfoByPath(device.Path)
 		if err != nil {
-			//We don't fail whole drivemgr because of error with just one device, we don't add it in allDevices slice
+			// We don't fail whole drivemgr because of error with just one device, we don't add it in allDevices slice
 			ll.Errorf("Failed to get SMART information for Device %v, Error: %v", allDevices[i], err)
 		} else {
 			allDevices[i].SerialNumber = smartInfo.SerialNumber
@@ -113,7 +113,7 @@ func (mgr *BaseManager) GetSCSIDevices() ([]*api.Drive, error) {
 	return devices, nil
 }
 
-//GetNVMDevices get []*api.Drive using nvme_cli system util
+// GetNVMDevices get []*api.Drive using nvme_cli system util
 func (mgr *BaseManager) GetNVMDevices() ([]*api.Drive, error) {
 	ll := mgr.log.WithField("method", "GetNVMDevices")
 	devices := make([]*api.Drive, 0)

@@ -27,52 +27,52 @@ import (
 )
 
 const (
-	//NVMCliCmdImpl is a base CMD for nvme_cli
+	// NVMCliCmdImpl is a base CMD for nvme_cli
 	NVMCliCmdImpl = "nvme"
-	//NVMeDeviceCmdImpl is a CMD for listing all nvme devices in JSON format
+	// NVMeDeviceCmdImpl is a CMD for listing all nvme devices in JSON format
 	NVMeDeviceCmdImpl = NVMCliCmdImpl + " list --output-format=json"
-	//NVMeHealthCmdImpl is a CMD to get SMART information about NVMe device in JSON format
+	// NVMeHealthCmdImpl is a CMD to get SMART information about NVMe device in JSON format
 	NVMeHealthCmdImpl = NVMCliCmdImpl + " smart-log %s --output-format=json"
-	//NVMeVendorCmdImpl is a CMD to get SMART information about NVMe device in JSON format
+	// NVMeVendorCmdImpl is a CMD to get SMART information about NVMe device in JSON format
 	NVMeVendorCmdImpl = NVMCliCmdImpl + " id-ctrl %s --output-format=json"
-	//DevicesKey is the key to find NVMe devices in nvme json output
+	// DevicesKey is the key to find NVMe devices in nvme json output
 	DevicesKey = "Devices"
 )
 
-//WrapNvmecli is an interface that encapsulates operation with system nvme util
+// WrapNvmecli is an interface that encapsulates operation with system nvme util
 type WrapNvmecli interface {
 	GetNVMDevices() ([]NVMDevice, error)
 }
 
-//NVMDevice represents devices from nvme list output
+// NVMDevice represents devices from nvme list output
 type NVMDevice struct {
 	DevicePath   string `json:"DevicePath,omitempty"`
 	Firmware     string `json:"Firmware,omitempty"`
 	ModelNumber  string `json:"ModelNumber,omitempty"`
 	SerialNumber string `json:"SerialNumber,omitempty"`
 	PhysicalSize int64  `json:"PhysicalSize,omitempty"`
-	//Can VID be string for nvme?
+	// Can VID be string for nvme?
 	Vendor int `json:"vid,omitempty"`
 	Health string
 }
 
-//SMARTLog represents SMART information for NVMe devices
+// SMARTLog represents SMART information for NVMe devices
 type SMARTLog struct {
 	CriticalWarning int `json:"critical_warning,omitempty"`
 }
 
-//NVMECLI is a wrap for system nvem_cli util
+// NVMECLI is a wrap for system nvem_cli util
 type NVMECLI struct {
 	e   command.CmdExecutor
 	log *logrus.Entry
 }
 
-//NewNVMECLI is a constructor for NVMECLI
+// NewNVMECLI is a constructor for NVMECLI
 func NewNVMECLI(e command.CmdExecutor, logger *logrus.Logger) *NVMECLI {
 	return &NVMECLI{e: e, log: logger.WithField("component", "NVMECLI")}
 }
 
-//GetNVMDevices gets information about NVMDevice using nvme_cli util
+// GetNVMDevices gets information about NVMDevice using nvme_cli util
 func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 	ll := na.log.WithField("method", "GetNVMDevices")
 	strOut, _, err := na.e.RunCmd(NVMeDeviceCmdImpl)
@@ -99,7 +99,7 @@ func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 	return devs, nil
 }
 
-//getNVMDeviceHealth gets information about device health based on critical_warning SMART attribute using nvme_cli smart-log util
+// getNVMDeviceHealth gets information about device health based on critical_warning SMART attribute using nvme_cli smart-log util
 func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 	ll := na.log.WithField("method", "getNVMDeviceHealth")
 	cmd := fmt.Sprintf(NVMeHealthCmdImpl, path)
@@ -124,7 +124,7 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 	return apiV1.HealthGood
 }
 
-//fillNVMDeviceVendor gets information about device vendor id
+// fillNVMDeviceVendor gets information about device vendor id
 func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	ll := na.log.WithField("method", "fillNVMDeviceVendor")
 	cmd := fmt.Sprintf(NVMeVendorCmdImpl, device.DevicePath)
@@ -138,7 +138,7 @@ func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	}
 }
 
-//isOneOfBitsSet returns true then one of bits in slice is set in value
+// isOneOfBitsSet returns true then one of bits in slice is set in value
 func (na *NVMECLI) isOneOfBitsSet(value uint64, bits ...int) bool {
 	ll := na.log.WithField("method", "isOneOfBitsSet")
 	for _, bit := range bits {

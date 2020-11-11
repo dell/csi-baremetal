@@ -17,11 +17,10 @@ limitations under the License.
 package common
 
 import (
-	"fmt"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,16 +29,23 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 var utilExecutor command.CmdExecutor
 
-// init initializes utilExecutor
-func init() {
-	logger := logrus.New()
-	utilExecutor = &command.Executor{}
-	utilExecutor.SetLogger(logger)
+// GetExecutor initialize or just return utilExecutor
+func GetExecutor() command.CmdExecutor {
+	if utilExecutor == nil {
+		// TODO: workaround until https://github.com/dell/csi-baremetal/issues/83 is open
+		_ = os.Setenv("LOG_FORMAT", "text")
+		logger, _ := base.InitLogger("", "debug")
+		utilExecutor = &command.Executor{}
+		utilExecutor.SetLogger(logger)
+	}
+
+	return utilExecutor
 }
 
 // CleanupAfterCustomTest cleanups all resources related to CSI plugin and plugin as well
@@ -62,7 +68,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 	}
 	for _, p := range pod {
 		e2elog.Logf("Wait up to %v for pod %q to be fully deleted", pode2e.PodDeleteTimeout, p.Name)
-		err = pode2e.WaitForPodNotFoundInNamespace(f.ClientSet, p.Name, f.Namespace.Name, pode2e.PodDeleteTimeout)
+		err = pode2e.WaitForPodNotFoundInNamespace(f.ClientSet, p.Name, f.Namespace.Name, time.Minute*2)
 		if err != nil {
 			e2elog.Logf("Failed to delete pod %s: %v", p.Name, err)
 		}
@@ -112,20 +118,6 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		driverCleanupFn = nil
 	}
 	e2elog.Logf("Cleanup finished.")
-}
-
-// GetDockerContainers returns slice of string each of which is represented
-// particular docker container and has next format:
-// CONTAINER_NAME:CONTAINER_ID:CONTAINER_STATUS
-func GetDockerContainers() ([]string, error) {
-	cmd := fmt.Sprintf("docker ps --format={{.Names}}:{{.ID}}:{{.Status}}")
-
-	stdout, _, err := utilExecutor.RunCmd(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	return strings.Split(strings.TrimSpace(stdout), "\n"), nil
 }
 
 func GetGlobalClientSet() (clientset.Interface, error) {

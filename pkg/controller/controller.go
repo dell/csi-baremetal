@@ -39,7 +39,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller/node"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 // NodeID is the type for node hostname
@@ -49,7 +49,7 @@ type NodeID string
 type CSIControllerService struct {
 	k8sclient *k8s.KubeClient
 
-	//mutex for csi request
+	// mutex for csi request
 	reqMu sync.Mutex
 	log   *logrus.Entry
 
@@ -111,7 +111,7 @@ func (c *CSIControllerService) Check(context.Context, *grpc_health_v1.HealthChec
 	ll := c.log.WithFields(logrus.Fields{
 		"method": "Check",
 	})
-	//If controller service is ready we don't need to update cache often
+	// If controller service is ready we don't need to update cache often
 	if !c.ready {
 		c.nodeServicesStateMonitor.UpdateNodeHealthCache()
 	}
@@ -152,7 +152,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	preferredNode := ""
 	if req.GetAccessibilityRequirements() != nil && len(req.GetAccessibilityRequirements().Preferred) > 0 {
-		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnode.NodeIDAnnotationKey]
+		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnodeconst.NodeIDAnnotationKey]
 		ll.Infof("Preferred node was provided: %s", preferredNode)
 	}
 
@@ -194,7 +194,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	ll.Infof("Construct response based on volume: %v", vol)
 	topologyList := []*csi.Topology{
-		{Segments: map[string]string{csibmnode.NodeIDAnnotationKey: vol.NodeId}},
+		{Segments: map[string]string{csibmnodeconst.NodeIDAnnotationKey: vol.NodeId}},
 	}
 
 	return &csi.CreateVolumeResponse{
@@ -222,7 +222,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
-	ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, req.VolumeId)
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.VolumeId)
 
 	c.reqMu.Lock()
 	err := c.svc.DeleteVolume(ctxWithID, req.GetVolumeId())

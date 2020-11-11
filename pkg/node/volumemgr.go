@@ -196,7 +196,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}()
 	ctx, cancelFn := context.WithTimeout(
-		context.WithValue(context.Background(), k8s.RequestUUID, req.Name),
+		context.WithValue(context.Background(), base.RequestUUID, req.Name),
 		VolumeOperationsTimeout)
 	defer cancelFn()
 
@@ -667,7 +667,7 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 				CSIStatus:    "",
 			})
 
-			ctxWithID := context.WithValue(context.Background(), k8s.RequestUUID, volumeCR.Name)
+			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeCR.Name)
 			if err = m.k8sClient.CreateCR(ctxWithID, partUUID, volumeCR); err != nil {
 				ll.Errorf("Unable to create volume CR %s: %v", partUUID, err)
 			}
@@ -743,7 +743,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context, freeDrive
 		name := uuid.New().String()
 
 		newAC := m.k8sClient.ConstructACCR(name, *capacity)
-		if err := m.k8sClient.CreateCR(context.WithValue(ctx, k8s.RequestUUID, name),
+		if err := m.k8sClient.CreateCR(context.WithValue(ctx, base.RequestUUID, name),
 			name, newAC); err != nil {
 			ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v",
 				capacity, err)
@@ -843,7 +843,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			VolumeRefs: lvs,
 		}
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
-		ctx  = context.WithValue(context.Background(), k8s.RequestUUID, vg.Name)
+		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
 	)
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)

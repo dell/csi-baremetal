@@ -6,8 +6,9 @@ lint:
 	${GO_ENV_VARS} golangci-lint -v run ./...
 
 lint-charts:
-	helm lint ./${CHARTS_PATH}
-	helm lint ./${EXTENDER_CHARTS_PATH}
+	helm lint ./${PLUGIN_CHART_PATH}
+	helm lint ./${EXTENDER_CHART_PATH}
+	helm lnt  ./${OPERATOR_CHART_PATH}
 
 ### Unit tests
 
@@ -15,12 +16,12 @@ coverage:
 	go tool cover -html=coverage.out -o coverage.html
 
 test:
-	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr` -race -cover ./... -coverprofile=coverage.out
+	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr` -race -cover -coverprofile=coverage.out
 
 # Run tests for pr-validation with writing output to log file
 # Test are different (ginkgo, go testing, etc.) so can't use native ginkgo methods to print junit output.
 test-pr-validation:
-	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr` -v -race -cover ./... -coverprofile=coverage.out > log.txt
+	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr` -v -race -cover -coverprofile=coverage.out > log.txt
 
 install-junit-report:
 	${GO_ENV_VARS} go get -u github.com/jstemmer/go-junit-report
@@ -57,6 +58,7 @@ kind-pull-images:
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -69,6 +71,7 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ${PROJECT}-${EXTENDER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ${PROJECT}-${SCHEDULER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG} ${PROJECT}-${CSI_BM_NODE}:${TAG}
 
 kind-load-images:
 	kind load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -82,3 +85,4 @@ kind-load-images:
 	kind load docker-image ${PROJECT}-${EXTENDER}:${TAG}
 	kind load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	kind load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
+	kind load docker-image ${PROJECT}-${CSI_BM_NODE}:${TAG}

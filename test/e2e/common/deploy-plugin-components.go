@@ -28,7 +28,10 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"sigs.k8s.io/yaml"
+
+	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 const (
@@ -46,7 +49,10 @@ func deployExtenderManifests(f *framework.Framework) (func(), error) {
 		extenderManifestsFolder + "rbac.yaml",
 	}
 
-	daemonSetCleanup, err := buildDaemonSet(f.ClientSet, f.Namespace.Name, "scheduler-extender.yaml")
+	daemonSetCleanup, err := buildDaemonSet(
+		f.ClientSet,
+		f.Namespace.Name,
+		path.Join("/tmp", extenderManifestsFolder, "scheduler-extender.yaml"))
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +91,10 @@ func DeployPatcher(c clientset.Interface, namespace string) (func(), error) {
 }
 
 func deployPatcherManifests(c clientset.Interface, namespace string) (func(), error) {
-	daemonSetCleanup, err := buildDaemonSet(c, namespace, "patcher.yaml")
+	daemonSetCleanup, err := buildDaemonSet(
+		c,
+		namespace,
+		path.Join("/tmp", extenderManifestsFolder, "patcher.yaml"))
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +170,8 @@ func buildConfigMap(c clientset.Interface, namespace string) (func(), error) {
 	}, nil
 }
 
-func buildDaemonSet(c clientset.Interface, namespace, manifestFile string) (func(), error) {
-	file, err := ioutil.ReadFile(path.Join("/tmp", extenderManifestsFolder, manifestFile))
+func buildDaemonSet(c clientset.Interface, namespace, manifestFilePath string) (func(), error) {
+	file, err := ioutil.ReadFile(manifestFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -263,4 +272,97 @@ func findSchedulerPods(client clientset.Interface) (*corev1.PodList, error) {
 	}
 	e2elog.Logf("Find %d scheduler pods", len(pods.Items))
 	return pods, nil
+}
+
+func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
+	var (
+		chartsDir               = "/tmp"
+		operatorManifestsFolder = "csibm-operator/templates"
+	)
+
+	setupRBACCMD := fmt.Sprintf("kubectl apply -f %s",
+		path.Join(chartsDir, operatorManifestsFolder, "csibm-rbac.yaml"))
+	cleanupRBACCMD := fmt.Sprintf("kubectl delete -f %s",
+		path.Join(chartsDir, operatorManifestsFolder, "csibm-rbac.yaml"))
+
+	if _, _, err := GetExecutor().RunCmd(setupRBACCMD); err != nil {
+		return nil, err
+	}
+
+	file, err := ioutil.ReadFile(path.Join(chartsDir, operatorManifestsFolder, "csibm-controller.yaml"))
+	if err != nil {
+		return nil, err
+	}
+
+	deployment := &appsv1.Deployment{}
+	err = yaml.Unmarshal(file, deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	depl, err := c.AppsV1().Deployments("default").Create(deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = waitUntilAllNodesWillBeTagged(c); err != nil {
+		return nil, err
+	}
+
+	return func() {
+		if err := c.AppsV1().Deployments("default").Delete(depl.Name, &metav1.DeleteOptions{}); err != nil {
+			e2elog.Logf("Failed to delete deployment %s: %v", depl.Name, err)
+		}
+		if _, _, err = GetExecutor().RunCmd(cleanupRBACCMD); err != nil {
+			e2elog.Logf("Failed to delete RBAC for CSIBMNode operator: %v", err)
+		}
+
+		// remove annotations
+		nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+		if err != nil {
+			e2elog.Logf("Unable to get nodes list for cleaning annotations: %v", err)
+			return
+		}
+		for _, node := range nodes.Items {
+			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; ok {
+				delete(node.Annotations, akey.NodeIDAnnotationKey)
+				if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
+					e2elog.Logf("Unable to unset %s annotation from node %s: %v",
+						akey.NodeIDAnnotationKey, node.Name, err)
+				}
+			}
+		}
+	}, nil
+}
+
+func waitUntilAllNodesWillBeTagged(c clientset.Interface) error {
+	nodeAnnotationMap := make(map[string]string, 0)
+
+	timeout := time.Minute * 2
+	sleepTime := time.Second * 5
+	for start := time.Now(); time.Since(start) < timeout; time.Sleep(sleepTime) {
+		nodes, err := e2enode.GetReadySchedulableNodesOrDie(c)
+		allHas := true
+
+		if err != nil {
+			e2elog.Logf("Got error during waitUntilAllNodesWillBeTagged: %v. Sleep and retry", err)
+			allHas = false
+		}
+
+		for _, node := range nodes.Items {
+			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; !ok {
+				e2elog.Logf("Not all nodes has annotation %s. Sleep and retry", akey.NodeIDAnnotationKey)
+				allHas = false
+				break
+			}
+			nodeAnnotationMap[node.Name] = node.GetAnnotations()[akey.NodeIDAnnotationKey]
+		}
+		if allHas {
+			e2elog.Logf("Annotation %s was set for all nodes: %v", akey.NodeIDAnnotationKey, nodeAnnotationMap)
+			return nil
+		}
+		time.Sleep(sleepTime)
+	}
+
+	return nil
 }
