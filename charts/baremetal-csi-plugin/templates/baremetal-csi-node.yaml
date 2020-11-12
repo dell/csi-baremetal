@@ -130,6 +130,9 @@ spec:
         - name: mountpoint-dir
           mountPath: /var/lib/kubelet/pods
           mountPropagation: "Bidirectional"
+        - name: host-root
+          mountPath: /hostroot
+          mountPropagation: "HostToContainer"
       # ********************** baremetal-csi-drivemgr container definition **********************
       - name: drivemgr
         image: {{- if .Values.env.test }} baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
@@ -232,6 +235,10 @@ spec:
       - name: host-sys
         hostPath:
           path: /sys
+          type: Directory
+      - name: host-root
+        hostPath:
+          path: /
           type: Directory
       - name: host-run-udev
         hostPath:
