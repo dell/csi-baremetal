@@ -42,8 +42,8 @@ const (
 	// KubeletRootPath is the pods' path on the node
 	KubeletRootPath = "/var/lib/kubelet/pods"
 
-	// OpenShiftHostRootPath is root mount in pods for OpenShift cluster
-	OpenShiftHostRootPath = "/hostroot/sysroot"
+	// HostRootPath is root mount
+	HostRootPath = "/hostroot/sysroot"
 
 	// NonRotationalNum points on SSD drive
 	NonRotationalNum = "0"
