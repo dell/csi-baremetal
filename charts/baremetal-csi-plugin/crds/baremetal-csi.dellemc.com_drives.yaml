@@ -50,6 +50,8 @@ spec:
               type: string
             NodeId:
               type: string
+            OperationalStatus:
+              type: string
             PID:
               type: string
             Path:

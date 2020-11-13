@@ -475,6 +475,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 					drivePtr.UUID = driveCR.Spec.UUID
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
+					if toUpdate.Spec.Health != apiV1.HealthGood {
+						toUpdate.Spec.OperationalStatus = apiV1.DriveOpStatusReleasing
+					}
 					if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
@@ -491,6 +494,8 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec := *drivePtr
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
+			// TODO: what operational status should be if drivemgr reported drive with not a good health
+			toCreateSpec.OperationalStatus = apiV1.DriveOpStatusOperative
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
 				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
@@ -533,6 +538,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
 			previousState := d.DeepCopy()
 			toUpdate := d
+			// TODO: which operational status should be in case when there is drive CR that doesn't have corresponding drive from drivemgr response
 			toUpdate.Spec.Status = apiV1.DriveStatusOffline
 			toUpdate.Spec.Health = apiV1.HealthUnknown
 			if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {

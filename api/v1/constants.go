@@ -46,6 +46,14 @@ const (
 	DriveStatusOnline  = "ONLINE"
 	DriveStatusOffline = "OFFLINE"
 
+	// Drive OperationalStatus
+	DriveOpStatusOperative = "OPERATIVE"
+	DriveOpStatusReleasing = "RELEASING"
+	DriveOpStatusReleased  = "RELEASED"
+	DriveOpStatusFailed    = "FAILED"
+	DriveOpStatusRemoving  = "REMOVING"
+	DriveOpStatusRemoved   = "REMOVED"
+
 	// Drive type
 	DriveTypeHDD  = "HDD"
 	DriveTypeSSD  = "SSD"
