@@ -13,16 +13,17 @@ message Drive {
     // size in bytes
     int64 Size = 7;
     string Status = 8;
-    string NodeId = 9;
+    string OperationalStatus = 9;
+    string NodeId = 10;
     // path to the device. may not be set by drivemgr.
-    string Path = 10;
-    string Enclosure = 11;
-    string Slot = 12;
-    string Bay = 13;
-    string Firmware = 14;
-    int64 Endurance = 15;
-    string LEDState = 16;
-    bool IsSystem = 17;
+    string Path = 11;
+    string Enclosure = 12;
+    string Slot = 13;
+    string Bay = 14;
+    string Firmware = 15;
+    int64 Endurance = 16;
+    string LEDState = 17;
+    bool IsSystem = 18;
 }
 
 message Volume {
