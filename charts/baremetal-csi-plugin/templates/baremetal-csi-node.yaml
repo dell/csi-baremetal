@@ -130,7 +130,7 @@ spec:
         - name: mountpoint-dir
           mountPath: /var/lib/kubelet/pods
           mountPropagation: "Bidirectional"
-        {{- if .Values.env.openshift }}
+        {{- if .Values.env.mountHostRoot }}
         - name: host-root
           mountPath: /hostroot
           mountPropagation: "HostToContainer"
@@ -238,7 +238,7 @@ spec:
         hostPath:
           path: /sys
           type: Directory
-      {{- if .Values.env.openshift }}
+      {{- if .Values.env.mountHostRoot }}
       - name: host-root
         hostPath:
           path: /

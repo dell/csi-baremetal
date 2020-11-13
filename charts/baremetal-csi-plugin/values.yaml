@@ -4,7 +4,7 @@ global:
 
 env:
  test: false
- openshift: false
+ mountHostRoot: false
 
 feature:
   extender: false
