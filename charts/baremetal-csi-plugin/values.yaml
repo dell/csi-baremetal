@@ -4,6 +4,7 @@ global:
 
 env:
  test: false
+ openshift: false
 
 feature:
   extender: false
