@@ -42,20 +42,20 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Success(t *testing.T) {
 	// dst folder isn't exist
 	wrapFS.On("MkDir", dst).Return(nil).Once()
 	wrapFS.On("Mount", src, dst, bindOption).Return(nil).Once()
-	err = fsOps.PrepareAndPerformMount(src, dst, false)
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
 	assert.Nil(t, err)
 	wrapFS.AssertCalled(t, "MkDir", dst) // ensure that folder was created
 
 	// dst folder is exist and has already mounted
 	dst = "/tmp"
 	wrapFS.On("IsMounted", dst).Return(true, nil).Once()
-	err = fsOps.PrepareAndPerformMount(src, dst, false)
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
 
 	// dst folder is exist and isn't a mount point, also use bind = true
 	wrapFS.On("IsMounted", dst).Return(false, nil).Once()
 	wrapFS.On("Mount", src, dst, []string{fs.BindOption}).Return(nil).Once()
 
-	err = fsOps.PrepareAndPerformMount(src, dst, true)
+	err = fsOps.PrepareAndPerformMount(src, dst, true, true)
 	wrapFS.AssertCalled(t, "IsMounted", dst)
 }
 
@@ -74,7 +74,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	// dst ins't exist and MkDir failed
 	wrapFS.On("MkDir", dst).Return(expectedErr).Once()
 
-	err = fsOps.PrepareAndPerformMount(src, dst, false)
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
 
@@ -83,7 +83,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	wrapFS.On("IsMounted", dst).Return(false, expectedErr).Once()
 	wrapFS.On("RmDir", dst).Return(nil).Once()
 
-	err = fsOps.PrepareAndPerformMount(src, dst, false)
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
 
 	assert.Error(t, err)
 	wrapFS.AssertCalled(t, "RmDir", dst)
@@ -94,7 +94,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	wrapFS.On("Mount", src, dst, bindOption).Return(expectedErr).Once()
 	wrapFS.On("RmDir", dst).Return(nil).Once()
 
-	err = fsOps.PrepareAndPerformMount(src, dst, false)
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
 	assert.Error(t, err)
 	wrapFS.AssertCalled(t, "MkDir", dst)
 	wrapFS.AssertCalled(t, "RmDir", dst)
@@ -104,7 +104,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	wrapFS.On("IsMounted", dst).Return(false, nil).Once()
 	wrapFS.On("Mount", src, dst, bindOption).Return(expectedErr).Once()
 
-	err = fsOps.PrepareAndPerformMount(src, dst, false)
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
 	assert.Error(t, err)
 	wrapFS.AssertCalled(t, "IsMounted", dst)
 	wrapFS.AssertNotCalled(t, "RmDir", dst)

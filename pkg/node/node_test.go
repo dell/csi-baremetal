@@ -19,6 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"path"
 	"testing"
 	"time"
 
@@ -80,7 +81,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req.VolumeContext[PodNameKey] = testPodName
 
 			fsOps.On("PrepareAndPerformMount",
-				req.GetStagingTargetPath(), req.GetTargetPath(), true).
+				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
 				Return(nil)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -175,7 +176,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 
 			fsOps.On("PrepareAndPerformMount",
-				req.GetStagingTargetPath(), req.GetTargetPath(), true).
+				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
 				Return(errors.New("error mount"))
 
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -198,7 +199,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
-				partitionPath, req.GetStagingTargetPath(), false).
+				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(nil)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -219,7 +220,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
-				partitionPath, req.GetStagingTargetPath(), false).
+				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(nil)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -285,7 +286,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
-				partitionPath, req.GetStagingTargetPath(), false).
+				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(errors.New("PrepareAndPerformMount error"))
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -302,7 +303,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
-				partitionPath, req.GetStagingTargetPath(), false).
+				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(errors.New("mount error"))
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -413,7 +414,8 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 	Context("NodeUnStage() success", func() {
 		It("Should unstage volume", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
-			fsOps.On("UnmountWithCheck", req.GetStagingTargetPath()).Return(nil)
+			fsOps.On("UnmountWithCheck",
+				path.Join(req.GetStagingTargetPath(), stagingFileName)).Return(nil)
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -457,7 +459,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 		})
 		It("Should fail with UnmountWithCheck() error", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
-			fsOps.On("UnmountWithCheck", req.GetStagingTargetPath()).
+			fsOps.On("UnmountWithCheck", path.Join(req.GetStagingTargetPath(), stagingFileName)).
 				Return(errors.New("error"))
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
@@ -489,7 +491,8 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
 			secondUnstageErr := make(chan error)
 			// UnmountWithCheck should only once respond with no error
-			fsOps.On("UnmountWithCheck", req.GetStagingTargetPath()).Return(nil).Run(func(_ mock.Arguments) {
+			fsOps.On("UnmountWithCheck",
+				path.Join(req.GetStagingTargetPath(), stagingFileName)).Return(nil).Run(func(_ mock.Arguments) {
 				go func() {
 					_, err := node.NodeUnstageVolume(testCtx, req)
 					secondUnstageErr <- err
@@ -602,7 +605,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 
 			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
 			prov.On("GetVolumePath", createdVolCR.Spec).Return(srcPath, nil)
-			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false).Return(nil)
+			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false, true).Return(nil)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
