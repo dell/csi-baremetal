@@ -41,6 +41,10 @@ const (
 
 	// KubeletRootPath is the pods' path on the node
 	KubeletRootPath = "/var/lib/kubelet/pods"
+
+	// HostRootPath is root mount
+	HostRootPath = "/hostroot/sysroot"
+
 	// NonRotationalNum points on SSD drive
 	NonRotationalNum = "0"
 

@@ -1158,6 +1158,13 @@ func TestVolumeManager_isDriveSystem(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, isSystem, true)
 
+	bdev1.MountPoint = base.HostRootPath
+	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
+	vm.listBlk = listBlk
+	isSystem, err = vm.isDriveSystem("/dev/sdb")
+	assert.Nil(t, err)
+	assert.Equal(t, isSystem, true)
+
 	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, testErr).Once()
 	vm.listBlk = listBlk
 	isSystem, err = vm.isDriveSystem("/dev/sdb")

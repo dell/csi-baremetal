@@ -4,6 +4,7 @@ global:
 
 env:
  test: false
+ mountHostRoot: false
 
 feature:
   extender: false
