@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"k8s.io/klog"
 	"math/rand"
 	"os"
 	"time"
@@ -29,6 +30,7 @@ import (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	// Register plugin to the scheduler framework.
+	klog.Infof("Starting CSI scheduler")
 	command := app.NewSchedulerCommand(
 		app.WithPlugin(plugin.Name, plugin.New),
 	)

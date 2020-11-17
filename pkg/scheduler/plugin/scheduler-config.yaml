@@ -1,0 +1,36 @@
+apiVersion: kubescheduler.config.k8s.io/v1alpha1
+kind: KubeSchedulerConfiguration
+leaderElection:
+  leaderElect: false
+#clientConnection:
+#  kubeconfig: /etc/kubernetes/scheduler.conf
+profiles:
+- schedulerName: csi-baremetal-scheduler
+  plugins:
+#    queueSort:
+#      enabled:
+#        - name: CSISchedulerPlugin
+#      disabled:
+#        - name: "*"
+#    preFilter:
+#      enabled:
+#        - name: CSISchedulerPlugin
+    filter:
+      enabled:
+        - name: CSISchedulerPlugin
+    score:
+      enabled:
+        - name: CSISchedulerPlugin
+#    permit:
+#      enabled:
+#        - name: CSISchedulerPlugin
+    reserve:
+      enabled:
+        - name: CSISchedulerPlugin
+# optional plugin configs
+#  pluginConfig:
+#  - name: Coscheduling
+#    args:
+#      permitWaitingTimeSeconds: 10
+#      podGroupGCIntervalSeconds: 30
+#      podGroupExpirationTimeSeconds: 600

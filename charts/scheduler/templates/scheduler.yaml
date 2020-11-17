@@ -25,6 +25,7 @@ spec:
       containers:
         - name: scheduler
           args:
+            - --config=/etc/kubernetes/csi-baremetal-scheduler.conf
             - --address=0.0.0.0
             - --leader-elect=false
             - --scheduler-name=csi-baremetal-scheduler

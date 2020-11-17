@@ -55,6 +55,7 @@ image-extender-patcher:
 
 image-scheduler:
 	cp ./pkg/${SCHEDULER}/${PLUGIN}/Dockerfile ./build/${SCHEDULING_PKG}/${SCHEDULER}/
+	cp ./pkg/${SCHEDULER}/${PLUGIN}/scheduler-config.yaml ./build/${SCHEDULING_PKG}/${SCHEDULER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ./build/${SCHEDULING_PKG}/${SCHEDULER}
 
 image-node-controller:
