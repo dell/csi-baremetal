@@ -1,0 +1,15 @@
+apiVersion: kubescheduler.config.k8s.io/v1alpha1
+kind: KubeSchedulerConfiguration
+leaderElection:
+  leaderElect: false
+schedulerName: csi-baremetal-scheduler
+plugins:
+  filter:
+    enabled:
+      - name: CSISchedulerPlugin
+  score:
+    enabled:
+      - name: CSISchedulerPlugin
+  reserve:
+    enabled:
+      - name: CSISchedulerPlugin

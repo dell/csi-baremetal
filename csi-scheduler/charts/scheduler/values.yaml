@@ -1,0 +1,10 @@
+# Docker registry to pull images
+# todo remove default value. can we host images on dockerhub.com?
+registry: asdrepo.isus.emc.com:9042
+
+env:
+  test: false
+
+image:
+  tag: green
+  pullPolicy: Always

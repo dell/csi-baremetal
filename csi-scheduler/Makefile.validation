@@ -1,0 +1,88 @@
+include variables.mk
+
+### Lint
+
+lint:
+	${GO_ENV_VARS} golangci-lint -v run ./...
+
+lint-charts:
+	helm lint ./${PLUGIN_CHART_PATH}
+	helm lint ./${EXTENDER_CHART_PATH}
+	helm lnt  ./${OPERATOR_CHART_PATH}
+
+### Unit tests
+
+coverage:
+	go tool cover -html=coverage.out -o coverage.html
+
+test:
+	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr` -race -cover -coverprofile=coverage.out
+
+# Run tests for pr-validation with writing output to log file
+# Test are different (ginkgo, go testing, etc.) so can't use native ginkgo methods to print junit output.
+test-pr-validation:
+	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr` -v -race -cover -coverprofile=coverage.out > log.txt
+
+install-junit-report:
+	${GO_ENV_VARS} go get -u github.com/jstemmer/go-junit-report
+
+# Convert go test output from log.txt to junit-style output. Split these steps because no matter if test fails,
+# junit output must be collected
+pr-validation-junit:
+	cat log.txt >&1 | go-junit-report > report.xml
+
+### E2E
+
+# Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
+# Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.
+test-ci:
+	${GO_ENV_VARS} CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=${HOME}/.kube/config -timeout=0 > log.txt
+
+# Run commnity sanity tests for CSI.
+test-sanity:
+	${GO_ENV_VARS} SANITY=true go test test/sanity/sanity_test.go -ginkgo.skip \
+	"ValidateVolumeCapabilities|\
+	should fail when the node does not exist|\
+	should fail when requesting to create a volume with already existing name and different capacity|\
+	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
+
+kind-pull-images:
+	docker pull ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	docker pull ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker pull ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
+	docker pull ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker pull ${BUSYBOX}:${BUSYBOX_TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+
+kind-tag-images:
+	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	docker tag ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG} ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker tag ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG} ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
+	docker tag ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG} ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${PROJECT}-${NODE}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${PROJECT}-${CONTROLLER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ${PROJECT}-${EXTENDER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ${PROJECT}-${SCHEDULER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG} ${PROJECT}-${CSI_BM_NODE}:${TAG}
+
+kind-load-images:
+	kind load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	kind load docker-image ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	kind load docker-image ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
+	kind load docker-image ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	kind load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
+	kind load docker-image ${PROJECT}-${NODE}:${TAG}
+	kind load docker-image ${PROJECT}-${CONTROLLER}:${TAG}
+	kind load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
+	kind load docker-image ${PROJECT}-${EXTENDER}:${TAG}
+	kind load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
+	kind load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
+	kind load docker-image ${PROJECT}-${CSI_BM_NODE}:${TAG}
