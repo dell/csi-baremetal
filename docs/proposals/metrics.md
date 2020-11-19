@@ -2,7 +2,6 @@
 
 Last updated: 17.11.2020
 
-
 ## Abstract
 
 Expose metrics of the baremetal CSI plugin that will give an idea of how different parts of the system performs.
@@ -43,11 +42,11 @@ As I mentioned earlier, metrics will be exposed in Prometheus format and they ca
 ### Monitoring model
 There are 2 ways to make monitoring of the application: Push or Pull metrics.
 
-The push model obligates the application to send metrics to some kind of endpoint. Also push model is particularly attractive for the environments where services and hosts are constantly being added, removed, started and stopped.
+The push model obligates the application to send metrics to some kind of endpoint. Also, the push model is particularly attractive for the environments where services and hosts are constantly being added, removed, started, and stopped.
 
-But in our case our application is always deployed.
+But in our case, our application is always deployed.
 
-What if don't have this collector yet, but wanted to check some measurements by hand?Or monitoring infrastructre isn't deployed yet(since we are the storage provider).
+What if don't have this collector yet, but wanted to check some measurements by hand? Or monitoring infrastructure isn't deployed yet(since we are the storage provider).
 From this side - The pull model is more preferable to use. We don't need to think about monitoring infrastructure. It could be 1 Prometheus application or HA cluster of Prometheus, or even your own hand-written monitoring system.
 
 So it makes sense to let the user decide how and what he will store and visualize. The application area of ​​responsibility ends on publishing the "/metrics" endpoint.
