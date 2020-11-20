@@ -92,6 +92,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 			return nil
 		}
 		ll.Errorf("Failed to create CR %s %s", crKind, name)
+		return err
 	}
 	ll.Infof("CR %s %s created", crKind, name)
 	return nil
