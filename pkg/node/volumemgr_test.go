@@ -898,13 +898,17 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 			Name:      "some-name",
 			Node:      m.nodeID,
 			Locations: []string{base.SystemDriveAsLocation},
+			
 		})
 		lvgList = lvgcrd.LVGList{}
+		acList  = accrd.AvailableCapacityList{}
 		err     error
-		lvmOps  = &mocklu.MockWrapLVM{}
 	)
+	lvmOps  := &mocklu.MockWrapLVM{}
 	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(0), nil)
 	m.lvmOps = lvmOps
+	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, lvgCR.Spec.Locations...)
+
 	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
 	assert.Nil(t, err)
 
@@ -916,8 +920,15 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	assert.Equal(t, 1, len(lvgList.Items))
 	assert.Equal(t, lvgCR, &lvgList.Items[0])
 
-	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(1024), nil)
+	err = m.k8sClient.ReadList(testCtx, &acList)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(acList.Items))
+	
+	// increase free space on lvg
+	lvmOps  = &mocklu.MockWrapLVM{}
+	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(2*1024*1024), nil)
 	m.lvmOps = lvmOps
+	
 	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
 	assert.Nil(t, err)
 
@@ -928,6 +939,12 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(lvgList.Items))
 	assert.Equal(t, lvgCR, &lvgList.Items[0])
+
+	// check that ac was created
+	err = m.k8sClient.ReadList(testCtx, &acList)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(acList.Items))
+
 }
 
 func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
