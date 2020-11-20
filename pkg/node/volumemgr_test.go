@@ -928,7 +928,7 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	lvmOps  = &mocklu.MockWrapLVM{}
 	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(2*1024*1024), nil)
 	m.lvmOps = lvmOps
-	
+
 	err = m.k8sClient.CreateCR(testCtx, lvgCR.Name, lvgCR)
 	assert.Nil(t, err)
 
@@ -944,7 +944,6 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	err = m.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(acList.Items))
-
 }
 
 func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
