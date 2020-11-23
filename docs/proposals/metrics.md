@@ -18,7 +18,7 @@ Expose metrics in Prometheus format with HTTP server at "/metrics" endpoint on e
  - Drive manager 
 
 The HTTP server will be optional since it can cause some security issues(i.e. vulnerabilities with HTTP server)
-Default port: 8888
+Default port: 8787
 
 Metrics:
 
