@@ -23,4 +23,6 @@ import api "github.com/dell/csi-baremetal/api/generated/v1"
 type DriveManager interface {
 	// get list of drives
 	GetDrivesList() ([]*api.Drive, error)
+	// manipulate of drive's led state
+	Locate(serialNumber, action string) error
 }

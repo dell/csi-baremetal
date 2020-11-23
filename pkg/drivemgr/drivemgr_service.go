@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -65,4 +64,14 @@ func (svc *DriveServiceServerImpl) GetDrivesList(ctx context.Context, req *api.D
 	return &api.DrivesResponse{
 		Disks: drives,
 	}, nil
+}
+
+func (svc *DriveServiceServerImpl) Locate(ctx context.Context, in *api.DriveLocateRequest) (*api.DriveLocateResponse, error) {
+	err := svc.mgr.Locate(in.GetDevice(), in.GetAction())
+	if err != nil {
+		svc.log.Errorf("Unable to locate device %s, action %s: %v", in.GetDevice(), in.GetAction(), err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &api.DriveLocateResponse{}, nil
 }

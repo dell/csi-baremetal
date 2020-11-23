@@ -89,4 +89,7 @@ const (
 	StorageClassSSDLVG    = "SSDLVG"
 	StorageClassNVMeLVG   = "NVMELVG"
 	StorageClassSystemLVG = "SYSLVG"
+
+	LocateStart = "start"
+	LocateStop 	= "stop"
 )

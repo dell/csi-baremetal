@@ -26,6 +26,8 @@ import (
 	"net/http"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/sirupsen/logrus"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -120,6 +122,11 @@ func (mgr *IDRACManager) GetDrivesList() ([]*api.Drive, error) {
 		}
 	}
 	return drives, nil
+}
+
+// Locate implements Locate method of DriveManager interface
+func (mgr *IDRACManager) Locate(serialNumber, action string) error {
+	return status.Error(codes.Unimplemented, "method Locate not implemented")
 }
 
 // getControllerURLs returns slice of all controllers url in Storage
