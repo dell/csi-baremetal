@@ -91,7 +91,8 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 			ll.Infof("CR %s %s already exist", crKind, name)
 			return nil
 		}
-		ll.Errorf("Failed to create CR %s %s", crKind, name)
+		ll.Errorf("Unable to create CR %s %s: %v", crKind, name, err)
+		return err
 	}
 	ll.Infof("CR %s %s created", crKind, name)
 	return nil
