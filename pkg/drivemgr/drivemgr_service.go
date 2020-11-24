@@ -67,9 +67,9 @@ func (svc *DriveServiceServerImpl) GetDrivesList(ctx context.Context, req *api.D
 }
 
 func (svc *DriveServiceServerImpl) Locate(ctx context.Context, in *api.DriveLocateRequest) (*api.DriveLocateResponse, error) {
-	err := svc.mgr.Locate(in.GetDevice(), in.GetAction())
+	err := svc.mgr.Locate(in.GetDriveSerialNumber(), in.GetAction())
 	if err != nil {
-		svc.log.Errorf("Unable to locate device %s, action %s: %v", in.GetDevice(), in.GetAction(), err)
+		svc.log.Errorf("Unable to locate device %s, action %s: %v", in.GetDriveSerialNumber(), in.GetAction(), err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 

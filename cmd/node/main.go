@@ -18,13 +18,11 @@ limitations under the License.
 package main
 
 import (
-	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"strconv"
 	"time"
 
@@ -146,43 +144,6 @@ func main() {
 		}
 	}()
 	go Discovering(csiNodeService, logger)
-	go func() {
-		ll := logger.WithField("method", "LocateChecker")
-		for {
-			time.Sleep(time.Second * 5)
-			if _, err := os.Stat("/tmp/locate.txt"); err != nil {
-				continue
-			}
-			ll.Infof("File /tmp/locate.txt exists")
-			// expect first string - drive sn
-			// second string: start/stop
-			file, err := os.Open("/tmp/locate.txt")
-			if err != nil {
-				ll.Errorf("Unable to open file: %v", err)
-				continue
-			}
-
-			var text = make([]string, 0)
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				text = append(text, scanner.Text())
-			}
-			_ = file.Close()
-			ll.Infof("Read from file: %v", text)
-			if len(text) != 2 {
-				ll.Errorf("Unsupported format")
-				continue
-			}
-
-			_, err = clientToDriveMgr.Locate(context.Background(), &api.DriveLocateRequest{
-				Device:               text[0],
-				Action:               text[1],
-			})
-			if err != nil {
-				ll.Errorf("Got error during locate: %v", err)
-			}
-		}
-	}()
 
 	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
@@ -207,7 +168,6 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 			logger.Info("Discover finished successful")
 			// Increase wait time, because we don't need to call API often after node initialization
 			discoveringWaitTime = 30 * time.Second
-			return
 		}
 	}
 }
