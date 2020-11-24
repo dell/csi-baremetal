@@ -67,7 +67,7 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG} ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	docker tag ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker tag ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG} ${BUSYBOX}:${BUSYBOX_TAG}
-        docker tag ${REGISTRY}/library/nginx:1.14-alpine docker.io/library/nginx:1.14-alpine
+	docker tag ${REGISTRY}/library/nginx:1.14-alpine docker.io/library/nginx:1.14-alpine
 	docker tag ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG} ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${PROJECT}-${NODE}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${PROJECT}-${CONTROLLER}:${TAG}
