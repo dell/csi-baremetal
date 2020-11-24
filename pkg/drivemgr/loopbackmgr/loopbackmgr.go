@@ -25,10 +25,10 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"

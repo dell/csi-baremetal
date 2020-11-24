@@ -20,8 +20,11 @@ import (
 	"context"
 	"errors"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 )
 
 // MockDriveMgrClient is the implementation of DriveManager interface to imitate success state
@@ -35,8 +38,13 @@ type MockDriveMgrClientFail struct {
 
 // GetDrivesList is the simulation of failure during DriveManager's GetDrivesList
 // Returns nil DrivesResponse and non nil error
-func (m MockDriveMgrClientFail) GetDrivesList(ctx context.Context, in *api.DrivesRequest, opts ...grpc.CallOption) (*api.DrivesResponse, error) {
+func (m *MockDriveMgrClientFail) GetDrivesList(ctx context.Context, in *api.DrivesRequest, opts ...grpc.CallOption) (*api.DrivesResponse, error) {
 	return nil, errors.New("drivemgr error")
+}
+
+// Locate is a stub for Locate DriveManager's method
+func (m *MockDriveMgrClientFail) Locate(ctx context.Context, in *api.DriveLocateRequest, opts ...grpc.CallOption) (*api.DriveLocateResponse, error) {
+	return nil, errors.New("locate failed")
 }
 
 // NewMockDriveMgrClient returns new instance of MockDriveMgrClient
@@ -48,18 +56,23 @@ func NewMockDriveMgrClient(drives []*api.Drive) *MockDriveMgrClient {
 }
 
 // SetDrives set drives for current MockDriveMgrClient instance
-func (m MockDriveMgrClient) SetDrives(drives []*api.Drive) {
+func (m *MockDriveMgrClient) SetDrives(drives []*api.Drive) {
 	m.drives = drives
 }
 
 // AddDrives extends drives slice
-func (m MockDriveMgrClient) AddDrives(drives ...*api.Drive) {
+func (m *MockDriveMgrClient) AddDrives(drives ...*api.Drive) {
 	m.drives = append(m.drives, drives...)
 }
 
 // GetDrivesList returns provided to MockDriveMgrClient drives to imitate working of DriveManager
-func (m MockDriveMgrClient) GetDrivesList(ctx context.Context, in *api.DrivesRequest, opts ...grpc.CallOption) (*api.DrivesResponse, error) {
+func (m *MockDriveMgrClient) GetDrivesList(ctx context.Context, in *api.DrivesRequest, opts ...grpc.CallOption) (*api.DrivesResponse, error) {
 	return &api.DrivesResponse{
 		Disks: m.drives,
 	}, nil
+}
+
+// Locate is a stub for Locate DriveManager's method
+func (m MockDriveMgrClient) Locate(ctx context.Context, in *api.DriveLocateRequest, opts ...grpc.CallOption) (*api.DriveLocateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Locate not implemented in MockDriveMgrClient")
 }

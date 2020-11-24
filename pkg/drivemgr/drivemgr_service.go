@@ -66,6 +66,7 @@ func (svc *DriveServiceServerImpl) GetDrivesList(ctx context.Context, req *api.D
 	}, nil
 }
 
+// Locate invokes DriveManager's Locate method for manipulation drive's LED state
 func (svc *DriveServiceServerImpl) Locate(ctx context.Context, in *api.DriveLocateRequest) (*api.DriveLocateResponse, error) {
 	err := svc.mgr.Locate(in.GetDriveSerialNumber(), in.GetAction())
 	if err != nil {
