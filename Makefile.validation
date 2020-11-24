@@ -8,7 +8,7 @@ lint:
 lint-charts:
 	helm lint ./${PLUGIN_CHART_PATH}
 	helm lint ./${EXTENDER_CHART_PATH}
-	helm lnt  ./${OPERATOR_CHART_PATH}
+	helm lint ./${OPERATOR_CHART_PATH}
 
 ### Unit tests
 
