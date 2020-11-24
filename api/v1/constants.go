@@ -91,5 +91,5 @@ const (
 	StorageClassSystemLVG = "SYSLVG"
 
 	LocateStart = "start"
-	LocateStop 	= "stop"
+	LocateStop  = "stop"
 )

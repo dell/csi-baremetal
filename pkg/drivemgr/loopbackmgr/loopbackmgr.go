@@ -535,7 +535,7 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 
 // Locate implements Locate method of DriveManager interface
 func (mgr *LoopBackManager) Locate(serialNumber, action string) error {
-	return status.Error(codes.Unimplemented, "method Locate not implemented")
+	return status.Error(codes.Unimplemented, "method Locate not implemented in LoopBackManager")
 }
 
 // GetBackFileToLoopMap return mapping between backing file and loopback devices
