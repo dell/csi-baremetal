@@ -28,13 +28,14 @@ const (
 	// TODO: change value, https://github.com/dell/csi-baremetal/issues/134
 	CSICRsGroupVersion = "baremetal-csi.dellemc.com"
 	APIV1Version       = "baremetal-csi.dellemc.com/v1"
-	Creating           = "creating"
-	Created            = "created"
-	VolumeReady        = "volumeReady"
-	Published          = "published"
-	Removing           = "removing"
-	Removed            = "removed"
-	Failed             = "failed"
+	// CSI statuses
+	Creating    = "CREATING"
+	Created     = "CREATED"
+	VolumeReady = "VOLUME_READY"
+	Published   = "PUBLISHED"
+	Removing    = "REMOVING"
+	Removed     = "REMOVED"
+	Failed      = "FAILED"
 
 	// Health statuses
 	HealthUnknown = "UNKNOWN"
@@ -46,13 +47,13 @@ const (
 	DriveStatusOnline  = "ONLINE"
 	DriveStatusOffline = "OFFLINE"
 
-	// Drive OperationalStatus
-	DriveOpStatusOperative = "OPERATIVE"
-	DriveOpStatusReleasing = "RELEASING"
-	DriveOpStatusReleased  = "RELEASED"
-	DriveOpStatusFailed    = "FAILED"
-	DriveOpStatusRemoving  = "REMOVING"
-	DriveOpStatusRemoved   = "REMOVED"
+	// Drive Usage status
+	DriveInUse     = "IN_USE"
+	DriveReleasing = "RELEASING"
+	DriveReleased  = "RELEASED"
+	DriveFailed    = "FAILED"
+	DriveRemoving  = "REMOVING"
+	DriveRemoved   = "REMOVED"
 
 	// Drive type
 	DriveTypeHDD  = "HDD"
@@ -64,12 +65,16 @@ const (
 	OperationalStatusInoperative   = "INOPERATIVE"
 	OperationalStatusStaging       = "STAGING"
 	OperationalStatusMissing       = "MISSING"
-	OperationalStatusRemoving      = "REMOVING"
-	OperationalStatusReadyToRemove = "READY_TO_REMOVE"
-	OperationalStatusFailToRemove  = "FAIL_TO_REMOVE"
 	OperationalStatusMaintenance   = "MAINTENANCE"
-	OperationalStatusRemoved       = "REMOVED"
 	OperationalStatusUnknown       = "UNKNOWN"
+
+	// Volume Usage status
+	VolumeInUse     = DriveInUse
+	VolumeReleasing = DriveReleasing
+	VolumeReleased  = DriveReleased
+	VolumeFailed    = DriveFailed
+
+	// TODO Mount status?
 
 	// Volume mode
 	ModeRAW = "RAW"
