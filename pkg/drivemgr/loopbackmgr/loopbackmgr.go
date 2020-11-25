@@ -25,9 +25,10 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -530,6 +531,11 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 		drives = append(drives, drive)
 	}
 	return drives, nil
+}
+
+// Locate implements Locate method of DriveManager interface
+func (mgr *LoopBackManager) Locate(serialNumber string, action int32) (int32, error) {
+	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in LoopBackManager")
 }
 
 // GetBackFileToLoopMap return mapping between backing file and loopback devices
