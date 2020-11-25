@@ -26,9 +26,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/sirupsen/logrus"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
