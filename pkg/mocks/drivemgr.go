@@ -73,6 +73,6 @@ func (m *MockDriveMgrClient) GetDrivesList(ctx context.Context, in *api.DrivesRe
 }
 
 // Locate is a stub for Locate DriveManager's method
-func (m MockDriveMgrClient) Locate(ctx context.Context, in *api.DriveLocateRequest, opts ...grpc.CallOption) (*api.DriveLocateResponse, error) {
+func (m *MockDriveMgrClient) Locate(ctx context.Context, in *api.DriveLocateRequest, opts ...grpc.CallOption) (*api.DriveLocateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Locate not implemented in MockDriveMgrClient")
 }
