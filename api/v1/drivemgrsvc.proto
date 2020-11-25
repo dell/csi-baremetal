@@ -15,11 +15,11 @@ message DrivesResponse {
 
 message DriveLocateRequest {
     string driveSerialNumber = 1;
-    string action = 2;
+    int32  action = 2;
 }
 
 message DriveLocateResponse {
-
+    int32 status = 1;
 }
 
 service DriveService {

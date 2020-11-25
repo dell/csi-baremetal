@@ -125,8 +125,8 @@ func (mgr *IDRACManager) GetDrivesList() ([]*api.Drive, error) {
 }
 
 // Locate implements Locate method of DriveManager interface
-func (mgr *IDRACManager) Locate(serialNumber, action string) error {
-	return status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
+func (mgr *IDRACManager) Locate(serialNumber string, action int32) (int32, error) {
+	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
 }
 
 // getControllerURLs returns slice of all controllers url in Storage
