@@ -13,6 +13,16 @@ message DrivesResponse {
     repeated Drive disks = 1;
 }
 
+message DriveLocateRequest {
+    string driveSerialNumber = 1;
+    int32  action = 2;
+}
+
+message DriveLocateResponse {
+    int32 status = 1;
+}
+
 service DriveService {
     rpc GetDrivesList(DrivesRequest) returns (DrivesResponse){};
+    rpc Locate(DriveLocateRequest) returns (DriveLocateResponse){};
 }

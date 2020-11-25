@@ -20,6 +20,8 @@ import (
 	"strconv"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -54,6 +56,11 @@ func (mgr BaseManager) GetDrivesList() ([]*api.Drive, error) {
 	}
 	devices = append(devices, nvmDevices...)
 	return devices, nil
+}
+
+// Locate implements Locate method of DriveManager interface
+func (mgr *BaseManager) Locate(serialNumber string, action int32) (int32, error) {
+	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in BaseManager")
 }
 
 // New is a constructor BaseManager

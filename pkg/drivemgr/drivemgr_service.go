@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -65,4 +64,15 @@ func (svc *DriveServiceServerImpl) GetDrivesList(ctx context.Context, req *api.D
 	return &api.DrivesResponse{
 		Disks: drives,
 	}, nil
+}
+
+// Locate invokes DriveManager's Locate method for manipulation drive's LED state
+func (svc *DriveServiceServerImpl) Locate(ctx context.Context, in *api.DriveLocateRequest) (*api.DriveLocateResponse, error) {
+	currentStatus, err := svc.mgr.Locate(in.GetDriveSerialNumber(), in.GetAction())
+	if err != nil {
+		svc.log.Errorf("Unable to locate device %s, action %d: %v", in.GetDriveSerialNumber(), in.GetAction(), err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &api.DriveLocateResponse{Status: currentStatus}, nil
 }
