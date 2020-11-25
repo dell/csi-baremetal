@@ -580,7 +580,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	// expect: hwMgrClient request fail with error
 	vm = prepareSuccessVolumeManager(t)
-	vm.driveMgrClient = mocks.MockDriveMgrClientFail{}
+	vm.driveMgrClient = &mocks.MockDriveMgrClientFail{}
 
 	err = vm.Discover()
 	assert.NotNil(t, err)
@@ -590,7 +590,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
 
 	// expect: updateDrivesCRs failed
-	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
 	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Once()
 
 	err = vm.Discover()
@@ -598,7 +598,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	assert.Contains(t, err.Error(), "updateDrivesCRs return error")
 
 	// expect: driveAreNotUsed failed
-	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
 	mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(nil).Once()
 	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Once()
 
@@ -607,7 +607,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	assert.Contains(t, err.Error(), "drivesAreNotUsed return error")
 
 	// expect: discoverVolumeCRs failed
-	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
 	listBlk := &mocklu.MockWrapLsblk{}
 	listBlk.On("GetBlockDevices", "").Return(nil, testErr).Once()
 	vm.listBlk = listBlk
@@ -619,7 +619,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	assert.Contains(t, err.Error(), "discoverVolumeCRs return error")
 
 	//expect: discoverAvailableCapacities failed
-	vm = NewVolumeManager(mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+	vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
 	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{}, nil)
 	vm.listBlk = listBlk
 	mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(4)
@@ -1160,7 +1160,7 @@ func TestVolumeManager_isDriveSystem(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	listBlk := &mocklu.MockWrapLsblk{}
-	vm := NewVolumeManager(*hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
 	vm.listBlk = listBlk
 	isSystem, err := vm.isDriveSystem("/dev/sdb")
