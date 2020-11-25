@@ -476,7 +476,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
 					if toUpdate.Spec.Health != apiV1.HealthGood {
-						toUpdate.Spec.OperationalStatus = apiV1.DriveOpStatusReleasing
+						toUpdate.Spec.Usage = apiV1.DriveReleasing
 					}
 					if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
@@ -495,7 +495,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
 			// TODO: what operational status should be if drivemgr reported drive with not a good health
-			toCreateSpec.OperationalStatus = apiV1.DriveOpStatusOperative
+			toCreateSpec.Usage = apiV1.DriveInUse
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
 				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
