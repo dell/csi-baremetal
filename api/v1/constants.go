@@ -74,6 +74,10 @@ const (
 	VolumeReleased  = DriveReleased
 	VolumeFailed    = DriveFailed
 
+	// Release Volume annotations
+	VolumeAnnotationRelease = "releasevolume.release"
+	VolumeAnnotationReleaseDone = "done"
+
 	// TODO Mount status?
 
 	// Volume mode

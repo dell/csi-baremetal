@@ -21,6 +21,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"io/ioutil"
 	"net"
 	"strconv"
@@ -101,11 +103,11 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 
-	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
+	nodeId, err := getNodeId(k8SClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
-	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeID, logger)
+	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeId, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
@@ -113,14 +115,17 @@ func main() {
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
-	k8sClientForVolume := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	k8sClientForLVG := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	// TODO why do we need 3 clients?
+	volumesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	lvgClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	drivesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, logger, k8sClientForVolume, eventRecorder, featureConf)
+		clientToDriveMgr, nodeId, logger, volumesClient, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvg.NewController(k8sClientForLVG, nodeID, logger),
+		lvg.NewController(lvgClient, nodeId, logger),
+		drive.NewController(drivesClient, nodeId, logger),
 		logger)
 
 	// register CSI calls handler
@@ -165,7 +170,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 			logger.Errorf("Discover finished with error: %v", err)
 		} else {
 			checker.OK()
-			logger.Info("Discover finished successful")
+			logger.Tracef("Discover finished successful")
 			// Increase wait time, because we don't need to call API often after node initialization
 			discoveringWaitTime = 30 * time.Second
 		}
@@ -174,7 +179,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 
 // prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources
 func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.Controller,
-	logger *logrus.Logger) manager.Manager {
+	driveCtrl *drive.Controller, logger *logrus.Logger) manager.Manager {
 	var (
 		ll     = logger.WithField("method", "prepareCRDControllerManagers")
 		scheme = runtime.NewScheme()
@@ -190,6 +195,11 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	}
 	// register LVG crd
 	if err = lvgcrd.AddToSchemeLVG(scheme); err != nil {
+		logrus.Fatal(err)
+	}
+
+	// register Drive crd
+	if err = drivecrd.AddToSchemeDrive(scheme); err != nil {
 		logrus.Fatal(err)
 	}
 
@@ -211,10 +221,14 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 		logger.Fatalf("unable to create controller for LVG: %v", err)
 	}
 
+	if err = driveCtrl.SetupWithManager(mgr); err != nil {
+		logger.Fatalf("unable to create controller for LVG: %v", err)
+	}
+
 	return mgr
 }
 
-func getNodeID(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func getNodeId(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	k8sNode := corev1.Node{}
 	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
 		return "", err
