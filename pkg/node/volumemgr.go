@@ -246,8 +246,34 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	case apiV1.Removing:
 		return m.handleRemovingStatus(ctx, volume)
 	default:
-		return ctrl.Result{}, nil
+		//return ctrl.Result{}, nil
 	}
+
+	if volume.Spec.Usage == apiV1.VolumeReleasing {
+		// check for release annotation
+		releaseStatus := volume.Annotations[apiV1.VolumeAnnotationRelease]
+		// when done move to RELEASED state
+		if releaseStatus == apiV1.VolumeAnnotationReleaseDone {
+			ll.Infof("Volume %s is released", volume.Name)
+			volume.Spec.Usage = apiV1.VolumeReleased
+			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+				ll.Errorf("Unable to change volume %s usage status to %s, error: %v.",
+					volume.Name, volume.Spec.Usage, err)
+				return ctrl.Result{Requeue: true}, err
+			}
+			// need to change usage status of corresponding drive
+			drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+			if drive != nil {
+				drive.Spec.Usage = apiV1.DriveReleased
+				if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+					ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
+						drive.Name, drive.Spec.Usage, err)
+					return ctrl.Result{Requeue: true}, err
+				}
+			}
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // handleCreatingVolumeInLVG handles volume CR that has storage class related to LVG and CSIStatus creating
@@ -902,9 +928,25 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		// save previous health state
 		prevHealthState := vol.Spec.Health
 		vol.Spec.Health = drive.Health
+		// initiate volume release
+		// TODO need to check for specific annotation instead
+		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
+			switch vol.Spec.Usage {
+			case apiV1.VolumeInUse:
+				vol.Spec.Usage = apiV1.VolumeReleasing
+			//case apiV1.VolumeReleased:
+			//	// need to set drive CR to RELEASED
+			//	drive.Usage = apiV1.DriveReleased
+			//	if err := m.crHelper.UpdateDriveCRSpec(drive.UUID, *drive); err != nil {
+			//		ll.Errorf("Failed to update drive CR's %s health status: %v", drive.UUID, err)
+			//	}
+			}
+		}
+
 		if err := m.k8sClient.UpdateCR(ctx, vol); err != nil {
 			ll.Errorf("Failed to update volume CR's %s health status: %v", vol.Name, err)
 		}
+
 		if vol.Spec.Health == apiV1.HealthBad {
 			m.recorder.Eventf(vol, eventing.WarningType, eventing.VolumeBadHealth,
 				"Volume health transitioned from %s to %s. Inherited from %s drive on %s)",
