@@ -414,20 +414,20 @@ func (m *VolumeManager) Discover() error {
 	}
 	m.handleDriveUpdates(ctx, updates)
 
-	freeDrives, err := m.drivesAreNotUsed()
-
-	if err != nil {
-		return fmt.Errorf("drivesAreNotUsed return error: %v", err)
-	}
-
 	if m.discoverLvgSSD {
 		if err = m.discoverLVGOnSystemDrive(); err != nil {
 			m.log.WithField("method", "Discover").
 				Errorf("unable to inspect system LVG: %v", err)
 		}
 	}
-	if err = m.discoverVolumeCRs(freeDrives); err != nil {
+
+	if err = m.discoverVolumeCRs(); err != nil {
 		return fmt.Errorf("discoverVolumeCRs return error: %v", err)
+	}
+
+	freeDrives, err := m.drivesAreNotUsed()
+	if err != nil {
+		return fmt.Errorf("drivesAreNotUsed return error: %v", err)
 	}
 
 	if err = m.discoverAvailableCapacity(ctx, freeDrives); err != nil {
@@ -611,15 +611,20 @@ func (m *VolumeManager) drivesAreNotUsed() ([]*drivecrd.Drive, error) {
 	return drives, nil
 }
 
-// discoverVolumeCRs matches system block devices with freeDrives
-// searches drives in freeDrives that are not have volume and if there are some partitions on them - try to read
+// discoverVolumeCRs matches system block devices with driveCRs
+// searches drives in driveCRs that are not have volume and if there are some partitions on them - try to read
 // partition uuid and create volume CR object
-func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
+func (m *VolumeManager) discoverVolumeCRs() error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "discoverVolumeCRs",
 	})
 
-	// explore each drive from freeDrives
+	driveCRs, err := m.crHelper.GetDriveCRs(m.nodeID)
+	if err != nil {
+		return err
+	}
+
+	// explore each drive from driveCRs
 	blockDevices, err := m.listBlk.GetBlockDevices("")
 	if err != nil {
 		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
@@ -630,7 +635,7 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 		bdevMap[bdev.Serial] = bdev
 	}
 
-	for _, d := range freeDrives {
+	for _, d := range driveCRs {
 		if d.Spec.IsSystem {
 			if m.isDriveInLVG(d.Spec) {
 				continue
@@ -638,7 +643,7 @@ func (m *VolumeManager) discoverVolumeCRs(freeDrives []*drivecrd.Drive) error {
 		}
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
 		if !ok {
-			ll.Errorf("For drive %v there is no corresponding block device.", *d)
+			ll.Errorf("For drive %v there is no corresponding block device.", d)
 			continue
 		}
 		if len(bdev.Children) > 0 {
