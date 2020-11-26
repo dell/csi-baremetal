@@ -221,10 +221,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			volume.Spec.CSIStatus = apiV1.Removing
 			ll.Debug("Change volume status from Created to Removing")
 		case apiV1.Removing:
-		case apiV1.Removed, "":
-			if volume.Spec.CSIStatus == "" {
-				ll.Warn("Volume doesn't have CSIStatus field. Deletion is allowed.")
-			}
+		case apiV1.Removed:
 			if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
 				volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
 				ll.Debug("Remove finalizer for volume")
