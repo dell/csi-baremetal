@@ -429,6 +429,9 @@ func (m *VolumeManager) Discover() error {
 	if err != nil {
 		return fmt.Errorf("drivesAreNotUsed return error: %v", err)
 	}
+	m.log.WithFields(logrus.Fields{
+		"method": "Discover",
+	}).Infof("freeDrives size is - %d", len(freeDrives))
 
 	if err = m.discoverAvailableCapacity(ctx, freeDrives); err != nil {
 		return fmt.Errorf("discoverAvailableCapacity return error: %v", err)
@@ -630,6 +633,16 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
 	}
 
+	// !!! TODO: add check that there is no corresponding Volume CR
+	volumeCRs, err := m.crHelper.GetVolumeCRs(m.nodeID)
+	if err != nil {
+		return err
+	}
+	locations := make(map[string]struct{}, len(volumeCRs))
+	for _, v := range volumeCRs {
+		locations[v.Spec.Location] = struct{}{}
+	}
+
 	bdevMap := make(map[string]lsblk.BlockDevice, len(blockDevices))
 	for _, bdev := range blockDevices {
 		bdevMap[bdev.Serial] = bdev
@@ -647,6 +660,11 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 			continue
 		}
 		if len(bdev.Children) > 0 {
+			if _, ok := locations[d.Spec.UUID]; ok {
+				ll.Infof("VOLUME WAS CREATED BEFORE")
+				continue
+			}
+
 			var (
 				partUUID string
 				size     int64
