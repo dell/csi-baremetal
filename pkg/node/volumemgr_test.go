@@ -516,62 +516,6 @@ func TestNewVolumeManager_SetProvisioners(t *testing.T) {
 	assert.Equal(t, newProv, vm.provisioners[p.DriveBasedVolumeType])
 }
 
-func TestVolumeManager_DrivesNotInUse_Success(t *testing.T) {
-	vm := prepareSuccessVolumeManager(t)
-
-	addDriveCRs(vm.k8sClient,
-		vm.k8sClient.ConstructDriveCR(drive1UUID, drive1),
-		vm.k8sClient.ConstructDriveCR(drive2UUID, drive2),
-	)
-
-	drivesNotInUse, err := vm.drivesAreNotUsed()
-	assert.Nil(t, err)
-	// there are no Volume CRs, method should return all drives
-	assert.NotNil(t, drivesNotInUse)
-	assert.Equal(t, 2, len(drivesNotInUse))
-
-	// add Volume CR that points on drive1
-	volumeCR := vm.k8sClient.ConstructVolumeCR("test_name", api.Volume{
-		NodeId:       nodeID,
-		LocationType: apiV1.LocationTypeDrive,
-		Location:     drive1.UUID,
-	})
-	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, volumeCR.Name, volumeCR))
-
-	// expect drive2 isn't in use
-	drivesNotInUse, err = vm.drivesAreNotUsed()
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(drivesNotInUse))
-	assert.Equal(t, drive2.UUID, drivesNotInUse[0].Spec.UUID)
-}
-
-func TestVolumeManager_DrivesNotInUse_Fail(t *testing.T) {
-	mockK8sClient := &mocks.K8Client{}
-	vm := NewVolumeManager(nil, nil, testLogger,
-		k8s.NewKubeClient(mockK8sClient, testLogger, testNs),
-		new(mocks.NoOpRecorder), nodeID)
-
-	var (
-		res []*drivecrd.Drive
-		err error
-	)
-
-	// unable to list Volume CRs
-	mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(testErr).Once()
-
-	res, err = vm.drivesAreNotUsed()
-	assert.Nil(t, res)
-	assert.Equal(t, testErr, err)
-
-	// unable to list Drive CRs
-	mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(nil).Once()
-	mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(testErr).Once()
-
-	res, err = vm.drivesAreNotUsed()
-	assert.Nil(t, res)
-	assert.Equal(t, testErr, err)
-}
-
 func TestVolumeManager_DiscoverFail(t *testing.T) {
 	var (
 		vm  *VolumeManager
@@ -898,13 +842,12 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 			Name:      "some-name",
 			Node:      m.nodeID,
 			Locations: []string{base.SystemDriveAsLocation},
-			
 		})
 		lvgList = lvgcrd.LVGList{}
 		acList  = accrd.AvailableCapacityList{}
 		err     error
 	)
-	lvmOps  := &mocklu.MockWrapLVM{}
+	lvmOps := &mocklu.MockWrapLVM{}
 	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(0), nil)
 	m.lvmOps = lvmOps
 	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, lvgCR.Spec.Locations...)
@@ -923,9 +866,9 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	err = m.k8sClient.ReadList(testCtx, &acList)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(acList.Items))
-	
+
 	// increase free space on lvg
-	lvmOps  = &mocklu.MockWrapLVM{}
+	lvmOps = &mocklu.MockWrapLVM{}
 	lvmOps.On("GetVgFreeSpace", "some-name").Return(int64(2*1024*1024), nil)
 	m.lvmOps = lvmOps
 
