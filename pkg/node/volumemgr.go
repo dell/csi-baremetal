@@ -559,7 +559,15 @@ func (m *VolumeManager) handleDriveUpdates(ctx context.Context, updates *driveUp
 
 // isDriveInLVG check whether drive is a part of some LVG or no
 func (m *VolumeManager) isDriveInLVG(d api.Drive) bool {
-	lvgs := m.crHelper.GetLVGCRs(m.nodeID)
+	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
+	if err != nil {
+		m.log.WithFields(logrus.Fields{
+			"method":    "isDriveInLVG",
+			"driveUUID": d.UUID,
+		}).Errorf("Unable to read LVG CRs list: %v. Consider that drive isn't in LVG", err)
+		return false
+	}
+
 	for _, lvg := range lvgs {
 		if util.ContainsString(lvg.Spec.Locations, d.UUID) {
 			return true
@@ -667,18 +675,13 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 	ll := m.log.WithField("method", "discoverAvailableCapacity")
 
-	var (
-		err        error
-		wasError   = false
-		acList     = &accrd.AvailableCapacityList{}
-		volumeList = &volumecrd.VolumeList{}
-	)
-
-	if err = m.k8sClient.ReadList(ctx, acList); err != nil {
+	acs, err := m.crHelper.GetACsCRs(m.nodeID)
+	if err != nil {
 		return fmt.Errorf("unable to read AC list: %v", err)
 	}
-	if err = m.k8sClient.ReadList(ctx, volumeList); err != nil {
-		return fmt.Errorf("unable to read Volume list: %v", err)
+	volumes, err := m.crHelper.GetVolumeCRs(m.nodeID)
+	if err != nil {
+		return err
 	}
 	driveCRs, err := m.crHelper.GetDriveCRs(m.nodeID)
 	if err != nil {
@@ -687,18 +690,19 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 
 	var (
 		// key - ac.Spec.Location that is Drive.Spec.UUID
-		acsLocations = make(map[string]*accrd.AvailableCapacity, len(acList.Items))
+		acsLocations = make(map[string]*accrd.AvailableCapacity, len(acs))
 		// key - volume.Spec.Location that is Drive.Spec.UUID or LVG.Spec.Name (don't need to use info about LVG here)
 		volumeLocations = make(map[string]struct{})
 	)
-	for _, ac := range acList.Items {
+	for _, ac := range acs {
 		ac := ac
 		acsLocations[ac.Spec.Location] = &ac
 	}
-	for _, v := range volumeList.Items {
+	for _, v := range volumes {
 		volumeLocations[v.Spec.Location] = struct{}{}
 	}
 
+	var wasError = false
 	for _, drive := range driveCRs {
 		if drive.Spec.Health != apiV1.HealthGood || drive.Spec.Status != apiV1.DriveStatusOnline {
 			// AC that points on such drive was removed before (if they had existed)
@@ -716,6 +720,10 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 			}
 			continue
 		}
+		if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
+			continue
+		}
+
 		// create AC based on drive
 		capacity := &api.AvailableCapacity{
 			Size:         drive.Spec.Size,
@@ -755,16 +763,16 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	ll := m.log.WithField("method", "discoverLVGOnSystemDrive")
 
 	var (
-		lvgList = lvgcrd.LVGList{}
 		errTmpl = "unable to inspect system LVM, error: %v"
 		err     error
 	)
 
 	// at first check whether LVG on system drive exists or no
-	if err = m.k8sClient.ReadList(context.Background(), &lvgList); err != nil {
-		return fmt.Errorf(errTmpl, err)
+	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
+	if err != nil {
+		return err
 	}
-	for _, lvg := range lvgList.Items {
+	for _, lvg := range lvgs {
 		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDrivesUUIDs, lvg.Spec.Locations[0]) {
 			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
