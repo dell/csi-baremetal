@@ -704,10 +704,10 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 			// AC that points on such drive was removed before (if they had existed)
 			continue
 		}
-		// check whether appropriate AC exists or not
-		if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
-			// check whether there is Volume CR that points on same drive
-			if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
+		// check whether there is Volume CR that points on same drive
+		if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
+			// check whether appropriate AC exists or not
+			if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
 				ll.Warnf("There is Volume CR that points on same drive %s as AC %s",
 					drive.Name, acsLocations[drive.Spec.UUID].Name)
 				if err = m.k8sClient.DeleteCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
