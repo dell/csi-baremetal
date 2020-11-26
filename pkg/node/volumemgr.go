@@ -619,7 +619,6 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 		}
 		if len(bdev.Children) > 0 {
 			if _, ok := locations[d.Spec.UUID]; ok {
-				ll.Infof("VOLUME WAS CREATED BEFORE")
 				continue
 			}
 
