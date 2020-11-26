@@ -672,7 +672,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 	ll := m.log.WithField("method", "discoverAvailableCapacity")
 
-	acs, err := m.crHelper.GetACsCRs(m.nodeID)
+	acs, err := m.crHelper.GetACCRs(m.nodeID)
 	if err != nil {
 		return fmt.Errorf("unable to read AC list: %v", err)
 	}

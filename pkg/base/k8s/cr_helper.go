@@ -265,10 +265,10 @@ func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 	return res, nil
 }
 
-// GetACsCRs collect ACs CR that locate on node, use just node[0] element
+// GetACCRs collect ACs CR that locate on node, use just node[0] element
 // if node isn't provided - return all ACs CR
 // if error occurs - return nil and error
-func (cs *CRHelper) GetACsCRs(node ...string) ([]accrd.AvailableCapacity, error) {
+func (cs *CRHelper) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) {
 	var (
 		acsList = &accrd.AvailableCapacityList{}
 		err     error
