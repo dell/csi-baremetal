@@ -35,6 +35,7 @@ const (
 	Removing           = "removing"
 	Removed            = "removed"
 	Failed             = "failed"
+	Empty              = ""
 
 	// Health statuses
 	HealthUnknown = "UNKNOWN"

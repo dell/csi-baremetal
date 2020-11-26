@@ -207,7 +207,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if volume.DeletionTimestamp.IsZero() {
-		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
+		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) && volume.Spec.CSIStatus != apiV1.Empty {
 			ll.Debug("Appending finalizer for volume")
 			volume.ObjectMeta.Finalizers = append(volume.ObjectMeta.Finalizers, volumeFinalizer)
 			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
@@ -656,7 +656,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 				Mode:         apiV1.ModeFS,
 				Type:         bdev.FSType,
 				Health:       d.Spec.Health,
-				CSIStatus:    "",
+				CSIStatus:    apiV1.Empty,
 			})
 
 			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeCR.Name)
