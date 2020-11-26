@@ -223,7 +223,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		case apiV1.Removing:
 		case apiV1.Removed, "":
 			if volume.Spec.CSIStatus == "" {
-				ll.Warn("Volume %s doesn't have CSIStatus field. Deletion is allowed.")
+				ll.Warn("Volume doesn't have CSIStatus field. Deletion is allowed.")
 			}
 			if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
 				volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
