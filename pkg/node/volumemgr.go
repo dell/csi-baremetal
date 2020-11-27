@@ -596,9 +596,19 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 	if err != nil {
 		return err
 	}
-	locations := make(map[string]struct{}, len(volumeCRs))
+	lvgCRs, err := m.crHelper.GetLVGCRs(m.nodeID)
+	if err != nil {
+		return err
+	}
+
+	locations := make(map[string]struct{}, len(volumeCRs)+len(lvgCRs))
 	for _, v := range volumeCRs {
 		locations[v.Spec.Location] = struct{}{}
+	}
+	for _, lvg := range lvgCRs {
+		for _, l := range lvg.Spec.Locations {
+			locations[l] = struct{}{}
+		}
 	}
 
 	bdevMap := make(map[string]lsblk.BlockDevice, len(blockDevices))
