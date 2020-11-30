@@ -103,11 +103,11 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 
-	nodeId, err := getNodeId(k8SClient, *nodeName, featureConf)
+	nodeID, err := getNodeId(k8SClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
-	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeId, logger)
+	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeID, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
@@ -120,12 +120,12 @@ func main() {
 	lvgClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	drivesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeId, logger, volumesClient, eventRecorder, featureConf)
+		clientToDriveMgr, nodeID, logger, volumesClient, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvg.NewController(lvgClient, nodeId, logger),
-		drive.NewController(drivesClient, nodeId, logger),
+		lvg.NewController(lvgClient, nodeID, logger),
+		drive.NewController(drivesClient, nodeID, logger),
 		logger)
 
 	// register CSI calls handler

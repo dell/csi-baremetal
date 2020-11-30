@@ -92,14 +92,14 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	isChanged := true
 
 	switch usage {
-	case apiV1.DriveInUse:
+	case apiV1.DriveUsageInUse:
 		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
-			drive.Spec.Usage = apiV1.DriveReleasing
+			drive.Spec.Usage = apiV1.DriveUsageReleasing
 			// TODO update health of volumes
 			break
 		}
 		isChanged = false
-	case apiV1.DriveReleased:
+	case apiV1.DriveUsageReleased:
 		status := drive.Annotations[apiV1.DriveAnnotationReplacement]
 		if status == apiV1.DriveAnnotationReplacementReady {
 			// TODO need to update annotations for related volumes
@@ -107,19 +107,19 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			volume := c.crHelper.GetVolumeByLocation(id)
 			if volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
 				// TODO need to call drive manager to start LED locate
-				drive.Spec.Usage = apiV1.DriveRemoved
+				drive.Spec.Usage = apiV1.DriveUsageRemoved
 			} else {
-				drive.Spec.Usage = apiV1.DriveRemoving
+				drive.Spec.Usage = apiV1.DriveUsageRemoving
 			}
 			break
 		}
 		isChanged = false
-	case apiV1.DriveRemoving:
+	case apiV1.DriveUsageRemoving:
 		// TODO need to check CSI status here since volume might not be removed
 		volume := c.crHelper.GetVolumeByLocation(id);
 		if  volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
 			// TODO need to call drive manager to start LED locate
-			drive.Spec.Usage = apiV1.DriveRemoved
+			drive.Spec.Usage = apiV1.DriveUsageRemoved
 			break
 		}
 		isChanged = false
