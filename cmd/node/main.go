@@ -21,8 +21,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"io/ioutil"
 	"net"
 	"strconv"
@@ -41,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -49,6 +48,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/node"
@@ -103,7 +103,7 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 
-	nodeID, err := getNodeId(k8SClient, *nodeName, featureConf)
+	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
@@ -228,7 +228,7 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	return mgr
 }
 
-func getNodeId(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func getNodeID(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	k8sNode := corev1.Node{}
 	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
 		return "", err
