@@ -62,6 +62,10 @@ const (
 	DriveTypeSSD  = "SSD"
 	DriveTypeNVMe = "NVME"
 
+	// Drive annotations
+	DriveAnnotationReplacement = "replacement"
+	DriveAnnotationReplacementReady = "ready"
+
 	// Volume operational status
 	OperationalStatusOperative     = "OPERATIVE"
 	OperationalStatusInoperative   = "INOPERATIVE"
@@ -77,7 +81,7 @@ const (
 	VolumeFailed    = DriveFailed
 
 	// Release Volume annotations
-	VolumeAnnotationRelease = "releasevolume.release"
+	VolumeAnnotationRelease = "release"
 	VolumeAnnotationReleaseDone = "done"
 
 	// TODO Mount status?
