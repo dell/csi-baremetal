@@ -2,6 +2,8 @@ package drive
 
 import (
 	"context"
+	"time"
+
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -11,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"time"
 )
 
 // Controller to reconcile drive custom resource
@@ -116,8 +117,8 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		isChanged = false
 	case apiV1.DriveUsageRemoving:
 		// TODO need to check CSI status here since volume might not be removed
-		volume := c.crHelper.GetVolumeByLocation(id);
-		if  volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
+		volume := c.crHelper.GetVolumeByLocation(id)
+		if volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
 			// TODO need to call drive manager to start LED locate
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
 			break
