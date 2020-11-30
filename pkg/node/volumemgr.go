@@ -227,6 +227,10 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Infof("Volume %s is removed. Updating related", volume.Name)
 			drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
 			annotationKey := fmt.Sprintf("volume/%s", volume.Name)
+			// init map if empty
+			if drive.Annotations == nil {
+				drive.Annotations = make(map[string]string)
+			}
 			drive.Annotations[annotationKey] = apiV1.Removed
 			if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 				ll.Errorf("Unable to update Drive annotations")
