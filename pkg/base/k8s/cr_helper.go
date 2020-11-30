@@ -238,8 +238,8 @@ func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 	return nil
 }
 
-// GetDriveCRs collect drive CRs that locate on node, use just node[0] element
-// if node isn't provided - return all volume CRs
+// GetDriveCRs collect Drives CR that locate on node, use just node[0] element
+// if node isn't provided - return all Drives CR
 // if error occurs - return nil and error
 func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 	var (
@@ -260,6 +260,33 @@ func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 	for _, d := range dList.Items {
 		if d.Spec.NodeId == node[0] {
 			res = append(res, d)
+		}
+	}
+	return res, nil
+}
+
+// GetACCRs collect ACs CR that locate on node, use just node[0] element
+// if node isn't provided - return all ACs CR
+// if error occurs - return nil and error
+func (cs *CRHelper) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) {
+	var (
+		acsList = &accrd.AvailableCapacityList{}
+		err     error
+	)
+
+	if err = cs.k8sClient.ReadList(context.Background(), acsList); err != nil {
+		return nil, err
+	}
+
+	if len(node) == 0 {
+		return acsList.Items, nil
+	}
+
+	// if node was provided, collect drives that are on that node
+	res := make([]accrd.AvailableCapacity, 0)
+	for _, ac := range acsList.Items {
+		if ac.Spec.NodeId == node[0] {
+			res = append(res, ac)
 		}
 	}
 	return res, nil
@@ -295,20 +322,18 @@ func (cs *CRHelper) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
 // GetLVGCRs collect LVG CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
 // if error occurs - return nil
-func (cs *CRHelper) GetLVGCRs(node ...string) []lvgcrd.LVG {
+func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LVG, error) {
 	var (
 		lvgList = &lvgcrd.LVGList{}
 		err     error
 	)
 
 	if err = cs.k8sClient.ReadList(context.Background(), lvgList); err != nil {
-		cs.log.WithField("method", "GetLVGCRs").
-			Errorf("Unable to read volume CRs list: %v", err)
-		return nil
+		return nil, err
 	}
 
 	if len(node) == 0 {
-		return lvgList.Items
+		return lvgList.Items, nil
 	}
 
 	// if node was provided, collect LVGs that are on that node
@@ -318,7 +343,7 @@ func (cs *CRHelper) GetLVGCRs(node ...string) []lvgcrd.LVG {
 			res = append(res, l)
 		}
 	}
-	return res
+	return res, nil
 }
 
 // UpdateVolumeCRSpec reads volume CR with name volName and update it's spec to newSpec

@@ -28,6 +28,7 @@ const (
 	// TODO: change value, https://github.com/dell/csi-baremetal/issues/134
 	CSICRsGroupVersion = "baremetal-csi.dellemc.com"
 	APIV1Version       = "baremetal-csi.dellemc.com/v1"
+
 	// CSI statuses
 	Creating    = "CREATING"
 	Created     = "CREATED"
@@ -36,6 +37,7 @@ const (
 	Removing    = "REMOVING"
 	Removed     = "REMOVED"
 	Failed      = "FAILED"
+	Empty              = ""
 
 	// Health statuses
 	HealthUnknown = "UNKNOWN"
@@ -103,4 +105,11 @@ const (
 	StorageClassSSDLVG    = "SSDLVG"
 	StorageClassNVMeLVG   = "NVMELVG"
 	StorageClassSystemLVG = "SYSLVG"
+
+	LocateStart  = int32(0)
+	LocateStop   = int32(1)
+	LocateStatus = int32(2)
+
+	LocateStatusOn  = int32(1)
+	LocateStatusOff = int32(0)
 )
