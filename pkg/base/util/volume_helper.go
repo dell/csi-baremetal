@@ -22,22 +22,36 @@ import (
 	"strings"
 )
 
-const prefix = "pvc-"
+const (
+	pvcPrefix = "pvc-"
+	csiPrefix = "csi-"
+)
 
 // GetVolumeUUID extracts UUID from volume ID: pvc-<UUID>
-// Method will remove prefix `pvc-` and return UUID
+// Method will remove pvcPrefix `pvc-` and return UUID
 func GetVolumeUUID(volumeID string) (string, error) {
 	// check that volume ID is correct
 	if volumeID == "" {
 		return "", errors.New("volume ID is empty")
 	}
 
-	// trim prefix
-	uuid := strings.TrimPrefix(volumeID, prefix)
+	// trim pvcPrefix
+	uuid := strings.TrimPrefix(volumeID, pvcPrefix)
 	// return error if volume UUID is empty
 	if uuid == "" {
 		return "", errors.New("volume UUID is empty")
 	}
 	// is PV UUID RFC 4122 compatible?
 	return uuid, nil
+}
+
+// HasNameWithPrefix check whether slice has a string
+// with pvcPrefix pvc or not
+func HasNameWithPrefix(names []string) bool {
+	for _, name := range names {
+		if strings.HasPrefix(name, pvcPrefix) || strings.HasPrefix(name, csiPrefix) {
+			return true
+		}
+	}
+	return false
 }

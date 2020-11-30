@@ -49,13 +49,11 @@ var (
 	tCtx               = context.Background()
 	testLogger         = logrus.New()
 	lvg1Name           = "lvg-cr-1"
-	lvg2Name           = "lvg-cr-2"
 	drive1UUID         = "uuid-drive1"
 	drive2UUID         = "uuid-drive2"
 
 	ns      = "default"
 	node1ID = "node1"
-	node2ID = "node2"
 
 	apiDrive1 = api.Drive{
 		UUID:         drive1UUID,
@@ -123,24 +121,6 @@ var (
 		},
 	}
 
-	lvgCR2 = lvgcrd.LVG{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "LVG",
-			APIVersion: apiV1.APIV1Version,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      lvg2Name,
-			Namespace: ns,
-		},
-		Spec: api.LogicalVolumeGroup{
-			Name:      lvg2Name,
-			Node:      node2ID,
-			Locations: []string{},
-			Size:      0,
-			Status:    apiV1.Created,
-		},
-	}
-
 	acCR1Name = "ac1"
 	acCR1     = accrd.AvailableCapacity{
 		TypeMeta: v1.TypeMeta{
@@ -181,19 +161,8 @@ func Test_NewLVGController(t *testing.T) {
 	assert.NotNil(t, c)
 }
 
-func TestReconcile_SuccessAnotherNode(t *testing.T) {
-	c := setup(t, node1ID)
-	defer teardown(t, c)
-	// request for resources on another node
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR2.Name}}
-	res, err := c.Reconcile(req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-}
-
 func TestReconcile_SuccessNotFound(t *testing.T) {
 	c := setup(t, node1ID)
-	defer teardown(t, c)
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: "not-found-that-name"}}
 	res, err := c.Reconcile(req)
@@ -203,13 +172,16 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 
 func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	var (
-		c       = setup(t, node1ID)
 		lvmOps  = &mocklu.MockWrapLVM{}
 		listBlk = &mocklu.MockWrapLsblk{}
-		req     = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+		fLVG    = lvgCR1
 		lvg     = &lvgcrd.LVG{}
 	)
-	defer teardown(t, c)
+
+	fLVG.Finalizers = []string{lvgFinalizer}
+	c := setup(t, node1ID, fLVG)
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: fLVG.Name}}
 
 	c.lvmOps = lvmOps
 	c.listBlk = listBlk
@@ -240,7 +212,6 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 		e   = &mocks.GoMockExecutor{}
 		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
-	defer teardown(t, c)
 
 	c.lvmOps = lvm.NewLVM(e, testLogger)
 
@@ -260,10 +231,9 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 
 func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 	var (
-		c   = setup(t, node1ID)
+		c   = setup(t, node1ID, lvgCR1)
 		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
-	defer teardown(t, c)
 
 	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
@@ -287,33 +257,30 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 
 func TestReconcile_DeletionFailed(t *testing.T) {
 	var (
-		c   = setup(t, node1ID)
 		e   = &mocks.GoMockExecutor{}
 		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
-	defer teardown(t, c)
-
-	c.lvmOps = lvm.NewLVM(e, testLogger)
 
 	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
-	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
+	c := setup(t, node1ID, lvgToDell)
+	c.lvmOps = lvm.NewLVM(e, testLogger)
 
 	// expect that LVG still contains LV
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("lv1", "", nil)
 
 	res, err := c.Reconcile(req)
+	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "there are LVs in LVG")
 	assert.Equal(t, res, ctrl.Result{})
-	fmt.Println(err)
 }
 
 func TestReconcile_FailedNoPVs(t *testing.T) {
 	// expect that no one PVs were created
 	var (
-		c = setup(t, node1ID)
-		e = &mocks.GoMockExecutor{}
+		fLVG = lvgCR1
+		e    = &mocks.GoMockExecutor{}
 		// SearchDrivePath failed for /dev/sdb
 		lsblkResp = `{
 			  "blockdevices":[{
@@ -322,9 +289,12 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 				"serial": "hdd1"
 				}]
 			}`
-		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
-	defer teardown(t, c)
+
+	fLVG.Finalizers = []string{lvgFinalizer}
+	c := setup(t, node1ID, fLVG)
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: fLVG.Name}}
 
 	c.lvmOps = lvm.NewLVM(e, testLogger)
 	e.OnCommand(lsblkAllDevicesCmd).Return(lsblkResp, "", nil)
@@ -341,12 +311,15 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 
 func TestReconcile_FailedVGCreate(t *testing.T) {
 	var (
-		c           = setup(t, node1ID)
+		fLVG        = lvgCR1
 		e           = &mocks.GoMockExecutor{}
-		req         = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 		expectedErr = errors.New("vgcreate failed")
 	)
-	defer teardown(t, c)
+
+	fLVG.Finalizers = []string{lvgFinalizer}
+	c := setup(t, node1ID, fLVG)
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: fLVG.Name}}
 
 	c.lvmOps = lvm.NewLVM(e, testLogger)
 	e.OnCommand(lsblkAllDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
@@ -371,7 +344,6 @@ func Test_removeLVGArtifacts_Success(t *testing.T) {
 		vg  = lvgCR1.Name
 		err error
 	)
-	defer teardown(t, c)
 
 	c.lvmOps = lvm.NewLVM(e, testLogger)
 
@@ -395,7 +367,6 @@ func Test_removeLVGArtifacts_Fail(t *testing.T) {
 		vg  = lvgCR1.Name
 		err error
 	)
-	defer teardown(t, c)
 
 	c.lvmOps = lvm.NewLVM(e, testLogger)
 
@@ -413,7 +384,6 @@ func Test_removeLVGArtifacts_Fail(t *testing.T) {
 
 func Test_increaseACSize(t *testing.T) {
 	c := setup(t, node1ID)
-	defer teardown(t, c)
 
 	// add AC CR that point in LVGCR1
 	err := c.k8sClient.CreateCR(tCtx, acCR1Name, &acCR1)
@@ -430,7 +400,7 @@ func Test_increaseACSize(t *testing.T) {
 }
 
 // setup creates drive CRs and LVG CRs and returns Controller instance
-func setup(t *testing.T, node string) *Controller {
+func setup(t *testing.T, node string, lvgs ...lvgcrd.LVG) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)
 	// create Drive CRs
@@ -439,32 +409,94 @@ func setup(t *testing.T, node string) *Controller {
 	err = k8sClient.CreateCR(tCtx, drive2CR.Name, &drive2CR)
 	assert.Nil(t, err)
 	// create LVG CRs
-	err = k8sClient.CreateCR(tCtx, lvgCR1.Name, &lvgCR1)
-	assert.Nil(t, err)
-	err = k8sClient.CreateCR(tCtx, lvgCR2.Name, &lvgCR2)
-	assert.Nil(t, err)
+	for _, lvg := range lvgs {
+		lvg := lvg
+		assert.Nil(t, k8sClient.CreateCR(tCtx, lvg.Name, &lvg))
+	}
+
 	return NewController(k8sClient, node, testLogger)
 }
 
-// teardown removes drive CRs and LVG CRs
-func teardown(t *testing.T, c *Controller) {
-	var (
-		driveList = &drivecrd.DriveList{}
-		lvgList   = &lvgcrd.LVGList{}
-		err       error
-	)
-	// remove all drive CRs
-	err = c.k8sClient.ReadList(tCtx, driveList)
-	assert.Nil(t, err)
-	for _, d := range driveList.Items {
-		err = c.k8sClient.DeleteCR(tCtx, &d)
+func TestController_appendFinalizer(t *testing.T) {
+	t.Run("VolumeRefs is empty, should be appended", func(t *testing.T) {
+		lvg := lvgCR1
+		c := setup(t, node1ID, lvg)
+		res, err := c.appendFinalizer(&lvg)
 		assert.Nil(t, err)
-	}
-	// remove all LVG CRs
-	err = c.k8sClient.ReadList(tCtx, lvgList)
-	assert.Nil(t, err)
-	for _, l := range lvgList.Items {
-		err = c.k8sClient.DeleteCR(tCtx, &l)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		currLVG := &lvgcrd.LVG{}
+		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, currLVG))
+		assert.Equal(t, 1, len(currLVG.Finalizers))
+		assert.Equal(t, lvgFinalizer, currLVG.Finalizers[0])
+	})
+
+	t.Run("There is volume with pvc prefix, should be appended", func(t *testing.T) {
+		lvg := lvgCR1
+		lvg.Spec.VolumeRefs = []string{"pvc-aaaa-bbbb-cccc"}
+		c := setup(t, node1ID, lvg)
+		res, err := c.appendFinalizer(&lvg)
 		assert.Nil(t, err)
-	}
+		assert.Equal(t, ctrl.Result{}, res)
+
+		currLVG := &lvgcrd.LVG{}
+		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, currLVG))
+		assert.Equal(t, 1, len(currLVG.Finalizers))
+		assert.Equal(t, lvgFinalizer, currLVG.Finalizers[0])
+	})
+
+	t.Run("There is volume but without pvc prefix, shouldn't be appended", func(t *testing.T) {
+		lvg := lvgCR1
+		lvg.Spec.VolumeRefs = []string{"aaaa-bbbb-cccc"}
+		c := setup(t, node1ID, lvg)
+		res, err := c.appendFinalizer(&lvg)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		currLVG := &lvgcrd.LVG{}
+		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, currLVG))
+		assert.Equal(t, 0, len(currLVG.Finalizers))
+	})
+
+	t.Run("Update LVG failed", func(t *testing.T) {
+		lvg := lvgCR1
+
+		c := setup(t, node1ID)
+		res, err := c.appendFinalizer(&lvg)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+	})
+}
+
+func TestController_removeFinalizer(t *testing.T) {
+	t.Run("There is no finalizer", func(t *testing.T) {
+		lvg := lvgCR1
+		lvg.Finalizers = nil
+		c := setup(t, node1ID, lvg)
+
+		res, err := c.removeFinalizer(&lvg)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+	})
+
+	t.Run("Remove finalizer successfully", func(t *testing.T) {
+		lvg := lvgCR1
+		lvg.Finalizers = []string{lvgFinalizer}
+
+		c := setup(t, node1ID, lvg)
+		res, err := c.removeFinalizer(&lvg)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+	})
+
+	t.Run("Update LVG CR failed", func(t *testing.T) {
+		c := setup(t, node1ID)
+
+		lvg := lvgCR1
+		lvg.Finalizers = []string{lvgFinalizer}
+
+		res, err := c.removeFinalizer(&lvg)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+	})
 }
