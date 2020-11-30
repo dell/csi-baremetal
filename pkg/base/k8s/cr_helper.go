@@ -363,23 +363,6 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error
 	return cs.k8sClient.UpdateCR(ctxWithID, volumeCR)
 }
 
-//// UpdateVolumeCRSpec reads volume CR with name volName and update it's spec to newSpec
-//// returns nil or error in case of error
-//func (cs *CRHelper) UpdateDriveCRSpec(driveName string, drive api.Drive) error {
-//	var (
-//		driveCR = &drivecrd.Drive{}
-//		err     error
-//	)
-//
-//	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, driveCR.Spec.UUID)
-//	if err = cs.k8sClient.ReadCR(ctxWithID, driveName, driveCR); err != nil {
-//		return err
-//	}
-//
-//	driveCR.Spec = drive
-//	return cs.k8sClient.UpdateCR(ctxWithID, driveCR)
-//}
-
 // DeleteObjectByName read runtime.Object by its name and then delete it
 func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, obj runtime.Object) error {
 	if err := cs.k8sClient.ReadCR(ctx, name, obj); err != nil {
