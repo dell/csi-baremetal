@@ -105,6 +105,16 @@ var (
 	// todo don't hardcode device name
 	lsblkSingleDeviceCmd = fmt.Sprintf(lsblk.CmdTmpl, "/dev/sda")
 
+	driveCR = drivecrd.Drive{
+		TypeMeta: v1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{
+			Name:              driveUUID,
+			Namespace:         testNs,
+			CreationTimestamp: v1.Time{Time: time.Now()},
+		},
+		Spec: drive1,
+	}
+
 	volCR = vcrd.Volume{
 		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{
@@ -116,7 +126,8 @@ var (
 			Id:           testID,
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: apiV1.StorageClassHDD,
-			Location:     "",
+			// TODO location cannot be empty - need to add check
+			Location:     drive1UUID,
 			CSIStatus:    apiV1.Creating,
 			NodeId:       nodeID,
 			Mode:         apiV1.ModeFS,
@@ -352,6 +363,9 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 
 	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	err = vm.k8sClient.CreateCR(testCtx, driveCR.Name, &driveCR)
+	assert.Nil(t, err)
 
 	//successfully add finalizer
 	res, err := vm.Reconcile(req)
