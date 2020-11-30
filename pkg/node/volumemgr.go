@@ -256,17 +256,15 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return m.prepareVolume(ctx, volume)
 	case apiV1.Removing:
 		return m.handleRemovingStatus(ctx, volume)
-	default:
-		//return ctrl.Result{}, nil
 	}
 
-	if volume.Spec.Usage == apiV1.VolumeReleasing {
+	if volume.Spec.Usage == apiV1.VolumeUsageReleasing {
 		// check for release annotation
 		releaseStatus := volume.Annotations[apiV1.VolumeAnnotationRelease]
 		// when done move to RELEASED state
 		if releaseStatus == apiV1.VolumeAnnotationReleaseDone {
 			ll.Infof("Volume %s is released", volume.Name)
-			volume.Spec.Usage = apiV1.VolumeReleased
+			volume.Spec.Usage = apiV1.VolumeUsageReleased
 			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
 				ll.Errorf("Unable to change volume %s usage status to %s, error: %v.",
 					volume.Name, volume.Spec.Usage, err)
@@ -275,7 +273,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			// TODO need to update annotations of corresponding drive
 			drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
 			if drive != nil {
-				drive.Spec.Usage = apiV1.DriveReleased
+				drive.Spec.Usage = apiV1.DriveUsageReleased
 				if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 					ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
 						drive.Name, drive.Spec.Usage, err)
@@ -509,17 +507,12 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 					updates.AddNotChanged(&driveCR)
 				} else {
 					previousState := driveCR.DeepCopy()
+					// copy fields which aren't reported by drive manager
 					drivePtr.UUID = driveCR.Spec.UUID
-					// TODO why we need UUID here?
 					drivePtr.Usage = driveCR.Spec.Usage
+
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
-					/*// TODO need to move it to drive reconcile
-					if toUpdate.Spec.Health == apiV1.HealthSuspect || toUpdate.Spec.Health == apiV1.HealthBad {
-						toUpdate.Spec.Usage = apiV1.DriveReleasing
-					}*/
-
-					//ll.Infof("Updating drive %s with usage status %s", toUpdate.Name, toUpdate.Spec.Usage)
 					if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
@@ -537,7 +530,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
 			// TODO: what operational status should be if drivemgr reported drive with not a good health
-			toCreateSpec.Usage = apiV1.DriveInUse
+			toCreateSpec.Usage = apiV1.DriveUsageInUse
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
 				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
@@ -947,15 +940,8 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		// initiate volume release
 		// TODO need to check for specific annotation instead
 		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
-			switch vol.Spec.Usage {
-			case apiV1.VolumeInUse:
-				vol.Spec.Usage = apiV1.VolumeReleasing
-			//case apiV1.VolumeReleased:
-			//	// need to set drive CR to RELEASED
-			//	drive.Usage = apiV1.DriveReleased
-			//	if err := m.crHelper.UpdateDriveCRSpec(drive.UUID, *drive); err != nil {
-			//		ll.Errorf("Failed to update drive CR's %s health status: %v", drive.UUID, err)
-			//	}
+			if vol.Spec.Usage == apiV1.VolumeUsageInUse {
+				vol.Spec.Usage = apiV1.VolumeUsageReleasing
 			}
 		}
 

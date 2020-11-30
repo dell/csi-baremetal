@@ -177,7 +177,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			Health:            apiV1.HealthGood,
 			LocationType:      locationType,
 			OperationalStatus: apiV1.OperationalStatusOperative,
-			Usage:             apiV1.VolumeInUse,
+			Usage:             apiV1.VolumeUsageInUse,
 			Mode:              v.Mode,
 			Type:              v.Type,
 		}

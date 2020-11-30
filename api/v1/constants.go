@@ -43,17 +43,18 @@ const (
 	HealthSuspect = "SUSPECT"
 	HealthBad     = "BAD"
 
+	// TODO need to split constants by different packages
 	// Drive status
 	DriveStatusOnline  = "ONLINE"
 	DriveStatusOffline = "OFFLINE"
 
 	// Drive Usage status
-	DriveInUse     = "IN_USE"
-	DriveReleasing = "RELEASING"
-	DriveReleased  = "RELEASED"
-	DriveFailed    = "FAILED"
-	DriveRemoving  = "REMOVING"
-	DriveRemoved   = "REMOVED"
+	DriveUsageInUse     = "IN_USE"
+	DriveUsageReleasing = "RELEASING"
+	DriveUsageReleased  = "RELEASED"
+	DriveUsageFailed    = "FAILED"
+	DriveUsageRemoving  = "REMOVING"
+	DriveUsageRemoved   = "REMOVED"
 
 	// Drive type
 	DriveTypeHDD  = "HDD"
@@ -73,10 +74,10 @@ const (
 	OperationalStatusUnknown       = "UNKNOWN"
 
 	// Volume Usage status
-	VolumeInUse     = DriveInUse
-	VolumeReleasing = DriveReleasing
-	VolumeReleased  = DriveReleased
-	VolumeFailed    = DriveFailed
+	VolumeUsageInUse     = DriveUsageInUse
+	VolumeUsageReleasing = DriveUsageReleasing
+	VolumeUsageReleased  = DriveUsageReleased
+	VolumeUsageFailed    = DriveUsageFailed
 
 	// Release Volume annotations
 	VolumeAnnotationRelease = "release"
