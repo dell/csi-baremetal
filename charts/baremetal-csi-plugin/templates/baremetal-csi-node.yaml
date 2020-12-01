@@ -135,6 +135,10 @@ spec:
           mountPath: /hostroot
           mountPropagation: "HostToContainer"
         {{- end }}
+        {{- if eq .Values.alerts.deployConfig true }}
+        - name: alert-config
+          mountPath: /etc/config
+        {{- end }}
       # ********************** baremetal-csi-drivemgr container definition **********************
       - name: drivemgr
         image: {{- if .Values.env.test }} baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
@@ -273,5 +277,10 @@ spec:
       - name: drive-config
         configMap:
           name: loopback-config
+      {{- end }}
+      {{- if eq .Values.alerts.deployConfig true }}
+      - name: alert-config
+        configMap:
+          name: csi-baremetal-alerts
       {{- end }}
 {{- end }}
