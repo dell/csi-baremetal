@@ -129,7 +129,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		isChanged = false
 	case apiV1.DriveUsageFailed:
-		c.eventRecorder.Eventf(drive, eventing.CriticalType, eventing.DriveReplacementFailed, drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, drive.GetDriveDescription())
 		isChanged = false
 	}
 
