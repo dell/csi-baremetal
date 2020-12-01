@@ -105,3 +105,4 @@ fluentbitAgent:
 
 alerts:
   deployConfig: false
+  
