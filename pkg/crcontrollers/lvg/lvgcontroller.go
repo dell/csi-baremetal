@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -77,9 +76,6 @@ func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger)
 // LVG.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
 // Returns reconcile result as ctrl.Result or error if something went wrong
 func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx, cancelFn := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancelFn()
-
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "Reconcile",
 		"LVGName": req.Name,
@@ -87,78 +83,118 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	lvg := &lvgcrd.LVG{}
 
-	if err := c.k8sClient.ReadCR(ctx, req.Name, lvg); err != nil {
+	if err := c.k8sClient.ReadCR(context.Background(), req.Name, lvg); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	ll.Infof("Reconciling LVG: %v", lvg)
-	if lvg.ObjectMeta.DeletionTimestamp.IsZero() {
-		// append finalizer if LVG doesn't contain it
-		if !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
-			lvg.ObjectMeta.Finalizers = append(lvg.ObjectMeta.Finalizers, lvgFinalizer)
-			if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
-				ll.Errorf("Unable to append finalizer %s to LVG, error: %v.", lvgFinalizer, err)
-				return ctrl.Result{Requeue: true}, err
-			}
+
+	switch {
+	case !lvg.ObjectMeta.DeletionTimestamp.IsZero():
+		ll.Info("Delete LVG")
+		return c.handleLVGRemoving(lvg)
+	case !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer):
+		return c.appendFinalizer(lvg)
+	case lvg.Spec.Status == apiV1.Creating:
+		ll.Info("Creating LVG")
+		return c.handlerLVGCreation(lvg)
+	// if lvg.Spec.VolumeRefs == 0 it means that LVG just being created
+	// for lvg on non-system drive finalizer should be removed during handleLVGRemoving stage
+	// here controller removes finalizer for lvg on system drive, for that lvg VolumeRefs != 0
+	case !util.HasNameWithPrefix(lvg.Spec.VolumeRefs) && len(lvg.Spec.VolumeRefs) != 0:
+		return c.removeFinalizer(lvg)
+	default:
+		return ctrl.Result{}, nil
+	}
+}
+
+// appendFinalizer appends finalizer to the LVG CR (update CR)
+func (c *Controller) appendFinalizer(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+	if len(lvg.Spec.VolumeRefs) == 0 || util.HasNameWithPrefix(lvg.Spec.VolumeRefs) {
+		lvg.ObjectMeta.Finalizers = append(lvg.ObjectMeta.Finalizers, lvgFinalizer)
+		if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
+			c.log.WithField("LVGName", lvg.Name).
+				Errorf("Unable to append finalizer %s to LVG: %v.", lvgFinalizer, err)
+			return ctrl.Result{Requeue: true}, err
 		}
-	} else {
-		ll.Infof("Removing LVG")
-		if util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
-			volumes := &vccrd.VolumeList{}
+	}
 
-			err := c.k8sClient.ReadList(ctx, volumes)
-			if err != nil {
-				ll.Errorf("Unable to read volume list: %v", err)
-				return ctrl.Result{Requeue: true}, err
-			}
-			// If Kubernetes has volumes with location of LVG, which is needed to be deleted,
-			// we prevent removing, because this LVG is still used. We set DeletionTimestamp as nil and update LVG
-			for _, item := range volumes.Items {
-				if item.Spec.Location == lvg.Name && item.DeletionTimestamp.IsZero() {
-					ll.Debugf("There are volume %v with LVG location, stop LVG deletion", item)
-					return ctrl.Result{}, nil
-				}
-			}
-			// update AC size that point on that LVG
-			c.increaseACSize(lvg.Spec.Locations[0], lvg.Spec.Size)
+	return ctrl.Result{}, nil
+}
 
-			if len(lvg.Spec.Locations) == 0 {
-				ll.Warn("Location fields is empty")
-			} else {
-				drivesUUIDs := append(c.k8sClient.GetSystemDriveUUIDs(), base.SystemDriveAsLocation)
-				if !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
-					// cleanup LVM artifacts
-					if err := c.removeLVGArtifacts(lvg.Name); err != nil {
-						ll.Errorf("Unable to cleanup LVM artifacts: %v", err)
-						return ctrl.Result{}, err
-					}
-				}
-			}
+// removeFinalizer removes finalizer for LVG CR (update CR, that is trigger reconcile again)
+func (c *Controller) removeFinalizer(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+	if !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
+		return ctrl.Result{Requeue: true}, nil
+	}
 
-			lvg.ObjectMeta.Finalizers = util.RemoveString(lvg.ObjectMeta.Finalizers, lvgFinalizer)
-			if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
-				ll.Errorf("Unable to update LVG's finalizers: %v", err)
-				return ctrl.Result{}, err
-			}
-		}
+	lvg.ObjectMeta.Finalizers = util.RemoveString(lvg.ObjectMeta.Finalizers, lvgFinalizer)
+	if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
+		c.log.WithField("LVGName", lvg.Name).Errorf("Unable to update LVG's finalizers: %v", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// handlerLVGCreation handles LVG CR with creating status, create LVG on the system drive
+// updates corresponding LVG CR (set status)
+func (c *Controller) handlerLVGCreation(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+	ll := logrus.WithField("LVGName", lvg.Name)
+
+	newStatus := apiV1.Created
+	var err error
+	var locations []string
+	if locations, err = c.createSystemLVG(lvg); err != nil {
+		ll.Errorf("Unable to create system LVG: %v", err)
+		newStatus = apiV1.Failed
+	}
+	lvg.Spec.Status = newStatus
+	lvg.Spec.Locations = locations
+	if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
+		ll.Errorf("Unable to update LVG status to %s, error: %v.", newStatus, err)
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// handleLVGRemoving handles removing of LVG CR, removes LVG from the system and removes finalizers
+func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+	ll := logrus.WithField("LVGName", lvg.Name)
+
+	if !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
 		return ctrl.Result{}, nil
 	}
 
-	if lvg.Spec.Status == apiV1.Creating {
-		newStatus := apiV1.Created
-		var err error
-		var locations []string
-		if locations, err = c.createSystemLVG(lvg); err != nil {
-			ll.Errorf("Unable to create system LVG: %v", err)
-			newStatus = apiV1.Failed
-		}
-		lvg.Spec.Status = newStatus
-		lvg.Spec.Locations = locations
-		if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
-			ll.Errorf("Unable to update LVG status to %s, error: %v.", newStatus, err)
+	volumes := &vccrd.VolumeList{}
+
+	err := c.k8sClient.ReadList(context.Background(), volumes)
+	if err != nil {
+		ll.Errorf("Unable to read volume list: %v", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	// If Kubernetes has volumes with location of LVG, which is needed to be deleted,
+	// we prevent removing, because this LVG is still used.
+	for _, item := range volumes.Items {
+		if item.Spec.Location == lvg.Name && item.DeletionTimestamp.IsZero() {
+			ll.Debugf("There are volume %v with LVG location, stop LVG deletion", item)
+			return ctrl.Result{}, nil
 		}
 	}
-	return ctrl.Result{}, nil
+	// update AC size that point on that LVG
+	c.increaseACSize(lvg.Spec.Locations[0], lvg.Spec.Size)
+
+	drivesUUIDs := append(c.k8sClient.GetSystemDriveUUIDs(), base.SystemDriveAsLocation)
+	if !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
+		// cleanup LVM artifacts
+		if err := c.removeLVGArtifacts(lvg.Name); err != nil {
+			ll.Errorf("Unable to cleanup LVM artifacts: %v", err)
+			return ctrl.Result{}, err
+		}
+	}
+
+	return c.removeFinalizer(lvg)
 }
 
 // SetupWithManager registers Controller to ControllerManager
