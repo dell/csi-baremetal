@@ -32,13 +32,14 @@ import (
 func TestOption_YAMLValidation(t *testing.T) {
 	inputRawConfig := `
 overrideRules:
-  DiskFailed:
-    SymptomID: DECKS-1000
-    kahm/enabled: true
+- reason: DiskFailed
+  labels: 
+     SymptomID: DECKS-1000
+     kahm/enabled: true
 `
-	expectedConfig := Options{LabelsOverride: map[string]map[string]string{
-		"DiskFailed": {"SymptomID": "DECKS-1000", "kahm/enabled": "true"},
-	}}
+	expectedConfig := Options{LabelsOverride: []LabelsOverride{{
+		Reason: "DiskFailed", Labels: map[string]string{"SymptomID": "DECKS-1000", "kahm/enabled": "true"},
+	}}}
 	cfg := Options{}
 	err := yaml.Unmarshal([]byte(inputRawConfig), &cfg)
 	if !assert.NoError(t, err, "not valid yaml") {
@@ -97,7 +98,7 @@ func TestNew(t *testing.T) {
 func TestRecorder_Eventf(t *testing.T) {
 	type fields struct {
 		eventRecorder  *mocks.EventRecorder
-		labelsOverride map[string]map[string]string
+		labelsOverride []LabelsOverride
 		Wait           func()
 	}
 	type args struct {
@@ -134,11 +135,10 @@ func TestRecorder_Eventf(t *testing.T) {
 			funcCalled: "LabeledEventf",
 			fields: fields{
 				eventRecorder: new(mocks.EventRecorder),
-				labelsOverride: map[string]map[string]string{
-					"Stopped": {
-						"label": "key",
-					},
-				},
+				labelsOverride: []LabelsOverride{{
+					Reason: "Stopped",
+					Labels: map[string]string{"label": "key"},
+				}},
 				Wait: func() {},
 			},
 			args: args{

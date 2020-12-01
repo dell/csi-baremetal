@@ -32,17 +32,23 @@ type EventRecorder interface {
 	LabeledEventf(object runtime.Object, labels map[string]string, eventtype, reason, messageFmt string, args ...interface{})
 }
 
+// LabelsOverride is used in Options structure and represent yaml structure
+type LabelsOverride struct {
+	Reason string            `yaml:"reason"`
+	Labels map[string]string `yaml:"labels"`
+}
+
 // Options is optional configuration for replacing labels
 // you can unmarshal information from simple yaml file
 type Options struct {
-	LabelsOverride map[string]map[string]string `yaml:"overrideRules"`
+	LabelsOverride []LabelsOverride `yaml:"overrideRules"`
 	Logger         simple.Logger
 }
 
 // Recorder will serve us as wrapper around EventRecorder
 type Recorder struct {
 	eventRecorder  EventRecorder
-	labelsOverride map[string]map[string]string
+	labelsOverride []LabelsOverride
 	// Wait is blocking wait operation until all events are processed
 	Wait func()
 }
@@ -64,10 +70,11 @@ type EventInterface interface {
 // The resulting event will be created in the same namespace as the reference object.
 func (r *Recorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
 	if r.labelsOverride != nil {
-		labels, ok := r.labelsOverride[reason]
-		if ok && labels != nil {
-			r.eventRecorder.LabeledEventf(object, labels, eventtype, reason, messageFmt, args...)
-			return
+		for _, value := range r.labelsOverride {
+			if value.Reason == reason {
+				r.eventRecorder.LabeledEventf(object, value.Labels, eventtype, reason, messageFmt, args...)
+				return
+			}
 		}
 	}
 	r.eventRecorder.Eventf(object, eventtype, reason, messageFmt, args...)
