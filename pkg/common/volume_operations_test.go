@@ -84,6 +84,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 			Health:            apiV1.HealthGood,
 			LocationType:      apiV1.LocationTypeDrive,
 			OperationalStatus: apiV1.OperationalStatusOperative,
+			Usage:             apiV1.VolumeUsageInUse,
 		}
 	)
 
@@ -130,6 +131,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 			Health:            apiV1.HealthGood,
 			LocationType:      apiV1.LocationTypeLVM,
 			OperationalStatus: apiV1.OperationalStatusOperative,
+			Usage:             apiV1.VolumeUsageInUse,
 		}
 		createdVolume *api.Volume
 		err           error

@@ -62,6 +62,8 @@ spec:
               type: string
             Type:
               type: string
+            Usage:
+              type: string
           type: object
       type: object
   version: v1

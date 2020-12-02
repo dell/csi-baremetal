@@ -50,8 +50,6 @@ spec:
               type: string
             NodeId:
               type: string
-            OperationalStatus:
-              type: string
             PID:
               type: string
             Path:
@@ -70,6 +68,8 @@ spec:
             Type:
               type: string
             UUID:
+              type: string
+            Usage:
               type: string
             VID:
               type: string

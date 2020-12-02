@@ -164,7 +164,7 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 		Complete(bmc)
 }
 
-// Reconcile reconcile CSIBMNode CR and k8s CSIBMNode objects
+// Reconcile reconciles CSIBMNode CR and k8s CSIBMNode objects
 // at first define for which object current Reconcile is triggered and then run corresponding reconciliation method
 func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
