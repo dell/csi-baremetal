@@ -222,6 +222,29 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			ll.Debug("Change volume status from Created to Removing")
 		case apiV1.Removing:
 		case apiV1.Removed:
+			// we need to update annotation on related drive CRD
+			// todo can we do polling instead?
+			ll.Infof("Volume %s is removed. Updating related", volume.Name)
+			// todo add LVG support
+			if volume.Spec.LocationType == apiV1.LocationTypeDrive {
+				// drive must be present in the system
+				drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+				if drive != nil {
+					annotationKey := fmt.Sprintf("volume/%s", volume.Name)
+					// init map if empty
+					if drive.Annotations == nil {
+						drive.Annotations = make(map[string]string)
+					}
+					drive.Annotations[annotationKey] = apiV1.Removed
+					if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+						ll.Errorf("Unable to update Drive annotations")
+					}
+				} else {
+					ll.Errorf("Unable to obtain drive for volume %s", volume.Name)
+				}
+			}
+
+			// remove finalizer
 			if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
 				volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
 				ll.Debug("Remove finalizer for volume")
@@ -245,9 +268,33 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return m.prepareVolume(ctx, volume)
 	case apiV1.Removing:
 		return m.handleRemovingStatus(ctx, volume)
-	default:
-		return ctrl.Result{}, nil
 	}
+
+	if volume.Spec.Usage == apiV1.VolumeUsageReleasing {
+		// check for release annotation
+		releaseStatus := volume.Annotations[apiV1.VolumeAnnotationRelease]
+		// when done move to RELEASED state
+		if releaseStatus == apiV1.VolumeAnnotationReleaseDone {
+			ll.Infof("Volume %s is released", volume.Name)
+			volume.Spec.Usage = apiV1.VolumeUsageReleased
+			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+				ll.Errorf("Unable to change volume %s usage status to %s, error: %v.",
+					volume.Name, volume.Spec.Usage, err)
+				return ctrl.Result{Requeue: true}, err
+			}
+			// TODO need to update annotations of corresponding drive
+			drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+			if drive != nil {
+				drive.Spec.Usage = apiV1.DriveUsageReleased
+				if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+					ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
+						drive.Name, drive.Spec.Usage, err)
+					return ctrl.Result{Requeue: true}, err
+				}
+			}
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // handleCreatingVolumeInLVG handles volume CR that has storage class related to LVG and CSIStatus creating
@@ -467,12 +514,12 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 					updates.AddNotChanged(&driveCR)
 				} else {
 					previousState := driveCR.DeepCopy()
+					// copy fields which aren't reported by drive manager
 					drivePtr.UUID = driveCR.Spec.UUID
+					drivePtr.Usage = driveCR.Spec.Usage
+
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
-					if toUpdate.Spec.Health != apiV1.HealthGood {
-						toUpdate.Spec.OperationalStatus = apiV1.DriveOpStatusReleasing
-					}
 					if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
@@ -490,7 +537,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
 			// TODO: what operational status should be if drivemgr reported drive with not a good health
-			toCreateSpec.OperationalStatus = apiV1.DriveOpStatusOperative
+			toCreateSpec.Usage = apiV1.DriveUsageInUse
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
 				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
@@ -530,7 +577,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				continue
 			}
 
-			ll.Warnf("Set status OFFLINE for drive %v", d.Spec)
+			ll.Warnf("Set status %s for drive %v", apiV1.DriveStatusOffline, d.Spec)
 			previousState := d.DeepCopy()
 			toUpdate := d
 			// TODO: which operational status should be in case when there is drive CR that doesn't have corresponding drive from drivemgr response
@@ -621,6 +668,8 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 			continue
 		}
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
+		// todo for loopback devices we always see this error. need to refactor code to skip this search when drivemgr
+		// tod reports block device name
 		if !ok {
 			ll.Errorf("For drive %v there is no corresponding block device.", d)
 			continue
@@ -895,9 +944,18 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		// save previous health state
 		prevHealthState := vol.Spec.Health
 		vol.Spec.Health = drive.Health
+		// initiate volume release
+		// TODO need to check for specific annotation instead
+		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
+			if vol.Spec.Usage == apiV1.VolumeUsageInUse {
+				vol.Spec.Usage = apiV1.VolumeUsageReleasing
+			}
+		}
+
 		if err := m.k8sClient.UpdateCR(ctx, vol); err != nil {
 			ll.Errorf("Failed to update volume CR's %s health status: %v", vol.Name, err)
 		}
+
 		if vol.Spec.Health == apiV1.HealthBad {
 			m.recorder.Eventf(vol, eventing.WarningType, eventing.VolumeBadHealth,
 				"Volume health transitioned from %s to %s. Inherited from %s drive on %s)",
