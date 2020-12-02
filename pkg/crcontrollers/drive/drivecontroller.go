@@ -11,7 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/dell/csi-baremetal/api/generated/v1"
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -30,7 +29,7 @@ type Controller struct {
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
-func NewController(client *k8s.KubeClient, nodeID string, serviceClient v1api.DriveServiceClient, log *logrus.Logger) *Controller {
+func NewController(client *k8s.KubeClient, nodeID string, serviceClient api.DriveServiceClient, log *logrus.Logger) *Controller {
 	return &Controller{
 		client:         client,
 		crHelper:       k8s.NewCRHelper(client, log),
