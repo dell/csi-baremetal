@@ -656,10 +656,8 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 	}
 
 	for _, d := range driveCRs {
-		if d.Spec.IsSystem {
-			if m.isDriveInLVG(d.Spec) {
-				continue
-			}
+		if d.Spec.IsSystem && m.isDriveInLVG(d.Spec) {
+			continue
 		}
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
 		if !ok {

@@ -102,3 +102,7 @@ fluentbitAgent:
   image:
     name: fluent-bit
     tag: shippable
+
+alerts:
+  deployConfig: false
+  
