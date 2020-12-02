@@ -668,6 +668,8 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 			continue
 		}
 		bdev, ok := bdevMap[d.Spec.SerialNumber]
+		// todo for loopback devices we always see this error. need to refactor code to skip this search when drivemgr
+		// tod reports block device name
 		if !ok {
 			ll.Errorf("For drive %v there is no corresponding block device.", d)
 			continue

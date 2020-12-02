@@ -91,16 +91,15 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	usage := drive.Spec.GetUsage()
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
-	isChanged := true
+	isChanged := false
 
 	switch usage {
 	case apiV1.DriveUsageInUse:
 		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
-			drive.Spec.Usage = apiV1.DriveUsageReleasing
 			// TODO update health of volumes
-			break
+			drive.Spec.Usage = apiV1.DriveUsageReleasing
+			isChanged = true
 		}
-		isChanged = false
 	case apiV1.DriveUsageReleased:
 		status := drive.Annotations[apiV1.DriveAnnotationReplacement]
 		if status == apiV1.DriveAnnotationReplacementReady {
@@ -113,18 +112,16 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			} else {
 				drive.Spec.Usage = apiV1.DriveUsageRemoving
 			}
-			break
+			isChanged = true
 		}
-		isChanged = false
 	case apiV1.DriveUsageRemoving:
 		// TODO need to check CSI status here since volume might not be removed
 		volume := c.crHelper.GetVolumeByLocation(id)
 		if volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
 			// TODO need to call drive manager to start LED locate
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
-			break
+			isChanged = true
 		}
-		isChanged = false
 	}
 
 	// update drive CR if needed
