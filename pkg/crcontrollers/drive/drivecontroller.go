@@ -15,6 +15,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
 // Controller to reconcile drive custom resource
