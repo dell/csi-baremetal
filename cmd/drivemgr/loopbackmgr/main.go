@@ -17,16 +17,23 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/fsnotify/fsnotify"
+	corev1 "k8s.io/api/core/v1"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	dmsetup "github.com/dell/csi-baremetal/cmd/drivemgr"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
 var (
@@ -34,14 +41,30 @@ var (
 	logPath  = flag.String("logpath", "", "log path for DriveManager")
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	nodeName          = flag.String("nodename", "", "node identification by k8s")
+	useNodeAnnotation = flag.Bool("usenodeannotation", false,
+		"Whether node svc should read id from node annotation and use it as id for all CRs or not")
 )
 
 func main() {
 	flag.Parse()
 
+	featureConf := featureconfig.NewFeatureConfig()
+	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
+
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
+	}
+
+	k8SClient, err := k8s.GetK8SClient()
+	if err != nil {
+		logger.Fatalf("fail to create kubernetes client, error: %v", err)
+	}
+
+	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
+	if err != nil {
+		logger.Fatalf("fail to get nodeID, error: %v", err)
 	}
 
 	// Server is insecure for now because credentials are nil
@@ -58,8 +81,27 @@ func main() {
 	//nolint:errcheck
 	defer watcher.Close()
 
-	driveMgr := loopbackmgr.NewLoopBackManager(e, logger)
+	driveMgr := loopbackmgr.NewLoopBackManager(e, nodeID, logger)
 
 	go driveMgr.UpdateOnConfigChange(watcher)
 	dmsetup.SetupAndRunDriveMgr(driveMgr, serverRunner, driveMgr.CleanupLoopDevices, logger)
+}
+
+func getNodeID(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
+	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
+		k8sNode := corev1.Node{}
+		if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
+			return "", err
+		}
+
+		if val, ok := k8sNode.GetAnnotations()[csibmnodeconst.NodeIDAnnotationKey]; ok {
+			return val, nil
+		}
+		return "", fmt.Errorf("annotation %s hadn't been set for node %s", csibmnodeconst.NodeIDAnnotationKey, nodeName)
+	}
+	// read hostname variable - this is pod's name.
+	// since pod might restart and change name better to use real hostname
+	hostname := os.Getenv("HOSTNAME")
+	return hostname, nil
+
 }
