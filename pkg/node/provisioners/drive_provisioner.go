@@ -188,7 +188,7 @@ func (d *DriveProvisioner) wipeDevice(device string, err error, ll *logrus.Entry
 	// DriveProvisioner assumes that there could be only one partition per drive
 	bdevs, sErr := d.listBlk.GetBlockDevices(device)
 	if sErr == nil && (len(bdevs) == 0 || bdevs[0].Children == nil) {
-		ll.Infof("There are no any partition on device %s. Partition has been already removed", device)
+		ll.Infof("No partitions found for device %s", device)
 		return d.fsOps.WipeFS(device) // wipe partition table
 	}
 	return err

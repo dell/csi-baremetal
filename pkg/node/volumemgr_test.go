@@ -105,6 +105,16 @@ var (
 	// todo don't hardcode device name
 	lsblkSingleDeviceCmd = fmt.Sprintf(lsblk.CmdTmpl, "/dev/sda")
 
+	driveCR = drivecrd.Drive{
+		TypeMeta: v1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{
+			Name:              drive1.UUID,
+			Namespace:         testNs,
+			CreationTimestamp: v1.Time{Time: time.Now()},
+		},
+		Spec: drive1,
+	}
+
 	volCR = vcrd.Volume{
 		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{
@@ -116,7 +126,8 @@ var (
 			Id:           testID,
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: apiV1.StorageClassHDD,
-			Location:     "",
+			// TODO location cannot be empty - need to add check
+			Location:     drive1UUID,
 			CSIStatus:    apiV1.Creating,
 			NodeId:       nodeID,
 			Mode:         apiV1.ModeFS,
@@ -352,6 +363,9 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 
 	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	err = vm.k8sClient.CreateCR(testCtx, driveCR.Name, &driveCR)
+	assert.Nil(t, err)
 
 	//successfully add finalizer
 	res, err := vm.Reconcile(req)
@@ -1041,10 +1055,30 @@ func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 
 func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
 	vm := prepareSuccessVolumeManager(t)
+	drive1 := api.Drive{UUID: drive1UUID}
+	drive2 := api.Drive{UUID: drive2UUID}
+	lvgCR := lvgcrd.LVG{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "LVG",
+			APIVersion: apiV1.APIV1Version,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      testLVGName,
+			Namespace: testNs,
+		},
+		Spec: api.LogicalVolumeGroup{
+			Name:       testLVGName,
+			Node:       nodeID,
+			Locations:  []string{drive1.UUID},
+			Size:       int64(1024 * 500 * util.GBYTE),
+			Status:     apiV1.Created,
+			VolumeRefs: []string{},
+		},
+	}
 	// there are no LVG CRs
 	assert.False(t, vm.isDriveInLVG(drive1))
 	// create LVG CR
-	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVGCR.Name, &testLVGCR))
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR))
 
 	assert.True(t, vm.isDriveInLVG(drive1))
 	assert.False(t, vm.isDriveInLVG(drive2))

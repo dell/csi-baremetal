@@ -13,7 +13,7 @@ message Drive {
     // size in bytes
     int64 Size = 7;
     string Status = 8;
-    string OperationalStatus = 9;
+    string Usage = 9;
     string NodeId = 10;
     // path to the device. may not be set by drivemgr.
     string Path = 11;
@@ -39,7 +39,8 @@ message Volume {
     string Health = 10;
     string OperationalStatus = 11;
     string CSIStatus = 12;
-    bool Ephemeral = 13;
+    string Usage = 13;
+    bool Ephemeral = 14;
 }
 
 message AvailableCapacity {
