@@ -32,8 +32,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
-	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 )
 
 var (
@@ -103,5 +103,4 @@ func getNodeID(client k8sClient.Client, nodeName string, featureChecker featurec
 	// since pod might restart and change name better to use real hostname
 	hostname := os.Getenv("HOSTNAME")
 	return hostname, nil
-
 }
