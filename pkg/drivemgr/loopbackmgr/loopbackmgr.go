@@ -88,6 +88,7 @@ type LoopBackDevice struct {
 	Removed      bool   `yaml:"removed"`
 	Health       string `yaml:"health"`
 	DriveType    string `yaml:"driveType"`
+	LED          int32  `yaml:"led"`
 
 	fileName string
 	// for example, /dev/loop0
@@ -241,6 +242,7 @@ func (d *LoopBackDevice) fillEmptyFieldsWithDefaults() {
 	if d.Size == "" {
 		d.Size = defaultSize
 	}
+	d.LED = 1
 }
 
 // readAndSetConfig reads config from path and tries to unmarshall it. If unmarshall performs successfully then
@@ -535,7 +537,30 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 
 // Locate implements Locate method of DriveManager interface
 func (mgr *LoopBackManager) Locate(serialNumber string, action int32) (int32, error) {
-	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in LoopBackManager")
+	switch action {
+	case apiV1.LocateStart:
+		for i, device := range mgr.devices {
+			if device.SerialNumber == serialNumber {
+				mgr.devices[i].LED = apiV1.LocateStatusOn
+				return apiV1.LocateStatusOn, nil
+			}
+		}
+	case apiV1.LocateStop:
+		for i, device := range mgr.devices {
+			if device.SerialNumber == serialNumber {
+				mgr.devices[i].LED = apiV1.LocateStatusOff
+				return apiV1.LocateStatusOff, nil
+			}
+		}
+	case apiV1.LocateStatus:
+		for i, device := range mgr.devices {
+			if device.SerialNumber == serialNumber {
+				return mgr.devices[i].LED, nil
+			}
+		}
+	}
+
+	return -1, status.Error(codes.InvalidArgument, "Wrong action number, must be 0, 1 or 2")
 }
 
 // GetBackFileToLoopMap return mapping between backing file and loopback devices
