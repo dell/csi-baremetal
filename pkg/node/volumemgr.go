@@ -225,15 +225,23 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			// we need to update annotation on related drive CRD
 			// todo can we do polling instead?
 			ll.Infof("Volume %s is removed. Updating related", volume.Name)
-			drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
-			annotationKey := fmt.Sprintf("volume/%s", volume.Name)
-			// init map if empty
-			if drive.Annotations == nil {
-				drive.Annotations = make(map[string]string)
-			}
-			drive.Annotations[annotationKey] = apiV1.Removed
-			if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
-				ll.Errorf("Unable to update Drive annotations")
+			// todo add LVG support
+			if volume.Spec.LocationType == apiV1.LocationTypeDrive {
+				// drive must be present in the system
+				drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+				if drive != nil {
+					annotationKey := fmt.Sprintf("volume/%s", volume.Name)
+					// init map if empty
+					if drive.Annotations == nil {
+						drive.Annotations = make(map[string]string)
+					}
+					drive.Annotations[annotationKey] = apiV1.Removed
+					if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+						ll.Errorf("Unable to update Drive annotations")
+					}
+				} else {
+					ll.Errorf("Unable to obtain drive for volume %s", volume.Name)
+				}
 			}
 
 			// remove finalizer
