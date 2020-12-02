@@ -150,6 +150,8 @@ spec:
         args:
           - --loglevel={{ .Values.log.level }}
           - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
+          - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+          - --nodename=$(KUBE_NODE_NAME)
         {{- if .Values.logReceiver.create  }}
           - --logpath=/var/log/drivemgr.log
         {{- end }}
