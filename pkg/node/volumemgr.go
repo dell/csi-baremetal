@@ -274,24 +274,43 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		// check for release annotation
 		releaseStatus := volume.Annotations[apiV1.VolumeAnnotationRelease]
 		// when done move to RELEASED state
-		if releaseStatus == apiV1.VolumeAnnotationReleaseDone {
+		switch releaseStatus {
+		case apiV1.VolumeAnnotationReleaseDone:
 			ll.Infof("Volume %s is released", volume.Name)
 			volume.Spec.Usage = apiV1.VolumeUsageReleased
-			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
-				ll.Errorf("Unable to change volume %s usage status to %s, error: %v.",
-					volume.Name, volume.Spec.Usage, err)
-				return ctrl.Result{Requeue: true}, err
+			return m.updateVolumeAndDriveUsageStatus(ctx, volume, apiV1.DriveUsageReleased)
+		case apiV1.VolumeAnnotationReleaseFailed:
+			errMsg := "Volume releasing is failed"
+			errorDesc, ok := volume.Annotations[apiV1.VolumeAnnotationReleaseStatus]
+			if ok && errorDesc != "" {
+				errMsg += fmt.Sprintf(" err: %s", errorDesc)
 			}
-			// TODO need to update annotations of corresponding drive
-			drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
-			if drive != nil {
-				drive.Spec.Usage = apiV1.DriveUsageReleased
-				if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
-					ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
-						drive.Name, drive.Spec.Usage, err)
-					return ctrl.Result{Requeue: true}, err
-				}
-			}
+			ll.Errorf(errMsg)
+			volume.Spec.Usage = apiV1.VolumeUsageFailed
+			return m.updateVolumeAndDriveUsageStatus(ctx, volume, apiV1.DriveUsageFailed)
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, volume *volumecrd.Volume, driveStatus string) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "Reconcile",
+		"volumeID": volume.Name,
+	})
+	if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+		ll.Errorf("Unable to change volume %s usage status to %s, error: %v.",
+			volume.Name, volume.Spec.Usage, err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	// TODO need to update annotations of corresponding drive
+	drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+	if drive != nil {
+		drive.Spec.Usage = driveStatus
+		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
+				drive.Name, drive.Spec.Usage, err)
+			return ctrl.Result{Requeue: true}, err
 		}
 	}
 	return ctrl.Result{}, nil
@@ -1072,16 +1091,8 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reason, messageFmt string,
 	args ...interface{}) {
-	messageFmt += prepareDriveDescription(drive)
+	messageFmt += drive.GetDriveDescription()
 	m.recorder.Eventf(drive, eventtype, reason, messageFmt, args...)
-}
-
-func prepareDriveDescription(drive *drivecrd.Drive) string {
-	return fmt.Sprintf(" Drive Details: SN='%s', Node='%s',"+
-		" Type='%s', Model='%s %s',"+
-		" Size='%d', Firmware='%s'",
-		drive.Spec.SerialNumber, drive.Spec.NodeId, drive.Spec.Type,
-		drive.Spec.VID, drive.Spec.PID, drive.Spec.Size, drive.Spec.Firmware)
 }
 
 // isDriveSystem check whether drive is system
