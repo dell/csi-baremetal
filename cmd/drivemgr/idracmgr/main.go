@@ -35,8 +35,6 @@ var (
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	_ = flag.String("nodename", "", "node identification by k8s")
-	_ = flag.Bool("usenodeannotation", false,
-		"Whether svc should read id from node annotation")
 )
 
 func main() {
