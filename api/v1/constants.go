@@ -64,16 +64,16 @@ const (
 	DriveTypeNVMe = "NVME"
 
 	// Drive annotations
-	DriveAnnotationReplacement      = "replacement"
+	DriveAnnotationReplacement = "replacement"
 	DriveAnnotationReplacementReady = "ready"
 
 	// Volume operational status
-	OperationalStatusOperative   = "OPERATIVE"
-	OperationalStatusInoperative = "INOPERATIVE"
-	OperationalStatusStaging     = "STAGING"
-	OperationalStatusMissing     = "MISSING"
-	OperationalStatusMaintenance = "MAINTENANCE"
-	OperationalStatusUnknown     = "UNKNOWN"
+	OperationalStatusOperative     = "OPERATIVE"
+	OperationalStatusInoperative   = "INOPERATIVE"
+	OperationalStatusStaging       = "STAGING"
+	OperationalStatusMissing       = "MISSING"
+	OperationalStatusMaintenance   = "MAINTENANCE"
+	OperationalStatusUnknown       = "UNKNOWN"
 
 	// Volume Usage status
 	VolumeUsageInUse     = DriveUsageInUse
