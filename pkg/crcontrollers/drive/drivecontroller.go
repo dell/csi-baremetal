@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -18,21 +19,23 @@ import (
 
 // Controller to reconcile drive custom resource
 type Controller struct {
-	client   *k8s.KubeClient
-	crHelper *k8s.CRHelper
-	nodeID   string
-	log      *logrus.Entry
+	client         *k8s.KubeClient
+	crHelper       *k8s.CRHelper
+	nodeID         string
+	driveMgrClient api.DriveServiceClient
+	log            *logrus.Entry
 }
 
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
-func NewController(client *k8s.KubeClient, nodeID string, log *logrus.Logger) *Controller {
+func NewController(client *k8s.KubeClient, nodeID string, serviceClient api.DriveServiceClient, log *logrus.Logger) *Controller {
 	return &Controller{
-		client:   client,
-		crHelper: k8s.NewCRHelper(client, log),
-		nodeID:   nodeID,
-		log:      log.WithField("component", "Controller"),
+		client:         client,
+		crHelper:       k8s.NewCRHelper(client, log),
+		nodeID:         nodeID,
+		driveMgrClient: serviceClient,
+		log:            log.WithField("component", "Controller"),
 	}
 }
 
@@ -107,8 +110,12 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			// TODO might need to check CSI status here since volume might not be removed
 			volume := c.crHelper.GetVolumeByLocation(id)
 			if volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
-				// TODO need to call drive manager to start LED locate
 				drive.Spec.Usage = apiV1.DriveUsageRemoved
+				status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
+				if err != nil || status.Status != apiV1.LocateStatusOn {
+					log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
+					drive.Spec.Usage = apiV1.DriveUsageFailed
+				}
 			} else {
 				drive.Spec.Usage = apiV1.DriveUsageRemoving
 			}
@@ -118,12 +125,15 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		// TODO need to check CSI status here since volume might not be removed
 		volume := c.crHelper.GetVolumeByLocation(id)
 		if volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
-			// TODO need to call drive manager to start LED locate
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
+			status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
+			if err != nil || status.Status != apiV1.LocateStatusOn {
+				log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
+				drive.Spec.Usage = apiV1.DriveUsageFailed
+			}
 			isChanged = true
 		}
 	}
-
 	// update drive CR if needed
 	if isChanged {
 		if err := c.client.UpdateCR(ctx, drive); err != nil {
