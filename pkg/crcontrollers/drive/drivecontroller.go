@@ -114,7 +114,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
 				if err != nil || status.Status != apiV1.LocateStatusOn {
 					log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
-					//TODO send alert when led locate is failed
+					// TODO send alert when led locate is failed
 					drive.Spec.Usage = apiV1.DriveUsageFailed
 				}
 			} else {
@@ -130,7 +130,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
 			if err != nil || status.Status != apiV1.LocateStatusOn {
 				log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
-				//TODO send alert when led locate is failed
+				// TODO send alert when led locate is failed
 				drive.Spec.Usage = apiV1.DriveUsageFailed
 			}
 			isChanged = true
