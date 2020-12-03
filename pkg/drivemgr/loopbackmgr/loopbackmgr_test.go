@@ -34,7 +34,7 @@ var logger = logrus.New()
 
 func TestLoopBackManager_GetBackFileToLoopMap(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	testData := `NAME	BACK-FILE
 /dev/loop1 /root/test2.img
 /dev/loop33 /root/test2.img
@@ -55,7 +55,7 @@ func TestLoopBackManager_GetBackFileToLoopMap(t *testing.T) {
 
 func TestLoopBackManager_GetBackFileToLoopMap_Empty(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	mockexec.On("RunCmd", readLoopBackDevicesMappingCmd).
 		Return("", "", nil)
 	mapping, err := manager.GetBackFileToLoopMap()
@@ -66,7 +66,7 @@ func TestLoopBackManager_GetBackFileToLoopMap_Empty(t *testing.T) {
 
 func TestLoopBackManager_GetBackFileToLoopMap_InvalidData(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	mockexec.On("RunCmd", readLoopBackDevicesMappingCmd).
 		Return("\ninvalid\ndata  data data", "", nil)
 	_, err := manager.GetBackFileToLoopMap()
@@ -75,7 +75,7 @@ func TestLoopBackManager_GetBackFileToLoopMap_InvalidData(t *testing.T) {
 
 func TestLoopBackManager_CleanupLoopDevices(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 
 	for _, device := range manager.devices {
 		mockexec.On("RunCmd", fmt.Sprintf(detachLoopBackDeviceCmdTmpl, device.devicePath)).
@@ -89,7 +89,7 @@ func TestLoopBackManager_CleanupLoopDevices(t *testing.T) {
 
 func TestLoopBackManager_UpdateDevicesFromLocalConfig(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 
 	manager.updateDevicesFromConfig()
 
@@ -98,7 +98,7 @@ func TestLoopBackManager_UpdateDevicesFromLocalConfig(t *testing.T) {
 
 func TestLoopBackManager_UpdateDevicesFromSetConfig(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	testSN := "testSN"
 	testNodeID := "testNode"
 	testConfigPath := "/tmp/config.yaml"
@@ -142,7 +142,7 @@ func TestLoopBackManager_UpdateDevicesFromSetConfig(t *testing.T) {
 func TestLoopBackManager_updateDevicesFromSetConfigWithSize(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
 
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 
 	config := []byte("defaultDriveSize: 30Mi \ndefaultDrivePerNodeCount: 3")
 	testConfigPath := "/tmp/config.yaml"
@@ -170,7 +170,7 @@ func TestLoopBackManager_updateDevicesFromSetConfigWithSize(t *testing.T) {
 
 func TestLoopBackManager_overrideDevicesFromSetConfigWithSize(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	testSN := "testSN"
 	testNodeID := "testNode"
 	testConfigPath := "/tmp/config.yaml"
@@ -229,7 +229,7 @@ func TestLoopBackManager_overrideDevicesFromSetConfigWithSize(t *testing.T) {
 
 func TestLoopBackManager_overrideDevicesFromNodeConfig(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 
 	// Initialize manager with local default settings
 	manager.updateDevicesFromConfig()
@@ -253,7 +253,7 @@ func TestLoopBackManager_overrideDevicesFromNodeConfig(t *testing.T) {
 
 func TestLoopBackManager_overrideDeviceWithSizeChanging(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	// Initialize manager with local default settings
 	manager.updateDevicesFromConfig()
 
@@ -282,7 +282,7 @@ func TestLoopBackManager_overrideDeviceWithSizeChanging(t *testing.T) {
 
 func TestLoopBackManager_GetDrivesList(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	fakeDevicePath := "/dev/loop"
 
 	manager.updateDevicesFromConfig()
@@ -308,7 +308,7 @@ func TestLoopBackManager_attemptToRecoverDevicesFromConfig(t *testing.T) {
 	}()
 
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	// Clean devices after default initialization in constructor
 	manager.devices = make([]*LoopBackDevice, 0)
 
@@ -367,7 +367,7 @@ func TestLoopBackManager_attemptToRecoverDevicesFromDefaults(t *testing.T) {
 	}()
 
 	var mockexec = &mocks.GoMockExecutor{}
-	var manager = NewLoopBackManager(mockexec,"",logger)
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
 	// Clean devices after default initialization in constructor
 	manager.devices = make([]*LoopBackDevice, 0)
 

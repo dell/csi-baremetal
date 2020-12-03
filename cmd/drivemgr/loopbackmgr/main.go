@@ -81,7 +81,7 @@ func main() {
 	//nolint:errcheck
 	defer watcher.Close()
 
-	driveMgr := loopbackmgr.NewLoopBackManager(e, nodeID, logger)
+	driveMgr := loopbackmgr.NewLoopBackManager(e, nodeID, *nodeName, logger)
 
 	go driveMgr.UpdateOnConfigChange(watcher)
 	dmsetup.SetupAndRunDriveMgr(driveMgr, serverRunner, driveMgr.CleanupLoopDevices, logger)
@@ -99,8 +99,7 @@ func getNodeID(client k8sClient.Client, nodeName string, featureChecker featurec
 		}
 		return "", fmt.Errorf("annotation %s hadn't been set for node %s", csibmnodeconst.NodeIDAnnotationKey, nodeName)
 	}
-	// read hostname variable - this is pod's name.
-	// since pod might restart and change name better to use real hostname
+	// use hostname of pod if uniq nodeID usage isn't enabled.
 	hostname := os.Getenv("HOSTNAME")
 	return hostname, nil
 }

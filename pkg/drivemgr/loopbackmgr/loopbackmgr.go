@@ -111,19 +111,8 @@ type Config struct {
 // NewLoopBackManager is the constructor for LoopBackManager
 // Receives CmdExecutor to execute os commands such as 'losetup' and logrus logger
 // Returns an instance of LoopBackManager
-func NewLoopBackManager(exec command.CmdExecutor, nodeID string, logger *logrus.Logger) *LoopBackManager {
-	// // read hostname variable - this is pod's name.
-	// // since pod might restart and change name better to use real hostname
-	// hostname := os.Getenv("HOSTNAME")
+func NewLoopBackManager(exec command.CmdExecutor, nodeID, nodeName string, logger *logrus.Logger) *LoopBackManager {
 	if nodeID == "" {
-		/* if not defined set to default - will not break anything but
-		might not be very convenient for troubleshooting:
-		/sbin/losetup  | grep baremetal-csi-node
-		/dev/loop19         0      0         0  0 /tmp/baremetal-csi-node-w787v-0.img                  0
-		/dev/loop17         0      0         0  0 /tmp/baremetal-csi-node-99zcp-0.img                  0
-		/dev/loop18         0      0         0  0 /tmp/baremetal-csi-node-xj8gw-0.img                  0
-		/dev/loop10         0      0         0  0 /tmp/baremetal-csi-node-dfwvv-0.img                  0
-		*/
 		nodeID = defaultFileName
 	}
 
@@ -131,7 +120,7 @@ func NewLoopBackManager(exec command.CmdExecutor, nodeID string, logger *logrus.
 		log:      logger.WithField("component", "LoopBackManager"),
 		exec:     exec,
 		nodeID:   nodeID,
-		nodeName: os.Getenv("KUBE_NODE_NAME"),
+		nodeName: nodeName,
 		devices:  make([]*LoopBackDevice, 0),
 	}
 
