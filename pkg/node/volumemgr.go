@@ -767,7 +767,8 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 			if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
 				ll.Warnf("There is Volume CR that points on same drive %s as AC %s",
 					drive.Name, acsLocations[drive.Spec.UUID].Name)
-				if err = m.k8sClient.DeleteCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
+				acsLocations[drive.Spec.UUID].Spec.Size = 0
+				if err = m.k8sClient.UpdateCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
 					ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[drive.Spec.UUID].Name, err)
 				}
 			}
