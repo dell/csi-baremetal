@@ -517,6 +517,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 					// copy fields which aren't reported by drive manager
 					drivePtr.UUID = driveCR.Spec.UUID
 					drivePtr.Usage = driveCR.Spec.Usage
+					drivePtr.IsSystem = driveCR.Spec.IsSystem
 
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
