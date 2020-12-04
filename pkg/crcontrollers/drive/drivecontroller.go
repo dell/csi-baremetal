@@ -21,12 +21,12 @@ import (
 
 // Controller to reconcile drive custom resource
 type Controller struct {
-	client        *k8s.KubeClient
-	crHelper      *k8s.CRHelper
-	nodeID        string
-	log           *logrus.Entry
-	eventRecorder *events.Recorder
+	client         *k8s.KubeClient
+	crHelper       *k8s.CRHelper
+	nodeID         string
 	driveMgrClient api.DriveServiceClient
+	eventRecorder  *events.Recorder
+	log            *logrus.Entry
 }
 
 // NewController creates new instance of Controller structure
@@ -38,7 +38,7 @@ func NewController(client *k8s.KubeClient, nodeID string, serviceClient api.Driv
 		crHelper:       k8s.NewCRHelper(client, log),
 		nodeID:         nodeID,
 		driveMgrClient: serviceClient,
-		eventRecorder: eventRecorder,
+		eventRecorder:  eventRecorder,
 		log:            log.WithField("component", "Controller"),
 	}
 }
