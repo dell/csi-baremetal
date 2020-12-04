@@ -72,8 +72,8 @@ topology (accessibility), etc.
 type LoopBackManager struct {
 	log      *logrus.Entry
 	exec     command.CmdExecutor
-	hostname string
 	nodeID   string
+	nodeName string
 	devices  []*LoopBackDevice
 	config   *Config
 	sync.Mutex
@@ -112,27 +112,16 @@ type Config struct {
 // NewLoopBackManager is the constructor for LoopBackManager
 // Receives CmdExecutor to execute os commands such as 'losetup' and logrus logger
 // Returns an instance of LoopBackManager
-func NewLoopBackManager(exec command.CmdExecutor, logger *logrus.Logger) *LoopBackManager {
-	// read hostname variable - this is pod's name.
-	// since pod might restart and change name better to use real hostname
-	hostname := os.Getenv("HOSTNAME")
-	if hostname == "" {
-		/* if not defined set to default - will not break anything but
-		might not be very convenient for troubleshooting:
-		/sbin/losetup  | grep baremetal-csi-node
-		/dev/loop19         0      0         0  0 /tmp/baremetal-csi-node-w787v-0.img                  0
-		/dev/loop17         0      0         0  0 /tmp/baremetal-csi-node-99zcp-0.img                  0
-		/dev/loop18         0      0         0  0 /tmp/baremetal-csi-node-xj8gw-0.img                  0
-		/dev/loop10         0      0         0  0 /tmp/baremetal-csi-node-dfwvv-0.img                  0
-		*/
-		hostname = defaultFileName
+func NewLoopBackManager(exec command.CmdExecutor, nodeID, nodeName string, logger *logrus.Logger) *LoopBackManager {
+	if nodeID == "" {
+		nodeID = defaultFileName
 	}
 
 	mgr := &LoopBackManager{
 		log:      logger.WithField("component", "LoopBackManager"),
 		exec:     exec,
-		hostname: hostname,
-		nodeID:   os.Getenv("KUBE_NODE_NAME"),
+		nodeID:   nodeID,
+		nodeName: nodeName,
 		devices:  make([]*LoopBackDevice, 0),
 	}
 
@@ -168,7 +157,7 @@ func (mgr *LoopBackManager) attemptToRecoverDevices(imagesPath string) {
 	var nodeConfig *Node
 	if mgr.config != nil {
 		for _, node := range mgr.config.Nodes {
-			if strings.EqualFold(node.NodeID, mgr.nodeID) {
+			if strings.EqualFold(node.NodeID, mgr.nodeName) {
 				nodeConfig = node
 				break
 			}
@@ -178,7 +167,7 @@ func (mgr *LoopBackManager) attemptToRecoverDevices(imagesPath string) {
 		// If image path contains files that don't correspond to this pod then delete them.
 		// It's done because *.img files store on node side. If drivemgr will delete them during SIGTERM (postStop, pod
 		// delete, etc) then LoopbackMgr can't support node rebooting. So it's needed to cleanup excess files on startup
-		if !strings.Contains(file.Name(), mgr.hostname) {
+		if !strings.Contains(file.Name(), mgr.nodeID) {
 			absFilePath := fmt.Sprintf("%s/%s", imagesPath, file.Name())
 			if _, _, err := mgr.exec.RunCmd(fmt.Sprintf(deleteFileCmdTmpl, absFilePath)); err != nil {
 				ll.Errorf("Failed to cleanup excess file %s from image directory: %v", file.Name(), err)
@@ -289,7 +278,7 @@ func (mgr *LoopBackManager) updateDevicesFromConfig() {
 	var drives []*LoopBackDevice
 	for _, node := range mgr.config.Nodes {
 		// If config contains node config for LoopBackManager's node then use values from it
-		if node.NodeID == mgr.nodeID {
+		if node.NodeID == mgr.nodeName {
 			// Node's config may not contain driveCount field. Then use mgr.config.DefaultDriveCount
 			if node.DriveCount > 0 {
 				driveCount = node.DriveCount
@@ -377,9 +366,9 @@ func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devic
 				if device.SerialNumber == "" {
 					deviceID := uuid.New().ID()
 					device.SerialNumber = fmt.Sprintf("LOOPBACK%d", deviceID)
-					device.fileName = fmt.Sprintf(imagesFolder+"/%s-%d.img", mgr.hostname, deviceID)
+					device.fileName = fmt.Sprintf(imagesFolder+"/%s-%d.img", mgr.nodeID, deviceID)
 				} else {
-					device.fileName = fmt.Sprintf(imagesFolder+"/%s-%s.img", mgr.hostname, device.SerialNumber)
+					device.fileName = fmt.Sprintf(imagesFolder+"/%s-%s.img", mgr.nodeID, device.SerialNumber)
 				}
 				// If device Size is not specified then use default size from config
 				if mgr.config != nil && device.Size == "" && mgr.config.DefaultDriveSize != "" {
@@ -400,7 +389,7 @@ func (mgr *LoopBackManager) createDefaultDevices(deviceCount int) {
 		deviceID := uuid.New().ID()
 		device := &LoopBackDevice{
 			SerialNumber: fmt.Sprintf("LOOPBACK%d", deviceID),
-			fileName:     fmt.Sprintf(imagesFolder+"/%s-%d.img", mgr.hostname, deviceID),
+			fileName:     fmt.Sprintf(imagesFolder+"/%s-%d.img", mgr.nodeID, deviceID),
 		}
 		// If device Size is not specified then use default size from config
 		if device.Size == "" && mgr.config != nil && mgr.config.DefaultDriveSize != "" {

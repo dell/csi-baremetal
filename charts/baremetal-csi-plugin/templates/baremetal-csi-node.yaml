@@ -150,6 +150,9 @@ spec:
         args:
           - --loglevel={{ .Values.log.level }}
           - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
+        {{- if eq .Values.drivemgr.type "loopbackmgr"}}
+          - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+        {{- end }}
         {{- if .Values.logReceiver.create  }}
           - --logpath=/var/log/drivemgr.log
         {{- end }}

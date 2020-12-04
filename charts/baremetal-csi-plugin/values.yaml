@@ -62,7 +62,7 @@ drivemgr:
       endpoint: tcp://localhost:8888
   deployConfig: false
   amountOfLoopDevices: 3
-  sizeOfLoopDevices: 100Mi
+  sizeOfLoopDevices: 101Mi
 
 # CSI Sidecars parameters
 provisioner:
