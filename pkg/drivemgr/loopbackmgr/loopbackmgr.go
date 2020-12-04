@@ -351,16 +351,10 @@ func (mgr *LoopBackManager) overrideDevicesFromNodeConfig(deviceCount int, devic
 					// If not then we may not rebind device and save existing devicePath
 					if mgrDevice.devicePath != "" {
 						switch {
-						// If size changed when we need to detach loop device and delete appropriate file
-						case device.Size != mgrDevice.Size && device.Size != "":
-							ll.Infof("Size of device changes from %s to %s", mgrDevice.Size, device.Size)
-							mgr.deleteLoopbackDevice(mgrDevice)
-						// If device Size is not specified and size of existing drive is not equal default size from config
-						case mgr.config != nil && device.Size == "" && mgr.config.DefaultDriveSize != "" &&
-							mgrDevice.Size != mgr.config.DefaultDriveSize:
-							ll.Infof("Size of device changes from %s to %s", mgrDevice.Size, mgr.config.DefaultDriveSize)
-							mgr.deleteLoopbackDevice(mgrDevice)
-							device.Size = mgr.config.DefaultDriveSize
+						// Drive expand is not supported
+						case device.Size != mgrDevice.Size || device.Size != "":
+							ll.Warningf("Size of device changed or not set. Resizing not supported.")
+							device.Size = mgrDevice.Size
 						default:
 							device.devicePath = mgrDevice.devicePath
 						}
