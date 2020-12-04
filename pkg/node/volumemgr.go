@@ -768,11 +768,14 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 			if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
 				ll.Warnf("There is Volume CR that points on same drive %s as AC %s",
 					drive.Name, acsLocations[drive.Spec.UUID].Name)
-				if err = m.k8sClient.DeleteCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
+				ac := acsLocations[drive.Spec.UUID]
+				ac.Spec.Size = 0
+				acsLocations[drive.Spec.UUID] = ac
+				if err = m.k8sClient.UpdateCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
 					ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[drive.Spec.UUID].Name, err)
 				}
+				continue
 			}
-			continue
 		}
 		if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
 			continue
@@ -784,6 +787,10 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 			Location:     drive.Spec.UUID,
 			StorageClass: util.ConvertDriveTypeToStorageClass(drive.Spec.Type),
 			NodeId:       m.nodeID,
+		}
+
+		if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
+			capacity.Size = 0
 		}
 
 		if drive.Spec.IsSystem {

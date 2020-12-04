@@ -127,11 +127,11 @@ var (
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: apiV1.StorageClassHDD,
 			// TODO location cannot be empty - need to add check
-			Location:     drive1UUID,
-			CSIStatus:    apiV1.Creating,
-			NodeId:       nodeID,
-			Mode:         apiV1.ModeFS,
-			Type:         string(fs.XFS),
+			Location:  drive1UUID,
+			CSIStatus: apiV1.Creating,
+			NodeId:    nodeID,
+			Mode:      apiV1.ModeFS,
+			Type:      string(fs.XFS),
 		},
 	}
 
@@ -660,8 +660,12 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	dItems = getDriveCRsListItems(t, vm.k8sClient)
 	acItems = getACCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 2, len(dItems))
-	assert.Equal(t, 1, len(acItems))
 	assert.Equal(t, 1, len(vItems))
+	for _, ac := range acItems {
+		if ac.Spec.Location == vItems[0].Spec.Location {
+			assert.Equal(t, int64(0), ac.Spec.Size)
+		}
+	}
 
 	var (
 		sdaDriveUUID string
