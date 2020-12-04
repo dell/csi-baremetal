@@ -125,7 +125,7 @@ func main() {
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
 		lvg.NewController(lvgClient, nodeID, logger),
-		drive.NewController(drivesClient, nodeID, clientToDriveMgr, logger),
+		drive.NewController(drivesClient, nodeID, clientToDriveMgr, eventRecorder, logger),
 		logger)
 
 	// register CSI calls handler
