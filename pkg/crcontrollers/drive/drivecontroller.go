@@ -14,25 +14,29 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/eventing"
+	"github.com/dell/csi-baremetal/pkg/events"
 )
 
 // Controller to reconcile drive custom resource
 type Controller struct {
-	client   *k8s.KubeClient
-	crHelper *k8s.CRHelper
-	nodeID   string
-	log      *logrus.Entry
+	client        *k8s.KubeClient
+	crHelper      *k8s.CRHelper
+	nodeID        string
+	log           *logrus.Entry
+	eventRecorder *events.Recorder
 }
 
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
-func NewController(client *k8s.KubeClient, nodeID string, log *logrus.Logger) *Controller {
+func NewController(client *k8s.KubeClient, nodeID string, eventRecorder *events.Recorder, log *logrus.Logger) *Controller {
 	return &Controller{
-		client:   client,
-		crHelper: k8s.NewCRHelper(client, log),
-		nodeID:   nodeID,
-		log:      log.WithField("component", "Controller"),
+		client:        client,
+		crHelper:      k8s.NewCRHelper(client, log),
+		nodeID:        nodeID,
+		log:           log.WithField("component", "Controller"),
+		eventRecorder: eventRecorder,
 	}
 }
 
@@ -122,6 +126,8 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
 			isChanged = true
 		}
+	case apiV1.DriveUsageFailed:
+		c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, drive.GetDriveDescription())
 	}
 
 	// update drive CR if needed
