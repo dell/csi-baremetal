@@ -9,7 +9,7 @@ OPERATOR_CHART_PATH		:= charts/csibm-operator
 ### version
 MAJOR            := 0
 MINOR            := 0
-PATCH            := 11
+PATCH            := 12
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
 BUILD_REL_B      := $(shell git rev-parse --short HEAD)
