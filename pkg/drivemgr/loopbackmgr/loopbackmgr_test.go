@@ -219,9 +219,10 @@ func TestLoopBackManager_overrideDevicesFromSetConfigWithSize(t *testing.T) {
 
 	assert.Nil(t, err)
 
+	// resizing is not supported
 	for _, device := range manager.devices {
 		if device.SerialNumber == testSN {
-			assert.Equal(t, device.Size, "30Mi")
+			assert.Equal(t, device.Size, "40Mi")
 		}
 	}
 
@@ -277,7 +278,8 @@ func TestLoopBackManager_overrideDeviceWithSizeChanging(t *testing.T) {
 	}
 
 	manager.overrideDevicesFromNodeConfig(defaultNumberOfDevices, devices)
-	assert.Equal(t, manager.devices[indexOfDeviceToOverride].Size, newSize)
+	// resizing is not supported
+	assert.Equal(t, defaultSize, manager.devices[indexOfDeviceToOverride].Size)
 }
 
 func TestLoopBackManager_GetDrivesList(t *testing.T) {
