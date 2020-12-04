@@ -41,13 +41,13 @@ var (
 	logPath  = flag.String("logpath", "", "log path for DriveManager")
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
-	nodeName          = flag.String("nodename", "", "node identification by k8s")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
 		"Whether svc should read id from node annotation")
 )
 
 func main() {
 	flag.Parse()
+	nodeName := os.Getenv("KUBE_NODE_NAME")
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
@@ -62,7 +62,7 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 
-	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
+	nodeID, err := getNodeID(k8SClient, nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get nodeID, error: %v", err)
 	}
@@ -81,7 +81,7 @@ func main() {
 	//nolint:errcheck
 	defer watcher.Close()
 
-	driveMgr := loopbackmgr.NewLoopBackManager(e, nodeID, *nodeName, logger)
+	driveMgr := loopbackmgr.NewLoopBackManager(e, nodeID, nodeName, logger)
 
 	go driveMgr.UpdateOnConfigChange(watcher)
 	dmsetup.SetupAndRunDriveMgr(driveMgr, serverRunner, driveMgr.CleanupLoopDevices, logger)
