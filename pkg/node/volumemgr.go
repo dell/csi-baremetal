@@ -552,7 +552,12 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			}
 		}
 		if !exist && drivePtr.SerialNumber != "" {
-			// Drive CR is not exist, try to create it
+			// don't create CR for OFFLINE drives
+			// todo need to test with HAL
+			if drivePtr.Status == apiV1.DriveStatusOffline {
+				continue
+			}
+			// Drive CR does not exist, try to create it
 			toCreateSpec := *drivePtr
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
