@@ -98,14 +98,14 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	usage := drive.Spec.GetUsage()
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
-	isChanged := false
+	toUpdate := false
 
 	switch usage {
 	case apiV1.DriveUsageInUse:
 		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
 			// TODO update health of volumes
 			drive.Spec.Usage = apiV1.DriveUsageReleasing
-			isChanged = true
+			toUpdate = true
 		}
 	case apiV1.DriveUsageReleased:
 		status := drive.Annotations[apiV1.DriveAnnotationReplacement]
@@ -124,7 +124,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			} else {
 				drive.Spec.Usage = apiV1.DriveUsageRemoving
 			}
-			isChanged = true
+			toUpdate = true
 		}
 	case apiV1.DriveUsageRemoving:
 		// TODO need to check CSI status here since volume might not be removed
@@ -137,16 +137,25 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				// TODO send alert when led locate is failed
 				drive.Spec.Usage = apiV1.DriveUsageFailed
 			}
-			isChanged = true
+			toUpdate = true
 		}
 	case apiV1.DriveUsageFailed:
 		c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, drive.GetDriveDescription())
+	case apiV1.DriveUsageRemoved:
+		if drive.Spec.Status == apiV1.DriveStatusOffline {
+			// drive was removed from the system. need to clean corresponding custom resource
+			if err := c.client.DeleteCR(ctx, drive); err != nil {
+				log.Errorf("Failed to delete Drive %s CR", driveName)
+				return ctrl.Result{}, client.IgnoreNotFound(err)
+			}
+			return ctrl.Result{}, nil
+		}
 	}
+
 	// update drive CR if needed
-	if isChanged {
+	if toUpdate {
 		if err := c.client.UpdateCR(ctx, drive); err != nil {
-			log.Errorf("Failed to read Drive %s CR", driveName)
-			// TODO is this correct error here?
+			log.Errorf("Failed to update Drive %s CR", driveName)
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
 	}
