@@ -74,7 +74,7 @@ func (in *Drive) Equals(drive *api.Drive) bool {
 }
 
 func (in *Drive) GetDriveDescription() string {
-	return fmt.Sprintf(" Drive Details: SN='%s', Node='%s',"+
+	return fmt.Sprintf("Drive Details: SN='%s', Node='%s',"+
 		" Type='%s', Model='%s %s',"+
 		" Size='%d', Firmware='%s'",
 		in.Spec.SerialNumber, in.Spec.NodeId, in.Spec.Type,
