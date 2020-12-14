@@ -64,8 +64,9 @@ const (
 	DriveTypeNVMe = "NVME"
 
 	// Drive annotations
-	DriveAnnotationReplacement      = "replacement"
-	DriveAnnotationReplacementReady = "ready"
+	DriveAnnotationReplacement        = "replacement"
+	DriveAnnotationReplacementReady   = "ready"
+	DriveAnnotationVolumeStatusPrefix = "status"
 
 	// Volume operational status
 	OperationalStatusOperative   = "OPERATIVE"

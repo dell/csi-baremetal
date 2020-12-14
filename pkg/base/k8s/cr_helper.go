@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
@@ -105,30 +106,63 @@ func (cs *CRHelper) DeleteACsByNodeID(nodeID string) error {
 	return nil
 }
 
-// GetVolumeByLocation reads the whole list of Volume CRs from a cluster and searches the volume with provided location
+// GetVolumesByLocation reads the whole list of Volume CRs from a cluster and searches the volume with provided location
 // Receives golang context and location name which should be equal to Volume.Spec.Location
-// Returns a pointer to the instance of volumecrd.Volume or nil
-func (cs *CRHelper) GetVolumeByLocation(location string) *volumecrd.Volume {
+// Returns a list of a pointers to volumes which are belong to the location and error
+func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) ([]*volumecrd.Volume, error) {
 	ll := cs.log.WithFields(logrus.Fields{
-		"method":   "GetVolumeByLocation",
+		"method":   "GetVolumesByLocation",
 		"location": location,
 	})
 
+	var volumes []*volumecrd.Volume
 	volList := &volumecrd.VolumeList{}
-	if err := cs.k8sClient.ReadList(context.Background(), volList); err != nil {
+	if err := cs.k8sClient.ReadList(ctx, volList); err != nil {
 		ll.Errorf("Failed to get volume CR list, error %v", err)
-		return nil
+		return nil, err
+	}
+	lvgUUID, err := cs.getLVGByDrive(ctx, location)
+	if err != nil {
+		ll.Errorf("Failed to get LVG UUID for drive, error %v", err)
+		return nil, err
+	}
+
+	if lvgUUID != "" {
+		location = lvgUUID
 	}
 
 	for _, v := range volList.Items {
+		v := v
 		if strings.EqualFold(v.Spec.Location, location) {
-			return &v
+			volumes = append(volumes, &v)
+			if v.Spec.LocationType == apiV1.LocationTypeDrive {
+				// only one volume with LocationTypeDrive can exist on drive
+				break
+			}
 		}
 	}
+	if len(volumes) == 0 {
+		ll.Warn("Can't find VolumeCR assigned to provided location")
+	}
+	return volumes, nil
+}
 
-	ll.Warn("Can't find VolumeCR assigned to provided location")
-
-	return nil
+func (cs *CRHelper) getLVGByDrive(ctx context.Context, driveUUID string) (string, error) {
+	ll := cs.log.WithFields(logrus.Fields{
+		"method":    "getLVGByDrive",
+		"driveUUID": driveUUID,
+	})
+	lvgList := &lvgcrd.LVGList{}
+	if err := cs.k8sClient.ReadList(ctx, lvgList); err != nil {
+		ll.Errorf("Failed to get LVG CR list, error %v", err)
+		return "", err
+	}
+	for _, lvg := range lvgList.Items {
+		if len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == driveUUID {
+			return lvg.Name, nil
+		}
+	}
+	return "", nil
 }
 
 // UpdateVolumesOpStatusOnNode updates operational status of volumes on a node without taking into account current state
@@ -306,6 +340,30 @@ func (cs *CRHelper) GetDriveCRByUUID(dUUID string) *drivecrd.Drive {
 		"driveUUID": dUUID,
 	}).Infof("Drive CR isn't exist")
 	return nil
+}
+
+// GetDriveCRByVolume reads drive CRs and returns CR for drive on which volume is located
+func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, error) {
+	ll := cs.log.WithFields(logrus.Fields{
+		"method": "GetDriveCRByVolume",
+		"volume": volume.Name,
+	})
+
+	dUUID := volume.Spec.Location
+
+	if volume.Spec.LocationType == apiV1.LocationTypeLVM {
+		lvgObj := &lvgcrd.LVG{}
+		err := cs.k8sClient.ReadCR(context.Background(), volume.Spec.Location, lvgObj)
+		if err != nil {
+			ll.Errorf("failed to read LVG CR list: %s", err.Error())
+			return nil, err
+		}
+		if len(lvgObj.Spec.Locations) == 0 {
+			return nil, errors.New("no drives in LVG CR")
+		}
+		dUUID = lvgObj.Spec.Locations[0]
+	}
+	return cs.GetDriveCRByUUID(dUUID), nil
 }
 
 // GetVGNameByLVGCRName read LVG CR with name lvgCRName and returns LVG CR.Spec.Name
