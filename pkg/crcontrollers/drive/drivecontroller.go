@@ -2,6 +2,7 @@ package drive
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,8 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/events"
@@ -107,29 +110,39 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			drive.Spec.Usage = apiV1.DriveUsageReleasing
 			toUpdate = true
 		}
-	case apiV1.DriveUsageReleased:
-		status := drive.Annotations[apiV1.DriveAnnotationReplacement]
-		if status == apiV1.DriveAnnotationReplacementReady {
-			// TODO need to update annotations for related volumes
-			// TODO might need to check CSI status here since volume might not be removed
-			volume := c.crHelper.GetVolumeByLocation(id)
-			if volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
-				drive.Spec.Usage = apiV1.DriveUsageRemoved
-				status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
-				if err != nil || status.Status != apiV1.LocateStatusOn {
-					log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
-					// TODO send alert when led locate is failed
-					drive.Spec.Usage = apiV1.DriveUsageFailed
-				}
-			} else {
-				drive.Spec.Usage = apiV1.DriveUsageRemoving
+	case apiV1.DriveUsageReleasing:
+		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
+		if err != nil {
+			return ctrl.Result{RequeueAfter: base.DefaultRequeueForVolume}, err
+		}
+		allFound := true
+		for _, vol := range volumes {
+			status, found := drive.Annotations[fmt.Sprintf(
+				"%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, vol.Name)]
+			if !found || status != apiV1.VolumeUsageReleased {
+				allFound = false
+				break
 			}
+		}
+		if allFound {
+			drive.Spec.Usage = apiV1.DriveUsageReleased
 			toUpdate = true
 		}
+
+	case apiV1.DriveUsageReleased:
+		status, found := drive.Annotations[apiV1.DriveAnnotationReplacement]
+		if !found || status != apiV1.DriveAnnotationReplacementReady {
+			break
+		}
+		toUpdate = true
+		drive.Spec.Usage = apiV1.DriveUsageRemoving
+		fallthrough
 	case apiV1.DriveUsageRemoving:
-		// TODO need to check CSI status here since volume might not be removed
-		volume := c.crHelper.GetVolumeByLocation(id)
-		if volume == nil || volume.Spec.CSIStatus == apiV1.Removed {
+		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
+		if err != nil {
+			return ctrl.Result{RequeueAfter: base.DefaultRequeueForVolume}, err
+		}
+		if c.checkAllVolsRemoved(volumes) {
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
 			status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
 			if err != nil || status.Status != apiV1.LocateStatusOn {
@@ -161,4 +174,13 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
+	for _, vol := range volumes {
+		if vol.Spec.CSIStatus != apiV1.Removed {
+			return false
+		}
+	}
+	return true
 }

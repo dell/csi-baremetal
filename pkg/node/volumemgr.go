@@ -225,23 +225,15 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			// we need to update annotation on related drive CRD
 			// todo can we do polling instead?
 			ll.Infof("Volume %s is removed. Updating related", volume.Name)
-			// todo add LVG support
-			if volume.Spec.LocationType == apiV1.LocationTypeDrive {
-				// drive must be present in the system
-				drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
-				if drive != nil {
-					annotationKey := fmt.Sprintf("volume/%s", volume.Name)
-					// init map if empty
-					if drive.Annotations == nil {
-						drive.Annotations = make(map[string]string)
-					}
-					drive.Annotations[annotationKey] = apiV1.Removed
-					if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
-						ll.Errorf("Unable to update Drive annotations")
-					}
-				} else {
-					ll.Errorf("Unable to obtain drive for volume %s", volume.Name)
+			// drive must be present in the system
+			drive, _ := m.crHelper.GetDriveCRByVolume(volume)
+			if drive != nil {
+				m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.Removed)
+				if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+					ll.Errorf("Unable to update Drive annotations")
 				}
+			} else {
+				ll.Errorf("Unable to obtain drive for volume %s", volume.Name)
 			}
 
 			// remove finalizer
@@ -277,8 +269,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		switch releaseStatus {
 		case apiV1.VolumeAnnotationReleaseDone:
 			ll.Infof("Volume %s is released", volume.Name)
-			volume.Spec.Usage = apiV1.VolumeUsageReleased
-			return m.updateVolumeAndDriveUsageStatus(ctx, volume, apiV1.DriveUsageReleased)
+			return m.updateVolumeAndDriveUsageStatus(ctx, volume, apiV1.VolumeUsageReleased, apiV1.DriveUsageReleasing)
 		case apiV1.VolumeAnnotationReleaseFailed:
 			errMsg := "Volume releasing is failed"
 			errorDesc, ok := volume.Annotations[apiV1.VolumeAnnotationReleaseStatus]
@@ -286,25 +277,35 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				errMsg += fmt.Sprintf(" err: %s", errorDesc)
 			}
 			ll.Errorf(errMsg)
-			volume.Spec.Usage = apiV1.VolumeUsageFailed
-			return m.updateVolumeAndDriveUsageStatus(ctx, volume, apiV1.DriveUsageFailed)
+			return m.updateVolumeAndDriveUsageStatus(ctx, volume, apiV1.VolumeUsageFailed, apiV1.DriveUsageFailed)
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
-func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, volume *volumecrd.Volume, driveStatus string) (ctrl.Result, error) {
+func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, volume *volumecrd.Volume,
+	volumeStatus, driveStatus string) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
-		"method":   "Reconcile",
-		"volumeID": volume.Name,
+		"method":       "updateVolumeAndDriveUsageStatus",
+		"volumeID":     volume.Name,
+		"volumeStatus": volumeStatus,
+		"driveStatus":  driveStatus,
 	})
+	volume.Spec.Usage = volumeStatus
 	if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
 		ll.Errorf("Unable to change volume %s usage status to %s, error: %v.",
 			volume.Name, volume.Spec.Usage, err)
 		return ctrl.Result{Requeue: true}, err
 	}
-	// TODO need to update annotations of corresponding drive
-	drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+	drive, err := m.crHelper.GetDriveCRByVolume(volume)
+	if err != nil {
+		ll.Errorf("Unable to read drive CR, error: %v", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	// TODO add annotations for additional statuses?
+	if volumeStatus == apiV1.VolumeUsageReleased {
+		m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
+	}
 	if drive != nil {
 		drive.Spec.Usage = driveStatus
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
@@ -971,8 +972,8 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	}
 
 	// Set disk's health status to volume CR
-	vol := m.crHelper.GetVolumeByLocation(drive.UUID)
-	if vol != nil {
+	volumes, _ := m.crHelper.GetVolumesByLocation(ctx, drive.UUID)
+	for _, vol := range volumes {
 		ll.Infof("Setting updated status %s to volume %s", drive.Health, vol.Name)
 		// save previous health state
 		prevHealthState := vol.Spec.Health
@@ -995,7 +996,6 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 				prevHealthState, vol.Spec.Health, drive.Health, drive.NodeId)
 		}
 	}
-
 	// Handle resources with LVG
 	// This is not work for the current moment because HAL doesn't monitor disks with LVM
 	// TODO: Handle disk health which are used by LVGs - https://github.com/dell/csi-baremetal/issues/88
@@ -1133,4 +1133,14 @@ func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
 		}
 	}
 	return false
+}
+
+// addVolumeStatusAnnotation add annotation with volume status to drive
+func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeName, status string) {
+	annotationKey := fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volumeName)
+	// init map if empty
+	if drive.Annotations == nil {
+		drive.Annotations = make(map[string]string)
+	}
+	drive.Annotations[annotationKey] = status
 }
