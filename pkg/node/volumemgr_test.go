@@ -17,6 +17,7 @@ limitations under the License.
 package node
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -127,11 +128,11 @@ var (
 			Size:         1024 * 1024 * 1024 * 150,
 			StorageClass: apiV1.StorageClassHDD,
 			// TODO location cannot be empty - need to add check
-			Location:     drive1UUID,
-			CSIStatus:    apiV1.Creating,
-			NodeId:       nodeID,
-			Mode:         apiV1.ModeFS,
-			Type:         string(fs.XFS),
+			Location:  drive1UUID,
+			CSIStatus: apiV1.Creating,
+			NodeId:    nodeID,
+			Mode:      apiV1.ModeFS,
+			Type:      string(fs.XFS),
 		},
 	}
 
@@ -350,6 +351,32 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
 
+}
+
+func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
+	drive := drive1
+	drive.UUID = driveUUID
+	drive.Health = apiV1.HealthGood
+	testVol := volCR
+	testVol.Spec.Location = drive.UUID
+	testVol.Spec.CSIStatus = apiV1.Removing
+
+	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{&drive}, t)
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
+
+	pMock := &mockProv.MockProvisioner{}
+	pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err := vm.handleRemovingStatus(testCtx, &testVol)
+	assert.Error(t, testErr)
+
+	drivecrd := &drivecrd.Drive{}
+	err = vm.k8sClient.ReadCR(context.Background(), testVol.Spec.Location, drivecrd)
+	assert.Nil(t, err)
+
+	assert.Equal(t, res, ctrl.Result{})
+	assert.Equal(t, apiV1.DriveUsageFailed, drivecrd.Spec.Usage)
 }
 
 func TestReconcile_SuccessDeleteVolume(t *testing.T) {
@@ -660,8 +687,12 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	dItems = getDriveCRsListItems(t, vm.k8sClient)
 	acItems = getACCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 2, len(dItems))
-	assert.Equal(t, 1, len(acItems))
 	assert.Equal(t, 1, len(vItems))
+	for _, ac := range acItems {
+		if ac.Spec.Location == vItems[0].Spec.Location {
+			assert.Equal(t, int64(0), ac.Spec.Size)
+		}
+	}
 
 	var (
 		sdaDriveUUID string

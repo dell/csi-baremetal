@@ -17,6 +17,8 @@ limitations under the License.
 package drivecrd
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -68,6 +70,13 @@ func (in *Drive) Equals(drive *api.Drive) bool {
 		in.Spec.Health == drive.Health &&
 		in.Spec.Type == drive.Type &&
 		in.Spec.Size == drive.Size &&
-		in.Spec.Path == drive.Path &&
-		in.Spec.Usage == drive.Usage
+		in.Spec.Path == drive.Path
+}
+
+func (in *Drive) GetDriveDescription() string {
+	return fmt.Sprintf("Drive Details: SN='%s', Node='%s',"+
+		" Type='%s', Model='%s %s',"+
+		" Size='%d', Firmware='%s'",
+		in.Spec.SerialNumber, in.Spec.NodeId, in.Spec.Type,
+		in.Spec.VID, in.Spec.PID, in.Spec.Size, in.Spec.Firmware)
 }

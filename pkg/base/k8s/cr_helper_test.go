@@ -17,6 +17,7 @@ limitations under the License.
 package k8s
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,16 +51,28 @@ func TestCRHelper_GetACByLocation(t *testing.T) {
 
 func TestCRHelper_GetVolumeByLocation(t *testing.T) {
 	ch := setup()
-	expectedV := testVolumeCR
-	err := ch.k8sClient.CreateCR(testCtx, expectedV.Name, &expectedV)
+	expectedV := testVolumeCR.DeepCopy()
+	err := ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
 	assert.Nil(t, err)
-
-	currentV := ch.GetVolumeByLocation(expectedV.Spec.Location)
-	assert.NotNil(t, currentV)
-	assert.Equal(t, expectedV.Spec, currentV.Spec)
+	ctx := context.Background()
+	currentVols, _ := ch.GetVolumesByLocation(ctx, expectedV.Spec.Location)
+	assert.NotEmpty(t, currentVols)
+	assert.Equal(t, expectedV.Spec, currentVols[0].Spec)
 
 	// expected nil because of empty string as a location
-	assert.Nil(t, ch.GetVolumeByLocation(""))
+	currentVols, _ = ch.GetVolumesByLocation(ctx, "")
+	assert.Nil(t, currentVols)
+
+	// lvm
+	ch = setup()
+	expectedV.Spec.Location = testLVGCR.Name
+	expectedV.Spec.LocationType = v1.LocationTypeLVM
+	err = ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
+	assert.Nil(t, err)
+	err = ch.k8sClient.CreateCR(testCtx, testLVGCR.Name, &testLVGCR)
+	assert.Nil(t, err)
+	currentVols, _ = ch.GetVolumesByLocation(ctx, testDriveLocation1)
+	assert.NotEmpty(t, currentVols)
 }
 
 func TestCRHelper_GetVolumeByID(t *testing.T) {
@@ -88,6 +101,24 @@ func TestCRHelper_GetDriveCRByUUID(t *testing.T) {
 
 	// expected nil because of empty string as a ID
 	assert.Nil(t, ch.GetDriveCRByUUID(""))
+}
+
+func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
+	ch := setup()
+	expectedV := testVolumeCR.DeepCopy()
+	expectedV.Spec.Location = testLVGCR.Name
+	expectedV.Spec.LocationType = v1.LocationTypeLVM
+	expectedLVG := testLVGCR.DeepCopy()
+	expectedLVG.Spec.Locations = []string{testDriveCR.Name}
+	err := ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
+	assert.Nil(t, err)
+	err = ch.k8sClient.CreateCR(testCtx, expectedLVG.Name, expectedLVG)
+	assert.Nil(t, err)
+	err = ch.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	assert.Nil(t, err)
+	drive, err := ch.GetDriveCRByVolume(expectedV)
+	assert.NotNil(t, drive)
+	assert.Nil(t, err)
 }
 
 func TestCRHelper_GetVolumeCRs(t *testing.T) {

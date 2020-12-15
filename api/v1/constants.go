@@ -37,7 +37,7 @@ const (
 	Removing    = "REMOVING"
 	Removed     = "REMOVED"
 	Failed      = "FAILED"
-	Empty              = ""
+	Empty       = ""
 
 	// Health statuses
 	HealthUnknown = "UNKNOWN"
@@ -64,16 +64,17 @@ const (
 	DriveTypeNVMe = "NVME"
 
 	// Drive annotations
-	DriveAnnotationReplacement = "replacement"
-	DriveAnnotationReplacementReady = "ready"
+	DriveAnnotationReplacement        = "replacement"
+	DriveAnnotationReplacementReady   = "ready"
+	DriveAnnotationVolumeStatusPrefix = "status"
 
 	// Volume operational status
-	OperationalStatusOperative     = "OPERATIVE"
-	OperationalStatusInoperative   = "INOPERATIVE"
-	OperationalStatusStaging       = "STAGING"
-	OperationalStatusMissing       = "MISSING"
-	OperationalStatusMaintenance   = "MAINTENANCE"
-	OperationalStatusUnknown       = "UNKNOWN"
+	OperationalStatusOperative   = "OPERATIVE"
+	OperationalStatusInoperative = "INOPERATIVE"
+	OperationalStatusStaging     = "STAGING"
+	OperationalStatusMissing     = "MISSING"
+	OperationalStatusMaintenance = "MAINTENANCE"
+	OperationalStatusUnknown     = "UNKNOWN"
 
 	// Volume Usage status
 	VolumeUsageInUse     = DriveUsageInUse
@@ -82,8 +83,10 @@ const (
 	VolumeUsageFailed    = DriveUsageFailed
 
 	// Release Volume annotations
-	VolumeAnnotationRelease = "release"
-	VolumeAnnotationReleaseDone = "done"
+	VolumeAnnotationRelease       = "release"
+	VolumeAnnotationReleaseDone   = "done"
+	VolumeAnnotationReleaseFailed = "failed"
+	VolumeAnnotationReleaseStatus = "status"
 
 	// TODO Mount status?
 
