@@ -17,6 +17,7 @@ limitations under the License.
 package node
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -350,6 +351,32 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
 
+}
+
+func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
+	drive := drive1
+	drive.UUID = driveUUID
+	drive.Health = apiV1.HealthGood
+	testVol := volCR
+	testVol.Spec.Location = drive.UUID
+	testVol.Spec.CSIStatus = apiV1.Removing
+
+	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{&drive}, t)
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
+
+	pMock := &mockProv.MockProvisioner{}
+	pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+	res, err := vm.handleRemovingStatus(testCtx, &testVol)
+	assert.Error(t, testErr)
+
+	drivecrd := &drivecrd.Drive{}
+	err = vm.k8sClient.ReadCR(context.Background(), testVol.Spec.Location, drivecrd)
+	assert.Nil(t, err)
+
+	assert.Equal(t, res, ctrl.Result{})
+	assert.Equal(t, apiV1.DriveUsageFailed, drivecrd.Spec.Usage)
 }
 
 func TestReconcile_SuccessDeleteVolume(t *testing.T) {

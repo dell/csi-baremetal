@@ -57,6 +57,8 @@ import (
 
 const volumeFinalizer = "dell.emc.csi/volume-cleanup"
 
+const deleteVolumeFailedMsg = "Failed to remove volume %s with error: %s"
+
 // eventRecorder interface for sending events
 type eventRecorder interface {
 	Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{})
@@ -415,6 +417,16 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		newStatus = apiV1.Failed
+		drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+		if drive != nil {
+			drive.Spec.Usage = apiV1.DriveUsageFailed
+			if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
+				ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
+					drive.Name, drive.Spec.Usage, err)
+				return ctrl.Result{Requeue: true}, err
+			}
+			m.sendEventForDrive(drive, eventing.ErrorType, eventing.DriveReplacementFailed, deleteVolumeFailedMsg, volume.Name, err)
+		}
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
 		newStatus = apiV1.Removed
