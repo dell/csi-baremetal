@@ -534,6 +534,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 	firstIteration = len(driveCRs) == 0
 
 	var updates = new(driveUpdates)
+	var searchSystemDrives = len(m.systemDrivesUUIDs) == 0
 	// Try to find not existing CR for discovered drives
 	for _, drivePtr := range drivesFromMgr {
 		exist := false
@@ -542,6 +543,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			// If drive CR already exist, try to update, if drive was changed
 			if m.drivesAreTheSame(drivePtr, &driveCR.Spec) {
 				exist = true
+				if searchSystemDrives && driveCR.Spec.IsSystem {
+					m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, driveCR.Spec.UUID)
+				}
 				if driveCR.Equals(drivePtr) {
 					updates.AddNotChanged(&driveCR)
 				} else {
