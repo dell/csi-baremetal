@@ -183,8 +183,12 @@ func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 		return nil, err
 	}
 	lvg := strings.Split(stdout, "\n")
-	for i := range lvg {
+	for i := 0; i < len(lvg); i++ {
 		lvg[i] = strings.TrimSpace(lvg[i])
+		if len(lvg[i]) == 0 {
+			lvg = append(lvg[:i], lvg[i+1:]...)
+			i--
+		}
 	}
 	return lvg, nil
 }
