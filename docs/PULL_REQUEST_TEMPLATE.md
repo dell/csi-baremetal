@@ -1,4 +1,7 @@
 ## Purpose
+<!--- Replace _Insert_Your_Issue_ID_ placeholder with your Issue i.e. ISSUE-1 -->
+### [_Insert_Your_Issue_ID_](https://github.com/dell/csi-baremetal/issues/_Insert_Your_Issue_ID_)
+
 _Describe your changes_
 
 ## PR checklist
