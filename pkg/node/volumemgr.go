@@ -315,6 +315,10 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 				drive.Name, drive.Spec.Usage, err)
 			return ctrl.Result{Requeue: true}, err
 		}
+		if driveStatus == apiV1.DriveUsageReleased {
+			eventMsg := fmt.Sprintf("Drive is ready for replacement, %s", drive.GetDriveDescription())
+			m.sendEventForDrive(drive, eventing.InfoType, eventing.DriveReadyForReplacement, eventMsg)
+		}
 	}
 	return ctrl.Result{}, nil
 }
