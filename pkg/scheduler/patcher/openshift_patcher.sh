@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #  Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
 #
