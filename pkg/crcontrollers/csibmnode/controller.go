@@ -54,8 +54,8 @@ type Controller struct {
 	nodeSelector *label
 	cache        nodesMapping
 
-	enabled 	bool
-	enabledMu 	sync.Mutex
+	enabled   bool
+	enabledMu sync.Mutex
 
 	log *logrus.Entry
 }
@@ -95,7 +95,7 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 			bmToK8sNode: make(map[string]string),
 		},
 		enabled: true,
-		log: logger.WithField("component", "Controller"),
+		log:     logger.WithField("component", "Controller"),
 	}
 
 	if nodeSelector != "" {
@@ -196,11 +196,6 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		"method": "Reconcile",
 		"name":   req.Name,
 	})
-
-	if !bmc.isEnabled() {
-		ll.Info("Controller was disabled. Stop reconcilation")
-		return ctrl.Result{}, nil
-	}
 
 	var err error
 	// if name in request doesn't start with namePrefix controller tries to read k8s node object at first
@@ -314,12 +309,6 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		"name":   bmNode.Name,
 	})
 
-	if !bmNode.GetDeletionTimestamp().IsZero() {
-		// remove annotation from node
-		bmc.disable()
-		return ctrl.Result{}, nil
-	}
-
 	if len(bmNode.Spec.Addresses) == 0 {
 		err := errors.New("addresses are missing for current CSIBMNode instance")
 		ll.Error(err)
@@ -365,6 +354,16 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		}
 	}
 
+	if !bmNode.GetDeletionTimestamp().IsZero() {
+		if err := bmc.removeAnnotation(k8sNode); err != nil {
+			ll.Errorf("Unable to remove annotation from node %s: %v", k8sNode.Name, err)
+			return ctrl.Result{Requeue: true}, err
+		}
+		bmc.disable()
+		ll.Infof("Annotation from node %s was removed. Controller was disabled.", k8sNode.Name)
+		return ctrl.Result{}, nil
+	}
+
 	if len(matchedNodes) == 1 {
 		bmc.cache.put(k8sNode.Name, bmNode.Name)
 		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
@@ -398,6 +397,21 @@ func (bmc *Controller) updateAnnotation(k8sNode *coreV1.Node, goalValue string) 
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (bmc *Controller) removeAnnotation(k8sNode *coreV1.Node) error {
+	if k8sNode.GetAnnotations() == nil {
+		return nil
+	}
+
+	curr := k8sNode.GetAnnotations()
+	if _, ok := curr[nodeIDAnnotationKey]; ok {
+		delete(curr, nodeIDAnnotationKey)
+		k8sNode.Annotations = curr
+		return bmc.k8sClient.UpdateCR(context.Background(), k8sNode)
+	}
+
+	return nil
 }
 
 // matchedAddressesCount return amount of k8s node addresses that has corresponding address in bmNodeCR.Spec.Addresses map
