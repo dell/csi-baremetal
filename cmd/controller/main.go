@@ -86,11 +86,12 @@ func main() {
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controllerService)
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
 
-	grpc_prometheus.Register(csiControllerServer.GRPCServer)
-	grpc_prometheus.EnableHandlingTimeHistogram()
-	grpc_prometheus.EnableClientHandlingTimeHistogram()
+	
 
 	if enableMetrics {
+		grpc_prometheus.Register(csiControllerServer.GRPCServer)
+	 	grpc_prometheus.EnableHandlingTimeHistogram()
+		grpc_prometheus.EnableClientHandlingTimeHistogram()
 		go func() {
 			http.Handle(*metricspath, promhttp.Handler())
 			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
