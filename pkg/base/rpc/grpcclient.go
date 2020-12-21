@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/url"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -27,19 +28,21 @@ import (
 
 // Client encapsulates logic for new gRPC clint
 type Client struct {
-	GRPCClient *grpc.ClientConn
-	Creds      credentials.TransportCredentials
-	Endpoint   string
-	log        *logrus.Entry
+	GRPCClient     *grpc.ClientConn
+	Creds          credentials.TransportCredentials
+	Endpoint       string
+	log            *logrus.Entry
+	metricsEnabled bool
 }
 
 // NewClient creates new Client object with hostTCP, port, creds and calls init function
 // Receives credentials for connection, connection endpoint (for example 'tcp://localhost:8888') and logrus logger
 // Returns an instance of Client struct or error if initClient() function failed
-func NewClient(creds credentials.TransportCredentials, endpoint string, logger *logrus.Logger) (*Client, error) {
+func NewClient(creds credentials.TransportCredentials, endpoint string, enableMetrics bool, logger *logrus.Logger) (*Client, error) {
 	client := &Client{
-		Creds:    creds,
-		Endpoint: endpoint,
+		Creds:          creds,
+		Endpoint:       endpoint,
+		metricsEnabled: enableMetrics,
 	}
 	client.SetLogger(logger)
 	err := client.initClient()
@@ -64,11 +67,20 @@ func (c *Client) initClient() error {
 	}
 
 	c.log.Infof("Initialize client for endpoint \"%s\"", endpoint)
+
+	opts := make([]grpc.DialOption, 0, 1)
 	if c.Creds != nil {
-		c.GRPCClient, err = grpc.Dial(endpoint, grpc.WithTransportCredentials(c.Creds))
+		opts = append(opts, grpc.WithTransportCredentials(c.Creds))
 	} else {
-		c.GRPCClient, err = grpc.Dial(endpoint, grpc.WithInsecure())
+		opts = append(opts, grpc.WithInsecure())
 	}
+
+	if c.metricsEnabled {
+		metricsOpts := []grpc.DialOption{grpc.WithUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor), grpc.WithStreamInterceptor(grpc_prometheus.StreamClientInterceptor)}
+		opts = append(opts, metricsOpts...)
+	}
+
+	c.GRPCClient, err = grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
 	}

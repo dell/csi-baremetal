@@ -38,7 +38,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	nonSecureSR = NewServerRunner(nil, endpoint, serverLogger)
+	nonSecureSR = NewServerRunner(nil, endpoint, false, serverLogger)
 	code := m.Run()
 	nonSecureSR.StopServer()
 	os.Exit(code)
@@ -68,7 +68,7 @@ func TestServerRunner_RunServer(t *testing.T) {
 	}
 
 	// try to create server on same endpoint
-	nonSecureSR2 := NewServerRunner(nil, endpoint, serverLogger)
+	nonSecureSR2 := NewServerRunner(nil, endpoint, false, serverLogger)
 	err := nonSecureSR2.RunServer()
 	if err == nil {
 		t.Errorf("Trying to create server for same endpoint. Error should appear but it doesn't.")
@@ -83,7 +83,7 @@ func TestServerRunner_GetEndpoint(t *testing.T) {
 	assert.Equal(t, socketType, socket)
 
 	unixAddr := "unix:///tmp/csi.sock"
-	unixSrv := NewServerRunner(nil, unixAddr, serverLogger)
+	unixSrv := NewServerRunner(nil, unixAddr, false, serverLogger)
 	endpoint, socket = unixSrv.GetEndpoint()
 	assert.Equal(t, "unix", socket)
 	assert.Equal(t, "/tmp/csi.sock", endpoint)
