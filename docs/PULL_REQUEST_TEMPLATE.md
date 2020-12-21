@@ -1,4 +1,6 @@
 ## Purpose
+### Issue #<!--- insert your issue number here -->
+
 _Describe your changes_
 
 ## PR checklist
@@ -8,8 +10,6 @@ _Describe your changes_
 - [ ] Modified code has meaningful comments
 - [ ] All TODOs are linked with the issues
 - [ ] All comments are resolved
-- [ ] PR validation is passed
-- [ ] Custom CI is passed
 
 ## Testing
 _Link to custom CI build_

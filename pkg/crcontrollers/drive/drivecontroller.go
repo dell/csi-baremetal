@@ -126,6 +126,8 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		if allFound {
 			drive.Spec.Usage = apiV1.DriveUsageReleased
+			eventMsg := fmt.Sprintf("Drive is ready for replacement, %s", drive.GetDriveDescription())
+			c.eventRecorder.Eventf(drive, eventing.InfoType, eventing.DriveReadyForReplacement, eventMsg)
 			toUpdate = true
 		}
 
