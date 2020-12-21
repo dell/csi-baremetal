@@ -54,6 +54,7 @@ type Controller struct {
 	nodeSelector *label
 	cache        nodesMapping
 
+	// if enabled is false Reconcile won't start, it is used in CSIBMNode CR deletion for avoiding recreation
 	enabled   bool
 	enabledMu sync.Mutex
 
