@@ -373,8 +373,13 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		}
 
 		ll.Infof("Annotation from node %s was removed.", k8sNode.Name)
-		bmNode.Finalizers = []string{}
-		return ctrl.Result{}, bmc.k8sClient.UpdateCR(context.Background(), bmNode)
+		bmNode.Finalizers = nil
+		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
+		if err != nil {
+			ll.Errorf("Unable to update CSIBMNode %s", bmNode.Name)
+		}
+		ll.Infof("Finalizer for CSIBMNode %s was removed.", bmNode.Name)
+		return ctrl.Result{}, err
 	}
 
 	if len(matchedNodes) == 1 {
