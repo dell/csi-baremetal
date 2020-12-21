@@ -308,6 +308,8 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
 		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 		assert.False(t, ok)
+		enabled := c.isEnabledForNode(nodeObj.Name)
+		assert.False(t, enabled)
 	})
 
 	t.Run("CSIBMNode addresses length is 0", func(t *testing.T) {

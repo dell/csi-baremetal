@@ -45,7 +45,8 @@ const (
 	// nodeIDAnnotationKey hold key for annotation for node object
 	nodeIDAnnotationKey = common.NodeIDAnnotationKey
 	// namePrefix it is a prefix for CSIBMNode CR name
-	namePrefix = "csibmnode-"
+	namePrefix         = "csibmnode-"
+	csibmNodeFinalizer = "dell.emc.csi/csibmnode-cleanup"
 )
 
 // Controller is a controller for CSIBMNode CR
@@ -54,9 +55,10 @@ type Controller struct {
 	nodeSelector *label
 	cache        nodesMapping
 
-	// if enabled is false Reconcile won't start, it is used in CSIBMNode CR deletion for avoiding recreation
-	enabled   bool
-	enabledMu sync.Mutex
+	// holds k8s node names for which annotation settings is enabled,
+	// it is used in CSIBMNode CR deletion for avoiding recreation
+	enabledForNode map[string]bool
+	enabledMu      sync.Mutex
 
 	log *logrus.Entry
 }
@@ -95,8 +97,8 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
-		enabled: true,
-		log:     logger.WithField("component", "Controller"),
+		enabledForNode: make(map[string]bool, 3),
+		log:            logger.WithField("component", "Controller"),
 	}
 
 	if nodeSelector != "" {
@@ -111,16 +113,25 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 	return c, nil
 }
 
-func (bmc *Controller) isEnabled() bool {
+func (bmc *Controller) enableForNode(nodeName string) {
 	bmc.enabledMu.Lock()
-	defer bmc.enabledMu.Unlock()
-	return bmc.enabled
+	bmc.enabledForNode[nodeName] = true
+	bmc.enabledMu.Unlock()
 }
 
-func (bmc *Controller) disable() {
+func (bmc *Controller) disableForNode(nodeName string) {
 	bmc.enabledMu.Lock()
-	bmc.enabled = false
+	bmc.enabledForNode[nodeName] = false
 	bmc.enabledMu.Unlock()
+}
+
+func (bmc *Controller) isEnabledForNode(nodeName string) bool {
+	var enabled, ok bool
+	if enabled, ok = bmc.enabledForNode[nodeName]; !ok {
+		return false
+	}
+
+	return enabled
 }
 
 func (bmc *Controller) isMatchSelector(k8sNode *coreV1.Node) bool {
@@ -146,26 +157,19 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}). // secondary resource
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				if !bmc.isEnabled() {
-					return false
-				}
-
 				if _, ok := e.Object.(*nodecrd.CSIBMNode); ok {
 					return true
 				}
 
 				k8sNode, ok := e.Object.(*coreV1.Node)
-				if !ok {
+				if !ok || !bmc.isMatchSelector(k8sNode) {
 					return false
 				}
 
-				return bmc.isMatchSelector(k8sNode)
+				bmc.enableForNode(k8sNode.Name)
+				return true
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				if !bmc.isEnabled() {
-					return false
-				}
-
 				if _, ok := e.ObjectOld.(*nodecrd.CSIBMNode); ok {
 					return true
 				}
@@ -175,6 +179,10 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 					return false
 				}
 				nodeNew := e.ObjectNew.(*coreV1.Node)
+
+				if !bmc.isEnabledForNode(nodeNew.Name) {
+					return false
+				}
 
 				if !bmc.isMatchSelector(nodeNew) {
 					return false
@@ -294,6 +302,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 			UUID:      id,
 			Addresses: bmc.constructAddresses(k8sNode),
 		})
+		bmNode.Finalizers = []string{csibmNodeFinalizer}
 		if err := bmc.k8sClient.CreateCR(context.Background(), bmNodeName, bmNode); err != nil {
 			ll.Errorf("Unable to create CSIBMNode CR: %v", err)
 			return ctrl.Result{Requeue: true}, err
@@ -356,13 +365,16 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 	}
 
 	if !bmNode.GetDeletionTimestamp().IsZero() {
+		bmc.disableForNode(k8sNode.Name)
 		if err := bmc.removeAnnotation(k8sNode); err != nil {
 			ll.Errorf("Unable to remove annotation from node %s: %v", k8sNode.Name, err)
+			bmc.enableForNode(k8sNode.Name)
 			return ctrl.Result{Requeue: true}, err
 		}
-		bmc.disable()
-		ll.Infof("Annotation from node %s was removed. Controller was disabled.", k8sNode.Name)
-		return ctrl.Result{}, nil
+
+		ll.Infof("Annotation from node %s was removed.", k8sNode.Name)
+		bmNode.Finalizers = []string{}
+		return ctrl.Result{}, bmc.k8sClient.UpdateCR(context.Background(), bmNode)
 	}
 
 	if len(matchedNodes) == 1 {
