@@ -42,6 +42,8 @@ controller:
   health:
     server:
       port: 9999
+  metrics:
+    port: 8787
 
 node:
   image:
@@ -52,6 +54,8 @@ node:
         endpoint: tcp://localhost:8888
     server:
       port: 9999
+  metrics:
+    port: 8787
 
 drivemgr:
   type: basemgr

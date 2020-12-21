@@ -115,7 +115,7 @@ func newControllerSvc(kubeClient *k8s.KubeClient) {
 
 	controllerService := controller.NewControllerService(kubeClient, ll, featureconfig.NewFeatureConfig())
 
-	csiControllerServer := rpc.NewServerRunner(nil, controllerEndpoint, ll)
+	csiControllerServer := rpc.NewServerRunner(nil, controllerEndpoint, false, ll)
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controller.NewIdentityServer(driverName, version))
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
@@ -132,7 +132,7 @@ func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 
 	csiNodeService := prepareNodeMock(kubeClient, ll)
 
-	csiUDSServer := rpc.NewServerRunner(nil, nodeEndpoint, ll)
+	csiUDSServer := rpc.NewServerRunner(nil, nodeEndpoint, false, ll)
 
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiNodeService)

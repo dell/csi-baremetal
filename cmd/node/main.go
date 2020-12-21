@@ -23,10 +23,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
@@ -72,6 +75,9 @@ var (
 		"Whether node svc should read id from node annotation and use it as id for all CRs or not")
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
+		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
+	metricspath = flag.String("metrics-path:", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
 )
 
 func main() {
@@ -81,6 +87,11 @@ func main() {
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
 
+	var enableMetrics bool
+	if *metricspath != "" {
+		enableMetrics = true
+	}
+
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
@@ -89,14 +100,14 @@ func main() {
 	logger.Info("Starting Node Service")
 
 	// gRPC client for communication with DriveMgr via TCP socket
-	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, logger)
+	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
 	if err != nil {
 		logger.Fatalf("fail to create grpc client for endpoint %s, error: %v", *driveMgrEndpoint, err)
 	}
 	clientToDriveMgr := api.NewDriveServiceClient(gRPCClient.GRPCClient)
 
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
-	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, logger)
+	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, enableMetrics, logger)
 
 	k8SClient, err := k8s.GetK8SClient()
 	if err != nil {
@@ -131,9 +142,21 @@ func main() {
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiNodeService)
+
+	grpc_prometheus.Register(csiUDSServer.GRPCServer)
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpc_prometheus.EnableClientHandlingTimeHistogram()
+
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiUDSServer)
-
+	if enableMetrics {
+		go func() {
+			http.Handle(*metricspath, promhttp.Handler())
+			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
+				logger.Warnf("metric http returned: %s ", err)
+			}
+		}()
+	}
 	go func() {
 		logger.Info("Starting Node Health server ...")
 		if err := util.SetupAndStartHealthCheckServer(
