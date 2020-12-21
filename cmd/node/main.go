@@ -143,13 +143,13 @@ func main() {
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiNodeService)
 
-	grpc_prometheus.Register(csiUDSServer.GRPCServer)
-	grpc_prometheus.EnableHandlingTimeHistogram()
-	grpc_prometheus.EnableClientHandlingTimeHistogram()
 
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiUDSServer)
 	if enableMetrics {
+		grpc_prometheus.Register(csiUDSServer.GRPCServer)
+		grpc_prometheus.EnableHandlingTimeHistogram()
+		grpc_prometheus.EnableClientHandlingTimeHistogram()
 		go func() {
 			http.Handle(*metricspath, promhttp.Handler())
 			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
