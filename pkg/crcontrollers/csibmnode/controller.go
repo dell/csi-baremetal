@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -52,6 +53,9 @@ type Controller struct {
 	k8sClient    *k8s.KubeClient
 	nodeSelector *label
 	cache        nodesMapping
+
+	enabled 	bool
+	enabledMu 	sync.Mutex
 
 	log *logrus.Entry
 }
@@ -90,6 +94,7 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
+		enabled: true,
 		log: logger.WithField("component", "Controller"),
 	}
 
@@ -103,6 +108,18 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 	}
 
 	return c, nil
+}
+
+func (bmc *Controller) isEnabled() bool {
+	bmc.enabledMu.Lock()
+	defer bmc.enabledMu.Unlock()
+	return bmc.enabled
+}
+
+func (bmc *Controller) disable() {
+	bmc.enabledMu.Lock()
+	bmc.enabled = false
+	bmc.enabledMu.Unlock()
 }
 
 func (bmc *Controller) isMatchSelector(k8sNode *coreV1.Node) bool {
@@ -128,6 +145,10 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}). // secondary resource
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
+				if !bmc.isEnabled() {
+					return false
+				}
+
 				if _, ok := e.Object.(*nodecrd.CSIBMNode); ok {
 					return true
 				}
@@ -140,6 +161,10 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 				return bmc.isMatchSelector(k8sNode)
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
+				if !bmc.isEnabled() {
+					return false
+				}
+
 				if _, ok := e.ObjectOld.(*nodecrd.CSIBMNode); ok {
 					return true
 				}
@@ -171,6 +196,11 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		"method": "Reconcile",
 		"name":   req.Name,
 	})
+
+	if !bmc.isEnabled() {
+		ll.Info("Controller was disabled. Stop reconcilation")
+		return ctrl.Result{}, nil
+	}
 
 	var err error
 	// if name in request doesn't start with namePrefix controller tries to read k8s node object at first
@@ -283,6 +313,12 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		"method": "reconcileForCSIBMNode",
 		"name":   bmNode.Name,
 	})
+
+	if !bmNode.GetDeletionTimestamp().IsZero() {
+		// remove annotation from node
+		bmc.disable()
+		return ctrl.Result{}, nil
+	}
 
 	if len(bmNode.Spec.Addresses) == 0 {
 		err := errors.New("addresses are missing for current CSIBMNode instance")
