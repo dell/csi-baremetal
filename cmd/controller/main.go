@@ -21,20 +21,22 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	// +kubebuilder:scaffold:imports
-
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 var (
@@ -47,6 +49,9 @@ var (
 		"Whether controller should read AvailableCapacityReservation CR during CreateVolume request or not")
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
+		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
+	metricspath = flag.String("metrics-path:", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
 )
 
 func main() {
@@ -55,6 +60,11 @@ func main() {
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
 
+	var enableMetrics bool
+	if *metricspath != "" {
+		enableMetrics = true
+	}
+
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
@@ -62,7 +72,7 @@ func main() {
 
 	logger.Info("Starting controller ...")
 
-	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, logger)
+	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, enableMetrics, logger)
 
 	k8SClient, err := k8s.GetK8SClient()
 	if err != nil {
@@ -75,6 +85,19 @@ func main() {
 
 	csi.RegisterIdentityServer(csiControllerServer.GRPCServer, controllerService)
 	csi.RegisterControllerServer(csiControllerServer.GRPCServer, controllerService)
+
+	if enableMetrics {
+		grpc_prometheus.Register(csiControllerServer.GRPCServer)
+		grpc_prometheus.EnableHandlingTimeHistogram()
+		grpc_prometheus.EnableClientHandlingTimeHistogram()
+		go func() {
+			http.Handle(*metricspath, promhttp.Handler())
+			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
+				logger.Warnf("metric http returned: %s ", err)
+			}
+		}()
+	}
+
 	go func() {
 		logger.Info("Starting Controller Health server ...")
 		if err := util.SetupAndStartHealthCheckServer(
