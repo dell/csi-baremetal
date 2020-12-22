@@ -58,6 +58,9 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
           - --csiendpoint=$(CSI_ENDPOINT)
+          {{- if .Values.node.metrics.port }}
+          - --metrics-address=:{{ .Values.node.metrics.port }}
+          {{- end }}
           - --nodename=$(KUBE_NODE_NAME)
           - --namespace=$(NAMESPACE)
           - --extender={{ .Values.feature.extender }}
@@ -76,6 +79,11 @@ spec:
           - name: liveness-port
             containerPort: 9808
             protocol: TCP
+          {{- if .Values.node.metrics.port }}
+          - name: metrics
+            containerPort: {{ .Values.node.metrics.port }}
+            protocol: TCP
+          {{- end }}
         livenessProbe:
           failureThreshold: 5
           httpGet:

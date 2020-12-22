@@ -42,7 +42,7 @@ func Test_SetupAndStartHealthCheckServer(t *testing.T) {
 	}()
 	time.Sleep(3 * time.Second)
 
-	client, err := grpc.NewClient(nil, endpoint, testLogger)
+	client, err := grpc.NewClient(nil, endpoint, false, testLogger)
 	assert.Nil(t, err)
 
 	healthClient := grpc_health_v1.NewHealthClient(client.GRPCClient)

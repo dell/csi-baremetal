@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -33,20 +34,22 @@ const (
 
 // ServerRunner encapsulates logic for creating/starting/stopping gRPC server
 type ServerRunner struct {
-	GRPCServer *grpc.Server
-	listener   net.Listener
-	Creds      credentials.TransportCredentials
-	Endpoint   string
-	log        *logrus.Entry
+	GRPCServer     *grpc.Server
+	listener       net.Listener
+	Creds          credentials.TransportCredentials
+	Endpoint       string
+	log            *logrus.Entry
+	metricsEnabled bool
 }
 
 // NewServerRunner returns ServerRunner object based on parameters that had provided
 // Receives credentials for connection, connection endpoint (for example 'tcp://localhost:8888') and logrus logger
 // Returns an instance of ServerRunner struct
-func NewServerRunner(creds credentials.TransportCredentials, endpoint string, logger *logrus.Logger) *ServerRunner {
+func NewServerRunner(creds credentials.TransportCredentials, endpoint string, enableMetrics bool, logger *logrus.Logger) *ServerRunner {
 	sr := &ServerRunner{
-		Creds:    creds,
-		Endpoint: endpoint,
+		Creds:          creds,
+		Endpoint:       endpoint,
+		metricsEnabled: enableMetrics,
 	}
 	sr.SetLogger(logger)
 	sr.init()
@@ -63,11 +66,15 @@ func (sr *ServerRunner) SetLogger(logger *logrus.Logger) {
 
 // init initializes GRPCServer field of ServerRunner struct
 func (sr *ServerRunner) init() {
+	opts := make([]grpc.ServerOption, 0)
 	if sr.Creds != nil {
-		sr.GRPCServer = grpc.NewServer(grpc.Creds(sr.Creds))
-	} else {
-		sr.GRPCServer = grpc.NewServer()
+		opts = append(opts, grpc.Creds(sr.Creds))
 	}
+
+	if sr.metricsEnabled {
+		opts = append(opts, grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor), grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
+	}
+	sr.GRPCServer = grpc.NewServer(opts...)
 }
 
 // RunServer creates Listener and starts gRPC server on endpoint

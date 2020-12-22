@@ -25,7 +25,7 @@ import (
 
 // SetupAndStartHealthCheckServer starts gRPC server to handle Health checking requests
 func SetupAndStartHealthCheckServer(c health.HealthServer, logger *logrus.Logger, endpoint string) error {
-	healthServer := rpc.NewServerRunner(nil, endpoint, logger)
+	healthServer := rpc.NewServerRunner(nil, endpoint, false, logger)
 	// register Health checks
 	logger.Info("Registering health check service")
 	health.RegisterHealthServer(healthServer.GRPCServer, c)
