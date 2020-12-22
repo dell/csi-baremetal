@@ -378,7 +378,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		bmNode.Finalizers = nil
 		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
 		if err != nil {
-			ll.Errorf("Unable to update CSIBMNode %s", bmNode.Name)
+			ll.Errorf("Unable to update CSIBMNode %s: %v", bmNode.Name, err)
 		}
 		ll.Infof("Finalizer for CSIBMNode %s was removed.", bmNode.Name)
 		return ctrl.Result{}, err
