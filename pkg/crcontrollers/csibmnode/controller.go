@@ -98,7 +98,7 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
-		enabledForNode: make(map[string]bool, 3),
+		enabledForNode: make(map[string]bool, 3), // a little optimization, if cluster has 3 worker nodes this map won't be extended
 		log:            logger.WithField("component", "Controller"),
 	}
 
