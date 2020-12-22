@@ -59,7 +59,7 @@ type Controller struct {
 	// holds k8s node names for which annotation settings is enabled,
 	// it is used in CSIBMNode CR deletion for avoiding recreation
 	enabledForNode map[string]bool
-	enabledMu      sync.Mutex
+	enabledMu      sync.RWMutex
 
 	log *logrus.Entry
 }
@@ -128,6 +128,8 @@ func (bmc *Controller) disableForNode(nodeName string) {
 
 func (bmc *Controller) isEnabledForNode(nodeName string) bool {
 	var enabled, ok bool
+	bmc.enabledMu.RLock()
+	defer bmc.enabledMu.RUnlock()
 	if enabled, ok = bmc.enabledForNode[nodeName]; !ok {
 		return false
 	}
