@@ -18,7 +18,7 @@ package eventing
 
 // Event types
 const (
-	InfoType     = "Info"
+	NormalType   = "Normal"
 	WarningType  = "Warning"
 	ErrorType    = "Error"
 	CriticalType = "Critical"
