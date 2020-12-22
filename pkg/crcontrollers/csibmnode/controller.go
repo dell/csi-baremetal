@@ -45,7 +45,7 @@ const (
 	// nodeIDAnnotationKey hold key for annotation for node object
 	nodeIDAnnotationKey = common.NodeIDAnnotationKey
 	// namePrefix it is a prefix for CSIBMNode CR name
-	namePrefix         = "csibmnode-"
+	namePrefix = "csibmnode-"
 	// finalizer for CSIBMNode custom resource
 	csibmNodeFinalizer = "dell.emc.csi/csibmnode-cleanup"
 )
@@ -253,9 +253,9 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 
 	var (
 		bmNode          = &nodecrd.CSIBMNode{}
-		bmNodeFromCache = false
+		bmNodeFromCache bool
+		bmNodeName      string
 		bmNodes         []nodecrd.CSIBMNode
-		bmNodeName 		string
 	)
 	// get corresponding CSIBMNode CR name from cache
 	if bmNodeName, bmNodeFromCache = bmc.cache.getCSIBMNodeName(k8sNode.Name); bmNodeFromCache {
