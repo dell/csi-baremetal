@@ -257,6 +257,8 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 	return &cm
 }
 
+// removeAllCRs removes all CRs that were created during plugin installation except
+// CSIBMNodes CRs because CSIBMNodes CRs creates once at common BeforeSuite step
 func (d *baremetalDriver) removeAllCRs(f *framework.Framework) error {
 	var savedErr error
 	for _, gvr := range common.AllGVRs {
