@@ -31,7 +31,6 @@ import (
 
 var DefaultPESize = capacityplanner.DefaultPESize
 
-
 func Test_recreateACToLVGSC_Success(t *testing.T) {
 	var (
 		acOp  = setupACOperationsTest(t, &testAC2, &testAC3)
@@ -78,7 +77,6 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	assert.Equal(t, apiV1.StorageClassHDDLVG, acList.Items[2].Spec.StorageClass)
 }
 
-
 // creates fake k8s client and creates AC CRs based on provided acs
 // returns instance of ACOperationsImpl based on created k8s client
 func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOperationsImpl {
@@ -92,7 +90,6 @@ func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOpe
 	}
 	return NewACOperationsImpl(k8sClient, testLogger)
 }
-
 
 func Test_AlignSizeByPE(t *testing.T) {
 	type args struct {

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -45,6 +46,8 @@ const (
 	nodeIDAnnotationKey = common.NodeIDAnnotationKey
 	// namePrefix it is a prefix for CSIBMNode CR name
 	namePrefix = "csibmnode-"
+	// finalizer for CSIBMNode custom resource
+	csibmNodeFinalizer = "dell.emc.csi/csibmnode-cleanup"
 )
 
 // Controller is a controller for CSIBMNode CR
@@ -52,6 +55,11 @@ type Controller struct {
 	k8sClient    *k8s.KubeClient
 	nodeSelector *label
 	cache        nodesMapping
+
+	// holds k8s node names for which annotation settings is enabled,
+	// it is used in CSIBMNode CR deletion for avoiding recreation
+	enabledForNode map[string]bool
+	enabledMu      sync.RWMutex
 
 	log *logrus.Entry
 }
@@ -90,7 +98,8 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
-		log: logger.WithField("component", "Controller"),
+		enabledForNode: make(map[string]bool, 3), // a little optimization, if cluster has 3 worker nodes this map won't be extended
+		log:            logger.WithField("component", "Controller"),
 	}
 
 	if nodeSelector != "" {
@@ -103,6 +112,29 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 	}
 
 	return c, nil
+}
+
+func (bmc *Controller) enableForNode(nodeName string) {
+	bmc.enabledMu.Lock()
+	bmc.enabledForNode[nodeName] = true
+	bmc.enabledMu.Unlock()
+}
+
+func (bmc *Controller) disableForNode(nodeName string) {
+	bmc.enabledMu.Lock()
+	bmc.enabledForNode[nodeName] = false
+	bmc.enabledMu.Unlock()
+}
+
+func (bmc *Controller) isEnabledForNode(nodeName string) bool {
+	var enabled, ok bool
+	bmc.enabledMu.RLock()
+	defer bmc.enabledMu.RUnlock()
+	if enabled, ok = bmc.enabledForNode[nodeName]; !ok {
+		return false
+	}
+
+	return enabled
 }
 
 func (bmc *Controller) isMatchSelector(k8sNode *coreV1.Node) bool {
@@ -133,11 +165,12 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 				}
 
 				k8sNode, ok := e.Object.(*coreV1.Node)
-				if !ok {
+				if !ok || !bmc.isMatchSelector(k8sNode) {
 					return false
 				}
 
-				return bmc.isMatchSelector(k8sNode)
+				bmc.enableForNode(k8sNode.Name)
+				return true
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				if _, ok := e.ObjectOld.(*nodecrd.CSIBMNode); ok {
@@ -149,6 +182,10 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 					return false
 				}
 				nodeNew := e.ObjectNew.(*coreV1.Node)
+
+				if !bmc.isEnabledForNode(nodeNew.Name) {
+					return false
+				}
 
 				if !bmc.isMatchSelector(nodeNew) {
 					return false
@@ -218,11 +255,12 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 
 	var (
 		bmNode          = &nodecrd.CSIBMNode{}
-		bmNodeFromCache = false
+		bmNodeFromCache bool
+		bmNodeName      string
 		bmNodes         []nodecrd.CSIBMNode
 	)
 	// get corresponding CSIBMNode CR name from cache
-	if bmNodeName, bmNodeFromCache := bmc.cache.getCSIBMNodeName(k8sNode.Name); bmNodeFromCache {
+	if bmNodeName, bmNodeFromCache = bmc.cache.getCSIBMNodeName(k8sNode.Name); bmNodeFromCache {
 		if err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, bmNode); err != nil {
 			ll.Errorf("Unable to read CSIBMNode %s: %v", bmNodeName, err)
 			return ctrl.Result{Requeue: true}, err
@@ -268,6 +306,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 			UUID:      id,
 			Addresses: bmc.constructAddresses(k8sNode),
 		})
+		bmNode.Finalizers = []string{csibmNodeFinalizer}
 		if err := bmc.k8sClient.CreateCR(context.Background(), bmNodeName, bmNode); err != nil {
 			ll.Errorf("Unable to create CSIBMNode CR: %v", err)
 			return ctrl.Result{Requeue: true}, err
@@ -329,6 +368,23 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		}
 	}
 
+	if !bmNode.GetDeletionTimestamp().IsZero() {
+		bmc.disableForNode(k8sNode.Name)
+		if err := bmc.removeAnnotation(k8sNode); err != nil {
+			ll.Errorf("Unable to remove annotation from node %s: %v", k8sNode.Name, err)
+			bmc.enableForNode(k8sNode.Name)
+			return ctrl.Result{Requeue: true}, err
+		}
+
+		ll.Infof("Annotation from node %s was removed. Removing finalizer from %s.", k8sNode.Name, bmNode.Name)
+		bmNode.Finalizers = nil
+		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
+		if err != nil {
+			ll.Errorf("Unable to update CSIBMNode %s: %v", bmNode.Name, err)
+		}
+		return ctrl.Result{}, err
+	}
+
 	if len(matchedNodes) == 1 {
 		bmc.cache.put(k8sNode.Name, bmNode.Name)
 		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
@@ -362,6 +418,21 @@ func (bmc *Controller) updateAnnotation(k8sNode *coreV1.Node, goalValue string) 
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (bmc *Controller) removeAnnotation(k8sNode *coreV1.Node) error {
+	if k8sNode.GetAnnotations() == nil {
+		return nil
+	}
+
+	curr := k8sNode.GetAnnotations()
+	if _, ok := curr[nodeIDAnnotationKey]; ok {
+		delete(curr, nodeIDAnnotationKey)
+		k8sNode.Annotations = curr
+		return bmc.k8sClient.UpdateCR(context.Background(), k8sNode)
+	}
+
+	return nil
 }
 
 // matchedAddressesCount return amount of k8s node addresses that has corresponding address in bmNodeCR.Spec.Addresses map
