@@ -47,17 +47,11 @@ var (
 		Resource: "volumes",
 	}
 
-	NodeGVR = schema.GroupVersionResource{
-		Group:    apiV1.CSICRsGroupVersion,
-		Version:  apiV1.Version,
-		Resource: "csibmnodes",
-	}
-
 	LVGGVR = schema.GroupVersionResource{
 		Group:    apiV1.CSICRsGroupVersion,
 		Version:  apiV1.Version,
 		Resource: "lvgs",
 	}
 
-	AllGVRs = []schema.GroupVersionResource{DriveGVR, ACGVR, ACRGVR, VolumeGVR, NodeGVR, LVGGVR}
+	AllGVRs = []schema.GroupVersionResource{DriveGVR, ACGVR, ACRGVR, VolumeGVR, LVGGVR}
 )
