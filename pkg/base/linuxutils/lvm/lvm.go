@@ -47,6 +47,8 @@ const (
 	VGRemoveCmdTmpl = lvmPath + "vgremove --yes %s" // add VG name
 	// VGByLVCmdTmpl find VG by LV cmd
 	VGByLVCmdTmpl = lvmPath + "lvs %s --options vg_name --noheadings" // add LV name
+	// AllVGsCmd returns all VGs on the system
+	AllVGsCmd = lvmPath + "vgs --options vg_name --no-headings"
 	// VGFreeSpaceCmdTmpl check VG free space cmd
 	VGFreeSpaceCmdTmpl = "vgs %s --options vg_free --units b --noheadings" // add VG name
 	// LVCreateCmdTmpl create LV on provided VG cmd
@@ -280,4 +282,13 @@ func (l *LVM) IsLVGExists(lvName string) (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("unable to determine")
+}
+
+func (l *LVM) GetAllVGs() ([]string, error) {
+	stdOut, _, err := l.e.RunCmd(AllVGsCmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.Split(stdOut, "\n"), nil // TODO: add func smartSplit that will be do something like in GetLVsInVG
 }
