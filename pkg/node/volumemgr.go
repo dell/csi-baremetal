@@ -865,19 +865,22 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	ll := m.log.WithField("method", "discoverLVGOnSystemDrive")
 
+	if len(m.systemDrivesUUIDs) == 0 {
+		return errors.New("system drive is not defined")
+	}
+
 	var (
-		errTmpl = "unable to inspect system LVM, error: %v"
-		err     error
+		vgFreeSpace int64
+		err         error
 	)
 
-	// at first check whether LVG on system drive exists or no
+	// 1. check whether LVG CR that holds info about LVG configuration on system drive exists or no
 	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
 	for _, lvg := range lvgs {
 		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDrivesUUIDs, lvg.Spec.Locations[0]) {
-			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
 			}
@@ -886,61 +889,53 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		}
 	}
 
-	allLVGs, err := m.lvmOps.GetAllVGs()
+	// 2. check whether there is LVG configuration on the system drive or no
+	var driveCR = new(drivecrd.Drive)
+	// TODO: handle situation when there is more then one system drive
+	if err = m.k8sClient.ReadCR(context.Background(), m.systemDrivesUUIDs[0], driveCR); err != nil {
+		return err
+	}
+
+	pvs, err := m.lvmOps.GetAllPVs()
 	if err != nil {
-		return fmt.Errorf("unable to list VGs on the system: %v", err)
+		return fmt.Errorf("unable to list PVs on the system: %v", err)
 	}
 
-	if len(allLVGs) == 0 {
-		ll.Info("There is no LVM configuration on the node")
-		m.discoverLvgSSD = false
-	}
-
-	var (
-		rootMountPoint, vgName string
-		vgFreeSpace            int64
-	)
-
-	if rootMountPoint, err = m.fsOps.FindMountPoint(base.KubeletRootPath); err != nil {
-		ll.Errorf("Failed to find root mountpoint for %s, error: %v, try to find for %s",
-			base.KubeletRootPath, err, base.HostRootPath)
-		if rootMountPoint, err = m.fsOps.FindMountPoint(base.HostRootPath); err != nil {
-			return fmt.Errorf(errTmpl, err)
-		}
-	}
-
-	// from container we expect here name like "VG_NAME[/var/lib/kubelet/pods]"
-	rootMountPoint = strings.Split(rootMountPoint, "[")[0]
-
-	devices, err := m.listBlk.GetBlockDevices(rootMountPoint)
-	if err != nil {
-		return fmt.Errorf(errTmpl, err)
-	}
-
-	if devices[0].Rota != base.NonRotationalNum {
-		m.discoverLvgSSD = false
-		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
-		return nil
-	}
-
-	// OS add on more dash for each dash in findmnt result string: e.g. /dev/mapper/root--vg-lv_var[/lib/kubelet/pods]
-	rootMountPoint = strings.ReplaceAll(rootMountPoint, "--", "-")
-	// search if some VG name is in rootMountPoint path
-	for _, vg := range allLVGs {
-		if strings.Contains(rootMountPoint, vg) {
-			vgName = vg
+	var systemPVName = ""
+	for _, pv := range pvs {
+		if strings.Contains(pv, driveCR.Spec.Path) {
+			systemPVName = pv
 			break
 		}
 	}
-	// rootMountPoint no in VG
-	if vgName == "" {
+
+	if systemPVName == "" {
+		ll.Info("There is no LVM configuration on the system drive")
 		m.discoverLvgSSD = false
-		ll.Infof("There is no LVM configuration on the system disk.")
 		return nil
 	}
 
+	// 3. check whether the system drive SSD or no
+	devices, err := m.listBlk.GetBlockDevices(driveCR.Spec.Path)
+	if err != nil {
+		return fmt.Errorf("unable to get info about system drive: %s", err)
+	}
+
+	if devices[0].Rota != base.NonRotationalNum {
+		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
+		m.discoverLvgSSD = false
+		return nil
+	}
+
+	// 4. search VG info and create LVG CR
+	var vgName string
+	vgName, err = m.lvmOps.GetVGNameByPVName(systemPVName)
+	if err != nil {
+		return fmt.Errorf("unable to detect system VG name: %v", err)
+	}
+
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
-		return fmt.Errorf(errTmpl, err)
+		return fmt.Errorf("unable to determine VG %s free space:", vgName, err)
 	}
 	lvs, err := m.lvmOps.GetLVsInVG(vgName)
 	if err != nil {
