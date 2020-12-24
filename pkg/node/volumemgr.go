@@ -1071,7 +1071,7 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 // createEventsForDriveUpdates create required events for drive state change
 func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 	for _, createdDrive := range updates.Created {
-		m.sendEventForDrive(createdDrive, eventing.InfoType, eventing.DriveDiscovered,
+		m.sendEventForDrive(createdDrive, eventing.NormalType, eventing.DriveDiscovered,
 			"New drive discovered SN: %s, Node: %s.",
 			createdDrive.Spec.SerialNumber, createdDrive.Spec.NodeId)
 		m.createEventForDriveHealthChange(
@@ -1096,7 +1096,7 @@ func (m *VolumeManager) createEventForDriveHealthChange(
 	var reason string
 	switch currentHealth {
 	case apiV1.HealthGood:
-		eventType = eventing.InfoType
+		eventType = eventing.NormalType
 		reason = eventing.DriveHealthGood
 	case apiV1.HealthBad:
 		eventType = eventing.ErrorType
@@ -1115,7 +1115,7 @@ func (m *VolumeManager) createEventForDriveHealthChange(
 func (m *VolumeManager) createEventForDriveStatusChange(
 	drive *drivecrd.Drive, prevStatus, currentStatus string) {
 	statusMsgTemplate := "Drive status is: %s, previous status: %s."
-	eventType := eventing.InfoType
+	eventType := eventing.NormalType
 	var reason string
 	switch currentStatus {
 	case apiV1.DriveStatusOnline:
