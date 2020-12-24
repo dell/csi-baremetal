@@ -923,6 +923,8 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
+	// OS add on more dash for each dash in findmnt result string: e.g. /dev/mapper/root--vg-lv_var[/lib/kubelet/pods]
+	rootMountPoint = strings.ReplaceAll(rootMountPoint, "--", "-")
 	// search if some VG name is in rootMountPoint path
 	for _, vg := range allLVGs {
 		if strings.Contains(rootMountPoint, vg) {
