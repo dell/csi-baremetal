@@ -99,6 +99,7 @@ func (m *MockWrapLVM) GetLVsInVG(vgName string) ([]string, error) {
 	return args.Get(0).([]string), args.Error(1)
 }
 
+// GetAllVGs is a mock implementations
 func (m *MockWrapLVM) GetAllVGs() ([]string, error) {
 	args := m.Mock.Called()
 

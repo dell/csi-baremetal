@@ -239,6 +239,7 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	return bytes, nil
 }
 
+// GetAllVGs returns slice with names of all volume groups in the system
 func (l *LVM) GetAllVGs() ([]string, error) {
 	stdOut, _, err := l.e.RunCmd(AllVGsCmd)
 	if err != nil {
