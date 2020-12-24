@@ -950,11 +950,11 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	m.fsOps = fsOps
 	m.lvmOps = lvmOps
 
-	rootMountPoint := "/dev/sda"
 	vgName := "root-vg"
+	rootMountPoint := "/dev/" + vgName + "/root-lv"
 	fsOps.On("FindMountPoint", base.KubeletRootPath).Return(rootMountPoint, nil)
 	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
-	lvmOps.On("GetAllLVGs").Return([]string{vgName}, nil)
+	lvmOps.On("GetAllVGs").Return([]string{vgName}, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
 	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
 
