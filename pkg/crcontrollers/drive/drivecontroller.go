@@ -127,7 +127,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if allFound {
 			drive.Spec.Usage = apiV1.DriveUsageReleased
 			eventMsg := fmt.Sprintf("Drive is ready for replacement, %s", drive.GetDriveDescription())
-			c.eventRecorder.Eventf(drive, eventing.InfoType, eventing.DriveReadyForReplacement, eventMsg)
+			c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveReadyForReplacement, eventMsg)
 			toUpdate = true
 		}
 
@@ -156,7 +156,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			} else {
 				// send info level alert
 				eventMsg := fmt.Sprintf("Drive successfully replaced, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.InfoType, eventing.DriveSuccessfullyReplaced, eventMsg)
+				c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveSuccessfullyReplaced, eventMsg)
 			}
 			toUpdate = true
 		}
