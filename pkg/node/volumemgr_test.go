@@ -951,7 +951,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	m.lvmOps = lvmOps
 
 	vgName := "root-vg"
-	rootMountPoint := "/dev/" + vgName + "/root-lv"
+	rootMountPoint := "/dev/mapper/root-vg-lv_var"
 	fsOps.On("FindMountPoint", base.KubeletRootPath).Return(rootMountPoint, nil)
 	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
 	lvmOps.On("GetAllVGs").Return([]string{vgName}, nil)

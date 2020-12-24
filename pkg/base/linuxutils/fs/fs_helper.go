@@ -238,7 +238,7 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(strOut), nil
+	return strings.ReplaceAll(strings.TrimSpace(strOut), "--", "-"), nil
 }
 
 // Mount mounts source path to the destination directory

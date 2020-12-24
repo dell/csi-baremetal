@@ -49,6 +49,14 @@ func TestFindMountPoint(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, expectedRes, currentRes)
 
+	// double dashes to single
+	resWithDoubleDashes := "   /dev/mapper/root--vg-lv_var[/lib/kubelet/pods]   \n"
+	expectedRes = "/dev/mapper/root-vg-lv_var[/lib/kubelet/pods]"
+	e.OnCommand(cmd).Return(resWithDoubleDashes, "", nil).Times(1)
+	currentRes, err = fh.FindMountPoint(target)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedRes, currentRes)
+
 	// expect error
 	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
 	currentRes, err = fh.FindMountPoint(target)
