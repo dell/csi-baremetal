@@ -46,6 +46,7 @@ const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 // Controller is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
 type Controller struct {
 	k8sClient *k8s.KubeClient
+	crHelper  *k8s.CRHelper
 
 	listBlk lsblk.WrapLsblk
 	lvmOps  lvm.WrapLVM
@@ -63,6 +64,7 @@ func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger)
 	e.SetLogger(log)
 	return &Controller{
 		k8sClient: k8sClient,
+		crHelper:  k8s.NewCRHelper(k8sClient, log),
 		node:      nodeID,
 		log:       log.WithField("component", "Controller"),
 		e:         e,
@@ -95,17 +97,23 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return c.handleLVGRemoving(lvg)
 	case !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer):
 		return c.appendFinalizer(lvg)
-	case lvg.Spec.Status == apiV1.Creating:
-		ll.Info("Creating LVG")
-		return c.handlerLVGCreation(lvg)
 	// if lvg.Spec.VolumeRefs == 0 it means that LVG just being created
 	// for lvg on non-system drive finalizer should be removed during handleLVGRemoving stage
 	// here controller removes finalizer for lvg on system drive, for that lvg VolumeRefs != 0
 	case !util.HasNameWithPrefix(lvg.Spec.VolumeRefs) && len(lvg.Spec.VolumeRefs) != 0:
 		return c.removeFinalizer(lvg)
-	default:
-		return ctrl.Result{}, nil
 	}
+
+	// check for LVG state
+	switch lvg.Spec.Status {
+	case apiV1.Creating:
+		ll.Info("Creating LVG")
+		return c.handlerLVGCreation(lvg)
+	case apiV1.Failed:
+		c.resetACSizeOfLVG(lvg.Name)
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // appendFinalizer appends finalizer to the LVG CR (update CR)
@@ -323,4 +331,21 @@ func (c *Controller) increaseACSize(driveID string, size int64) {
 	}
 
 	ll.Errorf("Corresponding AC for drive ID %s not found", driveID)
+}
+
+// resetACSize sets size of corresponding AC to 0 to avoid further allocations
+func (c *Controller) resetACSizeOfLVG(lvgName string) {
+	// read AC
+	if ac := c.crHelper.GetACByLocation(lvgName); ac != nil {
+		// update if not null already
+		if ac.Spec.Size != 0 {
+			ac.Spec.Size = 0
+			if err := c.k8sClient.UpdateCR(context.Background(), ac); err != nil {
+				c.log.Errorf("Unable to set AC CR %s size to 0, error: %v.", ac.Name, err)
+			}
+		}
+		return
+	}
+
+	c.log.Errorf("AC CR for LVG %s not found", lvgName)
 }
