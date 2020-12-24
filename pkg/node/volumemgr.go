@@ -886,6 +886,16 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		}
 	}
 
+	allLVGs, err := m.lvmOps.GetAllVGs()
+	if err != nil {
+		return fmt.Errorf("unable to list VGs on the system: %v", err)
+	}
+
+	if len(allLVGs) == 0 {
+		ll.Info("There is no LVM configuration on the node")
+		m.discoverLvgSSD = false
+	}
+
 	var (
 		rootMountPoint, vgName string
 		vgFreeSpace            int64
@@ -913,21 +923,20 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
-	lvgExists, err := m.lvmOps.IsLVGExists(rootMountPoint)
-
-	if err != nil {
-		return fmt.Errorf(errTmpl, err)
+	// search if some VG name is in rootMountPoint path
+	for _, vg := range allLVGs {
+		if strings.Contains(rootMountPoint, vg) {
+			vgName = vg
+			break
+		}
 	}
-
-	if !lvgExists {
+	// rootMountPoint no in VG
+	if vgName == "" {
 		m.discoverLvgSSD = false
-		ll.Infof("System disk is SSD. but it doesn't have LVG.")
+		ll.Infof("There is no LVM configuration on the system disk.")
 		return nil
 	}
 
-	if vgName, err = m.lvmOps.FindVgNameByLvName(rootMountPoint); err != nil {
-		return fmt.Errorf(errTmpl, err)
-	}
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
 		return fmt.Errorf(errTmpl, err)
 	}

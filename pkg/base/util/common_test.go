@@ -160,7 +160,7 @@ func TestContainsString(t *testing.T) {
 	var res bool
 	for _, scenario := range containsStringScenarios {
 		res = ContainsString(scenario.slice, scenario.str)
-		assert.Equal(t, res, scenario.result)
+		assert.Equal(t, scenario.result, res)
 	}
 }
 
@@ -180,6 +180,25 @@ func TestRemoveString(t *testing.T) {
 	var res []string
 	for _, scenario := range removeStringScenarios {
 		res = RemoveString(scenario.slice, scenario.str)
-		assert.Equal(t, res, scenario.result)
+		assert.Equal(t, scenario.result, res)
+	}
+}
+
+func TestSplitAndTrimSpace(t *testing.T) {
+	var cases = []struct {
+		str    string
+		sep    string
+		result []string
+	}{
+		{"", "a", []string{}},
+		{"one", " ", []string{"one"}},
+		{" \n ", "\n", []string{}},
+		{"  one\n  two\n   \n   ", "\n", []string{"one", "two"}},
+	}
+
+	var res []string
+	for _, scenario := range cases {
+		res = SplitAndTrimSpace(scenario.str, scenario.sep)
+		assert.Equal(t, scenario.result, res)
 	}
 }

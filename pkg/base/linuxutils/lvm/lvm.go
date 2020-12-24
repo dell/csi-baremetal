@@ -71,9 +71,8 @@ type WrapLVM interface {
 	LVRemove(fullLVName string) error
 	IsVGContainsLVs(vgName string) bool
 	RemoveOrphanPVs() error
-	FindVgNameByLvName(lvName string) (string, error)
 	GetVgFreeSpace(vgName string) (int64, error)
-	IsLVGExists(lvName string) (bool, error)
+	GetAllVGs() ([]string, error)
 	GetLVsInVG(vgName string) ([]string, error)
 }
 
@@ -184,15 +183,8 @@ func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	lvg := strings.Split(stdout, "\n")
-	for i := 0; i < len(lvg); i++ {
-		lvg[i] = strings.TrimSpace(lvg[i])
-		if len(lvg[i]) == 0 {
-			lvg = append(lvg[:i], lvg[i+1:]...)
-			i--
-		}
-	}
-	return lvg, nil
+
+	return util.SplitAndTrimSpace(stdout, "\n"), nil
 }
 
 // RemoveOrphanPVs removes PVs that do not have VG
@@ -217,23 +209,6 @@ func (l *LVM) RemoveOrphanPVs() error {
 		return errors.New("not all PVs were removed")
 	}
 	return nil
-}
-
-// FindVgNameByLvName search VG name by LV name, LV name should be full
-// Receives LV name to find its VG
-// Returns VG name or empty string and error
-func (l *LVM) FindVgNameByLvName(lvName string) (string, error) {
-	/*
-		Example of output:
-		root@provo-goop:~# lvs /dev/mapper/unassigned--hostname--vg-root --options vg_name --noheadings
-			  unassigned-hostname-vg
-	*/
-	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
-	strOut, _, err := l.e.RunCmd(cmd)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(strOut), nil
 }
 
 // GetVgFreeSpace returns VG free space in bytes
@@ -264,31 +239,11 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	return bytes, nil
 }
 
-// IsLVGExists try to get vg group from lvName, if there is no such group then lvg is not exists
-// Receives lvName string
-// Returns true if lvg exists, else false; error
-func (l *LVM) IsLVGExists(lvName string) (bool, error) {
-	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
-	stdout, stdErr, err := l.e.RunCmd(cmd)
-	for _, s := range strings.Split(lvName, "/") {
-		if strings.Contains(stdErr, fmt.Sprintf("Volume group \"%s\" not found", s)) {
-			return false, nil
-		}
-	}
-	if err != nil {
-		return false, err
-	}
-	if len(strings.TrimSpace(stdout)) > 0 {
-		return true, nil
-	}
-	return false, fmt.Errorf("unable to determine")
-}
-
 func (l *LVM) GetAllVGs() ([]string, error) {
 	stdOut, _, err := l.e.RunCmd(AllVGsCmd)
 	if err != nil {
 		return nil, err
 	}
 
-	return strings.Split(stdOut, "\n"), nil // TODO: add func smartSplit that will be do something like in GetLVsInVG
+	return util.SplitAndTrimSpace(stdOut, "\n"), nil
 }

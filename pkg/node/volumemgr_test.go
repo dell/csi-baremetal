@@ -954,9 +954,8 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	vgName := "root-vg"
 	fsOps.On("FindMountPoint", base.KubeletRootPath).Return(rootMountPoint, nil)
 	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
-	lvmOps.On("FindVgNameByLvName", rootMountPoint).Return(vgName, nil)
+	lvmOps.On("GetAllLVGs").Return([]string{vgName}, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
-	lvmOps.On("IsLVGExists", rootMountPoint).Return(true, nil)
 	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
 
 	// expect success, LVG CR and AC CR was created
