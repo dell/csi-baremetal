@@ -71,6 +71,7 @@ var (
 		Status:       apiV1.DriveStatusOnline,
 		Health:       apiV1.HealthGood,
 		Path:         "/dev/sda",
+		IsSystem:     true,
 	} // /dev/sda in LsblkTwoDevices
 
 	drive2 = api.Drive{
@@ -106,7 +107,7 @@ var (
 	// todo don't hardcode device name
 	lsblkSingleDeviceCmd = fmt.Sprintf(lsblk.CmdTmpl, "/dev/sda")
 
-	driveCR = drivecrd.Drive{
+	testDriveCR = drivecrd.Drive{
 		TypeMeta: v1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{
 			Name:              drive1.UUID,
@@ -391,7 +392,7 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	err = vm.k8sClient.CreateCR(testCtx, driveCR.Name, &driveCR)
+	err = vm.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
 	assert.Nil(t, err)
 
 	//successfully add finalizer
@@ -572,7 +573,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		assert.Equal(t, "drivemgr error", err.Error())
 	})
 
-	t.Run("updateDdriveCRs failed", func(t *testing.T) {
+	t.Run("update driveCRs failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
 
 		// expect: updateDrivesCRs failed
@@ -951,15 +952,16 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	m.lvmOps = lvmOps
 
 	vgName := "root-vg"
-	rootMountPoint := "/dev/" + vgName + "/root-lv"
-	fsOps.On("FindMountPoint", base.KubeletRootPath).Return(rootMountPoint, nil)
-	listBlk.On("GetBlockDevices", rootMountPoint).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
-	lvmOps.On("GetAllVGs").Return([]string{vgName}, nil)
+	listBlk.On("GetBlockDevices", testDriveCR.Spec.Path).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
+	lvmOps.On("GetAllPVs").Return([]string{testDriveCR.Spec.Path, "/dev/sdx"}, nil)
+	lvmOps.On("GetVGNameByPVName", testDriveCR.Spec.Path).Return(vgName)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
 	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
 
+	assert.Nil(t, m.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR))
+
 	// expect success, LVG CR and AC CR was created
-	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, base.SystemDriveAsLocation)
+	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, testDriveCR.Spec.UUID)
 	err = m.discoverLVGOnSystemDrive()
 	assert.Nil(t, err)
 
@@ -968,7 +970,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	assert.Equal(t, 1, len(lvgList.Items))
 	lvg := lvgList.Items[0]
 	assert.Equal(t, 1, len(lvg.Spec.Locations))
-	assert.Equal(t, base.SystemDriveAsLocation, lvg.Spec.Locations[0])
+	assert.Equal(t, testDriveCR.Spec.UUID, lvg.Spec.Locations[0])
 	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
 	assert.Equal(t, 2, len(lvg.Spec.VolumeRefs))
 

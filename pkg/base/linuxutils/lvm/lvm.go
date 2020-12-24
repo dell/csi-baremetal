@@ -252,16 +252,6 @@ func (l *LVM) GetAllPVs() ([]string, error) {
 	return util.SplitAndTrimSpace(stdOut, "\n"), nil
 }
 
-// GetAllVGs returns slice with names of all volume groups in the system
-func (l *LVM) GetAllVGs() ([]string, error) {
-	stdOut, _, err := l.e.RunCmd(AllVGsCmd)
-	if err != nil {
-		return nil, err
-	}
-
-	return util.SplitAndTrimSpace(stdOut, "\n"), nil
-}
-
 // GetVGNameByPVName finds out volume group name based on physical volume name
 func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	cmd := fmt.Sprintf(PVInfoCmdTmpl, pvName)

@@ -874,7 +874,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		err         error
 	)
 
-	// 1. check whether LVG CR that holds info about LVG configuration on system drive exists or no
+	// 1. check whether LVG CR that holds info about LVG configuration on system drive exists or not
 	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		return err
@@ -889,7 +889,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		}
 	}
 
-	// 2. check whether there is LVG configuration on the system drive or no
+	// 2. check whether there is LVG configuration on the system drive or not
 	var driveCR = new(drivecrd.Drive)
 	// TODO: handle situation when there is more then one system drive
 	if err = m.k8sClient.ReadCR(context.Background(), m.systemDrivesUUIDs[0], driveCR); err != nil {
@@ -915,7 +915,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
-	// 3. check whether the system drive SSD or no
+	// 3. check whether the system drive SSD or not
 	devices, err := m.listBlk.GetBlockDevices(driveCR.Spec.Path)
 	if err != nil {
 		return fmt.Errorf("unable to get info about system drive: %s", err)
