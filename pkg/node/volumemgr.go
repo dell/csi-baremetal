@@ -927,7 +927,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return nil
 	}
 
-	// 4. search VG info and create LVG CR
+	// 4. search VG info
 	var vgName string
 	vgName, err = m.lvmOps.GetVGNameByPVName(systemPVName)
 	if err != nil {
@@ -935,13 +935,14 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	}
 
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
-		return fmt.Errorf("unable to determine VG %s free space:", vgName, err)
+		return fmt.Errorf("unable to determine VG %s free space: %v", vgName, err)
 	}
 	lvs, err := m.lvmOps.GetLVsInVG(vgName)
 	if err != nil {
 		return fmt.Errorf("unable to determine LVs in system VG %s: %v", vgName, err)
 	}
 
+	// 5. create LVG CR
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
