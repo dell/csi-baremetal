@@ -68,7 +68,7 @@ func TestUnreservedACReader(t *testing.T) {
 		getTestAC(testNode2, testLargeSize, apiV1.StorageClassSSD),
 		getTestAC(testNode1, testSmallSize, apiV1.StorageClassAny),
 	}
-	testACRs := []*acrcrd.AvailableCapacityReservation {
+	testACRs := []*acrcrd.AvailableCapacityReservation{
 		getTestACR(testSmallSize, apiV1.StorageClassHDD, testACs[:1]),
 		getTestACR(testLargeSize, apiV1.StorageClassSSD, testACs[1:2]),
 	}

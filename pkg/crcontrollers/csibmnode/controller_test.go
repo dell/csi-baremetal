@@ -3,6 +3,7 @@ package csibmnode
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -287,6 +288,30 @@ func Test_reconcileForK8sNode(t *testing.T) {
 }
 
 func Test_reconcileForCSIBMNode(t *testing.T) {
+	t.Run("CSIBMNode is being deleted. Annotation was removed.", func(t *testing.T) {
+		var (
+			c       = setup(t)
+			bmNode  = testCSIBMNode1.DeepCopy()
+			k8sNode = testNode1.DeepCopy()
+		)
+
+		k8sNode.Annotations[nodeIDAnnotationKey] = "aaaa-bbbb-cccc-dddd"
+		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
+
+		createObjects(t, c.k8sClient, bmNode, k8sNode)
+
+		res, err := c.reconcileForCSIBMNode(bmNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		nodeObj := new(coreV1.Node)
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		assert.False(t, ok)
+		enabled := c.isEnabledForNode(nodeObj.Name)
+		assert.False(t, enabled)
+	})
+
 	t.Run("CSIBMNode addresses length is 0", func(t *testing.T) {
 		var (
 			c      = setup(t)

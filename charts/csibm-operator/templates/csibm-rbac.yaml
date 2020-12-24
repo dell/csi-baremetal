@@ -14,7 +14,7 @@ rules:
     verbs: ["get", "list", "watch", "update"]
   - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["csibmnodes"]
-    verbs: ["watch", "get", "list", "create", "delete"]
+    verbs: ["watch", "get", "list", "create", "delete", "update"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
