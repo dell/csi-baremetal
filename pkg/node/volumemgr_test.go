@@ -1036,10 +1036,10 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		assert.NotEmpty(t, rec.Calls)
 		msgDiscovered := "DriveDiscovered event should exist for drive"
 		msgHealth := "DriveHealthGood event should exist for drive"
-		assert.True(t, expectEvent(drive1CR, eventing.InfoType, eventing.DriveDiscovered), msgDiscovered)
-		assert.True(t, expectEvent(drive2CR, eventing.InfoType, eventing.DriveDiscovered), msgDiscovered)
-		assert.True(t, expectEvent(drive1CR, eventing.InfoType, eventing.DriveHealthGood), msgHealth)
-		assert.True(t, expectEvent(drive2CR, eventing.InfoType, eventing.DriveHealthGood), msgHealth)
+		assert.True(t, expectEvent(drive1CR, eventing.NormalType, eventing.DriveDiscovered), msgDiscovered)
+		assert.True(t, expectEvent(drive2CR, eventing.NormalType, eventing.DriveDiscovered), msgDiscovered)
+		assert.True(t, expectEvent(drive1CR, eventing.NormalType, eventing.DriveHealthGood), msgHealth)
+		assert.True(t, expectEvent(drive2CR, eventing.NormalType, eventing.DriveHealthGood), msgHealth)
 	})
 
 	t.Run("No changes", func(t *testing.T) {
