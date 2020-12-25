@@ -874,7 +874,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		err         error
 	)
 
-	// 1. check whether LVG CR that holds info about LVG configuration on system drive exists or not
+	// 1. check whether LVG CR that holds info about LVG configuration on the system drive exists or not
 	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		return err
@@ -922,7 +922,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	}
 
 	if devices[0].Rota != base.NonRotationalNum {
-		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
+		ll.Infof("System disk is not SSD. LVG CR will not be created base on it.")
 		m.discoverLvgSSD = false
 		return nil
 	}

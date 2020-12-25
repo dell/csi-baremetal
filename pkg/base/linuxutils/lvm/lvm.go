@@ -45,10 +45,8 @@ const (
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
 	// VGRemoveCmdTmpl remove VG cmd
 	VGRemoveCmdTmpl = lvmPath + "vgremove --yes %s" // add VG name
-	// AllPVs returns all physical volumes on the system
-	AllPVs = lvmPath + "pvs --options pv_name --noheadings"
-	// AllVGsCmd returns all volume groups on the system
-	AllVGsCmd = lvmPath + "vgs --options vg_name --no-headings"
+	// AllPVsCmd returns all physical volumes on the system
+	AllPVsCmd = lvmPath + "pvs --options pv_name --noheadings"
 	// VGFreeSpaceCmdTmpl check VG free space cmd
 	VGFreeSpaceCmdTmpl = "vgs %s --options vg_free --units b --noheadings" // add VG name
 	// LVCreateCmdTmpl create LV on provided VG cmd
@@ -244,7 +242,7 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 
 // GetAllPVs returns slice with names of all physical volumes in the system
 func (l *LVM) GetAllPVs() ([]string, error) {
-	stdOut, _, err := l.e.RunCmd(AllPVs)
+	stdOut, _, err := l.e.RunCmd(AllPVsCmd)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +269,7 @@ func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	// parse stdOut:
 	trimmed := strings.TrimSpace(stdOut)
 	if len(strings.Split(trimmed, "\n")) > 1 {
-		return "", fmt.Errorf("PV %s isn't related for any VG", pvName)
+		return "", fmt.Errorf("PV %s isn't related to any VG", pvName)
 	}
 
 	splitted := strings.Split(trimmed, ":")
