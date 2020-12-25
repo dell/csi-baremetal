@@ -904,14 +904,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 
 	var systemPVName string
 	for _, pv := range pvs {
-		// use contains because of LVG could be configured on partition on the system drive
-		if strings.Contains(pv, driveCR.Spec.Path) {
-			// handle case with collision between block devices like "/dev/sda" and "/dev/sdaa"
-			matched, _ := regexp.MatchString(fmt.Sprintf("^%s([0-9]+)?$", driveCR.Spec.Path), pv)
-			if matched {
-				systemPVName = pv
-				break
-			}
+		// LVG could be configured on partition on the system drive, handle this case
+		matched, _ := regexp.Match(fmt.Sprintf("^%s\\d*$", driveCR.Spec.Path), []byte(pv))
+		if matched {
+			systemPVName = pv
+			break
 		}
 	}
 
