@@ -901,7 +901,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf("unable to list PVs on the system: %v", err)
 	}
 
-	var systemPVName = ""
+	var systemPVName string
 	for _, pv := range pvs {
 		if strings.Contains(pv, driveCR.Spec.Path) {
 			systemPVName = pv

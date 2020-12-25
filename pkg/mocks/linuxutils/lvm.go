@@ -112,7 +112,7 @@ func (m *MockWrapLVM) GetAllPVs() ([]string, error) {
 
 // GetVGNameByPVName is a mock implementations
 func (m *MockWrapLVM) GetVGNameByPVName(pvName string) (string, error) {
-	args := m.Mock.Called()
+	args := m.Mock.Called(pvName)
 
 	return args.String(0), args.Error(1)
 }

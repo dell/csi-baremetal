@@ -938,30 +938,31 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 
 func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	var (
-		m       = prepareSuccessVolumeManager(t)
-		lvgList = lvgcrd.LVGList{}
-		acList  = accrd.AvailableCapacityList{}
-		listBlk = &mocklu.MockWrapLsblk{}
-		fsOps   = &mockProv.MockFsOpts{}
-		lvmOps  = &mocklu.MockWrapLVM{}
-		err     error
+		m             = prepareSuccessVolumeManager(t)
+		lvgList       = lvgcrd.LVGList{}
+		acList        = accrd.AvailableCapacityList{}
+		listBlk       = &mocklu.MockWrapLsblk{}
+		fsOps         = &mockProv.MockFsOpts{}
+		lvmOps        = &mocklu.MockWrapLVM{}
+		vgName        = "root-vg"
+		systemDriveCR = testDriveCR
+		err           error
 	)
 
 	m.listBlk = listBlk
 	m.fsOps = fsOps
 	m.lvmOps = lvmOps
 
-	vgName := "root-vg"
 	listBlk.On("GetBlockDevices", testDriveCR.Spec.Path).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
 	lvmOps.On("GetAllPVs").Return([]string{testDriveCR.Spec.Path, "/dev/sdx"}, nil)
-	lvmOps.On("GetVGNameByPVName", testDriveCR.Spec.Path).Return(vgName)
+	lvmOps.On("GetVGNameByPVName", testDriveCR.Spec.Path).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
 	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
 
-	assert.Nil(t, m.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR))
+	assert.Nil(t, m.k8sClient.CreateCR(testCtx, systemDriveCR.Name, &systemDriveCR))
 
 	// expect success, LVG CR and AC CR was created
-	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, testDriveCR.Spec.UUID)
+	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, systemDriveCR.Spec.UUID)
 	err = m.discoverLVGOnSystemDrive()
 	assert.Nil(t, err)
 
@@ -986,6 +987,9 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	m.lvmOps = lvmOps
 
 	lvmOps.On("GetLVsInVG", vgName).Return(nil, testErr)
+
+	assert.Nil(t, m.k8sClient.CreateCR(testCtx, systemDriveCR.Name, &systemDriveCR))
+	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, systemDriveCR.Spec.UUID)
 
 	err = m.discoverLVGOnSystemDrive()
 	assert.NotNil(t, err)
