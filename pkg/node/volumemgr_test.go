@@ -591,7 +591,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		listBlk := &mocklu.MockWrapLsblk{}
 		listBlk.On("GetBlockDevices", "").Return(nil, testErr).Once()
 		vm.listBlk = listBlk
-		vm.discoverLvgSSD = false
+		vm.discoverSystemLVG = false
 		mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &lvgcrd.LVGList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(testErr)
@@ -611,7 +611,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &lvgcrd.LVGList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &accrd.AvailableCapacityList{}, mock.Anything).Return(testErr).Once()
-		vm.discoverLvgSSD = false
+		vm.discoverSystemLVG = false
 		err = vm.Discover()
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "discoverAvailableCapacity return error")
@@ -953,9 +953,9 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	m.fsOps = fsOps
 	m.lvmOps = lvmOps
 
-	listBlk.On("GetBlockDevices", testDriveCR.Spec.Path).Return([]lsblk.BlockDevice{{Rota: base.NonRotationalNum}}, nil)
-	lvmOps.On("GetAllPVs").Return([]string{testDriveCR.Spec.Path, "/dev/sdx"}, nil)
-	lvmOps.On("GetVGNameByPVName", testDriveCR.Spec.Path).Return(vgName, nil)
+	pvName := testDriveCR.Spec.Path + "1"
+	lvmOps.On("GetAllPVs").Return([]string{pvName, "/dev/sdx"}, nil)
+	lvmOps.On("GetVGNameByPVName", pvName).Return(vgName, nil)
 	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
 	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
 
@@ -1134,7 +1134,7 @@ func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	vm := NewVolumeManager(c, e, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
-	vm.discoverLvgSSD = false
+	vm.discoverSystemLVG = false
 	return vm
 }
 

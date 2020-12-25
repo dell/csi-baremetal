@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -92,7 +93,7 @@ type VolumeManager struct {
 	nodeID string
 	// used for discoverLVGOnSystemDisk method to determine if we need to discover LVG in Discover method, default true
 	// set false when there is no LVG on system disk or system disk is not SSD
-	discoverLvgSSD bool
+	discoverSystemLVG bool
 	// whether VolumeManager was initialized or no, uses for health probes
 	initialized bool
 	// general logger
@@ -168,7 +169,7 @@ func NewVolumeManager(
 		nodeID:            nodeID,
 		log:               logger.WithField("component", "VolumeManager"),
 		recorder:          recorder,
-		discoverLvgSSD:    true,
+		discoverSystemLVG: true,
 		volMu:             keymutex.NewHashed(0),
 		systemDrivesUUIDs: make([]string, 0),
 	}
@@ -493,7 +494,7 @@ func (m *VolumeManager) Discover() error {
 	}
 	m.handleDriveUpdates(ctx, updates)
 
-	if m.discoverLvgSSD {
+	if m.discoverSystemLVG {
 		if err = m.discoverLVGOnSystemDrive(); err != nil {
 			m.log.WithField("method", "Discover").
 				Errorf("unable to inspect system LVG: %v", err)
@@ -903,27 +904,20 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 
 	var systemPVName string
 	for _, pv := range pvs {
+		// use contains because of LVG could be configured on partition on the system drive
 		if strings.Contains(pv, driveCR.Spec.Path) {
-			systemPVName = pv
-			break
+			// handle case with collision between block devices like "/dev/sda" and "/dev/sdaa"
+			matched, _ := regexp.MatchString(fmt.Sprintf("^%s([0-9]+)?$", driveCR.Spec.Path), pv)
+			if matched {
+				systemPVName = pv
+				break
+			}
 		}
 	}
 
 	if systemPVName == "" {
 		ll.Info("There is no LVM configuration on the system drive")
-		m.discoverLvgSSD = false
-		return nil
-	}
-
-	// 3. check whether the system drive SSD or not
-	devices, err := m.listBlk.GetBlockDevices(driveCR.Spec.Path)
-	if err != nil {
-		return fmt.Errorf("unable to get info about system drive: %s", err)
-	}
-
-	if devices[0].Rota != base.NonRotationalNum {
-		ll.Infof("System disk is not SSD. LVG CR will not be created base on it.")
-		m.discoverLvgSSD = false
+		m.discoverSystemLVG = false
 		return nil
 	}
 
