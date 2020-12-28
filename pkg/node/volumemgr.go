@@ -978,8 +978,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// Handle resources without LVG
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
-		ac := m.crHelper.GetACByLocation(drive.UUID)
-		if ac != nil {
+		if ac, err := m.crHelper.GetACByLocation(drive.UUID); err == nil {
 			ll.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
 			if err := m.k8sClient.DeleteCR(ctx, ac); err != nil {
 				ll.Errorf("Failed to delete unhealthy available capacity CR: %v", err)
@@ -1025,7 +1024,7 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 		drive1.PID == drive2.PID
 }
 
-// createACIfFreeSpace create AC CR if there are free spcae on drive
+// createACIfFreeSpace creates AC CR if there is a free space on drive
 // Receive context, drive location, storage class, size of available capacity
 // Return error
 func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int64) error {
@@ -1035,13 +1034,14 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 	if size == 0 {
 		size++ // if size is 0 it field will not display for CR
 	}
-	acCR := m.crHelper.GetACByLocation(location)
-	if acCR != nil {
+	// check whether AC exists
+	if ac, _ := m.crHelper.GetACByLocation(location); ac != nil {
 		return nil
 	}
+
 	if size > capacityplanner.AcSizeMinThresholdBytes {
 		acName := uuid.New().String()
-		acCR = m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
+		acCR := m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
 			Location:     location,
 			NodeId:       m.nodeID,
 			StorageClass: sc,

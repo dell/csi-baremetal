@@ -25,6 +25,7 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 )
 
 func setup() *CRHelper {
@@ -41,12 +42,13 @@ func TestCRHelper_GetACByLocation(t *testing.T) {
 	err := ch.k8sClient.CreateCR(testCtx, expectedAC.Name, &expectedAC)
 	assert.Nil(t, err)
 
-	currentAC := ch.GetACByLocation(testACCR.Spec.Location)
-	assert.NotNil(t, currentAC)
+	currentAC, err := ch.GetACByLocation(testACCR.Spec.Location)
+	assert.Nil(t, err)
 	assert.Equal(t, expectedAC.Spec, currentAC.Spec)
 
 	// expected nil because of empty string as a location
-	assert.Nil(t, ch.GetACByLocation(""))
+	currentAC, err = ch.GetACByLocation("")
+	assert.Equal(t, err, errTypes.ErrorNotFound)
 }
 
 func TestCRHelper_GetVolumeByLocation(t *testing.T) {
