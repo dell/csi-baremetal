@@ -1139,7 +1139,8 @@ func (m *VolumeManager) isDriveSystem(path string) (bool, error) {
 // Returns true if device has root mountpoint, false in opposite
 func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
 	for _, device := range devs {
-		if strings.TrimSpace(device.MountPoint) == base.KubeletRootPath || strings.TrimSpace(device.MountPoint) == base.HostRootPath {
+		if strings.TrimSpace(device.MountPoint) == base.KubeletRootPath ||
+			strings.HasPrefix(strings.TrimSpace(device.MountPoint), base.HostRootPath) {
 			return true
 		}
 		if m.isRootMountpoint(device.Children) {

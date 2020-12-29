@@ -43,7 +43,7 @@ const (
 	KubeletRootPath = "/var/lib/kubelet/pods"
 
 	// HostRootPath is root mount
-	HostRootPath = "/hostroot/sysroot"
+	HostRootPath = "/hostroot"
 
 	// DefaultTimeoutForVolumeOperations is the timeout in which we expect that any operation with volume should be finished
 	DefaultTimeoutForVolumeOperations = 10 * time.Minute
