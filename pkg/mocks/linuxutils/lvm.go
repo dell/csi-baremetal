@@ -81,25 +81,11 @@ func (m *MockWrapLVM) RemoveOrphanPVs() error {
 	return args.Error(0)
 }
 
-// FindVgNameByLvName is a mock implementations
-func (m *MockWrapLVM) FindVgNameByLvName(lvName string) (string, error) {
-	args := m.Mock.Called(lvName)
-
-	return args.String(0), args.Error(1)
-}
-
 // GetVgFreeSpace is a mock implementations
 func (m *MockWrapLVM) GetVgFreeSpace(vgName string) (int64, error) {
 	args := m.Mock.Called(vgName)
 
 	return args.Get(0).(int64), args.Error(1)
-}
-
-// IsLVGExists is a mock implementations
-func (m *MockWrapLVM) IsLVGExists(lvName string) (bool, error) {
-	args := m.Mock.Called(lvName)
-
-	return args.Bool(0), args.Error(1)
 }
 
 // GetLVsInVG is a mock implementations
@@ -111,4 +97,22 @@ func (m *MockWrapLVM) GetLVsInVG(vgName string) ([]string, error) {
 	}
 
 	return args.Get(0).([]string), args.Error(1)
+}
+
+// GetAllPVs is a mock implementations
+func (m *MockWrapLVM) GetAllPVs() ([]string, error) {
+	args := m.Mock.Called()
+
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).([]string), args.Error(1)
+}
+
+// GetVGNameByPVName is a mock implementations
+func (m *MockWrapLVM) GetVGNameByPVName(pvName string) (string, error) {
+	args := m.Mock.Called(pvName)
+
+	return args.String(0), args.Error(1)
 }

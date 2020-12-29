@@ -45,8 +45,8 @@ const (
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
 	// VGRemoveCmdTmpl remove VG cmd
 	VGRemoveCmdTmpl = lvmPath + "vgremove --yes %s" // add VG name
-	// VGByLVCmdTmpl find VG by LV cmd
-	VGByLVCmdTmpl = lvmPath + "lvs %s --options vg_name --noheadings" // add LV name
+	// AllPVsCmd returns all physical volumes on the system
+	AllPVsCmd = lvmPath + "pvs --options pv_name --noheadings"
 	// VGFreeSpaceCmdTmpl check VG free space cmd
 	VGFreeSpaceCmdTmpl = "vgs %s --options vg_free --units b --noheadings" // add VG name
 	// LVCreateCmdTmpl create LV on provided VG cmd
@@ -55,6 +55,8 @@ const (
 	LVRemoveCmdTmpl = lvmPath + "lvremove --yes %s" // add full LV name
 	// LVsInVGCmdTmpl print LVs in VG cmd
 	LVsInVGCmdTmpl = lvmPath + "lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
+	// PVInfoCmdTmpl returns colon (:) separated output, where pv name on first place and vg on second
+	PVInfoCmdTmpl = lvmPath + "pvdisplay %s --colon" // add PV name
 	// timeoutBetweenAttempts used for RunCmdWithAttempts as a timeout between calling lvremove
 	timeoutBetweenAttempts = 500 * time.Millisecond
 )
@@ -69,10 +71,10 @@ type WrapLVM interface {
 	LVRemove(fullLVName string) error
 	IsVGContainsLVs(vgName string) bool
 	RemoveOrphanPVs() error
-	FindVgNameByLvName(lvName string) (string, error)
 	GetVgFreeSpace(vgName string) (int64, error)
-	IsLVGExists(lvName string) (bool, error)
+	GetAllPVs() ([]string, error)
 	GetLVsInVG(vgName string) ([]string, error)
+	GetVGNameByPVName(pvName string) (string, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -182,15 +184,8 @@ func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	lvg := strings.Split(stdout, "\n")
-	for i := 0; i < len(lvg); i++ {
-		lvg[i] = strings.TrimSpace(lvg[i])
-		if len(lvg[i]) == 0 {
-			lvg = append(lvg[:i], lvg[i+1:]...)
-			i--
-		}
-	}
-	return lvg, nil
+
+	return util.SplitAndTrimSpace(stdout, "\n"), nil
 }
 
 // RemoveOrphanPVs removes PVs that do not have VG
@@ -215,23 +210,6 @@ func (l *LVM) RemoveOrphanPVs() error {
 		return errors.New("not all PVs were removed")
 	}
 	return nil
-}
-
-// FindVgNameByLvName search VG name by LV name, LV name should be full
-// Receives LV name to find its VG
-// Returns VG name or empty string and error
-func (l *LVM) FindVgNameByLvName(lvName string) (string, error) {
-	/*
-		Example of output:
-		root@provo-goop:~# lvs /dev/mapper/unassigned--hostname--vg-root --options vg_name --noheadings
-			  unassigned-hostname-vg
-	*/
-	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
-	strOut, _, err := l.e.RunCmd(cmd)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(strOut), nil
 }
 
 // GetVgFreeSpace returns VG free space in bytes
@@ -262,22 +240,42 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	return bytes, nil
 }
 
-// IsLVGExists try to get vg group from lvName, if there is no such group then lvg is not exists
-// Receives lvName string
-// Returns true if lvg exists, else false; error
-func (l *LVM) IsLVGExists(lvName string) (bool, error) {
-	cmd := fmt.Sprintf(VGByLVCmdTmpl, lvName)
-	stdout, stdErr, err := l.e.RunCmd(cmd)
-	for _, s := range strings.Split(lvName, "/") {
-		if strings.Contains(stdErr, fmt.Sprintf("Volume group \"%s\" not found", s)) {
-			return false, nil
-		}
-	}
+// GetAllPVs returns slice with names of all physical volumes in the system
+func (l *LVM) GetAllPVs() ([]string, error) {
+	stdOut, _, err := l.e.RunCmd(AllPVsCmd)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	if len(strings.TrimSpace(stdout)) > 0 {
-		return true, nil
+
+	return util.SplitAndTrimSpace(stdOut, "\n"), nil
+}
+
+// GetVGNameByPVName finds out volume group name based on physical volume name
+func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
+	cmd := fmt.Sprintf(PVInfoCmdTmpl, pvName)
+
+	stdOut, _, err := l.e.RunCmd(cmd)
+	if err != nil {
+		return "", err
 	}
-	return false, fmt.Errorf("unable to determine")
+
+	// stdOut will have one of two formats:
+	// if PV is in some VG format will be:
+	//			/dev/sdy2:root-vg:936701952:-1:8:8:-1:4096:114343:77478:36865:H3rxE6-2iAg-1REQ-rOeX-7bz3-iPrh-YBXgxN
+	// PV name on first place and VG on second
+	// if PV is orphan (VG for which PV was corresponding was removed) format will be:
+	// 		"/dev/sda" is a new physical volume of "<7.28 TiB"
+	//  	/dev/sda::15628053168:-1:0:0:-1:0:0:0:0:2DdQcG-u5gq-mqa0-awmS-EsDP-GQFB-sfPHTw
+	// parse stdOut:
+	trimmed := strings.TrimSpace(stdOut)
+	if len(strings.Split(trimmed, "\n")) > 1 {
+		return "", fmt.Errorf("PV %s isn't related to any VG", pvName)
+	}
+
+	splitted := strings.Split(trimmed, ":")
+	if len(splitted) < 2 {
+		return "", fmt.Errorf("unable to find VG name for PV %s in output %s: ", pvName, trimmed)
+	}
+
+	return splitted[1], nil
 }

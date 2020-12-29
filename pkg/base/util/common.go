@@ -138,3 +138,20 @@ func RemoveString(slice []string, s string) (result []string) {
 	}
 	return
 }
+
+// SplitAndTrimSpace split string str by separator sep and removes all
+// leading and trailing spaces from each string in resulting slice, if some string an empty
+// it is excluded from resulting slice
+func SplitAndTrimSpace(str, sep string) []string {
+	slice := strings.Split(str, sep)
+	res := make([]string, 0)
+	for i := range slice {
+		trimmed := strings.TrimSpace(slice[i])
+		if len(trimmed) == 0 {
+			continue
+		}
+		res = append(res, trimmed)
+	}
+
+	return res
+}

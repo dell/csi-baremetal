@@ -244,69 +244,6 @@ func TestLinuxUtils_RemoveOrphanPVs(t *testing.T) {
 	assert.Equal(t, expectedErr, err)
 }
 
-func TestLinuxUtils_FindVgNameByLvName(t *testing.T) {
-	var (
-		e           = &mocks.GoMockExecutor{}
-		l           = NewLVM(e, testLogger)
-		lvName      = "/dev/mapper/lv-1"
-		cmd         = fmt.Sprintf(VGByLVCmdTmpl, lvName)
-		expectedVG  = "vg-1"
-		expectedErr = errors.New("error here")
-		currentVG   string
-		err         error
-	)
-
-	// expect success (tabs and new line were trim)
-	e.OnCommand(cmd).Return(fmt.Sprintf("\t%s   \t\n", expectedVG), "", nil).Times(1)
-	currentVG, err = l.FindVgNameByLvName(lvName)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedVG, currentVG)
-
-	// expect error
-	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
-	currentVG, err = l.FindVgNameByLvName(lvName)
-	assert.Equal(t, "", currentVG)
-	assert.Equal(t, expectedErr, err)
-
-}
-
-func TestLinuxUtils_IsLVGExists(t *testing.T) {
-	var (
-		e           = &mocks.GoMockExecutor{}
-		l           = NewLVM(e, testLogger)
-		lvName      = "/dev/mapper/lv-1"
-		cmd         = fmt.Sprintf(VGByLVCmdTmpl, lvName)
-		expectedVG  = "vg-1"
-		expectedErr = errors.New("error here")
-		err         error
-	)
-
-	// expect success (tabs and new line were trim)
-	e.OnCommand(cmd).Return(fmt.Sprintf("\t%s   \t\n", expectedVG), "", nil).Times(1)
-	mp, err := l.IsLVGExists(lvName)
-	assert.Nil(t, err)
-	assert.Equal(t, true, mp)
-
-	// expect error
-	e.OnCommand(cmd).Return("root_vg", "", expectedErr).Times(1)
-	mp, err = l.IsLVGExists(lvName)
-	assert.Equal(t, false, mp)
-	assert.Equal(t, expectedErr, err)
-
-	// expect volume group node found
-	e.OnCommand(cmd).Return("", "Volume group \"lv-1\" not found", nil).Times(1)
-	mp, err = l.IsLVGExists(lvName)
-	assert.Equal(t, false, mp)
-	assert.Equal(t, nil, err)
-
-	// expect unable to determine
-	e.OnCommand(cmd).Return("", "", nil).Times(1)
-	mp, err = l.IsLVGExists(lvName)
-	assert.Equal(t, false, mp)
-	assert.NotNil(t, err)
-
-}
-
 func TestLinuxUtils_GetVgFreeSpace(t *testing.T) {
 	var (
 		e            = &mocks.GoMockExecutor{}
@@ -341,4 +278,72 @@ func TestLinuxUtils_GetVgFreeSpace(t *testing.T) {
 	currentSize, err = l.GetVgFreeSpace(vgName)
 	assert.Equal(t, int64(-1), currentSize)
 	assert.Contains(t, err.Error(), "unknown size unit")
+}
+
+func TestLinuxUtils_GetAllPVs(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLVM(e, testLogger)
+		expectedErr = errors.New("error")
+		res         []string
+		err         error
+	)
+
+	t.Run("Happy pass", func(t *testing.T) {
+		e.OnCommand(AllPVsCmd).Return("  /dev/sda\n  ", "", nil).Once()
+		res, err = l.GetAllPVs()
+		assert.Nil(t, err)
+		assert.Equal(t, len(res), 1)
+		assert.Equal(t, res[0], "/dev/sda")
+	})
+
+	t.Run("Cmd finished with error", func(t *testing.T) {
+		e.OnCommand(AllPVsCmd).Return("", "", expectedErr).Once()
+		res, err = l.GetAllPVs()
+		assert.NotNil(t, err)
+		assert.Empty(t, res)
+	})
+}
+
+func TestLinuxUtils_GetVGNameByPVName(t *testing.T) {
+	var (
+		e              = &mocks.GoMockExecutor{}
+		l              = NewLVM(e, testLogger)
+		pvName         = "/dev/sda2"
+		cmd            = fmt.Sprintf(PVInfoCmdTmpl, pvName)
+		expectedVGName = "root-vg"
+		expectedErr    = errors.New("error")
+		res            string
+		err            error
+	)
+
+	t.Run("Happy pass", func(t *testing.T) {
+		e.OnCommand(cmd).Return(fmt.Sprintf("%s:%s:another:info", pvName, expectedVGName), "", nil).Once()
+		res, err = l.GetVGNameByPVName(pvName)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedVGName, res)
+	})
+
+	t.Run("Cmd finished with error", func(t *testing.T) {
+		e.OnCommand(cmd).Return("", "", expectedErr).Once()
+		res, err = l.GetVGNameByPVName(pvName)
+		assert.Equal(t, "", res)
+		assert.Equal(t, expectedErr, err)
+	})
+
+	t.Run("PV isn't related to any VG", func(t *testing.T) {
+		e.OnCommand(cmd).Return("/dev/sda is a new physical volume\nsome::another:info", "", nil).Once()
+		res, err = l.GetVGNameByPVName(pvName)
+		assert.Equal(t, "", res)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "isn't related to any VG")
+	})
+
+	t.Run("Unable to parse output", func(t *testing.T) {
+		e.OnCommand(cmd).Return("/dev/sda", "", nil).Once()
+		res, err = l.GetVGNameByPVName(pvName)
+		assert.Equal(t, "", res)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "unable to find VG name for PV")
+	})
 }
