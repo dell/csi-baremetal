@@ -68,16 +68,16 @@ type EventInterface interface {
 // 'message' is intended to be human readable.
 //
 // The resulting event will be created in the same namespace as the reference object.
-func (r *Recorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (r *Recorder) Eventf(object runtime.Object, eventType, reason, messageFmt string, args ...interface{}) {
 	if r.labelsOverride != nil {
 		for _, value := range r.labelsOverride {
 			if value.Reason == reason {
-				r.eventRecorder.LabeledEventf(object, value.Labels, eventtype, reason, messageFmt, args...)
+				r.eventRecorder.LabeledEventf(object, value.Labels, eventType, reason, messageFmt, args...)
 				return
 			}
 		}
 	}
-	r.eventRecorder.Eventf(object, eventtype, reason, messageFmt, args...)
+	r.eventRecorder.Eventf(object, eventType, reason, messageFmt, args...)
 }
 
 // New makes Recorder for a simple usage

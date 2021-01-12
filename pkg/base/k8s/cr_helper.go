@@ -32,6 +32,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 )
 
 // CRHelper is able to collect different CRs by different criteria
@@ -51,7 +52,7 @@ func NewCRHelper(k *KubeClient, logger *logrus.Logger) *CRHelper {
 // GetACByLocation reads the whole list of AC CRs from a cluster and searches the AC with provided location
 // Receive context and location name which should be equal to AvailableCapacity.Spec.Location
 // Returns a pointer to the instance of accrd.AvailableCapacity or nil
-func (cs *CRHelper) GetACByLocation(location string) *accrd.AvailableCapacity {
+func (cs *CRHelper) GetACByLocation(location string) (*accrd.AvailableCapacity, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method":   "GetACByLocation",
 		"location": location,
@@ -60,18 +61,18 @@ func (cs *CRHelper) GetACByLocation(location string) *accrd.AvailableCapacity {
 	acList := &accrd.AvailableCapacityList{}
 	if err := cs.k8sClient.ReadList(context.Background(), acList); err != nil {
 		ll.Errorf("Failed to get available capacity CR list, error %v", err)
-		return nil
+		return nil, err
 	}
 
 	for _, ac := range acList.Items {
 		if strings.EqualFold(ac.Spec.Location, location) {
-			return &ac
+			return &ac, nil
 		}
 	}
 
 	ll.Warn("Can't find AC assigned to provided location")
 
-	return nil
+	return nil, errTypes.ErrorNotFound
 }
 
 // DeleteACsByNodeID deletes AC CRs for specific node ID

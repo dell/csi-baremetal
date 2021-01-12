@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -92,7 +93,7 @@ type VolumeManager struct {
 	nodeID string
 	// used for discoverLVGOnSystemDisk method to determine if we need to discover LVG in Discover method, default true
 	// set false when there is no LVG on system disk or system disk is not SSD
-	discoverLvgSSD bool
+	discoverSystemLVG bool
 	// whether VolumeManager was initialized or no, uses for health probes
 	initialized bool
 	// general logger
@@ -168,7 +169,7 @@ func NewVolumeManager(
 		nodeID:            nodeID,
 		log:               logger.WithField("component", "VolumeManager"),
 		recorder:          recorder,
-		discoverLvgSSD:    true,
+		discoverSystemLVG: true,
 		volMu:             keymutex.NewHashed(0),
 		systemDrivesUUIDs: make([]string, 0),
 	}
@@ -493,7 +494,7 @@ func (m *VolumeManager) Discover() error {
 	}
 	m.handleDriveUpdates(ctx, updates)
 
-	if m.discoverLvgSSD {
+	if m.discoverSystemLVG {
 		if err = m.discoverLVGOnSystemDrive(); err != nil {
 			m.log.WithField("method", "Discover").
 				Errorf("unable to inspect system LVG: %v", err)
@@ -865,19 +866,22 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	ll := m.log.WithField("method", "discoverLVGOnSystemDrive")
 
+	if len(m.systemDrivesUUIDs) == 0 {
+		return errors.New("system drive is not defined")
+	}
+
 	var (
-		errTmpl = "unable to inspect system LVM, error: %v"
-		err     error
+		vgFreeSpace int64
+		err         error
 	)
 
-	// at first check whether LVG on system drive exists or no
+	// 1. check whether LVG CR that holds info about LVG configuration on the system drive exists or not
 	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
 	for _, lvg := range lvgs {
 		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDrivesUUIDs, lvg.Spec.Locations[0]) {
-			var vgFreeSpace int64
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
 			}
@@ -886,56 +890,50 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		}
 	}
 
-	var (
-		rootMountPoint, vgName string
-		vgFreeSpace            int64
-	)
+	// 2. check whether there is LVG configuration on the system drive or not
+	var driveCR = new(drivecrd.Drive)
+	// TODO: handle situation when there is more then one system drive
+	if err = m.k8sClient.ReadCR(context.Background(), m.systemDrivesUUIDs[0], driveCR); err != nil {
+		return err
+	}
 
-	if rootMountPoint, err = m.fsOps.FindMountPoint(base.KubeletRootPath); err != nil {
-		ll.Errorf("Failed to find root mountpoint for %s, error: %v, try to find for %s",
-			base.KubeletRootPath, err, base.HostRootPath)
-		if rootMountPoint, err = m.fsOps.FindMountPoint(base.HostRootPath); err != nil {
-			return fmt.Errorf(errTmpl, err)
+	pvs, err := m.lvmOps.GetAllPVs()
+	if err != nil {
+		return fmt.Errorf("unable to list PVs on the system: %v", err)
+	}
+
+	var systemPVName string
+	for _, pv := range pvs {
+		// LVG could be configured on partition on the system drive, handle this case
+		matched, _ := regexp.Match(fmt.Sprintf("^%s\\d*$", driveCR.Spec.Path), []byte(pv))
+		if matched {
+			systemPVName = pv
+			break
 		}
 	}
 
-	// from container we expect here name like "VG_NAME[/var/lib/kubelet/pods]"
-	rootMountPoint = strings.Split(rootMountPoint, "[")[0]
-
-	devices, err := m.listBlk.GetBlockDevices(rootMountPoint)
-	if err != nil {
-		return fmt.Errorf(errTmpl, err)
-	}
-
-	if devices[0].Rota != base.NonRotationalNum {
-		m.discoverLvgSSD = false
-		ll.Infof("System disk is not SSD. LVG will not be created base on it.")
+	if systemPVName == "" {
+		ll.Info("There is no LVM configuration on the system drive")
+		m.discoverSystemLVG = false
 		return nil
 	}
 
-	lvgExists, err := m.lvmOps.IsLVGExists(rootMountPoint)
-
+	// 4. search VG info
+	var vgName string
+	vgName, err = m.lvmOps.GetVGNameByPVName(systemPVName)
 	if err != nil {
-		return fmt.Errorf(errTmpl, err)
+		return fmt.Errorf("unable to detect system VG name: %v", err)
 	}
 
-	if !lvgExists {
-		m.discoverLvgSSD = false
-		ll.Infof("System disk is SSD. but it doesn't have LVG.")
-		return nil
-	}
-
-	if vgName, err = m.lvmOps.FindVgNameByLvName(rootMountPoint); err != nil {
-		return fmt.Errorf(errTmpl, err)
-	}
 	if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(vgName); err != nil {
-		return fmt.Errorf(errTmpl, err)
+		return fmt.Errorf("unable to determine VG %s free space: %v", vgName, err)
 	}
 	lvs, err := m.lvmOps.GetLVsInVG(vgName)
 	if err != nil {
 		return fmt.Errorf("unable to determine LVs in system VG %s: %v", vgName, err)
 	}
 
+	// 5. create LVG CR
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
@@ -978,8 +976,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// Handle resources without LVG
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
-		ac := m.crHelper.GetACByLocation(drive.UUID)
-		if ac != nil {
+		if ac, err := m.crHelper.GetACByLocation(drive.UUID); err == nil {
 			ll.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
 			if err := m.k8sClient.DeleteCR(ctx, ac); err != nil {
 				ll.Errorf("Failed to delete unhealthy available capacity CR: %v", err)
@@ -1025,7 +1022,7 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 		drive1.PID == drive2.PID
 }
 
-// createACIfFreeSpace create AC CR if there are free spcae on drive
+// createACIfFreeSpace creates AC CR if there is a free space on drive
 // Receive context, drive location, storage class, size of available capacity
 // Return error
 func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int64) error {
@@ -1035,13 +1032,14 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 	if size == 0 {
 		size++ // if size is 0 it field will not display for CR
 	}
-	acCR := m.crHelper.GetACByLocation(location)
-	if acCR != nil {
+	// check whether AC exists
+	if ac, _ := m.crHelper.GetACByLocation(location); ac != nil {
 		return nil
 	}
+
 	if size > capacityplanner.AcSizeMinThresholdBytes {
 		acName := uuid.New().String()
-		acCR = m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
+		acCR := m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
 			Location:     location,
 			NodeId:       m.nodeID,
 			StorageClass: sc,
@@ -1060,7 +1058,7 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 // createEventsForDriveUpdates create required events for drive state change
 func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 	for _, createdDrive := range updates.Created {
-		m.sendEventForDrive(createdDrive, eventing.InfoType, eventing.DriveDiscovered,
+		m.sendEventForDrive(createdDrive, eventing.NormalType, eventing.DriveDiscovered,
 			"New drive discovered SN: %s, Node: %s.",
 			createdDrive.Spec.SerialNumber, createdDrive.Spec.NodeId)
 		m.createEventForDriveHealthChange(
@@ -1085,7 +1083,7 @@ func (m *VolumeManager) createEventForDriveHealthChange(
 	var reason string
 	switch currentHealth {
 	case apiV1.HealthGood:
-		eventType = eventing.InfoType
+		eventType = eventing.NormalType
 		reason = eventing.DriveHealthGood
 	case apiV1.HealthBad:
 		eventType = eventing.ErrorType
@@ -1104,7 +1102,7 @@ func (m *VolumeManager) createEventForDriveHealthChange(
 func (m *VolumeManager) createEventForDriveStatusChange(
 	drive *drivecrd.Drive, prevStatus, currentStatus string) {
 	statusMsgTemplate := "Drive status is: %s, previous status: %s."
-	eventType := eventing.InfoType
+	eventType := eventing.NormalType
 	var reason string
 	switch currentStatus {
 	case apiV1.DriveStatusOnline:
@@ -1141,7 +1139,8 @@ func (m *VolumeManager) isDriveSystem(path string) (bool, error) {
 // Returns true if device has root mountpoint, false in opposite
 func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
 	for _, device := range devs {
-		if strings.TrimSpace(device.MountPoint) == base.KubeletRootPath || strings.TrimSpace(device.MountPoint) == base.HostRootPath {
+		if strings.TrimSpace(device.MountPoint) == base.KubeletRootPath ||
+			strings.HasPrefix(strings.TrimSpace(device.MountPoint), base.HostRootPath) {
 			return true
 		}
 		if m.isRootMountpoint(device.Children) {

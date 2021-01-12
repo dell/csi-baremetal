@@ -18,7 +18,7 @@ package eventing
 
 // Event types
 const (
-	InfoType     = "Info"
+	NormalType   = "Normal"
 	WarningType  = "Warning"
 	ErrorType    = "Error"
 	CriticalType = "Critical"
@@ -32,12 +32,14 @@ const (
 	VolumeGoodHealth    = "VolumeGoodHealth"
 	VolumeSuspectHealth = "VolumeSuspectHealth"
 
-	DriveDiscovered        = "DriveDiscovered"
-	DriveHealthSuspect     = "DriveHealthSuspect"
-	DriveHealthFailure     = "DriveHealthFailure"
-	DriveHealthGood        = "DriveHealthGood"
-	DriveHealthUnknown     = "DriveHealthUnknown"
-	DriveStatusOnline      = "DriveStatusOnline"
-	DriveStatusOffline     = "DriveStatusOffline"
-	DriveReplacementFailed = "DriveReplacementFailed"
+	DriveDiscovered           = "DriveDiscovered"
+	DriveHealthSuspect        = "DriveHealthSuspect"
+	DriveHealthFailure        = "DriveHealthFailure"
+	DriveHealthGood           = "DriveHealthGood"
+	DriveHealthUnknown        = "DriveHealthUnknown"
+	DriveStatusOnline         = "DriveStatusOnline"
+	DriveStatusOffline        = "DriveStatusOffline"
+	DriveReplacementFailed    = "DriveReplacementFailed"
+	DriveReadyForReplacement  = "DriveReadyForReplacement"
+	DriveSuccessfullyReplaced = "DriveSuccessfullyReplaced"
 )

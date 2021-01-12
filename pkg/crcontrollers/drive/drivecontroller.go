@@ -126,6 +126,8 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		if allFound {
 			drive.Spec.Usage = apiV1.DriveUsageReleased
+			eventMsg := fmt.Sprintf("Drive is ready for replacement, %s", drive.GetDriveDescription())
+			c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveReadyForReplacement, eventMsg)
 			toUpdate = true
 		}
 
@@ -147,13 +149,17 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
 			if err != nil || status.Status != apiV1.LocateStatusOn {
 				log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
-				// TODO send alert when led locate is failed
 				drive.Spec.Usage = apiV1.DriveUsageFailed
+				// send error level alert
+				eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
+				c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, eventMsg)
+			} else {
+				// send info level alert
+				eventMsg := fmt.Sprintf("Drive successfully replaced, %s", drive.GetDriveDescription())
+				c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveSuccessfullyReplaced, eventMsg)
 			}
 			toUpdate = true
 		}
-	case apiV1.DriveUsageFailed:
-		c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, drive.GetDriveDescription())
 	case apiV1.DriveUsageRemoved:
 		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
