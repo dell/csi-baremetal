@@ -984,6 +984,18 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		}
 	}
 
+	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
+	if err != nil {
+		ll.Errorf("Failed get LVG CRs, error: %v", err)
+	} else {
+		for _, lvg := range lvgs {
+			if util.ContainsString(lvg.Spec.Locations, drive.UUID) &&
+				(drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline) {
+				lvg.Spec.Status = apiV1.Failed
+				break
+			}
+		}
+	}
 	// Set disk's health status to volume CR
 	volumes, _ := m.crHelper.GetVolumesByLocation(ctx, drive.UUID)
 	for _, vol := range volumes {
