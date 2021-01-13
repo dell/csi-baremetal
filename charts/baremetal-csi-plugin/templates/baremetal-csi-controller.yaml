@@ -13,6 +13,7 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/name: csi-baremetal
         app: baremetal-csi-controller
         role: csi-do
       annotations:
