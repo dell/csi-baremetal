@@ -18,7 +18,7 @@ spec:
         role: csi-do
       annotations:                        
         prometheus.io/scrape: 'true'
-        prometheus.io/port: '{{ .Values.controller.metrics.port }}'
+        prometheus.io/port: ':{{ .Values.controller.metrics.port }}'
         prometheus.io/path: '{{ .Values.controller.metrics.path }}'
     spec:
       {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
