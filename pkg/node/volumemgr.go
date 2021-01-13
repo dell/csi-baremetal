@@ -990,6 +990,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		for _, lvg := range lvgs {
 			if util.ContainsString(lvg.Spec.Locations, drive.UUID) &&
 				(drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline) {
+				lvg := lvg
 				lvg.Spec.Status = apiV1.Failed
 				lvg.Spec.Health = drive.Health
 				if err := m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
