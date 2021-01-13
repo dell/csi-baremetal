@@ -880,6 +880,18 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	err = vm.k8sClient.ReadCR(testCtx, testID, rVolume)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.HealthBad, rVolume.Spec.Health)
+
+	lvg := testLVGCR
+	lvg.Spec.Locations = append(lvg.Spec.Locations, driveUUID)
+	err = vm.k8sClient.CreateCR(testCtx, testLVGName, &lvg)
+	assert.Nil(t, err)
+	// Check lvg's health change
+	vm.handleDriveStatusChange(testCtx, &drive)
+	updatedLVG := &lvgcrd.LVG{}
+	err = vm.k8sClient.ReadCR(testCtx, testLVGName, updatedLVG)
+	assert.Nil(t, err)
+	assert.Equal(t, apiV1.HealthBad, updatedLVG.Spec.Health)
+	assert.Equal(t, apiV1.Failed, updatedLVG.Spec.Status)
 }
 
 func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {

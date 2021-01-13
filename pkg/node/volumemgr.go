@@ -983,7 +983,6 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 			}
 		}
 	}
-
 	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		ll.Errorf("Failed get LVG CRs, error: %v", err)
@@ -992,7 +991,10 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 			if util.ContainsString(lvg.Spec.Locations, drive.UUID) &&
 				(drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline) {
 				lvg.Spec.Status = apiV1.Failed
-				break
+				lvg.Spec.Health = drive.Health
+				if err := m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
+					ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
+				}
 			}
 		}
 	}
