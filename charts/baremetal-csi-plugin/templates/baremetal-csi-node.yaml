@@ -15,8 +15,8 @@ spec:
         app.kubernetes.io/name: csi-baremetal
       annotations:
         prometheus.io/scrape: 'true'
-        prometheus.io/port: {{ .Values.node.metrics.port }}
-        prometheus.io/path: {{ .Values.node.metrics.path }}
+        prometheus.io/port: '{{ .Values.node.metrics.port }}'
+        prometheus.io/path: '{{ .Values.node.metrics.path }}'
     spec:
       {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
       nodeSelector:
