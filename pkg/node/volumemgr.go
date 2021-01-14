@@ -988,11 +988,14 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		ll.Errorf("Failed get LVG CRs, error: %v", err)
 	} else {
 		for _, lvg := range lvgs {
-			if util.ContainsString(lvg.Spec.Locations, drive.UUID) &&
-				(drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline) {
+			if util.ContainsString(lvg.Spec.Locations, drive.UUID) {
 				lvg := lvg
-				lvg.Spec.Status = apiV1.Failed
 				lvg.Spec.Health = drive.Health
+				newStatus := apiV1.Created
+				if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
+					newStatus = apiV1.Failed
+				}
+				lvg.Spec.Status = newStatus
 				if err := m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
 					ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
 				}
