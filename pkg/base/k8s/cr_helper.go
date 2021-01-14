@@ -122,14 +122,14 @@ func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) (
 		ll.Errorf("Failed to get volume CR list, error %v", err)
 		return nil, err
 	}
-	lvgUUID, err := cs.getLVGByDrive(ctx, location)
+	lvg, err := cs.GetLVGByDrive(ctx, location)
 	if err != nil {
 		ll.Errorf("Failed to get LVG UUID for drive, error %v", err)
 		return nil, err
 	}
 
-	if lvgUUID != "" {
-		location = lvgUUID
+	if lvg != nil {
+		location = lvg.Name
 	}
 
 	for _, v := range volList.Items {
@@ -148,22 +148,25 @@ func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) (
 	return volumes, nil
 }
 
-func (cs *CRHelper) getLVGByDrive(ctx context.Context, driveUUID string) (string, error) {
+// GetLVGByDrive reads list of LVG CRs from a cluster and searches the lvg with provided location
+// Receives golang context and drive uuid
+// Returns found lvg and error
+func (cs *CRHelper) GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcrd.LVG, error) {
 	ll := cs.log.WithFields(logrus.Fields{
-		"method":    "getLVGByDrive",
+		"method":    "GetLVGByDrive",
 		"driveUUID": driveUUID,
 	})
 	lvgList := &lvgcrd.LVGList{}
 	if err := cs.k8sClient.ReadList(ctx, lvgList); err != nil {
 		ll.Errorf("Failed to get LVG CR list, error %v", err)
-		return "", err
+		return nil, err
 	}
 	for _, lvg := range lvgList.Items {
 		if len(lvg.Spec.Locations) > 0 && lvg.Spec.Locations[0] == driveUUID {
-			return lvg.Name, nil
+			return &lvg, nil
 		}
 	}
-	return "", nil
+	return nil, nil
 }
 
 // UpdateVolumesOpStatusOnNode updates operational status of volumes on a node without taking into account current state
