@@ -984,9 +984,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		}
 	}
 	lvg, err := m.crHelper.GetLVGByDrive(ctx, drive.UUID)
-	if err != nil {
-		ll.Errorf("Failed get LVG CRs, error: %v", err)
-	} else {
+	if lvg != nil {
 		lvg.Spec.Health = drive.Health
 		newStatus := apiV1.Created
 		if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
@@ -996,6 +994,12 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
 			ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
 		}
+	} else {
+		errMsg := "Failed get LVG CR"
+		if err != nil {
+			errMsg = fmt.Sprintf(errMsg+" error: %v", err)
+		}
+		ll.Errorf(errMsg)
 	}
 	// Set disk's health status to volume CR
 	volumes, _ := m.crHelper.GetVolumesByLocation(ctx, drive.UUID)

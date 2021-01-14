@@ -882,7 +882,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	assert.Equal(t, apiV1.HealthBad, rVolume.Spec.Health)
 
 	lvg := testLVGCR
-	lvg.Spec.Locations = append(lvg.Spec.Locations, driveUUID)
+	lvg.Spec.Locations = []string{driveUUID}
 	err = vm.k8sClient.CreateCR(testCtx, testLVGName, &lvg)
 	assert.Nil(t, err)
 	// Check lvg's health change
