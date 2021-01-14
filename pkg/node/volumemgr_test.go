@@ -243,7 +243,7 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 	}()
 	wg.Wait()
 	volume := &vcrd.Volume{}
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.Created, volume.Spec.CSIStatus)
 }
@@ -279,7 +279,7 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 	res, err = vm.prepareVolume(testCtx, &testVol)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
 
@@ -300,7 +300,7 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 	res, err = vm.prepareVolume(testCtx, &volCR)
 	assert.NotNil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
 }
@@ -325,9 +325,9 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	res, err = vm.handleRemovingStatus(testCtx, &testVol)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+	assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
 
 	// failed to update
 	vm = prepareSuccessVolumeManager(t)
@@ -348,7 +348,7 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	res, err = vm.handleRemovingStatus(testCtx, &volCR)
 	assert.NotNil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, volume)
+	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
 
@@ -373,7 +373,7 @@ func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
 	assert.Error(t, testErr)
 
 	drivecrd := &drivecrd.Drive{}
-	err = vm.k8sClient.ReadCR(context.Background(), testVol.Spec.Location, drivecrd)
+	err = vm.k8sClient.ReadCR(context.Background(), testVol.Spec.Location, "", drivecrd)
 	assert.Nil(t, err)
 
 	assert.Equal(t, res, ctrl.Result{})
@@ -441,7 +441,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, res)
 
 	vol = &vcrd.Volume{}
-	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, vol))
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
 	// LVG in creating state
@@ -468,7 +468,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, res)
 
 	vol = &vcrd.Volume{}
-	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, vol))
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
 	// LVG in failed state and volume is failed to update
@@ -499,7 +499,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, res)
 
 	lvg = &lvgcrd.LVG{}
-	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, lvg))
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, "", lvg))
 	assert.True(t, util.ContainsString(lvg.Spec.VolumeRefs, testVol.Spec.Id))
 
 	// LVG in created state and volume.ID is in VolumeRefs
@@ -519,7 +519,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, res)
 
 	lvg = &lvgcrd.LVG{}
-	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, lvg))
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, "", lvg))
 	assert.True(t, util.ContainsString(lvg.Spec.VolumeRefs, testVol.Spec.Id))
 	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
 
@@ -877,7 +877,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	// Check volume's health change
 	vm.handleDriveStatusChange(testCtx, &drive)
 	rVolume := &vcrd.Volume{}
-	err = vm.k8sClient.ReadCR(testCtx, testID, rVolume)
+	err = vm.k8sClient.ReadCR(testCtx, testID, volCR.Namespace, rVolume)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.HealthBad, rVolume.Spec.Health)
 }

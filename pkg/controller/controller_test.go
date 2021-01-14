@@ -154,13 +154,13 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 
-			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", apiV1.Failed)
+			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", testNs, apiV1.Failed)
 
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
 			Expect(err).To(Equal(status.Error(codes.Internal, "Unable to create volume")))
-			err = controller.k8sclient.ReadCR(context.Background(), "req1", vol)
+			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
@@ -188,7 +188,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
 			v := vcrd.Volume{}
-			err = controller.k8sclient.ReadCR(testCtx, req.GetName(), &v)
+			err = controller.k8sclient.ReadCR(testCtx, req.GetName(), "default", &v)
 			Expect(err).To(BeNil())
 			Expect(v.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
@@ -204,13 +204,13 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 				vol      = &vcrd.Volume{}
 			)
 
-			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", apiV1.Created)
+			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", testNs, apiV1.Created)
 
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(err).To(BeNil())
 			Expect(resp).ToNot(BeNil())
 
-			err = controller.k8sclient.ReadCR(context.Background(), "req1", vol)
+			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
@@ -219,7 +219,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			capacity := int64(1024 * 42)
 
 			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
-
+			testutils.CreatePVC(controller.k8sclient, req.GetName(), "default")
 			err := controller.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
@@ -290,18 +290,19 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err       error
 			)
 			// create volume crd to delete
-			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
+			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, apiV1.Failed)
+			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, testNs, apiV1.Failed)
 
+			testutils.CreatePVC(controller.k8sclient, volumeCrd.Spec.Id, testNs)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
 
 			Expect(resp).To(BeNil())
 			Expect(status.Code(err)).To(Equal(codes.Internal))
 
-			err = controller.k8sclient.ReadCR(context.Background(), volumeID, volumeCrd)
+			err = controller.k8sclient.ReadCR(context.Background(), volumeID, testNs, volumeCrd)
 			Expect(err).To(BeNil())
 			Expect(volumeCrd.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
@@ -317,6 +318,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 		})
 		It("Volume is deleted successful, sc HDD", func() {
 			var (
+				namespace = controller.k8sclient.Namespace
 				volumeID  = "volume-id-1111"
 				volumeCrd = &vcrd.Volume{
 					TypeMeta: k8smetav1.TypeMeta{
@@ -325,7 +327,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					},
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Name:      volumeID,
-						Namespace: controller.k8sclient.Namespace,
+						Namespace: namespace,
 					},
 					Spec: api.Volume{
 						Id:        volumeID,
@@ -340,13 +342,13 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, apiV1.Removed)
-
+			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, namespace, apiV1.Removed)
+			testutils.CreatePVC(controller.k8sclient, volumeCrd.Spec.Id, namespace)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
 
-			err = controller.k8sclient.ReadCR(context.Background(), volumeID, volumeCrd)
+			err = controller.k8sclient.ReadCR(context.Background(), volumeID, namespace, volumeCrd)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("not found"))
 		})
@@ -399,8 +401,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.ReadList(testCtx, lvgCRs)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, apiV1.Removed)
-
+			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, volumeCrd.Namespace, apiV1.Removed)
+			testutils.CreatePVC(controller.k8sclient, volumeCrd.Spec.Id, volumeCrd.Namespace)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
@@ -426,8 +428,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err := controller.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
 			Expect(err).To(BeNil())
 
-			go testutils.VolumeReconcileImitation(controller.k8sclient, fullLVGsizeVolume.Spec.Id, apiV1.Removed)
-
+			go testutils.VolumeReconcileImitation(controller.k8sclient, fullLVGsizeVolume.Spec.Id, fullLVGsizeVolume.Namespace, apiV1.Removed)
+			testutils.CreatePVC(controller.k8sclient, fullLVGsizeVolume.Spec.Id, fullLVGsizeVolume.Namespace)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: testID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())

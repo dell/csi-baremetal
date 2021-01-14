@@ -127,6 +127,7 @@ var (
 		TypeMeta: testVolumeTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:              testID,
+			Namespace:         testNs,
 			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
 		},
 		Spec: testApiVolume,
@@ -269,7 +270,7 @@ var _ = Describe("Working with CRD", func() {
 			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
 			Expect(err).To(BeNil())
 			rVolume := &vcrd.Volume{}
-			err = k8sclient.ReadCR(testCtx, testID, rVolume)
+			err = k8sclient.ReadCR(testCtx, testID, "", rVolume)
 			Expect(err).To(BeNil())
 			Expect(rVolume.ObjectMeta.Name).To(Equal(testID))
 		})
@@ -278,7 +279,7 @@ var _ = Describe("Working with CRD", func() {
 			err := k8sclient.CreateCR(testCtx, testACName, &testACCR)
 			Expect(err).To(BeNil())
 			rAC := &accrd.AvailableCapacity{}
-			err = k8sclient.ReadCR(testCtx, testACName, rAC)
+			err = k8sclient.ReadCR(testCtx, testACName, "", rAC)
 			Expect(err).To(BeNil())
 			Expect(rAC.ObjectMeta.Name).To(Equal(testACName))
 		})
@@ -287,7 +288,7 @@ var _ = Describe("Working with CRD", func() {
 			err := k8sclient.CreateCR(testCtx, testUUID, &testDriveCR)
 			Expect(err).To(BeNil())
 			rdrive := &drivecrd.Drive{}
-			err = k8sclient.ReadCR(testCtx, testUUID, rdrive)
+			err = k8sclient.ReadCR(testCtx, testUUID, "", rdrive)
 			Expect(err).To(BeNil())
 			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
 		})
@@ -298,7 +299,7 @@ var _ = Describe("Working with CRD", func() {
 			err = k8sclient.CreateCR(testCtx, testACName, &testACCR)
 			Expect(err).To(BeNil())
 			rAC := &accrd.AvailableCapacity{}
-			err = k8sclient.ReadCR(testCtx, testACName, rAC)
+			err = k8sclient.ReadCR(testCtx, testACName, "", rAC)
 			Expect(err).To(BeNil())
 			Expect(rAC.ObjectMeta.Name).To(Equal(testACName))
 		})
@@ -328,7 +329,7 @@ var _ = Describe("Working with CRD", func() {
 		It("Try to read CRD that doesn't exist", func() {
 			name := "notexistingcrd"
 			ac := accrd.AvailableCapacity{}
-			err := k8sclient.ReadCR(testCtx, name, &ac)
+			err := k8sclient.ReadCR(testCtx, name, "", &ac)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("\"%s\" not found", name)))
 		})
@@ -424,6 +425,23 @@ var _ = Describe("Working with CRD", func() {
 			Expect(driveUUID).To(Equal([]string{testDriveCR2.Spec.UUID}))
 		})
 	})
+	Context("GetVolumeNamespace", func() {
+		It("Volume doesn't exists", func() {
+			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
+			Expect(err).To(BeNil())
+
+			namespace, err := k8sclient.GetVolumeNamespace("volume-0")
+			Expect(err).To(BeNil())
+			Expect(namespace).To(Equal(""))
+		})
+		It("Get namespace from Volume", func() {
+			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
+			Expect(err).To(BeNil())
+			namespace, err := k8sclient.GetVolumeNamespace(testID)
+			Expect(err).To(BeNil())
+			Expect(namespace).To(Equal(testNs))
+		})
+	})
 })
 
 var _ = Describe("Constructor methods", func() {
@@ -460,7 +478,7 @@ var _ = Describe("Constructor methods", func() {
 	})
 	Context("ConstructVolumeCR", func() {
 		It("Should return right Volume CR", func() {
-			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testApiVolume)
+			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testNs, testApiVolume)
 			Expect(constructedCR.TypeMeta.Kind).To(Equal(testVolumeCR.TypeMeta.Kind))
 			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testVolumeCR.TypeMeta.APIVersion))
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testVolumeCR.ObjectMeta.Name))

@@ -153,7 +153,7 @@ func TestReconcile(t *testing.T) {
 		assert.Equal(t, ctrl.Result{}, res)
 
 		nodeCR := new(coreV1.Node)
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, nodeCR))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, "", nodeCR))
 
 		val, ok := nodeCR.GetAnnotations()[nodeIDAnnotationKey]
 		assert.True(t, ok)
@@ -208,7 +208,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		bmNode := bmNodesList.Items[0]
 		assert.Equal(t, len(bmNode.Spec.Addresses), c.matchedAddressesCount(&bmNode, k8sNode))
 
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, k8sNode))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", k8sNode))
 		val, ok := k8sNode.GetAnnotations()[nodeIDAnnotationKey]
 		assert.True(t, ok)
 		assert.Equal(t, bmNode.Spec.UUID, val)
@@ -259,7 +259,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 
 		// read node obj
 		nodeObj := new(coreV1.Node)
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
 		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
@@ -281,7 +281,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 
 		// read node obj
 		nodeObj := new(coreV1.Node)
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
 		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
@@ -305,7 +305,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.Equal(t, ctrl.Result{}, res)
 
 		nodeObj := new(coreV1.Node)
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
 		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 		assert.False(t, ok)
 		enabled := c.isEnabledForNode(nodeObj.Name)
@@ -357,7 +357,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 
 		// read node obj
 		nodeObj := new(coreV1.Node)
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, nodeObj))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
 		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
@@ -379,10 +379,10 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 
 		// read node obj
 		nodeObj := new(coreV1.Node)
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode1.Name, nodeObj))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode1.Name, "", nodeObj))
 		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 		assert.False(t, ok)
-		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode2.Name, nodeObj))
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode2.Name, "", nodeObj))
 		_, ok = nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
@@ -421,7 +421,7 @@ func Test_checkAnnotation(t *testing.T) {
 
 			// read node obj
 			nodeObj := new(coreV1.Node)
-			assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, nodeObj))
+			assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, "", nodeObj))
 			val, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
 			assert.True(t, ok)
 			assert.Equal(t, testCase.goalValue, val)

@@ -54,6 +54,7 @@ type VolumeOperationsImpl struct {
 	acProvider             AvailableCapacityOperations
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
+	crHelper               *k8s.CRHelper
 
 	featureChecker fc.FeatureChecker
 	log            *logrus.Entry
@@ -62,14 +63,14 @@ type VolumeOperationsImpl struct {
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of VolumeOperationsImpl
-func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger,
-	featureConf fc.FeatureChecker) *VolumeOperationsImpl {
+func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, featureConf fc.FeatureChecker) *VolumeOperationsImpl {
 	return &VolumeOperationsImpl{
 		k8sClient:              k8sClient,
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
 		log:                    logger.WithField("component", "VolumeOperationsImpl"),
 		featureChecker:         featureConf,
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		crHelper:               k8s.NewCRHelper(k8sClient, logger),
 	}
 }
 
@@ -88,8 +89,12 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		volumeCR  = &volumecrd.Volume{}
 		err       error
 	)
+
 	// at first check whether volume CR exist or no
-	err = vo.k8sClient.ReadCR(ctx, v.Id, volumeCR)
+	err = vo.k8sClient.ReadCR(ctx, v.Id, base.DefaultNamespace, volumeCR)
+	if k8sError.IsNotFound(err) {
+		volumeCR, err = vo.crHelper.GetVolumeByID(v.Id)
+	}
 	switch {
 	case err == nil:
 		ll.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
@@ -104,7 +109,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			_ = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, volumeCR, 5)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
-	case !k8sError.IsNotFound(err):
+	case !(status.Code(err) == codes.NotFound) && !k8sError.IsNotFound(err):
 		ll.Errorf("Unable to read volume CR: %v", err)
 		return nil, status.Error(codes.Aborted, "unable to check volume existence")
 	default:
@@ -181,13 +186,12 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			Mode:              v.Mode,
 			Type:              v.Type,
 		}
-		volumeCR = vo.k8sClient.ConstructVolumeCR(v.Id, apiVolume)
+		volumeCR = vo.k8sClient.ConstructVolumeCR(v.Id, base.DefaultNamespace, apiVolume)
 
 		if err = vo.k8sClient.CreateCR(ctxWithID, v.Id, volumeCR); err != nil {
 			ll.Errorf("Unable to create CR, error: %v", err)
 			return nil, status.Errorf(codes.Internal, "unable to create volume CR")
 		}
-
 		// decrease AC size
 		ac.Spec.Size -= allocatedBytes
 		if err = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, ac, 5); err != nil {
@@ -226,8 +230,11 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 		volumeCR = &volumecrd.Volume{}
 		err      error
 	)
-
-	if err = vo.k8sClient.ReadCR(ctx, volumeID, volumeCR); err != nil {
+	err = vo.k8sClient.ReadCR(ctx, volumeID, base.DefaultNamespace, volumeCR)
+	if k8sError.IsNotFound(err) {
+		volumeCR, err = vo.crHelper.GetVolumeByID(volumeID)
+	}
+	if err != nil {
 		return err
 	}
 
@@ -267,18 +274,22 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	})
 
 	var (
-		volumeCR = volumecrd.Volume{}
+		volumeCR = &volumecrd.Volume{}
 		err      error
 	)
 
-	if err = vo.k8sClient.ReadCR(ctx, volumeID, &volumeCR); err != nil {
-		if !k8sError.IsNotFound(err) {
+	err = vo.k8sClient.ReadCR(ctx, volumeID, base.DefaultNamespace, volumeCR)
+	if k8sError.IsNotFound(err) {
+		volumeCR, err = vo.crHelper.GetVolumeByID(volumeID)
+	}
+	if err != nil {
+		if !(status.Code(err) == codes.NotFound) && !k8sError.IsNotFound(err) {
 			ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
 		}
 		return
 	}
 
-	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
+	if err = vo.k8sClient.DeleteCR(ctx, volumeCR); err != nil {
 		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
 	}
 
@@ -308,7 +319,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	isDeleted := false
 	lvg := &lvgcrd.LVG{}
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
-		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
+		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, "", lvg); err != nil {
 			ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
 			return
 		}
@@ -349,13 +360,22 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 			ll.Warnf("Context is done but volume still not reach one of the expected status: %v", statuses)
 			return fmt.Errorf("volume context is done")
 		case <-time.After(timeoutBetweenCheck):
-			if err = vo.k8sClient.ReadCR(ctx, volumeID, v); err != nil {
-				ll.Errorf("Unable to read volume CR: %v", err)
+			if err = vo.k8sClient.ReadCR(ctx, volumeID, base.DefaultNamespace, v); err != nil {
 				if k8sError.IsNotFound(err) {
-					ll.Error("Volume CR doesn't exist")
-					return fmt.Errorf("volume isn't found")
+					v, err = vo.crHelper.GetVolumeByID(volumeID)
+					if err != nil {
+						ll.Errorf("Unable to read volume CR: %v", err)
+						if status.Code(err) == codes.NotFound {
+							ll.Error("Volume CR doesn't exist")
+							return fmt.Errorf("volume isn't found")
+						}
+						continue
+					}
 				}
-				continue
+				if err != nil {
+					ll.Errorf("Unable to read volume CR: %v", err)
+					continue
+				}
 			}
 			for _, s := range statuses {
 				if v.Spec.CSIStatus == s {

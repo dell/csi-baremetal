@@ -89,7 +89,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 
 			// check owner appearance
 			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			//Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
 
@@ -100,7 +100,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 
 			// check owner appearance
 			volumeCR = &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			//Expect(len(volumeCR.Spec.Owners)).To(Equal(1))
 		})
@@ -206,9 +206,29 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(err).To(BeNil())
 			// check volume CR status
 			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		})
+		It("Should update volume namespace", func() {
+			vol1 := testVolumeCR2
+			req := getNodeStageRequest(vol1.Spec.Id, *testVolumeCap)
+			err := node.k8sClient.CreateCR(testCtx, vol1.Name, &vol1)
+			Expect(err).To(BeNil())
+			partitionPath := "/partition/path/for/volume1"
+			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+			fsOps.On("PrepareAndPerformMount",
+				partitionPath, req.GetStagingTargetPath(), false).
+				Return(nil)
+
+			testutils.CreatePVC(node.k8sClient, vol1.Name, "test")
+			resp, err := node.NodeStageVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+			updatedVol := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(context.Background(), vol1.Name, "test", updatedVol)
+			Expect(err).To(BeNil())
+			Expect(updatedVol.Namespace).To(Equal("test"))
 		})
 		It("Should stage, volume CR with VolumeReady status", func() {
 			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
@@ -339,7 +359,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err).To(BeNil())
 			// check volume CR status
 			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
@@ -419,7 +439,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).To(BeNil())
 			// check owners and CSI status
 			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			//Expect(volumeCR.Spec.Owners).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
@@ -465,7 +485,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).NotTo(BeNil())
 			// check owners and CSI status
 			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			//Expect(volumeCR.Spec.Owners).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Failed))
@@ -512,7 +532,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 
 			// check owners and CSI status
 			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			//Expect(volumeCR.Spec.Owners).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
@@ -611,7 +631,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			Expect(err).To(BeNil())
 			// check volume CR status and owners
 			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, createdVolCR.Name, volumeCR)
+			err = node.k8sClient.ReadCR(testCtx, createdVolCR.Name, "", volumeCR)
 			Expect(err).To(BeNil())
 
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))

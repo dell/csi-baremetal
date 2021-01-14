@@ -150,15 +150,44 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-
 	volumeID := req.VolumeId
-	volumeCR := s.crHelper.GetVolumeByID(volumeID)
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
+	if err != nil {
 		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
 		ll.Error(message)
 		return nil, status.Error(codes.NotFound, message)
 	}
+	namespace, err := s.k8sClient.GetVolumeNamespace(volumeID)
+	if err != nil || namespace == "" {
+		ll.Errorf("Failed to get volume namespace: %v", err)
+		return nil, status.Error(codes.Unavailable, "Something went wrong with k8s client")
+	}
+	if volumeCR.Namespace != namespace {
+		volumeCR.Spec.CSIStatus = apiV1.Empty
+		volumeCR.Finalizers = nil
 
+		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
+			ll.Errorf("Unable to update volume, error: %v", err)
+			return nil, status.Errorf(codes.Internal, "unable to update volume")
+		}
+
+		if err := s.k8sClient.DeleteCR(ctx, volumeCR); err != nil {
+			ll.Errorf("Unable to delete volume, error: %v", err)
+			return nil, status.Errorf(codes.Internal, "unable to delete volume")
+		}
+
+		volumeCR.Spec.CSIStatus = apiV1.Created
+		newVolume := s.k8sClient.ConstructVolumeCR(volumeCR.Spec.Id, namespace, volumeCR.Spec)
+
+		if err := s.k8sClient.CreateCR(ctx, volumeCR.Spec.Id, newVolume); err != nil {
+			ll.Errorf("Unable to create volume, error: %v", err)
+			return nil, status.Errorf(codes.Internal, "unable to create volume")
+		}
+		if err := s.k8sClient.ReadCR(ctx, volumeCR.Spec.Id, namespace, volumeCR); err != nil {
+			ll.Errorf("Unable to create volume, error: %v", err)
+			return nil, status.Errorf(codes.Internal, "unable to create volume")
+		}
+	}
 	currStatus := volumeCR.Spec.CSIStatus
 	// if currStatus not in [Created (first call), VolumeReady (retry), Published (multiple pods)]
 	if currStatus != apiV1.Created && currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
@@ -190,7 +219,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	if currStatus != apiV1.VolumeReady || newStatus == apiV1.Failed {
 		volumeCR.Spec.CSIStatus = newStatus
-		if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Spec); err != nil {
+		if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 		}
@@ -228,8 +257,8 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
+	if err != nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 
@@ -342,8 +371,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Staging Path missing in request")
 	}
 
-	volumeCR := s.crHelper.GetVolumeByID(volumeID)
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
+	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
 
@@ -481,8 +510,8 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
+	if err != nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 

@@ -61,4 +61,6 @@ const (
 	StorageTypeKey = "storageType"
 	// SizeKey key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
 	SizeKey = "size"
+	// DefaultNamespace represents default namespace in Kubernetes
+	DefaultNamespace = "default"
 )

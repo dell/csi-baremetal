@@ -214,7 +214,7 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// however if it get NotFound error it tries to read CSIBMNode object as well
 	if !strings.HasPrefix(req.Name, namePrefix) {
 		k8sNode := new(coreV1.Node)
-		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, k8sNode)
+		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, "", k8sNode)
 		switch {
 		case err == nil:
 			ll.Infof("Reconcile k8s node %s", k8sNode.Name)
@@ -227,7 +227,7 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// try to read CSIBMNode
 	bmNode := new(nodecrd.CSIBMNode)
-	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, bmNode)
+	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, "", bmNode)
 	switch {
 	case err == nil:
 		ll.Infof("Reconcile CSIBMNode %s", bmNode.Name)
@@ -261,7 +261,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	)
 	// get corresponding CSIBMNode CR name from cache
 	if bmNodeName, bmNodeFromCache = bmc.cache.getCSIBMNodeName(k8sNode.Name); bmNodeFromCache {
-		if err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, bmNode); err != nil {
+		if err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, "", bmNode); err != nil {
 			ll.Errorf("Unable to read CSIBMNode %s: %v", bmNodeName, err)
 			return ctrl.Result{Requeue: true}, err
 		}
@@ -337,7 +337,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 
 	// get corresponding k8s node name from cache
 	if k8sNodeName, k8sNodeFromCache := bmc.cache.getK8sNodeName(bmNode.Name); k8sNodeFromCache {
-		if err := bmc.k8sClient.ReadCR(context.Background(), k8sNodeName, k8sNode); err != nil {
+		if err := bmc.k8sClient.ReadCR(context.Background(), k8sNodeName, "", k8sNode); err != nil {
 			ll.Errorf("Unable to read k8s node %s: %v", k8sNodeName, err)
 			return ctrl.Result{Requeue: true}, err
 		}

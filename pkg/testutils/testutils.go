@@ -24,13 +24,15 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // VolumeReconcileImitation looking for volume CR with name volId and sets it's status to newStatus
-func VolumeReconcileImitation(k8sClient *k8s.KubeClient, volID string, newStatus string) {
+func VolumeReconcileImitation(k8sClient *k8s.KubeClient, volID string, namespace string, newStatus string) {
 	for {
 		<-time.After(200 * time.Millisecond)
-		err := ReadVolumeAndChangeStatus(k8sClient, volID, newStatus)
+		err := ReadVolumeAndChangeStatus(k8sClient, volID, namespace, newStatus)
 		if err != nil {
 			return
 		}
@@ -48,20 +50,37 @@ func AddAC(k8sClient *k8s.KubeClient, acs ...*accrd.AvailableCapacity) error {
 }
 
 // ReadVolumeAndChangeStatus returns error if something went wrong
-func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, newStatus string) error {
+func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, namespace string, newStatus string) error {
 	var (
 		v        = &volumecrd.Volume{}
 		attempts = 10
 		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	)
 
-	if err := k8sClient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
+	if err := k8sClient.ReadCRWithAttempts(volumeID, namespace, v, attempts); err != nil {
 		return err
 	}
 
 	// change status
 	v.Spec.CSIStatus = newStatus
 	if err := k8sClient.UpdateCRWithAttempts(ctx, v, attempts); err != nil {
+		return err
+	}
+	return nil
+}
+
+// CreatePVC creates PersistentVolumeClaim with given name and namespace, returns error if something went wrong
+func CreatePVC(k8sClient *k8s.KubeClient, name string, namespace string) error {
+	pvc := &v1.PersistentVolumeClaim{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      "pvc",
+			Namespace: namespace,
+		},
+		Spec: v1.PersistentVolumeClaimSpec{
+			VolumeName: name,
+		},
+	}
+	if err := k8sClient.Create(context.Background(), pvc); err != nil {
 		return err
 	}
 	return nil

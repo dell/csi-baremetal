@@ -229,7 +229,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	c.reqMu.Unlock()
 
 	if err != nil {
-		if k8sError.IsNotFound(err) {
+		if k8sError.IsNotFound(err) || status.Convert(err).Code() == codes.NotFound {
 			ll.Infof("Volume doesn't exist")
 			return &csi.DeleteVolumeResponse{}, nil
 		}
@@ -276,7 +276,7 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	}
 
 	vol := &volumecrd.Volume{}
-	if err := c.k8sclient.ReadCR(ctx, req.VolumeId, vol); err != nil {
+	if err := c.k8sclient.ReadCR(ctx, req.VolumeId, base.DefaultNamespace, vol); err != nil {
 		if k8sError.IsNotFound(err) {
 			return nil, status.Error(codes.NotFound, "Volume is not found")
 		}

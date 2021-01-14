@@ -83,12 +83,15 @@ func TestCRHelper_GetVolumeByID(t *testing.T) {
 	err := ch.k8sClient.CreateCR(testCtx, expectedV.Name, &expectedV)
 	assert.Nil(t, err)
 
-	currentV := ch.GetVolumeByID(expectedV.Spec.Id)
+	currentV, err := ch.GetVolumeByID(expectedV.Spec.Id)
+	assert.Nil(t, err)
 	assert.NotNil(t, currentV)
 	assert.Equal(t, expectedV.Spec, currentV.Spec)
 
 	// expected nil because of empty string as a ID
-	assert.Nil(t, ch.GetVolumeByID(""))
+	currentV, err = ch.GetVolumeByID("")
+	assert.Nil(t, currentV)
+	assert.NotNil(t, err)
 }
 
 func TestCRHelper_GetDriveCRByUUID(t *testing.T) {
@@ -219,18 +222,19 @@ func TestCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 	err = mock.UpdateVolumesOpStatusOnNode(testVolume.Spec.NodeId, v1.OperationalStatusMissing)
 	assert.Nil(t, err)
 
-	volume := mock.GetVolumeByID(testVolume.Name)
+	volume, err := mock.GetVolumeByID(testVolume.Name)
+	assert.Nil(t, err)
 	assert.Equal(t, volume.Spec.OperationalStatus, v1.OperationalStatusMissing)
 }
 
 func TestCRHelper_DeleteObjectByName(t *testing.T) {
 	mock := setup()
 	// object does not exist
-	err := mock.DeleteObjectByName(testCtx, "aaaa", &accrd.AvailableCapacity{})
+	err := mock.DeleteObjectByName(testCtx, "aaaa", "", &accrd.AvailableCapacity{})
 	assert.Nil(t, err)
 
 	assert.Nil(t, mock.k8sClient.CreateCR(testCtx, testVolumeCR.Name, &testVolumeCR))
-	assert.Nil(t, mock.DeleteObjectByName(testCtx, testVolumeCR.Name, &volumecrd.Volume{}))
+	assert.Nil(t, mock.DeleteObjectByName(testCtx, testVolumeCR.Name, "", &volumecrd.Volume{}))
 
 	vList := &volumecrd.VolumeList{}
 	assert.Nil(t, mock.k8sClient.ReadList(testCtx, vList))

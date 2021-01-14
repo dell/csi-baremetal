@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 )
 
 // NewFakeClientWrapper return new instance of FakeClientWrapper
@@ -93,6 +94,10 @@ func (fkw *FakeClientWrapper) Status() k8sCl.StatusWriter {
 func (fkw *FakeClientWrapper) shouldPatchNS(obj runtime.Object) bool {
 	gvk, err := apiutil.GVKForObject(obj, fkw.scheme)
 	if err != nil {
+		return false
+	}
+	_, ok := obj.(*volumecrd.Volume)
+	if ok {
 		return false
 	}
 	return gvk.Group == apiV1.CSICRsGroupVersion

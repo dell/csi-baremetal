@@ -86,7 +86,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	lvg := &lvgcrd.LVG{}
 
-	if err := c.k8sClient.ReadCR(context.Background(), req.Name, lvg); err != nil {
+	if err := c.k8sClient.ReadCR(context.Background(), req.Name, "", lvg); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -249,7 +249,7 @@ func (c *Controller) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, err e
 	var deviceFiles = make([]string, 0) // device files of each drive in LVG
 	for _, driveUUID := range lvg.Spec.Locations {
 		drive := &drivecrd.Drive{}
-		if err := c.k8sClient.ReadCR(context.Background(), driveUUID, drive); err != nil {
+		if err := c.k8sClient.ReadCR(context.Background(), driveUUID, "", drive); err != nil {
 			// that drive will not be in LVG location
 			ll.Errorf("Unable to read drive %s, error: %v", driveUUID, err)
 			continue
