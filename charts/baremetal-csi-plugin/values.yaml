@@ -44,6 +44,7 @@ controller:
       port: 9999
   metrics:
     port: 8787
+    path: /metrics
 
 node:
   image:
@@ -56,6 +57,7 @@ node:
       port: 9999
   metrics:
     port: 8787
+    path: /metrics
 
 drivemgr:
   type: basemgr
