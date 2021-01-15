@@ -114,6 +114,10 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
 	}
 
+	if lvg.Spec.Health != apiV1.HealthGood {
+		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -157,7 +161,6 @@ func (c *Controller) handlerLVGCreation(lvg *lvgcrd.LVG) (ctrl.Result, error) {
 	if locations, err = c.createSystemLVG(lvg); err != nil {
 		ll.Errorf("Unable to create system LVG: %v", err)
 		newStatus = apiV1.Failed
-		lvg.Spec.Health = apiV1.HealthBad
 	}
 	lvg.Spec.Status = newStatus
 	lvg.Spec.Locations = locations

@@ -206,6 +206,29 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	assert.Contains(t, currLVG.ObjectMeta.Finalizers, lvgFinalizer)
 }
 
+func TestReconcile_LVGHealthBad(t *testing.T) {
+	var (
+		fLVG  = lvgCR1
+		newAC = &accrd.AvailableCapacity{}
+	)
+	fLVG.Spec.Status = apiV1.Created
+	fLVG.Spec.Health = apiV1.HealthBad
+	fLVG.Finalizers = []string{lvgFinalizer}
+	c := setup(t, node1ID, fLVG)
+
+	err := c.k8sClient.CreateCR(tCtx, acCR1Name, &acCR1)
+	assert.Nil(t, err)
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: fLVG.Name}}
+
+	res, err := c.Reconcile(req)
+	assert.Nil(t, err)
+	assert.Equal(t, res, ctrl.Result{})
+
+	err = c.k8sClient.ReadCR(tCtx, acCR1Name, newAC)
+	assert.Equal(t, int64(0), newAC.Spec.Size)
+}
+
 func TestReconcile_SuccessDeletion(t *testing.T) {
 	var (
 		c   = setup(t, node1ID)
