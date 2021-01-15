@@ -51,7 +51,7 @@ var (
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
-	metricspath = flag.String("metrics-path:", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
+	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
 )
 
 func main() {
