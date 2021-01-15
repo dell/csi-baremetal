@@ -356,13 +356,21 @@ func filterDrivesCRsForNode(nodeID string, drives *unstructured.UnstructuredList
 }
 
 func getUObjList(f *framework.Framework, resource schema.GroupVersionResource) *unstructured.UnstructuredList {
-	drivesU, err := f.DynamicClient.Resource(resource).Namespace("").List(metav1.ListOptions{})
+	var namespace = ""
+	if resource == common.VolumeGVR {
+		namespace = f.Namespace.Name
+	}
+	drivesU, err := f.DynamicClient.Resource(resource).Namespace(namespace).List(metav1.ListOptions{})
 	framework.ExpectNoError(err)
 	return drivesU
 }
 
 func getUObj(f *framework.Framework, resource schema.GroupVersionResource, name string) (*unstructured.Unstructured, bool) {
-	driveU, err := f.DynamicClient.Resource(resource).Namespace("").Get(name, metav1.GetOptions{})
+	var namespace = ""
+	if resource == common.VolumeGVR {
+		namespace = f.Namespace.Name
+	}
+	driveU, err := f.DynamicClient.Resource(resource).Namespace(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false
@@ -377,6 +385,10 @@ func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionR
 
 	deadline := time.Now().Add(timeout)
 	for {
+		if time.Now().After(deadline) {
+			framework.Failf("%s %s doesn't change to expected state: %s",
+				resource.Resource, name, expectedValue)
+		}
 		drive, found := getUObj(f, resource, name)
 		if !found {
 			continue
@@ -388,10 +400,6 @@ func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionR
 				resource.Resource, name, expectedValue)
 			return
 		}
-		if time.Now().After(deadline) {
-			framework.Failf("%s %s doesn't change to expected state: %s",
-				resource.Resource, name, expectedValue)
-		}
 		time.Sleep(time.Second * 5)
 	}
 }
@@ -400,11 +408,11 @@ func checkExpectedEventsExistWithRetry(f *framework.Framework, object runtime.Ob
 	eventsReasons []string, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
 	for {
-		if checkExpectedEventsExist(f, object, eventsReasons) {
-			return
-		}
 		if time.Now().After(deadline) {
 			framework.Failf("expected events not found")
+		}
+		if checkExpectedEventsExist(f, object, eventsReasons) {
+			return
 		}
 		time.Sleep(time.Second * 5)
 	}
