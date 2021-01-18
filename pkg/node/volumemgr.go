@@ -943,6 +943,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			Size:       vgFreeSpace,
 			Status:     apiV1.Created,
 			VolumeRefs: lvs,
+			Health:     apiV1.HealthGood,
 		}
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
