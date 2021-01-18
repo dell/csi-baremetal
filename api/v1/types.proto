@@ -64,6 +64,7 @@ message LogicalVolumeGroup {
     int64 Size = 4;
     repeated string VolumeRefs = 5;
     string Status = 6;
+    string Health = 7;
 }
 
 message CSIBMNode {
