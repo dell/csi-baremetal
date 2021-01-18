@@ -36,6 +36,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -150,7 +151,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	volumeID := req.VolumeId
+	var (
+		volumeID  = req.VolumeId
+		newVolume *volumecrd.Volume
+	)
 	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
 	if err != nil {
 		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
@@ -177,18 +181,17 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 
 		volumeCR.Spec.CSIStatus = apiV1.Created
-		newVolume := s.k8sClient.ConstructVolumeCR(volumeCR.Spec.Id, namespace, volumeCR.Spec)
+		newVolume = s.k8sClient.ConstructVolumeCR(volumeCR.Spec.Id, namespace, volumeCR.Spec)
 
 		if err := s.k8sClient.CreateCR(ctx, volumeCR.Spec.Id, newVolume); err != nil {
 			ll.Errorf("Unable to create volume, error: %v", err)
 			return nil, status.Errorf(codes.Internal, "unable to create volume")
 		}
-		if err := s.k8sClient.ReadCR(ctx, volumeCR.Spec.Id, namespace, volumeCR); err != nil {
-			ll.Errorf("Unable to create volume, error: %v", err)
-			return nil, status.Errorf(codes.Internal, "unable to create volume")
-		}
 	}
-	currStatus := volumeCR.Spec.CSIStatus
+	if newVolume == nil {
+		newVolume = volumeCR
+	}
+	currStatus := newVolume.Spec.CSIStatus
 	// if currStatus not in [Created (first call), VolumeReady (retry), Published (multiple pods)]
 	if currStatus != apiV1.Created && currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		ll.Errorf("Current volume CR status - %s, expected to be in - [%s, %s, %s]",
@@ -199,9 +202,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	targetPath := req.StagingTargetPath
 
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
+	partition, err := s.getProvisionerForVolume(&newVolume.Spec).GetVolumePath(newVolume.Spec)
 	if err != nil {
-		ll.Errorf("failed to get partition, for volume %v: %v", volumeCR.Spec, err)
+		ll.Errorf("failed to get partition, for volume %v: %v", newVolume.Spec, err)
 		return nil, status.Error(codes.Internal, "failed to stage volume: partition error")
 	}
 	ll.Infof("Work with partition %s", partition)
@@ -218,8 +221,8 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	if currStatus != apiV1.VolumeReady || newStatus == apiV1.Failed {
-		volumeCR.Spec.CSIStatus = newStatus
-		if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
+		newVolume.Spec.CSIStatus = newStatus
+		if err := s.crHelper.UpdateVolumeCRSpec(newVolume.Name, newVolume.Namespace, newVolume.Spec); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 		}
