@@ -13,8 +13,13 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/name: csi-baremetal
         app: baremetal-csi-controller
         role: csi-do
+      annotations:                        
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '{{ .Values.controller.metrics.port }}'
+        prometheus.io/path: '{{ .Values.controller.metrics.path }}'
     spec:
       {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
       nodeSelector:
@@ -68,11 +73,10 @@ spec:
         - --extender={{ .Values.feature.extender }}
         - --loglevel={{ .Values.log.level }}
         - --healthport={{ .Values.controller.health.server.port }}
+        - --metrics-address=:{{ .Values.controller.metrics.port }}
+        - --metrics-path={{ .Values.controller.metrics.path }}
         {{- if .Values.logReceiver.create  }}
         - --logpath=/var/log/csi.log
-        {{- end }}
-        {{- if .Values.controller.metrics.port }}
-        - --metrics-address=:{{ .Values.controller.metrics.port }}
         {{- end }}
         env:
         - name: POD_IP
