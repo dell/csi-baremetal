@@ -69,61 +69,81 @@ func (nc *nodeCapacity) removeAC(ac *accrd.AvailableCapacity) {
 // selectACForVolume select AC for volume
 // will modify nodeCapacity AC cache
 func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
+	// extract drive technology - HDD,SSD, etc.
 	subSC := util.GetSubStorageClass(vol.StorageClass)
-	isLVM := util.IsStorageClassLVG(vol.StorageClass)
+	// check if LVG SC
+	isLVG := util.IsStorageClassLVG(vol.StorageClass)
 
-	scM := nc.getStorageClassToACMapping()
-	if len(scM[vol.StorageClass]) == 0 &&
-		len(scM[subSC]) == 0 &&
+	// build SC to Name->AC map and check for free capacity
+	scToACMap := nc.getStorageClassToACMapping()
+	if len(scToACMap[vol.StorageClass]) == 0 &&
+		len(scToACMap[subSC]) == 0 &&
 		vol.StorageClass != v1.StorageClassAny {
 		return nil
 	}
+
 	// make copy for temp transformations
 	size := vol.GetSize()
-
-	if isLVM {
+	if isLVG {
 		// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
 		size = AlignSizeByPE(size)
 	}
-	var ac *accrd.AvailableCapacity
-	ac = searchACWithClosestSize(scM[vol.StorageClass], size)
-	if ac == nil {
-		if isLVM {
-			// for the new lvg we need some extra space
-			size += LvgDefaultMetadataSize
-			// search AC in sub storage class
-			ac = searchACWithClosestSize(scM[subSC], size)
-		} else if vol.StorageClass == v1.StorageClassAny {
-			for _, acs := range scM {
-				ac = searchACWithClosestSize(acs, size)
-				if ac != nil {
-					break
-				}
+
+	// filter out non relevant storage classes
+	filteredMap := SCToACMap{}
+	if vol.StorageClass == v1.StorageClassAny {
+		for sc, acs := range scToACMap {
+			// for any SC we need to check for non LVG only
+			if !util.IsStorageClassLVG(sc) {
+				// TODO Take into account drive technology for SC ANY https://github.com/dell/csi-baremetal/issues/231
+				// map must be sorted HDD->SSD->NVMe
+				filteredMap[sc] = acs
 			}
-		}
-	}
-	if ac == nil {
-		return nil
-	}
-	nc.saveOriginalAC(ac)
-	if ac.Spec.StorageClass != vol.StorageClass { // sc relates to LVG or sc == ANY
-		if util.IsStorageClassLVG(ac.Spec.StorageClass) || isLVM {
-			if isLVM {
-				ac.Spec.StorageClass = vol.StorageClass // e.g. HDD -> HDDLVG
-			}
-			ac.Spec.Size -= size
-		} else {
-			// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
-			nc.removeAC(ac)
 		}
 	} else {
-		if isLVM {
-			ac.Spec.Size -= size
-		} else {
-			nc.removeAC(ac)
+		filteredMap[vol.StorageClass] = scToACMap[vol.StorageClass]
+	}
+
+	// try to find free capacity
+	var foundAC *accrd.AvailableCapacity
+	for _, acs := range filteredMap {
+		foundAC = searchACWithClosestSize(acs, size)
+		if foundAC != nil {
+			break
 		}
 	}
-	return nc.getOriginalAC(ac.Name)
+	// for LVG SC try to reserve AC to create new LVG since no free space found on existing
+	if isLVG && foundAC == nil {
+		// for the new lvg we need some extra space
+		size += LvgDefaultMetadataSize
+		// search AC in sub storage class
+		foundAC = searchACWithClosestSize(scToACMap[subSC], size)
+	}
+
+	// return if available capacity not found
+	if foundAC == nil {
+		return nil
+	}
+
+	nc.saveOriginalAC(foundAC)
+	if foundAC.Spec.StorageClass != vol.StorageClass { // sc relates to LVG or sc == ANY
+		if util.IsStorageClassLVG(foundAC.Spec.StorageClass) || isLVG {
+			if isLVG {
+				foundAC.Spec.StorageClass = vol.StorageClass // e.g. HDD -> HDDLVG
+			}
+			foundAC.Spec.Size -= size
+		} else {
+			// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
+			nc.removeAC(foundAC)
+		}
+	} else {
+		if isLVG {
+			foundAC.Spec.Size -= size
+		} else {
+			nc.removeAC(foundAC)
+		}
+	}
+	return nc.getOriginalAC(foundAC.Name)
 }
 
 func (nc *nodeCapacity) getStorageClassToACMapping() SCToACMap {

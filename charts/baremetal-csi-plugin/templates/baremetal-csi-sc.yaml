@@ -8,5 +8,5 @@ provisioner: baremetal-csi  # CSI driver name
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 parameters:
-  storageType: ANY
+  storageType: ANY # With ANY storage type CSI allocates volumes on top of ANY physical drive (non LVG)
   fsType: xfs
