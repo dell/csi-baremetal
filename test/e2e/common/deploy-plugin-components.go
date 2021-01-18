@@ -137,7 +137,7 @@ func waitForRestart(c clientset.Interface, fu func() (func(), error)) (func(), e
 			msg := "Scheduler restart NOT detected yet"
 			e2elog.Logf(msg)
 			if time.Now().After(deadline) {
-				e2elog.Logf("Scheduler restart NOT detected after %d minutes. Continue.",
+				e2elog.Logf("Scheduler didn't receive extender configuration after %f minutes. Continue...",
 					restartWaitTimeout.Minutes())
 				break
 			}
