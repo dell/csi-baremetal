@@ -38,6 +38,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -55,6 +56,7 @@ type CSINodeService struct {
 
 	log           *logrus.Entry
 	livenessCheck LivenessHelper
+	cache         cache.WrapCache
 	VolumeManager
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
@@ -90,6 +92,7 @@ func NewCSINodeService(client api.DriveServiceClient,
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
 		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
+		cache:          cache.NewCacheWrapper(k8sclient),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -161,7 +164,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		ll.Error(message)
 		return nil, status.Error(codes.NotFound, message)
 	}
-	namespace, err := s.k8sClient.GetVolumeNamespace(volumeID)
+	namespace, err := s.cache.GetVolumeNamespace(volumeID)
 	if err != nil || namespace == "" {
 		ll.Errorf("Failed to get volume namespace: %v", err)
 		return nil, status.Error(codes.Unavailable, "Something went wrong with k8s client")
