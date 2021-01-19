@@ -342,8 +342,8 @@ func TestExtender_filterSuccess(t *testing.T) {
 				{StorageClass: v1.StorageClassAny, Size: 150 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassAny, Size: 100 * int64(util.GBYTE)},
 			},
-			ExpectedNodeNames: []string{node3Name},
-			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: [NODE-3]",
+			ExpectedNodeNames: []string{},
+			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: []",
 		},
 		{
 			Volumes: []*genV1.Volume{

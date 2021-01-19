@@ -100,6 +100,7 @@ const (
 	LocationTypeNVMe  = "NVME"
 
 	// CSI StorageClass
+	// For volumes with storage class 'ANY' CSI will pick any AC except LVG AC
 	StorageClassAny       = "ANY"
 	StorageClassHDD       = "HDD"
 	StorageClassSSD       = "SSD"

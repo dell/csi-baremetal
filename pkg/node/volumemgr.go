@@ -943,6 +943,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			Size:       vgFreeSpace,
 			Status:     apiV1.Created,
 			VolumeRefs: lvs,
+			Health:     apiV1.HealthGood,
 		}
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
@@ -983,7 +984,19 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 			}
 		}
 	}
-
+	lvg, err := m.crHelper.GetLVGByDrive(ctx, drive.UUID)
+	if lvg != nil {
+		lvg.Spec.Health = drive.Health
+		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
+			ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
+		}
+	} else {
+		errMsg := "Failed get LVG CR"
+		if err != nil {
+			errMsg = fmt.Sprintf(errMsg+" error: %v", err)
+		}
+		ll.Errorf(errMsg)
+	}
 	// Set disk's health status to volume CR
 	volumes, _ := m.crHelper.GetVolumesByLocation(ctx, drive.UUID)
 	for _, vol := range volumes {

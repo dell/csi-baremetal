@@ -114,6 +114,10 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
 	}
 
+	if lvg.Spec.Health != apiV1.HealthGood {
+		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
+	}
+
 	return ctrl.Result{}, nil
 }
 

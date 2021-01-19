@@ -164,7 +164,7 @@ func TestCapacityManager(t *testing.T) {
 		testACS := []*accrd.AvailableCapacity{
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassSSD),
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
-			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDDLVG),
+			getTestAC(testNode1, testSmallSize, apiV1.StorageClassNVMe),
 		}
 		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
 		assert.NotNil(t, plan)
@@ -177,6 +177,17 @@ func TestCapacityManager(t *testing.T) {
 			}
 			assert.Len(t, usedAC, len(testVols))
 		}
+	})
+	t.Run("ANY StorageClass with LVG AC", func(t *testing.T) {
+		testVols := []*genV1.Volume{
+			getTestVol(testNode1, testSmallSize, apiV1.StorageClassAny),
+		}
+		testACS := []*accrd.AvailableCapacity{
+			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDDLVG),
+		}
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
+		assert.Nil(t, plan)
+		assert.Nil(t, err)
 	})
 	t.Run("Find AC on multiple nodes", func(t *testing.T) {
 		testVols := []*genV1.Volume{

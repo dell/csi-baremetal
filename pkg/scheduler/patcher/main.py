@@ -87,6 +87,9 @@ def run():
         manifest.load()
         manifest.patch()
 
+        # todo on a first run we need to change inode for a scheduler config to trigger pod restart to make sure
+        # <todo> that configuration delivered. this is also affects e2e tests, refer for details -
+        # <todo> https://github.com/dell/csi-baremetal/issues/236
         if manifest.changed:
             manifest.backup()
             manifest.flush()
@@ -101,8 +104,11 @@ class GracefulKiller:
         self.restore = restore
         self.file = file
 
+    # restore original configuration if restore parameter passed
     def exit_gracefully(self, signum, frame):
+        log.info('handling signal {}...'.format(signum))
         if self.restore:
+            log.info('restoring original scheduler config...')
             self.file.restore()
             sys.exit(0)
 
