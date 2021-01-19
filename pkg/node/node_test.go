@@ -342,6 +342,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+			Expect(volumeCR.Spec.Owners).To(BeNil())
 		})
 		//It("Should unpublish volume and don't change volume CR status", func() {
 		//	req := getNodeUnpublishRequest(testV1ID, targetPath)
@@ -421,7 +422,6 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.Owners).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 	})
@@ -467,7 +467,6 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.Owners).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
 
@@ -514,7 +513,6 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.Owners).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 	})
