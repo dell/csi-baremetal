@@ -225,7 +225,7 @@ func TestReconcile_LVGHealthBad(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	err = c.k8sClient.ReadCR(tCtx, acCR1Name, newAC)
+	err = c.k8sClient.ReadCR(tCtx, acCR1Name, "", newAC)
 	assert.Equal(t, int64(0), newAC.Spec.Size)
 }
 

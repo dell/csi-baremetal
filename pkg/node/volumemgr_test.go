@@ -888,7 +888,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	// Check lvg's health change
 	vm.handleDriveStatusChange(testCtx, &drive)
 	updatedLVG := &lvgcrd.LVG{}
-	err = vm.k8sClient.ReadCR(testCtx, testLVGName, updatedLVG)
+	err = vm.k8sClient.ReadCR(testCtx, testLVGName, "", updatedLVG)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.HealthBad, updatedLVG.Spec.Health)
 }
