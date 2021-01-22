@@ -1,15 +1,18 @@
 package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Statistic is a common interface for histogram metrics
 type Statistic interface {
-	Collect() []prometheus.Collector
+	Collect() prometheus.Collector
 	EvaluateDuration(method string, start time.Time)
 }
 
+// VolumeMetrics is a structure, which encapsulate prometheus histogram structure. It used for volume operation metrics
 type VolumeMetrics struct {
 	VolumeOperationsDuration *prometheus.HistogramVec
 }
@@ -27,10 +30,13 @@ func NewVolumeMetrics() *VolumeMetrics {
 	return vm
 }
 
-func (vm *VolumeMetrics) Collect() []prometheus.Collector {
-	return []prometheus.Collector{vm.VolumeOperationsDuration}
+// Collect returns prometheus.Collector slice with volume operations histogram
+func (vm *VolumeMetrics) Collect() prometheus.Collector {
+	return vm.VolumeOperationsDuration
 }
 
+// EvaluateDuration evaluate duration from start for given method and put it into histogram
+// Receive method name as a string, start time ad time.Time
 func (vm *VolumeMetrics) EvaluateDuration(method string, start time.Time) {
 	duration := time.Since(start)
 	vm.VolumeOperationsDuration.With(prometheus.Labels{
@@ -38,6 +44,7 @@ func (vm *VolumeMetrics) EvaluateDuration(method string, start time.Time) {
 	}).Observe(duration.Seconds())
 }
 
+// PartitionsMetrics is a structure, which encapsulate prometheus histogram structure. It used for partition operation metrics
 type PartitionsMetrics struct {
 	PartitionOperationsDuration *prometheus.HistogramVec
 }
@@ -55,10 +62,13 @@ func NewPartitionsMetrics() *PartitionsMetrics {
 	return pm
 }
 
-func (pm *PartitionsMetrics) Collect() []prometheus.Collector {
-	return []prometheus.Collector{pm.PartitionOperationsDuration}
+// Collect returns prometheus.Collector slice with partition operations histogram
+func (pm *PartitionsMetrics) Collect() prometheus.Collector {
+	return pm.PartitionOperationsDuration
 }
 
+// EvaluateDuration evaluate duration from start for given method and put it into histogram
+// Receive method name as a string, start time ad time.Time
 func (pm *PartitionsMetrics) EvaluateDuration(method string, start time.Time) {
 	duration := time.Since(start)
 	pm.PartitionOperationsDuration.With(prometheus.Labels{

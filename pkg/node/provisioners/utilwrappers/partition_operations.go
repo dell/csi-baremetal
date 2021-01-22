@@ -73,7 +73,10 @@ type PartitionOperationsImpl struct {
 // NewPartitionOperationsImpl constructor for PartitionOperationsImpl and returns pointer on it
 func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *PartitionOperationsImpl {
 	var partMetrics = metrics.NewPartitionsMetrics()
-	prometheus.MustRegister(partMetrics.Collect()...)
+	if err := prometheus.Register(partMetrics.Collect()); err != nil {
+		log.WithField("component", "NewPartitionOperationsImpl").
+			Errorf("Failed to register metric: %v", err)
+	}
 	return &PartitionOperationsImpl{
 		WrapPartition: ph.NewWrapPartitionImpl(e, log),
 		log:           log.WithField("component", "PartitionOperations"),

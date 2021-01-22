@@ -67,7 +67,10 @@ type VolumeOperationsImpl struct {
 // Returns an instance of VolumeOperationsImpl
 func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, featureConf fc.FeatureChecker) *VolumeOperationsImpl {
 	volumeMetrics := metrics.NewVolumeMetrics()
-	prometheus.MustRegister(volumeMetrics.Collect()...)
+	if err := prometheus.Register(volumeMetrics.Collect()); err != nil {
+		logger.WithField("component", "NewVolumeOperationsImpl").
+			Errorf("Failed to register metric: %v", err)
+	}
 	return &VolumeOperationsImpl{
 		k8sClient:              k8sClient,
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
