@@ -425,23 +425,6 @@ var _ = Describe("Working with CRD", func() {
 			Expect(driveUUID).To(Equal([]string{testDriveCR2.Spec.UUID}))
 		})
 	})
-	Context("GetVolumeNamespace", func() {
-		It("Volume doesn't exists", func() {
-			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
-			Expect(err).To(BeNil())
-
-			namespace, err := k8sclient.GetVolumeNamespace("volume-0")
-			Expect(err).To(BeNil())
-			Expect(namespace).To(Equal(""))
-		})
-		It("Get namespace from Volume", func() {
-			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
-			Expect(err).To(BeNil())
-			namespace, err := k8sclient.GetVolumeNamespace(testID)
-			Expect(err).To(BeNil())
-			Expect(namespace).To(Equal(testNs))
-		})
-	})
 })
 
 var _ = Describe("Constructor methods", func() {

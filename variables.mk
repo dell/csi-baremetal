@@ -20,7 +20,7 @@ FULL_VERSION     := ${PRODUCT_VERSION}-${RELEASE_STR}
 TAG              := ${FULL_VERSION}
 
 ### third-party components version
-CSI_PROVISIONER_TAG := v1.2.2
+CSI_PROVISIONER_TAG := v1.6.0
 CSI_REGISTRAR_TAG   := v1.0.1-gke.0
 CSI_ATTACHER_TAG    := v1.0.1
 LIVENESS_PROBE_TAG  := v2.1.0

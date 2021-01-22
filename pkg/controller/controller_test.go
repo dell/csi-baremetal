@@ -38,9 +38,12 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/common"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 	"github.com/dell/csi-baremetal/pkg/testutils"
 )
@@ -219,7 +222,6 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			capacity := int64(1024 * 42)
 
 			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
-			testutils.CreatePVC(controller.k8sclient, req.GetName(), "default")
 			err := controller.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
@@ -293,10 +295,9 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
+			fillCache(controller, volumeID, testNs)
 
 			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, testNs, apiV1.Failed)
-
-			testutils.CreatePVC(controller.k8sclient, volumeCrd.Spec.Id, testNs)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
 
 			Expect(resp).To(BeNil())
@@ -312,6 +313,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 		It("Volume CRD isn't found, consider that volume was removed", func() {
 			vID := "some-id"
 			dreq := &csi.DeleteVolumeRequest{VolumeId: vID}
+			fillCache(controller, vID, testNs)
 			resp, err := controller.DeleteVolume(context.Background(), dreq)
 			Expect(resp).ToNot(BeNil())
 			Expect(err).To(BeNil())
@@ -342,8 +344,9 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 
+			fillCache(controller, volumeCrd.Spec.Id, namespace)
+
 			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, namespace, apiV1.Removed)
-			testutils.CreatePVC(controller.k8sclient, volumeCrd.Spec.Id, namespace)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
@@ -400,9 +403,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			lvgCRs := &lvgcrd.LVGList{}
 			err = controller.k8sclient.ReadList(testCtx, lvgCRs)
 			Expect(err).To(BeNil())
-
+			fillCache(controller, volumeCrd.Spec.Id, volumeCrd.Namespace)
 			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, volumeCrd.Namespace, apiV1.Removed)
-			testutils.CreatePVC(controller.k8sclient, volumeCrd.Spec.Id, volumeCrd.Namespace)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
@@ -428,8 +430,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err := controller.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
 			Expect(err).To(BeNil())
 
+			fillCache(controller, fullLVGsizeVolume.Spec.Id, fullLVGsizeVolume.Namespace)
 			go testutils.VolumeReconcileImitation(controller.k8sclient, fullLVGsizeVolume.Spec.Id, fullLVGsizeVolume.Namespace, apiV1.Removed)
-			testutils.CreatePVC(controller.k8sclient, fullLVGsizeVolume.Spec.Id, fullLVGsizeVolume.Namespace)
 			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: testID})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
@@ -555,7 +557,14 @@ func newSvc() *CSIControllerService {
 		panic(err)
 	}
 	nSvc := NewControllerService(kubeclient, testLogger, featureconfig.NewFeatureConfig())
+
 	return nSvc
+}
+
+func fillCache(controller *CSIControllerService, volumeID, namespace string) {
+	c := cache.NewBaseCache()
+	c.Set(volumeID, namespace)
+	controller.svc = common.NewVolumeOperationsImpl(controller.k8sclient, testLogger, c, featureconfig.NewFeatureConfig())
 }
 
 // return CreateVolumeRequest based on provided parameters
@@ -576,6 +585,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.C
 				},
 			},
 		},
+		Parameters: map[string]string{base.PVCNamespaceKey: testNs},
 	}
 
 	if preferredNode != "" {

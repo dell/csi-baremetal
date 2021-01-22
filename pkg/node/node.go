@@ -36,7 +36,6 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/command"
@@ -56,7 +55,6 @@ type CSINodeService struct {
 
 	log           *logrus.Entry
 	livenessCheck LivenessHelper
-	cache         cache.WrapCache
 	VolumeManager
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
@@ -68,6 +66,8 @@ type CSINodeService struct {
 const (
 	// PodNameKey to read pod name from PodInfoOnMount feature
 	PodNameKey = "csi.storage.k8s.io/pod.name"
+	// PodNamespaceKey to read pod namespace from PodInfoOnMount feature
+	PodNamespaceKey = "csi.storage.k8s.io/pod.namespace"
 	// UnknownPodName is used when pod name isn't provided in request
 	UnknownPodName = "UNKNOWN"
 	// EphemeralKey in volume context means that in node publish request we need to create ephemeral volume
@@ -88,11 +88,10 @@ func NewCSINodeService(client api.DriveServiceClient,
 	e.SetLogger(logger)
 	s := &CSINodeService{
 		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
-		svc:            common.NewVolumeOperationsImpl(k8sclient, logger, featureConf),
+		svc:            common.NewVolumeOperationsImpl(k8sclient, logger, cache.NewBaseCache(), featureConf),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
 		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
-		cache:          cache.NewCacheWrapper(k8sclient),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -154,47 +153,16 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	var (
-		volumeID  = req.VolumeId
-		newVolume *volumecrd.Volume
-	)
-	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
-	if err != nil {
+
+	volumeID := req.VolumeId
+	volumeCR := s.crHelper.GetVolumeByID(volumeID)
+	if volumeCR == nil {
 		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
 		ll.Error(message)
 		return nil, status.Error(codes.NotFound, message)
 	}
-	namespace, err := s.cache.GetVolumeNamespace(volumeID)
-	if err != nil || namespace == "" {
-		ll.Errorf("Failed to get volume namespace: %v", err)
-		return nil, status.Error(codes.Unavailable, "Something went wrong with k8s client")
-	}
-	if volumeCR.Namespace != namespace {
-		volumeCR.Spec.CSIStatus = apiV1.Empty
-		volumeCR.Finalizers = nil
 
-		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
-			ll.Errorf("Unable to update volume, error: %v", err)
-			return nil, status.Errorf(codes.Internal, "unable to update volume")
-		}
-
-		if err := s.k8sClient.DeleteCR(ctx, volumeCR); err != nil {
-			ll.Errorf("Unable to delete volume, error: %v", err)
-			return nil, status.Errorf(codes.Internal, "unable to delete volume")
-		}
-
-		volumeCR.Spec.CSIStatus = apiV1.Created
-		newVolume = s.k8sClient.ConstructVolumeCR(volumeCR.Spec.Id, namespace, volumeCR.Spec)
-
-		if err := s.k8sClient.CreateCR(ctx, volumeCR.Spec.Id, newVolume); err != nil {
-			ll.Errorf("Unable to create volume, error: %v", err)
-			return nil, status.Errorf(codes.Internal, "unable to create volume")
-		}
-	}
-	if newVolume == nil {
-		newVolume = volumeCR
-	}
-	currStatus := newVolume.Spec.CSIStatus
+	currStatus := volumeCR.Spec.CSIStatus
 	// if currStatus not in [Created (first call), VolumeReady (retry), Published (multiple pods)]
 	if currStatus != apiV1.Created && currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		ll.Errorf("Current volume CR status - %s, expected to be in - [%s, %s, %s]",
@@ -205,9 +173,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	targetPath := req.StagingTargetPath
 
-	partition, err := s.getProvisionerForVolume(&newVolume.Spec).GetVolumePath(newVolume.Spec)
+	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
 	if err != nil {
-		ll.Errorf("failed to get partition, for volume %v: %v", newVolume.Spec, err)
+		ll.Errorf("failed to get partition, for volume %v: %v", volumeCR.Spec, err)
 		return nil, status.Error(codes.Internal, "failed to stage volume: partition error")
 	}
 	ll.Infof("Work with partition %s", partition)
@@ -224,8 +192,8 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	if currStatus != apiV1.VolumeReady || newStatus == apiV1.Failed {
-		newVolume.Spec.CSIStatus = newStatus
-		if err := s.crHelper.UpdateVolumeCRSpec(newVolume.Name, newVolume.Namespace, newVolume.Spec); err != nil {
+		volumeCR.Spec.CSIStatus = newStatus
+		if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 		}
@@ -263,8 +231,8 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
-	if err != nil {
+	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
+	if volumeCR == nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 
@@ -377,8 +345,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Staging Path missing in request")
 	}
 
-	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
-	if err != nil {
+	volumeCR := s.crHelper.GetVolumeByID(volumeID)
+	if volumeCR == nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
 
@@ -442,7 +410,13 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 		scl           string
 		bytes         int64
 		err           error
+		namespace     string
 	)
+	namespace, ok := volumeContext[PodNamespaceKey]
+	if !ok {
+		namespace = base.DefaultNamespace
+	}
+	ctxWithNamespace := context.WithValue(ctx, base.VolumeNamespace, namespace)
 
 	if bytes, err = util.StrToBytes(bytesStr); err != nil {
 		return nil, err
@@ -463,7 +437,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	}
 
 	s.reqMu.Lock()
-	vol, err := s.svc.CreateVolume(ctx, api.Volume{
+	vol, err := s.svc.CreateVolume(ctxWithNamespace, api.Volume{
 		Id:           volumeID,
 		StorageClass: scl,
 		NodeId:       s.nodeID,
@@ -516,8 +490,8 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
-	if err != nil {
+	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
+	if volumeCR == nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 

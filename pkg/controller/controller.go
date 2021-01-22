@@ -32,8 +32,8 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -60,6 +60,8 @@ type CSIControllerService struct {
 
 	ready bool
 
+	crHelper *k8s.CRHelper
+
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
 }
@@ -72,9 +74,10 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 	c := &CSIControllerService{
 		k8sclient:                k8sClient,
 		log:                      logger.WithField("component", "CSIControllerService"),
-		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, featureConf),
+		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewBaseCache(), featureConf),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
 		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),
+		crHelper:                 k8s.NewCRHelper(k8sClient, logger),
 	}
 
 	// run health monitor
@@ -157,10 +160,11 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}
 
 	var (
-		fsType string
-		err    error
-		mode   string
-		vol    *api.Volume
+		fsType           string
+		err              error
+		mode             string
+		vol              *api.Volume
+		ctxWithNamespace = context.WithValue(ctx, base.VolumeNamespace, req.Parameters[base.PVCNamespaceKey])
 	)
 
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
@@ -169,9 +173,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	} else {
 		return nil, status.Error(codes.Unimplemented, "Block mode is unimplemented")
 	}
-
 	c.reqMu.Lock()
-	vol, err = c.svc.CreateVolume(ctx, api.Volume{
+	vol, err = c.svc.CreateVolume(ctxWithNamespace, api.Volume{
 		Id:           req.Name,
 		StorageClass: util.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
 		NodeId:       preferredNode,
@@ -229,7 +232,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	c.reqMu.Unlock()
 
 	if err != nil {
-		if k8sError.IsNotFound(err) || status.Convert(err).Code() == codes.NotFound {
+		if k8sError.IsNotFound(err) {
 			ll.Infof("Volume doesn't exist")
 			return &csi.DeleteVolumeResponse{}, nil
 		}
@@ -274,13 +277,8 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume capabilities"+
 			" must be provided")
 	}
-
-	vol := &volumecrd.Volume{}
-	if err := c.k8sclient.ReadCR(ctx, req.VolumeId, base.DefaultNamespace, vol); err != nil {
-		if k8sError.IsNotFound(err) {
-			return nil, status.Error(codes.NotFound, "Volume is not found")
-		}
-		ll.Errorf("k8s client can't read volume CR: %v", err)
+	if volume := c.crHelper.GetVolumeByID(req.VolumeId); volume == nil {
+		ll.Errorf("k8s client can't read volume CR")
 		return nil, status.Error(codes.Unavailable, "Something went wrong with k8s client")
 	}
 

@@ -12,21 +12,21 @@ type Interface interface {
 	Delete(key string)
 }
 
-// BaseCache is an implementation of Interface
-type BaseCache struct {
+// MemCache is an implementation of Interface
+type MemCache struct {
 	items map[string]string
 	sync.RWMutex
 }
 
-// NewBaseCache is a constructor for BaseCache
-func NewBaseCache() *BaseCache {
-	return &BaseCache{
+// NewBaseCache is a constructor for MemCache
+func NewBaseCache() *MemCache {
+	return &MemCache{
 		items: make(map[string]string),
 	}
 }
 
-// Get return item from BaseCache using given key or error in case of missing key
-func (c *BaseCache) Get(key string) (string, error) {
+// Get return item from MemCache using given key or error in case of missing key
+func (c *MemCache) Get(key string) (string, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -37,16 +37,16 @@ func (c *BaseCache) Get(key string) (string, error) {
 	return item, nil
 }
 
-// Set adds object to BaseCache with given key
-func (c *BaseCache) Set(key, object string) {
+// Set adds object to MemCache with given key
+func (c *MemCache) Set(key, object string) {
 	c.Lock()
 	defer c.Unlock()
 
 	c.items[key] = object
 }
 
-// Delete deletes object from BaseCache with given key
-func (c *BaseCache) Delete(key string) {
+// Delete deletes object from MemCache with given key
+func (c *MemCache) Delete(key string) {
 	c.Lock()
 	defer c.Unlock()
 

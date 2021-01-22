@@ -210,26 +210,6 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
-		It("Should update volume namespace", func() {
-			vol1 := testVolumeCR2
-			req := getNodeStageRequest(vol1.Spec.Id, *testVolumeCap)
-			err := node.k8sClient.CreateCR(testCtx, vol1.Name, &vol1)
-			Expect(err).To(BeNil())
-			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
-			fsOps.On("PrepareAndPerformMount",
-				partitionPath, req.GetStagingTargetPath(), false).
-				Return(nil)
-
-			testutils.CreatePVC(node.k8sClient, vol1.Name, "test")
-			resp, err := node.NodeStageVolume(testCtx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-			updatedVol := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(context.Background(), vol1.Name, "test", updatedVol)
-			Expect(err).To(BeNil())
-			Expect(updatedVol.Namespace).To(Equal("test"))
-		})
 		It("Should stage, volume CR with VolumeReady status", func() {
 			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
 			vol1 := testVolumeCR1

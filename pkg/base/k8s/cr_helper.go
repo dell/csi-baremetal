@@ -22,8 +22,6 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -204,14 +202,11 @@ func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 }
 
 // GetVolumeByID reads volume CRs and returns volumes CR if it .Spec.Id == volId
-func (cs *CRHelper) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
-	volumeCRs, err := cs.GetVolumeCRs()
-	if err != nil {
-		return nil, err
-	}
+func (cs *CRHelper) GetVolumeByID(volID string) *volumecrd.Volume {
+	volumeCRs, _ := cs.GetVolumeCRs()
 	for _, v := range volumeCRs {
 		if v.Spec.Id == volID {
-			return &v, nil
+			return &v
 		}
 	}
 
@@ -219,7 +214,7 @@ func (cs *CRHelper) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
 		"method":   "GetVolumeByID",
 		"volumeID": volID,
 	}).Infof("Volume CR isn't exist")
-	return nil, status.Errorf(codes.NotFound, "volume isn't found")
+	return nil
 }
 
 // GetVolumeCRs collect volume CRs that locate on node, use just node[0] element
@@ -364,7 +359,7 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 		lvgObj := &lvgcrd.LVG{}
 		err := cs.k8sClient.ReadCR(context.Background(), volume.Spec.Location, "", lvgObj)
 		if err != nil {
-			ll.Errorf("failed to read LVG CR: %s", err.Error())
+			ll.Errorf("failed to read LVG CR list: %s", err.Error())
 			return nil, err
 		}
 		if len(lvgObj.Spec.Locations) == 0 {

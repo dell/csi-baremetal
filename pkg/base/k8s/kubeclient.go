@@ -362,38 +362,6 @@ func (k *KubeClient) GetSystemDriveUUIDs() []string {
 	return drivesUUIDs
 }
 
-// GetVolumeNamespace returns namespace of volume with given id
-// Receives volume id
-// Returns namespace as a string and error
-func (k *KubeClient) GetVolumeNamespace(volumeID string) (string, error) {
-	var (
-		pvcList   = &coreV1.PersistentVolumeClaimList{}
-		volList   = &volumecrd.VolumeList{}
-		namespace = ""
-	)
-	if err := k.List(context.Background(), pvcList); err != nil {
-		return "", err
-	}
-	for _, pvc := range pvcList.Items {
-		if pvc.Spec.VolumeName == volumeID {
-			namespace = pvc.Namespace
-			break
-		}
-	}
-	if namespace == "" {
-		if err := k.List(context.Background(), volList); err != nil {
-			return "", err
-		}
-		for _, vol := range volList.Items {
-			if vol.Name == volumeID {
-				namespace = vol.Namespace
-				break
-			}
-		}
-	}
-	return namespace, nil
-}
-
 // GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources
 // Returns controller-runtime/pkg/Client which can work with CSI CRs or error if something went wrong
 func GetK8SClient() (k8sCl.Client, error) {

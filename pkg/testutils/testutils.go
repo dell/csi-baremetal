@@ -24,8 +24,6 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // VolumeReconcileImitation looking for volume CR with name volId and sets it's status to newStatus
@@ -64,23 +62,6 @@ func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, names
 	// change status
 	v.Spec.CSIStatus = newStatus
 	if err := k8sClient.UpdateCRWithAttempts(ctx, v, attempts); err != nil {
-		return err
-	}
-	return nil
-}
-
-// CreatePVC creates PersistentVolumeClaim with given name and namespace, returns error if something went wrong
-func CreatePVC(k8sClient *k8s.KubeClient, name string, namespace string) error {
-	pvc := &v1.PersistentVolumeClaim{
-		ObjectMeta: v12.ObjectMeta{
-			Name:      "pvc",
-			Namespace: namespace,
-		},
-		Spec: v1.PersistentVolumeClaimSpec{
-			VolumeName: name,
-		},
-	}
-	if err := k8sClient.Create(context.Background(), pvc); err != nil {
 		return err
 	}
 	return nil
