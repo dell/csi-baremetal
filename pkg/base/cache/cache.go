@@ -18,8 +18,8 @@ type MemCache struct {
 	sync.RWMutex
 }
 
-// NewBaseCache is a constructor for MemCache
-func NewBaseCache() *MemCache {
+// NewMemCache is a constructor for MemCache
+func NewMemCache() *MemCache {
 	return &MemCache{
 		items: make(map[string]string),
 	}

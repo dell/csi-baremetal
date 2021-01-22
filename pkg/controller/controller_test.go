@@ -562,7 +562,7 @@ func newSvc() *CSIControllerService {
 }
 
 func fillCache(controller *CSIControllerService, volumeID, namespace string) {
-	c := cache.NewBaseCache()
+	c := cache.NewMemCache()
 	c.Set(volumeID, namespace)
 	controller.svc = common.NewVolumeOperationsImpl(controller.k8sclient, testLogger, c, featureconfig.NewFeatureConfig())
 }

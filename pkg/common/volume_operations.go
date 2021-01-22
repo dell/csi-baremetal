@@ -93,7 +93,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		err       error
 		namespace = base.DefaultNamespace
 	)
-	if value := ctx.Value(base.VolumeNamespace); value != nil {
+	if value := ctx.Value(base.VolumeNamespace); value != nil && value != "" {
 		namespace = value.(string)
 	}
 
@@ -239,8 +239,8 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 
 	namespace, err := vo.cache.Get(volumeID)
 	if err != nil {
-		ll.Errorf("Unable to get volume namespace: %v", err)
-		return status.Error(codes.Internal, "unable to delete volume")
+		ll.Errorf("Unable to get volume namespace, volume doesn't exists: %v", err)
+		return status.Errorf(codes.NotFound, "volume doesn't exists in cache")
 	}
 	if err = vo.k8sClient.ReadCR(ctx, volumeID, namespace, volumeCR); err != nil {
 		return err

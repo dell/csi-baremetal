@@ -493,7 +493,7 @@ func setupVOOperationsTest(t *testing.T) *VolumeOperationsImpl {
 	assert.Nil(t, err)
 	assert.NotNil(t, k8sClient)
 
-	return NewVolumeOperationsImpl(k8sClient, testLogger, cache.NewBaseCache(), featureconfig.NewFeatureConfig())
+	return NewVolumeOperationsImpl(k8sClient, testLogger, cache.NewMemCache(), featureconfig.NewFeatureConfig())
 }
 
 func buildVolumePlacingPlan(node string, vol *api.Volume,

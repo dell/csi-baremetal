@@ -74,7 +74,7 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 	c := &CSIControllerService{
 		k8sclient:                k8sClient,
 		log:                      logger.WithField("component", "CSIControllerService"),
-		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewBaseCache(), featureConf),
+		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
 		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),
 		crHelper:                 k8s.NewCRHelper(k8sClient, logger),
@@ -232,7 +232,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	c.reqMu.Unlock()
 
 	if err != nil {
-		if k8sError.IsNotFound(err) {
+		if k8sError.IsNotFound(err) || (status.Code(err) == codes.NotFound) {
 			ll.Infof("Volume doesn't exist")
 			return &csi.DeleteVolumeResponse{}, nil
 		}
@@ -279,7 +279,7 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	}
 	if volume := c.crHelper.GetVolumeByID(req.VolumeId); volume == nil {
 		ll.Errorf("k8s client can't read volume CR")
-		return nil, status.Error(codes.Unavailable, "Something went wrong with k8s client")
+		return nil, status.Error(codes.NotFound, "Volume is not found")
 	}
 
 	ll.Info("Return empty response, ok.")

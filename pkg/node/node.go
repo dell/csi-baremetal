@@ -88,7 +88,7 @@ func NewCSINodeService(client api.DriveServiceClient,
 	e.SetLogger(logger)
 	s := &CSINodeService{
 		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
-		svc:            common.NewVolumeOperationsImpl(k8sclient, logger, cache.NewBaseCache(), featureConf),
+		svc:            common.NewVolumeOperationsImpl(k8sclient, logger, cache.NewMemCache(), featureConf),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
 		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
