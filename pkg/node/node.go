@@ -247,10 +247,6 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		return nil, status.Error(codes.FailedPrecondition, msg)
 	}
 
-	// This is a temporary solution to clear all owners during NodeUnstage
-	// because NodeUnpublishRequest doesn't contain info about pod
-	// TODO: remove owner from Owners slice during Unpublish properly - https://github.com/dell/csi-baremetal/issues/86
-	// volumeCR.Spec.Owners = nil
 	volumeCR.Spec.CSIStatus = apiV1.Created
 
 	var (
@@ -371,20 +367,18 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
 	}
 
-	// TODO: need to provide better logic for volumes Owners https://github.com/dell/csi-baremetal/issues/86
-	// add volume owner info
-	// var podName string
-	// podName, ok := req.VolumeContext[PodNameKey]
-	// if !ok {
-	//	podName = UnknownPodName
-	//	ll.Warnf("flag podInfoOnMount isn't provided will add %s for volume owners", podName)
-	// }
-	//
-	// owners := volumeCR.Spec.Owners
-	// if !util.ContainsString(owners, podName) { // check whether podName already in owners or no
-	//	owners = append(owners, podName)
-	//	volumeCR.Spec.Owners = owners
-	// }
+	var podName string
+	podName, ok := req.VolumeContext[PodNameKey]
+	if !ok {
+		podName = UnknownPodName
+		ll.Warnf("flag podInfoOnMount isn't provided will add %s for volume owners", podName)
+	}
+
+	owners := volumeCR.Spec.Owners
+	if !util.ContainsString(owners, podName) { // check whether podName already in owners or no
+		owners = append(owners, podName)
+		volumeCR.Spec.Owners = owners
+	}
 
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	volumeCR.Spec.CSIStatus = newStatus
@@ -513,11 +507,8 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		}
 		return nil, status.Error(codes.Internal, "unmount error")
 	}
-	// If volume has more than 1 owner pods then keep its status as Published
-	// if len(volumeCR.Spec.Owners) > 1 {
-	//	return &csi.NodeUnpublishVolumeResponse{}, nil
-	// }
 
+	volumeCR.Spec.Owners = nil
 	// k8s doesn't call DeleteVolume for inline volumes, so we perform DeleteVolume operation in Unpublish request
 	if volumeCR.Spec.Ephemeral {
 		s.reqMu.Lock()
