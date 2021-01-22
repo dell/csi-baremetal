@@ -38,6 +38,8 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
@@ -55,6 +57,7 @@ type VolumeOperationsImpl struct {
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 
+	metrics        metrics.Statistic
 	featureChecker fc.FeatureChecker
 	log            *logrus.Entry
 }
@@ -62,14 +65,16 @@ type VolumeOperationsImpl struct {
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of VolumeOperationsImpl
-func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger,
-	featureConf fc.FeatureChecker) *VolumeOperationsImpl {
+func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, featureConf fc.FeatureChecker) *VolumeOperationsImpl {
+	volumeMetrics := metrics.NewVolumeMetrics()
+	prometheus.MustRegister(volumeMetrics.Collect()...)
 	return &VolumeOperationsImpl{
 		k8sClient:              k8sClient,
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
 		log:                    logger.WithField("component", "VolumeOperationsImpl"),
 		featureChecker:         featureConf,
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		metrics:                volumeMetrics,
 	}
 }
 
@@ -77,6 +82,7 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 // Receives golang context and api.Volume which is Spec of Volume CR to create
 // Returns api.Volume instance that took the place of chosen by SearchAC method AvailableCapacity CR
 func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error) {
+	defer vo.metrics.EvaluateDuration("CreateVolume", time.Now())
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "CreateVolume",
 		"volumeID": v.Id,
@@ -216,6 +222,7 @@ func (vo *VolumeOperationsImpl) createCapacityManager(capReader capacityplanner.
 // Receives golang context and a volume ID to delete
 // Returns error if something went wrong or Volume with volumeID wasn't found
 func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID string) error {
+	defer vo.metrics.EvaluateDuration("DeleteVolume", time.Now())
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
 		"volumeID": volumeID,
@@ -261,6 +268,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 // remove Volume CR and if volume was in LVG SC - update corresponding AC CR
 // does not return anything because that method does not change real drive on the node
 func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
+	defer vo.metrics.EvaluateDuration("UpdateCRsAfterVolumeDeletion", time.Now())
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "UpdateCRsAfterVolumeDeletion",
 		"volumeID": ctx.Value(base.RequestUUID),
@@ -331,6 +339,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 // WaitStatus check volume status until it will be reached one of the statuses
 // return error if context is done or volume reaches failed status, return nil if reached status != failed
 func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string, statuses ...string) error {
+	defer vo.metrics.EvaluateDuration("WaitStatus", time.Now())
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "WaitStatus",
 		"volumeID": volumeID,
