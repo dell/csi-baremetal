@@ -205,7 +205,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	volume := &volumecrd.Volume{}
 
-	err := m.k8sClient.ReadCR(ctx, req.Name, volume)
+	err := m.k8sClient.ReadCR(ctx, req.Name, req.Namespace, volume)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -334,7 +334,7 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 		err error
 	)
 
-	if err = m.k8sClient.ReadCR(ctx, volume.Spec.Location, lvg); err != nil {
+	if err = m.k8sClient.ReadCR(ctx, volume.Spec.Location, "", lvg); err != nil {
 		ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
 		if k8sError.IsNotFound(err) {
 			volume.Spec.CSIStatus = apiV1.Failed
@@ -744,7 +744,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 
 			volUUID := uuid.New().String() // generate new uuid to use it for  volume CR name
 
-			volumeCR := m.k8sClient.ConstructVolumeCR(volUUID, api.Volume{
+			volumeCR := m.k8sClient.ConstructVolumeCR(volUUID, base.DefaultNamespace, api.Volume{
 				NodeId:       m.nodeID,
 				Id:           partUUID,
 				Size:         size,
@@ -893,7 +893,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	// 2. check whether there is LVG configuration on the system drive or not
 	var driveCR = new(drivecrd.Drive)
 	// TODO: handle situation when there is more then one system drive
-	if err = m.k8sClient.ReadCR(context.Background(), m.systemDrivesUUIDs[0], driveCR); err != nil {
+	if err = m.k8sClient.ReadCR(context.Background(), m.systemDrivesUUIDs[0], "", driveCR); err != nil {
 		return err
 	}
 

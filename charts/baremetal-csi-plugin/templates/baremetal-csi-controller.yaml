@@ -38,6 +38,7 @@ spec:
         - "--csi-address=$(ADDRESS)"
         - "--v=5"
         - "--feature-gates=Topology=true"
+        - "--extra-create-metadata"
         env:
         - name: ADDRESS
           value: /csi/csi.sock

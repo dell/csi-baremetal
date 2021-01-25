@@ -160,7 +160,7 @@ func createACsInAPi(t *testing.T, client *k8s.KubeClient, acs []*accrd.Available
 }
 
 func checkACRNotExist(t *testing.T, client *k8s.KubeClient, acr *acrcrd.AvailableCapacityReservation) {
-	err := client.ReadCR(context.Background(), acr.Name, acr)
+	err := client.ReadCR(context.Background(), acr.Name, "", acr)
 	assert.True(t, k8serrors.IsNotFound(err))
 }
 

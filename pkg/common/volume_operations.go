@@ -34,12 +34,11 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/metrics"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
@@ -58,14 +57,16 @@ type VolumeOperationsImpl struct {
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 
 	metrics        metrics.Statistic
-	featureChecker fc.FeatureChecker
-	log            *logrus.Entry
+	cache                  cache.Interface
+	featureChecker         fc.FeatureChecker
+	log                    *logrus.Entry
 }
 
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of VolumeOperationsImpl
-func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, featureConf fc.FeatureChecker) *VolumeOperationsImpl {
+func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, cache cache.Interface,
+	featureConf fc.FeatureChecker) *VolumeOperationsImpl {
 	volumeMetrics := metrics.NewVolumeMetrics()
 	if err := prometheus.Register(volumeMetrics.Collect()); err != nil {
 		logger.WithField("component", "NewVolumeOperationsImpl").
@@ -77,8 +78,11 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, f
 		log:                    logger.WithField("component", "VolumeOperationsImpl"),
 		featureChecker:         featureConf,
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		cache:                  cache,
 		metrics:                volumeMetrics,
 	}
+	vo.fillCache()
+	return vo
 }
 
 // CreateVolume searches AC and creates volume CR or returns existed volume CR
@@ -96,9 +100,14 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, v.Id)
 		volumeCR  = &volumecrd.Volume{}
 		err       error
+		namespace = base.DefaultNamespace
 	)
+	if value := ctx.Value(base.VolumeNamespace); value != nil && value != "" {
+		namespace = value.(string)
+	}
+
 	// at first check whether volume CR exist or no
-	err = vo.k8sClient.ReadCR(ctx, v.Id, volumeCR)
+	err = vo.k8sClient.ReadCR(ctx, v.Id, namespace, volumeCR)
 	switch {
 	case err == nil:
 		ll.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
@@ -190,12 +199,13 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			Mode:              v.Mode,
 			Type:              v.Type,
 		}
-		volumeCR = vo.k8sClient.ConstructVolumeCR(v.Id, apiVolume)
+		volumeCR = vo.k8sClient.ConstructVolumeCR(v.Id, namespace, apiVolume)
 
 		if err = vo.k8sClient.CreateCR(ctxWithID, v.Id, volumeCR); err != nil {
 			ll.Errorf("Unable to create CR, error: %v", err)
 			return nil, status.Errorf(codes.Internal, "unable to create volume CR")
 		}
+		vo.cache.Set(v.Id, namespace)
 
 		// decrease AC size
 		ac.Spec.Size -= allocatedBytes
@@ -237,7 +247,12 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 		err      error
 	)
 
-	if err = vo.k8sClient.ReadCR(ctx, volumeID, volumeCR); err != nil {
+	namespace, err := vo.cache.Get(volumeID)
+	if err != nil {
+		ll.Errorf("Unable to get volume namespace, volume doesn't exists: %v", err)
+		return status.Errorf(codes.NotFound, "volume doesn't exists in cache")
+	}
+	if err = vo.k8sClient.ReadCR(ctx, volumeID, namespace, volumeCR); err != nil {
 		return err
 	}
 
@@ -282,7 +297,13 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		err      error
 	)
 
-	if err = vo.k8sClient.ReadCR(ctx, volumeID, &volumeCR); err != nil {
+	namespace, err := vo.cache.Get(volumeID)
+	if err != nil {
+		ll.Errorf("Unable to get volume namespace: %v", err)
+		return
+	}
+
+	if err = vo.k8sClient.ReadCR(ctx, volumeID, namespace, &volumeCR); err != nil {
 		if !k8sError.IsNotFound(err) {
 			ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
 		}
@@ -293,6 +314,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
 	}
 
+	vo.cache.Delete(volumeID)
 	// find corresponding AC CR
 	acList := accrd.AvailableCapacityList{}
 	if err = vo.k8sClient.ReadList(ctx, &acList); err != nil {
@@ -319,7 +341,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	isDeleted := false
 	lvg := &lvgcrd.LVG{}
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
-		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, lvg); err != nil {
+		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, "", lvg); err != nil {
 			ll.Errorf("Unable to get LVG %s: %v", volumeCR.Spec.Location, err)
 			return
 		}
@@ -355,13 +377,18 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 		timeoutBetweenCheck = time.Second
 		err                 error
 	)
+	namespace, err := vo.cache.Get(volumeID)
+	if err != nil {
+		ll.Errorf("Unable to get volume namespace: %v", err)
+		return fmt.Errorf("unable to get volume namespace")
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			ll.Warnf("Context is done but volume still not reach one of the expected status: %v", statuses)
 			return fmt.Errorf("volume context is done")
 		case <-time.After(timeoutBetweenCheck):
-			if err = vo.k8sClient.ReadCR(ctx, volumeID, v); err != nil {
+			if err = vo.k8sClient.ReadCR(ctx, volumeID, namespace, v); err != nil {
 				ll.Errorf("Unable to read volume CR: %v", err)
 				if k8sError.IsNotFound(err) {
 					ll.Error("Volume CR doesn't exist")
@@ -417,4 +444,18 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 
 	log.Errorf("Reference to volume %s in LVG %v not found", volID, lvg)
 	return false, errors.New("LVG CR wasn't updated")
+}
+
+// fillCache tries to fill volume/namespace cache after VolumeOperationsImpl initialization
+func (vo *VolumeOperationsImpl) fillCache() {
+	ll := vo.log.WithFields(logrus.Fields{
+		"method": "fillCache",
+	})
+	volList := &volumecrd.VolumeList{}
+	if err := vo.k8sClient.ReadList(context.Background(), volList); err != nil {
+		ll.Errorf("Failed to fill volume cache, error %v", err)
+	}
+	for _, volume := range volList.Items {
+		vo.cache.Set(volume.Name, volume.Namespace)
+	}
 }

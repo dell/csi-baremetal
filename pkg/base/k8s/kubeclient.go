@@ -101,15 +101,18 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 // ReadCR reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object) error {
-	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, obj runtime.Object) error {
+	if namespace == "" {
+		return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+	}
+	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj)
 }
 
 // ReadList reads a list of specified resources into k8s resource List struct (for example v1.PodList)
 // Receives golang context, and List object pointer where to read
 // Returns error if something went wrong
 func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
-	return k.List(ctx, obj, k8sCl.InNamespace(k.Namespace))
+	return k.List(ctx, obj)
 }
 
 // UpdateCR updates provided resource on k8s cluster
@@ -197,14 +200,15 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 // ConstructVolumeCR constructs Volume custom resource from api.Volume struct
 // Receives a name for k8s ObjectMeta and an instance of api.Volume struct
 // Returns an instance of Volume CR struct
-func (k *KubeClient) ConstructVolumeCR(name string, apiVolume api.Volume) *volumecrd.Volume {
+func (k *KubeClient) ConstructVolumeCR(name string, namespace string, apiVolume api.Volume) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.VolumeKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: name,
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: apiVolume,
 	}
@@ -246,7 +250,7 @@ func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *n
 // with specified amount of attempts. Fails right away if resource is not found
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempts int) error {
+func (k *KubeClient) ReadCRWithAttempts(name string, namespace string, obj runtime.Object, attempts int) error {
 	ll := k.log.WithFields(logrus.Fields{
 		"method":   "ReadCRWithAttempts",
 		"volumeID": name,
@@ -261,7 +265,7 @@ func (k *KubeClient) ReadCRWithAttempts(name string, obj runtime.Object, attempt
 
 	// read volume into v
 	for i := 0; i < attempts; i++ {
-		if err = k.ReadCR(context.Background(), name, obj); err == nil {
+		if err = k.ReadCR(context.Background(), name, namespace, obj); err == nil {
 			return nil
 		} else if k8sError.IsNotFound(err) {
 			return err

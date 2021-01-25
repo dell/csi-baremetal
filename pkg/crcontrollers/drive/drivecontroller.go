@@ -90,7 +90,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// obtain corresponding drive
 	drive := &drivecrd.Drive{}
-	if err := c.client.ReadCR(ctx, driveName, drive); err != nil {
+	if err := c.client.ReadCR(ctx, driveName, "", drive); err != nil {
 		log.Errorf("Failed to read Drive %s CR", driveName)
 		// TODO is this correct error here?
 		return ctrl.Result{}, client.IgnoreNotFound(err)

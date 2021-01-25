@@ -27,10 +27,10 @@ import (
 )
 
 // VolumeReconcileImitation looking for volume CR with name volId and sets it's status to newStatus
-func VolumeReconcileImitation(k8sClient *k8s.KubeClient, volID string, newStatus string) {
+func VolumeReconcileImitation(k8sClient *k8s.KubeClient, volID string, namespace string, newStatus string) {
 	for {
 		<-time.After(200 * time.Millisecond)
-		err := ReadVolumeAndChangeStatus(k8sClient, volID, newStatus)
+		err := ReadVolumeAndChangeStatus(k8sClient, volID, namespace, newStatus)
 		if err != nil {
 			return
 		}
@@ -48,14 +48,14 @@ func AddAC(k8sClient *k8s.KubeClient, acs ...*accrd.AvailableCapacity) error {
 }
 
 // ReadVolumeAndChangeStatus returns error if something went wrong
-func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, newStatus string) error {
+func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, namespace string, newStatus string) error {
 	var (
 		v        = &volumecrd.Volume{}
 		attempts = 10
 		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	)
 
-	if err := k8sClient.ReadCRWithAttempts(volumeID, v, attempts); err != nil {
+	if err := k8sClient.ReadCRWithAttempts(volumeID, namespace, v, attempts); err != nil {
 		return err
 	}
 

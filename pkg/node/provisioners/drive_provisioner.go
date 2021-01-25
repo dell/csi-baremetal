@@ -88,7 +88,7 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 	)
 
 	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
-	if err = d.k8sClient.ReadCR(ctxWithID, vol.Location, drive); err != nil {
+	if err = d.k8sClient.ReadCR(ctxWithID, vol.Location, "", drive); err != nil {
 		return fmt.Errorf("failed to read drive CR with name %s, error %v", vol.Location, err)
 	}
 

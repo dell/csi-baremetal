@@ -357,7 +357,7 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 
 	if volume.Spec.LocationType == apiV1.LocationTypeLVM {
 		lvgObj := &lvgcrd.LVG{}
-		err := cs.k8sClient.ReadCR(context.Background(), volume.Spec.Location, lvgObj)
+		err := cs.k8sClient.ReadCR(context.Background(), volume.Spec.Location, "", lvgObj)
 		if err != nil {
 			ll.Errorf("failed to read LVG CR list: %s", err.Error())
 			return nil, err
@@ -375,7 +375,7 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 // in case of error returns empty string and error
 func (cs *CRHelper) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
 	lvgCR := lvgcrd.LVG{}
-	if err := cs.k8sClient.ReadCR(context.Background(), lvgCRName, &lvgCR); err != nil {
+	if err := cs.k8sClient.ReadCR(context.Background(), lvgCRName, "", &lvgCR); err != nil {
 		return "", err
 	}
 	return lvgCR.Spec.Name, nil
@@ -410,14 +410,14 @@ func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LVG, error) {
 
 // UpdateVolumeCRSpec reads volume CR with name volName and update it's spec to newSpec
 // returns nil or error in case of error
-func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error {
+func (cs *CRHelper) UpdateVolumeCRSpec(volName string, namespace string, newSpec api.Volume) error {
 	var (
 		volumeCR = &volumecrd.Volume{}
 		err      error
 	)
 
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeCR.Spec.Id)
-	if err = cs.k8sClient.ReadCR(ctxWithID, volName, volumeCR); err != nil {
+	if err = cs.k8sClient.ReadCR(ctxWithID, volName, namespace, volumeCR); err != nil {
 		return err
 	}
 
@@ -426,8 +426,8 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, newSpec api.Volume) error
 }
 
 // DeleteObjectByName read runtime.Object by its name and then delete it
-func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, obj runtime.Object) error {
-	if err := cs.k8sClient.ReadCR(ctx, name, obj); err != nil {
+func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespace string, obj runtime.Object) error {
+	if err := cs.k8sClient.ReadCR(ctx, name, namespace, obj); err != nil {
 		if k8sError.IsNotFound(err) {
 			return nil
 		}
