@@ -211,12 +211,6 @@ var _ = Describe("pods listing", func() {
 			Expect(pods[0].Name).To(Equal(testPod2Name))
 		})
 
-		It("Must receive all pods in namespace", func() {
-			pods, err := kubeClient.GetPods(testCtx, "")
-			Expect(err).To(BeNil())
-			Expect(len(pods)).To(Equal(2))
-		})
-
 		It("Must receive empty list", func() {
 			pods, err := kubeClient.GetPods(testCtx, "fake")
 			Expect(err).To(BeNil())

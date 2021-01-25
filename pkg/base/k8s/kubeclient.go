@@ -29,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crCache "sigs.k8s.io/controller-runtime/pkg/cache"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
+	crApiutil "sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
@@ -102,14 +104,14 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
 func (k *KubeClient) ReadCR(ctx context.Context, name string, obj runtime.Object) error {
-	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+	return k.Get(ctx, k8sCl.ObjectKey{Name: name}, obj)
 }
 
 // ReadList reads a list of specified resources into k8s resource List struct (for example v1.PodList)
 // Receives golang context, and List object pointer where to read
 // Returns error if something went wrong
 func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
-	return k.List(ctx, obj, k8sCl.InNamespace(k.Namespace))
+	return k.List(ctx, obj)
 }
 
 // UpdateCR updates provided resource on k8s cluster
@@ -310,7 +312,7 @@ func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Objec
 func (k *KubeClient) GetPods(ctx context.Context, mask string) ([]*coreV1.Pod, error) {
 	pods := coreV1.PodList{}
 
-	if err := k.List(ctx, &pods, k8sCl.InNamespace(k.Namespace)); err != nil {
+	if err := k.List(ctx, &pods); err != nil {
 		return nil, err
 	}
 	p := make([]*coreV1.Pod, 0)
@@ -373,6 +375,53 @@ func GetK8SClient() (k8sCl.Client, error) {
 	}
 
 	return cl, err
+}
+
+// GetK8SCachedClient returns k8s client with cache support
+func GetK8SCachedClient(stop <-chan struct{}, logger *logrus.Logger) (k8sCl.Client, error) {
+	config := ctrl.GetConfigOrDie()
+
+	scheme, err := PrepareScheme()
+	if err != nil {
+		return nil, err
+	}
+	// Create the mapper provider
+	mapper, err := crApiutil.NewDynamicRESTMapper(config)
+	if err != nil {
+		return nil, err
+	}
+	// Create the cache for the cached read client and registering informers
+	cache, err := crCache.New(config, crCache.Options{
+		Scheme: scheme,
+		Mapper: mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+	apiReader, err := k8sCl.New(config, k8sCl.Options{Scheme: scheme, Mapper: mapper})
+	if err != nil {
+		return nil, err
+	}
+
+	writeObj := k8sCl.DelegatingClient{
+		Reader: &k8sCl.DelegatingReader{
+			CacheReader:  cache,
+			ClientReader: apiReader,
+		},
+		Writer:       apiReader,
+		StatusClient: apiReader,
+	}
+	// start cache and wait for sync
+	go func() {
+		if err := cache.Start(stop); err != nil {
+			logger.Errorf("fail to start cache: %v", err)
+		}
+	}()
+
+	logger.Info("Wait for cache sync")
+	cache.WaitForCacheSync(stop)
+
+	return writeObj, nil
 }
 
 // PrepareScheme registers CSI custom resources to runtime.Scheme
