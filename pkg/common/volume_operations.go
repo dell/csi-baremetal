@@ -39,6 +39,8 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
@@ -57,9 +59,9 @@ type VolumeOperationsImpl struct {
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 
 	metrics        metrics.Statistic
-	cache                  cache.Interface
-	featureChecker         fc.FeatureChecker
-	log                    *logrus.Entry
+	cache          cache.Interface
+	featureChecker fc.FeatureChecker
+	log            *logrus.Entry
 }
 
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
@@ -72,7 +74,7 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, c
 		logger.WithField("component", "NewVolumeOperationsImpl").
 			Errorf("Failed to register metric: %v", err)
 	}
-	return &VolumeOperationsImpl{
+	vo := &VolumeOperationsImpl{
 		k8sClient:              k8sClient,
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
 		log:                    logger.WithField("component", "VolumeOperationsImpl"),
