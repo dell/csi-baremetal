@@ -36,6 +36,8 @@ var (
 	logLevel          = flag.String("loglevel", base.InfoLevel, "Log level")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
 		"Whether extender should read id from node annotation and use it as id for all CRs or not")
+	waitForResources = flag.Bool("wait-for-resources", false,
+		"If enabled extender will do few retries waiting for available resources before return available capacity not found")
 )
 
 // TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
@@ -52,6 +54,7 @@ func main() {
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
+	featureConf.Update(featureconfig.FeatureExtenderWaitForResources, *waitForResources)
 
 	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner, featureConf)
 	if err != nil {

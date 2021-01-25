@@ -19,10 +19,12 @@ package extender
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -30,6 +32,7 @@ import (
 	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
@@ -41,6 +44,11 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+)
+
+const (
+	waitForResourcesRetryInterval = time.Millisecond * 500
+	waitForResourcesRetryTimeout  = time.Second * 5
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -111,10 +119,11 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	ll.Debugf("Required volumes: %v", volumes)
-
-	e.Lock()
-	defer e.Unlock()
-	matchedNodes, failedNodes, err := e.filter(ctxWithVal, extenderArgs.Nodes.Items, volumes)
+	filterFunc := e.filter
+	if e.featureChecker.IsEnabled(fc.FeatureExtenderWaitForResources) {
+		filterFunc = e.filterWithRetry
+	}
+	matchedNodes, failedNodes, err := filterFunc(ctxWithVal, extenderArgs.Nodes.Items, volumes)
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		extenderRes.Error = err.Error()
@@ -315,6 +324,8 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 // failedNodesMap - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
 	failedNodesMap schedulerapi.FailedNodesMap, err error) {
+	e.Lock()
+	defer e.Unlock()
 	if len(volumes) == 0 {
 		return nodes, failedNodesMap, err
 	}
@@ -454,4 +465,39 @@ func (e *Extender) getNodeID(node coreV1.Node) string {
 	}
 
 	return string(node.UID)
+}
+
+// filterWithRetry will retry few times to find capacity before return no AC found
+func (e *Extender) filterWithRetry(ctx context.Context, nodes []coreV1.Node, volumes []*genV1.Volume) (
+	[]coreV1.Node, schedulerapi.FailedNodesMap, error) {
+	ll := e.logger.WithField("method", "filterWithRetry")
+	var (
+		matched []coreV1.Node
+		failed  schedulerapi.FailedNodesMap
+		err     error
+	)
+	ticker := time.NewTicker(waitForResourcesRetryInterval)
+	defer ticker.Stop()
+	timer := time.NewTimer(waitForResourcesRetryTimeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			ll.Debug("stop waiting. context canceled")
+			return nil, nil, errors.New("request has been canceled")
+		case <-ticker.C:
+			matched, failed, err = e.filter(ctx, nodes, volumes)
+			if err != nil {
+				return nil, nil, err
+			}
+			if len(matched) != 0 {
+				return matched, failed, err
+			}
+			ll.Debug("no capacity found. waiting")
+		case <-timer.C:
+			ll.Info("no capacity found. stop waiting")
+			return matched, failed, nil
+		}
+	}
 }

@@ -23,6 +23,8 @@ const (
 	FeatureACReservation = "ACReservation"
 	// FeatureNodeIDFromAnnotation store name for NodeIDFromAnnotation feature
 	FeatureNodeIDFromAnnotation = "NodeIDFromAnnotation"
+	// FeatureExtenderWaitForResources if enabled extender will do few retries if no capacity found
+	FeatureExtenderWaitForResources = "ExtenderWaitForResources"
 )
 
 // FeatureChecker is a "read" interface for FeatureConfig

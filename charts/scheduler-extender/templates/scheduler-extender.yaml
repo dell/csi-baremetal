@@ -27,6 +27,7 @@ spec:
             - --certFile={{ .Values.tls.certFile }}
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
             - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+            - --wait-for-resources={{ .Values.feature.extenderwaitforresources }}
           ports:
             - containerPort: {{  .Values.port }}
           env:

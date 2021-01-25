@@ -13,6 +13,7 @@ provisioner: baremetal-csi
 
 feature:
   usenodeannotation: false
+  extenderwaitforresources: true
 
 tls:
   certFile: ""
