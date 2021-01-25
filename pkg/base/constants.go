@@ -25,6 +25,8 @@ type CtxKey string
 const (
 	// RequestUUID is the constant for context request
 	RequestUUID CtxKey = "RequestUUID"
+	// VolumeNamespace is the constant for context request
+	VolumeNamespace CtxKey = "VolumeNamespace"
 	// PluginName is a name of current CSI plugin
 	PluginName = "baremetal-csi"
 	// PluginVersion is a version of current CSI plugin
@@ -61,4 +63,8 @@ const (
 	StorageTypeKey = "storageType"
 	// SizeKey key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
 	SizeKey = "size"
+	// DefaultNamespace represents default namespace in Kubernetes
+	DefaultNamespace = "default"
+	// PVCNamespaceKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
+	PVCNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
 )

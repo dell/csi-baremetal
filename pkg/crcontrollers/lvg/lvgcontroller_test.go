@@ -193,7 +193,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	res, err := c.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-	err = c.k8sClient.ReadCR(tCtx, req.Name, lvg)
+	err = c.k8sClient.ReadCR(tCtx, req.Name, "", lvg)
 	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
 
 	// reconciled second time
@@ -202,7 +202,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 
 	currLVG := &lvgcrd.LVG{}
-	err = c.k8sClient.ReadCR(tCtx, req.Name, currLVG)
+	err = c.k8sClient.ReadCR(tCtx, req.Name, "", currLVG)
 	assert.Contains(t, currLVG.ObjectMeta.Finalizers, lvgFinalizer)
 }
 
@@ -225,7 +225,7 @@ func TestReconcile_LVGHealthBad(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	err = c.k8sClient.ReadCR(tCtx, acCR1Name, newAC)
+	err = c.k8sClient.ReadCR(tCtx, acCR1Name, "", newAC)
 	assert.Equal(t, int64(0), newAC.Spec.Size)
 }
 
@@ -272,7 +272,7 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 
 	lvg := &lvgcrd.LVG{}
-	err = c.k8sClient.ReadCR(tCtx, lvgToDell.Name, lvg)
+	err = c.k8sClient.ReadCR(tCtx, lvgToDell.Name, "", lvg)
 	assert.Nil(t, err)
 	assert.NotNil(t, lvg)
 	assert.Equal(t, lvgToDell.Name, lvg.Name)
@@ -328,7 +328,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 
 	lvgCR := &lvgcrd.LVG{}
-	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
+	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, "", lvgCR)
 	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
 }
 
@@ -356,7 +356,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 
 	lvgCR := &lvgcrd.LVG{}
-	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, lvgCR)
+	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, "", lvgCR)
 	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
 }
 
@@ -449,7 +449,7 @@ func TestController_appendFinalizer(t *testing.T) {
 		assert.Equal(t, ctrl.Result{}, res)
 
 		currLVG := &lvgcrd.LVG{}
-		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, currLVG))
+		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, "", currLVG))
 		assert.Equal(t, 1, len(currLVG.Finalizers))
 		assert.Equal(t, lvgFinalizer, currLVG.Finalizers[0])
 	})
@@ -463,7 +463,7 @@ func TestController_appendFinalizer(t *testing.T) {
 		assert.Equal(t, ctrl.Result{}, res)
 
 		currLVG := &lvgcrd.LVG{}
-		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, currLVG))
+		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, "", currLVG))
 		assert.Equal(t, 1, len(currLVG.Finalizers))
 		assert.Equal(t, lvgFinalizer, currLVG.Finalizers[0])
 	})
@@ -477,7 +477,7 @@ func TestController_appendFinalizer(t *testing.T) {
 		assert.Equal(t, ctrl.Result{}, res)
 
 		currLVG := &lvgcrd.LVG{}
-		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, currLVG))
+		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, "", currLVG))
 		assert.Equal(t, 0, len(currLVG.Finalizers))
 	})
 

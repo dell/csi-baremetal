@@ -226,8 +226,7 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:    scheme,
-		Namespace: *namespace,
+		Scheme: scheme,
 	})
 	if err != nil {
 		ll.Fatalf("Unable to create new CRD Controller Manager: %v", err)

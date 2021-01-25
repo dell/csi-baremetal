@@ -31,7 +31,7 @@ var (
 )
 
 func TestNewClient_Success(t *testing.T) {
-	client, err := NewClient(nil, testTcpEndpoint,false, clientLogger)
+	client, err := NewClient(nil, testTcpEndpoint, false, clientLogger)
 	assert.Nil(t, err)
 	assert.Nil(t, client.Creds)
 	assert.NotNil(t, client.GRPCClient)
@@ -39,25 +39,25 @@ func TestNewClient_Success(t *testing.T) {
 }
 
 func TestNewClient_Fail(t *testing.T) {
-	client, err := NewClient(nil, testFailEndpoint,false, clientLogger)
+	client, err := NewClient(nil, testFailEndpoint, false, clientLogger)
 	assert.NotNil(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "unable to create client")
 }
 
 func TestClientClose(t *testing.T) {
-	client, _ := NewClient(nil, testTcpEndpoint,false, clientLogger)
+	client, _ := NewClient(nil, testTcpEndpoint, false, clientLogger)
 	err := client.Close()
 	assert.Nil(t, err)
 }
 
 func TestClient_GetEndpoint(t *testing.T) {
-	c, _ := NewClient(nil, testTcpEndpoint,false, clientLogger)
+	c, _ := NewClient(nil, testTcpEndpoint, false, clientLogger)
 	actual, err := c.GetEndpoint()
 	assert.Nil(t, err)
 	assert.Equal(t, "localhost:50051", actual)
 
-	c, _ = NewClient(nil, testUdsEndpoint,false, clientLogger)
+	c, _ = NewClient(nil, testUdsEndpoint, false, clientLogger)
 	actual, err = c.GetEndpoint()
 	assert.Nil(t, err)
 	assert.Equal(t, "/tmp/csi.sock", actual)
