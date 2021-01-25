@@ -12,19 +12,19 @@ metadata:
 rules:
   - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["volumes"]
-    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["availablecapacities"]
-    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["baremetal-csi.dellemc.com"]
     resources: ["availablecapacityreservations"]
-    verbs: ["get", "list", "create"]
+    verbs: ["get", "list", "create", "watch"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
-    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
-    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

@@ -59,7 +59,7 @@ type Extender struct {
 
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, namespace, provisioner string, featureConf fc.FeatureChecker) (*Extender, error) {
-	k8sClient, err := k8s.GetK8SClient()
+	k8sClient, err := k8s.GetK8SCachedClient(ctrl.SetupSignalHandler(), logger)
 	if err != nil {
 		return nil, err
 	}
