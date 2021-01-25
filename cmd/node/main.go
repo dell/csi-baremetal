@@ -34,17 +34,12 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -109,15 +104,33 @@ func main() {
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, enableMetrics, logger)
 
-	k8SClient, err := k8s.GetK8SClient()
+	scheme, err := k8s.PrepareScheme()
+
 	if err != nil {
-		logger.Fatalf("fail to create kubernetes client, error: %v", err)
+		logger.Fatalf("Unable to add CRDs to schema : %v", err)
 	}
 
-	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:    scheme,
+		Namespace: *namespace,
+	})
+	if err != nil {
+		logger.Fatalf("Unable to create new CRD Controller Manager: %v", err)
+	}
+
+	// this client should be used when we need to prevent subscription to object updates
+	nonCachedClient, err := k8s.GetK8SClient()
+	if err != nil {
+		logger.Fatalf("fail to create kube client: %v", err)
+	}
+	nodeID, err := getNodeID(nonCachedClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
+
+	// create k8s client with additional helpers
+	wrappedClient := k8s.NewKubeClient(mgr.GetClient(), logger, *namespace)
+
 	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeID, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
@@ -126,22 +139,27 @@ func main() {
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
-	// TODO why do we need 3 clients?
-	volumesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	lvgClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	drivesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, logger, volumesClient, eventRecorder, featureConf)
+	csiNodeService := node.NewCSINodeService(clientToDriveMgr, nodeID, logger,
+		wrappedClient, eventRecorder, featureConf)
 
-	mgr := prepareCRDControllerManagers(
-		csiNodeService,
-		lvg.NewController(lvgClient, nodeID, logger),
-		drive.NewController(drivesClient, nodeID, clientToDriveMgr, eventRecorder, logger),
-		logger)
+	registerControllers(mgr, logger, csiNodeService,
+		lvg.NewController(wrappedClient, nodeID, logger),
+		drive.NewController(wrappedClient, nodeID, clientToDriveMgr, eventRecorder, logger))
 
 	// register CSI calls handler
 	csi.RegisterNodeServer(csiUDSServer.GRPCServer, csiNodeService)
 	csi.RegisterIdentityServer(csiUDSServer.GRPCServer, csiNodeService)
+
+	stopCH := ctrl.SetupSignalHandler()
+	cache := mgr.GetCache()
+	go func() {
+		logger.Info("Starting CRD Controller Manager ...")
+		if err := mgr.Start(stopCH); err != nil {
+			logger.Fatalf("CRD Controller Manager failed with error: %v", err)
+		}
+	}()
+	// we should wait for cache sync before proceed with other service start
+	cache.WaitForCacheSync(stopCH)
 
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiUDSServer)
@@ -162,12 +180,6 @@ func main() {
 			csiNodeService, logger,
 			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(base.DefaultHealthPort))); err != nil {
 			logger.Fatalf("Node service failed with error: %v", err)
-		}
-	}()
-	go func() {
-		logger.Info("Starting CRD Controller Manager ...")
-		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-			logger.Fatalf("CRD Controller Manager failed with error: %v", err)
 		}
 	}()
 	go Discovering(csiNodeService, logger)
@@ -199,55 +211,16 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	}
 }
 
-// prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources
-func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.Controller,
-	driveCtrl *drive.Controller, logger *logrus.Logger) manager.Manager {
-	var (
-		ll     = logger.WithField("method", "prepareCRDControllerManagers")
-		scheme = runtime.NewScheme()
-		err    error
-	)
+type controllerRegister interface {
+	SetupWithManager(mgr manager.Manager) error
+}
 
-	if err = clientgoscheme.AddToScheme(scheme); err != nil {
-		logger.Fatal(err)
+func registerControllers(mgr manager.Manager, logger *logrus.Logger, controllers ...controllerRegister) {
+	for _, c := range controllers {
+		if err := c.SetupWithManager(mgr); err != nil {
+			logger.Fatalf("Failed to register controller: %v", err)
+		}
 	}
-	// register volume crd
-	if err = volumecrd.AddToScheme(scheme); err != nil {
-		logger.Fatal(err)
-	}
-	// register LVG crd
-	if err = lvgcrd.AddToSchemeLVG(scheme); err != nil {
-		logrus.Fatal(err)
-	}
-
-	// register Drive crd
-	if err = drivecrd.AddToSchemeDrive(scheme); err != nil {
-		logrus.Fatal(err)
-	}
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:    scheme,
-		Namespace: *namespace,
-	})
-	if err != nil {
-		ll.Fatalf("Unable to create new CRD Controller Manager: %v", err)
-	}
-
-	// bind CSINodeService's VolumeManager to K8s Controller Manager as a controller for Volume CR
-	if err = volumeCtrl.SetupWithManager(mgr); err != nil {
-		logger.Fatalf("unable to create controller for volume: %v", err)
-	}
-
-	// bind LVMController to K8s Controller Manager as a controller for LVG CR
-	if err = lvgCtrl.SetupWithManager(mgr); err != nil {
-		logger.Fatalf("unable to create controller for LVG: %v", err)
-	}
-
-	if err = driveCtrl.SetupWithManager(mgr); err != nil {
-		logger.Fatalf("unable to create controller for LVG: %v", err)
-	}
-
-	return mgr
 }
 
 func getNodeID(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
@@ -281,9 +254,9 @@ func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*e
 	if err != nil {
 		return nil, fmt.Errorf("fail to prepare kubernetes scheme, error: %s", err)
 	}
-	// Setup Option
-	// It's used for label overriding and logging events
 
+	// Setup Options
+	// It's used for label overriding and logging events
 	var opt events.Options
 
 	// Optional will be used when
