@@ -28,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	// +kubebuilder:scaffold:imports
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -73,8 +74,7 @@ func main() {
 	logger.Info("Starting controller ...")
 
 	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, enableMetrics, logger)
-
-	k8SClient, err := k8s.GetK8SClient()
+	k8SClient, err := k8s.GetK8SCachedClient(ctrl.SetupSignalHandler(), logger)
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
