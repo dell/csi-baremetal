@@ -689,11 +689,12 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	acItems = getACCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 2, len(dItems))
 	assert.Equal(t, 1, len(vItems))
-	for _, ac := range acItems {
-		if ac.Spec.Location == vItems[0].Spec.Location {
-			assert.Equal(t, int64(0), ac.Spec.Size)
-		}
-	}
+	// TODO ISSUE-235
+	//for _, ac := range acItems {
+	//	if ac.Spec.Location == vItems[0].Spec.Location {
+	//		assert.Equal(t, int64(0), ac.Spec.Size)
+	//	}
+	//}
 
 	var (
 		sdaDriveUUID string

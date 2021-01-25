@@ -213,10 +213,11 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) && volume.Spec.CSIStatus != apiV1.Empty {
 			ll.Debug("Appending finalizer for volume")
 			volume.ObjectMeta.Finalizers = append(volume.ObjectMeta.Finalizers, volumeFinalizer)
-			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+			err := m.k8sClient.UpdateCR(ctx, volume)
+			if err != nil {
 				ll.Errorf("Unable to append finalizer %s to Volume, error: %v.", volumeFinalizer, err)
-				return ctrl.Result{Requeue: true}, err
 			}
+			return ctrl.Result{Requeue: err != nil}, err
 		}
 	} else {
 		switch volume.Spec.CSIStatus {
@@ -809,14 +810,19 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 		if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
 			// check whether appropriate AC exists or not
 			if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
+				ac := acsLocations[drive.Spec.UUID]
+				if ac.Spec.Size == 0 {
+					continue
+				}
 				ll.Warnf("There is Volume CR that points on same drive %s as AC %s",
 					drive.Name, acsLocations[drive.Spec.UUID].Name)
-				ac := acsLocations[drive.Spec.UUID]
-				ac.Spec.Size = 0
-				acsLocations[drive.Spec.UUID] = ac
-				if err = m.k8sClient.UpdateCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
-					ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[drive.Spec.UUID].Name, err)
-				}
+				// TODO ISSUE-235
+				// this logic can cause race condition, it can overwrite data from volume delete operation
+				// ac.Spec.Size = 0
+				// acsLocations[drive.Spec.UUID] = ac
+				// if err = m.k8sClient.UpdateCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
+				//	 ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[drive.Spec.UUID].Name, err)
+				// }
 				continue
 			}
 		}
