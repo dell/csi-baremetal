@@ -17,8 +17,9 @@ limitations under the License.
 package metrics
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetrics(t *testing.T) {
