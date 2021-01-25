@@ -22,11 +22,8 @@ import (
 	"fmt"
 	"os"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
@@ -56,18 +53,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	k8sClient, err := k8s.GetK8SClient()
+	mgr, err := prepareK8sRuntimeManager()
 	if err != nil {
-		logger.Fatalf("Unable to create k8s client: %v", err)
+		logger.Fatalf("fail to init manager: %v\n", err)
 	}
-	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
+
+	kubeClient := k8s.NewKubeClient(mgr.GetClient(), logger, *namespace)
 
 	nodeCtrl, err := csibmnode.NewController(*nodeSelector, kubeClient, logger)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	mgr, err := prepareK8sRuntimeManager()
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -84,17 +77,8 @@ func main() {
 }
 
 func prepareK8sRuntimeManager() (ctrl.Manager, error) {
-	var (
-		scheme = runtime.NewScheme()
-		err    error
-	)
-
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
-
-	// register CSIBMNode CRD
-	if err = nodecrd.AddToSchemeCSIBMNode(scheme); err != nil {
+	scheme, err := k8s.PrepareScheme()
+	if err != nil {
 		return nil, err
 	}
 
