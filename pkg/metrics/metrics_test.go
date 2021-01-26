@@ -19,15 +19,15 @@ package metrics
 import (
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMetrics(t *testing.T) {
-	vm := NewVolumeMetrics()
+	vm := NewMetrics(prometheus.HistogramOpts{
+		Name: "partition_operations_duration",
+		Help: "partition operations methods duration",
+	})
 	rVM := vm.Collect()
-	assert.Equal(t, vm.VolumeOperationsDuration, rVM)
-
-	pm := NewPartitionsMetrics()
-	rPM := pm.Collect()
-	assert.Equal(t, pm.PartitionOperationsDuration, rPM)
+	assert.Equal(t, vm.OperationsDuration, rVM)
 }

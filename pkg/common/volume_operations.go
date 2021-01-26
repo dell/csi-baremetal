@@ -69,7 +69,10 @@ type VolumeOperationsImpl struct {
 // Returns an instance of VolumeOperationsImpl
 func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, cache cache.Interface,
 	featureConf fc.FeatureChecker) *VolumeOperationsImpl {
-	volumeMetrics := metrics.NewVolumeMetrics()
+	volumeMetrics := metrics.NewMetrics(prometheus.HistogramOpts{
+		Name: "volume_operations_duration",
+		Help: "Volume operations methods duration",
+	})
 	if err := prometheus.Register(volumeMetrics.Collect()); err != nil {
 		logger.WithField("component", "NewVolumeOperationsImpl").
 			Errorf("Failed to register metric: %v", err)
@@ -91,7 +94,7 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, c
 // Receives golang context and api.Volume which is Spec of Volume CR to create
 // Returns api.Volume instance that took the place of chosen by SearchAC method AvailableCapacity CR
 func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error) {
-	defer vo.metrics.EvaluateDuration("CreateVolume", time.Now())
+	defer vo.metrics.EvaluateDuration("CreateVolume")
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "CreateVolume",
 		"volumeID": v.Id,
@@ -237,7 +240,7 @@ func (vo *VolumeOperationsImpl) createCapacityManager(capReader capacityplanner.
 // Receives golang context and a volume ID to delete
 // Returns error if something went wrong or Volume with volumeID wasn't found
 func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID string) error {
-	defer vo.metrics.EvaluateDuration("DeleteVolume", time.Now())
+	defer vo.metrics.EvaluateDuration("DeleteVolume")
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
 		"volumeID": volumeID,
@@ -288,7 +291,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 // remove Volume CR and if volume was in LVG SC - update corresponding AC CR
 // does not return anything because that method does not change real drive on the node
 func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
-	defer vo.metrics.EvaluateDuration("UpdateCRsAfterVolumeDeletion", time.Now())
+	defer vo.metrics.EvaluateDuration("UpdateCRsAfterVolumeDeletion")
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "UpdateCRsAfterVolumeDeletion",
 		"volumeID": ctx.Value(base.RequestUUID),
@@ -366,7 +369,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 // WaitStatus check volume status until it will be reached one of the statuses
 // return error if context is done or volume reaches failed status, return nil if reached status != failed
 func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string, statuses ...string) error {
-	defer vo.metrics.EvaluateDuration("WaitStatus", time.Now())
+	defer vo.metrics.EvaluateDuration("WaitStatus")
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "WaitStatus",
 		"volumeID": volumeID,
