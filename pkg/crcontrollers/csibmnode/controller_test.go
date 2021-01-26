@@ -415,7 +415,7 @@ func Test_checkAnnotation(t *testing.T) {
 
 			node.Annotations[nodeIDAnnotationKey] = testCase.currentValue
 			createObjects(t, c.k8sClient, node)
-			res, err := c.updateAnnotation(node, testCase.goalValue)
+			res, err := c.updateNodeLabelsAndAnnotation(node, testCase.goalValue)
 			assert.Nil(t, err)
 			assert.Equal(t, ctrl.Result{}, res)
 
