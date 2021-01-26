@@ -91,7 +91,7 @@ func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *Part
 // PreparePartition completely creates and prepares partition p on node
 // After that FS could be created on partition
 func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, error) {
-	defer d.metrics.EvaluateDuration("PreparePartition")
+	defer d.metrics.EvaluateDuration("PreparePartition")()
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "PreparePartition",
 		"volumeID": p.PartUUID,
@@ -145,7 +145,7 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 
 // ReleasePartition completely removes partition p
 func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
-	defer d.metrics.EvaluateDuration("ReleasePartition")
+	defer d.metrics.EvaluateDuration("ReleasePartition")()
 	d.log.WithFields(logrus.Fields{
 		"method":   "ReleasePartition",
 		"volumeID": p.PartUUID,
@@ -164,7 +164,7 @@ func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
 // SearchPartName search (with retries) partition with UUID partUUID on device and returns partition name
 // e.g. "1" for /dev/sda1, "p1n1" for /dev/loopbackp1n1
 func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string {
-	defer d.metrics.EvaluateDuration("SearchPartName")
+	defer d.metrics.EvaluateDuration("SearchPartName")()
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "SearchPartName",
 		"volumeID": partUUID,
