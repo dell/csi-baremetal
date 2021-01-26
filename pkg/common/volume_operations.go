@@ -70,8 +70,9 @@ type VolumeOperationsImpl struct {
 func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, cache cache.Interface,
 	featureConf fc.FeatureChecker) *VolumeOperationsImpl {
 	volumeMetrics := metrics.NewMetrics(prometheus.HistogramOpts{
-		Name: "volume_operations_duration",
-		Help: "Volume operations methods duration",
+		Name:    "volume_operations_duration",
+		Help:    "Volume operations methods duration",
+		Buckets: prometheus.ExponentialBuckets(0.005, 1.5, 25),
 	})
 	if err := prometheus.Register(volumeMetrics.Collect()); err != nil {
 		logger.WithField("component", "NewVolumeOperationsImpl").

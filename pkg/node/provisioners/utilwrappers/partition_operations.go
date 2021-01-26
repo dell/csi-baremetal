@@ -73,8 +73,9 @@ type PartitionOperationsImpl struct {
 // NewPartitionOperationsImpl constructor for PartitionOperationsImpl and returns pointer on it
 func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *PartitionOperationsImpl {
 	var partMetrics = metrics.NewMetrics(prometheus.HistogramOpts{
-		Name: "partition_operations_duration",
-		Help: "partition operations methods duration",
+		Name:    "partition_operations_duration",
+		Help:    "partition operations methods duration",
+		Buckets: prometheus.ExponentialBuckets(0.5, 1.2, 20),
 	})
 	if err := prometheus.Register(partMetrics.Collect()); err != nil {
 		log.WithField("component", "NewPartitionOperationsImpl").
