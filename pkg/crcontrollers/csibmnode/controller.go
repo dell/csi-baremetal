@@ -406,7 +406,6 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 	if ok {
 		if val == goalValue {
 			ll.Tracef("%s value for node %s is already %s", nodeIDAnnotationKey, k8sNode.Name, goalValue)
-			toUpdate = false
 		} else {
 			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
 				nodeIDAnnotationKey, k8sNode.Name, val, goalValue)
