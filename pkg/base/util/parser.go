@@ -39,7 +39,6 @@ func GetOSNameAndVersion(osInfo string) (name, version string, err error) {
 	}
 
 	// extract OS version
-	//version = regexp.MustCompile("[0-9]+\\.[0-9]+").FindString(osInfo)
 	version = regexp.MustCompile(`[0-9]+\.[0-9]+`).FindString(osInfo)
 	if len(version) == 0 {
 		return "", "", errTypes.ErrorFailedParsing
