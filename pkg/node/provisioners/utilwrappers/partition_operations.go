@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
+	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
 // PartitionOperations is a high-level interface
@@ -64,20 +66,32 @@ func (p *Partition) GetFullPath() string {
 // PartitionOperationsImpl is a base implementation for PartitionOperations interface
 type PartitionOperationsImpl struct {
 	ph.WrapPartition
-	log *logrus.Entry
+	log     *logrus.Entry
+	metrics metrics.Statistic
 }
 
 // NewPartitionOperationsImpl constructor for PartitionOperationsImpl and returns pointer on it
 func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *PartitionOperationsImpl {
+	var partMetrics = metrics.NewMetrics(prometheus.HistogramOpts{
+		Name:    "partition_operations_duration",
+		Help:    "partition operations methods duration",
+		Buckets: prometheus.ExponentialBuckets(0.5, 1.2, 20),
+	})
+	if err := prometheus.Register(partMetrics.Collect()); err != nil {
+		log.WithField("component", "NewPartitionOperationsImpl").
+			Errorf("Failed to register metric: %v", err)
+	}
 	return &PartitionOperationsImpl{
 		WrapPartition: ph.NewWrapPartitionImpl(e, log),
 		log:           log.WithField("component", "PartitionOperations"),
+		metrics:       partMetrics,
 	}
 }
 
 // PreparePartition completely creates and prepares partition p on node
 // After that FS could be created on partition
 func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, error) {
+	defer d.metrics.EvaluateDuration("PreparePartition")()
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "PreparePartition",
 		"volumeID": p.PartUUID,
@@ -131,6 +145,7 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 
 // ReleasePartition completely removes partition p
 func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
+	defer d.metrics.EvaluateDuration("ReleasePartition")()
 	d.log.WithFields(logrus.Fields{
 		"method":   "ReleasePartition",
 		"volumeID": p.PartUUID,
@@ -149,6 +164,7 @@ func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
 // SearchPartName search (with retries) partition with UUID partUUID on device and returns partition name
 // e.g. "1" for /dev/sda1, "p1n1" for /dev/loopbackp1n1
 func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string {
+	defer d.metrics.EvaluateDuration("SearchPartName")()
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "SearchPartName",
 		"volumeID": partUUID,
