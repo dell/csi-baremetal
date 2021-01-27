@@ -75,7 +75,7 @@ func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *Part
 	var partMetrics = metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "partition_operations_duration",
 		Help:    "partition operations methods duration",
-		Buckets: prometheus.ExponentialBuckets(0.5, 1.2, 20),
+		Buckets: metrics.ExtendedDefBuckets,
 	}, "method")
 	if err := prometheus.Register(partMetrics.Collect()); err != nil {
 		log.WithField("component", "NewPartitionOperationsImpl").
