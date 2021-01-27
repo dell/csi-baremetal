@@ -65,6 +65,6 @@ GOPRIVATE_PART  :=
 GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
 
 
-LDFLAGS := -ldflags "-X main.revision=${RELEASE_STR} -X main.branch=${BRANCH}"
+LDFLAGS := -ldflags "-X main.Revision=${RELEASE_STR} -X main.Branch=${BRANCH}"
 # override some of variables, optional file
 -include variables.override.mk

@@ -320,7 +320,7 @@ func regitsterMetrics() {
 		prometheus.GaugeOpts{
 			Name:        "build_info",
 			Help:        "A metric with a constant '1' value labeled by version, revision, branch",
-			ConstLabels: prometheus.Labels{"version": base.PluginVersion, "revision": Revision, "branch": Revision},
+			ConstLabels: prometheus.Labels{"version": base.PluginVersion, "revision": Revision, "branch": Branch},
 		},
 		func() float64 { return 1 },
 	))
