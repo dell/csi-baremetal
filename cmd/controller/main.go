@@ -25,6 +25,7 @@ import (
 	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -37,6 +38,13 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+)
+
+var (
+	//nolint
+	Branch string
+	//nolint
+	Revision string
 )
 
 var (
@@ -71,6 +79,8 @@ func main() {
 	}
 
 	logger.Info("Starting controller ...")
+
+	regitsterMetrics()
 
 	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, enableMetrics, logger)
 
@@ -111,4 +121,15 @@ func main() {
 		logger.Fatalf("fail to serve, error: %v", err)
 	}
 	logger.Info("Got SIGTERM signal")
+}
+
+func regitsterMetrics() {
+	prometheus.MustRegister(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name:        "build_info",
+			Help:        "A metric with a constant '1' value labeled by version, revision, branch",
+			ConstLabels: prometheus.Labels{"version": base.PluginVersion, "revision": Revision, "branch": Revision},
+		},
+		func() float64 { return 1 },
+	))
 }
