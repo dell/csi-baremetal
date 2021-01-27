@@ -28,8 +28,10 @@ type Statistic interface {
 	Collect() prometheus.Collector
 	EvaluateDuration(labels prometheus.Labels) func()
 	EvaluateDurationForMethod(method string) func()
+	EvaluateDurationForType(t string) func()
 }
 
+// ExtendedDefBuckets is a default buckets used for csi driver
 var ExtendedDefBuckets = []float64{.025, .05, .1, .5, 1, 3, 5, 10, 15, 30, 45, 90, 180}
 
 // Metrics is a structure, which encapsulate prometheus histogram structure. It used for volume operation metrics
@@ -54,6 +56,11 @@ func (m *Metrics) EvaluateDuration(labels prometheus.Labels) func() {
 // EvaluateDurationForMethod of the method call
 func (m *Metrics) EvaluateDurationForMethod(method string) func() {
 	return m.EvaluateDuration(prometheus.Labels{"method": method})
+}
+
+// EvaluateDurationForType evaluate function call with "type" label
+func (m *Metrics) EvaluateDurationForType(t string) func() {
+	return m.EvaluateDuration(prometheus.Labels{"type": t})
 }
 
 // Collect returns prometheus.Collector slice with OperationsDuration histogram

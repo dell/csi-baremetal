@@ -54,6 +54,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/metrics"
+	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
@@ -159,7 +160,6 @@ func NewVolumeManager(
 	logger *logrus.Logger,
 	k8sclient *k8s.KubeClient,
 	recorder eventRecorder, nodeID string) *VolumeManager {
-
 	driveMgrDuration := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "discovery_duration_seconds",
 		Help:    "duration of the discovery method for the drive manager",
@@ -212,6 +212,7 @@ func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
 // Volume.Spec.CSIStatus is Removing.
 // Returns reconcile result as ctrl.Result or error if something went wrong
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_volume_controller")()
 	m.volMu.LockKey(req.Name)
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "Reconcile",
