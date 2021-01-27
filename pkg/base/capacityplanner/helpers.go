@@ -38,8 +38,9 @@ import (
 func NewReservationHelper(logger *logrus.Entry, client *k8s.KubeClient,
 	capReader CapacityReader, resReader ReservationReader) *ReservationHelper {
 	acMetrics := metrics.NewMetrics(prometheus.HistogramOpts{
-		Name: "ac_reservation_duration",
-		Help: "AvailableCapacity reservation duration",
+		Name:    "ac_reservation_duration",
+		Help:    "AvailableCapacity reservation duration",
+		Buckets: metrics.ExtendedDefBuckets,
 	}, "method")
 	if err := prometheus.Register(acMetrics.Collect()); err != nil {
 		logger.WithField("component", "NewReservationHelper").
