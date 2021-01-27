@@ -40,6 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
@@ -79,6 +80,7 @@ func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger)
 // LVG.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
 // Returns reconcile result as ctrl.Result or error if something went wrong
 func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_lvg_controller")()
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "Reconcile",
 		"LVGName": req.Name,
