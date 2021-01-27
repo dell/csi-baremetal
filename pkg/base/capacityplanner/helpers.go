@@ -40,7 +40,7 @@ func NewReservationHelper(logger *logrus.Entry, client *k8s.KubeClient,
 	acMetrics := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "ac_reservation_duration",
 		Help:    "AvailableCapacity reservation duration",
-		Buckets: metrics.ExtendedDefBuckets,
+		Buckets: prometheus.ExponentialBuckets(0.005, 1.5, 10),
 	}, "method")
 	if err := prometheus.Register(acMetrics.Collect()); err != nil {
 		logger.WithField("component", "NewReservationHelper").
