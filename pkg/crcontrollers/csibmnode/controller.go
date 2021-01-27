@@ -410,6 +410,7 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 		} else {
 			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
 				nodeIDAnnotationKey, k8sNode.Name, val, goalValue)
+			k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
 			toUpdate = true
 		}
 	} else {
@@ -427,7 +428,6 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 		if k8sNode.Labels == nil {
 			k8sNode.ObjectMeta.Labels = make(map[string]string, 1)
 		}
-
 		// os name
 		if k8sNode.Labels[common.NodeOSNameLabelKey] != name {
 			// not set or matches

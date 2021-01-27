@@ -65,7 +65,8 @@ var (
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-1",
 			Namespace:   testNS,
-			Annotations: map[string]string{}},
+			Annotations: map[string]string{},
+			Labels: map[string]string{}},
 		Status: coreV1.NodeStatus{
 			Addresses: convertCSIBMNodeAddrsToK8sNodeAddrs(testCSIBMNode1.Spec.Addresses),
 		},
@@ -74,7 +75,8 @@ var (
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-2",
 			Namespace:   testNS,
-			Annotations: map[string]string{}},
+			Annotations: map[string]string{},
+			Labels: map[string]string{}},
 		Status: coreV1.NodeStatus{
 			Addresses: convertCSIBMNodeAddrsToK8sNodeAddrs(testCSIBMNode2.Spec.Addresses),
 		},
