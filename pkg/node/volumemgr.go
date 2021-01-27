@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,6 +53,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
+	"github.com/dell/csi-baremetal/pkg/metrics"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
@@ -105,6 +107,10 @@ type VolumeManager struct {
 	// systemDrivesUUIDs represent system drive uuids, used to avoid unnecessary calls to Kubernetes API.
 	// We use slice in case of RAID and multiple system disks
 	systemDrivesUUIDs []string
+
+	// metrics
+	metricDriveMgrDuration metrics.Statistic
+	metricDriveMgrCount    prometheus.Gauge
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -153,6 +159,23 @@ func NewVolumeManager(
 	logger *logrus.Logger,
 	k8sclient *k8s.KubeClient,
 	recorder eventRecorder, nodeID string) *VolumeManager {
+
+	driveMgrDuration := metrics.NewMetrics(prometheus.HistogramOpts{
+		Name:    "discovery_duration_seconds",
+		Help:    "duration of the discovery method for the drive manager",
+		Buckets: metrics.ExtendedDefBuckets,
+	})
+	driveMgrCount := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "discovery_drive_count",
+		Help: "last drive count discovered",
+	})
+	for _, c := range []prometheus.Collector{driveMgrDuration.Collect(), driveMgrCount} {
+		if err := prometheus.Register(c); err != nil {
+			logger.WithField("component", "NewVolumeManager").
+				Errorf("Failed to register metric: %v", err)
+		}
+	}
+
 	vm := &VolumeManager{
 		k8sClient:      k8sclient,
 		crHelper:       k8s.NewCRHelper(k8sclient, logger),
@@ -162,16 +185,18 @@ func NewVolumeManager(
 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
 		},
-		fsOps:             utilwrappers.NewFSOperationsImpl(executor, logger),
-		lvmOps:            lvm.NewLVM(executor, logger),
-		listBlk:           lsblk.NewLSBLK(logger),
-		partOps:           ph.NewWrapPartitionImpl(executor, logger),
-		nodeID:            nodeID,
-		log:               logger.WithField("component", "VolumeManager"),
-		recorder:          recorder,
-		discoverSystemLVG: true,
-		volMu:             keymutex.NewHashed(0),
-		systemDrivesUUIDs: make([]string, 0),
+		fsOps:                  utilwrappers.NewFSOperationsImpl(executor, logger),
+		lvmOps:                 lvm.NewLVM(executor, logger),
+		listBlk:                lsblk.NewLSBLK(logger),
+		partOps:                ph.NewWrapPartitionImpl(executor, logger),
+		nodeID:                 nodeID,
+		log:                    logger.WithField("component", "VolumeManager"),
+		recorder:               recorder,
+		discoverSystemLVG:      true,
+		volMu:                  keymutex.NewHashed(0),
+		systemDrivesUUIDs:      make([]string, 0),
+		metricDriveMgrDuration: driveMgrDuration,
+		metricDriveMgrCount:    driveMgrCount,
 	}
 	return vm
 }
@@ -483,10 +508,14 @@ func (m *VolumeManager) isCorrespondedToNodePredicate(obj runtime.Object) bool {
 func (m *VolumeManager) Discover() error {
 	ctx, cancelFn := context.WithTimeout(context.Background(), DiscoverDrivesTimeout)
 	defer cancelFn()
+
+	driveMgrDoneFunc := m.metricDriveMgrDuration.EvaluateDuration(prometheus.Labels{})
 	drivesResponse, err := m.driveMgrClient.GetDrivesList(ctx, &api.DrivesRequest{NodeId: m.nodeID})
+	driveMgrDoneFunc()
 	if err != nil {
 		return err
 	}
+	m.metricDriveMgrCount.Set(float64(len(drivesResponse.Disks)))
 
 	updates, err := m.updateDrivesCRs(ctx, drivesResponse.Disks)
 	if err != nil {
