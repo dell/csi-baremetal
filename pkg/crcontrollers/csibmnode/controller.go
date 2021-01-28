@@ -38,6 +38,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
 )
 
@@ -314,7 +315,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	}
 
 	bmc.cache.put(k8sNode.Name, bmNode.Name)
-	return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
+	return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
 func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Result, error) {
@@ -370,7 +371,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 
 	if !bmNode.GetDeletionTimestamp().IsZero() {
 		bmc.disableForNode(k8sNode.Name)
-		if err := bmc.removeAnnotation(k8sNode); err != nil {
+		if err := bmc.removeLabelsAndAnnotation(k8sNode); err != nil {
 			ll.Errorf("Unable to remove annotation from node %s: %v", k8sNode.Name, err)
 			bmc.enableForNode(k8sNode.Name)
 			return ctrl.Result{Requeue: true}, err
@@ -387,48 +388,102 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 
 	if len(matchedNodes) == 1 {
 		bmc.cache.put(k8sNode.Name, bmNode.Name)
-		return bmc.updateAnnotation(k8sNode, bmNode.Spec.UUID)
+		return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
 	}
 
 	ll.Warnf("Unable to detect k8s node that corresponds to CSIBMNode %v, matched nodes: %v", bmNode, matchedNodes)
 	return ctrl.Result{}, nil
 }
 
-// updateAnnotation checks nodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
-// update k8s CSIBMNode object if needed, method is used as a last step of Reconcile
-func (bmc *Controller) updateAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
-	ll := bmc.log.WithField("method", "updateAnnotation")
+// updateNodeLabelsAndAnnotation checks nodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
+// parses OS Image info and put/update os-name and os-version labels if needed
+func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
+	ll := bmc.log.WithField("method", "updateNodeLabelsAndAnnotation")
+
+	toUpdate := false
+	// check for annotations
 	val, ok := k8sNode.GetAnnotations()[nodeIDAnnotationKey]
 	if ok {
 		if val == goalValue {
-			ll.Debugf("%s value for node %s is already %s", nodeIDAnnotationKey, k8sNode.Name, goalValue)
-			return ctrl.Result{}, nil
+			ll.Tracef("%s value for node %s is already %s", nodeIDAnnotationKey, k8sNode.Name, goalValue)
+		} else {
+			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
+				nodeIDAnnotationKey, k8sNode.Name, val, goalValue)
+			k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
+			toUpdate = true
 		}
-		ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
-			nodeIDAnnotationKey, k8sNode.Name, val, goalValue)
+	} else {
+		if k8sNode.ObjectMeta.Annotations == nil {
+			k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
+		}
+		k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
+		toUpdate = true
 	}
 
-	if k8sNode.ObjectMeta.Annotations == nil {
-		k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
+	// check for labels
+	name, version, err := util.GetOSNameAndVersion(k8sNode.Status.NodeInfo.OSImage)
+	if err == nil {
+		// initialize labels map if needed
+		if k8sNode.Labels == nil {
+			k8sNode.ObjectMeta.Labels = make(map[string]string, 1)
+		}
+		// os name
+		if k8sNode.Labels[common.NodeOSNameLabelKey] != name {
+			// not set or matches
+			ll.Infof("Setting label %s=%s on node %s", common.NodeOSNameLabelKey, name, k8sNode.Name)
+			k8sNode.Labels[common.NodeOSNameLabelKey] = name
+			toUpdate = true
+		}
+		// os version
+		if k8sNode.Labels[common.NodeOSVersionLabelKey] != version {
+			// not set or matches
+			ll.Infof("Setting label %s=%s on node %s", common.NodeOSVersionLabelKey, version, k8sNode.Name)
+			k8sNode.Labels[common.NodeOSVersionLabelKey] = version
+			toUpdate = true
+		}
+	} else {
+		ll.Errorf("Failed to obtain OS information: %s", err)
 	}
-	k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
-	if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
-		ll.Errorf("Unable to update node object: %v", err)
-		return ctrl.Result{Requeue: true}, err
+
+	if toUpdate {
+		if err := bmc.k8sClient.UpdateCR(context.Background(), k8sNode); err != nil {
+			ll.Errorf("Unable to update node object: %v", err)
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (bmc *Controller) removeAnnotation(k8sNode *coreV1.Node) error {
+func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 	if k8sNode.GetAnnotations() == nil {
 		return nil
 	}
 
-	curr := k8sNode.GetAnnotations()
-	if _, ok := curr[nodeIDAnnotationKey]; ok {
-		delete(curr, nodeIDAnnotationKey)
-		k8sNode.Annotations = curr
+	toUpdate := false
+	// check annotations
+	annotations := k8sNode.GetAnnotations()
+	if _, ok := annotations[nodeIDAnnotationKey]; ok {
+		delete(annotations, nodeIDAnnotationKey)
+		toUpdate = true
+	}
+
+	// check labels
+	labels := k8sNode.GetLabels()
+	// os name
+	if _, ok := labels[common.NodeOSNameLabelKey]; ok {
+		delete(labels, common.NodeOSNameLabelKey)
+		toUpdate = true
+	}
+	// os version
+	if _, ok := labels[common.NodeOSVersionLabelKey]; ok {
+		delete(labels, common.NodeOSVersionLabelKey)
+		toUpdate = true
+	}
+
+	if toUpdate {
+		k8sNode.Annotations = annotations
+		k8sNode.Labels = labels
 		return bmc.k8sClient.UpdateCR(context.Background(), k8sNode)
 	}
 

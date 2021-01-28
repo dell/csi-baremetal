@@ -46,13 +46,7 @@ test-sanity:
 	should fail when requesting to create a volume with already existing name and different capacity|\
 	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
-kind-pull-images:
-	docker pull ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
-	docker pull ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	docker pull ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
-	docker pull ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
-	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
-	docker pull ${REGISTRY}/library/nginx:1.14-alpine
+kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
@@ -60,6 +54,14 @@ kind-pull-images:
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+
+kind-pull-sidecar-images:
+	docker pull ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	docker pull ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker pull ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
+	docker pull ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
+	docker pull ${REGISTRY}/library/nginx:1.14-alpine
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
