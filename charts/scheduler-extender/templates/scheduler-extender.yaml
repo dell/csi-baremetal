@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: csi-baremetal-se
-        app.kubernetes.io/name: scheduler-extender
+        app.kubernetes.io/name: csi-baremetal
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '{{ .Values.metrics.port }}'
