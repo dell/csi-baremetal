@@ -20,6 +20,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/events"
+	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // Controller to reconcile drive custom resource
@@ -78,6 +79,7 @@ func (c *Controller) filterCRs(obj runtime.Object) bool {
 
 // Reconcile reconciles Drive custom resources
 func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_drive_controller")()
 	// read name
 	driveName := req.Name
 	// TODO why do we need 60 seconds here?
