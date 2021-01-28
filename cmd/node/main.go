@@ -55,18 +55,12 @@ import (
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
 	"github.com/dell/csi-baremetal/pkg/events"
+	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
 )
 
 const (
 	componentName = "baremetal-csi-node"
-)
-
-var (
-	//nolint
-	Branch string
-	//nolint
-	Revision string
 )
 
 var (
@@ -106,7 +100,6 @@ func main() {
 	}
 
 	logger.Info("Starting Node Service")
-	regitsterMetrics()
 
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
@@ -158,6 +151,8 @@ func main() {
 		grpc_prometheus.Register(csiUDSServer.GRPCServer)
 		grpc_prometheus.EnableHandlingTimeHistogram()
 		grpc_prometheus.EnableClientHandlingTimeHistogram()
+		prometheus.MustRegister(metrics.BuildInfo)
+
 		go func() {
 			http.Handle(*metricspath, promhttp.Handler())
 			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
@@ -313,15 +308,4 @@ func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*e
 		return nil, fmt.Errorf("fail to create events recorder, error: %s", err)
 	}
 	return eventRecorder, nil
-}
-
-func regitsterMetrics() {
-	prometheus.MustRegister(prometheus.NewGaugeFunc(
-		prometheus.GaugeOpts{
-			Name:        "build_info",
-			Help:        "A metric with a constant '1' value labeled by version, revision, branch",
-			ConstLabels: prometheus.Labels{"version": base.PluginVersion, "revision": Revision, "branch": Branch},
-		},
-		func() float64 { return 1 },
-	))
 }

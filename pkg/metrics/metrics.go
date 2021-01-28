@@ -20,7 +20,25 @@ package metrics
 import (
 	"time"
 
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+var (
+	//nolint
+	Branch string
+	//nolint
+	Revision string
+)
+
+// BuildInfo used to expose information of the current build
+var BuildInfo = prometheus.NewGaugeFunc(
+	prometheus.GaugeOpts{
+		Name:        "build_info",
+		Help:        "A metric with a constant '1' value labeled by version, revision, branch",
+		ConstLabels: prometheus.Labels{"version": base.PluginVersion, "revision": Revision, "branch": Branch},
+	},
+	func() float64 { return 1 },
 )
 
 // Statistic is a common interface for histogram metrics

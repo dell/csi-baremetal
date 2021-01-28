@@ -37,14 +37,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/metrics"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-)
-
-var (
-	//nolint
-	Branch string
-	//nolint
-	Revision string
 )
 
 var (
@@ -80,8 +74,6 @@ func main() {
 
 	logger.Info("Starting controller ...")
 
-	regitsterMetrics()
-
 	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, enableMetrics, logger)
 
 	k8SClient, err := k8s.GetK8SClient()
@@ -100,6 +92,7 @@ func main() {
 		grpc_prometheus.Register(csiControllerServer.GRPCServer)
 		grpc_prometheus.EnableHandlingTimeHistogram()
 		grpc_prometheus.EnableClientHandlingTimeHistogram()
+	    prometheus.Register(metrics.BuildInfo)
 		go func() {
 			http.Handle(*metricspath, promhttp.Handler())
 			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
@@ -121,15 +114,4 @@ func main() {
 		logger.Fatalf("fail to serve, error: %v", err)
 	}
 	logger.Info("Got SIGTERM signal")
-}
-
-func regitsterMetrics() {
-	prometheus.MustRegister(prometheus.NewGaugeFunc(
-		prometheus.GaugeOpts{
-			Name:        "build_info",
-			Help:        "A metric with a constant '1' value labeled by version, revision, branch",
-			ConstLabels: prometheus.Labels{"version": base.PluginVersion, "revision": Revision, "branch": Branch},
-		},
-		func() float64 { return 1 },
-	))
 }
