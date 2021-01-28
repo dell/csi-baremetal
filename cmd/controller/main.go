@@ -92,7 +92,8 @@ func main() {
 		grpc_prometheus.Register(csiControllerServer.GRPCServer)
 		grpc_prometheus.EnableHandlingTimeHistogram()
 		grpc_prometheus.EnableClientHandlingTimeHistogram()
-	    prometheus.MustRegister(metrics.BuildInfo)
+		prometheus.MustRegister(metrics.BuildInfo)
+		
 		go func() {
 			http.Handle(*metricspath, promhttp.Handler())
 			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
