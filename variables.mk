@@ -64,7 +64,9 @@ GO_ENV_VARS     := GO111MODULE=on ${GOPRIVATE_PART} ${GOPROXY_PART}
 GOPRIVATE_PART  :=
 GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
 
+### Ingest information to the binary at the compile time
+METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
+LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
 
-LDFLAGS := -ldflags "-X pkg/metrics.Revision=${RELEASE_STR} -X pkg/metrics.Branch=${BRANCH}"
 # override some of variables, optional file
 -include variables.override.mk
