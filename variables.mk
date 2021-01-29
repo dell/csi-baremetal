@@ -18,6 +18,7 @@ BLD_SHA          := $(shell echo ${BUILD_REL_B})
 RELEASE_STR      := ${BLD_CNT}.${BLD_SHA}
 FULL_VERSION     := ${PRODUCT_VERSION}-${RELEASE_STR}
 TAG              := ${FULL_VERSION}
+BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 
 ### third-party components version
 CSI_PROVISIONER_TAG := v1.6.0
@@ -62,6 +63,10 @@ GO_ENV_VARS     := GO111MODULE=on ${GOPRIVATE_PART} ${GOPROXY_PART}
 ### custom variables that could be ommited
 GOPRIVATE_PART  :=
 GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
+
+### Ingest information to the binary at the compile time
+METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
+LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
 
 # override some of variables, optional file
 -include variables.override.mk
