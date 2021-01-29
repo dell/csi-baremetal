@@ -25,6 +25,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -36,6 +37,9 @@ var (
 	logLevel          = flag.String("loglevel", base.InfoLevel, "Log level")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
 		"Whether extender should read id from node annotation and use it as id for all CRs or not")
+	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
+		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
+	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
 )
 
 // TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
@@ -49,6 +53,15 @@ func main() {
 	flag.Parse()
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
+
+	if *metricspath != "" {
+		go func() {
+			http.Handle(*metricspath, promhttp.Handler())
+			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
+				logger.Warnf("metric http returned: %s ", err)
+			}
+		}()
+	}
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
