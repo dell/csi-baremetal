@@ -23,8 +23,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	"github.com/dell/csi-baremetal/pkg/metrics"
 )
+
+// SystemCMDDuration used to collect durations of system utils
+var SystemCMDDuration = metrics.NewMetrics(prometheus.HistogramOpts{
+	Name:    "system_utils_duration_seconds",
+	Help:    "Duration of the each system util",
+	Buckets: metrics.ExtendedDefBuckets,
+}, "method")
+
+// nolint: gochecknoinits
+func init() {
+	prometheus.MustRegister(SystemCMDDuration.Collect())
+}
 
 // CmdExecutor is the interface for executor that runs linux commands with RunCmd
 type CmdExecutor interface {
@@ -80,9 +95,11 @@ func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout tim
 // Returns stdout as string, stderr as string and golang error if something went wrong
 func (e *Executor) RunCmd(cmd interface{}) (string, string, error) {
 	if cmdStr, ok := cmd.(string); ok {
+		defer SystemCMDDuration.EvaluateDurationForMethod(cmdStr)
 		return e.runCmdFromStr(cmdStr)
 	}
 	if cmdObj, ok := cmd.(*exec.Cmd); ok {
+		defer SystemCMDDuration.EvaluateDurationForMethod(cmdObj.String())
 		return e.runCmdFromCmdObj(cmdObj)
 	}
 	return "", "", fmt.Errorf("could not interpret command from %v", cmd)
