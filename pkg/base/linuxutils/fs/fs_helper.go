@@ -106,7 +106,7 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 	*/
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(CheckSpaceCmdImpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(CheckSpaceCmdImpl, "")),
 		"method": "GetFSSpace"})
 	stdout, _, err := h.e.RunCmd(fmt.Sprintf(CheckSpaceCmdImpl, src))
 	if err != nil {
@@ -138,7 +138,7 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 func (h *WrapFSImpl) MkDir(src string) error {
 	cmd := fmt.Sprintf(MkDirCmdTmpl, src)
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(MkDirCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, "")),
 		"method": "MkDir"})
 	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to create dir %s: %v", src, err)
@@ -153,7 +153,7 @@ func (h *WrapFSImpl) MkDir(src string) error {
 func (h *WrapFSImpl) RmDir(src string) error {
 	cmd := fmt.Sprintf(RmDirCmdTmpl, src)
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(RmDirCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(RmDirCmdTmpl, "")),
 		"method": "RmDir"})
 	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to delete path %s: %v", src, err)
@@ -176,7 +176,7 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 		return fmt.Errorf("unsupported file system %v", fsType)
 	}
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(MkFSCmdTmpl, fsType, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, fsType, "")),
 		"method": "CreateFS"})
 	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to create file system on %s: %v", device, err)
@@ -191,7 +191,7 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 func (h *WrapFSImpl) WipeFS(device string) error {
 	cmd := fmt.Sprintf(WipeFSCmdTmpl, device)
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(WipeFSCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(WipeFSCmdTmpl, "")),
 		"method": "WipeFS"})
 	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to wipe file system on %s: %v", device, err)
@@ -209,7 +209,7 @@ func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
 	*/
 	cmd := fmt.Sprintf(GetFSTypeCmdTmpl, device)
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(GetFSTypeCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(GetFSTypeCmdTmpl, "")),
 		"method": "GetFSType"})
 	stdout, _, err := h.e.RunCmd(cmd)
 	if err != nil {
@@ -254,7 +254,7 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 	cmd := fmt.Sprintf(FindMntCmdTmpl, target)
 	h.opMutex.Unlock()
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(FindMntCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(FindMntCmdTmpl, "")),
 		"method": "FindMountPoint"})
 	strOut, _, err := h.e.RunCmd(cmd)
 	if err != nil {
@@ -270,7 +270,7 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 func (h *WrapFSImpl) Mount(src, dir string, opts ...string) error {
 	cmd := fmt.Sprintf(MountCmdTmpl, strings.Join(opts, " "), src, dir)
 	evaluateDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(MountCmdTmpl, "", "", ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(MountCmdTmpl, "", "", "")),
 		"method": "Mount"})
 	h.opMutex.Lock()
 	_, _, err := h.e.RunCmd(cmd)
@@ -287,7 +287,7 @@ func (h *WrapFSImpl) Mount(src, dir string, opts ...string) error {
 func (h *WrapFSImpl) Unmount(path string) error {
 	cmd := fmt.Sprintf(UnmountCmdTmpl, path)
 	evaluateDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(UnmountCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(UnmountCmdTmpl, "")),
 		"method": "Unmount"})
 	h.opMutex.Lock()
 	_, _, err := h.e.RunCmd(cmd)

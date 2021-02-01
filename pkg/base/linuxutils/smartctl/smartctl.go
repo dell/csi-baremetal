@@ -19,6 +19,7 @@ package smartctl
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -60,7 +61,7 @@ func NewSMARTCTL(e command.CmdExecutor) *SMARTCTL {
 // GetDriveInfoByPath gets SMART information about device by its Path using smartctl util
 func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(SmartctlDeviceInfoCmdImpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, "")),
 		"method": "GetDriveInfoByPath"})
 	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, path))
 	if err != nil {
@@ -83,7 +84,7 @@ func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 // fillSmartStatus fill smart_status field in DeviceSMARTInfo using smartctl command
 func (sa *SMARTCTL) fillSmartStatus(dev *DeviceSMARTInfo, path string) error {
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(SmartctlHealthCmdImpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(SmartctlHealthCmdImpl, "")),
 		"method": "fillSmartStatus"})
 	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlHealthCmdImpl, path))
 	if err != nil {

@@ -19,6 +19,7 @@ package nvmecli
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -110,7 +111,7 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 	ll := na.log.WithField("method", "getNVMDeviceHealth")
 	cmd := fmt.Sprintf(NVMeHealthCmdImpl, path)
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(NVMeHealthCmdImpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(NVMeHealthCmdImpl, "")),
 		"method": "getNVMDeviceHealth"})
 	strOut, _, err := na.e.RunCmd(cmd)
 	if err != nil {
@@ -138,7 +139,7 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	ll := na.log.WithField("method", "fillNVMDeviceVendor")
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(NVMeVendorCmdImpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(NVMeVendorCmdImpl, "")),
 		"method": "fillNVMDeviceVendor"})
 	cmd := fmt.Sprintf(NVMeVendorCmdImpl, device.DevicePath)
 	strOut, _, err := na.e.RunCmd(cmd)

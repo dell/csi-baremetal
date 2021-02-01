@@ -104,7 +104,7 @@ func (p *WrapPartitionImpl) IsPartitionExists(device, partNum string) (bool, err
 	*/
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(PartprobeDeviceCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(PartprobeDeviceCmdTmpl, "")),
 		"method": "IsPartitionExists"})
 	p.opMutex.Lock()
 	stdout, _, err := p.e.RunCmd(cmd)
@@ -136,7 +136,7 @@ func (p *WrapPartitionImpl) CreatePartitionTable(device, partTableType string) e
 	}
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(CreatePartitionTableCmdTmpl, "", ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(CreatePartitionTableCmdTmpl, "", "")),
 		"method": "CreatePartitionTable"})
 	cmd := fmt.Sprintf(CreatePartitionTableCmdTmpl, device, partTableType)
 	_, _, err := p.e.RunCmd(cmd)
@@ -155,7 +155,7 @@ func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error)
 	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(PartprobeDeviceCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(PartprobeDeviceCmdTmpl, "")),
 		"method": "GetPartitionTableType"})
 	stdout, _, err := p.e.RunCmd(cmd)
 
@@ -179,7 +179,7 @@ func (p *WrapPartitionImpl) CreatePartition(device, label string) error {
 	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, device, label)
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(CreatePartitionCmdTmpl, "", ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(CreatePartitionCmdTmpl, "", "")),
 		"method": "CreatePartition"})
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd)
@@ -200,7 +200,7 @@ func (p *WrapPartitionImpl) DeletePartition(device, partNum string) error {
 	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device, partNum)
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(DeletePartitionCmdTmpl, "", ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(DeletePartitionCmdTmpl, "", "")),
 		"method": "DeletePartition"})
 	p.opMutex.Lock()
 	_, stderr, err := p.e.RunCmd(cmd)
@@ -221,7 +221,7 @@ func (p *WrapPartitionImpl) SetPartitionUUID(device, partNum, partUUID string) e
 	cmd := fmt.Sprintf(SetPartitionUUIDCmdTmpl, device, partNum, partUUID)
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(SetPartitionUUIDCmdTmpl, "", "", ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(SetPartitionUUIDCmdTmpl, "", "", "")),
 		"method": "SetPartitionUUID"})
 	if _, _, err := p.e.RunCmd(cmd); err != nil {
 		return err
@@ -249,7 +249,7 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 	partitionPresentation := "Partition unique GUID:"
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(GetPartitionUUIDCmdTmpl, "", ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(GetPartitionUUIDCmdTmpl, "", "")),
 		"method": "GetPartitionUUID"})
 	stdout, _, err := p.e.RunCmd(cmd)
 
@@ -276,7 +276,7 @@ func (p *WrapPartitionImpl) SyncPartitionTable(device string) error {
 	cmd := fmt.Sprintf(PartprobeCmdTmpl, device)
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(PartprobeCmdTmpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(PartprobeCmdTmpl, "")),
 		"method": "SyncPartitionTable"})
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd)

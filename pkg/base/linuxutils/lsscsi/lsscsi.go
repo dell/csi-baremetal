@@ -127,7 +127,7 @@ func (la *LSSCSI) fillDeviceSize(device *SCSIDevice) error {
 	 [2:0:0:0]    /dev/sda   32.3GB
 	*/
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(SCSIDeviceSizeCmdImpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(SCSIDeviceSizeCmdImpl, "")),
 		"method": "fillDeviceSize"})
 	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceSizeCmdImpl, device.ID))
 	if err != nil {
@@ -154,7 +154,7 @@ func (la *LSSCSI) fillDeviceInfo(device *SCSIDevice) error {
 		  Type:   Direct-Access                    ANSI SCSI revision: 06
 	*/
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   fmt.Sprintf(SCSIDeviceCmdImpl, ""),
+		"name":   strings.TrimSpace(fmt.Sprintf(SCSIDeviceCmdImpl, "")),
 		"method": "fillDeviceInfo"})
 	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceCmdImpl, device.ID))
 	if err != nil {
