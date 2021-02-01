@@ -180,7 +180,7 @@ func (p *WrapPartitionImpl) CreatePartition(device, label string) error {
 
 	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
 		"name":   fmt.Sprintf(CreatePartitionCmdTmpl, "", ""),
-		"method": "CreatePartitionCmdTmpl"})
+		"method": "CreatePartition"})
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd)
 	p.opMutex.Unlock()

@@ -54,7 +54,9 @@ func (i *IPMI) GetBmcIP() string {
 	IP Address              : 10.245.137.136
 	*/
 
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{"name": LanPrintCmd, "method": "GetBmcIP"})
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   LanPrintCmd,
+		"method": "GetBmcIP"})
 	strOut, _, err := i.e.RunCmd(LanPrintCmd)
 	if err != nil {
 		return ""
