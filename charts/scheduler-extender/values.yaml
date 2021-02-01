@@ -35,3 +35,7 @@ patcher:
   interval: 60
   restore_on_shutdown: false
   config_map_name: schedulerpatcher-config
+
+metrics:
+  port: 8787
+  path: /metrics

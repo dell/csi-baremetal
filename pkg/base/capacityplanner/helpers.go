@@ -30,16 +30,28 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // NewReservationHelper returns new instance of ReservationHelper
 func NewReservationHelper(logger *logrus.Entry, client *k8s.KubeClient,
 	capReader CapacityReader, resReader ReservationReader) *ReservationHelper {
+	acMetrics := metrics.NewMetrics(prometheus.HistogramOpts{
+		Name:    "ac_reservation_duration",
+		Help:    "AvailableCapacity reservation duration",
+		Buckets: prometheus.ExponentialBuckets(0.005, 1.5, 10),
+	}, "method")
+	if err := prometheus.Register(acMetrics.Collect()); err != nil {
+		logger.WithField("component", "NewReservationHelper").
+			Errorf("Failed to register metric: %v", err)
+	}
 	return &ReservationHelper{
 		logger:    logger,
 		client:    client,
 		resReader: resReader,
 		capReader: capReader,
+		metric:    acMetrics,
 	}
 }
 
@@ -57,10 +69,13 @@ type ReservationHelper struct {
 	acMap       ACMap
 	acrMap      ACRMap
 	acNameToACR ACNameToACRNamesMap
+
+	metric metrics.Statistic
 }
 
 // CreateReservation create reservation
 func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan) error {
+	defer rh.metric.EvaluateDurationForMethod("CreateReservation")()
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.CreateReservation")
 
 	volToAC := placingPlan.GetACsForVolumes()

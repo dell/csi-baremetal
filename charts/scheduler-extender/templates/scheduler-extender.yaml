@@ -11,6 +11,11 @@ spec:
     metadata:
       labels:
         app: csi-baremetal-se
+        app.kubernetes.io/name: csi-baremetal
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '{{ .Values.metrics.port }}'
+        prometheus.io/path: '{{ .Values.metrics.path }}'
     spec:
       serviceAccountName: csi-baremetal-extender-sa
       containers:
@@ -27,8 +32,15 @@ spec:
             - --certFile={{ .Values.tls.certFile }}
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
             - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+            - --metrics-address=:{{ .Values.metrics.port }}
+            - --metrics-path={{ .Values.metrics.path }}
           ports:
             - containerPort: {{  .Values.port }}
+           {{- if .Values.metrics.port }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+           {{- end }}
           env:
             - name: NAMESPACE
               valueFrom:
