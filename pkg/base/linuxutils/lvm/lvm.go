@@ -24,10 +24,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -95,6 +97,9 @@ func NewLVM(e command.CmdExecutor, l *logrus.Logger) *LVM {
 // Receives device path
 // Returns error if something went wrong
 func (l *LVM) PVCreate(dev string) error {
+	defer common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(PVCreateCmdTmpl, EmptyName),
+		"method": "PVCreate"})()
 	cmd := fmt.Sprintf(PVCreateCmdTmpl, dev)
 	_, _, err := l.e.RunCmd(cmd)
 	return err
@@ -105,10 +110,14 @@ func (l *LVM) PVCreate(dev string) error {
 // Returns error if something went wrong
 func (l *LVM) PVRemove(name string) error {
 	cmd := fmt.Sprintf(PVRemoveCmdTmpl, name)
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(PVRemoveCmdTmpl, EmptyName),
+		"method": "PVRemove"})
 	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "No PV label found") {
 		return nil
 	}
+	duration()
 	return err
 }
 
@@ -117,10 +126,14 @@ func (l *LVM) PVRemove(name string) error {
 // Returns error if something went wrong
 func (l *LVM) VGCreate(name string, pvs ...string) error {
 	cmd := fmt.Sprintf(VGCreateCmdTmpl, name, strings.Join(pvs, " "))
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(VGCreateCmdTmpl, EmptyName, ""),
+		"method": "VGCreate"})
 	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "already exists") {
 		return nil
 	}
+	duration()
 	return err
 }
 
@@ -129,10 +142,14 @@ func (l *LVM) VGCreate(name string, pvs ...string) error {
 // Returns error if something went wrong
 func (l *LVM) VGRemove(name string) error {
 	cmd := fmt.Sprintf(VGRemoveCmdTmpl, name)
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(VGRemoveCmdTmpl, EmptyName),
+		"method": "VGRemove"})
 	_, stdErr, err := l.e.RunCmd(cmd)
 	if strings.Contains(stdErr, "not found") {
 		return nil
 	}
+	duration()
 	return err
 }
 
@@ -141,10 +158,14 @@ func (l *LVM) VGRemove(name string) error {
 // Returns error if something went wrong
 func (l *LVM) LVCreate(name, size, vgName string) error {
 	cmd := fmt.Sprintf(LVCreateCmdTmpl, name, size, vgName)
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(LVCreateCmdTmpl, "", "", ""),
+		"method": "LVCreate"})
 	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "already exists") {
 		return nil
 	}
+	duration()
 	return err
 }
 
@@ -153,10 +174,14 @@ func (l *LVM) LVCreate(name, size, vgName string) error {
 // Returns error if something went wrong
 func (l *LVM) LVRemove(fullLVName string) error {
 	cmd := fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(LVRemoveCmdTmpl, EmptyName),
+		"method": "LVRemove"})
 	_, stdErr, err := l.e.RunCmdWithAttempts(cmd, 5, timeoutBetweenAttempts)
 	if err != nil && strings.Contains(stdErr, "Failed to find logical volume") {
 		return nil
 	}
+	duration()
 	return err
 }
 
@@ -165,13 +190,16 @@ func (l *LVM) LVRemove(fullLVName string) error {
 // Returns true in case of error to prevent mistaken VG remove
 func (l *LVM) IsVGContainsLVs(vgName string) bool {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(LVsInVGCmdTmpl, EmptyName),
+		"method": "IsVGContainsLVs"})
 	stdout, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		l.log.WithField("method", "IsVGContainsLVs").
 			Errorf("Unable to check whether VG %s contains LVs or no. Assume that - yes.", vgName)
 		return true
 	}
-
+	duration()
 	return len(strings.TrimSpace(stdout)) > 0
 }
 
@@ -180,11 +208,14 @@ func (l *LVM) IsVGContainsLVs(vgName string) bool {
 // Returns slice of found logical volumes
 func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(LVsInVGCmdTmpl, EmptyName),
+		"method": "GetLVsInVG"})
 	stdout, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return nil, err
 	}
-
+	duration()
 	return util.SplitAndTrimSpace(stdout, "\n"), nil
 }
 
@@ -192,10 +223,14 @@ func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 // Returns error if something went wrong
 func (l *LVM) RemoveOrphanPVs() error {
 	pvsCmd := fmt.Sprintf(PVsInVGCmdTmpl, EmptyName)
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(PVsInVGCmdTmpl, EmptyName),
+		"method": "RemoveOrphanPVs"})
 	stdout, _, err := l.e.RunCmd(pvsCmd)
 	if err != nil {
 		return err
 	}
+	duration()
 	var wasError bool
 	for _, pv := range strings.Split(strings.TrimSpace(stdout), "\n") {
 		if len(pv) == 0 {
@@ -225,13 +260,16 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	if vgName == "" {
 		return -1, errors.New("VG name shouldn't be an empty string")
 	}
-
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(VGFreeSpaceCmdTmpl, EmptyName),
+		"method": "GetVgFreeSpace"})
 	cmd := fmt.Sprintf(VGFreeSpaceCmdTmpl, vgName)
 	strOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return -1, err
 	}
 
+	duration()
 	bytes, err := util.StrToBytes(strings.TrimSpace(strOut))
 	if err != nil {
 		return -1, err
@@ -242,23 +280,28 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 
 // GetAllPVs returns slice with names of all physical volumes in the system
 func (l *LVM) GetAllPVs() ([]string, error) {
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   AllPVsCmd,
+		"method": "GetAllPVs"})
 	stdOut, _, err := l.e.RunCmd(AllPVsCmd)
 	if err != nil {
 		return nil, err
 	}
-
+	duration()
 	return util.SplitAndTrimSpace(stdOut, "\n"), nil
 }
 
 // GetVGNameByPVName finds out volume group name based on physical volume name
 func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	cmd := fmt.Sprintf(PVInfoCmdTmpl, pvName)
-
+	duration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(PVInfoCmdTmpl, EmptyName),
+		"method": "GetVGNameByPVName"})
 	stdOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return "", err
 	}
-
+	duration()
 	// stdOut will have one of two formats:
 	// if PV is in some VG format will be:
 	//			/dev/sdy2:root-vg:936701952:-1:8:8:-1:4096:114343:77478:36865:H3rxE6-2iAg-1REQ-rOeX-7bz3-iPrh-YBXgxN

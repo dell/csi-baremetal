@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -79,10 +81,14 @@ type BlockDevice struct {
 // Returns slice of BlockDevice structs or error if something went wrong
 func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	cmd := fmt.Sprintf(CmdTmpl, device)
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   "lsblk",
+		"method": "GetBlockDevices"})
 	strOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return nil, err
 	}
+	evalDuration()
 	rawOut := make(map[string][]BlockDevice, 1)
 	err = json.Unmarshal([]byte(strOut), &rawOut)
 	if err != nil {

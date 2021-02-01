@@ -21,7 +21,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -51,10 +54,12 @@ func (i *IPMI) GetBmcIP() string {
 	IP Address              : 10.245.137.136
 	*/
 
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{"name": LanPrintCmd, "method": "GetBmcIP"})
 	strOut, _, err := i.e.RunCmd(LanPrintCmd)
 	if err != nil {
 		return ""
 	}
+	evalDuration()
 	ipAddrStr := "ip address"
 	var ip string
 	// Regular expr to find ip address

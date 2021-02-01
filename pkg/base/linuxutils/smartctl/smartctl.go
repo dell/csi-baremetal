@@ -20,7 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -56,10 +59,14 @@ func NewSMARTCTL(e command.CmdExecutor) *SMARTCTL {
 
 // GetDriveInfoByPath gets SMART information about device by its Path using smartctl util
 func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(SmartctlDeviceInfoCmdImpl, ""),
+		"method": "GetDriveInfoByPath"})
 	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, path))
 	if err != nil {
 		return nil, err
 	}
+	evalDuration()
 	var deviceInfo = &DeviceSMARTInfo{}
 	bytes := []byte(strOut)
 	err = json.Unmarshal(bytes, deviceInfo)
@@ -75,10 +82,14 @@ func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 
 // fillSmartStatus fill smart_status field in DeviceSMARTInfo using smartctl command
 func (sa *SMARTCTL) fillSmartStatus(dev *DeviceSMARTInfo, path string) error {
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(SmartctlHealthCmdImpl, ""),
+		"method": "fillSmartStatus"})
 	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlHealthCmdImpl, path))
 	if err != nil {
 		return err
 	}
+	evalDuration()
 	bytes := []byte(strOut)
 	err = json.Unmarshal(bytes, dev)
 	if err != nil {

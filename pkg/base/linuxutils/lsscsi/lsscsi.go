@@ -22,10 +22,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -96,10 +98,14 @@ func (la *LSSCSI) getSCSIDevicesBasicInfo() ([]*SCSIDevice, error) {
 	//	*/
 	ll := la.log.WithField("method", "getSCSIDevicesBasicInfo")
 	var devices []*SCSIDevice
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   LsscsiCmdImpl,
+		"method": "getSCSIDevicesBasicInfo"})
 	strOut, _, err := la.e.RunCmd(LsscsiCmdImpl)
 	if err != nil {
 		return nil, errors.New("unable to get devices basic info")
 	}
+	evalDuration()
 	split := strings.Split(strOut, "\n")
 	var re = regexp.MustCompile(`(\s+)`)
 	for j := 0; j < len(split); j++ {
@@ -120,10 +126,14 @@ func (la *LSSCSI) fillDeviceSize(device *SCSIDevice) error {
 	/*
 	 [2:0:0:0]    /dev/sda   32.3GB
 	*/
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(SCSIDeviceSizeCmdImpl, ""),
+		"method": "fillDeviceSize"})
 	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceSizeCmdImpl, device.ID))
 	if err != nil {
 		return errors.New("unable to fill devices info")
 	}
+	evalDuration()
 	var re = regexp.MustCompile(`(\s+)`)
 	s := re.ReplaceAllString(strings.TrimSpace(strOut), " ")
 	output := strings.Split(s, " ")
@@ -143,10 +153,14 @@ func (la *LSSCSI) fillDeviceInfo(device *SCSIDevice) error {
 		  Vendor: VMware   Model: Virtual disk     Rev: 2.0
 		  Type:   Direct-Access                    ANSI SCSI revision: 06
 	*/
+	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
+		"name":   fmt.Sprintf(SCSIDeviceCmdImpl, ""),
+		"method": "fillDeviceInfo"})
 	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceCmdImpl, device.ID))
 	if err != nil {
 		return errors.New("unable to get devices info")
 	}
+	evalDuration()
 	split := strings.Split(strOut, "\n")
 	var re = regexp.MustCompile(`(\s+)`)
 	for _, line := range split {
