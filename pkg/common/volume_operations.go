@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -167,10 +168,18 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		if ac == nil {
 			return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
 		}
+
+		resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
+
 		origAC := ac
 		if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
+			newACName := uuid.New().String()
+			if err := resHelper.ExtendReservations(ctx, origAC, newACName); err != nil {
+				return nil, status.Errorf(codes.Internal,
+					"failed to extender reservation after AC conversion %v", err)
+			}
 			// AC needs to be converted to LVG AC, LVG doesn't exist yet
-			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, v.StorageClass, *ac); ac == nil {
+			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, newACName, v.StorageClass, *ac); ac == nil {
 				return nil, status.Errorf(codes.Internal,
 					"unable to prepare underlying storage for storage class %s", v.StorageClass)
 			}
@@ -219,7 +228,6 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
 		if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
-			resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
 			if err = resHelper.ReleaseReservation(ctxWithID, &v, origAC, ac); err != nil {
 				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)
 			}

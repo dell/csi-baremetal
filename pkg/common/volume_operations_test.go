@@ -254,7 +254,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 	svc.capacityManagerBuilder = capMBuilder
 	capMMock.On("PlanVolumesPlacing", ctxWithID, mock.Anything).
 		Return(buildVolumePlacingPlan(testNode1Name, &expectedVolume, &acToReturn), nil).Times(1)
-	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, mock.Anything).
+	acProvider.On("RecreateACToLVGSC", ctxWithID, mock.Anything, requiredSC, mock.Anything).
 		Return(nil).Times(1)
 
 	ctx := context.WithValue(testCtx, base.VolumeNamespace, testNS)
