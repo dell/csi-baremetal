@@ -710,7 +710,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 	// explore each drive from driveCRs
 	blockDevices, err := m.listBlk.GetBlockDevices("")
 	if err != nil {
-		return fmt.Errorf("unable to inspect system block devices via lsblk, error: %v", err)
+		return fmt.Errorf("unable to get list of block devices: %v", err)
 	}
 
 	volumeCRs, err := m.crHelper.GetVolumeCRs(m.nodeID)
@@ -734,18 +734,18 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 
 	bdevMap := make(map[string]lsblk.BlockDevice, len(blockDevices))
 	for _, bdev := range blockDevices {
-		bdevMap[bdev.Serial] = bdev
+		bdevMap[strings.ToUpper(bdev.Serial)] = bdev
 	}
 
 	for _, d := range driveCRs {
 		if d.Spec.IsSystem && m.isDriveInLVG(d.Spec) {
 			continue
 		}
-		bdev, ok := bdevMap[d.Spec.SerialNumber]
+		bdev, ok := bdevMap[strings.ToUpper(d.Spec.SerialNumber)]
 		// todo for loopback devices we always see this error. need to refactor code to skip this search when drivemgr
-		// tod reports block device name
+		// todo reports block device name
 		if !ok {
-			ll.Errorf("For drive %v there is no corresponding block device.", d)
+			ll.Errorf("Block device for drive %v not found", d)
 			continue
 		}
 		if len(bdev.Children) > 0 {
