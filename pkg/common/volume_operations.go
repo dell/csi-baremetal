@@ -173,6 +173,8 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 
 		origAC := ac
 		if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
+			// we need to create reservation for newly created LVG AC before we sent LVG AC to kube-api
+			// this required to prevent race condition between csi-controller and scheduler extender
 			newACName := uuid.New().String()
 			if err := resHelper.ExtendReservations(ctx, origAC, newACName); err != nil {
 				return nil, status.Errorf(codes.Internal,
