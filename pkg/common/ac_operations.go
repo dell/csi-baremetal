@@ -32,7 +32,7 @@ import (
 
 // AvailableCapacityOperations is the interface for interact with AvailableCapacity CRs from Controller
 type AvailableCapacityOperations interface {
-	RecreateACToLVGSC(ctx context.Context, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
+	RecreateACToLVGSC(ctx context.Context, acName, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
 }
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
@@ -51,12 +51,15 @@ func NewACOperationsImpl(k8sClient *k8s.KubeClient, l *logrus.Logger) *ACOperati
 	}
 }
 
-// RecreateACToLVGSC creates LVG(based on ACs) creates AC based on that LVG and set sise of provided ACs to 0.
+// RecreateACToLVGSC creates LVG(based on ACs) creates AC based on that LVG and set size of provided ACs to 0.
 // Receives newSC as string (e.g. HDDLVG) and AvailableCapacities where LVG should be based
+// acName will be used for newly created AC if provided
 // Returns created AC or nil
-func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
+func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, acName, newSC string,
+	acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":   "RecreateACToLVGSC",
+		"name":     acName,
 		"volumeID": ctx.Value(base.RequestUUID),
 	})
 
@@ -104,15 +107,17 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, 
 	ll.Infof("LVG %v was created.", apiLVG)
 
 	// create new AC
-	newACCRName := uuid.New().String()
-	newACCR := a.k8sClient.ConstructACCR(newACCRName, api.AvailableCapacity{
+	if acName == "" {
+		acName = uuid.New().String()
+	}
+	newACCR := a.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
 		Location:     lvg.Name,
 		NodeId:       acs[0].Spec.NodeId,
 		StorageClass: newSC,
 		Size:         lvgSize,
 	})
-	if err = a.k8sClient.CreateCR(ctx, newACCRName, newACCR); err != nil {
-		ll.Errorf("Unable to create AC %v, error: %v", newACCRName, err)
+	if err = a.k8sClient.CreateCR(ctx, acName, newACCR); err != nil {
+		ll.Errorf("Unable to create AC %v, error: %v", acName, err)
 		return nil
 	}
 
