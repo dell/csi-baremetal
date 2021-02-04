@@ -732,24 +732,33 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 		}
 	}
 
+	// map key - block device name, value - block device structure
 	bdevMap := make(map[string]lsblk.BlockDevice, len(blockDevices))
 	for _, bdev := range blockDevices {
-		bdevMap[strings.ToUpper(bdev.Serial)] = bdev
+		bdevMap[strings.ToLower(bdev.Name)] = bdev
 	}
 
-	for _, d := range driveCRs {
-		if d.Spec.IsSystem && m.isDriveInLVG(d.Spec) {
+	for _, drive := range driveCRs {
+		if drive.Spec.IsSystem && m.isDriveInLVG(drive.Spec) {
 			continue
 		}
-		bdev, ok := bdevMap[strings.ToUpper(d.Spec.SerialNumber)]
-		// todo for loopback devices we always see this error. need to refactor code to skip this search when drivemgr
-		// todo reports block device name
+		bdev, ok := bdevMap[strings.ToLower(drive.Spec.Path)]
 		if !ok {
-			ll.Errorf("Block device for drive %v not found", d)
+			ll.Errorf("Block device for drive %v not found", drive)
 			continue
+		}
+		// confirm device SN if set
+		bDevSerialNum := bdev.Serial
+		driveSerialNum := drive.Spec.SerialNumber
+		if bDevSerialNum != "" && driveSerialNum != "" {
+			if !strings.EqualFold(bDevSerialNum, driveSerialNum) {
+				ll.Errorf("Serial numbers for block device %s of devices don't match: %s != %s", bdev.Name,
+					bDevSerialNum, driveSerialNum)
+				continue
+			}
 		}
 		if len(bdev.Children) > 0 {
-			if _, ok := locations[d.Spec.UUID]; ok {
+			if _, ok := locations[drive.Spec.UUID]; ok {
 				continue
 			}
 
@@ -778,11 +787,11 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 				NodeId:       m.nodeID,
 				Id:           partUUID,
 				Size:         size,
-				Location:     d.Spec.UUID,
+				Location:     drive.Spec.UUID,
 				LocationType: apiV1.LocationTypeDrive,
 				Mode:         apiV1.ModeFS,
 				Type:         bdev.FSType,
-				Health:       d.Spec.Health,
+				Health:       drive.Spec.Health,
 				CSIStatus:    apiV1.Empty,
 			})
 
