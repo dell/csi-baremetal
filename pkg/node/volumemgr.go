@@ -752,8 +752,8 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 		driveSerialNum := drive.Spec.SerialNumber
 		if bDevSerialNum != "" && driveSerialNum != "" {
 			if !strings.EqualFold(bDevSerialNum, driveSerialNum) {
-				ll.Errorf("Serial numbers for block device %s of devices don't match: %s != %s", bdev.Name,
-					bDevSerialNum, driveSerialNum)
+				ll.Errorf("Serial numbers for block device %s don't match: %s != %s", bdev.Name, bDevSerialNum,
+					driveSerialNum)
 				continue
 			}
 		}
