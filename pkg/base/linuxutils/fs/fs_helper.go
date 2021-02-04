@@ -23,11 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // FileSystem is type for storing FS string representation
@@ -86,13 +83,13 @@ type WrapFS interface {
 
 // WrapFSImpl is a WrapFS implementer
 type WrapFSImpl struct {
-	e       command.CmdExecutor
+	e       *command.ExecutorWithMetrics
 	opMutex sync.Mutex
 }
 
 // NewFSImpl is a constructor for WrapFSImpl struct
 func NewFSImpl(e command.CmdExecutor) *WrapFSImpl {
-	return &WrapFSImpl{e: e}
+	return &WrapFSImpl{e: command.NewExecutorWithMetrics(e)}
 }
 
 // GetFSSpace calls df command and return available space on the provided file system (src)
@@ -105,14 +102,11 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 				/dev       7982M
 	*/
 
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(CheckSpaceCmdImpl, "")),
-		"method": "GetFSSpace"})
-	stdout, _, err := h.e.RunCmd(fmt.Sprintf(CheckSpaceCmdImpl, src))
+	cmdName := strings.TrimSpace(fmt.Sprintf(CheckSpaceCmdImpl, ""))
+	stdout, _, err := h.e.RunCmdWithMetrics(fmt.Sprintf(CheckSpaceCmdImpl, src), cmdName, "GetFSSpace")
 	if err != nil {
 		return 0, err
 	}
-	evalDuration()
 	split := strings.Split(stdout, "\n")
 	// Skip headers Mounter on and Available
 	for j := 1; j < len(split); j++ {
@@ -137,13 +131,10 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 // Returns error if something went wrong
 func (h *WrapFSImpl) MkDir(src string) error {
 	cmd := fmt.Sprintf(MkDirCmdTmpl, src)
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, "")),
-		"method": "MkDir"})
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	cmdName := strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, ""))
+	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "MkDir"); err != nil {
 		return fmt.Errorf("failed to create dir %s: %v", src, err)
 	}
-	evalDuration()
 	return nil
 }
 
@@ -152,13 +143,10 @@ func (h *WrapFSImpl) MkDir(src string) error {
 // Returns error if something went wrong
 func (h *WrapFSImpl) RmDir(src string) error {
 	cmd := fmt.Sprintf(RmDirCmdTmpl, src)
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(RmDirCmdTmpl, "")),
-		"method": "RmDir"})
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	cmdName := strings.TrimSpace(fmt.Sprintf(RmDirCmdTmpl, ""))
+	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "RmDir"); err != nil {
 		return fmt.Errorf("failed to delete path %s: %v", src, err)
 	}
-	evalDuration()
 	return nil
 }
 
@@ -175,13 +163,10 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 	default:
 		return fmt.Errorf("unsupported file system %v", fsType)
 	}
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, fsType, "")),
-		"method": "CreateFS"})
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	cmdName := strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, fsType, ""))
+	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "CreateFS"); err != nil {
 		return fmt.Errorf("failed to create file system on %s: %v", device, err)
 	}
-	evalDuration()
 	return nil
 }
 
@@ -190,13 +175,10 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 // Returns error if something went wrong
 func (h *WrapFSImpl) WipeFS(device string) error {
 	cmd := fmt.Sprintf(WipeFSCmdTmpl, device)
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(WipeFSCmdTmpl, "")),
-		"method": "WipeFS"})
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	cmdName := strings.TrimSpace(fmt.Sprintf(WipeFSCmdTmpl, ""))
+	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "WipeFS"); err != nil {
 		return fmt.Errorf("failed to wipe file system on %s: %v", device, err)
 	}
-	evalDuration()
 	return nil
 }
 
@@ -208,14 +190,11 @@ func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
 			   ext4
 	*/
 	cmd := fmt.Sprintf(GetFSTypeCmdTmpl, device)
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(GetFSTypeCmdTmpl, "")),
-		"method": "GetFSType"})
-	stdout, _, err := h.e.RunCmd(cmd)
+	cmdName := strings.TrimSpace(fmt.Sprintf(GetFSTypeCmdTmpl, ""))
+	stdout, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "GetFSType")
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve FS type for device %s: %v", device, err)
 	}
-	evalDuration()
 	return FileSystem(strings.TrimSpace(stdout)), nil
 }
 
@@ -253,14 +232,11 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 	h.opMutex.Lock()
 	cmd := fmt.Sprintf(FindMntCmdTmpl, target)
 	h.opMutex.Unlock()
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(FindMntCmdTmpl, "")),
-		"method": "FindMountPoint"})
-	strOut, _, err := h.e.RunCmd(cmd)
+	cmdName := strings.TrimSpace(fmt.Sprintf(FindMntCmdTmpl, ""))
+	strOut, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "FindMountPoint")
 	if err != nil {
 		return "", err
 	}
-	evalDuration()
 	return strings.TrimSpace(strOut), nil
 }
 
@@ -269,15 +245,10 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 // Returns error if something went wrong
 func (h *WrapFSImpl) Mount(src, dir string, opts ...string) error {
 	cmd := fmt.Sprintf(MountCmdTmpl, strings.Join(opts, " "), src, dir)
-	evaluateDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(MountCmdTmpl, "", "", "")),
-		"method": "Mount"})
+	cmdName := strings.TrimSpace(fmt.Sprintf(MountCmdTmpl, "", "", ""))
 	h.opMutex.Lock()
-	_, _, err := h.e.RunCmd(cmd)
+	_, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "Mount")
 	h.opMutex.Unlock()
-	if err == nil {
-		evaluateDuration()
-	}
 	return err
 }
 
@@ -286,14 +257,9 @@ func (h *WrapFSImpl) Mount(src, dir string, opts ...string) error {
 // Returns error if something went wrong
 func (h *WrapFSImpl) Unmount(path string) error {
 	cmd := fmt.Sprintf(UnmountCmdTmpl, path)
-	evaluateDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(UnmountCmdTmpl, "")),
-		"method": "Unmount"})
+	cmdName := strings.TrimSpace(fmt.Sprintf(UnmountCmdTmpl, ""))
 	h.opMutex.Lock()
-	_, _, err := h.e.RunCmd(cmd)
+	_, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "Unmount")
 	h.opMutex.Unlock()
-	if err == nil {
-		evaluateDuration()
-	}
 	return err
 }

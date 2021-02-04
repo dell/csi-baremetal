@@ -21,12 +21,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -66,26 +64,22 @@ type SMARTLog struct {
 
 // NVMECLI is a wrap for system nvem_cli util
 type NVMECLI struct {
-	e   command.CmdExecutor
+	e   *command.ExecutorWithMetrics
 	log *logrus.Entry
 }
 
 // NewNVMECLI is a constructor for NVMECLI
 func NewNVMECLI(e command.CmdExecutor, logger *logrus.Logger) *NVMECLI {
-	return &NVMECLI{e: e, log: logger.WithField("component", "NVMECLI")}
+	return &NVMECLI{e: command.NewExecutorWithMetrics(e), log: logger.WithField("component", "NVMECLI")}
 }
 
 // GetNVMDevices gets information about NVMDevice using nvme_cli util
 func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 	ll := na.log.WithField("method", "GetNVMDevices")
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   NVMeDeviceCmdImpl,
-		"method": "GetNVMDevices"})
-	strOut, _, err := na.e.RunCmd(NVMeDeviceCmdImpl)
+	strOut, _, err := na.e.RunCmdWithMetrics(NVMeDeviceCmdImpl, NVMeDeviceCmdImpl, "GetNVMDevices")
 	if err != nil {
 		return nil, err
 	}
-	evalDuration()
 	rawOut := make(map[string][]NVMDevice)
 	err = json.Unmarshal([]byte(strOut), &rawOut)
 	if err != nil {
@@ -110,15 +104,12 @@ func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 	ll := na.log.WithField("method", "getNVMDeviceHealth")
 	cmd := fmt.Sprintf(NVMeHealthCmdImpl, path)
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(NVMeHealthCmdImpl, "")),
-		"method": "getNVMDeviceHealth"})
-	strOut, _, err := na.e.RunCmd(cmd)
+	cmdName := strings.TrimSpace(fmt.Sprintf(NVMeHealthCmdImpl, ""))
+	strOut, _, err := na.e.RunCmdWithMetrics(cmd, cmdName, "getNVMDeviceHealth")
 	if err != nil {
 		ll.Errorf("%s failed, set health as %s", cmd, apiV1.HealthUnknown)
 		return apiV1.HealthUnknown
 	}
-	evalDuration()
 	smartLog := &SMARTLog{}
 	err = json.Unmarshal([]byte(strOut), &smartLog)
 	if err != nil {
@@ -138,15 +129,12 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 // fillNVMDeviceVendor gets information about device vendor id
 func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	ll := na.log.WithField("method", "fillNVMDeviceVendor")
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(NVMeVendorCmdImpl, "")),
-		"method": "fillNVMDeviceVendor"})
+	cmdName := strings.TrimSpace(fmt.Sprintf(NVMeVendorCmdImpl, ""))
 	cmd := fmt.Sprintf(NVMeVendorCmdImpl, device.DevicePath)
-	strOut, _, err := na.e.RunCmd(cmd)
+	strOut, _, err := na.e.RunCmdWithMetrics(cmd, cmdName, "fillNVMDeviceVendor")
 	if err != nil {
 		return
 	}
-	evalDuration()
 	err = json.Unmarshal([]byte(strOut), &device)
 	if err != nil {
 		ll.Errorf("unable to unmarshal output to NVMEDevice, error: %v", err)

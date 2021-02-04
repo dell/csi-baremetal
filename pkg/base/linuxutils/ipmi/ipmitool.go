@@ -21,10 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -39,12 +36,12 @@ type WrapIpmi interface {
 
 // IPMI is implementation for WrapImpi interface
 type IPMI struct {
-	e command.CmdExecutor
+	e *command.ExecutorWithMetrics
 }
 
 // NewIPMI is a constructor for LSBLK struct
 func NewIPMI(e command.CmdExecutor) *IPMI {
-	return &IPMI{e: e}
+	return &IPMI{e: command.NewExecutorWithMetrics(e)}
 }
 
 // GetBmcIP returns BMC IP using ipmitool
@@ -54,14 +51,10 @@ func (i *IPMI) GetBmcIP() string {
 	IP Address              : 10.245.137.136
 	*/
 
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   LanPrintCmd,
-		"method": "GetBmcIP"})
-	strOut, _, err := i.e.RunCmd(LanPrintCmd)
+	strOut, _, err := i.e.RunCmdWithMetrics(LanPrintCmd, LanPrintCmd, "GetBmcIP")
 	if err != nil {
 		return ""
 	}
-	evalDuration()
 	ipAddrStr := "ip address"
 	var ip string
 	// Regular expr to find ip address

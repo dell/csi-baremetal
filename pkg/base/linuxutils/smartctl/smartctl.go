@@ -21,10 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -50,24 +47,21 @@ type DeviceSMARTInfo struct {
 
 // SMARTCTL is a wrap for system smartctl util
 type SMARTCTL struct {
-	e command.CmdExecutor
+	e *command.ExecutorWithMetrics
 }
 
 // NewSMARTCTL is a constructor for SMARTCTL
 func NewSMARTCTL(e command.CmdExecutor) *SMARTCTL {
-	return &SMARTCTL{e: e}
+	return &SMARTCTL{e: command.NewExecutorWithMetrics(e)}
 }
 
 // GetDriveInfoByPath gets SMART information about device by its Path using smartctl util
 func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, "")),
-		"method": "GetDriveInfoByPath"})
-	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, path))
+	cmdName := strings.TrimSpace(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, ""))
+	strOut, _, err := sa.e.RunCmdWithMetrics(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, path), cmdName, "GetDriveInfoByPath")
 	if err != nil {
 		return nil, err
 	}
-	evalDuration()
 	var deviceInfo = &DeviceSMARTInfo{}
 	bytes := []byte(strOut)
 	err = json.Unmarshal(bytes, deviceInfo)
@@ -83,14 +77,11 @@ func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 
 // fillSmartStatus fill smart_status field in DeviceSMARTInfo using smartctl command
 func (sa *SMARTCTL) fillSmartStatus(dev *DeviceSMARTInfo, path string) error {
-	evalDuration := common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{
-		"name":   strings.TrimSpace(fmt.Sprintf(SmartctlHealthCmdImpl, "")),
-		"method": "fillSmartStatus"})
-	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlHealthCmdImpl, path))
+	cmdName := strings.TrimSpace(fmt.Sprintf(SmartctlHealthCmdImpl, ""))
+	strOut, _, err := sa.e.RunCmdWithMetrics(fmt.Sprintf(SmartctlHealthCmdImpl, path), cmdName, "fillSmartStatus")
 	if err != nil {
 		return err
 	}
-	evalDuration()
 	bytes := []byte(strOut)
 	err = json.Unmarshal(bytes, dev)
 	if err != nil {
