@@ -187,7 +187,7 @@ func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 	}
 
 	for _, acr := range acrToUpdate {
-		if err := rh.client.Update(ctx, acr); err != nil {
+		if err := rh.client.UpdateCR(ctx, acr); err != nil {
 			logger.Infof("Fail to update ACR %s: %s", acr.Name, err.Error())
 			return err
 		}
@@ -226,7 +226,7 @@ func (rh *ReservationHelper) Update(ctx context.Context) error {
 
 func (rh *ReservationHelper) removeACR(ctx context.Context, acr *acrcrd.AvailableCapacityReservation) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.removeACR")
-	err := rh.client.Delete(ctx, acr)
+	err := rh.client.DeleteCR(ctx, acr)
 	if err == nil {
 		logger.Infof("ACR %s removed", acr.Name)
 		return nil
@@ -275,7 +275,7 @@ func (rh *ReservationHelper) removeACFromACRs(ctx context.Context, removedACR st
 		}
 	}
 	for _, acr := range acrToUpdate {
-		err := rh.client.Update(ctx, acr)
+		err := rh.client.UpdateCR(ctx, acr)
 		if err != nil {
 			logger.Infof("Fail to update ACR %s: %s", acr.Name, err.Error())
 			return err
