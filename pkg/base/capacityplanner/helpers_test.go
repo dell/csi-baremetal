@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -100,9 +101,11 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 		assert.Nil(t, err)
 		checkACRNotExist(t, client, testACRs[1])
 	})
-	t.Run("Replace AC in ACR", func(t *testing.T) {
+	t.Run("Remove AC from ACR", func(t *testing.T) {
 		replacementAC := getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDDLVG)
 		testACs := []*accrd.AvailableCapacity{
+			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
+			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 		}
 		testACRs := []*acrcrd.AvailableCapacityReservation{
@@ -116,12 +119,77 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 			getCapReaderMock(testACs, nil),
 			getResReaderMock(testACRs, nil),
 			getTestVol("", testSmallSize, apiV1.StorageClassHDDLVG),
-			testACs[0], replacementAC)
+			testACs[2], replacementAC)
 		assert.Nil(t, err)
 		acrList := &acrcrd.AvailableCapacityReservationList{}
 		err = client.List(ctx, acrList)
 		assert.Nil(t, err)
-		assert.Contains(t, acrList.Items[0].Spec.Reservations, replacementAC.Name)
+		assert.NotContains(t, acrList.Items[0].Spec.Reservations, testACs[2])
+	})
+}
+
+func TestReservationHelper_ExtendReservations(t *testing.T) {
+	logger := testLogger.WithField("component", "test")
+	ctx := context.Background()
+
+	callExtendReservations := func(client *k8s.KubeClient, capReader CapacityReader, resReader ReservationReader,
+		parentAC *accrd.AvailableCapacity, additionalAC string) error {
+		rh := createReservationHelper(t, logger, capReader, resReader, client)
+		return rh.ExtendReservations(ctx, parentAC, additionalAC)
+	}
+	t.Run("Error update data", func(t *testing.T) {
+		rh := createReservationHelper(t, logger,
+			getCapReaderMock(nil, testErr),
+			getResReaderMock(nil, testErr),
+			getKubeClient(t))
+		err := rh.ExtendReservations(ctx, getTestAC("", testSmallSize, apiV1.StorageClassHDD), "")
+		assert.Equal(t, testErr, err)
+	})
+	t.Run("Reservation Extended", func(t *testing.T) {
+		testACs := []*accrd.AvailableCapacity{
+			getTestAC("", testSmallSize, apiV1.StorageClassHDD),
+			getTestAC("", testSmallSize, apiV1.StorageClassHDD),
+			getTestAC("", testSmallSize, apiV1.StorageClassHDD),
+		}
+
+		parentAC := testACs[0]
+		additionalAC := uuid.New().String()
+
+		testACRs := []*acrcrd.AvailableCapacityReservation{
+			// parent AC exist
+			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs),
+			// without parent AC
+			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs[1:]),
+			// parent AC exist
+			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs),
+			// parent AC exist, additional AC already exist
+			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs),
+		}
+		testACRs[len(testACRs)-1].Spec.Reservations = append(
+			testACRs[len(testACRs)-1].Spec.Reservations, additionalAC)
+
+		client := getKubeClient(t)
+		createACRsInAPi(t, client, testACRs)
+		createACsInAPi(t, client, testACs)
+
+		err := callExtendReservations(
+			client,
+			getCapReaderMock(testACs, nil),
+			getResReaderMock(testACRs, nil),
+			parentAC, additionalAC)
+
+		assert.Nil(t, err)
+		acrsFromAPI := acrcrd.AvailableCapacityReservationList{}
+		_ = client.List(ctx, &acrsFromAPI)
+		assert.Len(t, acrsFromAPI.Items, len(testACRs))
+		for _, acr := range acrsFromAPI.Items {
+			switch acr.Name {
+			case testACRs[0].Name, testACRs[2].Name, testACRs[3].Name:
+				assert.Len(t, acr.Spec.Reservations, len(testACs)+1)
+			case testACRs[1].Name:
+				assert.Len(t, acr.Spec.Reservations, len(testACs)-1)
+			}
+		}
 	})
 }
 

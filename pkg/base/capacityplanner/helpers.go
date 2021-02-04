@@ -57,8 +57,9 @@ func NewReservationHelper(logger *logrus.Entry, client *k8s.KubeClient,
 
 // ReservationHelper provides methods to create and release reservation
 type ReservationHelper struct {
-	logger *logrus.Entry
-	client *k8s.KubeClient
+	logger  *logrus.Entry
+	client  *k8s.KubeClient
+	updated bool
 
 	resReader ReservationReader
 	capReader CapacityReader
@@ -123,8 +124,7 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 func (rh *ReservationHelper) ReleaseReservation(
 	ctx context.Context, volume *genV1.Volume, ac, acReplacement *accrd.AvailableCapacity) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ReleaseReservation")
-	err := rh.update(ctx)
-	if err != nil {
+	if err := rh.updateIfRequired(ctx); err != nil {
 		return err
 	}
 	// we should select ACR to remove from ACRs which have same size and SC as volume
@@ -143,13 +143,67 @@ func (rh *ReservationHelper) ReleaseReservation(
 	if ac == acReplacement {
 		return nil
 	}
-	if err := rh.replaceACInACR(ctx, acrToRemove.Name, ac, acReplacement); err != nil {
+	if err := rh.removeACFromACRs(ctx, acrToRemove.Name, ac); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (rh *ReservationHelper) update(ctx context.Context) error {
+// ExtendReservations allows to add additional AC to ACRs which hold parent AC
+func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
+	parentAC *accrd.AvailableCapacity, additionalAC string) error {
+	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ExtendReservations")
+	if err := rh.updateIfRequired(ctx); err != nil {
+		return err
+	}
+
+	// list of ACRs names which hold parent AC
+	acrNamesToCheck := rh.acNameToACR[parentAC.Name]
+
+	acrToCheck := make([]*acrcrd.AvailableCapacityReservation, 0, len(acrNamesToCheck))
+	for _, name := range acrNamesToCheck {
+		acr := rh.acrMap[name]
+		if acr == nil {
+			logger.Warningf("unknown AC Name in ACR.Spec.Reservations, posible bug")
+			continue
+		}
+		acrToCheck = append(acrToCheck, acr)
+	}
+
+	var acrToUpdate []*acrcrd.AvailableCapacityReservation
+
+	for _, acr := range acrToCheck {
+		alreadyExist := false
+		for _, res := range acr.Spec.Reservations {
+			if res == additionalAC {
+				alreadyExist = true
+				break
+			}
+		}
+		if !alreadyExist {
+			acr.Spec.Reservations = append(acr.Spec.Reservations, additionalAC)
+			acrToUpdate = append(acrToUpdate, acr)
+		}
+	}
+
+	for _, acr := range acrToUpdate {
+		if err := rh.client.UpdateCR(ctx, acr); err != nil {
+			logger.Infof("Fail to update ACR %s: %s", acr.Name, err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func (rh *ReservationHelper) updateIfRequired(ctx context.Context) error {
+	if rh.updated {
+		return nil
+	}
+	return rh.Update(ctx)
+}
+
+// Update do a force data update
+func (rh *ReservationHelper) Update(ctx context.Context) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.update")
 	var err error
 	rh.acList, err = rh.capReader.ReadCapacity(ctx)
@@ -165,12 +219,14 @@ func (rh *ReservationHelper) update(ctx context.Context) error {
 	rh.acMap = buildACMap(rh.acList)
 	rh.acrMap, rh.acNameToACR = buildACRMaps(rh.acrList)
 
+	rh.updated = true
+
 	return nil
 }
 
 func (rh *ReservationHelper) removeACR(ctx context.Context, acr *acrcrd.AvailableCapacityReservation) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.removeACR")
-	err := rh.client.Delete(ctx, acr)
+	err := rh.client.DeleteCR(ctx, acr)
 	if err == nil {
 		logger.Infof("ACR %s removed", acr.Name)
 		return nil
@@ -183,16 +239,18 @@ func (rh *ReservationHelper) removeACR(ctx context.Context, acr *acrcrd.Availabl
 	return err
 }
 
-func (rh *ReservationHelper) replaceACInACR(ctx context.Context, removedACR string,
-	ac, acReplacement *accrd.AvailableCapacity) error {
-	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.replaceACInACR")
+func (rh *ReservationHelper) removeACFromACRs(ctx context.Context, removedACR string, ac *accrd.AvailableCapacity) error {
+	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.removeACFromACRs")
 
-	acrToUpdate, ok := rh.acNameToACR[ac.Name]
+	acrToCheck, ok := rh.acNameToACR[ac.Name]
 	if !ok {
 		logger.Infof("Can't find ACRs for AC %s", ac.Name)
 		return nil
 	}
-	for _, acrName := range acrToUpdate {
+
+	var acrToUpdate []*acrcrd.AvailableCapacityReservation
+
+	for _, acrName := range acrToCheck {
 		// ignore already removed ACR
 		if acrName == removedACR {
 			continue
@@ -201,22 +259,30 @@ func (rh *ReservationHelper) replaceACInACR(ctx context.Context, removedACR stri
 		if !ok {
 			continue
 		}
-		replaced := false
-		for i := 0; i < len(acr.Spec.Reservations); i++ {
+		removed := false
+		resLen := len(acr.Spec.Reservations)
+		for i := 0; i < resLen; i++ {
 			if acr.Spec.Reservations[i] == ac.Name {
-				acr.Spec.Reservations[i] = acReplacement.Name
-				replaced = true
+				acr.Spec.Reservations[i] = acr.Spec.Reservations[len(acr.Spec.Reservations)-1]
+				acr.Spec.Reservations = acr.Spec.Reservations[:len(acr.Spec.Reservations)-1]
+				i--
+				resLen--
+				removed = true
 			}
 		}
-		if replaced {
-			err := rh.client.Update(ctx, acr)
-			if err != nil {
-				logger.Infof("Fail to update ACR %s: %s", acr.Name, err.Error())
-				return err
-			}
-			logger.Infof("ACR %s updated", acr.Name)
+		if removed {
+			acrToUpdate = append(acrToUpdate, acr)
 		}
 	}
+	for _, acr := range acrToUpdate {
+		err := rh.client.UpdateCR(ctx, acr)
+		if err != nil {
+			logger.Infof("Fail to update ACR %s: %s", acr.Name, err.Error())
+			return err
+		}
+		logger.Infof("ACR %s updated", acr.Name)
+	}
+
 	return nil
 }
 
