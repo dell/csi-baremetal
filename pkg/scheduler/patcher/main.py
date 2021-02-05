@@ -53,7 +53,9 @@ def run():
         '--backup-path', help="Set path for backup folder", default='/etc/kubernetes/scheduler')
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.getLevelName(args.loglevel.upper()))
+    lvl = args.loglevel.upper()
+ 
+    logging.basicConfig(level=logging.getLevelName(normalize_logging_level(lvl)))
 
     log.info('patcher started')
 
@@ -223,6 +225,11 @@ def copy_not_equal(src, dst):
         src.copy(dst)
         log.info('{} copied to {}'.format(src.path, dst.path))
 
+
+def normalize_logging_level(lvl):
+    if lvl == "TRACE":
+        return "DEBUG"
+    return lvl
 
 if __name__ == "__main__":
     run()
