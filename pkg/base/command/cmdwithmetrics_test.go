@@ -1,14 +1,3 @@
-package command
-
-import (
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-
-	"github.com/dell/csi-baremetal/pkg/mocks"
-)
-
 /*
 Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
 
@@ -24,8 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package command
 
-// ExecutorWithMetrics is a wrapper for CmdExecutor
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/dell/csi-baremetal/pkg/mocks"
+)
 
 func TestExecutorWithMetrics_RunCmdWithMetrics(t *testing.T) {
 	cmdExec := &mocks.GoMockExecutor{}

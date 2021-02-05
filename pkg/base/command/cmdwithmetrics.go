@@ -1,13 +1,3 @@
-package command
-
-import (
-	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/dell/csi-baremetal/pkg/metrics/common"
-)
-
 /*
 Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
 
@@ -23,6 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package command
+
+import (
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
+)
 
 // ExecutorWithMetrics is a wrapper for CmdExecutor
 type ExecutorWithMetrics struct {
