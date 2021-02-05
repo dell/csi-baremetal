@@ -46,15 +46,14 @@ type WrapLsblk interface {
 
 // LSBLK is a wrap for system lsblk util
 type LSBLK struct {
-	e *command.ExecutorWithMetrics
+	e command.CmdExecutor
 }
 
 // NewLSBLK is a constructor for LSBLK struct
 func NewLSBLK(log *logrus.Logger) *LSBLK {
-	e := &command.Executor{}
-	e.SetLogger(log)
+	e := command.NewExecutor(log, true)
 	e.SetLevel(logrus.TraceLevel)
-	return &LSBLK{e: command.NewExecutorWithMetrics(e)}
+	return &LSBLK{e: e}
 }
 
 // BlockDevice is the struct that represents output of lsblk command for a device
@@ -79,7 +78,7 @@ type BlockDevice struct {
 // Returns slice of BlockDevice structs or error if something went wrong
 func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	cmd := fmt.Sprintf(CmdTmpl, device)
-	strOut, _, err := l.e.RunCmdWithMetrics(cmd, "lsblk", "GetBlockDevices")
+	strOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return nil, err
 	}

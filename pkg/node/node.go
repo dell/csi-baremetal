@@ -84,8 +84,7 @@ func NewCSINodeService(client api.DriveServiceClient,
 	k8sclient *k8s.KubeClient,
 	recorder eventRecorder,
 	featureConf featureconfig.FeatureChecker) *CSINodeService {
-	e := &command.Executor{}
-	e.SetLogger(logger)
+	e := command.NewExecutor(logger, true)
 	s := &CSINodeService{
 		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
 		svc:            common.NewVolumeOperationsImpl(k8sclient, logger, cache.NewMemCache(), featureConf),

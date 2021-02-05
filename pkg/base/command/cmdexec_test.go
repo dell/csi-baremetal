@@ -47,8 +47,7 @@ func TestExecutorFromStrWithoutError(t *testing.T) {
 		{exec.Command("true"), "", "", nil},
 	}
 
-	e := Executor{}
-	e.SetLogger(logrus.New())
+	e := NewExecutor(logrus.New(), false)
 
 	for _, test := range cmdPass {
 		strOut, strErr, err := e.RunCmd(test.cmd)
@@ -69,8 +68,7 @@ func TestExecutorFromStrAndExpectError(t *testing.T) {
 		{2, "", "", errors.New("could not interpret command from 2")},
 	}
 
-	e := Executor{}
-	e.SetLogger(logrus.New())
+	e := NewExecutor(logrus.New(), false)
 
 	for _, test := range cmdErr {
 		strOut, strErr, err := e.RunCmd(test.cmd)

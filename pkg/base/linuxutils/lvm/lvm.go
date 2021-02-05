@@ -79,14 +79,14 @@ type WrapLVM interface {
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
 type LVM struct {
-	e   *command.ExecutorWithMetrics
+	e   command.CmdExecutor
 	log *logrus.Entry
 }
 
 // NewLVM is a constructor for LVM struct
 func NewLVM(e command.CmdExecutor, l *logrus.Logger) *LVM {
 	return &LVM{
-		e:   command.NewExecutorWithMetrics(e),
+		e:   e,
 		log: l.WithField("component", "LVM"),
 	}
 }
@@ -95,9 +95,8 @@ func NewLVM(e command.CmdExecutor, l *logrus.Logger) *LVM {
 // Receives device path
 // Returns error if something went wrong
 func (l *LVM) PVCreate(dev string) error {
-	cmdName := strings.TrimSpace(fmt.Sprintf(PVCreateCmdTmpl, ""))
 	cmd := fmt.Sprintf(PVCreateCmdTmpl, dev)
-	_, _, err := l.e.RunCmdWithMetrics(cmd, cmdName, "PVCreate")
+	_, _, err := l.e.RunCmd(cmd)
 	return err
 }
 
@@ -106,8 +105,7 @@ func (l *LVM) PVCreate(dev string) error {
 // Returns error if something went wrong
 func (l *LVM) PVRemove(name string) error {
 	cmd := fmt.Sprintf(PVRemoveCmdTmpl, name)
-	cmdName := strings.TrimSpace(fmt.Sprintf(PVRemoveCmdTmpl, ""))
-	_, stdErr, err := l.e.RunCmdWithMetrics(cmd, cmdName, "PVRemove")
+	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "No PV label found") {
 		return nil
 	}
@@ -119,8 +117,7 @@ func (l *LVM) PVRemove(name string) error {
 // Returns error if something went wrong
 func (l *LVM) VGCreate(name string, pvs ...string) error {
 	cmd := fmt.Sprintf(VGCreateCmdTmpl, name, strings.Join(pvs, " "))
-	cmdName := strings.TrimSpace(fmt.Sprintf(VGCreateCmdTmpl, "", ""))
-	_, stdErr, err := l.e.RunCmdWithMetrics(cmd, cmdName, "VGCreate")
+	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "already exists") {
 		return nil
 	}
@@ -132,8 +129,7 @@ func (l *LVM) VGCreate(name string, pvs ...string) error {
 // Returns error if something went wrong
 func (l *LVM) VGRemove(name string) error {
 	cmd := fmt.Sprintf(VGRemoveCmdTmpl, name)
-	cmdName := strings.TrimSpace(fmt.Sprintf(VGRemoveCmdTmpl, ""))
-	_, stdErr, err := l.e.RunCmdWithMetrics(cmd, cmdName, "VGRemove")
+	_, stdErr, err := l.e.RunCmd(cmd)
 	if strings.Contains(stdErr, "not found") {
 		return nil
 	}
@@ -145,8 +141,7 @@ func (l *LVM) VGRemove(name string) error {
 // Returns error if something went wrong
 func (l *LVM) LVCreate(name, size, vgName string) error {
 	cmd := fmt.Sprintf(LVCreateCmdTmpl, name, size, vgName)
-	cmdName := strings.TrimSpace(fmt.Sprintf(LVCreateCmdTmpl, "", "", ""))
-	_, stdErr, err := l.e.RunCmdWithMetrics(cmd, cmdName, "LVCreate")
+	_, stdErr, err := l.e.RunCmd(cmd)
 	if err != nil && strings.Contains(stdErr, "already exists") {
 		return nil
 	}
@@ -158,8 +153,7 @@ func (l *LVM) LVCreate(name, size, vgName string) error {
 // Returns error if something went wrong
 func (l *LVM) LVRemove(fullLVName string) error {
 	cmd := fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
-	cmdName := strings.TrimSpace(fmt.Sprintf(LVRemoveCmdTmpl, ""))
-	_, stdErr, err := l.e.RunCmdWithAttemptsAndMetrics(cmd, 5, timeoutBetweenAttempts, cmdName, "LVRemove")
+	_, stdErr, err := l.e.RunCmdWithAttempts(cmd, 5, timeoutBetweenAttempts)
 	if err != nil && strings.Contains(stdErr, "Failed to find logical volume") {
 		return nil
 	}
@@ -171,13 +165,13 @@ func (l *LVM) LVRemove(fullLVName string) error {
 // Returns true in case of error to prevent mistaken VG remove
 func (l *LVM) IsVGContainsLVs(vgName string) bool {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
-	cmdName := strings.TrimSpace(fmt.Sprintf(LVsInVGCmdTmpl, ""))
-	stdout, _, err := l.e.RunCmdWithMetrics(cmd, cmdName, "IsVGContainsLVs")
+	stdout, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		l.log.WithField("method", "IsVGContainsLVs").
 			Errorf("Unable to check whether VG %s contains LVs or no. Assume that - yes.", vgName)
 		return true
 	}
+
 	return len(strings.TrimSpace(stdout)) > 0
 }
 
@@ -186,11 +180,11 @@ func (l *LVM) IsVGContainsLVs(vgName string) bool {
 // Returns slice of found logical volumes
 func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
-	cmdName := strings.TrimSpace(fmt.Sprintf(LVsInVGCmdTmpl, ""))
-	stdout, _, err := l.e.RunCmdWithMetrics(cmd, cmdName, "GetLVsInVG")
+	stdout, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return nil, err
 	}
+
 	return util.SplitAndTrimSpace(stdout, "\n"), nil
 }
 
@@ -198,8 +192,7 @@ func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 // Returns error if something went wrong
 func (l *LVM) RemoveOrphanPVs() error {
 	pvsCmd := fmt.Sprintf(PVsInVGCmdTmpl, EmptyName)
-	cmdName := strings.TrimSpace(fmt.Sprintf(PVsInVGCmdTmpl, ""))
-	stdout, _, err := l.e.RunCmdWithMetrics(pvsCmd, cmdName, "RemoveOrphanPVs")
+	stdout, _, err := l.e.RunCmd(pvsCmd)
 	if err != nil {
 		return err
 	}
@@ -232,9 +225,9 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	if vgName == "" {
 		return -1, errors.New("VG name shouldn't be an empty string")
 	}
-	cmdName := strings.TrimSpace(fmt.Sprintf(VGFreeSpaceCmdTmpl, ""))
+
 	cmd := fmt.Sprintf(VGFreeSpaceCmdTmpl, vgName)
-	strOut, _, err := l.e.RunCmdWithMetrics(cmd, cmdName, "GetVgFreeSpace")
+	strOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return -1, err
 	}
@@ -249,21 +242,23 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 
 // GetAllPVs returns slice with names of all physical volumes in the system
 func (l *LVM) GetAllPVs() ([]string, error) {
-	stdOut, _, err := l.e.RunCmdWithMetrics(AllPVsCmd, AllPVsCmd, "GetAllPVs")
+	stdOut, _, err := l.e.RunCmd(AllPVsCmd)
 	if err != nil {
 		return nil, err
 	}
+
 	return util.SplitAndTrimSpace(stdOut, "\n"), nil
 }
 
 // GetVGNameByPVName finds out volume group name based on physical volume name
 func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	cmd := fmt.Sprintf(PVInfoCmdTmpl, pvName)
-	cmdName := strings.TrimSpace(fmt.Sprintf(PVInfoCmdTmpl, ""))
-	stdOut, _, err := l.e.RunCmdWithMetrics(cmd, cmdName, "GetVGNameByPVName")
+
+	stdOut, _, err := l.e.RunCmd(cmd)
 	if err != nil {
 		return "", err
 	}
+
 	// stdOut will have one of two formats:
 	// if PV is in some VG format will be:
 	//			/dev/sdy2:root-vg:936701952:-1:8:8:-1:4096:114343:77478:36865:H3rxE6-2iAg-1REQ-rOeX-7bz3-iPrh-YBXgxN

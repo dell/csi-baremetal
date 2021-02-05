@@ -19,7 +19,6 @@ package nvmecli
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -64,19 +63,19 @@ type SMARTLog struct {
 
 // NVMECLI is a wrap for system nvem_cli util
 type NVMECLI struct {
-	e   *command.ExecutorWithMetrics
+	e   command.CmdExecutor
 	log *logrus.Entry
 }
 
 // NewNVMECLI is a constructor for NVMECLI
 func NewNVMECLI(e command.CmdExecutor, logger *logrus.Logger) *NVMECLI {
-	return &NVMECLI{e: command.NewExecutorWithMetrics(e), log: logger.WithField("component", "NVMECLI")}
+	return &NVMECLI{e: e, log: logger.WithField("component", "NVMECLI")}
 }
 
 // GetNVMDevices gets information about NVMDevice using nvme_cli util
 func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 	ll := na.log.WithField("method", "GetNVMDevices")
-	strOut, _, err := na.e.RunCmdWithMetrics(NVMeDeviceCmdImpl, NVMeDeviceCmdImpl, "GetNVMDevices")
+	strOut, _, err := na.e.RunCmd(NVMeDeviceCmdImpl)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +103,7 @@ func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 	ll := na.log.WithField("method", "getNVMDeviceHealth")
 	cmd := fmt.Sprintf(NVMeHealthCmdImpl, path)
-	cmdName := strings.TrimSpace(fmt.Sprintf(NVMeHealthCmdImpl, ""))
-	strOut, _, err := na.e.RunCmdWithMetrics(cmd, cmdName, "getNVMDeviceHealth")
+	strOut, _, err := na.e.RunCmd(cmd)
 	if err != nil {
 		ll.Errorf("%s failed, set health as %s", cmd, apiV1.HealthUnknown)
 		return apiV1.HealthUnknown
@@ -129,9 +127,8 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 // fillNVMDeviceVendor gets information about device vendor id
 func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	ll := na.log.WithField("method", "fillNVMDeviceVendor")
-	cmdName := strings.TrimSpace(fmt.Sprintf(NVMeVendorCmdImpl, ""))
 	cmd := fmt.Sprintf(NVMeVendorCmdImpl, device.DevicePath)
-	strOut, _, err := na.e.RunCmdWithMetrics(cmd, cmdName, "fillNVMDeviceVendor")
+	strOut, _, err := na.e.RunCmd(cmd)
 	if err != nil {
 		return
 	}

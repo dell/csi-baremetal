@@ -83,13 +83,13 @@ type WrapFS interface {
 
 // WrapFSImpl is a WrapFS implementer
 type WrapFSImpl struct {
-	e       *command.ExecutorWithMetrics
+	e       command.CmdExecutor
 	opMutex sync.Mutex
 }
 
 // NewFSImpl is a constructor for WrapFSImpl struct
 func NewFSImpl(e command.CmdExecutor) *WrapFSImpl {
-	return &WrapFSImpl{e: command.NewExecutorWithMetrics(e)}
+	return &WrapFSImpl{e: e}
 }
 
 // GetFSSpace calls df command and return available space on the provided file system (src)
@@ -102,8 +102,7 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 				/dev       7982M
 	*/
 
-	cmdName := strings.TrimSpace(fmt.Sprintf(CheckSpaceCmdImpl, ""))
-	stdout, _, err := h.e.RunCmdWithMetrics(fmt.Sprintf(CheckSpaceCmdImpl, src), cmdName, "GetFSSpace")
+	stdout, _, err := h.e.RunCmd(fmt.Sprintf(CheckSpaceCmdImpl, src))
 	if err != nil {
 		return 0, err
 	}
@@ -131,8 +130,8 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 // Returns error if something went wrong
 func (h *WrapFSImpl) MkDir(src string) error {
 	cmd := fmt.Sprintf(MkDirCmdTmpl, src)
-	cmdName := strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, ""))
-	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "MkDir"); err != nil {
+
+	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to create dir %s: %v", src, err)
 	}
 	return nil
@@ -143,8 +142,8 @@ func (h *WrapFSImpl) MkDir(src string) error {
 // Returns error if something went wrong
 func (h *WrapFSImpl) RmDir(src string) error {
 	cmd := fmt.Sprintf(RmDirCmdTmpl, src)
-	cmdName := strings.TrimSpace(fmt.Sprintf(RmDirCmdTmpl, ""))
-	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "RmDir"); err != nil {
+
+	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to delete path %s: %v", src, err)
 	}
 	return nil
@@ -163,8 +162,8 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 	default:
 		return fmt.Errorf("unsupported file system %v", fsType)
 	}
-	cmdName := strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, fsType, ""))
-	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "CreateFS"); err != nil {
+
+	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to create file system on %s: %v", device, err)
 	}
 	return nil
@@ -175,8 +174,8 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 // Returns error if something went wrong
 func (h *WrapFSImpl) WipeFS(device string) error {
 	cmd := fmt.Sprintf(WipeFSCmdTmpl, device)
-	cmdName := strings.TrimSpace(fmt.Sprintf(WipeFSCmdTmpl, ""))
-	if _, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "WipeFS"); err != nil {
+
+	if _, _, err := h.e.RunCmd(cmd); err != nil {
 		return fmt.Errorf("failed to wipe file system on %s: %v", device, err)
 	}
 	return nil
@@ -190,11 +189,12 @@ func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
 			   ext4
 	*/
 	cmd := fmt.Sprintf(GetFSTypeCmdTmpl, device)
-	cmdName := strings.TrimSpace(fmt.Sprintf(GetFSTypeCmdTmpl, ""))
-	stdout, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "GetFSType")
+
+	stdout, _, err := h.e.RunCmd(cmd)
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve FS type for device %s: %v", device, err)
 	}
+
 	return FileSystem(strings.TrimSpace(stdout)), nil
 }
 
@@ -204,6 +204,7 @@ func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
 func (h *WrapFSImpl) IsMounted(path string) (bool, error) {
 	h.opMutex.Lock()
 	defer h.opMutex.Unlock()
+
 	procMounts, err := util.ConsistentRead(MountInfoFile, 5, time.Millisecond)
 	if err != nil || len(procMounts) == 0 {
 		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %v", path, err)
@@ -232,8 +233,8 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 	h.opMutex.Lock()
 	cmd := fmt.Sprintf(FindMntCmdTmpl, target)
 	h.opMutex.Unlock()
-	cmdName := strings.TrimSpace(fmt.Sprintf(FindMntCmdTmpl, ""))
-	strOut, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "FindMountPoint")
+
+	strOut, _, err := h.e.RunCmd(cmd)
 	if err != nil {
 		return "", err
 	}
@@ -245,10 +246,10 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 // Returns error if something went wrong
 func (h *WrapFSImpl) Mount(src, dir string, opts ...string) error {
 	cmd := fmt.Sprintf(MountCmdTmpl, strings.Join(opts, " "), src, dir)
-	cmdName := strings.TrimSpace(fmt.Sprintf(MountCmdTmpl, "", "", ""))
 	h.opMutex.Lock()
-	_, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "Mount")
+	_, _, err := h.e.RunCmd(cmd)
 	h.opMutex.Unlock()
+
 	return err
 }
 
@@ -257,9 +258,10 @@ func (h *WrapFSImpl) Mount(src, dir string, opts ...string) error {
 // Returns error if something went wrong
 func (h *WrapFSImpl) Unmount(path string) error {
 	cmd := fmt.Sprintf(UnmountCmdTmpl, path)
-	cmdName := strings.TrimSpace(fmt.Sprintf(UnmountCmdTmpl, ""))
+
 	h.opMutex.Lock()
-	_, _, err := h.e.RunCmdWithMetrics(cmd, cmdName, "Unmount")
+	_, _, err := h.e.RunCmd(cmd)
 	h.opMutex.Unlock()
+
 	return err
 }

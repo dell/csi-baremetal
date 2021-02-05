@@ -25,27 +25,20 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// LoggerSetter is the struct to fully implement CmdExecutor interface without duplicate code of SetLogger
-type LoggerSetter struct {
-	log      *logrus.Entry
+// LevelSetter is the struct to fully implement CmdExecutor interface
+type LevelSetter struct {
 	msgLevel logrus.Level
-}
-
-// SetLogger sets logger to a MockExecutor
-// Receives logrus logger
-func (l LoggerSetter) SetLogger(logger *logrus.Logger) {
-	l.log = logger.WithField("component", "MockExecutor")
 }
 
 // SetLevel sets log Level to a MockExecutor
 // Receives logrus Level
-func (l LoggerSetter) SetLevel(level logrus.Level) {
+func (l LevelSetter) SetLevel(level logrus.Level) {
 	l.msgLevel = level
 }
 
 // EmptyExecutorSuccess implements CmdExecutor interface for test purposes, each command will finish success
 type EmptyExecutorSuccess struct {
-	LoggerSetter
+	LevelSetter
 }
 
 // RunCmd simulates successful execution of a command
@@ -62,7 +55,7 @@ func (e EmptyExecutorSuccess) RunCmdWithAttempts(interface{}, int, time.Duration
 
 // EmptyExecutorFail implements CmdExecutor interface for test purposes, each command will finish with error
 type EmptyExecutorFail struct {
-	LoggerSetter
+	LevelSetter
 }
 
 // RunCmd simulates failed execution of a command
@@ -91,7 +84,6 @@ type CmdOut struct {
 // when cmd runs second time and so on results is searching (at first) in SecondRun map
 type MockExecutor struct {
 	cmdMap map[string]CmdOut
-	LoggerSetter
 	// contains cmd and results if we run one cmd twice
 	secondRun map[string]CmdOut
 	// contains cmd that has already run
@@ -99,6 +91,8 @@ type MockExecutor struct {
 	// if command doesn't in cmdMap RunCmd method will fail or success with empty output
 	// based on that parameter
 	successIfNotFound bool
+
+	LevelSetter
 }
 
 // NewMockExecutor is the constructor for MockExecutor struct
@@ -176,7 +170,7 @@ var (
 // GoMockExecutor implements CmdExecutor based on stretchr/testify/mock
 type GoMockExecutor struct {
 	mock.Mock
-	LoggerSetter
+	LevelSetter
 }
 
 // RunCmdWithAttempts simulates execution of a command with OnCommandWithAttempts where user can set what the method should return

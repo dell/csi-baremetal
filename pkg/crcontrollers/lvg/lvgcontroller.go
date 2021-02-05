@@ -62,8 +62,7 @@ type Controller struct {
 // Receives an instance of base.KubeClient, ID of a node where it works and logrus logger
 // Returns an instance of Controller
 func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger) *Controller {
-	e := &command.Executor{}
-	e.SetLogger(log)
+	e := command.NewExecutor(log, true)
 	return &Controller{
 		k8sClient: k8sClient,
 		crHelper:  k8s.NewCRHelper(k8sClient, log),

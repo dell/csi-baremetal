@@ -23,27 +23,33 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // CmdExecutor is the interface for executor that runs linux commands with RunCmd
 type CmdExecutor interface {
 	RunCmd(cmd interface{}) (string, string, error)
-	SetLogger(logger *logrus.Logger)
 	SetLevel(level logrus.Level)
 	RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error)
 }
 
 // Executor is the implementation of CmdExecutor based on os/exec package
 type Executor struct {
-	log      *logrus.Entry
-	msgLevel logrus.Level
+	log        *logrus.Entry
+	metricFunc func(interface{}) func()
+	msgLevel   logrus.Level
 }
 
-// SetLogger sets logrus logger to Executor struct
-// Receives logrus logger
-func (e *Executor) SetLogger(logger *logrus.Logger) {
-	e.log = logger.WithField("component", "Executor")
+// NewExecutor is a constructor for executor
+func NewExecutor(log *logrus.Logger, useMetrics bool) *Executor {
+	e := &Executor{log: log.WithField("component", "Executor")}
+	if useMetrics {
+		e.metricFunc = evaluateMetrics
+	}
+	return e
 }
 
 // SetLevel sets logrus Level to Executor msgLevel field
@@ -56,6 +62,9 @@ func (e *Executor) SetLevel(level logrus.Level) {
 // Receives command as empty interface, It could be string or instance of exec.Cmd; number of attempts; timeout.
 // Returns stdout as string, stderr as string and golang error if something went wrong
 func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error) {
+	if e.metricFunc != nil {
+		defer e.metricFunc(cmd)()
+	}
 	ll := e.log.WithFields(logrus.Fields{
 		"method": "RunCmdWithAttempts",
 	})
@@ -79,6 +88,9 @@ func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout tim
 // Receives command as empty interface. It could be string or instance of exec.Cmd
 // Returns stdout as string, stderr as string and golang error if something went wrong
 func (e *Executor) RunCmd(cmd interface{}) (string, string, error) {
+	if e.metricFunc != nil {
+		defer e.metricFunc(cmd)()
+	}
 	if cmdStr, ok := cmd.(string); ok {
 		return e.runCmdFromStr(cmdStr)
 	}
@@ -136,4 +148,16 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 		"duration_ns": cmdDuration.Nanoseconds()}).
 		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
 	return outStr, errStr, err
+}
+
+// evaluateMetrics is wrapper function
+func evaluateMetrics(cmd interface{}) func() {
+	var name string
+	if cmdStr, ok := cmd.(string); ok && cmdStr != "" {
+		name = cmdStr
+	}
+	if cmdObj, ok := cmd.(*exec.Cmd); ok && len(cmdObj.Args) != 0 {
+		name = strings.Join(cmdObj.Args, " ")
+	}
+	return common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{"name": name})
 }

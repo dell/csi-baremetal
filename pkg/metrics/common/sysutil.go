@@ -27,7 +27,7 @@ var SystemCMDDuration = metrics.NewMetrics(prometheus.HistogramOpts{
 	Name:    "system_utils_duration_seconds",
 	Help:    "Duration of the each system util",
 	Buckets: metrics.ExtendedDefBuckets,
-}, "name", "method")
+}, "name")
 
 // nolint: gochecknoinits
 func init() {

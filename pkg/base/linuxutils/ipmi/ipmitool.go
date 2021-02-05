@@ -36,12 +36,12 @@ type WrapIpmi interface {
 
 // IPMI is implementation for WrapImpi interface
 type IPMI struct {
-	e *command.ExecutorWithMetrics
+	e command.CmdExecutor
 }
 
 // NewIPMI is a constructor for LSBLK struct
 func NewIPMI(e command.CmdExecutor) *IPMI {
-	return &IPMI{e: command.NewExecutorWithMetrics(e)}
+	return &IPMI{e: e}
 }
 
 // GetBmcIP returns BMC IP using ipmitool
@@ -51,7 +51,7 @@ func (i *IPMI) GetBmcIP() string {
 	IP Address              : 10.245.137.136
 	*/
 
-	strOut, _, err := i.e.RunCmdWithMetrics(LanPrintCmd, LanPrintCmd, "GetBmcIP")
+	strOut, _, err := i.e.RunCmd(LanPrintCmd)
 	if err != nil {
 		return ""
 	}
