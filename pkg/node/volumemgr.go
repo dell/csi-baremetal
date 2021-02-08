@@ -906,7 +906,12 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	ll := m.log.WithField("method", "discoverLVGOnSystemDrive")
 
 	if len(m.systemDrivesUUIDs) == 0 {
-		return errors.New("system drive is not defined")
+		// system drive is not detected by drive manager
+		// this is not an issue but might be configuration choice
+		ll.Warningf("System drive is not detected by drive manager")
+		// skipping LVM check for system drive
+		m.discoverSystemLVG = false
+		return nil
 	}
 
 	var (
