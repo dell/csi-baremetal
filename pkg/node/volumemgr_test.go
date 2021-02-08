@@ -899,7 +899,7 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 		lvgCR = m.k8sClient.ConstructLVGCR("some-name", api.LogicalVolumeGroup{
 			Name:      "some-name",
 			Node:      m.nodeID,
-			Locations: []string{base.SystemDriveAsLocation},
+			Locations: []string{"some-uuid"},
 		})
 		lvgList = lvgcrd.LVGList{}
 		acList  = accrd.AvailableCapacityList{}
