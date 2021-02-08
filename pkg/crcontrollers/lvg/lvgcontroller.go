@@ -200,7 +200,7 @@ func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LVG) (ctrl.Result, error) {
 	// update AC size that point on that LVG
 	c.increaseACSize(lvg.Spec.Locations[0], lvg.Spec.Size)
 
-	drivesUUIDs := append(c.k8sClient.GetSystemDriveUUIDs(), base.SystemDriveAsLocation)
+	drivesUUIDs := c.k8sClient.GetSystemDriveUUIDs()
 	if !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
 		// cleanup LVM artifacts
 		if err := c.removeLVGArtifacts(lvg.Name); err != nil {
