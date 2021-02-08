@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.0.12
+appVersion: 0.0.13
 description: CSI Bare-metal operator
 name: csibm-operator
-version: 0.0.12
+version: 0.0.13
