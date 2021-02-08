@@ -628,10 +628,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			driveCRs = append(driveCRs, *driveCR)
 		}
 	}
-	// If CSI can't find system disks, it appends "system drive" to systemDrivesUUIDs slice and uses it as a location for LVG
-	if len(m.systemDrivesUUIDs) == 0 {
-		m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, base.SystemDriveAsLocation)
-	}
+
 	// that means that it is a first round and drives are discovered first time
 	if firstIteration {
 		return updates, nil
