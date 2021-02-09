@@ -29,26 +29,59 @@ import (
 	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
+// Options represents interface for applying options
+type Options interface {
+	Apply(*CmdOptions)
+}
+
+// CmdOptions encapsulates options for executing command
+type CmdOptions struct {
+	UseMetrics bool
+	CmdName    string
+}
+
+// ApplyOptions applies given options for CmdOptions struct
+// Receive list of options
+func (o *CmdOptions) ApplyOptions(opts []Options) {
+	for _, opt := range opts {
+		opt.Apply(o)
+	}
+}
+
+// UseMetrics represents options to use metrics in executor
+type UseMetrics bool
+
+// Apply assigns UseMetrics to given CmdOptions
+// Receive CmdOptions
+func (u UseMetrics) Apply(opt *CmdOptions) {
+	opt.UseMetrics = bool(u)
+}
+
+// CmdName represents command name without specified arguments
+type CmdName string
+
+// Apply assigns CmdName to given CmdOptions
+// Receive CmdOptions
+func (c CmdName) Apply(opt *CmdOptions) {
+	opt.CmdName = string(c)
+}
+
 // CmdExecutor is the interface for executor that runs linux commands with RunCmd
 type CmdExecutor interface {
-	RunCmd(cmd interface{}) (string, string, error)
+	RunCmd(cmd interface{}, opts ...Options) (string, string, error)
 	SetLevel(level logrus.Level)
-	RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error)
+	RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration, opts ...Options) (string, string, error)
 }
 
 // Executor is the implementation of CmdExecutor based on os/exec package
 type Executor struct {
-	log        *logrus.Entry
-	metricFunc func(interface{}) func()
-	msgLevel   logrus.Level
+	log      *logrus.Entry
+	msgLevel logrus.Level
 }
 
 // NewExecutor is a constructor for executor
-func NewExecutor(log *logrus.Logger, useMetrics bool) *Executor {
+func NewExecutor(log *logrus.Logger) *Executor {
 	e := &Executor{log: log.WithField("component", "Executor")}
-	if useMetrics {
-		e.metricFunc = evaluateMetrics
-	}
 	return e
 }
 
@@ -61,9 +94,11 @@ func (e *Executor) SetLevel(level logrus.Level) {
 // RunCmdWithAttempts runs specified command on OS with given attempts and timeout between attempts
 // Receives command as empty interface, It could be string or instance of exec.Cmd; number of attempts; timeout.
 // Returns stdout as string, stderr as string and golang error if something went wrong
-func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error) {
-	if e.metricFunc != nil {
-		defer e.metricFunc(cmd)()
+func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration, opts ...Options) (string, string, error) {
+	options := &CmdOptions{}
+	options.ApplyOptions(opts)
+	if options.UseMetrics {
+		defer common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{"name": options.CmdName})()
 	}
 	ll := e.log.WithFields(logrus.Fields{
 		"method": "RunCmdWithAttempts",
@@ -87,9 +122,11 @@ func (e *Executor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout tim
 // RunCmd runs specified command on OS
 // Receives command as empty interface. It could be string or instance of exec.Cmd
 // Returns stdout as string, stderr as string and golang error if something went wrong
-func (e *Executor) RunCmd(cmd interface{}) (string, string, error) {
-	if e.metricFunc != nil {
-		defer e.metricFunc(cmd)()
+func (e *Executor) RunCmd(cmd interface{}, opts ...Options) (string, string, error) {
+	options := &CmdOptions{}
+	options.ApplyOptions(opts)
+	if options.UseMetrics {
+		defer common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{"name": options.CmdName})()
 	}
 	if cmdStr, ok := cmd.(string); ok {
 		return e.runCmdFromStr(cmdStr)
@@ -148,16 +185,4 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 		"duration_ns": cmdDuration.Nanoseconds()}).
 		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
 	return outStr, errStr, err
-}
-
-// evaluateMetrics is wrapper function
-func evaluateMetrics(cmd interface{}) func() {
-	var name string
-	if cmdStr, ok := cmd.(string); ok && cmdStr != "" {
-		name = cmdStr
-	}
-	if cmdObj, ok := cmd.(*exec.Cmd); ok && len(cmdObj.Args) != 0 {
-		name = strings.Join(cmdObj.Args, " ")
-	}
-	return common.SystemCMDDuration.EvaluateDuration(prometheus.Labels{"name": name})
 }

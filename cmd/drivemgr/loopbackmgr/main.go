@@ -70,7 +70,7 @@ func main() {
 	// Server is insecure for now because credentials are nil
 	serverRunner := rpc.NewServerRunner(nil, *endpoint, false, logger)
 
-	e := command.NewExecutor(logger, true)
+	e := command.NewExecutor(logger)
 
 	// creates a new file watcher for config
 	watcher, err := fsnotify.NewWatcher()

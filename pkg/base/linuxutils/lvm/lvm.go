@@ -96,7 +96,9 @@ func NewLVM(e command.CmdExecutor, l *logrus.Logger) *LVM {
 // Returns error if something went wrong
 func (l *LVM) PVCreate(dev string) error {
 	cmd := fmt.Sprintf(PVCreateCmdTmpl, dev)
-	_, _, err := l.e.RunCmd(cmd)
+	_, _, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PVCreateCmdTmpl, ""))))
 	return err
 }
 
@@ -105,7 +107,9 @@ func (l *LVM) PVCreate(dev string) error {
 // Returns error if something went wrong
 func (l *LVM) PVRemove(name string) error {
 	cmd := fmt.Sprintf(PVRemoveCmdTmpl, name)
-	_, stdErr, err := l.e.RunCmd(cmd)
+	_, stdErr, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PVRemoveCmdTmpl, ""))))
 	if err != nil && strings.Contains(stdErr, "No PV label found") {
 		return nil
 	}
@@ -117,7 +121,9 @@ func (l *LVM) PVRemove(name string) error {
 // Returns error if something went wrong
 func (l *LVM) VGCreate(name string, pvs ...string) error {
 	cmd := fmt.Sprintf(VGCreateCmdTmpl, name, strings.Join(pvs, " "))
-	_, stdErr, err := l.e.RunCmd(cmd)
+	_, stdErr, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGCreateCmdTmpl, "", ""))))
 	if err != nil && strings.Contains(stdErr, "already exists") {
 		return nil
 	}
@@ -129,7 +135,9 @@ func (l *LVM) VGCreate(name string, pvs ...string) error {
 // Returns error if something went wrong
 func (l *LVM) VGRemove(name string) error {
 	cmd := fmt.Sprintf(VGRemoveCmdTmpl, name)
-	_, stdErr, err := l.e.RunCmd(cmd)
+	_, stdErr, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGRemoveCmdTmpl, ""))))
 	if strings.Contains(stdErr, "not found") {
 		return nil
 	}
@@ -141,7 +149,9 @@ func (l *LVM) VGRemove(name string) error {
 // Returns error if something went wrong
 func (l *LVM) LVCreate(name, size, vgName string) error {
 	cmd := fmt.Sprintf(LVCreateCmdTmpl, name, size, vgName)
-	_, stdErr, err := l.e.RunCmd(cmd)
+	_, stdErr, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(LVCreateCmdTmpl, "", "", ""))))
 	if err != nil && strings.Contains(stdErr, "already exists") {
 		return nil
 	}
@@ -153,7 +163,8 @@ func (l *LVM) LVCreate(name, size, vgName string) error {
 // Returns error if something went wrong
 func (l *LVM) LVRemove(fullLVName string) error {
 	cmd := fmt.Sprintf(LVRemoveCmdTmpl, fullLVName)
-	_, stdErr, err := l.e.RunCmdWithAttempts(cmd, 5, timeoutBetweenAttempts)
+	_, stdErr, err := l.e.RunCmdWithAttempts(cmd, 5, timeoutBetweenAttempts, command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(LVRemoveCmdTmpl, ""))))
 	if err != nil && strings.Contains(stdErr, "Failed to find logical volume") {
 		return nil
 	}
@@ -165,7 +176,9 @@ func (l *LVM) LVRemove(fullLVName string) error {
 // Returns true in case of error to prevent mistaken VG remove
 func (l *LVM) IsVGContainsLVs(vgName string) bool {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
-	stdout, _, err := l.e.RunCmd(cmd)
+	stdout, _, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(LVsInVGCmdTmpl, ""))))
 	if err != nil {
 		l.log.WithField("method", "IsVGContainsLVs").
 			Errorf("Unable to check whether VG %s contains LVs or no. Assume that - yes.", vgName)
@@ -180,7 +193,9 @@ func (l *LVM) IsVGContainsLVs(vgName string) bool {
 // Returns slice of found logical volumes
 func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 	cmd := fmt.Sprintf(LVsInVGCmdTmpl, vgName)
-	stdout, _, err := l.e.RunCmd(cmd)
+	stdout, _, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(LVsInVGCmdTmpl, ""))))
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +207,9 @@ func (l *LVM) GetLVsInVG(vgName string) ([]string, error) {
 // Returns error if something went wrong
 func (l *LVM) RemoveOrphanPVs() error {
 	pvsCmd := fmt.Sprintf(PVsInVGCmdTmpl, EmptyName)
-	stdout, _, err := l.e.RunCmd(pvsCmd)
+	stdout, _, err := l.e.RunCmd(pvsCmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PVsInVGCmdTmpl, ""))))
 	if err != nil {
 		return err
 	}
@@ -227,7 +244,9 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 	}
 
 	cmd := fmt.Sprintf(VGFreeSpaceCmdTmpl, vgName)
-	strOut, _, err := l.e.RunCmd(cmd)
+	strOut, _, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGFreeSpaceCmdTmpl, ""))))
 	if err != nil {
 		return -1, err
 	}
@@ -242,7 +261,9 @@ func (l *LVM) GetVgFreeSpace(vgName string) (int64, error) {
 
 // GetAllPVs returns slice with names of all physical volumes in the system
 func (l *LVM) GetAllPVs() ([]string, error) {
-	stdOut, _, err := l.e.RunCmd(AllPVsCmd)
+	stdOut, _, err := l.e.RunCmd(AllPVsCmd,
+		command.UseMetrics(true),
+		command.CmdName(AllPVsCmd))
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +275,9 @@ func (l *LVM) GetAllPVs() ([]string, error) {
 func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	cmd := fmt.Sprintf(PVInfoCmdTmpl, pvName)
 
-	stdOut, _, err := l.e.RunCmd(cmd)
+	stdOut, _, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PVInfoCmdTmpl, ""))))
 	if err != nil {
 		return "", err
 	}

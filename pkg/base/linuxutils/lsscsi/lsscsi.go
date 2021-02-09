@@ -120,7 +120,9 @@ func (la *LSSCSI) fillDeviceSize(device *SCSIDevice) error {
 	/*
 	 [2:0:0:0]    /dev/sda   32.3GB
 	*/
-	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceSizeCmdImpl, device.ID))
+	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceSizeCmdImpl, device.ID),
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(SCSIDeviceSizeCmdImpl, ""))))
 	if err != nil {
 		return errors.New("unable to fill devices info")
 	}
@@ -143,7 +145,9 @@ func (la *LSSCSI) fillDeviceInfo(device *SCSIDevice) error {
 		  Vendor: VMware   Model: Virtual disk     Rev: 2.0
 		  Type:   Direct-Access                    ANSI SCSI revision: 06
 	*/
-	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceCmdImpl, device.ID))
+	strOut, _, err := la.e.RunCmd(fmt.Sprintf(SCSIDeviceCmdImpl, device.ID),
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(SCSIDeviceCmdImpl, ""))))
 	if err != nil {
 		return errors.New("unable to get devices info")
 	}

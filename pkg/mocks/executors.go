@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -43,13 +45,13 @@ type EmptyExecutorSuccess struct {
 
 // RunCmd simulates successful execution of a command
 // Returns "" as stdout, "" as stderr and nil as error
-func (e EmptyExecutorSuccess) RunCmd(interface{}) (string, string, error) {
+func (e EmptyExecutorSuccess) RunCmd(interface{}, ...command.Options) (string, string, error) {
 	return "", "", nil
 }
 
 // RunCmdWithAttempts simulates successful execution of a command with attempts and given timeout between attempts
 // Returns "" as stdout, "" as stderr and nil as error
-func (e EmptyExecutorSuccess) RunCmdWithAttempts(interface{}, int, time.Duration) (string, string, error) {
+func (e EmptyExecutorSuccess) RunCmdWithAttempts(interface{}, int, time.Duration, ...command.Options) (string, string, error) {
 	return "", "", nil
 }
 
@@ -60,13 +62,13 @@ type EmptyExecutorFail struct {
 
 // RunCmd simulates failed execution of a command
 // Returns "error happened" as stdout, "error" as stderr and errors.New("error") as error
-func (e EmptyExecutorFail) RunCmd(interface{}) (string, string, error) {
+func (e EmptyExecutorFail) RunCmd(interface{}, ...command.Options) (string, string, error) {
 	return "error happened", "error", errors.New("error")
 }
 
 // RunCmdWithAttempts simulates failed execution of a command with attempts and given timeout between attempts
 // Returns "error happened" as stdout, "error" as stderr and errors.New("error") as error
-func (e EmptyExecutorFail) RunCmdWithAttempts(interface{}, int, time.Duration) (string, string, error) {
+func (e EmptyExecutorFail) RunCmdWithAttempts(interface{}, int, time.Duration, ...command.Options) (string, string, error) {
 	return "error happened", "error", errors.New("error")
 }
 
@@ -130,7 +132,7 @@ func (e *MockExecutor) AddSecondRun(cmd string, res CmdOut) {
 // If the command ran before then trying to return output from secondRun map if it set.
 // Receives cmd as interface and cast it to a string
 // Returns stdout, stderr, error for a given command
-func (e *MockExecutor) RunCmd(cmd interface{}) (string, string, error) {
+func (e *MockExecutor) RunCmd(cmd interface{}, opts ...command.Options) (string, string, error) {
 	cmdStr := cmd.(string)
 	if len(e.secondRun) > 0 {
 		for _, c := range e.runBefore {
@@ -157,7 +159,7 @@ func (e *MockExecutor) RunCmd(cmd interface{}) (string, string, error) {
 // RunCmdWithAttempts simulates execution of a command. Execute RunCmd.
 // Receives cmd as interface, number of attempts, timeout
 // Returns stdout, stderr, error for a given command
-func (e *MockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error) {
+func (e *MockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration, opts ...command.Options) (string, string, error) {
 	return e.RunCmd(cmd)
 }
 
@@ -174,13 +176,13 @@ type GoMockExecutor struct {
 }
 
 // RunCmdWithAttempts simulates execution of a command with OnCommandWithAttempts where user can set what the method should return
-func (g *GoMockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration) (string, string, error) {
+func (g *GoMockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration, opts ...command.Options) (string, string, error) {
 	args := g.Mock.Called(cmd.(string), attempts, timeout)
 	return args.String(0), args.String(1), args.Error(2)
 }
 
 // RunCmd simulates execution of a command with OnCommand where user can set what the method should return
-func (g *GoMockExecutor) RunCmd(cmd interface{}) (string, string, error) {
+func (g *GoMockExecutor) RunCmd(cmd interface{}, opts ...command.Options) (string, string, error) {
 	args := g.Mock.Called(cmd.(string))
 	return args.String(0), args.String(1), args.Error(2)
 }

@@ -45,7 +45,7 @@ func main() {
 	// Server is insecure for now because credentials are nil
 	serverRunner := rpc.NewServerRunner(nil, *endpoint, false, logger)
 
-	e := command.NewExecutor(logger, true)
+	e := command.NewExecutor(logger)
 
 	driveMgr := basemgr.New(e, logger)
 

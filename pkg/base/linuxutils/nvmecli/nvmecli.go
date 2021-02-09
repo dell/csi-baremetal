@@ -19,6 +19,7 @@ package nvmecli
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -75,7 +76,9 @@ func NewNVMECLI(e command.CmdExecutor, logger *logrus.Logger) *NVMECLI {
 // GetNVMDevices gets information about NVMDevice using nvme_cli util
 func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 	ll := na.log.WithField("method", "GetNVMDevices")
-	strOut, _, err := na.e.RunCmd(NVMeDeviceCmdImpl)
+	strOut, _, err := na.e.RunCmd(NVMeDeviceCmdImpl,
+		command.UseMetrics(true),
+		command.CmdName(NVMeDeviceCmdImpl))
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +106,9 @@ func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 	ll := na.log.WithField("method", "getNVMDeviceHealth")
 	cmd := fmt.Sprintf(NVMeHealthCmdImpl, path)
-	strOut, _, err := na.e.RunCmd(cmd)
+	strOut, _, err := na.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(NVMeHealthCmdImpl, ""))))
 	if err != nil {
 		ll.Errorf("%s failed, set health as %s", cmd, apiV1.HealthUnknown)
 		return apiV1.HealthUnknown
@@ -128,7 +133,9 @@ func (na *NVMECLI) getNVMDeviceHealth(path string) string {
 func (na *NVMECLI) fillNVMDeviceVendor(device *NVMDevice) {
 	ll := na.log.WithField("method", "fillNVMDeviceVendor")
 	cmd := fmt.Sprintf(NVMeVendorCmdImpl, device.DevicePath)
-	strOut, _, err := na.e.RunCmd(cmd)
+	strOut, _, err := na.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(NVMeVendorCmdImpl, ""))))
 	if err != nil {
 		return
 	}

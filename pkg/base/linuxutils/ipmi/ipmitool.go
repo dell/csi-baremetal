@@ -51,7 +51,9 @@ func (i *IPMI) GetBmcIP() string {
 	IP Address              : 10.245.137.136
 	*/
 
-	strOut, _, err := i.e.RunCmd(LanPrintCmd)
+	strOut, _, err := i.e.RunCmd(LanPrintCmd,
+		command.UseMetrics(true),
+		command.CmdName(LanPrintCmd))
 	if err != nil {
 		return ""
 	}
