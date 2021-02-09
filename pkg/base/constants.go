@@ -31,7 +31,7 @@ const (
 	PluginName = "baremetal-csi"
 	// PluginVersion is a version of current CSI plugin
 	// TODO: get rid of hardcoded value https://github.com/dell/csi-baremetal/issues/79
-	PluginVersion = "0.0.12"
+	PluginVersion = "0.0.13"
 	// DefaultDriveMgrEndpoint is the default gRPC endpoint for drivemgr
 	DefaultDriveMgrEndpoint = "tcp://:8888"
 	// DefaultHealthIP is the default gRPC IP for Health server
@@ -52,9 +52,6 @@ const (
 
 	// DefaultRequeueForVolume is the interval for volume reconcile
 	DefaultRequeueForVolume = 5 * time.Second
-
-	// SystemDriveAsLocation is the const to fill Location field in CRs if the location based on system drive
-	SystemDriveAsLocation = "system drive"
 
 	// DefaultFsType FS type that used by default
 	DefaultFsType = "xfs"

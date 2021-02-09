@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.0.12
+appVersion: 0.0.13
 description: Kubernetes scheduler with CSI-Baremetal plugin
 name: scheduler
-version: 0.0.12
+version: 0.0.13
