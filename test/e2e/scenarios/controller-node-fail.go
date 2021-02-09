@@ -22,7 +22,6 @@ import (
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +32,6 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
@@ -50,13 +48,12 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 		pod           *corev1.Pod
 		pvc           *corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
-		executor      = &command.Executor{}
+		executor      = common.GetExecutor()
 		driverCleanup func()
 		nodeName      string
 		ns            string
 		f             = framework.NewDefaultFramework("controller-node-fail")
 	)
-	executor.SetLogger(logrus.New())
 
 	init := func() {
 		var (

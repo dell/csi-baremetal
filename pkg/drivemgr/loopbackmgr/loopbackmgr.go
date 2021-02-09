@@ -127,8 +127,6 @@ func NewLoopBackManager(exec command.CmdExecutor, nodeID, nodeName string, logge
 
 	mgr.attemptToRecoverDevices(imagesFolder)
 
-	exec.SetLogger(logger)
-
 	return mgr
 }
 

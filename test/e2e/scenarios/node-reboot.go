@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -30,7 +29,6 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
@@ -46,14 +44,13 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 		pod             *corev1.Pod
 		pvc             *corev1.PersistentVolumeClaim
 		k8sSC           *storagev1.StorageClass
-		executor        = &command.Executor{}
+		executor        = common.GetExecutor()
 		driverCleanup   func()
 		ns              string
 		containerToStop string
 		started         = false
 		f               = framework.NewDefaultFramework("node-reboot")
 	)
-	executor.SetLogger(logrus.New())
 
 	init := func() {
 		var (

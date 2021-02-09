@@ -19,6 +19,7 @@ package smartctl
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
 )
@@ -56,7 +57,9 @@ func NewSMARTCTL(e command.CmdExecutor) *SMARTCTL {
 
 // GetDriveInfoByPath gets SMART information about device by its Path using smartctl util
 func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
-	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, path))
+	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, path),
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(SmartctlDeviceInfoCmdImpl, ""))))
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +78,9 @@ func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 
 // fillSmartStatus fill smart_status field in DeviceSMARTInfo using smartctl command
 func (sa *SMARTCTL) fillSmartStatus(dev *DeviceSMARTInfo, path string) error {
-	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlHealthCmdImpl, path))
+	strOut, _, err := sa.e.RunCmd(fmt.Sprintf(SmartctlHealthCmdImpl, path),
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(SmartctlHealthCmdImpl, ""))))
 	if err != nil {
 		return err
 	}

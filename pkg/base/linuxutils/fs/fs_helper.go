@@ -102,7 +102,9 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 				/dev       7982M
 	*/
 
-	stdout, _, err := h.e.RunCmd(fmt.Sprintf(CheckSpaceCmdImpl, src))
+	stdout, _, err := h.e.RunCmd(fmt.Sprintf(CheckSpaceCmdImpl, src),
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(CheckSpaceCmdImpl, ""))))
 	if err != nil {
 		return 0, err
 	}
@@ -131,7 +133,9 @@ func (h *WrapFSImpl) GetFSSpace(src string) (int64, error) {
 func (h *WrapFSImpl) MkDir(src string) error {
 	cmd := fmt.Sprintf(MkDirCmdTmpl, src)
 
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	if _, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, "")))); err != nil {
 		return fmt.Errorf("failed to create dir %s: %v", src, err)
 	}
 	return nil
@@ -143,7 +147,9 @@ func (h *WrapFSImpl) MkDir(src string) error {
 func (h *WrapFSImpl) RmDir(src string) error {
 	cmd := fmt.Sprintf(RmDirCmdTmpl, src)
 
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	if _, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(RmDirCmdTmpl, "")))); err != nil {
 		return fmt.Errorf("failed to delete path %s: %v", src, err)
 	}
 	return nil
@@ -163,7 +169,9 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 		return fmt.Errorf("unsupported file system %v", fsType)
 	}
 
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	if _, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, "", "")))); err != nil {
 		return fmt.Errorf("failed to create file system on %s: %v", device, err)
 	}
 	return nil
@@ -175,7 +183,9 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 func (h *WrapFSImpl) WipeFS(device string) error {
 	cmd := fmt.Sprintf(WipeFSCmdTmpl, device)
 
-	if _, _, err := h.e.RunCmd(cmd); err != nil {
+	if _, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(WipeFSCmdTmpl, "")))); err != nil {
 		return fmt.Errorf("failed to wipe file system on %s: %v", device, err)
 	}
 	return nil
@@ -190,7 +200,9 @@ func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
 	*/
 	cmd := fmt.Sprintf(GetFSTypeCmdTmpl, device)
 
-	stdout, _, err := h.e.RunCmd(cmd)
+	stdout, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(GetFSTypeCmdTmpl, ""))))
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve FS type for device %s: %v", device, err)
 	}
@@ -234,7 +246,9 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 	cmd := fmt.Sprintf(FindMntCmdTmpl, target)
 	h.opMutex.Unlock()
 
-	strOut, _, err := h.e.RunCmd(cmd)
+	strOut, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(FindMntCmdTmpl, ""))))
 	if err != nil {
 		return "", err
 	}
@@ -247,7 +261,9 @@ func (h *WrapFSImpl) FindMountPoint(target string) (string, error) {
 func (h *WrapFSImpl) Mount(src, dir string, opts ...string) error {
 	cmd := fmt.Sprintf(MountCmdTmpl, strings.Join(opts, " "), src, dir)
 	h.opMutex.Lock()
-	_, _, err := h.e.RunCmd(cmd)
+	_, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(MountCmdTmpl, "", "", ""))))
 	h.opMutex.Unlock()
 
 	return err
@@ -260,7 +276,9 @@ func (h *WrapFSImpl) Unmount(path string) error {
 	cmd := fmt.Sprintf(UnmountCmdTmpl, path)
 
 	h.opMutex.Lock()
-	_, _, err := h.e.RunCmd(cmd)
+	_, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(UnmountCmdTmpl, ""))))
 	h.opMutex.Unlock()
 
 	return err
