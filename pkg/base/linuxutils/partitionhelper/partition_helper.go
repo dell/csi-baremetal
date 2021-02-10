@@ -102,7 +102,9 @@ func (p *WrapPartitionImpl) IsPartitionExists(device, partNum string) (bool, err
 	*/
 
 	p.opMutex.Lock()
-	stdout, _, err := p.e.RunCmd(cmd)
+	stdout, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PartprobeDeviceCmdTmpl, ""))))
 	p.opMutex.Unlock()
 
 	if err != nil {
@@ -130,7 +132,9 @@ func (p *WrapPartitionImpl) CreatePartitionTable(device, partTableType string) e
 	}
 
 	cmd := fmt.Sprintf(CreatePartitionTableCmdTmpl, device, partTableType)
-	_, _, err := p.e.RunCmd(cmd)
+	_, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(CreatePartitionTableCmdTmpl, "", ""))))
 
 	if err != nil {
 		return fmt.Errorf("unable to create partition table for device %s", device)
@@ -145,7 +149,9 @@ func (p *WrapPartitionImpl) CreatePartitionTable(device, partTableType string) e
 func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error) {
 	cmd := fmt.Sprintf(PartprobeDeviceCmdTmpl, device)
 
-	stdout, _, err := p.e.RunCmd(cmd)
+	stdout, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PartprobeDeviceCmdTmpl, ""))))
 
 	if err != nil {
 		return "", fmt.Errorf("unable to get partition table for device %s", device)
@@ -166,7 +172,9 @@ func (p *WrapPartitionImpl) CreatePartition(device, label string) error {
 	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, device, label)
 
 	p.opMutex.Lock()
-	_, _, err := p.e.RunCmd(cmd)
+	_, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(CreatePartitionCmdTmpl, "", ""))))
 	p.opMutex.Unlock()
 
 	if err != nil {
@@ -183,7 +191,9 @@ func (p *WrapPartitionImpl) DeletePartition(device, partNum string) error {
 	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device, partNum)
 
 	p.opMutex.Lock()
-	_, stderr, err := p.e.RunCmd(cmd)
+	_, stderr, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(DeletePartitionCmdTmpl, "", ""))))
 	p.opMutex.Unlock()
 
 	if err != nil {
@@ -200,7 +210,9 @@ func (p *WrapPartitionImpl) DeletePartition(device, partNum string) error {
 func (p *WrapPartitionImpl) SetPartitionUUID(device, partNum, partUUID string) error {
 	cmd := fmt.Sprintf(SetPartitionUUIDCmdTmpl, device, partNum, partUUID)
 
-	if _, _, err := p.e.RunCmd(cmd); err != nil {
+	if _, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(SetPartitionUUIDCmdTmpl, "", "", "")))); err != nil {
 		return err
 	}
 
@@ -225,7 +237,9 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 	cmd := fmt.Sprintf(GetPartitionUUIDCmdTmpl, device, partNum)
 	partitionPresentation := "Partition unique GUID:"
 
-	stdout, _, err := p.e.RunCmd(cmd)
+	stdout, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(GetPartitionUUIDCmdTmpl, "", ""))))
 
 	if err != nil {
 		return "", err
@@ -250,7 +264,9 @@ func (p *WrapPartitionImpl) SyncPartitionTable(device string) error {
 	cmd := fmt.Sprintf(PartprobeCmdTmpl, device)
 
 	p.opMutex.Lock()
-	_, _, err := p.e.RunCmd(cmd)
+	_, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PartprobeCmdTmpl, ""))))
 	p.opMutex.Unlock()
 
 	if err != nil {

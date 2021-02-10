@@ -47,8 +47,7 @@ func main() {
 	// Server is insecure for now because credentials are nil
 	serverRunner := rpc.NewServerRunner(nil, *endpoint, false, logger)
 
-	e := &command.Executor{}
-	e.SetLogger(logger)
+	e := command.NewExecutor(logger)
 
 	ipmiTool := ipmi.NewIPMI(e)
 	ip := ipmiTool.GetBmcIP()

@@ -41,8 +41,7 @@ func GetExecutor() command.CmdExecutor {
 		// TODO: workaround until https://github.com/dell/csi-baremetal/issues/83 is open
 		_ = os.Setenv("LOG_FORMAT", "text")
 		logger, _ := base.InitLogger("", "debug")
-		utilExecutor = &command.Executor{}
-		utilExecutor.SetLogger(logger)
+		utilExecutor = command.NewExecutor(logger)
 	}
 
 	return utilExecutor

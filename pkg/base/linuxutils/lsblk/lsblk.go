@@ -51,8 +51,7 @@ type LSBLK struct {
 
 // NewLSBLK is a constructor for LSBLK struct
 func NewLSBLK(log *logrus.Logger) *LSBLK {
-	e := &command.Executor{}
-	e.SetLogger(log)
+	e := command.NewExecutor(log)
 	e.SetLevel(logrus.TraceLevel)
 	return &LSBLK{e: e}
 }
@@ -79,7 +78,9 @@ type BlockDevice struct {
 // Returns slice of BlockDevice structs or error if something went wrong
 func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	cmd := fmt.Sprintf(CmdTmpl, device)
-	strOut, _, err := l.e.RunCmd(cmd)
+	strOut, _, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(CmdTmpl, ""))))
 	if err != nil {
 		return nil, err
 	}
