@@ -136,3 +136,27 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 	res, err = l.SearchDrivePath(&dCR)
 	assert.NotNil(t, err)
 }
+
+func TestLSBLK_GetBlockDevicesV2_Success(t *testing.T) {
+	e := &mocks.GoMockExecutor{}
+	l := NewLSBLK(testLogger)
+	l.e = e
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkDevNewVersion, "", nil)
+
+	out, err := l.GetBlockDevices("")
+	assert.Nil(t, err)
+	assert.NotNil(t, out)
+	assert.Equal(t, 2, len(out))
+}
+
+func TestLSBLK_GetAllV2_Success(t *testing.T) {
+	e := &mocks.GoMockExecutor{}
+	l := NewLSBLK(testLogger)
+	l.e = e
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkAllNewVersion, "", nil)
+
+	out, err := l.GetBlockDevices("")
+	assert.Nil(t, err)
+	assert.NotNil(t, out)
+	assert.Equal(t, 2, len(out))
+}
