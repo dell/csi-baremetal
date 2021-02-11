@@ -38,6 +38,7 @@ import (
 // CRHelper is able to collect different CRs by different criteria
 type CRHelper struct {
 	k8sClient *KubeClient
+	reader    CRReader
 	log       *logrus.Entry
 }
 
@@ -45,8 +46,15 @@ type CRHelper struct {
 func NewCRHelper(k *KubeClient, logger *logrus.Logger) *CRHelper {
 	return &CRHelper{
 		k8sClient: k,
+		reader:    k,
 		log:       logger.WithField("component", "CRHelper"),
 	}
+}
+
+// SetReader allow to set separate CRReader for CRHelper, by default k8sClient will be used
+func (cs *CRHelper) SetReader(reader CRReader) *CRHelper {
+	cs.reader = reader
+	return cs
 }
 
 // GetACByLocation reads the whole list of AC CRs from a cluster and searches the AC with provided location
@@ -59,7 +67,7 @@ func (cs *CRHelper) GetACByLocation(location string) (*accrd.AvailableCapacity, 
 	})
 
 	acList := &accrd.AvailableCapacityList{}
-	if err := cs.k8sClient.ReadList(context.Background(), acList); err != nil {
+	if err := cs.reader.ReadList(context.Background(), acList); err != nil {
 		ll.Errorf("Failed to get available capacity CR list, error %v", err)
 		return nil, err
 	}
@@ -82,7 +90,7 @@ func (cs *CRHelper) DeleteACsByNodeID(nodeID string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "DeleteACsByNodeID", "nodeID": nodeID})
 
 	acList := &accrd.AvailableCapacityList{}
-	if err := cs.k8sClient.ReadList(context.Background(), acList); err != nil {
+	if err := cs.reader.ReadList(context.Background(), acList); err != nil {
 		ll.Errorf("Failed to get available capacity CR list, error %v", err)
 		return err
 	}
@@ -118,7 +126,7 @@ func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) (
 
 	var volumes []*volumecrd.Volume
 	volList := &volumecrd.VolumeList{}
-	if err := cs.k8sClient.ReadList(ctx, volList); err != nil {
+	if err := cs.reader.ReadList(ctx, volList); err != nil {
 		ll.Errorf("Failed to get volume CR list, error %v", err)
 		return nil, err
 	}
@@ -157,7 +165,7 @@ func (cs *CRHelper) GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcr
 		"driveUUID": driveUUID,
 	})
 	lvgList := &lvgcrd.LVGList{}
-	if err := cs.k8sClient.ReadList(ctx, lvgList); err != nil {
+	if err := cs.reader.ReadList(ctx, lvgList); err != nil {
 		ll.Errorf("Failed to get LVG CR list, error %v", err)
 		return nil, err
 	}
@@ -226,7 +234,7 @@ func (cs *CRHelper) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
 		err   error
 	)
 
-	if err = cs.k8sClient.ReadList(context.Background(), vList); err != nil {
+	if err = cs.reader.ReadList(context.Background(), vList); err != nil {
 		return nil, err
 	}
 
@@ -285,7 +293,7 @@ func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 		err   error
 	)
 
-	if err = cs.k8sClient.ReadList(context.Background(), dList); err != nil {
+	if err = cs.reader.ReadList(context.Background(), dList); err != nil {
 		return nil, err
 	}
 
@@ -312,7 +320,7 @@ func (cs *CRHelper) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) 
 		err     error
 	)
 
-	if err = cs.k8sClient.ReadList(context.Background(), acsList); err != nil {
+	if err = cs.reader.ReadList(context.Background(), acsList); err != nil {
 		return nil, err
 	}
 
@@ -357,7 +365,7 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 
 	if volume.Spec.LocationType == apiV1.LocationTypeLVM {
 		lvgObj := &lvgcrd.LVG{}
-		err := cs.k8sClient.ReadCR(context.Background(), volume.Spec.Location, "", lvgObj)
+		err := cs.reader.ReadCR(context.Background(), volume.Spec.Location, "", lvgObj)
 		if err != nil {
 			ll.Errorf("failed to read LVG CR list: %s", err.Error())
 			return nil, err
@@ -375,7 +383,7 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 // in case of error returns empty string and error
 func (cs *CRHelper) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
 	lvgCR := lvgcrd.LVG{}
-	if err := cs.k8sClient.ReadCR(context.Background(), lvgCRName, "", &lvgCR); err != nil {
+	if err := cs.reader.ReadCR(context.Background(), lvgCRName, "", &lvgCR); err != nil {
 		return "", err
 	}
 	return lvgCR.Spec.Name, nil
@@ -390,7 +398,7 @@ func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LVG, error) {
 		err     error
 	)
 
-	if err = cs.k8sClient.ReadList(context.Background(), lvgList); err != nil {
+	if err = cs.reader.ReadList(context.Background(), lvgList); err != nil {
 		return nil, err
 	}
 
@@ -417,7 +425,7 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, namespace string, newSpec
 	)
 
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeCR.Spec.Id)
-	if err = cs.k8sClient.ReadCR(ctxWithID, volName, namespace, volumeCR); err != nil {
+	if err = cs.reader.ReadCR(ctxWithID, volName, namespace, volumeCR); err != nil {
 		return err
 	}
 
@@ -427,7 +435,7 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, namespace string, newSpec
 
 // DeleteObjectByName read runtime.Object by its name and then delete it
 func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespace string, obj runtime.Object) error {
-	if err := cs.k8sClient.ReadCR(ctx, name, namespace, obj); err != nil {
+	if err := cs.reader.ReadCR(ctx, name, namespace, obj); err != nil {
 		if k8sError.IsNotFound(err) {
 			return nil
 		}
