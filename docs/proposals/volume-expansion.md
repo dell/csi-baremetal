@@ -23,7 +23,7 @@ To support online and offline volume expansion we can:
  - Implement both `ControllerExpandVolume` and `NodeExpandVolume`.
 `NodeExpandVolume` is typically used to resize file system. So `ControllerExpandVolume` can perform lvm command:
  ```
- lvextend -L <requiredSize> LV 
+ lvextend --size <requiredSize> LV 
  ``` 
  - `NodeExpandVolume` will perform file system resizing:
     - `fsadm resize` is for XFS file system. We can't use `xfs_growfs` because it doesn't work for unmounted XFS
@@ -34,7 +34,7 @@ To support online and offline volume expansion we can:
 Another approach to support online and offline volume expansion is:
  - Implement only `ControllerExpandVolume`. We can use lvm command:
  ```
- lvextend --resizefs -L <requiredSize> LV
+ lvextend --resizefs --size <requiredSize> LV
  ``` 
 This command allow extend LV size and resize fs (using fsadm) at the same time. 
 
@@ -44,7 +44,7 @@ we need to use free driver and reservation, which can cause additional complexit
 
 ## Compatibility
 
-* Min K8S Version is 1.15 (beta version), 
+* Min K8S Version is 1.16 
 * Min CSI Spec version is 1.1.0 (1.2.0 if we want to get staging_path in `NodeExpandVolume` request)
 * Min external-resizer version is 0.2 
 * Modern kernels support file system resize
@@ -63,14 +63,14 @@ Identity Server:
 Controller Service:
 1) Add capabilities csi.ControllerServiceCapability_RPC_EXPAND_VOLUME
 2) Implement `ControllerExpandVolume` request
-3) Add additional status for LVG - `expanding`
-4) ControllerExpandVolume update status of LVG
+3) Add additional statuses for volume - `expanding` and `expanded`
+4) ControllerExpandVolume update status of volume
 
-LVG Controller:
+Volume Controller:
 1) Optional: if VG space is less than required capacity, try to reserve AvailableCapacity if we want to extend volume group and create new PV
-2) LVG controller handle new status and call:
+2) Volume controller handle new status and call:
  ```
- lvextend -L <requiredSize> LV
+ lvextend --size <requiredSize> LV
  ``` 
 3) Optional: LVG controller also must extend VG in case of new PV added by calling `vgextend`
 
