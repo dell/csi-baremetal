@@ -201,7 +201,7 @@ func getTestDrive(id, sn string) *api.Drive {
 func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	assert.NotNil(t, vm)
 	assert.Nil(t, vm.driveMgrClient)
 	assert.NotNil(t, vm.fsOps)
@@ -218,7 +218,7 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	volCR.Spec.CSIStatus = apiV1.Creating
 	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
 	assert.Nil(t, err)
@@ -251,7 +251,7 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 func TestReconcile_SuccessNotFound(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: "not-found-that-name"}}
 	res, err := vm.Reconcile(req)
@@ -384,7 +384,7 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	volCR.Spec.CSIStatus = apiV1.Removed
 	err = vm.k8sClient.CreateCR(testCtx, volCR.Name, &volCR)
 	assert.Nil(t, err)
@@ -552,7 +552,8 @@ func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
 }
 
 func TestNewVolumeManager_SetProvisioners(t *testing.T) {
-	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{}, logrus.New(), nil, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{},
+		logrus.New(), nil, nil, new(mocks.NoOpRecorder), nodeID)
 	newProv := &mockProv.MockProvisioner{}
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: newProv})
 	assert.Equal(t, newProv, vm.provisioners[p.DriveBasedVolumeType])
@@ -575,9 +576,10 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("update driveCRs failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
 		// expect: updateDrivesCRs failed
-		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+		vm = NewVolumeManager(&mocks.MockDriveMgrClient{},
+			nil, testLogger, kubeClient, kubeClient, nil, nodeID)
 		mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Once()
 
 		err = vm.Discover()
@@ -587,7 +589,8 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("discoverVolumeCRs failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID)
 		listBlk := &mocklu.MockWrapLsblk{}
 		listBlk.On("GetBlockDevices", "").Return(nil, testErr).Once()
 		vm.listBlk = listBlk
@@ -603,8 +606,10 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("discoverAvailableCapacities failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
 		listBlk := &mocklu.MockWrapLsblk{}
-		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, k8s.NewKubeClient(mockK8sClient, testLogger, testNs), nil, nodeID)
+		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger,
+			kubeClient, kubeClient, nil, nodeID)
 		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{}, nil)
 		vm.listBlk = listBlk
 		mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(nil)
@@ -823,9 +828,8 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
-	vm := NewVolumeManager(nil, nil, testLogger,
-		k8s.NewKubeClient(mockK8sClient, testLogger, testNs),
-		new(mocks.NoOpRecorder), nodeID)
+	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
 
 	var (
 		res *driveUpdates
@@ -1144,7 +1148,7 @@ func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
 
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(c, e, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(c, e, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	vm.discoverSystemLVG = false
 	return vm
 }
@@ -1185,7 +1189,7 @@ func TestVolumeManager_isDriveSystem(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	listBlk := &mocklu.MockWrapLsblk{}
-	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
 	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
 	vm.listBlk = listBlk
 	isSystem, err := vm.isDriveSystem("/dev/sdb")

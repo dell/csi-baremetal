@@ -72,6 +72,8 @@ type eventRecorder interface {
 type VolumeManager struct {
 	// for interacting with kubernetes objects
 	k8sClient *k8s.KubeClient
+	// cache for kubernetes resources
+	k8sCache k8s.CRReader
 	// help to read/update particular CR
 	crHelper *k8s.CRHelper
 
@@ -158,7 +160,8 @@ func NewVolumeManager(
 	client api.DriveServiceClient,
 	executor command.CmdExecutor,
 	logger *logrus.Logger,
-	k8sclient *k8s.KubeClient,
+	k8sClient *k8s.KubeClient,
+	k8sCache k8s.CRReader,
 	recorder eventRecorder, nodeID string) *VolumeManager {
 	driveMgrDuration := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "discovery_duration_seconds",
@@ -177,13 +180,14 @@ func NewVolumeManager(
 	}
 
 	vm := &VolumeManager{
-		k8sClient:      k8sclient,
-		crHelper:       k8s.NewCRHelper(k8sclient, logger),
+		k8sClient:      k8sClient,
+		k8sCache:       k8sCache,
+		crHelper:       k8s.NewCRHelper(k8sClient, logger),
 		driveMgrClient: client,
-		acProvider:     common.NewACOperationsImpl(k8sclient, logger),
+		acProvider:     common.NewACOperationsImpl(k8sClient, logger),
 		provisioners: map[p.VolumeType]p.Provisioner{
-			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
-			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
+			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sClient, logger),
+			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sClient, logger),
 		},
 		fsOps:                  utilwrappers.NewFSOperationsImpl(executor, logger),
 		lvmOps:                 lvm.NewLVM(executor, logger),

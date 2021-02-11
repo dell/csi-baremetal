@@ -101,6 +101,8 @@ func main() {
 
 	logger.Info("Starting Node Service")
 
+	stopCH := ctrl.SetupSignalHandler()
+
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
 	if err != nil {
@@ -117,6 +119,19 @@ func main() {
 	}
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 
+	k8sCache, err := k8s.GetK8SCache()
+	if err != nil {
+		logger.Fatalf("fail to create cache for kubernetes resources, error: %v", err)
+	}
+	// start cache
+	go func() {
+		// cache implementation we use newer returns err
+		_ = k8sCache.Start(stopCH)
+	}()
+	k8sCache.WaitForCacheSync(stopCH)
+
+	kubeCache := k8s.NewKubeCache(k8sCache, logger)
+
 	nodeID, err := getNodeID(wrappedK8SClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
@@ -130,7 +145,7 @@ func main() {
 	defer eventRecorder.Wait()
 
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, logger, wrappedK8SClient, eventRecorder, featureConf)
+		clientToDriveMgr, nodeID, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
@@ -167,7 +182,7 @@ func main() {
 	}()
 	go func() {
 		logger.Info("Starting CRD Controller Manager ...")
-		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		if err := mgr.Start(stopCH); err != nil {
 			logger.Fatalf("CRD Controller Manager failed with error: %v", err)
 		}
 	}()

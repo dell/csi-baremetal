@@ -721,7 +721,7 @@ func newNodeService() *CSINodeService {
 	if err != nil {
 		panic(err)
 	}
-	node := NewCSINodeService(client, nodeID, testLogger, kubeClient,
+	node := NewCSINodeService(client, nodeID, testLogger, kubeClient, kubeClient,
 		new(mocks.NoOpRecorder), featureconfig.NewFeatureConfig())
 
 	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)
