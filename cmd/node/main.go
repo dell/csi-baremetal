@@ -115,8 +115,9 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
+	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 
-	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
+	nodeID, err := getNodeID(wrappedK8SClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
@@ -128,17 +129,13 @@ func main() {
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
-	// TODO why do we need 3 clients?
-	volumesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	lvgClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	drivesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, logger, volumesClient, eventRecorder, featureConf)
+		clientToDriveMgr, nodeID, logger, wrappedK8SClient, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvg.NewController(lvgClient, nodeID, logger),
-		drive.NewController(drivesClient, nodeID, clientToDriveMgr, eventRecorder, logger),
+		lvg.NewController(wrappedK8SClient, nodeID, logger),
+		drive.NewController(wrappedK8SClient, nodeID, clientToDriveMgr, eventRecorder, logger),
 		logger)
 
 	// register CSI calls handler
