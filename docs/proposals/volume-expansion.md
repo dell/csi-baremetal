@@ -15,8 +15,7 @@ Currently CSI doesn't support volume expansion feature, this proposal aims to so
 There are two requests in CSI spec, that can be implemented: `ControllerExpandVolume` and `NodeExpandVolume`. Also there are 
 2 types of Volume Expansion: `ONLINE` and `OFFLINE`. The differences is that online volume expansion indicates that volumes may be expanded
  when published to a node. `NodeExpandVolume` always perform online volume expansion, so `NodeExpandVolume` must be called after NodeStage request and may be called 
-after NodePublishVolume. `ControllerExpandVolume` can perform both type of volume expansion. In case of offline volume expansion
-`ControllerExpandVolume` must be called after ControllerPublishVolume. If volume is published, `ControllerExpandVolume` must be called
+after NodePublishVolume. `ControllerExpandVolume` can perform both type of volume expansion. In case of offline, if volume is published, `ControllerExpandVolume` must be called
 after ControllerUnpublishVolume/NodeUnstageVolume/NodeUnpublishVolume depends on supported capabilities. 
 
 To support online and offline volume expansion we can:
