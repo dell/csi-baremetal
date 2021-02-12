@@ -275,6 +275,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 	if !volumeCR.Spec.Ephemeral {
 		switch volumeCR.Spec.CSIStatus {
 		case apiV1.Created:
+		case apiV1.Expanded:
 		case apiV1.Failed:
 			return status.Error(codes.Internal, "volume has reached failed status")
 		case apiV1.Removed:

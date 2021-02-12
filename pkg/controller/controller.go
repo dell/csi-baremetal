@@ -32,6 +32,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -345,6 +346,7 @@ func (c *CSIControllerService) ControllerGetCapabilities(context.Context, *csi.C
 	for _, c := range []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 	} {
 		caps = append(caps, newCap(c))
 	}
@@ -374,6 +376,66 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 }
 
 // ControllerExpandVolume is not implemented yet
-func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	ll := c.log.WithFields(logrus.Fields{
+		"method":   "ControllerExpandVolume",
+		"volumeID": req.GetVolumeId(),
+	})
+	ll.Infof("Processing request: %v", req)
+	var (
+		volID     = req.GetVolumeId()
+		lvg       = &lvgcrd.LVG{}
+		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, volID)
+	)
+
+	if volID == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
+	}
+	if req.GetVolumeCapability() == nil {
+		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
+	}
+
+	volume := c.crHelper.GetVolumeByID(volID)
+
+	if volume == nil {
+		return nil, status.Error(codes.NotFound, "Volume doesn't exist")
+	}
+
+	if !util.IsStorageClassLVG(volume.Spec.StorageClass) {
+		return nil, status.Error(codes.FailedPrecondition, "Volume doesn't have LVG storage class")
+	}
+
+	if volume.Spec.Size > req.GetCapacityRange().GetRequiredBytes() {
+		return nil, status.Error(codes.OutOfRange, "Required bytes are less than existing volume size")
+	}
+
+	if volume.Spec.Size == req.GetCapacityRange().GetRequiredBytes() {
+		return &csi.ControllerExpandVolumeResponse{
+			CapacityBytes:         0,
+			NodeExpansionRequired: false,
+		}, nil
+	}
+
+	if err := c.k8sclient.ReadCR(ctxWithID, volume.Spec.Location, "", lvg); err != nil {
+		ll.Errorf("Failed to get LVG by location %s", volume.Spec.Location)
+		return nil, status.Error(codes.Internal, "Unable to read LVG")
+	}
+	if lvg.Spec.Size < req.GetCapacityRange().GetRequiredBytes() {
+		return nil, status.Error(codes.OutOfRange, "Required bytes are less than existing LVG size")
+	}
+	volume.Spec.CSIStatus = apiV1.Expanding
+	volume.Spec.Size = req.GetCapacityRange().GetRequiredBytes()
+
+	if err := c.k8sclient.UpdateCR(ctxWithID, volume); err != nil {
+		ll.Errorf("Failed to update LVG, error: %v", err)
+		return nil, status.Error(codes.Internal, "Unable to update volume")
+	}
+
+	if err := c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Expanded); err != nil {
+		return nil, status.Error(codes.Internal, "Unable to expand volume")
+	}
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         volume.Spec.Size,
+		NodeExpansionRequired: false,
+	}, nil
 }

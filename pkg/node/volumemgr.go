@@ -289,6 +289,8 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return m.prepareVolume(ctx, volume)
 	case apiV1.Removing:
 		return m.handleRemovingStatus(ctx, volume)
+	case apiV1.Expanding:
+		return m.handleExpandingStatus(ctx, volume)
 	}
 
 	if volume.Spec.Usage == apiV1.VolumeUsageReleasing {
@@ -1212,4 +1214,39 @@ func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeN
 		drive.Annotations = make(map[string]string)
 	}
 	drive.Annotations[annotationKey] = status
+}
+
+// handleExpandingStatus handles volume CR with Expanding status, it calls ExpandLV to expand volume
+// To get logical volume name it use LVM provisioner function GetVolumePath
+// Receive context, volume CR
+// Return ctrl.Result, error
+func (m *VolumeManager) handleExpandingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "handleExpandingStatus",
+	})
+	volumePath, err := m.provisioners[p.LVMBasedVolumeType].GetVolumePath(volume.Spec)
+	if err != nil {
+		ll.Errorf("Failed to get volume path, err: %v", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	mbSize, err := util.ToSizeUnit(volume.Spec.Size, util.BYTE, util.MBYTE)
+	if err != nil {
+		ll.Errorf("Failed to convert %d to %v, err: %v", volume.Spec.Size, util.MBYTE, err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	if err = m.lvmOps.ExpandLV(volumePath, mbSize); err != nil {
+		volume.Spec.CSIStatus = apiV1.Failed
+		if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
+			ll.Errorf("Unable to change volume %s status to %s, error: %v.",
+				volume.Name, volume.Spec.CSIStatus, updateErr)
+			return ctrl.Result{Requeue: true}, updateErr
+		}
+		return ctrl.Result{Requeue: true}, err
+	}
+	volume.Spec.CSIStatus = apiV1.Expanded
+	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
+		ll.Error("Unable to set new status for volume")
+		return ctrl.Result{Requeue: true}, updateErr
+	}
+	return ctrl.Result{}, nil
 }

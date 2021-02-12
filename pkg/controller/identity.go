@@ -74,6 +74,20 @@ func (s *defaultIdentityServer) GetPluginCapabilities(context.Context, *csi.GetP
 					},
 				},
 			},
+			{
+				Type: &csi.PluginCapability_VolumeExpansion_{
+					VolumeExpansion: &csi.PluginCapability_VolumeExpansion{
+						Type: csi.PluginCapability_VolumeExpansion_ONLINE,
+					},
+				},
+			},
+			{
+				Type: &csi.PluginCapability_VolumeExpansion_{
+					VolumeExpansion: &csi.PluginCapability_VolumeExpansion{
+						Type: csi.PluginCapability_VolumeExpansion_OFFLINE,
+					},
+				},
+			},
 		},
 	}
 	logrus.WithFields(logrus.Fields{

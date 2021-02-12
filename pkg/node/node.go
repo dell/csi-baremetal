@@ -490,7 +490,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 
 	currStatus := volumeCR.Spec.CSIStatus
 	// if currStatus not in [VolumeReady, Published]
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
+	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published && currStatus != apiV1.Expanded {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)

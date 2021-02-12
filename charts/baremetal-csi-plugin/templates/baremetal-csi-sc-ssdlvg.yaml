@@ -5,6 +5,7 @@ metadata:
 provisioner: baremetal-csi  # CSI driver name
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
 parameters:
   storageType: SSDLVG
   fsType: xfs

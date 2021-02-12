@@ -25,6 +25,13 @@ type MockWrapLVM struct {
 	mock.Mock
 }
 
+// ExpandLV is a mock implementations
+func (m *MockWrapLVM) ExpandLV(lvName string, requiredSize int64) error {
+	args := m.Mock.Called(lvName, requiredSize)
+
+	return args.Error(0)
+}
+
 // PVCreate is a mock implementations
 func (m *MockWrapLVM) PVCreate(dev string) error {
 	args := m.Mock.Called(dev)

@@ -21,6 +21,7 @@ package lvm
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +58,8 @@ const (
 	LVsInVGCmdTmpl = lvmPath + "lvs --select vg_name=%s -o lv_name --noheadings" // add VG name
 	// PVInfoCmdTmpl returns colon (:) separated output, where pv name on first place and vg on second
 	PVInfoCmdTmpl = lvmPath + "pvdisplay %s --colon" // add PV name
+	// LVExpandCmdTmpl expand LV
+	LVExpandCmdTmpl = lvmPath + "lvextend --size %s --resizefs %s" // add full LV name
 	// timeoutBetweenAttempts used for RunCmdWithAttempts as a timeout between calling lvremove
 	timeoutBetweenAttempts = 500 * time.Millisecond
 )
@@ -75,6 +78,7 @@ type WrapLVM interface {
 	GetAllPVs() ([]string, error)
 	GetLVsInVG(vgName string) ([]string, error)
 	GetVGNameByPVName(pvName string) (string, error)
+	ExpandLV(lvName string, requiredSize int64) error
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -110,6 +114,20 @@ func (l *LVM) PVRemove(name string) error {
 	_, stdErr, err := l.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(PVRemoveCmdTmpl, ""))))
+	if err != nil && strings.Contains(stdErr, "No PV label found") {
+		return nil
+	}
+	return err
+}
+
+// ExpandLV expand logical volume
+// Receives full name of a logical volume and requiredSize to resize
+// Returns error if something went wrong
+func (l *LVM) ExpandLV(lvName string, requiredSize int64) error {
+	cmd := fmt.Sprintf(LVExpandCmdTmpl, strconv.FormatInt(requiredSize, 10), lvName)
+	_, stdErr, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(LVExpandCmdTmpl, "", ""))))
 	if err != nil && strings.Contains(stdErr, "No PV label found") {
 		return nil
 	}

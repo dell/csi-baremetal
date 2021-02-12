@@ -38,6 +38,8 @@ const (
 	Removed     = "REMOVED"
 	Failed      = "FAILED"
 	Empty       = ""
+	Expanding   = "EXPANDING"
+	Expanded    = "EXPANDED"
 
 	// Health statuses
 	HealthUnknown = "UNKNOWN"
