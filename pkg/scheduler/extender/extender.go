@@ -47,7 +47,6 @@ import (
 // based on pod volumes requirements and Available Capacities
 type Extender struct {
 	k8sClient *k8s.KubeClient
-	crHelper  *k8s.CRHelper
 	// namespace in which Extender will be search Available Capacity
 	namespace      string
 	provisioner    string
@@ -66,7 +65,6 @@ func NewExtender(logger *logrus.Logger, namespace, provisioner string, featureCo
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
 	return &Extender{
 		k8sClient:              kubeClient,
-		crHelper:               k8s.NewCRHelper(kubeClient, logger),
 		provisioner:            provisioner,
 		featureChecker:         featureConf,
 		logger:                 logger.WithField("component", "Extender"),
