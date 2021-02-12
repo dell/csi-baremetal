@@ -32,7 +32,7 @@ import (
 
 // Use env to skip this test during go test ./...
 func skipIfNotCI(t *testing.T) {
-	if os.Getenv("CI") == "" {
+	if os.Getenv("CI") != "true" {
 		t.Skip("Skipping testing in not CI environment")
 	}
 }
