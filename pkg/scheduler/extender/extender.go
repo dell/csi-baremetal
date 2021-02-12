@@ -30,7 +30,6 @@ import (
 	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
-	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
@@ -47,6 +46,7 @@ import (
 // based on pod volumes requirements and Available Capacities
 type Extender struct {
 	k8sClient *k8s.KubeClient
+	k8sCache  *k8s.KubeCache
 	// namespace in which Extender will be search Available Capacity
 	namespace      string
 	provisioner    string
@@ -57,14 +57,11 @@ type Extender struct {
 }
 
 // NewExtender returns new instance of Extender struct
-func NewExtender(logger *logrus.Logger, namespace, provisioner string, featureConf fc.FeatureChecker) (*Extender, error) {
-	k8sClient, err := k8s.GetK8SClient()
-	if err != nil {
-		return nil, err
-	}
-	kubeClient := k8s.NewKubeClient(k8sClient, logger, namespace)
+func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
+	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker) (*Extender, error) {
 	return &Extender{
 		k8sClient:              kubeClient,
+		k8sCache:               kubeCache,
 		provisioner:            provisioner,
 		featureChecker:         featureConf,
 		logger:                 logger.WithField("component", "Extender"),
@@ -237,9 +234,7 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 		}
 		if v.PersistentVolumeClaim != nil {
 			pvc := &coreV1.PersistentVolumeClaim{}
-			err := e.k8sClient.Get(ctx,
-				k8sCl.ObjectKey{Name: v.PersistentVolumeClaim.ClaimName, Namespace: pod.Namespace},
-				pvc)
+			err := e.k8sCache.ReadCR(ctx, v.PersistentVolumeClaim.ClaimName, pod.Namespace, pvc)
 			if err != nil {
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
 				return nil, err
@@ -361,7 +356,7 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 	})
 
 	var volumeList = &volcrd.VolumeList{}
-	if err := e.k8sClient.ReadList(context.Background(), volumeList); err != nil {
+	if err := e.k8sCache.ReadList(context.Background(), volumeList); err != nil {
 		err = fmt.Errorf("unable to read volumes list: %v", err)
 		return nil, err
 	}
@@ -422,7 +417,7 @@ func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int, int
 func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]string, error) {
 	scs := storageV1.StorageClassList{}
 
-	if err := e.k8sClient.List(ctx, &scs); err != nil {
+	if err := e.k8sCache.ReadList(ctx, &scs); err != nil {
 		return nil, err
 	}
 
