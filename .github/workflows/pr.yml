@@ -1,0 +1,85 @@
+name: PR validation
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: Build && test
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Prepare Golang 
+      uses: actions/setup-go@v2
+      with:
+        go-version: '^1.15.3'
+
+    - name: Load cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+          ~/.cache/golangci-lint
+        key: csi-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          csi-go-
+  
+    - name: Compile proto files
+      run: make install-compile-proto
+
+    - name: Generate CRD
+      run: |
+        make install-controller-gen
+        make generate-deepcopy
+        
+    - name: Get dependencies
+      run:  make dependency
+      
+    - name: Install golangci-lint
+      run: |
+        wget -O golangci-lint.deb https://github.com/golangci/golangci-lint/releases/download/v1.36.0/golangci-lint-1.36.0-linux-amd64.deb
+        sudo dpkg -i golangci-lint.deb
+        
+    - name: Lint code
+      run: GOGC=300 make lint
+      
+    - name: Lint charts
+      run: make lint-charts
+      
+    - name: Run Tests
+      run: CI=false make test
+    
+    - name: Coverage
+      run: make coverage
+      
+    - name: Build binaries
+      run: |
+        make DRIVE_MANAGER_TYPE=basemgr build
+        make DRIVE_MANAGER_TYPE=loopbackmgr build-drivemgr
+        make DRIVE_MANAGER_TYPE=idracmgr build-drivemgr
+
+    - uses: helm/kind-action@v1.1.0
+      with:
+        version: "v0.8.1"
+        wait: "1s" # not wasting time here
+
+    - name: Get kind cluster information
+      run: |
+          kubectl cluster-info
+          kubectl get pods --all-namespaces
+          echo "current-context:" $(kubectl config current-context)
+          echo "environment-kubeconfig:" ${KUBECONFIG}
+
+    - name: Test sanity
+      run: |
+        helm install baremetal-csi-plugin ./charts/baremetal-csi-plugin
+        helm install scheduler-extender ./charts/scheduler-extender
+        helm install csibm-operator ./charts/csibm-operator
+        make test-sanity
+        kubectl get pods --all-namespaces
