@@ -107,17 +107,15 @@ func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCap
 	// try to find free capacity
 	var foundAC *accrd.AvailableCapacity
 	for _, acs := range filteredMap {
-		foundAC = searchACWithClosestSize(acs, size)
+		foundAC = searchACWithClosestSize(acs, size, nil)
 		if foundAC != nil {
 			break
 		}
 	}
 	// for LVG SC try to reserve AC to create new LVG since no free space found on existing
 	if isLVG && foundAC == nil {
-		// for the new lvg we need some extra space
-		size += LvgDefaultMetadataSize
 		// search AC in sub storage class
-		foundAC = searchACWithClosestSize(scToACMap[subSC], size)
+		foundAC = searchACWithClosestSize(scToACMap[subSC], size, SubtractLVMMetadataSize)
 	}
 
 	// return if available capacity not found
@@ -131,7 +129,7 @@ func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCap
 			if isLVG {
 				foundAC.Spec.StorageClass = vol.StorageClass // e.g. HDD -> HDDLVG
 			}
-			foundAC.Spec.Size -= size
+			foundAC.Spec.Size = SubtractLVMMetadataSize(foundAC.Spec.Size) - size
 		} else {
 			// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
 			nc.removeAC(foundAC)
@@ -157,16 +155,20 @@ func (nc *nodeCapacity) getStorageClassToACMapping() SCToACMap {
 	return result
 }
 
-func searchACWithClosestSize(acs ACMap, size int64) *accrd.AvailableCapacity {
+func searchACWithClosestSize(acs ACMap, size int64, sizeRoundFunc func(int64) int64) *accrd.AvailableCapacity {
 	var (
 		maxSize  int64 = math.MaxInt64
 		pickedAC *accrd.AvailableCapacity
 	)
 
 	for _, ac := range acs {
-		if ac.Spec.Size >= size && ac.Spec.Size < maxSize {
+		acSize := ac.Spec.Size
+		if sizeRoundFunc != nil {
+			acSize = sizeRoundFunc(acSize)
+		}
+		if acSize >= size && acSize < maxSize {
 			pickedAC = ac
-			maxSize = ac.Spec.Size
+			maxSize = acSize
 		}
 	}
 	return pickedAC
