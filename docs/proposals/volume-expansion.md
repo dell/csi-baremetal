@@ -4,7 +4,7 @@ Last updated: 09.02.21
 
 ## Abstract
 
-This proposal contains design and implementation considerations about volume expansion pf LVG volumes
+This proposal contains design and implementation considerations about volume expansion of LVG volumes
 
 ## Background
 
@@ -15,8 +15,7 @@ Currently CSI doesn't support volume expansion feature, this proposal aims to so
 There are two requests in CSI spec, that can be implemented: `ControllerExpandVolume` and `NodeExpandVolume`. Also there are 
 2 types of Volume Expansion: `ONLINE` and `OFFLINE`. The differences is that online volume expansion indicates that volumes may be expanded
  when published to a node. `NodeExpandVolume` always perform online volume expansion, so `NodeExpandVolume` must be called after NodeStage request and may be called 
-after NodePublishVolume. `ControllerExpandVolume` can perform both type of volume expansion. In case of offline, if volume is published, `ControllerExpandVolume` must be called
-after ControllerUnpublishVolume/NodeUnstageVolume/NodeUnpublishVolume depends on supported capabilities. 
+after NodePublishVolume. `ControllerExpandVolume` can perform both type of volume expansion. In case of offline, if volume is published, `ControllerExpandVolume` must be called after ControllerUnpublishVolume/NodeUnstageVolume/NodeUnpublishVolume depends on supported capabilities. 
 
 To support online and offline volume expansion we can:
  - Implement both `ControllerExpandVolume` and `NodeExpandVolume`.
@@ -37,9 +36,10 @@ Another approach to support online and offline volume expansion is:
  ``` 
 This command allow extend LV size and resize fs (using fsadm) at the same time. 
 
-1) What to do in case of insufficient space on vg? Should CSI throw error of try to create another PV? In this case 
-we need to use free driver and reservation, which can cause additional complexity in volume expansion logic.
-2) What to do with potential data loss for both type of volume expansion? Should CSI prepare backup somehow?
+But it doesn't suitable if we want to support btrfs filesystem, because fsadm doesn't support it. 
+In case of btrfs we can omit --resizefs and run `btrfs filesystem resize`. But we need to know
+mountpoint, because btrfs only support online grow. I assume it would be better to expand btrfs in NodeExpandVolume,
+because we can get staging_path from request parameters.
 
 ## Compatibility
 
