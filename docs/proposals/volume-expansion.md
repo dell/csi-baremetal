@@ -39,7 +39,7 @@ This command allow extend LV size and resize fs (using fsadm) at the same time.
 But it doesn't suitable if we want to support btrfs filesystem, because fsadm doesn't support it. 
 In case of btrfs we can omit --resizefs and run `btrfs filesystem resize`. But we need to know
 mountpoint, because btrfs only support online grow. I assume it would be better to expand btrfs in NodeExpandVolume,
-because we can get staging_path from request parameters.
+because we can get volume_path from request parameters.
 
 ## Compatibility
 
