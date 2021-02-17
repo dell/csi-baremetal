@@ -27,6 +27,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
@@ -73,7 +74,7 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, acName, newSC 
 	var lvgSize int64
 	for i, ac := range acs {
 		lvgLocations[i] = ac.Spec.Location
-		lvgSize += ac.Spec.Size
+		lvgSize += capacityplanner.SubtractLVMMetadataSize(ac.Spec.Size)
 	}
 
 	var (
