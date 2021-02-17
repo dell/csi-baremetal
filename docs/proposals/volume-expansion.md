@@ -154,8 +154,10 @@ PVC description. User can also see warning event about `volume_in_use` error in 
 
 CSI can also send alerts about volume expansion process similar to disk replacement or put annotations on Volume with expansion process status.
 
-Also PV size is changed only after successful resizing, so operator can determine if volume expansion was successful either by according 
-events or new PV size. 
+Besides PVC has conditions (pvc.Status.Conditions) about resizing such as `PersistentVolumeClaimResizing`. This condition is set, when resize is in progress.
+When expansion is finished, resizer removes resize conditions.Also PV size is changed only after successful resizing, 
+so operator can determine if volume expansion was successful by according 
+events, new PV size or PVC conditions. 
 
 ## Compatibility
 
