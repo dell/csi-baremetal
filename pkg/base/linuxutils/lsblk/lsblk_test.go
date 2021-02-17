@@ -43,10 +43,34 @@ var (
 	}
 )
 
+func TestGetVersion(t *testing.T)  {
+	e := &mocks.GoMockExecutor{}
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk from util-linux 2.34", "", nil)
+
+	l := NewLSBLK(e)
+	version := l.GetVersion()
+	assert.Equal(t, version.major, 2)
+	assert.Equal(t, version.minor, 34)
+	assert.Equal(t, version.patch, 0)
+
+	e = &mocks.GoMockExecutor{}
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk from util-linux 2.31.1", "", nil)
+	l = NewLSBLK(e)
+	version = l.GetVersion()
+	assert.Equal(t, version.major, 2)
+	assert.Equal(t, version.minor, 31)
+	assert.Equal(t, version.patch, 1)
+
+	e = &mocks.GoMockExecutor{}
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk: command not found", "", nil)
+	l = NewLSBLK(e)
+	assert.Nil(t, l)
+}
+
 func TestLSBLK_GetBlockDevices_Success(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
-	l := NewLSBLK(testLogger)
-	l.e = e
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk from util-linux 2.31.1", "", nil)
+	l := NewLSBLK(e)
 	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 
 	out, err := l.GetBlockDevices("")
@@ -58,8 +82,7 @@ func TestLSBLK_GetBlockDevices_Success(t *testing.T) {
 
 func TestLSBLK_GetBlockDevices_Fail(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
-	l := NewLSBLK(testLogger)
-	l.e = e
+	l := NewLSBLK(e)
 	e.On(mocks.RunCmd, allDevicesCmd).Return("not a json", "", nil).Times(1)
 	out, err := l.GetBlockDevices("")
 	assert.Nil(t, out)
@@ -82,8 +105,8 @@ func TestLSBLK_GetBlockDevices_Fail(t *testing.T) {
 
 func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
-	l := NewLSBLK(testLogger)
-	l.e = e
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk from util-linux 2.31.1", "", nil)
+	l := NewLSBLK(e)
 	// path is in drive spec
 	dCR := testDriveCR
 	path := "/dev/sda"
@@ -107,8 +130,8 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 
 func TestLSBLK_SearchDrivePath(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
-	l := NewLSBLK(testLogger)
-	l.e = e
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk from util-linux 2.31.1", "", nil)
+	l := NewLSBLK(e)
 	// lsblk fail
 	expectedErr := errors.New("lsblk error")
 	e.On("RunCmd", allDevicesCmd).Return("", "", expectedErr)
@@ -139,9 +162,9 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 
 func TestLSBLK_GetBlockDevicesV2_Success(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
-	l := NewLSBLK(testLogger)
-	l.e = e
-	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkDevNewVersion, "", nil)
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk from util-linux 2.34", "", nil)
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkDevV2, "", nil)
+	l := NewLSBLK(e)
 
 	out, err := l.GetBlockDevices("")
 	assert.Nil(t, err)
@@ -151,9 +174,9 @@ func TestLSBLK_GetBlockDevicesV2_Success(t *testing.T) {
 
 func TestLSBLK_GetAllV2_Success(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
-	l := NewLSBLK(testLogger)
-	l.e = e
-	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkAllNewVersion, "", nil)
+	e.On("RunCmd", VersionCmdTmpl).Return("lsblk from util-linux 2.34", "", nil)
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkAllV2, "", nil)
+	l := NewLSBLK(e)
 
 	out, err := l.GetBlockDevices("")
 	assert.Nil(t, err)

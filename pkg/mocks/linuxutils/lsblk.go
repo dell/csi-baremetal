@@ -1,7 +1,7 @@
 /*
 Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+Licensed under the Apache License, version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -43,4 +43,9 @@ func (m *MockWrapLsblk) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	args := m.Mock.Called(drive)
 
 	return args.String(0), args.Error(1)
+}
+
+// GetVersion is a ock implementation
+func (m *MockWrapLsblk) GetVersion() lsblk.Version {
+	return lsblk.Version{}
 }

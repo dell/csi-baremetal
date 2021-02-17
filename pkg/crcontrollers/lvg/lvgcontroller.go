@@ -1,7 +1,7 @@
 /*
 Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+Licensed under the Apache License, version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -70,7 +70,7 @@ func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger)
 		log:       log.WithField("component", "Controller"),
 		e:         e,
 		lvmOps:    lvm.NewLVM(e, log),
-		listBlk:   lsblk.NewLSBLK(log),
+		listBlk:   lsblk.NewLSBLK(e),
 	}
 }
 

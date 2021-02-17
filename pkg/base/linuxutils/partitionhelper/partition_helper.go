@@ -1,7 +1,7 @@
 /*
 Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+Licensed under the Apache License, version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -86,7 +86,7 @@ type WrapPartitionImpl struct {
 func NewWrapPartitionImpl(e command.CmdExecutor, log *logrus.Logger) *WrapPartitionImpl {
 	return &WrapPartitionImpl{
 		e:         e,
-		lsblkUtil: lsblk.NewLSBLK(log),
+		lsblkUtil: lsblk.NewLSBLK(e),
 	}
 }
 
