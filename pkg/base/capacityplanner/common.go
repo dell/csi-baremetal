@@ -38,3 +38,13 @@ func AlignSizeByPE(size int64) int64 {
 	}
 	return size + alignement
 }
+
+// SubtractLVMMetadataSize subtracts LVM metadata size from raw drive size
+func SubtractLVMMetadataSize(size int64) int64 {
+	reminder := size % DefaultPESize
+	result := size - reminder
+	if reminder < LvgDefaultMetadataSize {
+		return result - DefaultPESize
+	}
+	return result
+}
