@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -119,18 +120,10 @@ func main() {
 	}
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 
-	k8sCache, err := k8s.GetK8SCache()
+	kubeCache, err := prepareKubeCache(logger, stopCH)
 	if err != nil {
-		logger.Fatalf("fail to create cache for kubernetes resources, error: %v", err)
+		logger.Fatalf("fail to start kubeCache, error: %v", err)
 	}
-	// start cache
-	go func() {
-		// cache implementation we use newer returns err
-		_ = k8sCache.Start(stopCH)
-	}()
-	k8sCache.WaitForCacheSync(stopCH)
-
-	kubeCache := k8s.NewKubeCache(k8sCache, logger)
 
 	nodeID, err := getNodeID(wrappedK8SClient, *nodeName, featureConf)
 	if err != nil {
@@ -320,4 +313,28 @@ func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*e
 		return nil, fmt.Errorf("fail to create events recorder, error: %s", err)
 	}
 	return eventRecorder, nil
+}
+
+func prepareKubeCache(logger *logrus.Logger, stopCH <-chan struct{}) (*k8s.KubeCache, error) {
+	k8sCache, err := k8s.GetK8SCache()
+	if err != nil {
+		logger.Errorf("fail to create cache for kubernetes resources, error: %v", err)
+		return nil, err
+	}
+	for _, obj := range []runtime.Object{&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{}} {
+		_, err := k8sCache.GetInformer(obj)
+		if err != nil {
+			logger.Errorf("fail to get cache informer for CR, error: %v", err)
+			return nil, err
+		}
+	}
+	// start cache
+	go func() {
+		// cache implementation we use newer returns err
+		_ = k8sCache.Start(stopCH)
+	}()
+
+	k8sCache.WaitForCacheSync(stopCH)
+
+	return k8s.NewKubeCache(k8sCache, logger), nil
 }
