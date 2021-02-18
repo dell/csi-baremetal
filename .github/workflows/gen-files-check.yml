@@ -25,6 +25,10 @@ jobs:
       run: |
         make install-controller-gen
         make generate-deepcopy
+    - name: Change file in directory
+      run: |
+          echo "var Changed string" >> api/generated/v1/drivemgrsvc.pb.go
+    
     - name: Verify Changed files
       uses: tj-actions/verify-changed-files@v5.5
       id: changed_files
