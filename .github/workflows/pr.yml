@@ -6,8 +6,8 @@ on:
     branches: [ master ]
 
 jobs:
-  lint&test:
-    name: Build && test
+  lint-test:
+    name: Validate code and charts
     runs-on: ubuntu-18.04
     steps:
     - name: Check out code
