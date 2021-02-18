@@ -3,10 +3,6 @@
 # idea files
 .idea
 *.iml
-# generated code
-*.pb.go
-api/generated
-zz_generated.*.go
 # libries and build artifacts
 *_output
 vendor
