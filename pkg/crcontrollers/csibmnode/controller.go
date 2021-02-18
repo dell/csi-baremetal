@@ -184,12 +184,12 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 				}
 				nodeNew := e.ObjectNew.(*coreV1.Node)
 
-				if !bmc.isEnabledForNode(nodeNew.Name) {
+				if !bmc.isMatchSelector(nodeNew) {
 					return false
 				}
 
-				if !bmc.isMatchSelector(nodeNew) {
-					return false
+				if !bmc.isEnabledForNode(nodeNew.Name) {
+					bmc.enableForNode(nodeNew.Name)
 				}
 
 				annotationAreTheSame := reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations())
