@@ -1,7 +1,7 @@
 name: PR validation
 
 on:
-  push
+  push:
   pull_request:
     branches: [ master ]
 
