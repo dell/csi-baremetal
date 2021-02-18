@@ -1,6 +1,7 @@
 name: Generated files consistency check
 
 on:
+  push:
   pull_request:
     branches: [ master ]
 
