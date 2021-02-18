@@ -71,3 +71,29 @@ func NewKubeCache(reader k8sCl.Reader, logger *logrus.Logger) *KubeCache {
 		log:    logger.WithField("component", "KubeClient"),
 	}
 }
+
+// InitKubeCache creates and starts KubeCache,
+// if objects passed the function will block until cache synced for these objects
+func InitKubeCache(logger *logrus.Logger, stopCH <-chan struct{}, objects ...runtime.Object) (*KubeCache, error) {
+	k8sCache, err := GetK8SCache()
+	if err != nil {
+		logger.Errorf("fail to create cache for kubernetes resources, error: %v", err)
+		return nil, err
+	}
+	for _, obj := range objects {
+		_, err := k8sCache.GetInformer(obj)
+		if err != nil {
+			logger.Errorf("fail to get cache informer for CR, error: %v", err)
+			return nil, err
+		}
+	}
+	// start cache
+	go func() {
+		// cache implementation we use newer returns err
+		_ = k8sCache.Start(stopCH)
+	}()
+
+	k8sCache.WaitForCacheSync(stopCH)
+
+	return NewKubeCache(k8sCache, logger), nil
+}
