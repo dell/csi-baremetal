@@ -33,7 +33,7 @@ jobs:
       uses: tj-actions/verify-changed-files@v5.5
       id: changed_files
       with:
-        files: 'api'
+        files: '.(go)$'
     - name: Display changed files
       if: steps.changed_files.outputs.files_changed == 'true'
       run: exit 1
