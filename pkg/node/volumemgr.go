@@ -72,8 +72,12 @@ type eventRecorder interface {
 type VolumeManager struct {
 	// for interacting with kubernetes objects
 	k8sClient *k8s.KubeClient
+	// cache for kubernetes resources
+	k8sCache k8s.CRReader
 	// help to read/update particular CR
 	crHelper *k8s.CRHelper
+	// CRHelper instance which reads from cache
+	cachedCrHelper *k8s.CRHelper
 
 	// uses for communicating with hardware manager
 	driveMgrClient api.DriveServiceClient
@@ -158,7 +162,8 @@ func NewVolumeManager(
 	client api.DriveServiceClient,
 	executor command.CmdExecutor,
 	logger *logrus.Logger,
-	k8sclient *k8s.KubeClient,
+	k8sClient *k8s.KubeClient,
+	k8sCache k8s.CRReader,
 	recorder eventRecorder, nodeID string) *VolumeManager {
 	driveMgrDuration := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "discovery_duration_seconds",
@@ -177,13 +182,15 @@ func NewVolumeManager(
 	}
 
 	vm := &VolumeManager{
-		k8sClient:      k8sclient,
-		crHelper:       k8s.NewCRHelper(k8sclient, logger),
+		k8sClient:      k8sClient,
+		k8sCache:       k8sCache,
+		crHelper:       k8s.NewCRHelper(k8sClient, logger),
+		cachedCrHelper: k8s.NewCRHelper(k8sClient, logger).SetReader(k8sCache),
 		driveMgrClient: client,
-		acProvider:     common.NewACOperationsImpl(k8sclient, logger),
+		acProvider:     common.NewACOperationsImpl(k8sClient, logger),
 		provisioners: map[p.VolumeType]p.Provisioner{
-			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sclient, logger),
-			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sclient, logger),
+			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sClient, logger),
+			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sClient, logger),
 		},
 		fsOps:                  utilwrappers.NewFSOperationsImpl(executor, logger),
 		lvmOps:                 lvm.NewLVM(executor, logger),
@@ -559,7 +566,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 		err            error
 	)
 
-	if driveCRs, err = m.crHelper.GetDriveCRs(m.nodeID); err != nil {
+	if driveCRs, err = m.cachedCrHelper.GetDriveCRs(m.nodeID); err != nil {
 		return nil, err
 	}
 	firstIteration = len(driveCRs) == 0
@@ -674,7 +681,7 @@ func (m *VolumeManager) handleDriveUpdates(ctx context.Context, updates *driveUp
 
 // isDriveInLVG check whether drive is a part of some LVG or no
 func (m *VolumeManager) isDriveInLVG(d api.Drive) bool {
-	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
+	lvgs, err := m.cachedCrHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		m.log.WithFields(logrus.Fields{
 			"method":    "isDriveInLVG",
@@ -699,7 +706,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 		"method": "discoverVolumeCRs",
 	})
 
-	driveCRs, err := m.crHelper.GetDriveCRs(m.nodeID)
+	driveCRs, err := m.cachedCrHelper.GetDriveCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
@@ -710,11 +717,11 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 		return fmt.Errorf("unable to get list of block devices: %v", err)
 	}
 
-	volumeCRs, err := m.crHelper.GetVolumeCRs(m.nodeID)
+	volumeCRs, err := m.cachedCrHelper.GetVolumeCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
-	lvgCRs, err := m.crHelper.GetLVGCRs(m.nodeID)
+	lvgCRs, err := m.cachedCrHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
@@ -808,15 +815,15 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 	ll := m.log.WithField("method", "discoverAvailableCapacity")
 
-	acs, err := m.crHelper.GetACCRs(m.nodeID)
+	acs, err := m.cachedCrHelper.GetACCRs(m.nodeID)
 	if err != nil {
 		return fmt.Errorf("unable to read AC list: %v", err)
 	}
-	volumes, err := m.crHelper.GetVolumeCRs(m.nodeID)
+	volumes, err := m.cachedCrHelper.GetVolumeCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
-	driveCRs, err := m.crHelper.GetDriveCRs(m.nodeID)
+	driveCRs, err := m.cachedCrHelper.GetDriveCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
@@ -917,7 +924,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	)
 
 	// 1. check whether LVG CR that holds info about LVG configuration on the system drive exists or not
-	lvgs, err := m.crHelper.GetLVGCRs(m.nodeID)
+	lvgs, err := m.cachedCrHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		return err
 	}
@@ -934,7 +941,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	// 2. check whether there is LVG configuration on the system drive or not
 	var driveCR = new(drivecrd.Drive)
 	// TODO: handle situation when there is more then one system drive
-	if err = m.k8sClient.ReadCR(context.Background(), m.systemDrivesUUIDs[0], "", driveCR); err != nil {
+	if err = m.k8sCache.ReadCR(context.Background(), m.systemDrivesUUIDs[0], "", driveCR); err != nil {
 		return err
 	}
 
@@ -1018,14 +1025,14 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// Handle resources without LVG
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
-		if ac, err := m.crHelper.GetACByLocation(drive.UUID); err == nil {
+		if ac, err := m.cachedCrHelper.GetACByLocation(drive.UUID); err == nil {
 			ll.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
 			if err := m.k8sClient.DeleteCR(ctx, ac); err != nil {
 				ll.Errorf("Failed to delete unhealthy available capacity CR: %v", err)
 			}
 		}
 	}
-	lvg, err := m.crHelper.GetLVGByDrive(ctx, drive.UUID)
+	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, drive.UUID)
 	if lvg != nil {
 		lvg.Spec.Health = drive.Health
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
@@ -1039,7 +1046,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		ll.Errorf(errMsg)
 	}
 	// Set disk's health status to volume CR
-	volumes, _ := m.crHelper.GetVolumesByLocation(ctx, drive.UUID)
+	volumes, _ := m.cachedCrHelper.GetVolumesByLocation(ctx, drive.UUID)
 	for _, vol := range volumes {
 		ll.Infof("Setting updated status %s to volume %s", drive.Health, vol.Name)
 		// save previous health state
@@ -1087,7 +1094,7 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 		size++ // if size is 0 it field will not display for CR
 	}
 	// check whether AC exists
-	if ac, _ := m.crHelper.GetACByLocation(location); ac != nil {
+	if ac, _ := m.cachedCrHelper.GetACByLocation(location); ac != nil {
 		return nil
 	}
 

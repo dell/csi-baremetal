@@ -63,6 +63,14 @@ type KubeClient struct {
 	metrics   metrics.Statistic
 }
 
+// CRReader is a reader interface for k8s client wrapper
+type CRReader interface {
+	// ReadCR reads CR
+	ReadCR(ctx context.Context, name string, namespace string, obj runtime.Object) error
+	// ReadList reads CR list
+	ReadList(ctx context.Context, obj runtime.Object) error
+}
+
 // NewKubeClient is the constructor for KubeClient struct
 // Receives basic k8s client from controller-runtime, logrus logger and namespace where to work
 // Returns an instance of KubeClient struct
