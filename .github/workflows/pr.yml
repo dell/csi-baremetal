@@ -29,14 +29,6 @@ jobs:
         key: csi-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           csi-go-
-  
-    - name: Compile proto files
-      run: make install-compile-proto
-
-    - name: Generate CRD
-      run: |
-        make install-controller-gen
-        make generate-deepcopy
         
     - name: Get dependencies
       run:  make dependency
