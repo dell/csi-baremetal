@@ -24,11 +24,9 @@ jobs:
     - name: Load dep cache
       uses: actions/cache@v2
       with:
-        path: |
-          ~/go/pkg/mod
+        path: ~/go/pkg/mod
         key: go-dep-${{ env.go_version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          go-dep-${{ env.go_version }}-
+        restore-keys: go-dep-${{ env.go_version }}-
           
     - name: Load build and linter cache
       uses: actions/cache@v2
@@ -46,7 +44,7 @@ jobs:
       
     - name: Install golangci-lint
       run: |
-        wget -O golangci-lint.deb https://github.com/golangci/golangci-lint/releases/download/v${{ env.golangci_version }}/golangci-lint-${{ env.golangci_version }}-linux-amd64.deb
+        wget -q -O golangci-lint.deb https://github.com/golangci/golangci-lint/releases/download/v${{ env.golangci_version }}/golangci-lint-${{ env.golangci_version }}-linux-amd64.deb
         sudo dpkg -i golangci-lint.deb
         
     - name: Lint code
