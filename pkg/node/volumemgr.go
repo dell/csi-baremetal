@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -766,20 +765,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 				continue
 			}
 
-			var (
-				partUUID string
-				size     int64
-			)
-
-			if bdev.Children[0].Size != "" {
-				size, err = strconv.ParseInt(bdev.Size, 10, 64)
-				if err != nil {
-					ll.Warnf("Unable parse string %s to int, for device %s: %v. Volume CR will be created with 0 size",
-						bdev.Size, bdev.Name, err)
-				}
-			}
-
-			partUUID = bdev.Children[0].PartUUID
+			partUUID := bdev.Children[0].PartUUID
 			if partUUID == "" {
 				partUUID = uuid.New().String() // just generate random and exclude drive
 				ll.Warnf("There is no part UUID for partition from device %v, UUID has been generated %s", bdev, partUUID)
@@ -790,7 +776,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 			volumeCR := m.k8sClient.ConstructVolumeCR(volUUID, base.DefaultNamespace, api.Volume{
 				NodeId:       m.nodeID,
 				Id:           partUUID,
-				Size:         size,
+				Size:         bdev.Size.Int64,
 				Location:     drive.Spec.UUID,
 				LocationType: apiV1.LocationTypeDrive,
 				Mode:         apiV1.ModeFS,
