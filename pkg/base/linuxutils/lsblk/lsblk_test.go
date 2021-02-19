@@ -136,3 +136,37 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 	res, err = l.SearchDrivePath(&dCR)
 	assert.NotNil(t, err)
 }
+
+func TestLSBLK_GetBlockDevicesV2_Success(t *testing.T) {
+	l := NewLSBLK(testLogger)
+	e := &mocks.GoMockExecutor{}
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkDevV2, "", nil)
+	l.e = e
+
+	out, err := l.GetBlockDevices("")
+	assert.Nil(t, err)
+	assert.NotNil(t, out)
+	assert.Equal(t, 1, len(out))
+}
+
+func TestLSBLK_GetAllV2_Success(t *testing.T) {
+	l := NewLSBLK(testLogger)
+	e := &mocks.GoMockExecutor{}
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkAllV2, "", nil)
+	l.e = e
+
+	out, err := l.GetBlockDevices("")
+	assert.Nil(t, err)
+	assert.NotNil(t, out)
+	assert.Equal(t, 2, len(out))
+	hdd := out[0]
+	ssd := out[1]
+	if hdd.Name != mocks.HDDBlockDeviceName {
+		ssd = hdd
+		hdd = out[1]
+	}
+	assert.Equal(t, hdd.Rota.Bool, false)
+	assert.Equal(t, hdd.Size.Int64, int64(480103981056))
+	assert.Equal(t, ssd.Rota.Bool, true)
+	assert.Equal(t, ssd.Size.Int64,int64(8001563222016))
+}
