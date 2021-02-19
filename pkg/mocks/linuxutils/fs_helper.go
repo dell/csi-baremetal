@@ -41,6 +41,13 @@ func (m *MockWrapFS) MkDir(src string) error {
 	return args.Error(0)
 }
 
+// MkFile is a mock implementations
+func (m *MockWrapFS) MkFile(src string) error {
+	args := m.Mock.Called(src)
+
+	return args.Error(0)
+}
+
 // RmDir is a mock implementations
 func (m *MockWrapFS) RmDir(src string) error {
 	args := m.Mock.Called(src)

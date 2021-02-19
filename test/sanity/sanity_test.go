@@ -102,6 +102,7 @@ func TestDriverWithSanity(t *testing.T) {
 	go newControllerSvc(kubeClient)
 
 	config := sanity.NewTestConfig()
+	config.RemoveStagingPath = os.RemoveAll
 	config.Address = nodeEndpoint
 	config.ControllerAddress = controllerEndpoint
 	config.JUnitFile = "report.xml"

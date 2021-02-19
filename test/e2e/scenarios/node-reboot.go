@@ -87,7 +87,7 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 		framework.ExpectNoError(err)
 
 		// create pod with pvc
-		pod, err = e2epod.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err = common.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 

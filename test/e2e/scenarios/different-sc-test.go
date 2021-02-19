@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
@@ -116,6 +116,37 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		pvcs = createPVCs(f, 3, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
+	// test for raw block volumes
+	ginkgo.It("should create Pod with raw block volume HDD", func() {
+		scType := "HDD"
+		init(scType)
+		defer cleanup()
+		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
+			f, 1, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)}
+		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+	})
+
+	ginkgo.It("should create Pod with raw block volume HDDLVG", func() {
+		scType := "HDDLVG"
+		init(scType)
+		defer cleanup()
+		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
+			f, 1, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)}
+		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+	})
+}
+
+func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) *corev1.PersistentVolumeClaim {
+	pvc := constructPVC(
+		ns,
+		size,
+		scName,
+		pvcName+"-"+uuid.New().String())
+	blockMode := corev1.PersistentVolumeBlock
+	pvc.Spec.VolumeMode = &blockMode
+	pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(pvc)
+	framework.ExpectNoError(err)
+	return pvc
 }
 
 // CreatePVCs create PVCs in Kubernetes
@@ -136,10 +167,7 @@ func createPVCs(f *framework.Framework, numberOfPVC int, size string, scName str
 // Returns: created Pod
 func startAndWaitForPodWithPVCRunning(f *framework.Framework, ns string, pvc []*corev1.PersistentVolumeClaim) *corev1.Pod {
 	// Create test pod that consumes the pvc
-	pod, err := e2epod.CreatePod(f.ClientSet, ns, nil, pvc, false, "sleep 3600")
-	framework.ExpectNoError(err)
-
-	err = f.WaitForPodRunning(pod.Name)
+	pod, err := common.CreatePod(f.ClientSet, ns, nil, pvc, false, "sleep 3600")
 	framework.ExpectNoError(err)
 	return pod
 }
