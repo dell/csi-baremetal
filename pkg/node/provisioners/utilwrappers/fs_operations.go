@@ -30,7 +30,7 @@ import (
 type FSOperations interface {
 	// PrepareAndPerformMount composite methods which is prepare source and destination directories
 	// and performs mount operation from src to dst
-	PrepareAndPerformMount(src, dst string, bindMount bool) error
+	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	fs.WrapFS
@@ -54,7 +54,7 @@ func NewFSOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *FSOperation
 // create (if isn't exist) dst folder on node and perform mount from src to dst
 // if bindMount set to true - mount operation will contain "--bind" option
 // if error occurs and dst has created during current method call then dst will be removed
-func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount bool) error {
+func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error {
 	ll := fsOp.log.WithFields(logrus.Fields{
 		"method": "PrepareAndPerformMount",
 	})
@@ -67,7 +67,11 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount 
 		if !os.IsNotExist(err) {
 			return err
 		}
-		if err = fsOp.MkDir(dst); err != nil {
+		createCMD := fsOp.MkDir
+		if !dstIsDir {
+			createCMD = fsOp.MkFile
+		}
+		if err = createCMD(dst); err != nil {
 			return err
 		}
 		wasCreated = true // if something went wrong we will remove path that had created based on that flag

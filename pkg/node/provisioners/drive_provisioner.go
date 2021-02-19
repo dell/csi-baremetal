@@ -24,6 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
@@ -96,6 +97,10 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 	device, err := d.listBlk.SearchDrivePath(drive)
 	if err != nil {
 		return err
+	}
+
+	if vol.Mode == apiV1.ModeRAW {
+		return nil
 	}
 
 	partUUID, _ := util.GetVolumeUUID(vol.Id)
@@ -222,6 +227,9 @@ func (d *DriveProvisioner) GetVolumePath(vol api.Volume) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("unable to determine partition UUID: %v", err)
 		}
+	}
+	if vol.Mode == apiV1.ModeRAW {
+		return device, nil
 	}
 	volumeUUID, _ = util.GetVolumeUUID(volumeUUID)
 

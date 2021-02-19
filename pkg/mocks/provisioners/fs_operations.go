@@ -24,8 +24,8 @@ type MockFsOpts struct {
 }
 
 // PrepareAndPerformMount is a mock implementation
-func (m *MockFsOpts) PrepareAndPerformMount(src, dst string, bindMount bool) error {
-	args := m.Mock.Called(src, dst, bindMount)
+func (m *MockFsOpts) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error {
+	args := m.Mock.Called(src, dst, bindMount, dstIsDir)
 
 	return args.Error(0)
 }

@@ -19,6 +19,8 @@ package fs
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -70,6 +72,7 @@ const (
 type WrapFS interface {
 	GetFSSpace(src string) (int64, error)
 	MkDir(src string) error
+	MkFile(src string) error
 	RmDir(src string) error
 	CreateFS(fsType FileSystem, device string) error
 	WipeFS(device string) error
@@ -137,6 +140,32 @@ func (h *WrapFSImpl) MkDir(src string) error {
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, "")))); err != nil {
 		return fmt.Errorf("failed to create dir %s: %v", src, err)
+	}
+	return nil
+}
+
+// MkFile create file with specified path
+func (h *WrapFSImpl) MkFile(src string) error {
+	st, err := os.Stat(src)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		err = h.MkDir(path.Dir(src))
+		if err != nil {
+			return fmt.Errorf("failed to create parrent dir")
+		}
+		file, err := os.OpenFile(src, os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		if err = file.Close(); err != nil {
+			return fmt.Errorf("could not close file")
+		}
+		return nil
+	}
+	if st.IsDir() {
+		return fmt.Errorf("existing path is a directory")
 	}
 	return nil
 }
