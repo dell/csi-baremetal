@@ -69,26 +69,21 @@ func (nc *nodeCapacity) removeAC(ac *accrd.AvailableCapacity) {
 // selectACForVolume select AC for volume
 // will modify nodeCapacity AC cache
 func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
-	// extract drive technology - HDD,SSD, etc.
-	subSC := util.GetSubStorageClass(vol.StorageClass)
-	// check if LVG SC
-	isLVG := util.IsStorageClassLVG(vol.StorageClass)
+	if util.IsStorageClassLVG(vol.StorageClass) {
+		return nc.selectACForLVMVolume(vol)
+	}
+	return nc.selectACForFullDriveVolume(vol)
+}
 
-	// build SC to Name->AC map and check for free capacity
+// selectACForFullDriveVolume selects AC for ANY SC or for other "full drive" storage classes.
+func (nc *nodeCapacity) selectACForFullDriveVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
 	scToACMap := nc.getStorageClassToACMapping()
+
 	if len(scToACMap[vol.StorageClass]) == 0 &&
-		len(scToACMap[subSC]) == 0 &&
 		vol.StorageClass != v1.StorageClassAny {
 		return nil
 	}
-
-	// make copy for temp transformations
-	size := vol.GetSize()
-	if isLVG {
-		// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
-		size = AlignSizeByPE(size)
-	}
-
+	requiredSize := vol.GetSize()
 	// filter out non relevant storage classes
 	filteredMap := SCToACMap{}
 	if vol.StorageClass == v1.StorageClassAny {
@@ -103,44 +98,62 @@ func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCap
 	} else {
 		filteredMap[vol.StorageClass] = scToACMap[vol.StorageClass]
 	}
-
 	// try to find free capacity
 	var foundAC *accrd.AvailableCapacity
 	for _, acs := range filteredMap {
-		foundAC = searchACWithClosestSize(acs, size, nil)
+		foundAC = searchACWithClosestSize(acs, requiredSize, nil)
 		if foundAC != nil {
 			break
 		}
 	}
-	// for LVG SC try to reserve AC to create new LVG since no free space found on existing
-	if isLVG && foundAC == nil {
-		// search AC in sub storage class
-		foundAC = searchACWithClosestSize(scToACMap[subSC], size, SubtractLVMMetadataSize)
-	}
-
 	// return if available capacity not found
 	if foundAC == nil {
 		return nil
 	}
-
 	nc.saveOriginalAC(foundAC)
-	if foundAC.Spec.StorageClass != vol.StorageClass { // sc relates to LVG or sc == ANY
-		if util.IsStorageClassLVG(foundAC.Spec.StorageClass) || isLVG {
-			if isLVG {
-				foundAC.Spec.StorageClass = vol.StorageClass // e.g. HDD -> HDDLVG
-			}
-			foundAC.Spec.Size = SubtractLVMMetadataSize(foundAC.Spec.Size) - size
-		} else {
-			// sc == ANY && ac.Spec.StorageClass doesn't relate to LVG
-			nc.removeAC(foundAC)
-		}
-	} else {
-		if isLVG {
-			foundAC.Spec.Size -= size
-		} else {
-			nc.removeAC(foundAC)
-		}
+	// mark AC as used
+	nc.removeAC(foundAC)
+	return nc.getOriginalAC(foundAC.Name)
+}
+
+// selectACForLVMVolume selects AC for Volume with LVM SC
+// first we try to find AC with LVM AC, if not found full drive AC will be converted to LVM AC
+func (nc *nodeCapacity) selectACForLVMVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
+	// extract drive technology - HDD,SSD, etc.
+	subSC := util.GetSubStorageClass(vol.StorageClass)
+
+	scToACMap := nc.getStorageClassToACMapping()
+	if len(scToACMap[vol.StorageClass]) == 0 &&
+		len(scToACMap[subSC]) == 0 {
+		return nil
 	}
+
+	// we should round up volume size, it should be aligned with LVM PE size
+	// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
+	requiredSize := AlignSizeByPE(vol.GetSize())
+
+	// try to find free capacity with StorageClass from volume creation request
+	foundAC := searchACWithClosestSize(scToACMap[vol.StorageClass], requiredSize, nil)
+
+	// for LVG SC try to reserve AC to create new LVG since no free space found on existing
+	if foundAC == nil {
+		// search AC in sub storage class
+		foundAC = searchACWithClosestSize(scToACMap[subSC], requiredSize, SubtractLVMMetadataSize)
+	}
+	// return if available capacity not found
+	if foundAC == nil {
+		return nil
+	}
+	// we should return unmodified AC, but for planning the next volumes we should do a AC resource modification
+	// here we save original AC for future use
+	nc.saveOriginalAC(foundAC)
+
+	if foundAC.Spec.StorageClass != vol.StorageClass { // sc relates to LVG or sc == ANY
+		foundAC.Spec.StorageClass = vol.StorageClass // e.g. HDD -> HDDLVG
+		foundAC.Spec.Size = SubtractLVMMetadataSize(foundAC.Spec.Size)
+	}
+	foundAC.Spec.Size -= requiredSize
+
 	return nc.getOriginalAC(foundAC.Name)
 }
 
