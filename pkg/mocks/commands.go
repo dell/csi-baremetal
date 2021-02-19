@@ -176,16 +176,20 @@ var (
 	// LsblkAllV2 provides output for new lsblk version with children
 	LsblkAllV2 = `{
    		"blockdevices": [
-      		{"name":"` + HDDBlockDeviceName + `", "type":"disk", "size":480103981056, "rota":false, "serial":"PHYH937100WD480K", "wwn":"0x55cd2e415119aed8", "vendor":"ATA     ", "model":"SSDSCKKB480G8R", "rev":"DL6N", "mountpoint":null, "fstype":null, "partuuid":null,
+      		{"name":"` + HDDBlockDeviceName + `", "type":"disk", "size":480103981056, "rota":false, "serial":"PHYH937100WD480K",
+"wwn":"0x55cd2e415119aed8", "vendor":"ATA     ", "model":"SSDSCKKB480G8R", "rev":"DL6N", "mountpoint":null, "fstype":null, "partuuid":null,
          		"children": [            
-            		{"name":"/dev/sdc", "type":"part", "size":479563087872, "rota":false, "serial":null, "wwn":"0x55cd2e415119aed8", "vendor":null, "model":null, "rev":null, "mountpoint":null, "fstype":"LVM2_member", "partuuid":"40b8a8aa-54fc-4725-9599-91f55a309c83",
+            		{"name":"/dev/sdc", "type":"part", "size":479563087872, "rota":false, "serial":null, "wwn":"0x55cd2e415119aed8",
+"vendor":null, "model":null, "rev":null, "mountpoint":null, "fstype":"LVM2_member", "partuuid":"40b8a8aa-54fc-4725-9599-91f55a309c83",
                		"children": [
-                		  {"name":"/dev/mapper/root--vg-lv_root", "type":"lvm", "size":53687091200, "rota":false, "serial":null, "wwn":null, "vendor":null, "model":null, "rev":null, "mountpoint":null, "fstype":"ext4", "partuuid":null}                  
+                		  {"name":"/dev/mapper/root--vg-lv_root", "type":"lvm", "size":53687091200, "rota":false, "serial":null, 
+"wwn":null, "vendor":null, "model":null, "rev":null, "mountpoint":null, "fstype":"ext4", "partuuid":null}                  
                		]
             		}
         	 	]
       		},
-    	  	{"name":"/dev/sdc", "type":"disk", "size":8001563222016, "rota":true, "serial":"5000cca0bbcea5c7", "wwn":"0x5000cca0bbcea5c7", "vendor":"ATA     ", "model":"HGST_HUS728T8TAL", "rev":"RT04", "mountpoint":null, "fstype":null, "partuuid":null}
+    	  	{"name":"/dev/sdc", "type":"disk", "size":8001563222016, "rota":true, "serial":"5000cca0bbcea5c7", "wwn":"0x5000cca0bbcea5c7",
+"vendor":"ATA     ", "model":"HGST_HUS728T8TAL", "rev":"RT04", "mountpoint":null, "fstype":null, "partuuid":null}
    			]
 		}`
 )
