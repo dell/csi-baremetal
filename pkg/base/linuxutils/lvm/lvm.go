@@ -59,7 +59,7 @@ const (
 	// PVInfoCmdTmpl returns colon (:) separated output, where pv name on first place and vg on second
 	PVInfoCmdTmpl = lvmPath + "pvdisplay %s --colon" // add PV name
 	// LVExpandCmdTmpl expand LV
-	LVExpandCmdTmpl = lvmPath + "lvextend --size %s --resizefs %s" // add full LV name
+	LVExpandCmdTmpl = lvmPath + "lvextend --size %sb --resizefs %s" // add full LV name
 	// timeoutBetweenAttempts used for RunCmdWithAttempts as a timeout between calling lvremove
 	timeoutBetweenAttempts = 500 * time.Millisecond
 )
@@ -125,13 +125,13 @@ func (l *LVM) PVRemove(name string) error {
 // Returns error if something went wrong
 func (l *LVM) ExpandLV(lvName string, requiredSize int64) error {
 	cmd := fmt.Sprintf(LVExpandCmdTmpl, strconv.FormatInt(requiredSize, 10), lvName)
-	_, stdErr, err := l.e.RunCmd(cmd,
+	_, _, err := l.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(LVExpandCmdTmpl, "", ""))))
-	if err != nil && strings.Contains(stdErr, "No PV label found") {
-		return nil
+	if err != nil {
+		return err
 	}
-	return err
+	return nil
 }
 
 // VGCreate creates volume group and based on provided physical volumes (pvs). Ignore error if VG already exists

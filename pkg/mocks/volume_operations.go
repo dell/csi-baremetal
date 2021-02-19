@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 )
 
 // VolumeOperationsMock is the mock implementation of VolumeOperations interface for test purposes.
@@ -57,6 +58,24 @@ func (vo *VolumeOperationsMock) UpdateCRsAfterVolumeDeletion(ctx context.Context
 // statuses
 func (vo *VolumeOperationsMock) WaitStatus(ctx context.Context, volumeID string, statuses ...string) error {
 	args := vo.Mock.Called(ctx, volumeID, statuses)
+
+	return args.Error(0)
+}
+
+// ExpandVolume is the mock implementation of ExpandVolume method from VolumeOperations made for simulating
+// Receive golang context, volume CR, requiredBytes as int
+// Return volume spec, error
+func (vo *VolumeOperationsMock) ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) (*api.Volume, error) {
+	args := vo.Mock.Called(ctx, volume, requiredBytes)
+
+	return args.Get(0).(*api.Volume), args.Error(0)
+}
+
+// UpdateCRsAfterVolumeExpansion is the mock implementation of UpdateCRsAfterVolumeExpansion method from VolumeOperations made for simulating
+// Receive golang context, volume spec
+// Return  error
+func (vo *VolumeOperationsMock) UpdateCRsAfterVolumeExpansion(ctx context.Context, vol api.Volume) error {
+	args := vo.Mock.Called(ctx, vol)
 
 	return args.Error(0)
 }

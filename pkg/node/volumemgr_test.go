@@ -89,7 +89,7 @@ var (
 	bdev1 = lsblk.BlockDevice{
 		Name:     drive1.Path,
 		Type:     drive1.Type,
-		Size:     lsblk.CustomInt64{Int64:drive1.Size},
+		Size:     lsblk.CustomInt64{Int64: drive1.Size},
 		Serial:   drive1.SerialNumber,
 		Children: nil,
 	}
@@ -98,7 +98,7 @@ var (
 	bdev2 = lsblk.BlockDevice{
 		Name:     drive2.Path,
 		Type:     drive2.Type,
-		Size:     lsblk.CustomInt64{Int64:drive1.Size},
+		Size:     lsblk.CustomInt64{Int64: drive1.Size},
 		Serial:   drive2.SerialNumber,
 		Children: nil,
 	}

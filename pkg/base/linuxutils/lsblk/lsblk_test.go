@@ -168,5 +168,5 @@ func TestLSBLK_GetAllV2_Success(t *testing.T) {
 	assert.Equal(t, hdd.Rota.Bool, false)
 	assert.Equal(t, hdd.Size.Int64, int64(480103981056))
 	assert.Equal(t, ssd.Rota.Bool, true)
-	assert.Equal(t, ssd.Size.Int64,int64(8001563222016))
+	assert.Equal(t, ssd.Size.Int64, int64(8001563222016))
 }

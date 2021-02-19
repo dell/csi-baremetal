@@ -155,8 +155,8 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	volumeID := req.VolumeId
-	volumeCR := s.crHelper.GetVolumeByID(volumeID)
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
+	if err != nil {
 		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
 		ll.Error(message)
 		return nil, status.Error(codes.NotFound, message)
@@ -231,8 +231,8 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
+	if err != nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 
@@ -341,8 +341,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Staging Path missing in request")
 	}
 
-	volumeCR := s.crHelper.GetVolumeByID(volumeID)
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
+	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
 
@@ -484,14 +484,14 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 
-	volumeCR := s.crHelper.GetVolumeByID(req.GetVolumeId())
-	if volumeCR == nil {
+	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
+	if err != nil {
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
 	// if currStatus not in [VolumeReady, Published]
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published && currStatus != apiV1.Expanded {
+	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)
