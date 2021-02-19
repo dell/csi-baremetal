@@ -17,7 +17,7 @@ dependency:
 all: build base-images images push
 
 ### Build binaries
-build: compile-proto \
+build: \
 build-drivemgr \
 build-node \
 build-controller \

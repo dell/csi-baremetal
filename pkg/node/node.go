@@ -81,13 +81,14 @@ const (
 func NewCSINodeService(client api.DriveServiceClient,
 	nodeID string,
 	logger *logrus.Logger,
-	k8sclient *k8s.KubeClient,
+	k8sClient *k8s.KubeClient,
+	k8sCache k8s.CRReader,
 	recorder eventRecorder,
 	featureConf featureconfig.FeatureChecker) *CSINodeService {
 	e := command.NewExecutor(logger)
 	s := &CSINodeService{
-		VolumeManager:  *NewVolumeManager(client, e, logger, k8sclient, recorder, nodeID),
-		svc:            common.NewVolumeOperationsImpl(k8sclient, logger, cache.NewMemCache(), featureConf),
+		VolumeManager:  *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID),
+		svc:            common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
 		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),

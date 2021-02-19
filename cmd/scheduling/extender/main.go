@@ -22,8 +22,14 @@ import (
 	"net/http"
 	"os"
 
+	coreV1 "k8s.io/api/core/v1"
+	storageV1 "k8s.io/api/storage/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -54,6 +60,8 @@ func main() {
 	logger, _ := base.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
+	stopCH := ctrl.SetupSignalHandler()
+
 	if *metricspath != "" {
 		go func() {
 			http.Handle(*metricspath, promhttp.Handler())
@@ -66,7 +74,22 @@ func main() {
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
 
-	newExtender, err := extender.NewExtender(logger, *namespace, *provisioner, featureConf)
+	k8sClient, err := k8s.GetK8SClient()
+	if err != nil {
+		logger.Fatal(err)
+	}
+	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
+
+	kubeCache, err := k8s.InitKubeCache(logger, stopCH,
+		&coreV1.PersistentVolumeClaim{},
+		&storageV1.StorageClass{},
+		&volumecrd.Volume{})
+
+	if err != nil {
+		logger.Fatalf("Fail to init kubeCache: %v", err)
+	}
+
+	newExtender, err := extender.NewExtender(logger, kubeClient, kubeCache, *provisioner, featureConf)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}

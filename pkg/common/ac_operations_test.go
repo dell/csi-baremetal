@@ -57,7 +57,9 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	assert.Equal(t, 1, len(lvgList.Items))
 	lvg := lvgList.Items[0]
 	assert.Equal(t, apiV1.Creating, lvg.Spec.Status)
-	assert.Equal(t, testAC2.Spec.Size+testAC3.Spec.Size, lvg.Spec.Size)
+	assert.Equal(t,
+		capacityplanner.SubtractLVMMetadataSize(testAC2.Spec.Size)+
+			capacityplanner.SubtractLVMMetadataSize(testAC3.Spec.Size), lvg.Spec.Size)
 	assert.Equal(t, testAC2.Spec.NodeId, lvg.Spec.Node)
 	assert.Equal(t, 2, len(lvg.Spec.Locations))
 	expectedLocation := []string{testAC2.Spec.Location, testAC3.Spec.Location}

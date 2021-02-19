@@ -440,8 +440,10 @@ func setup(t *testing.T) *Extender {
 
 	featureConf := fc.NewFeatureConfig()
 	kubeClient := k8s.NewKubeClient(k, testLogger, testNs)
+	kubeCache := k8s.NewKubeCache(k, testLogger)
 	return &Extender{
 		k8sClient:              kubeClient,
+		k8sCache:               kubeCache,
 		featureChecker:         featureConf,
 		namespace:              testNs,
 		provisioner:            testProvisioner,

@@ -220,20 +220,6 @@ func TestCapacityManager(t *testing.T) {
 			assert.Equal(t, testACS[0], plan.GetACForVolume(testNode1, testVols[0]))
 		}
 	})
-	t.Run("Using sub class for LVG", func(t *testing.T) {
-		testVols := []*genV1.Volume{
-			getTestVol("", testSmallSize, apiV1.StorageClassHDDLVG),
-		}
-		testACS := []*accrd.AvailableCapacity{
-			getTestAC(testNode1, testSmallSize+LvgDefaultMetadataSize, apiV1.StorageClassHDD),
-		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
-		assert.NotNil(t, plan)
-		assert.Nil(t, err)
-		if plan != nil {
-			assert.Equal(t, testACS[0], plan.GetACForVolume(testNode1, testVols[0]))
-		}
-	})
 	t.Run("Multiple LVM volumes on same drive", func(t *testing.T) {
 		testVols := []*genV1.Volume{
 			getTestVol("", testSmallSize, apiV1.StorageClassHDDLVG),

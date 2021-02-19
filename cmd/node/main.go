@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -101,6 +102,8 @@ func main() {
 
 	logger.Info("Starting Node Service")
 
+	stopCH := ctrl.SetupSignalHandler()
+
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
 	if err != nil {
@@ -115,8 +118,15 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
+	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 
-	nodeID, err := getNodeID(k8SClient, *nodeName, featureConf)
+	kubeCache, err := k8s.InitKubeCache(logger, stopCH,
+		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
+	if err != nil {
+		logger.Fatalf("fail to start kubeCache, error: %v", err)
+	}
+
+	nodeID, err := getNodeID(wrappedK8SClient, *nodeName, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
@@ -128,17 +138,13 @@ func main() {
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
-	// TODO why do we need 3 clients?
-	volumesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	lvgClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-	drivesClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, logger, volumesClient, eventRecorder, featureConf)
+		clientToDriveMgr, nodeID, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
-		lvg.NewController(lvgClient, nodeID, logger),
-		drive.NewController(drivesClient, nodeID, clientToDriveMgr, eventRecorder, logger),
+		lvg.NewController(wrappedK8SClient, nodeID, logger),
+		drive.NewController(wrappedK8SClient, nodeID, clientToDriveMgr, eventRecorder, logger),
 		logger)
 
 	// register CSI calls handler
@@ -170,7 +176,7 @@ func main() {
 	}()
 	go func() {
 		logger.Info("Starting CRD Controller Manager ...")
-		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		if err := mgr.Start(stopCH); err != nil {
 			logger.Fatalf("CRD Controller Manager failed with error: %v", err)
 		}
 	}()
