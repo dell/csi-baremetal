@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
-	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
+	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"

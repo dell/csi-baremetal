@@ -16,7 +16,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
-	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
+	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )

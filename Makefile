@@ -111,6 +111,6 @@ generate-crds:
 	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/driver/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=charts/driver/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=charts/driver/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/csibmnodecrd/csibmnode_types.go paths=api/v1/csibmnodecrd/groupversion_info.go output:crd:dir=charts/operator/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/nodecrd/csibmnode_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=charts/operator/crds
 
 generate-api: compile-proto generate-crds generate-deepcopy
