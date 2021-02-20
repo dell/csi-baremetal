@@ -39,7 +39,7 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering

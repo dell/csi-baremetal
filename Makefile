@@ -41,7 +41,7 @@ build-scheduler:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER} ./cmd/${SCHEDULING_PKG}/${SCHEDULER}/main.go
 
 build-node-controller:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${CSI_BM_NODE}/${CSI_BM_NODE} ./cmd/${CSI_BM_NODE}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${OPERATOR}/${OPERATOR} ./cmd/${OPERATOR}/main.go
 
 ### Clean artifacts
 clean-all: clean clean-images

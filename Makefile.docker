@@ -9,7 +9,7 @@ image-controller \
 image-extender \
 image-extender-patcher \
 image-scheduler \
-image-node-controller
+image-operator
 
 base-images: base-image-drivemgr base-image-node base-image-controller
 
@@ -57,10 +57,10 @@ image-scheduler:
 	cp ./pkg/${SCHEDULER}/${PLUGIN}/Dockerfile ./build/${SCHEDULING_PKG}/${SCHEDULER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ./build/${SCHEDULING_PKG}/${SCHEDULER}
 
-image-node-controller:
-	cp ./pkg/${CR_CONTROLLERS}/${CSI_BM_NODE}/Dockerfile ./build/${CR_CONTROLLERS}/${CSI_BM_NODE}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG} \
-	./build/${CR_CONTROLLERS}/${CSI_BM_NODE}
+image-operator:
+	cp ./pkg/${CR_CONTROLLERS}/${OPERATOR}/Dockerfile ./build/${CR_CONTROLLERS}/${OPERATOR}/
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} \
+	./build/${CR_CONTROLLERS}/${OPERATOR}
 
 ###################
 ### Push images ###
@@ -71,7 +71,7 @@ push-controller \
 push-extender \
 push-extender-patcher \
 push-scheduler \
-push-node-controller
+push-operator
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -91,8 +91,8 @@ push-extender-patcher:
 push-scheduler:
 	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
-push-node-controller:
-	docker push ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+push-operator:
+	docker push ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}
 
 ####################
 ### Clean images ###
@@ -103,7 +103,7 @@ clean-image-drivemgr \
 clean-image-extender \
 clean-image-extender-patcher \
 clean-image-scheduler \
-clean-image-node-controller
+clean-image-operator
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -123,5 +123,5 @@ clean-image-extender-patcher:
 clean-image-scheduler:
 	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
-clean-image-node-controller:
-	docker rmi ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+clean-image-operator:
+	docker rmi ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}

@@ -53,7 +53,7 @@ kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
-	docker pull ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}
 
 kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -76,7 +76,7 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ${PROJECT}-${EXTENDER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ${PROJECT}-${SCHEDULER}:${TAG}
-	docker tag ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG} ${PROJECT}-${CSI_BM_NODE}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} ${PROJECT}-${OPERATOR}:${TAG}
 
 kind-load-images:
 	kind load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -91,4 +91,4 @@ kind-load-images:
 	kind load docker-image ${PROJECT}-${EXTENDER}:${TAG}
 	kind load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	kind load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
-	kind load docker-image ${PROJECT}-${CSI_BM_NODE}:${TAG}
+	kind load docker-image ${PROJECT}-${OPERATOR}:${TAG}

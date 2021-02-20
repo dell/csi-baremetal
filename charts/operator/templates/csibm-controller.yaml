@@ -13,7 +13,7 @@ spec:
       labels:
         app: csi-operator
     spec:
-      serviceAccount: csibm-sa
+      serviceAccount: csi-operator-sa
       terminationGracePeriodSeconds: 10
       containers:
       - name: controller

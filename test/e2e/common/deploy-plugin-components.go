@@ -31,7 +31,7 @@ import (
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"sigs.k8s.io/yaml"
 
-	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 const (

@@ -42,7 +42,7 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 var (

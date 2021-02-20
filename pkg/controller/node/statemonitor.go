@@ -52,7 +52,7 @@ const (
 
 const (
 	// todo need to use app label instead
-	svcPodsMask = "baremetal-csi-node"
+	svcPodsMask = "csi-baremetal-node"
 )
 
 // ServicesStateMonitor contains methods to get Node service health state

@@ -1,10 +1,10 @@
 # project name
-PROJECT          := baremetal-csi-plugin
+PROJECT          := csi-baremetal
 
 ### file paths
-PLUGIN_CHART_PATH		:= charts/baremetal-csi-plugin
+DRIVER_CHART_PATH		:= charts/driver
 EXTENDER_CHART_PATH		:= charts/scheduler-extender
-OPERATOR_CHART_PATH		:= charts/csibm-operator
+OPERATOR_CHART_PATH		:= charts/operator
 
 ### version
 MAJOR            := 0
@@ -40,7 +40,7 @@ CONTROLLER       := controller
 SCHEDULER        := scheduler
 EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
-CSI_BM_NODE      := csibmnode
+OPERATOR      	 := operator
 PLUGIN           := plugin
 
 BASE_DRIVE_MGR     := basemgr

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package csibmnode
+package operator
 
 import (
 	"context"
@@ -39,7 +39,7 @@ import (
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 const (

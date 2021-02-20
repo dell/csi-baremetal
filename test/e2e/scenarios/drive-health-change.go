@@ -35,7 +35,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )

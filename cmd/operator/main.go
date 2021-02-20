@@ -29,7 +29,7 @@ import (
 	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator"
 )
 
 var (
@@ -62,7 +62,7 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
 
-	nodeCtrl, err := csibmnode.NewController(*nodeSelector, kubeClient, logger)
+	nodeCtrl, err := operator.NewController(*nodeSelector, kubeClient, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

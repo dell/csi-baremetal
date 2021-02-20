@@ -1,6 +1,6 @@
 FROM    ubuntu:20.04
 
-LABEL   description="CSI-Baremetal Scheduler plugin"
+LABEL   description="Bare-metal CSI Scheduler"
 
 ADD     scheduler  scheduler 
 
