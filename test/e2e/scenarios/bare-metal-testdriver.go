@@ -101,9 +101,9 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	manifests := []string{
 		manifestsFolder + "controller-rbac.yaml",
 		manifestsFolder + "node-rbac.yaml",
-		manifestsFolder + "csi-baremetal-node.yaml",
+		manifestsFolder + "node.yaml",
 	}
-	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/csi-baremetal-controller.yaml")
+	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/controller.yaml")
 	framework.ExpectNoError(err)
 
 	deployment := &appsv1.Deployment{}
