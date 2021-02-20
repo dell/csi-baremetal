@@ -70,9 +70,9 @@ jobs:
 
     - name: Test sanity
       run: |
-        helm install baremetal-csi-plugin ./charts/baremetal-csi-plugin
+        helm install csi-baremetal-driver ./charts/driver
         helm install scheduler-extender ./charts/scheduler-extender
-        helm install csibm-operator ./charts/csibm-operator
+        helm install csi-operator ./charts/csibm-operator
         make test-sanity
         kubectl get pods --all-namespaces
         

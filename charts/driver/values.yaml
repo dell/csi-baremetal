@@ -22,7 +22,7 @@ log:
 
 # Storage Class name that provisions PVs dynamically
 storageClass:
-  name: baremetal-csi-sc
+  name: csi-baremetal-sc
 
 # CSI Plugin parameters
 

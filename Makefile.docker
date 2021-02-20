@@ -23,7 +23,7 @@ download-grpc-health-probe:
 	chmod +x build/health_probe
 
 # NOTE: Output directory for binary file should be in Docker context.
-# So we can't use /baremetal-csi-plugin/build to build the image.
+# So we can't use csi-baremetal/build to build the image.
 base-image-node: download-grpc-health-probe
 	cp ./pkg/${NODE}/Dockerfile.build ./build/${NODE}/
 	cp ./build/${HEALTH_PROBE} ./build/${NODE}/

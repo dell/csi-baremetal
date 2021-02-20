@@ -61,7 +61,7 @@ import (
 )
 
 const (
-	componentName = "baremetal-csi-node"
+	componentName = "csi-baremetal-node"
 )
 
 var (

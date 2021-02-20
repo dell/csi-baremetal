@@ -20,8 +20,8 @@ spec:
       serviceAccountName: csi-baremetal-extender-sa
       containers:
         - name: extender
-          image: {{- if .Values.env.test }} csi-baremetal-plugin-extender:{{ .Values.image.tag }}
-            {{- else }} {{ .Values.registry }}/csi-baremetal-plugin-extender:{{ .Values.image.tag }}
+          image: {{- if .Values.env.test }} csi-baremetal-extender:{{ .Values.image.tag }}
+            {{- else }} {{ .Values.registry }}/csi-baremetal-extender:{{ .Values.image.tag }}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
