@@ -10,13 +10,13 @@ kind: ClusterRole
 metadata:
   name: csi-baremetal-extender-cr
 rules:
-  - apiGroups: ["csi-baremetal.dellemc.com"]
+  - apiGroups: ["csi-baremetal.dell.com"]
     resources: ["volumes"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["csi-baremetal.dellemc.com"]
+  - apiGroups: ["csi-baremetal.dell.com"]
     resources: ["availablecapacities"]
     verbs: ["get", "list"]
-  - apiGroups: ["csi-baremetal.dellemc.com"]
+  - apiGroups: ["csi-baremetal.dell.com"]
     resources: ["availablecapacityreservations"]
     verbs: ["get", "list", "create"]
   - apiGroups: [""]
