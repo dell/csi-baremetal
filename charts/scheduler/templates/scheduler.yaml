@@ -28,8 +28,8 @@ spec:
             - --address=0.0.0.0
             - --leader-elect=false
             - --scheduler-name=csi-baremetal-scheduler
-          image: {{- if .Values.env.test }} baremetal-csi-plugin-scheduler:{{ .Values.image.tag }}
-            {{- else }} {{ .Values.registry }}/baremetal-csi-plugin-scheduler:{{ .Values.image.tag }}
+          image: {{- if .Values.env.test }} csi-baremetal-scheduler:{{ .Values.image.tag }}
+            {{- else }} {{ .Values.registry }}/csi-baremetal-scheduler:{{ .Values.image.tag }}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           livenessProbe:

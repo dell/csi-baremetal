@@ -6,21 +6,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: availablecapacities.baremetal-csi.dellemc.com
+  name: availablecapacityreservations.csi-baremetal.dell.com
 spec:
-  group: baremetal-csi.dellemc.com
+  group: csi-baremetal.dell.com
   names:
-    kind: AvailableCapacity
-    listKind: AvailableCapacityList
-    plural: availablecapacities
+    kind: AvailableCapacityReservation
+    listKind: AvailableCapacityReservationList
+    plural: availablecapacityreservations
     shortNames:
-    - ac
-    - acs
-    singular: availablecapacity
+    - acr
+    - acrs
+    singular: availablecapacityreservation
   scope: Cluster
   validation:
     openAPIV3Schema:
-      description: AvailableCapacity is the Schema for the availablecapacities API
+      description: AvailableCapacityReservation is the Schema for the availablecapacitiereservations
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -36,14 +37,16 @@ spec:
           type: object
         spec:
           properties:
-            Location:
+            Name:
               type: string
-            NodeId:
-              type: string
+            Reservations:
+              items:
+                type: string
+              type: array
             Size:
               format: int64
               type: integer
-            storageClass:
+            StorageClass:
               type: string
           type: object
       type: object

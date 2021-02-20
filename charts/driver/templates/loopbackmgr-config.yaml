@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   name: loopback-config
   labels:
-    app: baremetal-csi-node
+    app: csi-baremetal-node
 data:
   config.yaml: |-
     defaultDrivePerNodeCount: {{ .Values.drivemgr.amountOfLoopDevices }}

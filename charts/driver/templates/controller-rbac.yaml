@@ -75,7 +75,7 @@ kind: ClusterRole
 metadata:
   name: controller
 rules:
-  - apiGroups: ["baremetal-csi.dellemc.com"]
+  - apiGroups: ["csi-baremetal.dell.com"]
     resources: ["*"]
     verbs: ["*"]
 

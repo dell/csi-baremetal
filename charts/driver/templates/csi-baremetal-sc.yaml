@@ -4,7 +4,7 @@ metadata:
   name: {{ .Values.storageClass.name }}
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
-provisioner: baremetal-csi  # CSI driver name
+provisioner: csi-baremetal  # CSI driver name
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 parameters:

@@ -26,7 +26,7 @@ data:
         Mem_Buf_Limit    5MB
         Skip_Long_Lines  Off
         Refresh_Interval 5
-        Tag              baremetal-csi
+        Tag              csi-baremetal
     [INPUT]
         Name             tail
         Path             /var/log/drivemgr.log
@@ -36,7 +36,7 @@ data:
         Mem_Buf_Limit    5MB
         Skip_Long_Lines  Off
         Refresh_Interval 5
-        Tag              kubernetes_cluster-baremetal-csi
+        Tag              kubernetes_cluster-csi-baremetal
     [FILTER]
         Name             record_modifier
         Match            *
@@ -60,7 +60,7 @@ data:
         Port            {{ .Values.logReceiver.port }}
         Logstash_Format on
         Retry_Limit     False
-        Logstash_Prefix kubernetes_cluster-baremetal-csi
+        Logstash_Prefix kubernetes_cluster-csi-baremetal
     {{- end}}
     {{- if eq .Values.logReceiver.output "stdout"}}
         Name            stdout

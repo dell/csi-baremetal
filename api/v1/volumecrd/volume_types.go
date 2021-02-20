@@ -43,7 +43,7 @@ type VolumeList struct {
 	Items           []Volume `json:"items"`
 }
 
-//Need to declare this method because api.Volume doesn't have DeepCopyInto
+// Need to declare this method because api.Volume doesn't have DeepCopyInto
 func (in *Volume) DeepCopyInto(out *Volume) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta

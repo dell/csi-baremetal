@@ -1,24 +1,24 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: csibm-controller
+  name: csi-operator
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: csibm-controller
+      app: csi-operator
   template:
     metadata:
       labels:
-        app: csibm-controller
+        app: csi-operator
     spec:
       serviceAccount: csibm-sa
       terminationGracePeriodSeconds: 10
       containers:
       - name: controller
-        image: {{- if .Values.env.test }} baremetal-csi-plugin-csibmnode:{{ .Values.image.tag }}
-               {{- else }} {{ .Values.image.registry }}/baremetal-csi-plugin-csibmnode:{{ .Values.image.tag }}
+        image: {{- if .Values.env.test }} csi-baremetal-operator:{{ .Values.image.tag }}
+               {{- else }} {{ .Values.image.registry }}/csi-baremetal-operator:{{ .Values.image.tag }}
                {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:

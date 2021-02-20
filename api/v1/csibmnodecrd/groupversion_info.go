@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package nodecrd contains API Schema definitions for the csi node v1 API group
-// +groupName=baremetal-csi.dellemc.com
+// +groupName=csi-baremetal.dell.com
 // +versionName=v1
 package nodecrd
 
@@ -23,14 +23,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	crScheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/dell/csi-baremetal/api/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 )
 
 var (
-	// GroupVersionCSIBMNodee is group version used to register these objects
+	// GroupVersionCSIBMNode is group version used to register these objects
 	GroupVersionCSIBMNode = schema.GroupVersion{Group: v1.CSICRsGroupVersion, Version: v1.Version}
 
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	// SchemeBuilderACR is used to add go types to the GroupVersionKind scheme
 	SchemeBuilderACR = &crScheme.Builder{GroupVersion: GroupVersionCSIBMNode}
 
 	// AddToSchemeCSIBMNode adds the types in this group-version to the given scheme.

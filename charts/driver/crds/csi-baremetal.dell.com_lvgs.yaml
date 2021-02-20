@@ -6,22 +6,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: availablecapacityreservations.baremetal-csi.dellemc.com
+  name: lvgs.csi-baremetal.dell.com
 spec:
-  group: baremetal-csi.dellemc.com
+  group: csi-baremetal.dell.com
   names:
-    kind: AvailableCapacityReservation
-    listKind: AvailableCapacityReservationList
-    plural: availablecapacityreservations
-    shortNames:
-    - acr
-    - acrs
-    singular: availablecapacityreservation
+    kind: LVG
+    listKind: LVGList
+    plural: lvgs
+    singular: lvg
   scope: Cluster
   validation:
     openAPIV3Schema:
-      description: AvailableCapacityReservation is the Schema for the availablecapacitiereservations
-        API
+      description: LVG is the Schema for the LVGs API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -37,17 +33,25 @@ spec:
           type: object
         spec:
           properties:
-            Name:
+            Health:
               type: string
-            Reservations:
+            Locations:
               items:
                 type: string
               type: array
+            Name:
+              type: string
+            Node:
+              type: string
             Size:
               format: int64
               type: integer
-            StorageClass:
+            Status:
               type: string
+            VolumeRefs:
+              items:
+                type: string
+              type: array
           type: object
       type: object
   version: v1

@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: schedulerpatcher
-          image: {{- if .Values.env.test }} baremetal-csi-plugin-scheduler-patcher:{{ .Values.image.tag }}
-            {{- else }} {{ .Values.registry }}/baremetal-csi-plugin-scheduler-patcher:{{ .Values.image.tag }}
+          image: {{- if .Values.env.test }} csi-baremetal-scheduler-patcher:{{ .Values.image.tag }}
+            {{- else }} {{ .Values.registry }}/csi-baremetal-scheduler-patcher:{{ .Values.image.tag }}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:

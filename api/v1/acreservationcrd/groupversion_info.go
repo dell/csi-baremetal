@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package acrcrd contains API Schema definitions for the available capacity reservation v1 API group
-// +groupName=baremetal-csi.dellemc.com
+// +groupName=csi-baremetal.dell.com
 // +versionName=v1
 package acrcrd
 

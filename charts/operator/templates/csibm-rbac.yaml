@@ -1,30 +1,30 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: csibm-sa
+  name: csi-operator-sa
   namespace: {{ .Release.Namespace }}
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csibmnode-controller-cr
+  name: csi-operator-cr
 rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch", "update"]
-  - apiGroups: ["baremetal-csi.dellemc.com"]
-    resources: ["csibmnodes"]
+  - apiGroups: ["csi-baremetal.dell.com"]
+    resources: ["nodes"]
     verbs: ["watch", "get", "list", "create", "delete", "update"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csibmnoe-controller-rb
+  name: csi-operator-rb
 subjects:
   - kind: ServiceAccount
-    name: csibm-sa
+    name: csi-operator-sa
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
-  name: csibmnode-controller-cr
+  name: csi-operator-cr
   apiGroup: rbac.authorization.k8s.io

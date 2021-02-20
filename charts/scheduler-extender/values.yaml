@@ -9,7 +9,7 @@ env:
 
 # extender will be looking for volumes that should be provisioned
 # by storage class with provided provisioner name
-provisioner: baremetal-csi
+provisioner: csi-baremetal
 
 feature:
   usenodeannotation: false

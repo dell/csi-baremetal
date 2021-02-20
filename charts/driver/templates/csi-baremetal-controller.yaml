@@ -2,19 +2,19 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: baremetal-csi-controller
+  name: csi-baremetal-controller
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: baremetal-csi-controller
+      app: csi-baremetal-controller
       role: csi-do
   template:
     metadata:
       labels:
         app.kubernetes.io/name: csi-baremetal
-        app: baremetal-csi-controller
+        app: csi-baremetal-controller
         role: csi-do
       annotations:                        
         prometheus.io/scrape: 'true'
@@ -62,10 +62,10 @@ spec:
         - name: socket-dir
           mountPath: /csi
       {{- end }}
-      # ********************** baremetal-csi-controller container definition **********************
+      # ********************** csi-baremetal-controller container definition **********************
       - name: controller
-        image: {{- if .Values.env.test }} baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
-               {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
+        image: {{- if .Values.env.test }} csi-baremetal-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/csi-baremetal-controller:{{ default .Values.image.tag .Values.controller.image.tag }}
                {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:

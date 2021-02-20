@@ -6,15 +6,15 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: volumes.baremetal-csi.dellemc.com
+  name: volumes.csi-baremetal.dell.com
 spec:
-  group: baremetal-csi.dellemc.com
+  group: csi-baremetal.dell.com
   names:
     kind: Volume
     listKind: VolumeList
     plural: volumes
     singular: volume
-  scope: Namespaced
+  scope: Cluster
   validation:
     openAPIV3Schema:
       description: Volume is the Schema for the volumes API

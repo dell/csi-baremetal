@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: drives.baremetal-csi.dellemc.com
+  name: drives.csi-baremetal.dell.com
 spec:
-  group: baremetal-csi.dellemc.com
+  group: csi-baremetal.dell.com
   names:
     kind: Drive
     listKind: DriveList

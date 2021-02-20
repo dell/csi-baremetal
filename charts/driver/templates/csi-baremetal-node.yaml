@@ -2,16 +2,16 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: baremetal-csi-node
+  name: csi-baremetal-node
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels:
-      app: baremetal-csi-node
+      app: csi-baremetal-node
   template:
     metadata:
       labels:
-        app: baremetal-csi-node
+        app: csi-baremetal-node
         app.kubernetes.io/name: csi-baremetal
       annotations:
         prometheus.io/scrape: 'true'
@@ -39,12 +39,12 @@ spec:
         lifecycle:
           preStop:
             exec:
-              command: ["/bin/sh", "-c", "rm -rf /registration/baremetal-csi /registration/baremetal-csi-reg.sock"]
+              command: ["/bin/sh", "-c", "rm -rf /registration/csi-baremetal /registration/csi-baremetal-reg.sock"]
         env:
           - name: ADDRESS
             value: /csi/csi.sock
           - name: DRIVER_REG_SOCK_PATH
-            value: /var/lib/kubelet/plugins/baremetal-csi/csi.sock
+            value: /var/lib/kubelet/plugins/csi-baremetal/csi.sock
           - name: KUBE_NODE_NAME
             valueFrom:
               fieldRef:
@@ -55,10 +55,10 @@ spec:
             mountPath: /csi
           - name: registration-dir
             mountPath: /registration
-      # ********************** baremetal-csi-node container definition **********************
+      # ********************** csi-baremetal-node container definition **********************
       - name: node
-        image: {{- if .Values.env.test }} baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
-               {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-node:{{ default .Values.image.tag .Values.node.image.tag }}
+        image: {{- if .Values.env.test }} csi-baremetal-node:{{ default .Values.image.tag .Values.node.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/csi-baremetal-node:{{ default .Values.image.tag .Values.node.image.tag }}
               {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
@@ -154,10 +154,10 @@ spec:
         - name: alert-config
           mountPath: /etc/config
         {{- end }}
-      # ********************** baremetal-csi-drivemgr container definition **********************
+      # ********************** csi-baremetal-drivemgr container definition **********************
       - name: drivemgr
-        image: {{- if .Values.env.test }} baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
-               {{- else }} {{ .Values.global.registry }}/baremetal-csi-plugin-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+        image: {{- if .Values.env.test }} csi-baremetal-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/csi-baremetal-{{ .Values.drivemgr.type }}:{{ default .Values.image.tag .Values.drivemgr.image.tag }}
                {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         # if halOverride true it means we need to use CM, but e2e doesn't support CM, use iscsi_entrypoint
@@ -280,7 +280,7 @@ spec:
           type: Directory
       - name: csi-socket-dir
         hostPath:
-          path: /var/lib/kubelet/plugins/baremetal-csi
+          path: /var/lib/kubelet/plugins/csi-baremetal
           type: DirectoryOrCreate
       - name: registration-dir
         hostPath:
