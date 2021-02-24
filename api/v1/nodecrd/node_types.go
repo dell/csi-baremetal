@@ -25,11 +25,12 @@ import (
 // +kubebuilder:object:root=true
 
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName={csibmnode,csibmnodes}
 // Node is the Schema for the Node API
 type Node struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              api.CSIBMNode `json:"spec,omitempty"`
+	Spec              api.Node `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true

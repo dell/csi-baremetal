@@ -13,10 +13,10 @@ spec:
     kind: Node
     listKind: NodeList
     plural: nodes
-    singular: node
     shortNames:
-      - csibmnodes
-      - csibmnode
+    - csibmnode
+    - csibmnodes
+    singular: node
   scope: Cluster
   validation:
     openAPIV3Schema:

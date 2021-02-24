@@ -51,8 +51,7 @@ clean-node \
 clean-controller \
 clean-extender \
 clean-scheduler \
-clean-node-controller \
-clean-proto
+clean-node-controller
 
 clean-drivemgr:
 	rm -rf ./build/${DRIVE_MANAGER}/*
@@ -101,8 +100,7 @@ generate-deepcopy:
 	controller-gen object paths=api/v1/acreservationcrd/availablecapacityreservation_types.go paths=api/v1/acreservationcrd/groupversion_info.go  output:dir=api/v1/acreservationcrd
 	controller-gen object paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go  output:dir=api/v1/drivecrd
 	controller-gen object paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go  output:dir=api/v1/lvgcrd
-	controller-gen object paths=api/v1/csibmnodecrd/csibmnode_types.go paths=api/v1/csibmnodecrd/groupversion_info.go  output:dir=api/v1/csibmnodecrd
-
+	controller-gen object paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go  output:dir=api/v1/nodecrd
 
 generate-crds:
     # Generate CRDs based on Volume and AvailableCapacity type and group info
@@ -111,6 +109,6 @@ generate-crds:
 	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/driver/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=charts/driver/crds
 	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=charts/driver/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/nodecrd/csibmnode_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=charts/operator/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=charts/operator/crds
 
 generate-api: compile-proto generate-crds generate-deepcopy
