@@ -24,8 +24,9 @@ import (
 
 // +kubebuilder:object:root=true
 
-// LogicalVolumeGroup is the Schema for the LVGs API
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName={lvg,lvgs}
+// LogicalVolumeGroup is the Schema for the LVGs API
 type LogicalVolumeGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -35,7 +36,6 @@ type LogicalVolumeGroup struct {
 // +kubebuilder:object:root=true
 
 // LogicalVolumeGroupList contains a list of LogicalVolumeGroup
-// +kubebuilder:resource:scope=Cluster,shortName={lvg,lvgs}
 //+kubebuilder:object:generate=true
 type LogicalVolumeGroupList struct {
 	metav1.TypeMeta `json:",inline"`

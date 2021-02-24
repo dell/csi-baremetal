@@ -13,6 +13,9 @@ spec:
     kind: LogicalVolumeGroup
     listKind: LogicalVolumeGroupList
     plural: logicalvolumegroups
+    shortNames:
+    - lvg
+    - lvgs
     singular: logicalvolumegroup
   scope: Cluster
   validation:
