@@ -35,7 +35,7 @@ var (
 			Name:      "csibmnode-1",
 			Namespace: testNS,
 		},
-		Spec: api.CSIBMNode{
+		Spec: api.Node{
 			UUID: "ffff-aaaa-bbbb",
 			Addresses: map[string]string{
 				string(coreV1.NodeHostName):   "node-1",
@@ -53,7 +53,7 @@ var (
 			Name:      "csibmnode-2",
 			Namespace: testNS,
 		},
-		Spec: api.CSIBMNode{
+		Spec: api.Node{
 			UUID: "1111-2222-3333",
 			Addresses: map[string]string{
 				string(coreV1.NodeHostName):   "node-2",

@@ -502,7 +502,7 @@ var _ = Describe("CSIControllerService health check", func() {
 				Kind:       "Pod",
 			},
 			ObjectMeta: k8smetav1.ObjectMeta{
-				Name:      "baremetal-csi-node",
+				Name:      "csi-baremetal-node",
 				Namespace: "default",
 			},
 			Spec: v1.PodSpec{NodeName: testNode1Name},

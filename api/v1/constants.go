@@ -20,7 +20,7 @@ const (
 	VolumeKind                       = "Volume"
 	AvailableCapacityKind            = "AvailableCapacity"
 	AvailableCapacityReservationKind = "AvailableCapacityReservation"
-	LVGKind                          = "LVG"
+	LVGKind                          = "LogicalVolumeGroup"
 	DriveKind                        = "Drive"
 	CSIBMNodeKind                    = "Node"
 

@@ -459,7 +459,7 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 	}
 
 	log.Errorf("Reference to volume %s in LogicalVolumeGroup %v not found", volID, lvg)
-	return false, errors.New("LogicalVolumeGroup CR wasn't updated")
+	return false, errors.New("lvg CR wasn't updated")
 }
 
 // fillCache tries to fill volume/namespace cache after VolumeOperationsImpl initialization
