@@ -303,7 +303,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	if len(matchedCRs) == 0 {
 		id := uuid.New().String()
 		bmNodeName := namePrefix + id
-		bmNode = bmc.k8sClient.ConstructCSIBMNodeCR(bmNodeName, api.CSIBMNode{
+		bmNode = bmc.k8sClient.ConstructCSIBMNodeCR(bmNodeName, api.Node{
 			UUID:      id,
 			Addresses: bmc.constructAddresses(k8sNode),
 		})
