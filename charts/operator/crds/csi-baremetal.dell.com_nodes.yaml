@@ -6,18 +6,21 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: csibmnodes.csi-baremetal.dell.com
+  name: nodes.csi-baremetal.dell.com
 spec:
   group: csi-baremetal.dell.com
   names:
-    kind: CSIBMNode
-    listKind: CSIBMNodeList
-    plural: csibmnodes
-    singular: csibmnode
+    kind: Node
+    listKind: NodeList
+    plural: nodes
+    singular: node
+    shortNames:
+      - csibmnodes
+      - csibmnode
   scope: Cluster
   validation:
     openAPIV3Schema:
-      description: CSIBMNode is the Schema for the CSIBMNode API
+      description: Node is the Schema for the Node API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

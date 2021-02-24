@@ -247,11 +247,11 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
-// ConstructCSIBMNodeCR constructs CSIBMNode custom resource from api.CSIBMNode struct
-// Receives a name for k8s ObjectMeta and an instance of api.CSIBMNode struct
-// Returns an instance of CSIBMNode CR struct
-func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.CSIBMNode {
-	return &nodecrd.CSIBMNode{
+// ConstructCSIBMNodeCR constructs Node custom resource from api.Node struct
+// Receives a name for k8s ObjectMeta and an instance of api.Node struct
+// Returns an instance of Node CR struct
+func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.Node {
+	return &nodecrd.Node{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.CSIBMNodeKind,
 			APIVersion: crdV1.APIV1Version,

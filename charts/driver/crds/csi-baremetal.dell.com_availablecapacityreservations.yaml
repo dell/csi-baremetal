@@ -13,10 +13,10 @@ spec:
     kind: AvailableCapacityReservation
     listKind: AvailableCapacityReservationList
     plural: availablecapacityreservations
-    shortNames:
-    - acr
-    - acrs
     singular: availablecapacityreservation
+    shortNames:
+      - acr
+      - acrs
   scope: Cluster
   validation:
     openAPIV3Schema:

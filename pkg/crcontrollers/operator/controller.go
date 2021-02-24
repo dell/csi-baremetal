@@ -45,20 +45,20 @@ import (
 const (
 	// nodeIDAnnotationKey hold key for annotation for node object
 	nodeIDAnnotationKey = common.NodeIDAnnotationKey
-	// namePrefix it is a prefix for CSIBMNode CR name
+	// namePrefix it is a prefix for Node CR name
 	namePrefix = "csibmnode-"
-	// finalizer for CSIBMNode custom resource
+	// finalizer for Node custom resource
 	csibmNodeFinalizer = "dell.emc.csi/csibmnode-cleanup"
 )
 
-// Controller is a controller for CSIBMNode CR
+// Controller is a controller for Node CR
 type Controller struct {
 	k8sClient    *k8s.KubeClient
 	nodeSelector *label
 	cache        nodesMapping
 
 	// holds k8s node names for which annotation settings is enabled,
-	// it is used in CSIBMNode CR deletion for avoiding recreation
+	// it is used in Node CR deletion for avoiding recreation
 	enabledForNode map[string]bool
 	enabledMu      sync.RWMutex
 
@@ -72,8 +72,8 @@ type label struct {
 
 // nodesMapping it is not a thread safety cache that holds mapping between names for k8s node and BMCSINode CR objects
 type nodesMapping struct {
-	k8sToBMNode map[string]string // k8s node name to CSIBMNode CR name
-	bmToK8sNode map[string]string // CSIBMNode CR name to k8s node name
+	k8sToBMNode map[string]string // k8s node name to Node CR name
+	bmToK8sNode map[string]string // Node CR name to k8s node name
 }
 
 func (nc *nodesMapping) getK8sNodeName(bmNodeName string) (string, bool) {
@@ -154,14 +154,14 @@ func (bmc *Controller) isMatchSelector(k8sNode *coreV1.Node) bool {
 // SetupWithManager registers Controller to k8s controller manager
 func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(m).
-		For(&nodecrd.CSIBMNode{}). // primary resource
+		For(&nodecrd.Node{}). // primary resource
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 1, // reconcile all object by turn, concurrent reconciliation isn't supported
 		}).
 		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}). // secondary resource
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				if _, ok := e.Object.(*nodecrd.CSIBMNode); ok {
+				if _, ok := e.Object.(*nodecrd.Node); ok {
 					return true
 				}
 
@@ -174,7 +174,7 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 				return true
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				if _, ok := e.ObjectOld.(*nodecrd.CSIBMNode); ok {
+				if _, ok := e.ObjectOld.(*nodecrd.Node); ok {
 					return true
 				}
 
@@ -202,7 +202,7 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 		Complete(bmc)
 }
 
-// Reconcile reconciles CSIBMNode CR and k8s CSIBMNode objects
+// Reconcile reconciles Node CR and k8s Node objects
 // at first define for which object current Reconcile is triggered and then run corresponding reconciliation method
 func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
@@ -212,7 +212,7 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	var err error
 	// if name in request doesn't start with namePrefix controller tries to read k8s node object at first
-	// however if it get NotFound error it tries to read CSIBMNode object as well
+	// however if it get NotFound error it tries to read Node object as well
 	if !strings.HasPrefix(req.Name, namePrefix) {
 		k8sNode := new(coreV1.Node)
 		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, "", k8sNode)
@@ -226,15 +226,15 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 
-	// try to read CSIBMNode
-	bmNode := new(nodecrd.CSIBMNode)
+	// try to read Node
+	bmNode := new(nodecrd.Node)
 	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, "", bmNode)
 	switch {
 	case err == nil:
-		ll.Infof("Reconcile CSIBMNode %s", bmNode.Name)
+		ll.Infof("Reconcile Node %s", bmNode.Name)
 		return bmc.reconcileForCSIBMNode(bmNode)
 	case !k8sError.IsNotFound(err):
-		ll.Errorf("Unable to read CSIBMNode object: %v", err)
+		ll.Errorf("Unable to read Node object: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
 
@@ -255,24 +255,24 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	}
 
 	var (
-		bmNode          = &nodecrd.CSIBMNode{}
+		bmNode          = &nodecrd.Node{}
 		bmNodeFromCache bool
 		bmNodeName      string
-		bmNodes         []nodecrd.CSIBMNode
+		bmNodes         []nodecrd.Node
 	)
-	// get corresponding CSIBMNode CR name from cache
+	// get corresponding Node CR name from cache
 	if bmNodeName, bmNodeFromCache = bmc.cache.getCSIBMNodeName(k8sNode.Name); bmNodeFromCache {
 		if err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, "", bmNode); err != nil {
-			ll.Errorf("Unable to read CSIBMNode %s: %v", bmNodeName, err)
+			ll.Errorf("Unable to read Node %s: %v", bmNodeName, err)
 			return ctrl.Result{Requeue: true}, err
 		}
-		bmNodes = []nodecrd.CSIBMNode{*bmNode}
+		bmNodes = []nodecrd.Node{*bmNode}
 	}
 
 	if !bmNodeFromCache {
-		bmNodeCRs := new(nodecrd.CSIBMNodeList)
+		bmNodeCRs := new(nodecrd.NodeList)
 		if err := bmc.k8sClient.ReadList(context.Background(), bmNodeCRs); err != nil {
-			ll.Errorf("Unable to read CSIBMNode CRs list: %v", err)
+			ll.Errorf("Unable to read Node CRs list: %v", err)
 			return ctrl.Result{Requeue: true}, err
 		}
 		bmNodes = bmNodeCRs.Items
@@ -287,19 +287,19 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 			continue
 		}
 		if matchedAddresses > 0 {
-			ll.Errorf("There is CSIBMNode %s that partially match k8s node %s. CSIBMNode.Spec: %v, k8s node addresses: %v. "+
-				"CSIBMNode Spec should be edited to match exactly one kubernetes node",
+			ll.Errorf("There is Node %s that partially match k8s node %s. Node.Spec: %v, k8s node addresses: %v. "+
+				"Node Spec should be edited to match exactly one kubernetes node",
 				bmNodes[i].Name, k8sNode.Name, bmNodes[i].Spec, k8sNode.Status.Addresses)
 			return ctrl.Result{}, nil
 		}
 	}
 
 	if len(matchedCRs) > 1 {
-		ll.Errorf("More then one CSIBMNode CR corresponds to the current k8s node (%d). Matched CSIBMNode CRs: %v", len(matchedCRs), matchedCRs)
+		ll.Errorf("More then one Node CR corresponds to the current k8s node (%d). Matched Node CRs: %v", len(matchedCRs), matchedCRs)
 		return ctrl.Result{}, nil
 	}
 
-	// create CSIBMNode CR
+	// create Node CR
 	if len(matchedCRs) == 0 {
 		id := uuid.New().String()
 		bmNodeName := namePrefix + id
@@ -309,7 +309,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 		})
 		bmNode.Finalizers = []string{csibmNodeFinalizer}
 		if err := bmc.k8sClient.CreateCR(context.Background(), bmNodeName, bmNode); err != nil {
-			ll.Errorf("Unable to create CSIBMNode CR: %v", err)
+			ll.Errorf("Unable to create Node CR: %v", err)
 			return ctrl.Result{Requeue: true}, err
 		}
 	}
@@ -318,14 +318,14 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
-func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Result, error) {
+func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "reconcileForCSIBMNode",
 		"name":   bmNode.Name,
 	})
 
 	if len(bmNode.Spec.Addresses) == 0 {
-		err := errors.New("addresses are missing for current CSIBMNode instance")
+		err := errors.New("addresses are missing for current Node instance")
 		ll.Error(err)
 		return ctrl.Result{Requeue: false}, err
 	}
@@ -363,7 +363,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 			continue
 		}
 		if matchedAddresses > 0 {
-			ll.Errorf("There is k8s node %s that partially match CSIBMNode CR %s. CSIBMNode.Spec: %v, k8s node addresses: %v",
+			ll.Errorf("There is k8s node %s that partially match Node CR %s. Node.Spec: %v, k8s node addresses: %v",
 				k8sNodes[i].Name, bmNode.Name, bmNode.Spec, k8sNodes[i].Status.Addresses)
 			return ctrl.Result{}, nil
 		}
@@ -381,7 +381,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		bmNode.Finalizers = nil
 		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
 		if err != nil {
-			ll.Errorf("Unable to update CSIBMNode %s: %v", bmNode.Name, err)
+			ll.Errorf("Unable to update Node %s: %v", bmNode.Name, err)
 		}
 		return ctrl.Result{}, err
 	}
@@ -391,11 +391,11 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.CSIBMNode) (ctrl.Re
 		return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
 	}
 
-	ll.Warnf("Unable to detect k8s node that corresponds to CSIBMNode %v, matched nodes: %v", bmNode, matchedNodes)
+	ll.Warnf("Unable to detect k8s node that corresponds to Node %v, matched nodes: %v", bmNode, matchedNodes)
 	return ctrl.Result{}, nil
 }
 
-// updateNodeLabelsAndAnnotation checks nodeIDAnnotationKey annotation value for provided k8s CSIBMNode and compare that value with goalValue
+// updateNodeLabelsAndAnnotation checks nodeIDAnnotationKey annotation value for provided k8s Node and compare that value with goalValue
 // parses OS Image info and put/update os-name and os-version labels if needed
 func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
 	ll := bmc.log.WithField("method", "updateNodeLabelsAndAnnotation")
@@ -407,7 +407,7 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 		if val == goalValue {
 			ll.Tracef("%s value for node %s is already %s", nodeIDAnnotationKey, k8sNode.Name, goalValue)
 		} else {
-			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding CSIBMNode's UUID) %s, going to update annotation's value.",
+			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding Node's UUID) %s, going to update annotation's value.",
 				nodeIDAnnotationKey, k8sNode.Name, val, goalValue)
 			k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
 			toUpdate = true
@@ -491,7 +491,7 @@ func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 }
 
 // matchedAddressesCount return amount of k8s node addresses that has corresponding address in bmNodeCR.Spec.Addresses map
-func (bmc *Controller) matchedAddressesCount(bmNodeCR *nodecrd.CSIBMNode, k8sNode *coreV1.Node) int {
+func (bmc *Controller) matchedAddressesCount(bmNodeCR *nodecrd.Node, k8sNode *coreV1.Node) int {
 	matchedCount := 0
 	for _, addr := range k8sNode.Status.Addresses {
 		crAddr, ok := bmNodeCR.Spec.Addresses[string(addr.Type)]

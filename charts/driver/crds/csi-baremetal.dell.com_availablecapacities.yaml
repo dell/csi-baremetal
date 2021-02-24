@@ -13,10 +13,10 @@ spec:
     kind: AvailableCapacity
     listKind: AvailableCapacityList
     plural: availablecapacities
-    shortNames:
-    - ac
-    - acs
     singular: availablecapacity
+    shortNames:
+      - ac
+      - acs
   scope: Cluster
   validation:
     openAPIV3Schema:

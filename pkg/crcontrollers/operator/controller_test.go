@@ -26,7 +26,7 @@ var (
 	testCtx    = context.Background()
 	testLogger = logrus.New()
 
-	testCSIBMNode1 = nodecrd.CSIBMNode{
+	testCSIBMNode1 = nodecrd.Node{
 		TypeMeta: metaV1.TypeMeta{
 			Kind:       crdV1.CSIBMNodeKind,
 			APIVersion: crdV1.APIV1Version,
@@ -44,7 +44,7 @@ var (
 		},
 	}
 
-	testCSIBMNode2 = nodecrd.CSIBMNode{
+	testCSIBMNode2 = nodecrd.Node{
 		TypeMeta: metaV1.TypeMeta{
 			Kind:       crdV1.CSIBMNodeKind,
 			APIVersion: crdV1.APIV1Version,
@@ -166,7 +166,7 @@ func TestReconcile(t *testing.T) {
 		assert.Equal(t, bmNode.Spec.UUID, val)
 	})
 
-	t.Run("Reconcile for CSIBMNode. Success", func(t *testing.T) {
+	t.Run("Reconcile for Node. Success", func(t *testing.T) {
 		var (
 			c      = setup(t)
 			node   = testNode1.DeepCopy() // annotation should be set for that object
@@ -196,7 +196,7 @@ func TestReconcile(t *testing.T) {
 }
 
 func Test_reconcileForK8sNode(t *testing.T) {
-	t.Run("CSIBMNode was created and annotation was set", func(t *testing.T) {
+	t.Run("Node was created and annotation was set", func(t *testing.T) {
 		var (
 			c       = setup(t)
 			k8sNode = testNode1.DeepCopy()
@@ -208,7 +208,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
-		bmNodesList := &nodecrd.CSIBMNodeList{}
+		bmNodesList := &nodecrd.NodeList{}
 		assert.Nil(t, c.k8sClient.ReadList(testCtx, bmNodesList))
 		assert.Equal(t, 1, len(bmNodesList.Items))
 		bmNode := bmNodesList.Items[0]
@@ -235,7 +235,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		assert.Equal(t, ctrl.Result{Requeue: false}, res)
 	})
 
-	t.Run("Unable to read corresponding CSIBMNode CR", func(t *testing.T) {
+	t.Run("Unable to read corresponding Node CR", func(t *testing.T) {
 		var (
 			c       = setup(t)
 			k8sNode = testNode1.DeepCopy()
@@ -249,7 +249,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 	})
 
-	t.Run("There is CSIBMNode that partially match k8s node", func(t *testing.T) {
+	t.Run("There is Node that partially match k8s node", func(t *testing.T) {
 		var (
 			c       = setup(t)
 			k8sNode = testNode1.DeepCopy()
@@ -270,7 +270,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		assert.False(t, ok)
 	})
 
-	t.Run("More then one CSIBMNode CR match k8s node", func(t *testing.T) {
+	t.Run("More then one Node CR match k8s node", func(t *testing.T) {
 		var (
 			c       = setup(t)
 			k8sNode = testNode1.DeepCopy()
@@ -294,7 +294,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 }
 
 func Test_reconcileForCSIBMNode(t *testing.T) {
-	t.Run("CSIBMNode is being deleted. Annotation was removed.", func(t *testing.T) {
+	t.Run("Node is being deleted. Annotation was removed.", func(t *testing.T) {
 		var (
 			c       = setup(t)
 			bmNode  = testCSIBMNode1.DeepCopy()
@@ -318,7 +318,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.False(t, enabled)
 	})
 
-	t.Run("CSIBMNode addresses length is 0", func(t *testing.T) {
+	t.Run("Node addresses length is 0", func(t *testing.T) {
 		var (
 			c      = setup(t)
 			bmNode = testCSIBMNode1.DeepCopy()
@@ -347,7 +347,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 	})
 
-	t.Run("There is CSIBMNode that partially match k8s node", func(t *testing.T) {
+	t.Run("There is Node that partially match k8s node", func(t *testing.T) {
 		var (
 			c       = setup(t)
 			k8sNode = testNode1.DeepCopy()
@@ -368,7 +368,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.False(t, ok)
 	})
 
-	t.Run("More then one k8s node match CSIBMNode CR", func(t *testing.T) {
+	t.Run("More then one k8s node match Node CR", func(t *testing.T) {
 		var (
 			c        = setup(t)
 			k8sNode1 = testNode1.DeepCopy()

@@ -13,7 +13,7 @@ rules:
     resources: ["nodes"]
     verbs: ["get", "list", "watch", "update"]
   - apiGroups: ["csi-baremetal.dell.com"]
-    resources: ["csibmnodes"]
+    resources: ["nodes"]
     verbs: ["watch", "get", "list", "create", "delete", "update"]
 ---
 kind: ClusterRoleBinding
