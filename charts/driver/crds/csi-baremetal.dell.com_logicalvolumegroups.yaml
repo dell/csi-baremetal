@@ -6,18 +6,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
-  name: lvgs.csi-baremetal.dell.com
+  name: logicalvolumegroups.csi-baremetal.dell.com
 spec:
   group: csi-baremetal.dell.com
   names:
-    kind: LVG
-    listKind: LVGList
-    plural: lvgs
-    singular: lvg
+    kind: LogicalVolumeGroup
+    listKind: LogicalVolumeGroupList
+    plural: logicalvolumegroups
+    singular: logicalvolumegroup
   scope: Cluster
   validation:
     openAPIV3Schema:
-      description: LVG is the Schema for the LVGs API
+      description: LogicalVolumeGroup is the Schema for the LVGs API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package lvgcrd contains API Schema definitions for the LVG v1 API group
+// Package lvgcrd contains API Schema definitions for the LogicalVolumeGroup v1 API group
 // +groupName=csi-baremetal.dell.com
 // +versionName=v1
 package lvgcrd

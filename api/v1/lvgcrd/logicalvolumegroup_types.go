@@ -24,9 +24,9 @@ import (
 
 // +kubebuilder:object:root=true
 
-// LVG is the Schema for the LVGs API
+// LogicalVolumeGroup is the Schema for the LVGs API
 // +kubebuilder:resource:scope=Cluster
-type LVG struct {
+type LogicalVolumeGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              api.LogicalVolumeGroup `json:"spec,omitempty"`
@@ -34,20 +34,21 @@ type LVG struct {
 
 // +kubebuilder:object:root=true
 
-// LVGList contains a list of LVG
+// LogicalVolumeGroupList contains a list of LogicalVolumeGroup
+// +kubebuilder:resource:scope=Cluster,shortName={lvg,lvgs}
 //+kubebuilder:object:generate=true
-type LVGList struct {
+type LogicalVolumeGroupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LVG `json:"items"`
+	Items           []LogicalVolumeGroup `json:"items"`
 }
 
 func init() {
-	SchemeBuilderLVG.Register(&LVG{}, &LVGList{})
+	SchemeBuilderLVG.Register(&LogicalVolumeGroup{}, &LogicalVolumeGroupList{})
 }
 
-//Need to declare this method because api.LogicalVolumeGroup doesn't have DeepCopyInto
-func (in *LVG) DeepCopyInto(out *LVG) {
+// Need to declare this method because api.LogicalVolumeGroup doesn't have DeepCopyInto
+func (in *LogicalVolumeGroup) DeepCopyInto(out *LogicalVolumeGroup) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)

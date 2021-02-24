@@ -45,7 +45,7 @@ import (
 
 const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
 
-// Controller is the LVG custom resource Controller for serving VG operations on Node side in Reconcile loop
+// Controller is the LogicalVolumeGroup custom resource Controller for serving VG operations on Node side in Reconcile loop
 type Controller struct {
 	k8sClient *k8s.KubeClient
 	crHelper  *k8s.CRHelper
@@ -74,9 +74,9 @@ func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger)
 	}
 }
 
-// Reconcile is the main Reconcile loop of Controller. This loop handles creation of VG matched to LVG CR on
-// Controller's node if LVG.Spec.Status is Creating. Also this loop handles VG deletion on the node if
-// LVG.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
+// Reconcile is the main Reconcile loop of Controller. This loop handles creation of VG matched to LogicalVolumeGroup CR on
+// Controller's node if LogicalVolumeGroup.Spec.Status is Creating. Also this loop handles VG deletion on the node if
+// LogicalVolumeGroup.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
 // Returns reconcile result as ctrl.Result or error if something went wrong
 func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_lvg_controller")()
@@ -85,31 +85,31 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		"LVGName": req.Name,
 	})
 
-	lvg := &lvgcrd.LVG{}
+	lvg := &lvgcrd.LogicalVolumeGroup{}
 
 	if err := c.k8sClient.ReadCR(context.Background(), req.Name, "", lvg); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	ll.Infof("Reconciling LVG: %v", lvg)
+	ll.Infof("Reconciling LogicalVolumeGroup: %v", lvg)
 
 	switch {
 	case !lvg.ObjectMeta.DeletionTimestamp.IsZero():
-		ll.Info("Delete LVG")
+		ll.Info("Delete LogicalVolumeGroup")
 		return c.handleLVGRemoving(lvg)
 	case !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer):
 		return c.appendFinalizer(lvg)
-	// if lvg.Spec.VolumeRefs == 0 it means that LVG just being created
+	// if lvg.Spec.VolumeRefs == 0 it means that LogicalVolumeGroup just being created
 	// for lvg on non-system drive finalizer should be removed during handleLVGRemoving stage
 	// here controller removes finalizer for lvg on system drive, for that lvg VolumeRefs != 0
 	case !util.HasNameWithPrefix(lvg.Spec.VolumeRefs) && len(lvg.Spec.VolumeRefs) != 0:
 		return c.removeFinalizer(lvg)
 	}
 
-	// check for LVG state
+	// check for LogicalVolumeGroup state
 	switch lvg.Spec.Status {
 	case apiV1.Creating:
-		ll.Info("Creating LVG")
+		ll.Info("Creating LogicalVolumeGroup")
 		return c.handlerLVGCreation(lvg)
 	case apiV1.Failed:
 		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
@@ -122,13 +122,13 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-// appendFinalizer appends finalizer to the LVG CR (update CR)
-func (c *Controller) appendFinalizer(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+// appendFinalizer appends finalizer to the LogicalVolumeGroup CR (update CR)
+func (c *Controller) appendFinalizer(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, error) {
 	if len(lvg.Spec.VolumeRefs) == 0 || util.HasNameWithPrefix(lvg.Spec.VolumeRefs) {
 		lvg.ObjectMeta.Finalizers = append(lvg.ObjectMeta.Finalizers, lvgFinalizer)
 		if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
 			c.log.WithField("LVGName", lvg.Name).
-				Errorf("Unable to append finalizer %s to LVG: %v.", lvgFinalizer, err)
+				Errorf("Unable to append finalizer %s to LogicalVolumeGroup: %v.", lvgFinalizer, err)
 			return ctrl.Result{Requeue: true}, err
 		}
 	}
@@ -136,45 +136,45 @@ func (c *Controller) appendFinalizer(lvg *lvgcrd.LVG) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-// removeFinalizer removes finalizer for LVG CR (update CR, that is trigger reconcile again)
-func (c *Controller) removeFinalizer(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+// removeFinalizer removes finalizer for LogicalVolumeGroup CR (update CR, that is trigger reconcile again)
+func (c *Controller) removeFinalizer(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, error) {
 	if !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	lvg.ObjectMeta.Finalizers = util.RemoveString(lvg.ObjectMeta.Finalizers, lvgFinalizer)
 	if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
-		c.log.WithField("LVGName", lvg.Name).Errorf("Unable to update LVG's finalizers: %v", err)
+		c.log.WithField("LVGName", lvg.Name).Errorf("Unable to update LogicalVolumeGroup's finalizers: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// handlerLVGCreation handles LVG CR with creating status, create LVG on the system drive
-// updates corresponding LVG CR (set status)
-func (c *Controller) handlerLVGCreation(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+// handlerLVGCreation handles LogicalVolumeGroup CR with creating status, create LogicalVolumeGroup on the system drive
+// updates corresponding LogicalVolumeGroup CR (set status)
+func (c *Controller) handlerLVGCreation(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, error) {
 	ll := logrus.WithField("LVGName", lvg.Name)
 
 	newStatus := apiV1.Created
 	var err error
 	var locations []string
 	if locations, err = c.createSystemLVG(lvg); err != nil {
-		ll.Errorf("Unable to create system LVG: %v", err)
+		ll.Errorf("Unable to create system LogicalVolumeGroup: %v", err)
 		newStatus = apiV1.Failed
 	}
 	lvg.Spec.Status = newStatus
 	lvg.Spec.Locations = locations
 	if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
-		ll.Errorf("Unable to update LVG status to %s, error: %v.", newStatus, err)
+		ll.Errorf("Unable to update LogicalVolumeGroup status to %s, error: %v.", newStatus, err)
 		return ctrl.Result{Requeue: true}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// handleLVGRemoving handles removing of LVG CR, removes LVG from the system and removes finalizers
-func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LVG) (ctrl.Result, error) {
+// handleLVGRemoving handles removing of LogicalVolumeGroup CR, removes LogicalVolumeGroup from the system and removes finalizers
+func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, error) {
 	ll := logrus.WithField("LVGName", lvg.Name)
 
 	if !util.ContainsString(lvg.ObjectMeta.Finalizers, lvgFinalizer) {
@@ -188,15 +188,15 @@ func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LVG) (ctrl.Result, error) {
 		ll.Errorf("Unable to read volume list: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
-	// If Kubernetes has volumes with location of LVG, which is needed to be deleted,
-	// we prevent removing, because this LVG is still used.
+	// If Kubernetes has volumes with location of LogicalVolumeGroup, which is needed to be deleted,
+	// we prevent removing, because this LogicalVolumeGroup is still used.
 	for _, item := range volumes.Items {
 		if item.Spec.Location == lvg.Name && item.DeletionTimestamp.IsZero() {
-			ll.Debugf("There are volume %v with LVG location, stop LVG deletion", item)
+			ll.Debugf("There are volume %v with LogicalVolumeGroup location, stop LogicalVolumeGroup deletion", item)
 			return ctrl.Result{}, nil
 		}
 	}
-	// update AC size that point on that LVG
+	// update AC size that point on that LogicalVolumeGroup
 	c.increaseACSize(lvg.Spec.Locations[0], lvg.Spec.Size)
 
 	drivesUUIDs := c.k8sClient.GetSystemDriveUUIDs()
@@ -214,7 +214,7 @@ func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LVG) (ctrl.Result, error) {
 // SetupWithManager registers Controller to ControllerManager
 func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&lvgcrd.LVG{}).
+		For(&lvgcrd.LogicalVolumeGroup{}).
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				return c.filterCRs(e.Object)
@@ -233,7 +233,7 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (c *Controller) filterCRs(obj runtime.Object) bool {
-	if lvg, ok := obj.(*lvgcrd.LVG); ok {
+	if lvg, ok := obj.(*lvgcrd.LogicalVolumeGroup); ok {
 		if lvg.Spec.Node == c.node {
 			return true
 		}
@@ -241,21 +241,21 @@ func (c *Controller) filterCRs(obj runtime.Object) bool {
 	return false
 }
 
-// createSystemLVG creates LVG in the system and put all drives from lvg.Spec.Location in that LVG
+// createSystemLVG creates LogicalVolumeGroup in the system and put all drives from lvg.Spec.Location in that LogicalVolumeGroup
 // if some drive doesn't read that drive will not pass in lvg.Location
-// return list of drives in LVG that should be used as a locations for this LVG
-func (c *Controller) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, err error) {
+// return list of drives in LogicalVolumeGroup that should be used as a locations for this LogicalVolumeGroup
+func (c *Controller) createSystemLVG(lvg *lvgcrd.LogicalVolumeGroup) (locations []string, err error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "createSystemLVG",
 		"lvgName": lvg.Name,
 	})
 	ll.Info("Processing ...")
 
-	var deviceFiles = make([]string, 0) // device files of each drive in LVG
+	var deviceFiles = make([]string, 0) // device files of each drive in LogicalVolumeGroup
 	for _, driveUUID := range lvg.Spec.Locations {
 		drive := &drivecrd.Drive{}
 		if err := c.k8sClient.ReadCR(context.Background(), driveUUID, "", drive); err != nil {
-			// that drive will not be in LVG location
+			// that drive will not be in LogicalVolumeGroup location
 			ll.Errorf("Unable to read drive %s, error: %v", driveUUID, err)
 			continue
 		}
@@ -287,8 +287,8 @@ func (c *Controller) createSystemLVG(lvg *lvgcrd.LVG) (locations []string, err e
 	return locations, nil
 }
 
-// removeLVGArtifacts removes LVG and PVs that doesn't correspond to particular LVG
-// when LVG is removed all PVs that were in that LVG becomes orphans
+// removeLVGArtifacts removes LogicalVolumeGroup and PVs that doesn't correspond to particular LogicalVolumeGroup
+// when LogicalVolumeGroup is removed all PVs that were in that LogicalVolumeGroup becomes orphans
 func (c *Controller) removeLVGArtifacts(lvgName string) error {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "removeLVGArtifacts",
@@ -297,15 +297,15 @@ func (c *Controller) removeLVGArtifacts(lvgName string) error {
 	ll.Info("Processing ...")
 
 	if c.lvmOps.IsVGContainsLVs(lvgName) {
-		ll.Errorf("There are LVs in LVG. Unable to remove it.")
-		return fmt.Errorf("there are LVs in LVG %s", lvgName)
+		ll.Errorf("There are LVs in LogicalVolumeGroup. Unable to remove it.")
+		return fmt.Errorf("there are LVs in LogicalVolumeGroup %s", lvgName)
 	}
 
 	var err error
 	if err = c.lvmOps.VGRemove(lvgName); err != nil {
-		return fmt.Errorf("unable to remove LVG %s: %v", lvgName, err)
+		return fmt.Errorf("unable to remove LogicalVolumeGroup %s: %v", lvgName, err)
 	}
-	_ = c.lvmOps.RemoveOrphanPVs() // ignore error since LVG was removed successfully
+	_ = c.lvmOps.RemoveOrphanPVs() // ignore error since LogicalVolumeGroup was removed successfully
 	return nil
 }
 
@@ -360,7 +360,7 @@ func (c *Controller) resetACSizeOfLVG(lvgName string) error {
 
 	if err == errTypes.ErrorNotFound {
 		// non re-triable error
-		c.log.Errorf("AC CR for LVG %s not found", lvgName)
+		c.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
 		return nil
 	}
 

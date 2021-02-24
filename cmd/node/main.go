@@ -225,7 +225,7 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	if err = volumecrd.AddToScheme(scheme); err != nil {
 		logger.Fatal(err)
 	}
-	// register LVG crd
+	// register LogicalVolumeGroup crd
 	if err = lvgcrd.AddToSchemeLVG(scheme); err != nil {
 		logrus.Fatal(err)
 	}
@@ -247,13 +247,13 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 		logger.Fatalf("unable to create controller for volume: %v", err)
 	}
 
-	// bind LVMController to K8s Controller Manager as a controller for LVG CR
+	// bind LVMController to K8s Controller Manager as a controller for LogicalVolumeGroup CR
 	if err = lvgCtrl.SetupWithManager(mgr); err != nil {
-		logger.Fatalf("unable to create controller for LVG: %v", err)
+		logger.Fatalf("unable to create controller for LogicalVolumeGroup: %v", err)
 	}
 
 	if err = driveCtrl.SetupWithManager(mgr); err != nil {
-		logger.Fatalf("unable to create controller for LVG: %v", err)
+		logger.Fatalf("unable to create controller for LogicalVolumeGroup: %v", err)
 	}
 
 	return mgr

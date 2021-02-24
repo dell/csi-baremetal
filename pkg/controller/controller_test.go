@@ -384,7 +384,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					Status:     apiV1.Creating,
 					Size:       capacity,
 				}
-				lvgCR = lvgcrd.LVG{
+				lvgCR = lvgcrd.LogicalVolumeGroup{
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Name:      testDriveLocation4,
 						Namespace: controller.k8sclient.Namespace,
@@ -396,11 +396,11 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, uuid, &volumeCrd)
 			Expect(err).To(BeNil())
 
-			// create LVG CR
+			// create LogicalVolumeGroup CR
 			err = controller.k8sclient.CreateCR(testCtx, uuid, &lvgCR)
 			Expect(err).To(BeNil())
 
-			lvgCRs := &lvgcrd.LVGList{}
+			lvgCRs := &lvgcrd.LogicalVolumeGroupList{}
 			err = controller.k8sclient.ReadList(testCtx, lvgCRs)
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeCrd.Spec.Id, volumeCrd.Namespace)
@@ -418,9 +418,9 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			acList := accrd.AvailableCapacityList{}
 			err = controller.k8sclient.ReadList(context.Background(), &acList)
 			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(0)) // expect that LVG AC was removed
+			Expect(len(acList.Items)).To(Equal(0)) // expect that LogicalVolumeGroup AC was removed
 		})
-		It("Volume is deleted successful, LVG AC recreated", func() {
+		It("Volume is deleted successful, LogicalVolumeGroup AC recreated", func() {
 			removeAllCrds(controller.k8sclient) // remove CRs that was created in BeforeEach()
 			fullLVGsizeVolume := testVolume
 			fullLVGsizeVolume.Spec.StorageClass = apiV1.StorageClassHDDLVG

@@ -81,10 +81,10 @@ var (
 		},
 	}
 
-	// LVG variables
+	// LogicalVolumeGroup variables
 	testLVGName = "lvg-1"
-	testLVG     = lvgcrd.LVG{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "LVG", APIVersion: apiV1.APIV1Version},
+	testLVG     = lvgcrd.LogicalVolumeGroup{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "LogicalVolumeGroup", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: testNS},
 		Spec: api.LogicalVolumeGroup{
 			Name:      testLVGName,

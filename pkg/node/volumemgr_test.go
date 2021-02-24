@@ -136,9 +136,9 @@ var (
 		},
 	}
 
-	testLVGCR = lvgcrd.LVG{
+	testLVGCR = lvgcrd.LogicalVolumeGroup{
 		TypeMeta: v1.TypeMeta{
-			Kind:       "LVG",
+			Kind:       "LogicalVolumeGroup",
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
@@ -414,15 +414,15 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 		vm                 *VolumeManager
 		pMock              *mockProv.MockProvisioner
 		vol                *vcrd.Volume
-		lvg                *lvgcrd.LVG
+		lvg                *lvgcrd.LogicalVolumeGroup
 		testVol            vcrd.Volume
-		testLVG            lvgcrd.LVG
+		testLVG            lvgcrd.LogicalVolumeGroup
 		expectedResRequeue = ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}
 		res                ctrl.Result
 		err                error
 	)
 
-	// unable to read LVG (not found) and unable to update corresponding volume CR
+	// unable to read LogicalVolumeGroup (not found) and unable to update corresponding volume CR
 	vm = prepareSuccessVolumeManager(t)
 
 	res, err = vm.handleCreatingVolumeInLVG(testCtx, &testVol)
@@ -430,7 +430,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.True(t, k8sError.IsNotFound(err))
 	assert.Equal(t, expectedResRequeue, res)
 
-	// LVG is not found, volume CR was updated successfully (CSIStatus=failed)
+	// LogicalVolumeGroup is not found, volume CR was updated successfully (CSIStatus=failed)
 	vm = prepareSuccessVolumeManager(t)
 	testVol = testVolumeLVGCR
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
@@ -443,7 +443,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
-	// LVG in creating state
+	// LogicalVolumeGroup in creating state
 	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = apiV1.Creating
@@ -454,7 +454,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, expectedResRequeue, res)
 
-	// LVG in failed state and volume is updated successfully
+	// LogicalVolumeGroup in failed state and volume is updated successfully
 	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = apiV1.Failed
@@ -470,7 +470,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
-	// LVG in failed state and volume is failed to update
+	// LogicalVolumeGroup in failed state and volume is failed to update
 	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = apiV1.Failed
@@ -482,7 +482,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Equal(t, expectedResRequeue, res)
 	assert.True(t, k8sError.IsNotFound(err))
 
-	// LVG in created state and volume.ID is not in VolumeRefs
+	// LogicalVolumeGroup in created state and volume.ID is not in VolumeRefs
 	vm = prepareSuccessVolumeManager(t)
 	pMock = &mockProv.MockProvisioner{}
 	pMock.On("PrepareVolume", mock.Anything).Return(nil)
@@ -497,11 +497,11 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, ctrl.Result{}, res)
 
-	lvg = &lvgcrd.LVG{}
+	lvg = &lvgcrd.LogicalVolumeGroup{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, "", lvg))
 	assert.True(t, util.ContainsString(lvg.Spec.VolumeRefs, testVol.Spec.Id))
 
-	// LVG in created state and volume.ID is in VolumeRefs
+	// LogicalVolumeGroup in created state and volume.ID is in VolumeRefs
 	vm = prepareSuccessVolumeManager(t)
 	pMock = &mockProv.MockProvisioner{}
 	pMock.On("PrepareVolume", mock.Anything).Return(nil)
@@ -517,12 +517,12 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, ctrl.Result{}, res)
 
-	lvg = &lvgcrd.LVG{}
+	lvg = &lvgcrd.LogicalVolumeGroup{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testLVG.Name, "", lvg))
 	assert.True(t, util.ContainsString(lvg.Spec.VolumeRefs, testVol.Spec.Id))
 	assert.Equal(t, 1, len(lvg.Spec.VolumeRefs))
 
-	// LVG state wasn't recognized
+	// LogicalVolumeGroup state wasn't recognized
 	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
 	testLVG.Spec.Status = ""
@@ -595,7 +595,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		vm.listBlk = listBlk
 		vm.discoverSystemLVG = false
 		mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(nil)
-		mockK8sClient.On("List", mock.Anything, &lvgcrd.LVGList{}, mock.Anything).Return(nil)
+		mockK8sClient.On("List", mock.Anything, &lvgcrd.LogicalVolumeGroupList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(testErr)
 
 		err = vm.Discover()
@@ -613,7 +613,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		vm.listBlk = listBlk
 		mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &vcrd.VolumeList{}, mock.Anything).Return(nil)
-		mockK8sClient.On("List", mock.Anything, &lvgcrd.LVGList{}, mock.Anything).Return(nil)
+		mockK8sClient.On("List", mock.Anything, &lvgcrd.LogicalVolumeGroupList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &accrd.AvailableCapacityList{}, mock.Anything).Return(testErr).Once()
 		vm.discoverSystemLVG = false
 		err = vm.Discover()
@@ -890,7 +890,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	assert.Nil(t, err)
 	// Check lvg's health change
 	vm.handleDriveStatusChange(testCtx, &drive)
-	updatedLVG := &lvgcrd.LVG{}
+	updatedLVG := &lvgcrd.LogicalVolumeGroup{}
 	err = vm.k8sClient.ReadCR(testCtx, testLVGName, "", updatedLVG)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.HealthBad, updatedLVG.Spec.Health)
@@ -904,7 +904,7 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 			Node:      m.nodeID,
 			Locations: []string{"some-uuid"},
 		})
-		lvgList = lvgcrd.LVGList{}
+		lvgList = lvgcrd.LogicalVolumeGroupList{}
 		acList  = accrd.AvailableCapacityList{}
 		err     error
 	)
@@ -953,7 +953,7 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	var (
 		m             = prepareSuccessVolumeManager(t)
-		lvgList       = lvgcrd.LVGList{}
+		lvgList       = lvgcrd.LogicalVolumeGroupList{}
 		acList        = accrd.AvailableCapacityList{}
 		listBlk       = &mocklu.MockWrapLsblk{}
 		fsOps         = &mockProv.MockFsOpts{}
@@ -975,7 +975,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 
 	assert.Nil(t, m.k8sClient.CreateCR(testCtx, systemDriveCR.Name, &systemDriveCR))
 
-	// expect success, LVG CR and AC CR was created
+	// expect success, LogicalVolumeGroup CR and AC CR was created
 	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, systemDriveCR.Spec.UUID)
 	err = m.discoverLVGOnSystemDrive()
 	assert.Nil(t, err)
@@ -1107,9 +1107,9 @@ func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
 	vm := prepareSuccessVolumeManager(t)
 	drive1 := api.Drive{UUID: drive1UUID}
 	drive2 := api.Drive{UUID: drive2UUID}
-	lvgCR := lvgcrd.LVG{
+	lvgCR := lvgcrd.LogicalVolumeGroup{
 		TypeMeta: v1.TypeMeta{
-			Kind:       "LVG",
+			Kind:       "LogicalVolumeGroup",
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
@@ -1125,9 +1125,9 @@ func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
 			VolumeRefs: []string{},
 		},
 	}
-	// there are no LVG CRs
+	// there are no LogicalVolumeGroup CRs
 	assert.False(t, vm.isDriveInLVG(drive1))
-	// create LVG CR
+	// create LogicalVolumeGroup CR
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, lvgCR.Name, &lvgCR))
 
 	assert.True(t, vm.isDriveInLVG(drive1))

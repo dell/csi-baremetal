@@ -140,9 +140,9 @@ var (
 		Size:      1024,
 	}
 	testLVGName = fmt.Sprintf("lvg-%s", strings.ToLower(testApiLVG.Locations[0]))
-	testLVGCR   = lvgcrd.LVG{
+	testLVGCR   = lvgcrd.LogicalVolumeGroup{
 		TypeMeta: k8smetav1.TypeMeta{
-			Kind:       "LVG",
+			Kind:       "LogicalVolumeGroup",
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -470,7 +470,7 @@ var _ = Describe("Constructor methods", func() {
 		})
 	})
 	Context("ConstructLVGCR", func() {
-		It("Should return right LVG CR", func() {
+		It("Should return right LogicalVolumeGroup CR", func() {
 			constructedCR := k8sclient.ConstructLVGCR(testLVGName, testApiLVG)
 			Expect(constructedCR.TypeMeta.Kind).To(Equal(testLVGCR.TypeMeta.Kind))
 			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testLVGCR.TypeMeta.APIVersion))

@@ -97,8 +97,8 @@ type VolumeManager struct {
 
 	// kubernetes node ID
 	nodeID string
-	// used for discoverLVGOnSystemDisk method to determine if we need to discover LVG in Discover method, default true
-	// set false when there is no LVG on system disk or system disk is not SSD
+	// used for discoverLVGOnSystemDisk method to determine if we need to discover LogicalVolumeGroup in Discover method, default true
+	// set false when there is no LogicalVolumeGroup on system disk or system disk is not SSD
 	discoverSystemLVG bool
 	// whether VolumeManager was initialized or no, uses for health probes
 	initialized bool
@@ -352,8 +352,8 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 	return ctrl.Result{}, nil
 }
 
-// handleCreatingVolumeInLVG handles volume CR that has storage class related to LVG and CSIStatus creating
-// check whether underlying LVG ready or not, add volume to LVG volumeRefs (if needed) and create real storage based on volume
+// handleCreatingVolumeInLVG handles volume CR that has storage class related to LogicalVolumeGroup and CSIStatus creating
+// check whether underlying LogicalVolumeGroup ready or not, add volume to LogicalVolumeGroup volumeRefs (if needed) and create real storage based on volume
 // uses as a step for Reconcile for Volume CR
 func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
@@ -362,12 +362,12 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 	})
 
 	var (
-		lvg = &lvgcrd.LVG{}
+		lvg = &lvgcrd.LogicalVolumeGroup{}
 		err error
 	)
 
 	if err = m.k8sClient.ReadCR(ctx, volume.Spec.Location, "", lvg); err != nil {
-		ll.Errorf("Unable to read underlying LVG %s: %v", volume.Spec.Location, err)
+		ll.Errorf("Unable to read underlying LogicalVolumeGroup %s: %v", volume.Spec.Location, err)
 		if k8sError.IsNotFound(err) {
 			volume.Spec.CSIStatus = apiV1.Failed
 			err = m.k8sClient.UpdateCR(ctx, volume)
@@ -376,16 +376,16 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 			}
 			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
 		}
-		// retry because of LVG wasn't read or Volume status wasn't updated
+		// retry because of LogicalVolumeGroup wasn't read or Volume status wasn't updated
 		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, err
 	}
 
 	switch lvg.Spec.Status {
 	case apiV1.Creating:
-		ll.Debugf("Underlying LVG %s is still being created", lvg.Name)
+		ll.Debugf("Underlying LogicalVolumeGroup %s is still being created", lvg.Name)
 		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, nil
 	case apiV1.Failed:
-		ll.Errorf("Underlying LVG %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
+		ll.Errorf("Underlying LogicalVolumeGroup %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
 		volume.Spec.CSIStatus = apiV1.Failed
 		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
 			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
@@ -394,17 +394,17 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 		}
 		return ctrl.Result{}, nil // no need to retry
 	case apiV1.Created:
-		// add volume ID to LVG.Spec.VolumeRefs
+		// add volume ID to LogicalVolumeGroup.Spec.VolumeRefs
 		if !util.ContainsString(lvg.Spec.VolumeRefs, volume.Spec.Id) {
 			lvg.Spec.VolumeRefs = append(lvg.Spec.VolumeRefs, volume.Spec.Id)
 			if err = m.k8sClient.UpdateCR(ctx, lvg); err != nil {
-				ll.Errorf("Unable to add Volume ID to LVG %s volume refs: %v", lvg.Name, err)
+				ll.Errorf("Unable to add Volume ID to LogicalVolumeGroup %s volume refs: %v", lvg.Name, err)
 				return ctrl.Result{Requeue: true}, err
 			}
 		}
 		return m.prepareVolume(ctx, volume)
 	default:
-		ll.Warnf("Unable to recognize LVG status. LVG - %v", lvg)
+		ll.Warnf("Unable to recognize LogicalVolumeGroup status. LogicalVolumeGroup - %v", lvg)
 		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, nil
 	}
 }
@@ -533,7 +533,7 @@ func (m *VolumeManager) Discover() error {
 	if m.discoverSystemLVG {
 		if err = m.discoverLVGOnSystemDrive(); err != nil {
 			m.log.WithField("method", "Discover").
-				Errorf("unable to inspect system LVG: %v", err)
+				Errorf("unable to inspect system LogicalVolumeGroup: %v", err)
 		}
 	}
 
@@ -678,14 +678,14 @@ func (m *VolumeManager) handleDriveUpdates(ctx context.Context, updates *driveUp
 	m.createEventsForDriveUpdates(updates)
 }
 
-// isDriveInLVG check whether drive is a part of some LVG or no
+// isDriveInLVG check whether drive is a part of some LogicalVolumeGroup or no
 func (m *VolumeManager) isDriveInLVG(d api.Drive) bool {
 	lvgs, err := m.cachedCrHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		m.log.WithFields(logrus.Fields{
 			"method":    "isDriveInLVG",
 			"driveUUID": d.UUID,
-		}).Errorf("Unable to read LVG CRs list: %v. Consider that drive isn't in LVG", err)
+		}).Errorf("Unable to read LogicalVolumeGroup CRs list: %v. Consider that drive isn't in LogicalVolumeGroup", err)
 		return false
 	}
 
@@ -817,7 +817,7 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 	var (
 		// key - ac.Spec.Location that is Drive.Spec.UUID
 		acsLocations = make(map[string]*accrd.AvailableCapacity, len(acs))
-		// key - volume.Spec.Location that is Drive.Spec.UUID or LVG.Spec.Name (don't need to use info about LVG here)
+		// key - volume.Spec.Location that is Drive.Spec.UUID or LogicalVolumeGroup.Spec.Name (don't need to use info about LogicalVolumeGroup here)
 		volumeLocations = make(map[string]struct{})
 	)
 	for _, ac := range acs {
@@ -888,9 +888,9 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 	return nil
 }
 
-// discoverLVGOnSystemDrive discovers LVG configuration on system SSD drive and creates LVG CR and AC CR,
-// return nil in case of success. If system drive is not SSD or LVG CR that points in system VG is exists - return nil.
-// If system VG free space is less then threshold - AC CR will not be created but LVG will.
+// discoverLVGOnSystemDrive discovers LogicalVolumeGroup configuration on system SSD drive and creates LogicalVolumeGroup CR and AC CR,
+// return nil in case of success. If system drive is not SSD or LogicalVolumeGroup CR that points in system VG is exists - return nil.
+// If system VG free space is less then threshold - AC CR will not be created but LogicalVolumeGroup will.
 // Returns error in case of error on any step
 func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	ll := m.log.WithField("method", "discoverLVGOnSystemDrive")
@@ -909,7 +909,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		err         error
 	)
 
-	// 1. check whether LVG CR that holds info about LVG configuration on the system drive exists or not
+	// 1. check whether LogicalVolumeGroup CR that holds info about LogicalVolumeGroup configuration on the system drive exists or not
 	lvgs, err := m.cachedCrHelper.GetLVGCRs(m.nodeID)
 	if err != nil {
 		return err
@@ -919,12 +919,12 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
 			}
-			ll.Infof("LVG CR that points on system VG is exists: %v", lvg)
+			ll.Infof("LogicalVolumeGroup CR that points on system VG is exists: %v", lvg)
 			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSystemLVG, vgFreeSpace)
 		}
 	}
 
-	// 2. check whether there is LVG configuration on the system drive or not
+	// 2. check whether there is LogicalVolumeGroup configuration on the system drive or not
 	var driveCR = new(drivecrd.Drive)
 	// TODO: handle situation when there is more then one system drive
 	if err = m.k8sCache.ReadCR(context.Background(), m.systemDrivesUUIDs[0], "", driveCR); err != nil {
@@ -938,7 +938,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 
 	var systemPVName string
 	for _, pv := range pvs {
-		// LVG could be configured on partition on the system drive, handle this case
+		// LogicalVolumeGroup could be configured on partition on the system drive, handle this case
 		matched, _ := regexp.Match(fmt.Sprintf("^%s\\d*$", driveCR.Spec.Path), []byte(pv))
 		if matched {
 			systemPVName = pv
@@ -967,7 +967,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf("unable to determine LVs in system VG %s: %v", vgName, err)
 	}
 
-	// 5. create LVG CR
+	// 5. create LogicalVolumeGroup CR
 	var (
 		vgCRName = uuid.New().String()
 		vg       = api.LogicalVolumeGroup{
@@ -983,7 +983,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
 	)
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
-		return fmt.Errorf("unable to create LVG CR %v, error: %v", vgCR, err)
+		return fmt.Errorf("unable to create LogicalVolumeGroup CR %v, error: %v", vgCR, err)
 	}
 	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSystemLVG, vgFreeSpace)
 }
@@ -1008,7 +1008,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 
 	ll.Infof("The new drive status from DriveMgr is %s", drive.Health)
 
-	// Handle resources without LVG
+	// Handle resources without LogicalVolumeGroup
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
 		if ac, err := m.cachedCrHelper.GetACByLocation(drive.UUID); err == nil {
@@ -1025,7 +1025,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 			ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
 		}
 	} else {
-		errMsg := "Failed get LVG CR"
+		errMsg := "Failed get LogicalVolumeGroup CR"
 		if err != nil {
 			errMsg = fmt.Sprintf(errMsg+" error: %v", err)
 		}
@@ -1056,7 +1056,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 				prevHealthState, vol.Spec.Health, drive.Health, drive.NodeId)
 		}
 	}
-	// Handle resources with LVG
+	// Handle resources with LogicalVolumeGroup
 	// This is not work for the current moment because HAL doesn't monitor disks with LVM
 	// TODO: Handle disk health which are used by LVGs - https://github.com/dell/csi-baremetal/issues/88
 }
@@ -1093,7 +1093,7 @@ func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int
 			Size:         size,
 		})
 		if err := m.k8sClient.CreateCR(context.Background(), acName, acCR); err != nil {
-			return fmt.Errorf("unable to create AC based on system LVG, error: %v", err)
+			return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 		}
 		ll.Infof("Created AC %v for lvg %s", acCR, location)
 		return nil

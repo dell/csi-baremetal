@@ -198,11 +198,11 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 	}
 }
 
-// ConstructLVGCR constructs LVG custom resource from api.LogicalVolumeGroup struct
+// ConstructLVGCR constructs LogicalVolumeGroup custom resource from api.LogicalVolumeGroup struct
 // Receives a name for k8s ObjectMeta and an instance of api.LogicalVolumeGroup struct
-// Returns an instance of LVG CR struct
-func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LVG {
-	return &lvgcrd.LVG{
+// Returns an instance of LogicalVolumeGroup CR struct
+func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LogicalVolumeGroup {
+	return &lvgcrd.LogicalVolumeGroup{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.LVGKind,
 			APIVersion: crdV1.APIV1Version,
@@ -425,7 +425,7 @@ func PrepareScheme() (*runtime.Scheme, error) {
 	if err := drivecrd.AddToSchemeDrive(scheme); err != nil {
 		return nil, err
 	}
-	// register LVG crd
+	// register LogicalVolumeGroup crd
 	if err := lvgcrd.AddToSchemeLVG(scheme); err != nil {
 		return nil, err
 	}
