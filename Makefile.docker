@@ -48,7 +48,7 @@ image-controller: base-image-controller
 
 image-extender:
 	cp ./pkg/${SCHEDULER}/${EXTENDER}/Dockerfile ./build/${SCHEDULING_PKG}/${EXTENDER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
 
 image-extender-patcher:
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PATCHER_PKG}
@@ -83,7 +83,7 @@ push-controller:
 	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 
 push-extender:
-	docker push ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 
 push-extender-patcher:
 	docker push ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
@@ -115,7 +115,7 @@ clean-image-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 
 clean-image-extender:
-	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 
 clean-image-extender-patcher:
 	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
