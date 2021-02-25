@@ -6,9 +6,10 @@ lint:
 	${GO_ENV_VARS} golangci-lint -v run ./...
 
 lint-charts:
-	helm lint ./${PLUGIN_CHART_PATH}
+	helm lint ./${DRIVER_CHART_PATH}
 	helm lint ./${EXTENDER_CHART_PATH}
 	helm lint ./${OPERATOR_CHART_PATH}
+	helm lint ./${SCHEDULER_CHART_PATH}
 
 ### Unit tests
 

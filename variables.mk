@@ -2,9 +2,10 @@
 PROJECT          := csi-baremetal
 
 ### file paths
-DRIVER_CHART_PATH		:= charts/driver
-EXTENDER_CHART_PATH		:= charts/scheduler-extender
-OPERATOR_CHART_PATH		:= charts/operator
+DRIVER_CHART_PATH	:= charts/driver
+EXTENDER_CHART_PATH	:= charts/scheduler-extender
+OPERATOR_CHART_PATH	:= charts/operator
+SCHEDULER_CHART_PATH	:= charts/scheduler
 
 ### version
 MAJOR            := 0
