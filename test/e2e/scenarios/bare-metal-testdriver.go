@@ -47,7 +47,7 @@ type baremetalDriver struct {
 var (
 	BaremetalDriver = InitBaremetalDriver
 	cmName          = "loopback-config"
-	manifestsFolder = "baremetal-csi-plugin/templates/"
+	manifestsFolder = "csi-baremetal-driver/templates/"
 )
 
 func initBaremetalDriver(name string) testsuites.TestDriver {
@@ -73,7 +73,7 @@ func initBaremetalDriver(name string) testsuites.TestDriver {
 }
 
 func InitBaremetalDriver() testsuites.TestDriver {
-	return initBaremetalDriver("baremetal-csi")
+	return initBaremetalDriver("csi-baremetal")
 }
 
 var _ testsuites.TestDriver = &baremetalDriver{}
@@ -103,7 +103,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		manifestsFolder + "node-rbac.yaml",
 		manifestsFolder + "node.yaml",
 	}
-	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/controller.yaml")
+	file, err := ioutil.ReadFile("/tmp/csi-baremetal-driver/templates/controller.yaml")
 	framework.ExpectNoError(err)
 
 	deployment := &appsv1.Deployment{}

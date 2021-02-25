@@ -49,8 +49,8 @@ Bare-metal CSI Plugin is written in Golang. Our plugin uses [Effective Go](https
 - Imports statement should be divided into 4 blocks each block is separated from others by empty line.
   * First block - only imports from standard library. 
   * Second block - external libraries imports.
-  * Third block - our internal imports that don't relate to that repository (baremetal-csi-plugin).
-  * Forth block - internal imports that relates to that repository (baremetal-csi-plugin).
+  * Third block - our internal imports that don't relate to that repository (csi-baremetal).
+  * Forth block - internal imports that relates to that repository (csi-baremetal).
 - If there are no imports from some block, that block should be omitted.
 - If some structure have a field with logger, that field should be the last in the structure declaration.
 #### Linter
@@ -144,7 +144,7 @@ make kind-load-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
 ```
 * E2E tests need yaml files with baremetal-csi resources (plugin, controller, rbac). To create yaml files use helm command:
 ```
-helm template charts/baremetal-csi-plugin \
+helm template charts/csi-baremetal-driver \
     --output-dir /tmp --set image.tag=${CSI_VERSION} \
     --set env.test=true --set drivemgr.type=loopbackmgr \
     --set drivemgr.deployConfig=true \

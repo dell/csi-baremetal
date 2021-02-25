@@ -35,13 +35,13 @@ To perform replacement of failed drive negotiation between CSI, Operator and Use
   - Triggers physical drive replacement process since drive might not be shipped yet when recovery of data is completed
 ## Design Details
 ### Drive health detection
-Drive health is detected by drive manager and stored in the health field of [Drives CRD](https://github.com/dell/csi-baremetal/blob/master/charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_drives.yaml): 
+Drive health is detected by drive manager and stored in the health field of [Drives CRD](https://github.com/dell/csi-baremetal/blob/master/charts/csi-baremetal-driver/crds/csi-baremetal.dell.com_drives.yaml): 
 - `GOOD` - drive is healthy. Application can safely use it.
 - `SUSPECT` - drive might not be healthy. Replacement is recommended.
 - `BAD` - drive is not healthy. Replacement is required.
 - `UNKNOWN` - drive health not detected. Application should rely on IO errors.
 ### Drive operational statuses
-[Drives CRD](https://github.com/dell/csi-baremetal/blob/master/charts/baremetal-csi-plugin/crds/baremetal-csi.dellemc.com_drives.yaml) will be extended by the new field - operational status: 
+[Drives CRD](https://github.com/dell/csi-baremetal/blob/master/charts/csi-baremetal-driver/crds/csi-baremetal.dell.com_drives.yaml) will be extended by the new field - operational status: 
 - `OPERATIVE` - drive in use
 - `RELEASING` - releasing in progress
 - `RELEASED` - drive ready for removal
@@ -53,7 +53,7 @@ Drive health is detected by drive manager and stored in the health field of [Dri
 Negotiation between CSI and Operator is optional and will be done though annotation on different objects.
 * Persistent volume claim annotation:
   - `volumerelease.csi-baremetal/support: yes` - inform CSI that volume release feature is supported by Operator
-* [Volume CRD]() annotations:
+* [Volume CRD](https://github.com/dell/csi-baremetal/blob/master/charts/csi-baremetal-driver/crds/csi-baremetal.dell.com_volumes.yaml) annotations:
   - `volumehealth.csi-baremetal/health: good/unknown/suspect/bad` - health of the underlying drive(s) 
   - `volumerelease.csi-baremetal/process: start|pause|stop` - inform to start|pause|stop volume release process
   - `volumerelease.csi-baremetal/release: processing` - system is working on data recovery/graceful IO shutdown

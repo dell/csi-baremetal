@@ -51,11 +51,11 @@ Installation process
 
     2.2 Deploy CSI plugin 
     
-    ```cd charts && helm install csi-baremetal baremetal-csi-plugin --set global.registry=<your-registry.com> --set image.tag=<tag> --set feature.extender=true```
+    ```cd charts && helm install csi-baremetal-driver csi-baremetal-driver --set global.registry=<your-registry.com> --set image.tag=<tag> --set feature.extender=true```
     
     2.3 Deploy Kubernetes scheduler extender 
         
-    ```cd charts && helm install csi-scheduler-extender scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
+    ```cd charts && helm install csi-baremetal-scheduler-extender csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
     
 3. Check default storage classes available
 
