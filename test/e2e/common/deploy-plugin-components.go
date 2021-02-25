@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	extenderManifestsFolder = "scheduler-extender/templates/"
+	extenderManifestsFolder = "csi-baremetal-scheduler-extender/templates/"
 	schedulerLabel          = "component=kube-scheduler"
 	restartWaitTimeout      = time.Minute * 2
 )
@@ -277,7 +277,7 @@ func findSchedulerPods(client clientset.Interface) (*corev1.PodList, error) {
 func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 	var (
 		chartsDir               = "/tmp"
-		operatorManifestsFolder = "csibm-operator/templates"
+		operatorManifestsFolder = "csi-baremetal-operator/templates"
 	)
 
 	setupRBACCMD := fmt.Sprintf("kubectl apply -f %s",
