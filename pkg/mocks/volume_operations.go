@@ -67,8 +67,7 @@ func (vo *VolumeOperationsMock) WaitStatus(ctx context.Context, volumeID string,
 // Return volume spec, error
 func (vo *VolumeOperationsMock) ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) (*api.Volume, error) {
 	args := vo.Mock.Called(ctx, volume, requiredBytes)
-
-	return args.Get(0).(*api.Volume), args.Error(0)
+	return args.Get(0).(*api.Volume), args.Error(1)
 }
 
 // UpdateCRsAfterVolumeExpansion is the mock implementation of UpdateCRsAfterVolumeExpansion method from VolumeOperations made for simulating

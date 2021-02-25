@@ -36,6 +36,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -450,6 +451,139 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	err = svc1.k8sClient.ReadCR(testCtx, testAC4Name, "", updatedAC)
 	assert.Nil(t, err)
 	assert.Equal(t, testAC4.Spec.Size+v1.Spec.Size, updatedAC.Spec.Size)
+}
+
+func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
+	var (
+		svc      *VolumeOperationsImpl
+		err      error
+		capacity = int64(util.GBYTE) * 50
+	)
+
+	volumeCR := testVolume1
+	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
+	svc = setupVOOperationsTest(t)
+	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &volumeCR)
+	volAC := testAC2
+	volAC.Spec.Location = testDrive1UUID
+	err = svc.k8sClient.CreateCR(testCtx, testAC2Name, &volAC)
+	assert.Nil(t, err)
+
+	for _, v := range [2]string{apiV1.Resizing, apiV1.Resized} {
+		volumeCR.Spec.CSIStatus = v
+		err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+		assert.Nil(t, err)
+		vol, err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
+		assert.Nil(t, err)
+		assert.NotNil(t, vol)
+	}
+	for _, v := range [3]string{apiV1.VolumeReady, apiV1.Created, apiV1.Published} {
+		volumeCR.Spec.CSIStatus = v
+		err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+		assert.Nil(t, err)
+
+		vol, err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
+		assert.Nil(t, err)
+		assert.NotNil(t, vol)
+		uVol := &volumecrd.Volume{}
+		err = svc.k8sClient.ReadCR(testCtx, volumeCR.Spec.Id, testNS, uVol)
+		assert.Nil(t, err)
+		assert.Equal(t, apiV1.Resizing, uVol.Spec.CSIStatus)
+	}
+}
+
+func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
+	var (
+		svc      *VolumeOperationsImpl
+		err      error
+		capacity = int64(util.TBYTE)
+	)
+
+	volumeCR := testVolume1
+	svc = setupVOOperationsTest(t)
+	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR)
+
+	for _, v := range [4]string{apiV1.Failed, apiV1.Removed, apiV1.Removing, apiV1.Creating} {
+		volumeCR.Spec.CSIStatus = v
+		err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+		assert.Nil(t, err)
+		vol, err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
+		assert.NotNil(t, err)
+		assert.Nil(t, vol)
+		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+	}
+
+	// Storage class is not lvg
+	volumeCR.Spec.CSIStatus = apiV1.Created
+	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+	vol, err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
+	assert.NotNil(t, err)
+	assert.Nil(t, vol)
+	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+
+	// Failed to get AC
+	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
+	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+	vol, err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
+	assert.NotNil(t, err)
+	assert.Nil(t, vol)
+	assert.Equal(t, codes.Internal, status.Code(err))
+
+	//Required capacity is more than capacity of AC
+	volAC := testAC2
+	volAC.Spec.Location = testDrive1UUID
+	err = svc.k8sClient.CreateCR(testCtx, testAC2Name, &volAC)
+	assert.Nil(t, err)
+	vol, err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
+	assert.NotNil(t, err)
+	assert.Nil(t, vol)
+	assert.Equal(t, codes.OutOfRange, status.Code(err))
+}
+
+func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion_Success(t *testing.T) {
+	var (
+		svc *VolumeOperationsImpl
+		err error
+	)
+
+	volumeCR := testVolume1
+	svc = setupVOOperationsTest(t)
+	svc.cache.Set(volumeCR.Spec.Id, testNS)
+	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR)
+	volAC := testAC2
+	volAC.Spec.Location = testDrive1UUID
+	err = svc.k8sClient.CreateCR(testCtx, testAC2Name, &volAC)
+	assert.Nil(t, err)
+
+	err = svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec)
+	assert.Nil(t, err)
+}
+
+func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion_Fail(t *testing.T) {
+	var (
+		svc *VolumeOperationsImpl
+		err error
+	)
+
+	volumeCR := testVolume1
+
+	svc = setupVOOperationsTest(t)
+	//volume doesn't exist in cache
+	err = svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "item wasn't found")
+
+	// volume couldn't be updated
+	svc.cache.Set(volumeCR.Spec.Id, testNS)
+	err = svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	// AC for volume doesn't exist
+	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR)
+	err = svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec)
+	assert.NotNil(t, err)
+	assert.Equal(t, err, errTypes.ErrorNotFound)
 }
 
 func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {

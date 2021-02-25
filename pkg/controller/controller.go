@@ -426,7 +426,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 	c.reqMu.Unlock()
 
 	return &csi.ControllerExpandVolumeResponse{
-		CapacityBytes:         volume.Spec.Size,
+		CapacityBytes:         volSpec.Size,
 		NodeExpansionRequired: false,
 	}, nil
 }
