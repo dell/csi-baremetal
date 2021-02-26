@@ -310,7 +310,6 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 	}
 
 	return func() {
-		// todo need to remove nodes CR first
 
 		if err := c.AppsV1().Deployments("default").Delete(depl.Name, &metav1.DeleteOptions{}); err != nil {
 			e2elog.Logf("Failed to delete deployment %s: %v", depl.Name, err)
