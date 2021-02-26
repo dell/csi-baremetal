@@ -595,12 +595,6 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).To(Equal(status.Error(codes.InvalidArgument, "Volume name missing in request")))
 		})
-		It("Request doesn't contain volume capabilities", func() {
-			req := &csi.ControllerExpandVolumeRequest{VolumeId: uuid, VolumeCapability: nil}
-			resp, err := controller.ControllerExpandVolume(context.Background(), req)
-			Expect(resp).To(BeNil())
-			Expect(err).To(Equal(status.Error(codes.InvalidArgument, "Volume capabilities missing in request")))
-		})
 		It("Volume doesn't exist", func() {
 			req := &csi.ControllerExpandVolumeRequest{VolumeId: "unknown", VolumeCapability: &csi.VolumeCapability{}}
 			resp, err := controller.ControllerExpandVolume(context.Background(), req)
@@ -641,7 +635,7 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 			)
 			volMock := mocks.VolumeOperationsMock{}
 			volMock.On("ExpandVolume", mock.Anything, mock.Anything, mock.Anything).
-				Return(&api.Volume{}, errors.New("error"))
+				Return(errors.New("error"))
 			controller.svc = &volMock
 			resp, err := controller.ControllerExpandVolume(context.Background(),
 				&csi.ControllerExpandVolumeRequest{
@@ -665,37 +659,10 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 
 			volMock := mocks.VolumeOperationsMock{}
 			volMock.On("ExpandVolume", mock.Anything, mock.Anything, mock.Anything).
-				Return(&volumeCrd.Spec, nil)
-			volMock.On("WaitStatus", mock.Anything, mock.Anything, mock.Anything).
-				Return(errors.New("error"))
-			controller.svc = &volMock
-			resp, err := controller.ControllerExpandVolume(context.Background(),
-				&csi.ControllerExpandVolumeRequest{
-					VolumeId:         uuid,
-					VolumeCapability: &csi.VolumeCapability{},
-					CapacityRange:    &csi.CapacityRange{RequiredBytes: capacity},
-				})
-
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-
-		})
-		It("UpdateCRsAfterVolumeExpansion failed", func() {
-			var (
-				volumeCrd = &vcrd.Volume{}
-				err       error
-				capacity  = int64(1024)
-			)
-			err = controller.k8sclient.ReadCR(testCtx, uuid, testNs, volumeCrd)
-			Expect(err).To(BeNil())
-
-			volMock := mocks.VolumeOperationsMock{}
-			volMock.On("ExpandVolume", mock.Anything, mock.Anything, mock.Anything).
-				Return(&volumeCrd.Spec, nil)
-			volMock.On("WaitStatus", mock.Anything, mock.Anything, mock.Anything).
 				Return(nil)
-			volMock.On("UpdateCRsAfterVolumeExpansion", mock.Anything, mock.Anything).
+			volMock.On("WaitStatus", mock.Anything, mock.Anything, mock.Anything).
 				Return(errors.New("error"))
+			volMock.On("UpdateCRsAfterVolumeExpansion", mock.Anything, mock.Anything, mock.Anything)
 			controller.svc = &volMock
 			resp, err := controller.ControllerExpandVolume(context.Background(),
 				&csi.ControllerExpandVolumeRequest{

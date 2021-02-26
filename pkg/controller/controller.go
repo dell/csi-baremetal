@@ -375,7 +375,13 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
-// ControllerExpandVolume is not implemented yet
+// ControllerExpandVolume is the implementation of CSI Spec ControllerExpandVolume.
+// Controller tries to update volume status to Resizing, trigger reconcile and update according AC,
+// After it controller wait for volume to have previous status, in case of Failed status it tries to return AC size back
+// In case of volume size is equal or less than requiredBytes than ControllerExpandVolume does nothing
+// In case of status different from Volume_Ready, Created, Published and Resizing Controller returns error
+// Receives golang context and CSI Spec ControllerExpandVolumeRequest
+// Returns CSI Spec ControllerExpandVolumeResponse or error if something went wrong
 func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "ControllerExpandVolume",
@@ -386,14 +392,10 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		volID         = req.GetVolumeId()
 		ctxWithID     = context.WithValue(context.Background(), base.RequestUUID, volID)
 		requiredBytes = capacityplanner.AlignSizeByPE(req.GetCapacityRange().GetRequiredBytes())
-		volSpec       *api.Volume
 	)
 
 	if volID == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
-	}
-	if req.GetVolumeCapability() == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
 	}
 
 	volume, err := c.crHelper.GetVolumeByID(volID)
@@ -401,7 +403,6 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "Volume doesn't exist")
 	}
-
 	if volume.Spec.Size == requiredBytes || volume.Spec.Size > requiredBytes {
 		return &csi.ControllerExpandVolumeResponse{
 			CapacityBytes:         0,
@@ -410,23 +411,25 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 	}
 
 	c.reqMu.Lock()
-	if volSpec, err = c.svc.ExpandVolume(ctx, volume, requiredBytes); err != nil {
+	err = c.svc.ExpandVolume(ctx, volume, requiredBytes)
+	c.reqMu.Unlock()
+
+	if err != nil {
 		return nil, err
 	}
-	c.reqMu.Unlock()
 
-	if err := c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Resized); err != nil {
-		return nil, status.Error(codes.Internal, "Unable to expand volume")
-	}
+	err = c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Resized)
 
 	c.reqMu.Lock()
-	if err := c.svc.UpdateCRsAfterVolumeExpansion(ctx, *volSpec); err != nil {
-		return nil, status.Error(codes.Internal, "Unable to expand volume")
-	}
+	c.svc.UpdateCRsAfterVolumeExpansion(ctx, volID, requiredBytes)
 	c.reqMu.Unlock()
 
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Unable to expand volume")
+	}
+
 	return &csi.ControllerExpandVolumeResponse{
-		CapacityBytes:         volSpec.Size,
+		CapacityBytes:         requiredBytes,
 		NodeExpansionRequired: false,
 	}, nil
 }

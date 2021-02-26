@@ -65,16 +65,14 @@ func (vo *VolumeOperationsMock) WaitStatus(ctx context.Context, volumeID string,
 // ExpandVolume is the mock implementation of ExpandVolume method from VolumeOperations made for simulating
 // Receive golang context, volume CR, requiredBytes as int
 // Return volume spec, error
-func (vo *VolumeOperationsMock) ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) (*api.Volume, error) {
+func (vo *VolumeOperationsMock) ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) error {
 	args := vo.Mock.Called(ctx, volume, requiredBytes)
-	return args.Get(0).(*api.Volume), args.Error(1)
+	return args.Error(0)
 }
 
 // UpdateCRsAfterVolumeExpansion is the mock implementation of UpdateCRsAfterVolumeExpansion method from VolumeOperations made for simulating
 // Receive golang context, volume spec
 // Return  error
-func (vo *VolumeOperationsMock) UpdateCRsAfterVolumeExpansion(ctx context.Context, vol api.Volume) error {
-	args := vo.Mock.Called(ctx, vol)
-
-	return args.Error(0)
+func (vo *VolumeOperationsMock) UpdateCRsAfterVolumeExpansion(ctx context.Context, volID string, requiredBytes int64) {
+	vo.Mock.Called(ctx, volID, requiredBytes)
 }

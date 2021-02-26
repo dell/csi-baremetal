@@ -1136,13 +1136,12 @@ func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
 
 func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 	var (
-		vm                 *VolumeManager
-		pMock              *mockProv.MockProvisioner
-		vol                *vcrd.Volume
-		testVol            vcrd.Volume
-		expectedResRequeue = ctrl.Result{Requeue: true}
-		res                ctrl.Result
-		err                error
+		vm      *VolumeManager
+		pMock   *mockProv.MockProvisioner
+		vol     *vcrd.Volume
+		testVol vcrd.Volume
+		res     ctrl.Result
+		err     error
 	)
 
 	vm = prepareSuccessVolumeManager(t)
@@ -1152,25 +1151,18 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 	res, err = vm.handleExpandingStatus(testCtx, &testVol)
 	assert.NotNil(t, err)
 
-	pMock = &mockProv.MockProvisioner{}
-	pMock.On("GetVolumePath", testVol.Spec).Return("path", nil)
-
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
-	res, err = vm.handleExpandingStatus(testCtx, &testVol)
-	assert.NotNil(t, err)
-	assert.True(t, k8sError.IsNotFound(err))
-	assert.Equal(t, expectedResRequeue, res)
-
 	testVol = testVolumeLVGCR
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
 
+	pMock = &mockProv.MockProvisioner{}
 	pMock.On("GetVolumePath", testVol.Spec).Return("path", nil)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
 	lvmOps := &mocklu.MockWrapLVM{}
 	lvmOps.On("ExpandLV", "path", testVol.Spec.Size).Return(fmt.Errorf("error"))
 	vm.lvmOps = lvmOps
 	res, err = vm.handleExpandingStatus(testCtx, &testVol)
 	assert.NotNil(t, err)
-	assert.Equal(t, expectedResRequeue, res)
+	assert.Equal(t, ctrl.Result{}, res)
 
 	vol = &vcrd.Volume{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
@@ -1181,6 +1173,7 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 	lvmOps = &mocklu.MockWrapLVM{}
 	lvmOps.On("ExpandLV", "path", vol.Spec.Size).Return(nil)
 	vm.lvmOps = lvmOps
+	assert.Nil(t, vm.k8sClient.UpdateCR(testCtx, &testVol))
 	res, err = vm.handleExpandingStatus(testCtx, &testVol)
 	assert.Nil(t, err)
 	assert.Equal(t, ctrl.Result{}, res)

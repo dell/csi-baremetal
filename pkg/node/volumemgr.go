@@ -1224,17 +1224,12 @@ func (m *VolumeManager) handleExpandingStatus(ctx context.Context, volume *volum
 	}
 	if err = m.lvmOps.ExpandLV(volumePath, volume.Spec.Size); err != nil {
 		volume.Spec.CSIStatus = apiV1.Failed
-		if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
-			ll.Errorf("Unable to change volume %s status to %s, error: %v.",
-				volume.Name, volume.Spec.CSIStatus, updateErr)
-			return ctrl.Result{Requeue: true}, updateErr
-		}
-		return ctrl.Result{Requeue: true}, err
+	} else {
+		volume.Spec.CSIStatus = apiV1.Resized
 	}
-	volume.Spec.CSIStatus = apiV1.Resized
 	if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
 		return ctrl.Result{Requeue: true}, updateErr
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
