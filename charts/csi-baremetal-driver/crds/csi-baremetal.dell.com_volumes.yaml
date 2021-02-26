@@ -14,7 +14,7 @@ spec:
     listKind: VolumeList
     plural: volumes
     singular: volume
-  scope: Cluster
+  scope: Namespaced
   validation:
     openAPIV3Schema:
       description: Volume is the Schema for the volumes API

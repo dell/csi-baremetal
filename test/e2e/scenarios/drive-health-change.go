@@ -385,21 +385,26 @@ func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionR
 
 	deadline := time.Now().Add(timeout)
 	for {
-		if time.Now().After(deadline) {
-			framework.Failf("%s %s doesn't change to expected state: %s",
-				resource.Resource, name, expectedValue)
-		}
 		drive, found := getUObj(f, resource, name)
-		if !found {
-			continue
+		var result string
+		if found {
+			result, _, err := unstructured.NestedString(drive.Object, fields...)
+			framework.ExpectNoError(err)
+			if result == expectedValue {
+				e2elog.Logf("%s %s in expected state: %s", resource.Resource, name, expectedValue)
+				return
+			}
 		}
-		result, _, err := unstructured.NestedString(drive.Object, fields...)
-		framework.ExpectNoError(err)
-		if result == expectedValue {
-			e2elog.Logf("%s %s in expected state: %s",
-				resource.Resource, name, expectedValue)
-			return
+		// check timeout
+		if time.Now().After(deadline) {
+			if found {
+				framework.Failf("%s %s doesn't change to expected state: %s, current state: %s",
+					resource.Resource, name, expectedValue, result)
+			} else {
+				framework.Failf("Resource %s name %s not found", resource, name)
+			}
 		}
+		// sleep before next try
 		time.Sleep(time.Second * 5)
 	}
 }
@@ -439,7 +444,6 @@ func checkExpectedEventsExist(f *framework.Framework, object runtime.Object, eve
 			e2elog.Logf("expected event not found: %s", er)
 			return false
 		}
-
 	}
 	e2elog.Logf("all expected events found")
 	return true

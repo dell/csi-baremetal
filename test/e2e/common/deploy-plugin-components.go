@@ -310,6 +310,8 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 	}
 
 	return func() {
+		// todo need to remove nodes CR first
+
 		if err := c.AppsV1().Deployments("default").Delete(depl.Name, &metav1.DeleteOptions{}); err != nil {
 			e2elog.Logf("Failed to delete deployment %s: %v", depl.Name, err)
 		}
@@ -323,12 +325,24 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 			e2elog.Logf("Unable to get nodes list for cleaning annotations: %v", err)
 			return
 		}
+
+		driverRegistarNodeAnnotation := "csi.volume.kubernetes.io/nodeid"
 		for _, node := range nodes.Items {
+			isFound := false
+			// try to remove annotations set by driver registar
+			if _, ok := node.GetAnnotations()[driverRegistarNodeAnnotation]; ok {
+				delete(node.Annotations, driverRegistarNodeAnnotation)
+				isFound = true
+			}
+			// try to remove annotations set by csi operator
 			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; ok {
 				delete(node.Annotations, akey.NodeIDAnnotationKey)
+				isFound = true
+			}
+			// update node object if required
+			if isFound {
 				if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
-					e2elog.Logf("Unable to unset %s annotation from node %s: %v",
-						akey.NodeIDAnnotationKey, node.Name, err)
+					e2elog.Logf("Unable to unset annotations from node %s: %v", node.Name, err)
 				}
 			}
 		}
