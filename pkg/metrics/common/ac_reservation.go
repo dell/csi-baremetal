@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// ReservationDuration used to collect ReservationHelper methods durations
 var ReservationDuration = metrics.NewMetrics(prometheus.HistogramOpts{
 	Name:    "ac_reservation_duration",
 	Help:    "AvailableCapacity reservation duration",
