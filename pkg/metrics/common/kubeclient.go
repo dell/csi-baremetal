@@ -17,8 +17,9 @@ limitations under the License.
 package common
 
 import (
-	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
 // KubeclientDuration used to collect durations of k8s api calls
