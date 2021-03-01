@@ -28,7 +28,7 @@ const (
 	// VolumeNamespace is the constant for context request
 	VolumeNamespace CtxKey = "VolumeNamespace"
 	// PluginName is a name of current CSI plugin
-	PluginName = "baremetal-csi"
+	PluginName = "csi-baremetal"
 	// PluginVersion is a version of current CSI plugin
 	// TODO: get rid of hardcoded value https://github.com/dell/csi-baremetal/issues/79
 	PluginVersion = "0.0.13"

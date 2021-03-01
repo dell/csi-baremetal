@@ -49,7 +49,7 @@ var (
 	nodeEndpoint       = "unix:///tmp/node.sock"
 	targetSanityPath   = os.TempDir() + "/csi-mount/target"
 	stagingSanityPath  = os.TempDir() + "/csi-staging"
-	driverName         = "baremetal-csi-plugin"
+	driverName         = "csi-baremetal-driver"
 	version            = "test"
 	testNs             = "default"
 	nodeId             = "localhost"

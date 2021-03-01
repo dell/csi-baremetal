@@ -45,7 +45,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/csibmnode/common"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 const stagingFileName = "dev"

@@ -51,8 +51,8 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	// testAC2 and testAC3 should be removed
 	newAC = acOp.RecreateACToLVGSC(testCtx, "", apiV1.StorageClassHDDLVG, testAC2, testAC3)
 
-	// check that LVG is in creating state
-	lvgList := lvgcrd.LVGList{}
+	// check that LogicalVolumeGroup is in creating state
+	lvgList := lvgcrd.LogicalVolumeGroupList{}
 	err = acOp.k8sClient.ReadList(testCtx, &lvgList)
 	assert.Equal(t, 1, len(lvgList.Items))
 	lvg := lvgList.Items[0]

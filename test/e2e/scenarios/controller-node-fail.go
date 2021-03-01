@@ -34,7 +34,7 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
-const ControllerName = "baremetal-csi-controller"
+const ControllerName = "csi-baremetal-controller"
 
 func DefineControllerNodeFailTestSuite(driver testsuites.TestDriver) {
 	ginkgo.Context("Baremetal-csi controller node fail tests", func() {

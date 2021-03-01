@@ -1,6 +1,6 @@
 FROM    loopbackmgr:base
 
-LABEL   description="Bare-metal CSI Drive Manager Service based on loopback devices"
+LABEL   description="Bare-metal CSI Loopback Drive Manager"
 
 ADD     loopbackmgr loopback-drivemgr
 

@@ -1,6 +1,6 @@
 FROM    ubuntu:20.04
 
-LABEL   description="CSI-Baremetal Scheduler extender"
+LABEL   description="Bare-metal CSI Scheduler Extender"
 
 ADD     extender  extender
 

@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package accrd contains API Schema definitions for the available capacity v1 API group
-// +groupName=baremetal-csi.dellemc.com
+// +groupName=csi-baremetal.dell.com
 // +versionName=v1
 package accrd
 
@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	crScheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/dell/csi-baremetal/api/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 )
 
 var (

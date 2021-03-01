@@ -6,9 +6,10 @@ lint:
 	${GO_ENV_VARS} golangci-lint -v run ./...
 
 lint-charts:
-	helm lint ./${PLUGIN_CHART_PATH}
+	helm lint ./${DRIVER_CHART_PATH}
 	helm lint ./${EXTENDER_CHART_PATH}
 	helm lint ./${OPERATOR_CHART_PATH}
+	helm lint ./${SCHEDULER_CHART_PATH}
 
 ### Unit tests
 
@@ -50,10 +51,10 @@ kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
-	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
-	docker pull ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}
 
 kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -73,10 +74,10 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG} ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${PROJECT}-${NODE}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${PROJECT}-${CONTROLLER}:${TAG}
-	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ${PROJECT}-${EXTENDER}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ${PROJECT}-${SCHEDULER}:${TAG}
-	docker tag ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG} ${PROJECT}-${CSI_BM_NODE}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} ${PROJECT}-${OPERATOR}:${TAG}
 
 kind-load-images:
 	kind load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -88,7 +89,7 @@ kind-load-images:
 	kind load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	kind load docker-image ${PROJECT}-${NODE}:${TAG}
 	kind load docker-image ${PROJECT}-${CONTROLLER}:${TAG}
-	kind load docker-image ${PROJECT}-${EXTENDER}:${TAG}
+	kind load docker-image ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	kind load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	kind load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
-	kind load docker-image ${PROJECT}-${CSI_BM_NODE}:${TAG}
+	kind load docker-image ${PROJECT}-${OPERATOR}:${TAG}

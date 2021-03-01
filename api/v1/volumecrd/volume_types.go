@@ -25,7 +25,7 @@ import (
 // +kubebuilder:object:root=true
 
 // Volume is the Schema for the volumes API
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Namespaced
 type Volume struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -43,7 +43,7 @@ type VolumeList struct {
 	Items           []Volume `json:"items"`
 }
 
-//Need to declare this method because api.Volume doesn't have DeepCopyInto
+// Need to declare this method because api.Volume doesn't have DeepCopyInto
 func (in *Volume) DeepCopyInto(out *Volume) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
