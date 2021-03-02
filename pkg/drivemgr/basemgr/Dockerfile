@@ -1,6 +1,6 @@
 FROM    basemgr:base
 
-LABEL   description="Bare-metal CSI Drive Manager Service based on system utils"
+LABEL   description="Bare-metal CSI Base Drive Manager"
 
 ADD     basemgr base-drivemgr
 

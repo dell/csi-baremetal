@@ -18,7 +18,7 @@ Node UI is reported as part of Topology struct during [NodeGetInfo](https://gith
 ```
 topology := csi.Topology{
         Segments: map[string]string{
-            "baremetal-csi/nodeid": s.nodeID,
+            "csi-baremetal/nodeid": s.nodeID,
         },
 }
 ```
@@ -28,7 +28,7 @@ Node ID also is being used as a marker for topology constraints during CreateVol
 .........................
 Node Affinity:    
   Required Terms: 
-    Term 0:        baremetal-csi/nodeid in [567a2c26-6124-49ff-b950-eaabc2a50c6e]
+    Term 0:        csi-baremetal/nodeid in [567a2c26-6124-49ff-b950-eaabc2a50c6e]
 ```
 
 In other words if some PV had been provisioned on some NODE_A and is used by POD_X, then POD_X could be scheduled only on NODE_A.

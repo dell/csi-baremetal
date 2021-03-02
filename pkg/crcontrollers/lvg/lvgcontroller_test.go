@@ -103,9 +103,9 @@ var (
 		Spec: apiDrive2,
 	}
 
-	lvgCR1 = lvgcrd.LVG{
+	lvgCR1 = lvgcrd.LogicalVolumeGroup{
 		TypeMeta: v1.TypeMeta{
-			Kind:       "LVG",
+			Kind:       "LogicalVolumeGroup",
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
@@ -175,7 +175,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 		lvmOps  = &mocklu.MockWrapLVM{}
 		listBlk = &mocklu.MockWrapLsblk{}
 		fLVG    = lvgCR1
-		lvg     = &lvgcrd.LVG{}
+		lvg     = &lvgcrd.LogicalVolumeGroup{}
 	)
 
 	fLVG.Finalizers = []string{lvgFinalizer}
@@ -201,7 +201,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	currLVG := &lvgcrd.LVG{}
+	currLVG := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, req.Name, "", currLVG)
 	assert.Contains(t, currLVG.ObjectMeta.Finalizers, lvgFinalizer)
 }
@@ -271,7 +271,7 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	lvg := &lvgcrd.LVG{}
+	lvg := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, lvgToDell.Name, "", lvg)
 	assert.Nil(t, err)
 	assert.NotNil(t, lvg)
@@ -290,12 +290,12 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 	c := setup(t, node1ID, lvgToDell)
 	c.lvmOps = lvm.NewLVM(e, testLogger)
 
-	// expect that LVG still contains LV
+	// expect that LogicalVolumeGroup still contains LV
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("lv1", "", nil)
 
 	res, err := c.Reconcile(req)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "there are LVs in LVG")
+	assert.Contains(t, err.Error(), "there are LVs in LogicalVolumeGroup")
 	assert.Equal(t, res, ctrl.Result{})
 }
 
@@ -327,7 +327,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	lvgCR := &lvgcrd.LVG{}
+	lvgCR := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, "", lvgCR)
 	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
 }
@@ -355,7 +355,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	lvgCR := &lvgcrd.LVG{}
+	lvgCR := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, "", lvgCR)
 	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
 }
@@ -396,13 +396,13 @@ func Test_removeLVGArtifacts_Fail(t *testing.T) {
 	// expect that VG contains LV
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, vg)).Return("some-lv1", "", nil).Times(1)
 	err = c.removeLVGArtifacts(vg)
-	assert.Equal(t, fmt.Errorf("there are LVs in LVG %s", vg), err)
+	assert.Equal(t, fmt.Errorf("there are LVs in LogicalVolumeGroup %s", vg), err)
 
 	// expect that VGRemove failed
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, vg)).Return("", "", nil).Times(1)
 	e.OnCommand(fmt.Sprintf(lvm.VGRemoveCmdTmpl, vg)).Return("", "", errors.New("error"))
 	err = c.removeLVGArtifacts(vg)
-	assert.Contains(t, err.Error(), "unable to remove LVG")
+	assert.Contains(t, err.Error(), "unable to remove LogicalVolumeGroup")
 }
 
 func Test_increaseACSize(t *testing.T) {
@@ -422,8 +422,8 @@ func Test_increaseACSize(t *testing.T) {
 	assert.Equal(t, size+1, acList.Items[0].Spec.Size)
 }
 
-// setup creates drive CRs and LVG CRs and returns Controller instance
-func setup(t *testing.T, node string, lvgs ...lvgcrd.LVG) *Controller {
+// setup creates drive CRs and LogicalVolumeGroup CRs and returns Controller instance
+func setup(t *testing.T, node string, lvgs ...lvgcrd.LogicalVolumeGroup) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)
 	// create Drive CRs
@@ -431,7 +431,7 @@ func setup(t *testing.T, node string, lvgs ...lvgcrd.LVG) *Controller {
 	assert.Nil(t, err)
 	err = k8sClient.CreateCR(tCtx, drive2CR.Name, &drive2CR)
 	assert.Nil(t, err)
-	// create LVG CRs
+	// create LogicalVolumeGroup CRs
 	for _, lvg := range lvgs {
 		lvg := lvg
 		assert.Nil(t, k8sClient.CreateCR(tCtx, lvg.Name, &lvg))
@@ -448,7 +448,7 @@ func TestController_appendFinalizer(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
-		currLVG := &lvgcrd.LVG{}
+		currLVG := &lvgcrd.LogicalVolumeGroup{}
 		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, "", currLVG))
 		assert.Equal(t, 1, len(currLVG.Finalizers))
 		assert.Equal(t, lvgFinalizer, currLVG.Finalizers[0])
@@ -462,7 +462,7 @@ func TestController_appendFinalizer(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
-		currLVG := &lvgcrd.LVG{}
+		currLVG := &lvgcrd.LogicalVolumeGroup{}
 		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, "", currLVG))
 		assert.Equal(t, 1, len(currLVG.Finalizers))
 		assert.Equal(t, lvgFinalizer, currLVG.Finalizers[0])
@@ -476,12 +476,12 @@ func TestController_appendFinalizer(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
-		currLVG := &lvgcrd.LVG{}
+		currLVG := &lvgcrd.LogicalVolumeGroup{}
 		assert.Nil(t, c.k8sClient.ReadCR(tCtx, lvg.Name, "", currLVG))
 		assert.Equal(t, 0, len(currLVG.Finalizers))
 	})
 
-	t.Run("Update LVG failed", func(t *testing.T) {
+	t.Run("Update LogicalVolumeGroup failed", func(t *testing.T) {
 		lvg := lvgCR1
 
 		c := setup(t, node1ID)
@@ -512,7 +512,7 @@ func TestController_removeFinalizer(t *testing.T) {
 		assert.Equal(t, ctrl.Result{}, res)
 	})
 
-	t.Run("Update LVG CR failed", func(t *testing.T) {
+	t.Run("Update LogicalVolumeGroup CR failed", func(t *testing.T) {
 		c := setup(t, node1ID)
 
 		lvg := lvgCR1

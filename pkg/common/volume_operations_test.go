@@ -142,7 +142,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		err           error
 	)
 
-	// expect volume with "creating" CSIStatus, AC with HDDLVG exists and LVG has "created" status
+	// expect volume with "creating" CSIStatus, AC with HDDLVG exists and LogicalVolumeGroup has "created" status
 	svc = setupVOOperationsTest(t)
 	svc.acProvider = acProvider
 	recreatedAC := acToReturn
@@ -228,7 +228,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 	assert.Nil(t, createdVolume)
 }
 
-// Fail to recreate AC from HDD to LVG
+// Fail to recreate AC from HDD to LogicalVolumeGroup
 func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 	var (
 		svc           *VolumeOperationsImpl
@@ -429,7 +429,7 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.True(t, k8sError.IsNotFound(err))
 
-	// create AC, LVG and Volume
+	// create AC, LogicalVolumeGroup and Volume
 	err = svc1.k8sClient.CreateCR(testCtx, testAC4Name, &testAC4)
 	assert.Nil(t, err)
 	err = svc1.k8sClient.CreateCR(testCtx, testLVGName, &testLVG)
@@ -610,7 +610,7 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
 	assert.True(t, isDeleted)
 	assert.Nil(t, err)
-	lvg := &lvgcrd.LVG{}
+	lvg := &lvgcrd.LogicalVolumeGroup{}
 	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, "", lvg)
 	assert.True(t, k8sError.IsNotFound(err))
 	ac := &accrd.AvailableCapacity{}

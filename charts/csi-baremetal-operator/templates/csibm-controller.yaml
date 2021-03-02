@@ -1,0 +1,36 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: csi-operator
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csi-operator
+  template:
+    metadata:
+      labels:
+        app: csi-operator
+    spec:
+      serviceAccount: csi-operator-sa
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: controller
+        image: {{- if .Values.env.test }} csi-baremetal-operator:{{ .Values.image.tag }}
+               {{- else }} {{ .Values.image.registry }}/csi-baremetal-operator:{{ .Values.image.tag }}
+               {{- end }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+          {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
+          - --nodeselector={{.Values.nodeSelector.key}}:{{.Values.nodeSelector.value}}
+          {{- end }}
+          - --namespace=$(NAMESPACE)
+          - --loglevel={{ .Values.log.level }}
+          - --logformat={{ .Values.log.format }}
+        env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace

@@ -9,7 +9,7 @@ image-controller \
 image-extender \
 image-extender-patcher \
 image-scheduler \
-image-node-controller
+image-operator
 
 base-images: base-image-drivemgr base-image-node base-image-controller
 
@@ -23,7 +23,7 @@ download-grpc-health-probe:
 	chmod +x build/health_probe
 
 # NOTE: Output directory for binary file should be in Docker context.
-# So we can't use /baremetal-csi-plugin/build to build the image.
+# So we can't use csi-baremetal/build to build the image.
 base-image-node: download-grpc-health-probe
 	cp ./pkg/${NODE}/Dockerfile.build ./build/${NODE}/
 	cp ./build/${HEALTH_PROBE} ./build/${NODE}/
@@ -48,7 +48,7 @@ image-controller: base-image-controller
 
 image-extender:
 	cp ./pkg/${SCHEDULER}/${EXTENDER}/Dockerfile ./build/${SCHEDULING_PKG}/${EXTENDER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
 
 image-extender-patcher:
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PATCHER_PKG}
@@ -57,10 +57,10 @@ image-scheduler:
 	cp ./pkg/${SCHEDULER}/${PLUGIN}/Dockerfile ./build/${SCHEDULING_PKG}/${SCHEDULER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ./build/${SCHEDULING_PKG}/${SCHEDULER}
 
-image-node-controller:
-	cp ./pkg/${CR_CONTROLLERS}/${CSI_BM_NODE}/Dockerfile ./build/${CR_CONTROLLERS}/${CSI_BM_NODE}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG} \
-	./build/${CR_CONTROLLERS}/${CSI_BM_NODE}
+image-operator:
+	cp ./pkg/${CR_CONTROLLERS}/${OPERATOR}/Dockerfile ./build/${CR_CONTROLLERS}/${OPERATOR}/
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} \
+	./build/${CR_CONTROLLERS}/${OPERATOR}
 
 ###################
 ### Push images ###
@@ -71,7 +71,7 @@ push-controller \
 push-extender \
 push-extender-patcher \
 push-scheduler \
-push-node-controller
+push-operator
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -83,7 +83,7 @@ push-controller:
 	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 
 push-extender:
-	docker push ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 
 push-extender-patcher:
 	docker push ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
@@ -91,8 +91,8 @@ push-extender-patcher:
 push-scheduler:
 	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
-push-node-controller:
-	docker push ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+push-operator:
+	docker push ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}
 
 ####################
 ### Clean images ###
@@ -103,7 +103,7 @@ clean-image-drivemgr \
 clean-image-extender \
 clean-image-extender-patcher \
 clean-image-scheduler \
-clean-image-node-controller
+clean-image-operator
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -115,7 +115,7 @@ clean-image-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 
 clean-image-extender:
-	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 
 clean-image-extender-patcher:
 	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
@@ -123,5 +123,5 @@ clean-image-extender-patcher:
 clean-image-scheduler:
 	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
-clean-image-node-controller:
-	docker rmi ${REGISTRY}/${PROJECT}-${CSI_BM_NODE}:${TAG}
+clean-image-operator:
+	docker rmi ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}

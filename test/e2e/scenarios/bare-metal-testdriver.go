@@ -47,7 +47,7 @@ type baremetalDriver struct {
 var (
 	BaremetalDriver = InitBaremetalDriver
 	cmName          = "loopback-config"
-	manifestsFolder = "baremetal-csi-plugin/templates/"
+	manifestsFolder = "csi-baremetal-driver/templates/"
 )
 
 func initBaremetalDriver(name string) testsuites.TestDriver {
@@ -73,7 +73,7 @@ func initBaremetalDriver(name string) testsuites.TestDriver {
 }
 
 func InitBaremetalDriver() testsuites.TestDriver {
-	return initBaremetalDriver("baremetal-csi")
+	return initBaremetalDriver("csi-baremetal")
 }
 
 var _ testsuites.TestDriver = &baremetalDriver{}
@@ -101,9 +101,9 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	manifests := []string{
 		manifestsFolder + "controller-rbac.yaml",
 		manifestsFolder + "node-rbac.yaml",
-		manifestsFolder + "baremetal-csi-node.yaml",
+		manifestsFolder + "node.yaml",
 	}
-	file, err := ioutil.ReadFile("/tmp/baremetal-csi-plugin/templates/baremetal-csi-controller.yaml")
+	file, err := ioutil.ReadFile("/tmp/csi-baremetal-driver/templates/controller.yaml")
 	framework.ExpectNoError(err)
 
 	deployment := &appsv1.Deployment{}
@@ -295,7 +295,7 @@ func getNodePodsNames(f *framework.Framework) ([]string, error) {
 	}
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
-		if strings.Contains(pod.Name, "baremetal-csi-node") {
+		if strings.Contains(pod.Name, "csi-baremetal-node") {
 			podsNames = append(podsNames, pod.Name)
 		}
 	}

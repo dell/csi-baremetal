@@ -41,7 +41,7 @@ build-scheduler:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER} ./cmd/${SCHEDULING_PKG}/${SCHEDULER}/main.go
 
 build-node-controller:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${CSI_BM_NODE}/${CSI_BM_NODE} ./cmd/${CSI_BM_NODE}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${OPERATOR}/${OPERATOR} ./cmd/${OPERATOR}/main.go
 
 ### Clean artifacts
 clean-all: clean clean-images
@@ -51,8 +51,7 @@ clean-node \
 clean-controller \
 clean-extender \
 clean-scheduler \
-clean-node-controller \
-clean-proto
+clean-node-controller
 
 clean-drivemgr:
 	rm -rf ./build/${DRIVE_MANAGER}/*
@@ -100,17 +99,16 @@ generate-deepcopy:
 	controller-gen object paths=api/v1/availablecapacitycrd/availablecapacity_types.go paths=api/v1/availablecapacitycrd/groupversion_info.go  output:dir=api/v1/availablecapacitycrd
 	controller-gen object paths=api/v1/acreservationcrd/availablecapacityreservation_types.go paths=api/v1/acreservationcrd/groupversion_info.go  output:dir=api/v1/acreservationcrd
 	controller-gen object paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go  output:dir=api/v1/drivecrd
-	controller-gen object paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go  output:dir=api/v1/lvgcrd
-	controller-gen object paths=api/v1/csibmnodecrd/csibmnode_types.go paths=api/v1/csibmnodecrd/groupversion_info.go  output:dir=api/v1/csibmnodecrd
-
+	controller-gen object paths=api/v1/lvgcrd/logicalvolumegroup_types.go paths=api/v1/lvgcrd/groupversion_info.go  output:dir=api/v1/lvgcrd
+	controller-gen object paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go  output:dir=api/v1/nodecrd
 
 generate-crds:
     # Generate CRDs based on Volume and AvailableCapacity type and group info
-	controller-gen crd:trivialVersions=true paths=api/v1/availablecapacitycrd/availablecapacity_types.go paths=api/v1/availablecapacitycrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/acreservationcrd/availablecapacityreservation_types.go paths=api/v1/acreservationcrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/lvg_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=charts/baremetal-csi-plugin/crds
-	controller-gen crd:trivialVersions=true paths=api/v1/csibmnodecrd/csibmnode_types.go paths=api/v1/csibmnodecrd/groupversion_info.go output:crd:dir=charts/csibm-operator/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/availablecapacitycrd/availablecapacity_types.go paths=api/v1/availablecapacitycrd/groupversion_info.go output:crd:dir=${DRIVER_CHART_PATH}/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/acreservationcrd/availablecapacityreservation_types.go paths=api/v1/acreservationcrd/groupversion_info.go output:crd:dir=${DRIVER_CHART_PATH}/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/volumecrd/volume_types.go paths=api/v1/volumecrd/groupversion_info.go output:crd:dir=${DRIVER_CHART_PATH}/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=${DRIVER_CHART_PATH}/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/lvgcrd/logicalvolumegroup_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=${DRIVER_CHART_PATH}/crds
+	controller-gen crd:trivialVersions=true paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=${OPERATOR_CHART_PATH}/crds
 
 generate-api: compile-proto generate-crds generate-deepcopy

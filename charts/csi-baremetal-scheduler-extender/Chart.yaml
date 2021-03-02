@@ -1,0 +1,5 @@
+apiVersion: v2
+appVersion: 0.0.13
+description: Bare-metal CSI Kubernetes Scheduler Extender
+name: csi-baremetal-scheduler-extender
+version: 0.0.13

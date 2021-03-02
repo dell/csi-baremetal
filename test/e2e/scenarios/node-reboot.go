@@ -32,7 +32,7 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
-// DefineNodeRebootTestSuite defines custom baremetal-csi node reboot test
+// DefineNodeRebootTestSuite defines custom csi-baremetal node reboot test
 func DefineNodeRebootTestSuite(driver testsuites.TestDriver) {
 	ginkgo.Context("Baremetal-csi node reboot test", func() {
 		defineNodeRebootTest(driver)

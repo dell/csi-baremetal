@@ -35,9 +35,9 @@ import (
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	nodecrd "github.com/dell/csi-baremetal/api/v1/csibmnodecrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/metrics"
@@ -198,11 +198,11 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 	}
 }
 
-// ConstructLVGCR constructs LVG custom resource from api.LogicalVolumeGroup struct
+// ConstructLVGCR constructs LogicalVolumeGroup custom resource from api.LogicalVolumeGroup struct
 // Receives a name for k8s ObjectMeta and an instance of api.LogicalVolumeGroup struct
-// Returns an instance of LVG CR struct
-func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LVG {
-	return &lvgcrd.LVG{
+// Returns an instance of LogicalVolumeGroup CR struct
+func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LogicalVolumeGroup {
+	return &lvgcrd.LogicalVolumeGroup{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.LVGKind,
 			APIVersion: crdV1.APIV1Version,
@@ -247,11 +247,11 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 	}
 }
 
-// ConstructCSIBMNodeCR constructs CSIBMNode custom resource from api.CSIBMNode struct
-// Receives a name for k8s ObjectMeta and an instance of api.CSIBMNode struct
-// Returns an instance of CSIBMNode CR struct
-func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.CSIBMNode) *nodecrd.CSIBMNode {
-	return &nodecrd.CSIBMNode{
+// ConstructCSIBMNodeCR constructs Node custom resource from api.Node struct
+// Receives a name for k8s ObjectMeta and an instance of api.Node struct
+// Returns an instance of Node CR struct
+func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.Node) *nodecrd.Node {
+	return &nodecrd.Node{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.CSIBMNodeKind,
 			APIVersion: crdV1.APIV1Version,
@@ -425,7 +425,7 @@ func PrepareScheme() (*runtime.Scheme, error) {
 	if err := drivecrd.AddToSchemeDrive(scheme); err != nil {
 		return nil, err
 	}
-	// register LVG crd
+	// register LogicalVolumeGroup crd
 	if err := lvgcrd.AddToSchemeLVG(scheme); err != nil {
 		return nil, err
 	}

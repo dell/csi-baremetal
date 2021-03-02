@@ -1,0 +1,14 @@
+{{- if eq .Values.drivemgr.deployConfig true }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: loopback-config
+  labels:
+    app: csi-baremetal-node
+data:
+  config.yaml: |-
+    defaultDrivePerNodeCount: {{ .Values.drivemgr.amountOfLoopDevices }}
+    defaultDriveSize: {{ .Values.drivemgr.sizeOfLoopDevices }}
+{{- end }}
+

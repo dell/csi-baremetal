@@ -133,7 +133,7 @@ func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) (
 	}
 	lvg, err := cs.GetLVGByDrive(ctx, location)
 	if err != nil {
-		ll.Errorf("Failed to get LVG UUID for drive, error %v", err)
+		ll.Errorf("Failed to get LogicalVolumeGroup UUID for drive, error %v", err)
 		return nil, err
 	}
 
@@ -157,17 +157,17 @@ func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) (
 	return volumes, nil
 }
 
-// GetLVGByDrive reads list of LVG CRs from a cluster and searches the lvg with provided location
+// GetLVGByDrive reads list of LogicalVolumeGroup CRs from a cluster and searches the lvg with provided location
 // Receives golang context and drive uuid
 // Returns found lvg and error
-func (cs *CRHelper) GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcrd.LVG, error) {
+func (cs *CRHelper) GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcrd.LogicalVolumeGroup, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method":    "GetLVGByDrive",
 		"driveUUID": driveUUID,
 	})
-	lvgList := &lvgcrd.LVGList{}
+	lvgList := &lvgcrd.LogicalVolumeGroupList{}
 	if err := cs.reader.ReadList(ctx, lvgList); err != nil {
-		ll.Errorf("Failed to get LVG CR list, error %v", err)
+		ll.Errorf("Failed to get LogicalVolumeGroup CR list, error %v", err)
 		return nil, err
 	}
 	for _, lvg := range lvgList.Items {
@@ -368,37 +368,37 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 	dUUID := volume.Spec.Location
 
 	if volume.Spec.LocationType == apiV1.LocationTypeLVM {
-		lvgObj := &lvgcrd.LVG{}
+		lvgObj := &lvgcrd.LogicalVolumeGroup{}
 		err := cs.reader.ReadCR(context.Background(), volume.Spec.Location, "", lvgObj)
 		if err != nil {
-			ll.Errorf("failed to read LVG CR list: %s", err.Error())
+			ll.Errorf("failed to read LogicalVolumeGroup CR list: %s", err.Error())
 			return nil, err
 		}
 		if len(lvgObj.Spec.Locations) == 0 {
-			return nil, errors.New("no drives in LVG CR")
+			return nil, errors.New("no drives in LogicalVolumeGroup CR")
 		}
 		dUUID = lvgObj.Spec.Locations[0]
 	}
 	return cs.GetDriveCRByUUID(dUUID), nil
 }
 
-// GetVGNameByLVGCRName read LVG CR with name lvgCRName and returns LVG CR.Spec.Name
-// method is used for LVG based on system VG because system VG name != LVG CR name
+// GetVGNameByLVGCRName read LogicalVolumeGroup CR with name lvgCRName and returns LogicalVolumeGroup CR.Spec.Name
+// method is used for LogicalVolumeGroup based on system VG because system VG name != LogicalVolumeGroup CR name
 // in case of error returns empty string and error
 func (cs *CRHelper) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
-	lvgCR := lvgcrd.LVG{}
+	lvgCR := lvgcrd.LogicalVolumeGroup{}
 	if err := cs.reader.ReadCR(context.Background(), lvgCRName, "", &lvgCR); err != nil {
 		return "", err
 	}
 	return lvgCR.Spec.Name, nil
 }
 
-// GetLVGCRs collect LVG CRs that locate on node, use just node[0] element
+// GetLVGCRs collect LogicalVolumeGroup CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
 // if error occurs - return nil
-func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LVG, error) {
+func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LogicalVolumeGroup, error) {
 	var (
-		lvgList = &lvgcrd.LVGList{}
+		lvgList = &lvgcrd.LogicalVolumeGroupList{}
 		err     error
 	)
 
@@ -411,7 +411,7 @@ func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LVG, error) {
 	}
 
 	// if node was provided, collect LVGs that are on that node
-	res := make([]lvgcrd.LVG, 0)
+	res := make([]lvgcrd.LogicalVolumeGroup, 0)
 	for _, l := range lvgList.Items {
 		if l.Spec.Node == node[0] {
 			res = append(res, l)

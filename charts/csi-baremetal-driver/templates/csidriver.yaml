@@ -1,0 +1,11 @@
+apiVersion: storage.k8s.io/v1beta1
+kind: CSIDriver
+metadata:
+  name: csi-baremetal
+spec:
+  attachRequired: {{ .Values.attacher.deploy }}
+  # pass pod info to NodePublishRequest
+  podInfoOnMount: true
+  volumeLifecycleModes:
+    - Persistent
+    - Ephemeral
