@@ -4,11 +4,11 @@ global:
 
 env:
  test: false
- mountHostRoot: false
+ mountHostRoot: true
 
 feature:
-  extender: false
-  usenodeannotation: false
+  extender: true
+  usenodeannotation: true
 
 # to deploy on specific nodes kubeclt get nodes -l <key>=<value>
 nodeSelector:

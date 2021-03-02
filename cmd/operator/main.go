@@ -28,6 +28,7 @@ import (
 
 	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator"
 )
@@ -35,11 +36,17 @@ import (
 var (
 	nodeSelector = flag.String("nodeselector", "", "controller will be work only with node with provided nodeSelector")
 	namespace    = flag.String("namespace", "", "Namespace in which controller service run")
+	version      = flag.String("version", "", "CSI version to deploy charts")
+	drivemgr     = flag.String("drivemgr", "basemgr", "CSI drive manager type used in charts")
+	deploy       = flag.Bool("deploy", false, "Deploy indicates if csi-operator should deploy charts. False by default")
 	logLevel     = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	logFormat = flag.String("logformat", base.LogFormatText,
 		fmt.Sprintf("Log level, supported value is %s. Json format is used by default", base.LogFormatText))
 )
+
+// HelmInstallCSICmdTmpl is a template for helm command
+const HelmInstallCSICmdTmpl = "helm install csi-baremetal /csi-baremetal-driver --set image.tag=%s --set drivemgr.type=%s"
 
 func main() {
 	flag.Parse()
@@ -55,6 +62,14 @@ func main() {
 		fmt.Println("Unable to initialize logger")
 		os.Exit(1)
 	}
+	if *deploy && *version != "" {
+		executor := command.NewExecutor(logger)
+		cmd := fmt.Sprintf(HelmInstallCSICmdTmpl, *version, *drivemgr)
+		if _, _, err = executor.RunCmd(cmd); err != nil {
+			logger.Fatal("Failed to install CSI charts")
+		}
+	}
+	logger.Info(*version, " ", *deploy, " ", *drivemgr)
 
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {

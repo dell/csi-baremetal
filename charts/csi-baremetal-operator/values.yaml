@@ -15,3 +15,7 @@ log:
 nodeSelector:
   key:
   value:
+
+csi:
+  deploy: false
+  drivemgr: basemgr

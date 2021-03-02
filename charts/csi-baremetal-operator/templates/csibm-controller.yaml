@@ -15,6 +15,10 @@ spec:
     spec:
       serviceAccount: csi-operator-sa
       terminationGracePeriodSeconds: 10
+      {{- if .Values.csi.deploy }}
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      {{- end }}
       containers:
       - name: controller
         image: {{- if .Values.env.test }} csi-baremetal-operator:{{ .Values.image.tag }}
@@ -28,9 +32,25 @@ spec:
           - --namespace=$(NAMESPACE)
           - --loglevel={{ .Values.log.level }}
           - --logformat={{ .Values.log.format }}
+          - --version={{ .Values.image.tag }}
+          - --deploy={{ .Values.csi.deploy }}
+          - --drivemgr={{ .Values.csi.drivemgr }}
         env:
           - name: NAMESPACE
             valueFrom:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+        {{- if .Values.csi.deploy }}
+        volumeMounts:
+          - mountPath: /config
+            name: kube-config
+            mountPropagation: "HostToContainer"
+        {{- end }}
+      volumes:
+      {{- if .Values.csi.deploy }}
+      - name: kube-config
+        hostPath:
+          path: /var/lib/kubelet
+          type: Directory
+      {{- end }}
