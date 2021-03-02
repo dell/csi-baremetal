@@ -36,7 +36,7 @@ import (
 
 var stsName = "stress-test-sts"
 
-// DefineStressTestSuite defines custom baremetal-csi stress test
+// DefineStressTestSuite defines custom csi-baremetal stress test
 func DefineStressTestSuite(driver testsuites.TestDriver) {
 	ginkgo.Context("Baremetal-csi stress test", func() {
 		// Test scenario:

@@ -295,7 +295,7 @@ func getNodePodsNames(f *framework.Framework) ([]string, error) {
 	}
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
-		if strings.Contains(pod.Name, "baremetal-csi-node") {
+		if strings.Contains(pod.Name, "csi-baremetal-node") {
 			podsNames = append(podsNames, pod.Name)
 		}
 	}

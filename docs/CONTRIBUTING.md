@@ -142,7 +142,7 @@ make kind-pull-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
 make kind-tag-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
 make kind-load-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
 ```
-* E2E tests need yaml files with baremetal-csi resources (plugin, controller, rbac). To create yaml files use helm command:
+* E2E tests need yaml files with csi-baremetal resources (plugin, controller, rbac). To create yaml files use helm command:
 ```
 helm template charts/csi-baremetal-driver \
     --output-dir /tmp --set image.tag=${CSI_VERSION} \
@@ -160,7 +160,7 @@ metadata:
   namespace: default
   name: loopback-config
   labels:
-    app: baremetal-csi-node
+    app: csi-baremetal-node
 data:
   config.yaml: |-
     defaultDrivePerNodeCount: 8
