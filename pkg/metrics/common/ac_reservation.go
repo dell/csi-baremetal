@@ -22,14 +22,14 @@ import (
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
-// KubeclientDuration used to collect durations of k8s api calls
-var KubeclientDuration = metrics.NewMetrics(prometheus.HistogramOpts{
-	Name:    "kubeclient_execution_duration_seconds",
-	Help:    "duration of kubeclient method",
-	Buckets: prometheus.DefBuckets,
+// ReservationDuration used to collect ReservationHelper methods durations
+var ReservationDuration = metrics.NewMetrics(prometheus.HistogramOpts{
+	Name:    "ac_reservation_duration",
+	Help:    "AvailableCapacity reservation duration",
+	Buckets: prometheus.ExponentialBuckets(0.005, 1.5, 10),
 }, "method")
 
 // nolint: gochecknoinits
 func init() {
-	prometheus.MustRegister(KubeclientDuration.Collect())
+	prometheus.MustRegister(ReservationDuration.Collect())
 }
