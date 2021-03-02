@@ -48,7 +48,7 @@ var (
 	pvcName = "baremetal-csi-pvc"
 )
 
-// DefineDriveHealthChangeTestSuite defines custom baremetal-csi e2e tests
+// DefineDriveHealthChangeTestSuite defines custom csi-baremetal e2e tests
 func DefineDriveHealthChangeTestSuite(driver testsuites.TestDriver) {
 	ginkgo.Context("Baremetal-csi drive health change tests", func() {
 		// It consists of two steps.

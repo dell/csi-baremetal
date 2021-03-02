@@ -86,7 +86,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 		deployment, err := f.ClientSet.AppsV1().Deployments(ns).Get(ControllerName, metav1.GetOptions{})
 		Expect(deployment).ToNot(BeNil())
 
-		// try to find baremetal-csi-controller pod, expect 1 controller pod
+		// try to find csi-baremetal-controller pod, expect 1 controller pod
 		podList, err := e2edep.GetPodsForDeployment(f.ClientSet, deployment)
 		framework.ExpectNoError(err)
 		Expect(podList).ToNot(BeNil())

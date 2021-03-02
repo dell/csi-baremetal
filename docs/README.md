@@ -73,10 +73,10 @@ Installation process
 Usage
 ------
  
-Use `baremetal-csi-sc` storage class for PVC in PVC manifest or in persistentVolumeClaimTemplate section if you need to 
+Use `csi-baremetal-sc` storage class for PVC in PVC manifest or in persistentVolumeClaimTemplate section if you need to 
 provision PV bypassing LVM. Size of the resulting PV will be equal to the size of underlying physical drive.
 
-Use `baremetal-csi-sc-hddlvg` or `baremetal-csi-sc-ssdlvg` storage classes for PVC in PVC manifest or in 
+Use `csi-baremetal-sc-hddlvg` or `csi-baremetal-sc-ssdlvg` storage classes for PVC in PVC manifest or in 
 persistentVolumeClaimTemplate section if you need to provision PVC based on the logical volume. Size of the resulting PV
 will be equal to the size of PVC.
 
