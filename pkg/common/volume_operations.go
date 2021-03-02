@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,6 +52,8 @@ type VolumeOperations interface {
 	DeleteVolume(ctx context.Context, volumeID string) error
 	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string)
 	WaitStatus(ctx context.Context, volumeID string, statuses ...string) error
+	ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) error
+	UpdateCRsAfterVolumeExpansion(ctx context.Context, volID string, requiredBytes int64)
 }
 
 // VolumeOperationsImpl is the basic implementation of VolumeOperations interface
@@ -58,6 +61,7 @@ type VolumeOperationsImpl struct {
 	acProvider             AvailableCapacityOperations
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
+	crHelper               *k8s.CRHelper
 
 	metrics        metrics.Statistic
 	cache          cache.Interface
@@ -81,6 +85,7 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, c
 	}
 	vo := &VolumeOperationsImpl{
 		k8sClient:              k8sClient,
+		crHelper:               k8s.NewCRHelper(k8sClient, logger),
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
 		log:                    logger.WithField("component", "VolumeOperationsImpl"),
 		featureChecker:         featureConf,
@@ -421,6 +426,118 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 				}
 			}
 		}
+	}
+}
+
+// ExpandVolume updates Volume status to Resizing to trigger expansion in reconcile, if volume has already had status
+// Resizing or Resized, function doesn't do anything. In case of statuses beside VolumeReady, Created, Published function return error
+// Receive golang context, volume CR, requiredBytes as int
+// Return volume spec, error
+func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) error {
+	defer vo.metrics.EvaluateDurationForMethod("ExpandVolume")()
+	ll := vo.log.WithFields(logrus.Fields{
+		"method":   "ExpandVolume",
+		"volumeID": volume.Spec.Id,
+	})
+	currStatus := volume.Spec.CSIStatus
+	switch currStatus {
+	case apiV1.Resizing, apiV1.Resized:
+		ll.Debug("Volume is already expanding")
+	case apiV1.VolumeReady, apiV1.Created, apiV1.Published:
+		if !util.IsStorageClassLVG(volume.Spec.StorageClass) {
+			return status.Error(codes.FailedPrecondition,
+				fmt.Sprintf("StorageClass %s doesn't support resizing", volume.Spec.StorageClass))
+		}
+		capacity, err := vo.crHelper.GetACByLocation(volume.Spec.Location)
+		if err != nil {
+			ll.Errorf("Failed to get AC by location %s", volume.Spec.Location)
+			return status.Error(codes.Internal, "Unable to read AC")
+		}
+
+		acSize := requiredBytes - volume.Spec.Size
+		if capacity.Spec.Size < acSize {
+			return status.Error(codes.OutOfRange,
+				fmt.Sprintf("Not enough capacity to expand volume: requested - %d, available - %d", requiredBytes, capacity.Spec.Size))
+		}
+		capacity.Spec.Size -= acSize
+		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, capacity, 5); err != nil {
+			ll.Errorf("Failed to update AC, error: %v", err)
+			return status.Error(codes.Internal, "Unable to reserve AC")
+		}
+
+		if volume.Annotations == nil {
+			volume.Annotations = make(map[string]string)
+		}
+		volume.Annotations[apiV1.VolumePreviousStatus] = currStatus
+		volume.Annotations[apiV1.VolumePreviousCapacity] = strconv.FormatInt(volume.Spec.Size, 10)
+		volume.Spec.CSIStatus = apiV1.Resizing
+		volume.Spec.Size = requiredBytes
+
+		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+			ll.Errorf("Failed to update volume, error: %v", err)
+			return status.Error(codes.Internal, "Unable to update volume")
+		}
+	default:
+		return status.Errorf(codes.FailedPrecondition, "Volume in status %s can't be expanded", volume.Spec.CSIStatus)
+	}
+	return nil
+}
+
+// UpdateCRsAfterVolumeExpansion update volume and AC crs after volume expansion
+// Receive golang context, volume spec
+// Return error
+func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeExpansion(ctx context.Context, volID string, requiredBytes int64) {
+	defer vo.metrics.EvaluateDurationForMethod("ExpandVolume")()
+	ll := vo.log.WithFields(logrus.Fields{
+		"method":   "UpdateCRsAfterVolumeExpansion",
+		"volumeID": volID,
+	})
+	var (
+		namespace string
+		err       error
+		volume    = &volumecrd.Volume{}
+	)
+	namespace, err = vo.cache.Get(volID)
+	if err != nil {
+		ll.Errorf("Failed to get namespace from cache, error: %v", err)
+		return
+	}
+	if err = vo.k8sClient.ReadCR(ctx, volID, namespace, volume); err != nil {
+		ll.Errorf("Failed to read volume: %v", err)
+		return
+	}
+	switch volume.Spec.CSIStatus {
+	case apiV1.Failed:
+		capacity, err := strconv.ParseInt(volume.Annotations[apiV1.VolumePreviousCapacity], 10, 64)
+		if err != nil {
+			ll.Errorf("Failed to convert volume annotation %s to int, error : %v", apiV1.VolumePreviousCapacity, err)
+			return
+		}
+		volume.Spec.Size = capacity
+		ac, err := vo.crHelper.GetACByLocation(volume.Spec.Location)
+		if err != nil {
+			ll.Errorf("Failed to read AC: %v", err)
+		} else {
+			acSize := requiredBytes - volume.Spec.Size
+			ac.Spec.Size += acSize
+			if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
+				ll.Errorf("Failed to update AC: %v", err)
+			}
+		}
+	case apiV1.Resized:
+		if _, ok := volume.Annotations[apiV1.VolumePreviousStatus]; !ok {
+			ll.Errorf("Failed to set previous status, annotation %s wasn't found for volume %s", apiV1.VolumePreviousStatus, volID)
+		} else {
+			volume.Spec.CSIStatus = volume.Annotations[apiV1.VolumePreviousStatus]
+		}
+	default:
+		ll.Warnf("Volume status is %s, expected %s or %s", volume.Spec.CSIStatus, apiV1.Resized, apiV1.Failed)
+		return
+	}
+	delete(volume.Annotations, apiV1.VolumePreviousCapacity)
+	delete(volume.Annotations, apiV1.VolumePreviousStatus)
+	if updateErr := vo.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
+		ll.Error("Unable to set new status for volume")
 	}
 }
 

@@ -34,6 +34,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -277,7 +278,7 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume capabilities"+
 			" must be provided")
 	}
-	if volume := c.crHelper.GetVolumeByID(req.VolumeId); volume == nil {
+	if _, err := c.crHelper.GetVolumeByID(req.VolumeId); err != nil {
 		ll.Errorf("k8s client can't read volume CR")
 		return nil, status.Error(codes.NotFound, "Volume is not found")
 	}
@@ -345,6 +346,7 @@ func (c *CSIControllerService) ControllerGetCapabilities(context.Context, *csi.C
 	for _, c := range []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 	} {
 		caps = append(caps, newCap(c))
 	}
@@ -373,7 +375,61 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
-// ControllerExpandVolume is not implemented yet
-func (c *CSIControllerService) ControllerExpandVolume(context.Context, *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+// ControllerExpandVolume is the implementation of CSI Spec ControllerExpandVolume.
+// Controller tries to update volume status to Resizing, trigger reconcile and update according AC,
+// After it controller wait for volume to have previous status, in case of Failed status it tries to return AC size back
+// In case of volume size is equal or less than requiredBytes than ControllerExpandVolume does nothing
+// In case of status different from Volume_Ready, Created, Published and Resizing Controller returns error
+// Receives golang context and CSI Spec ControllerExpandVolumeRequest
+// Returns CSI Spec ControllerExpandVolumeResponse or error if something went wrong
+func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	ll := c.log.WithFields(logrus.Fields{
+		"method":   "ControllerExpandVolume",
+		"volumeID": req.GetVolumeId(),
+	})
+	ll.Infof("Processing request: %v", req)
+	var (
+		volID         = req.GetVolumeId()
+		ctxWithID     = context.WithValue(context.Background(), base.RequestUUID, volID)
+		requiredBytes = capacityplanner.AlignSizeByPE(req.GetCapacityRange().GetRequiredBytes())
+	)
+
+	if volID == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
+	}
+
+	volume, err := c.crHelper.GetVolumeByID(volID)
+
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "Volume doesn't exist")
+	}
+	if volume.Spec.Size == requiredBytes || volume.Spec.Size > requiredBytes {
+		return &csi.ControllerExpandVolumeResponse{
+			CapacityBytes:         0,
+			NodeExpansionRequired: false,
+		}, nil
+	}
+
+	c.reqMu.Lock()
+	err = c.svc.ExpandVolume(ctx, volume, requiredBytes)
+	c.reqMu.Unlock()
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Resized)
+
+	c.reqMu.Lock()
+	c.svc.UpdateCRsAfterVolumeExpansion(ctx, volID, requiredBytes)
+	c.reqMu.Unlock()
+
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Unable to expand volume")
+	}
+
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         requiredBytes,
+		NodeExpansionRequired: false,
+	}, nil
 }

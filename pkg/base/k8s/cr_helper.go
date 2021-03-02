@@ -19,6 +19,7 @@ package k8s
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -210,11 +211,14 @@ func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 }
 
 // GetVolumeByID reads volume CRs and returns volumes CR if it .Spec.Id == volId
-func (cs *CRHelper) GetVolumeByID(volID string) *volumecrd.Volume {
-	volumeCRs, _ := cs.GetVolumeCRs()
+func (cs *CRHelper) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
+	volumeCRs, err := cs.GetVolumeCRs()
+	if err != nil {
+		return nil, err
+	}
 	for _, v := range volumeCRs {
 		if v.Spec.Id == volID {
-			return &v
+			return &v, nil
 		}
 	}
 
@@ -222,7 +226,7 @@ func (cs *CRHelper) GetVolumeByID(volID string) *volumecrd.Volume {
 		"method":   "GetVolumeByID",
 		"volumeID": volID,
 	}).Infof("Volume CR isn't exist")
-	return nil
+	return nil, fmt.Errorf("volume wasn't found")
 }
 
 // GetVolumeCRs collect volume CRs that locate on node, use just node[0] element

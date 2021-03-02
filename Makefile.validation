@@ -39,13 +39,14 @@ pr-validation-junit:
 test-ci:
 	${GO_ENV_VARS} CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=${HOME}/.kube/config -timeout=0 > log.txt
 
-# Run commnity sanity tests for CSI.
+# Run commnity sanity tests for CSI. TODO https://github.com/dell/csi-baremetal/issues/298 Make sanity test work for expansion
 test-sanity:
 	${GO_ENV_VARS} SANITY=true go test test/sanity/sanity_test.go -ginkgo.skip \
-	"ValidateVolumeCapabilities|\
+	"ExpandVolume|\
+	ValidateVolumeCapabilities|\
 	should fail when the node does not exist|\
 	should fail when requesting to create a volume with already existing name and different capacity|\
-	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
+	should not fail when requesting to create a volume with already existing name and same capacity|" -ginkgo.v -timeout=0
 
 kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
@@ -61,6 +62,7 @@ kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
 	docker pull ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	docker pull ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker pull ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker pull ${REGISTRY}/library/nginx:1.14-alpine
 
@@ -68,6 +70,7 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	docker tag ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG} ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
 	docker tag ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG} ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
+	docker tag ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG} ${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker tag ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker tag ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG} ${BUSYBOX}:${BUSYBOX_TAG}
 	docker tag ${REGISTRY}/library/nginx:1.14-alpine docker.io/library/nginx:1.14-alpine
@@ -83,6 +86,7 @@ kind-load-images:
 	kind load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	kind load docker-image ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
 	kind load docker-image ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
+	kind load docker-image ${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	kind load docker-image ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	kind load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
 	kind load docker-image docker.io/library/nginx:1.14-alpine

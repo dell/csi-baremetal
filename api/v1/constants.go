@@ -37,6 +37,8 @@ const (
 	Removed     = "REMOVED"
 	Failed      = "FAILED"
 	Empty       = ""
+	Resizing    = "RESIZING"
+	Resized     = "RESIZED"
 
 	// Health statuses
 	HealthUnknown = "UNKNOWN"
@@ -87,6 +89,9 @@ const (
 	VolumeAnnotationReleaseFailed = "failed"
 	VolumeAnnotationReleaseStatus = "status"
 
+	//Volume expansion annotations
+	VolumePreviousStatus   = "expansion/previous-status"
+	VolumePreviousCapacity = "expansion/previous-capacity"
 	// TODO Mount status?
 
 	// Volume mode

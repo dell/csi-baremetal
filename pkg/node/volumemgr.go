@@ -295,6 +295,8 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return m.prepareVolume(ctx, volume)
 	case apiV1.Removing:
 		return m.handleRemovingStatus(ctx, volume)
+	case apiV1.Resizing:
+		return m.handleExpandingStatus(ctx, volume)
 	}
 
 	if volume.Spec.Usage == apiV1.VolumeUsageReleasing {
@@ -1205,4 +1207,29 @@ func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeN
 		drive.Annotations = make(map[string]string)
 	}
 	drive.Annotations[annotationKey] = status
+}
+
+// handleExpandingStatus handles volume CR with Resizing status, it calls ExpandLV to expand volume
+// To get logical volume name it use LVM provisioner function GetVolumePath
+// Receive context, volume CR
+// Return ctrl.Result, error
+func (m *VolumeManager) handleExpandingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "handleExpandingStatus",
+	})
+	volumePath, err := m.provisioners[p.LVMBasedVolumeType].GetVolumePath(volume.Spec)
+	if err != nil {
+		ll.Errorf("Failed to get volume path, err: %v", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	if err = m.lvmOps.ExpandLV(volumePath, volume.Spec.Size); err != nil {
+		volume.Spec.CSIStatus = apiV1.Failed
+	} else {
+		volume.Spec.CSIStatus = apiV1.Resized
+	}
+	if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
+		ll.Error("Unable to set new status for volume")
+		return ctrl.Result{Requeue: true}, updateErr
+	}
+	return ctrl.Result{}, err
 }

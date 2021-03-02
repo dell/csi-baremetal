@@ -89,7 +89,7 @@ var (
 	bdev1 = lsblk.BlockDevice{
 		Name:     drive1.Path,
 		Type:     drive1.Type,
-		Size:     lsblk.CustomInt64{Int64:drive1.Size},
+		Size:     lsblk.CustomInt64{Int64: drive1.Size},
 		Serial:   drive1.SerialNumber,
 		Children: nil,
 	}
@@ -98,7 +98,7 @@ var (
 	bdev2 = lsblk.BlockDevice{
 		Name:     drive2.Path,
 		Type:     drive2.Type,
-		Size:     lsblk.CustomInt64{Int64:drive1.Size},
+		Size:     lsblk.CustomInt64{Int64: drive1.Size},
 		Serial:   drive2.SerialNumber,
 		Children: nil,
 	}
@@ -1132,6 +1132,55 @@ func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
 
 	assert.True(t, vm.isDriveInLVG(drive1))
 	assert.False(t, vm.isDriveInLVG(drive2))
+}
+
+func TestVolumeManager_handleExpandingStatus(t *testing.T) {
+	var (
+		vm      *VolumeManager
+		pMock   *mockProv.MockProvisioner
+		vol     *vcrd.Volume
+		testVol vcrd.Volume
+		res     ctrl.Result
+		err     error
+	)
+
+	vm = prepareSuccessVolumeManager(t)
+	pMock = &mockProv.MockProvisioner{}
+	pMock.On("GetVolumePath", testVol.Spec).Return("path", testErr)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
+	res, err = vm.handleExpandingStatus(testCtx, &testVol)
+	assert.NotNil(t, err)
+
+	testVol = testVolumeLVGCR
+	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
+
+	pMock = &mockProv.MockProvisioner{}
+	pMock.On("GetVolumePath", testVol.Spec).Return("path", nil)
+	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
+	lvmOps := &mocklu.MockWrapLVM{}
+	lvmOps.On("ExpandLV", "path", testVol.Spec.Size).Return(fmt.Errorf("error"))
+	vm.lvmOps = lvmOps
+	res, err = vm.handleExpandingStatus(testCtx, &testVol)
+	assert.NotNil(t, err)
+	assert.Equal(t, ctrl.Result{}, res)
+
+	vol = &vcrd.Volume{}
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
+	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
+
+	pMock.On("GetVolumePath", vol.Spec).Return("path", nil)
+
+	lvmOps = &mocklu.MockWrapLVM{}
+	lvmOps.On("ExpandLV", "path", vol.Spec.Size).Return(nil)
+	vm.lvmOps = lvmOps
+	assert.Nil(t, vm.k8sClient.UpdateCR(testCtx, &testVol))
+	res, err = vm.handleExpandingStatus(testCtx, &testVol)
+	assert.Nil(t, err)
+	assert.Equal(t, ctrl.Result{}, res)
+
+	vol = &vcrd.Volume{}
+	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
+	assert.Equal(t, apiV1.Resized, vol.Spec.CSIStatus)
 }
 
 func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
