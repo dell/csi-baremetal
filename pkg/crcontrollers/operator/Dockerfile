@@ -5,6 +5,7 @@ LABEL   description="Baremetal CSI Operator"
 ENV BASE_URL="https://get.helm.sh"
 ENV TAR_FILE="helm-v3.0.0-linux-amd64.tar.gz"
 
+# TODO remove this code when helm won't be required
 RUN apt update --no-install-recommends -y -q && \
     apt install --no-install-recommends -y -q curl ca-certificates && \
     curl -L ${BASE_URL}/${TAR_FILE} |tar xvz && \

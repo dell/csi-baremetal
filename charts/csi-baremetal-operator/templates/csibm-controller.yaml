@@ -43,14 +43,12 @@ spec:
                 fieldPath: metadata.namespace
         {{- if .Values.csi.deploy }}
         volumeMounts:
-          - mountPath: /config
+          - mountPath: /root/.kube
             name: kube-config
             mountPropagation: "HostToContainer"
-        {{- end }}
       volumes:
-      {{- if .Values.csi.deploy }}
-      - name: kube-config
-        hostPath:
-          path: /var/lib/kubelet
-          type: Directory
-      {{- end }}
+        - name: kube-config
+          hostPath:
+            path: /root/.kube
+            type: Directory
+        {{- end }}
