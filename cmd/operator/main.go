@@ -69,7 +69,6 @@ func main() {
 			logger.Fatal("Failed to install CSI charts")
 		}
 	}
-	logger.Info(*version, " ", *deploy, " ", *drivemgr)
 
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
