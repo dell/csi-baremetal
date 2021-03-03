@@ -47,4 +47,38 @@ func TestGetOSNameAndVersion(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, name, "ubuntu")
 	assert.Equal(t, version, "19.10")
+
+	// OpenShift has the following output for OS Image
+	name, version, err = GetOSNameAndVersion("Red Hat Enterprise Linux CoreOS 46.82.202101301821-0 (Ootpa)")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, name, "red")
+	assert.Equal(t, version, "46.82")
+}
+
+func TestGetKernelVersion(t *testing.T) {
+	version, err := GetKernelVersion("")
+	assert.Equal(t, errTypes.ErrorEmptyParameter, err)
+	assert.Equal(t, version, "")
+
+	version, err = GetKernelVersion("bla-bla")
+	assert.Equal(t, errTypes.ErrorFailedParsing, err)
+	assert.Equal(t, version, "")
+
+	// ubuntu 19
+	kernel := "5.4.0"
+	version, err = GetKernelVersion(kernel + "-66-generic")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, version, kernel)
+
+	// ubuntu 18
+	kernel = "4.15.0"
+	version, err = GetKernelVersion(kernel + "-76-generic")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, version, kernel)
+
+	// rhel coreos 4.6
+	kernel = "4.18.0"
+	version, err = GetKernelVersion(kernel + "-193.41.1.el8_2.x86_64")
+	assert.Equal(t, err, nil)
+	assert.Equal(t, version, kernel)
 }

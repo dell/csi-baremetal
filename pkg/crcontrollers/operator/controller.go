@@ -420,13 +420,13 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 		toUpdate = true
 	}
 
-	// check for labels
+	// initialize labels map if needed
+	if k8sNode.Labels == nil {
+		k8sNode.ObjectMeta.Labels = make(map[string]string, 1)
+	}
+	// check for OS labels
 	name, version, err := util.GetOSNameAndVersion(k8sNode.Status.NodeInfo.OSImage)
 	if err == nil {
-		// initialize labels map if needed
-		if k8sNode.Labels == nil {
-			k8sNode.ObjectMeta.Labels = make(map[string]string, 1)
-		}
 		// os name
 		if k8sNode.Labels[common.NodeOSNameLabelKey] != name {
 			// not set or matches
@@ -443,6 +443,20 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 		}
 	} else {
 		ll.Errorf("Failed to obtain OS information: %s", err)
+	}
+
+	// check for kernel version label
+	version, err = util.GetKernelVersion(k8sNode.Status.NodeInfo.KernelVersion)
+	if err == nil {
+		// os name
+		if k8sNode.Labels[common.NodeKernelVersionLabelKey] != version {
+			// not set or matches
+			ll.Infof("Setting label %s=%s on node %s", common.NodeKernelVersionLabelKey, version, k8sNode.Name)
+			k8sNode.Labels[common.NodeKernelVersionLabelKey] = version
+			toUpdate = true
+		}
+	} else {
+		ll.Errorf("Failed to obtain Kernel version information: %s", err)
 	}
 
 	if toUpdate {
@@ -478,6 +492,11 @@ func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 	// os version
 	if _, ok := labels[common.NodeOSVersionLabelKey]; ok {
 		delete(labels, common.NodeOSVersionLabelKey)
+		toUpdate = true
+	}
+	// kernel version
+	if _, ok := labels[common.NodeKernelVersionLabelKey]; ok {
+		delete(labels, common.NodeKernelVersionLabelKey)
 		toUpdate = true
 	}
 

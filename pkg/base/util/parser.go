@@ -46,3 +46,21 @@ func GetOSNameAndVersion(osInfo string) (name, version string, err error) {
 
 	return strings.ToLower(name), version, nil
 }
+
+// GetKernelVersion receives string with the kernel version information in the following format:
+// "X.Y.Z-<Number>-<Description>". For example, "5.4.0-66-generic"
+// returns kernel version - major, minor and patch. For example, "5.4.0"
+func GetKernelVersion(kernelVersion string) (version string, err error) {
+	// check input parameter
+	if len(kernelVersion) == 0 {
+		return "", errTypes.ErrorEmptyParameter
+	}
+
+	// extract kernel version - x.y.z
+	version = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+`).FindString(kernelVersion)
+	if len(version) == 0 {
+		return "", errTypes.ErrorFailedParsing
+	}
+
+	return version, nil
+}

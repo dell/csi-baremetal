@@ -64,6 +64,7 @@ var (
 
 	osName    = "ubuntu"
 	osVersion = "18.04"
+	kernelVersion = "4.15.0"
 	testNode1 = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-1",
@@ -403,6 +404,8 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 		targetOsNameLabelValue     string
 		currentOsVersionLabelValue string
 		targetOsVersionLabelValue  string
+		currentKernelVersionLabelValue string
+		targetKernelVersionLabelValue  string
 	}{
 		{
 			description:                "Node has required annotation and labels",
@@ -412,6 +415,8 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			targetOsNameLabelValue:     osName,
 			currentOsVersionLabelValue: osVersion,
 			targetOsVersionLabelValue:  osVersion,
+			currentKernelVersionLabelValue: kernelVersion,
+			targetKernelVersionLabelValue: kernelVersion,
 		},
 		{
 			description:                "Node has required annotation and labels with wrong values",
@@ -421,6 +426,8 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			targetOsNameLabelValue:     osName,
 			currentOsVersionLabelValue: osVersion,
 			targetOsVersionLabelValue:  "19.10",
+			currentKernelVersionLabelValue: kernelVersion,
+			targetKernelVersionLabelValue: "5.4.0",
 		},
 	}
 
@@ -437,6 +444,9 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			node.Status.NodeInfo.OSImage = testCase.targetOsNameLabelValue + " " + testCase.targetOsVersionLabelValue
 			node.Labels[common.NodeOSNameLabelKey] = testCase.currentOsNameLabelValue
 			node.Labels[common.NodeOSVersionLabelKey] = testCase.currentOsVersionLabelValue
+			// set Kernel version and label
+			node.Status.NodeInfo.KernelVersion = testCase.targetKernelVersionLabelValue
+			node.Labels[common.NodeKernelVersionLabelKey] = testCase.currentKernelVersionLabelValue
 
 			createObjects(t, c.k8sClient, node)
 			res, err := c.updateNodeLabelsAndAnnotation(node, testCase.targetAnnotationValue)
@@ -458,6 +468,10 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			val, ok = nodeObj.GetLabels()[common.NodeOSVersionLabelKey]
 			assert.True(t, ok)
 			assert.Equal(t, testCase.targetOsVersionLabelValue, val)
+			// check kernel version label
+			val, ok = nodeObj.GetLabels()[common.NodeKernelVersionLabelKey]
+			assert.True(t, ok)
+			assert.Equal(t, testCase.targetKernelVersionLabelValue, val)
 		})
 	}
 }
