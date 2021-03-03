@@ -58,6 +58,7 @@ image-scheduler:
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ./build/${SCHEDULING_PKG}/${SCHEDULER}
 
 image-operator:
+	cp -r ./${DRIVER_CHART_PATH} ./build/${CR_CONTROLLERS}/${OPERATOR}/
 	cp ./pkg/${CR_CONTROLLERS}/${OPERATOR}/Dockerfile ./build/${CR_CONTROLLERS}/${OPERATOR}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} \
 	./build/${CR_CONTROLLERS}/${OPERATOR}
