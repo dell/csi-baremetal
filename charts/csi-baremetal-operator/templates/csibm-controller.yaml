@@ -16,8 +16,18 @@ spec:
       serviceAccount: csi-operator-sa
       terminationGracePeriodSeconds: 10
       {{- if .Values.csi.deploy }}
-      nodeSelector:
-        node-role.kubernetes.io/master: ""
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/master
+                    operator: Exists
       {{- end }}
       containers:
       - name: controller
