@@ -64,7 +64,7 @@ var (
 
 	osName    = "ubuntu"
 	osVersion = "18.04"
-	kernelVersion = "4.15.0"
+	kernelVersion = "4.15"
 	testNode1 = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-1",
@@ -427,7 +427,7 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			currentOsVersionLabelValue: osVersion,
 			targetOsVersionLabelValue:  "19.10",
 			currentKernelVersionLabelValue: kernelVersion,
-			targetKernelVersionLabelValue: "5.4.0",
+			targetKernelVersionLabelValue: "5.4",
 		},
 	}
 
