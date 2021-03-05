@@ -1,8 +1,10 @@
 # Docker registry to pull images
 global:
+  # todo remove reference to private registry https://github.com/dell/csi-baremetal/issues/310
   registry: asdrepo.isus.emc.com:9042
 
 env:
+  # todo get rid of this variable and use registry instead https://github.com/dell/csi-baremetal/issues/310
  test: false
  mountHostRoot: true
 

@@ -23,7 +23,7 @@ spec:
         {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
       {{- end }}
       {{- if .Values.kernel.version }}
-        nodes.csi-baremetal.dell.com/kernel-version: {{ .Values.kernel.version }}
+        nodes.csi-baremetal.dell.com/kernel-version: '{{ .Values.kernel.version }}'
       {{- end }}
       hostIPC: True
       serviceAccountName: csi-node-sa
