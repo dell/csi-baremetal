@@ -25,12 +25,13 @@ Annotations:
 
 csi-baremetal operator:
 
-`Annotations: ==nodes.csi-baremetal.dell.com/uuid: 98ad16dd-5702-4dfe-bbca-008b65422831==`
+- Annotations: **nodes.csi-baremetal.dell.com/uuid: 98ad16dd-5702-4dfe-bbca-008b65422831**
 
 node-driver-registrar:
 
-`Labels: ==nodes.csi-baremetal.dell.com/uuid=98ad16dd-5702-4dfe-bbca-008b65422831==`
-`Annotations: csi.volume.kubernetes.io/nodeid: {"csi-baremetal":"98ad16dd-5702-4dfe-bbca-008b65422831"}`
+- Labels: **nodes.csi-baremetal.dell.com/uuid=98ad16dd-5702-4dfe-bbca-008b65422831**
+
+- Annotations: csi.volume.kubernetes.io/nodeid: {"csi-baremetal":"98ad16dd-5702-4dfe-bbca-008b65422831"}
 
 There are 2 copies of the same information in label section and annotation section.
 
