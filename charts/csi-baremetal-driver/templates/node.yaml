@@ -18,9 +18,12 @@ spec:
         prometheus.io/port: '{{ .Values.node.metrics.port }}'
         prometheus.io/path: '{{ .Values.node.metrics.path }}'
     spec:
-      {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value)}}
       nodeSelector:
-        {{.Values.nodeSelector.key}}: {{.Values.nodeSelector.value}}
+      {{- if or (.Values.nodeSelector.key) (.Values.nodeSelector.value) }}
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+      {{- end }}
+      {{- if .Values.kernel.version }}
+        nodes.csi-baremetal.dell.com/kernel-version: {{ .Values.kernel.version }}
       {{- end }}
       hostIPC: True
       serviceAccountName: csi-node-sa
@@ -57,8 +60,8 @@ spec:
             mountPath: /registration
       # ********************** csi-baremetal-node container definition **********************
       - name: node
-        image: {{- if .Values.env.test }} csi-baremetal-node:{{ default .Values.image.tag .Values.node.image.tag }}
-               {{- else }} {{ .Values.global.registry }}/csi-baremetal-node:{{ default .Values.image.tag .Values.node.image.tag }}
+        image: {{- if .Values.env.test }} csi-baremetal-node{{ if .Values.kernel.version }}-kernel-{{ .Values.kernel.version }}{{ end }}:{{ default .Values.image.tag .Values.node.image.tag }}
+               {{- else }} {{ .Values.global.registry }}/csi-baremetal-node{{ if .Values.kernel.version }} -kernel{{ .Values.kernel.version }} {{ end }}:{{ default .Values.image.tag .Values.node.image.tag }}
               {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:

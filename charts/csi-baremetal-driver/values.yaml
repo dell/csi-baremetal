@@ -15,6 +15,11 @@ nodeSelector:
   key:
   value:
 
+# to deploy on the nodes with specific the kernel version
+# kubectl get nodes -l nodes.csi-baremetal.dell.com/kernel-version=<version>
+kernel:
+  version:
+
 # logging settings
 log:
   format: text
