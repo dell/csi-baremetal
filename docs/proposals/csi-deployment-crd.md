@@ -27,7 +27,7 @@ spec:
     listKind: CSIList
     plural: csi
     singular: csi
-  scope: Namespaced
+  scope: Cluster
   versions:
     - name: v1beta1
       served: true
