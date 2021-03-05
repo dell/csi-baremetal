@@ -25,9 +25,10 @@ download-grpc-health-probe:
 # NOTE: Output directory for binary file should be in Docker context.
 # So we can't use csi-baremetal/build to build the image.
 base-image-node: download-grpc-health-probe
-	cp ./pkg/${NODE}/Dockerfile.build ./build/${NODE}/
+	cp ./pkg/${NODE}/Dockerfile* ./build/${NODE}/
 	cp ./build/${HEALTH_PROBE} ./build/${NODE}/
 	docker build --network host --file ./build/${NODE}/Dockerfile.build --tag ${NODE}:base ./build/${NODE}
+	docker build --network host --file ./build/${NODE}/Dockerfile-kernel-5.4.build --tag ${NODE}:base-kernel-5.4 ./build/${NODE}
 
 base-image-controller: download-grpc-health-probe
 	cp ./pkg/${CONTROLLER}/Dockerfile.build ./build/${CONTROLLER}/
@@ -39,8 +40,9 @@ image-drivemgr: base-image-drivemgr
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
 
 image-node: base-image-node
-	cp ./pkg/${NODE}/Dockerfile ./build/${NODE}/
+	cp ./pkg/${NODE}/Dockerfile* ./build/${NODE}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ./build/${NODE}
+	docker build --network host --force-rm  --file ./build/${NODE}/Dockerfile-kernel-5.4 --tag ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG} ./build/${NODE}
 
 image-controller: base-image-controller
 	cp ./pkg/${CONTROLLER}/Dockerfile ./build/${CONTROLLER}/
@@ -79,6 +81,7 @@ push-drivemgr:
 
 push-node:
 	docker push ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
+	docker push ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG}
 
 push-controller:
 	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
@@ -111,6 +114,7 @@ clean-image-drivemgr:
 
 clean-image-node:
 	docker rmi ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG}
 
 clean-image-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
