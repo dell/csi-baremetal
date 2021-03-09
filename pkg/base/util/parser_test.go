@@ -65,20 +65,20 @@ func TestGetKernelVersion(t *testing.T) {
 	assert.Equal(t, version, "")
 
 	// ubuntu 19
-	kernel := "5.4.0"
-	version, err = GetKernelVersion(kernel + "-66-generic")
+	kernel := "5.4"
+	version, err = GetKernelVersion(kernel + ".0-66-generic")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, version, kernel)
 
 	// ubuntu 18
-	kernel = "4.15.0"
-	version, err = GetKernelVersion(kernel + "-76-generic")
+	kernel = "4.15"
+	version, err = GetKernelVersion(kernel + ".0-76-generic")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, version, kernel)
 
 	// rhel coreos 4.6
-	kernel = "4.18.0"
-	version, err = GetKernelVersion(kernel + "-193.41.1.el8_2.x86_64")
+	kernel = "4.18"
+	version, err = GetKernelVersion(kernel + ".0-193.41.1.el8_2.x86_64")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, version, kernel)
 }
