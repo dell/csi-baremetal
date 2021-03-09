@@ -769,7 +769,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.C
 		req.AccessibilityRequirements = &csi.TopologyRequirement{
 			Preferred: []*csi.Topology{
 				{
-					Segments: map[string]string{csibmnodeconst.NodeIDAnnotationKey: preferredNode},
+					Segments: map[string]string{csibmnodeconst.NodeIDKey: preferredNode},
 				},
 			},
 		}

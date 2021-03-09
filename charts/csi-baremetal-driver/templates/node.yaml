@@ -166,6 +166,7 @@ spec:
           - --loglevel={{ .Values.log.level }}
           - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
         {{- if eq .Values.drivemgr.type "loopbackmgr"}}
+          - --namespace=$(NAMESPACE)
           - --usenodeannotation={{ .Values.feature.usenodeannotation }}
         {{- end }}
         {{- if .Values.logReceiver.create  }}
@@ -182,6 +183,13 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
+      {{- if eq .Values.drivemgr.type "loopbackmgr"}}
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      {{- end }}
         ports:
         {{- if .Values.drivemgr.grpc.server.port }}
           - containerPort: {{ .Values.drivemgr.grpc.server.port }}

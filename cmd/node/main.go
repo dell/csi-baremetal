@@ -54,7 +54,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
@@ -259,19 +258,16 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	return mgr
 }
 
-func getNodeID(client k8sClient.Client, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func getNodeID(client *k8s.KubeClient, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
+	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
+		return client.GetNodeUUIDFromCSIBMNodeCR(nodeName)
+	}
+
+	// use standard UID if uniq nodeID usage isn't enabled
 	k8sNode := corev1.Node{}
 	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
 		return "", err
 	}
-
-	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
-		if val, ok := k8sNode.GetAnnotations()[csibmnodeconst.NodeIDAnnotationKey]; ok {
-			return val, nil
-		}
-		return "", fmt.Errorf("annotation %s hadn't been set for node %s", csibmnodeconst.NodeIDAnnotationKey, nodeName)
-	}
-
 	return string(k8sNode.UID), nil
 }
 

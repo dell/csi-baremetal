@@ -4,8 +4,8 @@ package common
 
 const (
 	nodeKey = "nodes.csi-baremetal.dell.com"
-	// NodeIDAnnotationKey hold key for annotation for node object
-	NodeIDAnnotationKey = nodeKey + "/uuid"
+	// NodeIDKey hold special ID for node object
+	NodeIDKey = nodeKey + "/uuid"
 	// NodeOSNameLabelKey used as a label key for k8s node object to sort nodes by OS name (for example, Ubuntu)
 	NodeOSNameLabelKey = nodeKey + "/os-name"
 	// NodeOSVersionLabelKey used as a label key for k8s node object to sort nodes by OS version (for example, 19.04)

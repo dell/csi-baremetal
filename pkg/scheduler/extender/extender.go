@@ -39,7 +39,6 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -436,15 +435,14 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 // getNodeID returns node ID, it could be a k8s node UID or value of annotation
 func (e *Extender) getNodeID(node coreV1.Node) string {
 	if e.featureChecker.IsEnabled(fc.FeatureNodeIDFromAnnotation) {
-		val, ok := node.GetAnnotations()[csibmnodeconst.NodeIDAnnotationKey]
-		if !ok {
-			e.logger.WithField("method", "getNodeID").
-				Errorf("Annotation %s isn't set for node %s. Unable to detect node UUID.",
-					csibmnodeconst.NodeIDAnnotationKey, node.Name)
+		val, err := e.k8sClient.GetNodeUUIDFromCSIBMNodeCR(node.Name)
+		if err != nil {
+			e.logger.WithField("method", "getNodeID").WithError(err)
 			return ""
 		}
 		return val
 	}
 
+	// use standard UID if uniq nodeID usage isn't enabled
 	return string(node.UID)
 }

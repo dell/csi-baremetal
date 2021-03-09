@@ -43,8 +43,6 @@ import (
 )
 
 const (
-	// nodeIDAnnotationKey hold key for annotation for node object
-	nodeIDAnnotationKey = common.NodeIDAnnotationKey
 	// namePrefix it is a prefix for Node CR name
 	namePrefix = "csibmnode-"
 	// finalizer for Node custom resource
@@ -57,7 +55,7 @@ type Controller struct {
 	nodeSelector *label
 	cache        nodesMapping
 
-	// holds k8s node names for which annotation settings is enabled,
+	// holds k8s node names for which special ID settings is enabled,
 	// it is used in Node CR deletion for avoiding recreation
 	enabledForNode map[string]bool
 	enabledMu      sync.RWMutex
@@ -192,11 +190,10 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 					bmc.enableForNode(nodeNew.Name)
 				}
 
-				annotationAreTheSame := reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations())
 				addressesAreTheSame := reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)
 				labelsAreTheSame := bmc.nodeSelector == nil || reflect.DeepEqual(nodeOld.GetLabels(), nodeNew.GetLabels())
 
-				return !annotationAreTheSame || !addressesAreTheSame || !labelsAreTheSame
+				return !addressesAreTheSame || !labelsAreTheSame
 			},
 		}).
 		Complete(bmc)
@@ -315,7 +312,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	}
 
 	bmc.cache.put(k8sNode.Name, bmNode.Name)
-	return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
+	return bmc.updateNodeLabels(k8sNode)
 }
 
 func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result, error) {
@@ -371,13 +368,13 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 
 	if !bmNode.GetDeletionTimestamp().IsZero() {
 		bmc.disableForNode(k8sNode.Name)
-		if err := bmc.removeLabelsAndAnnotation(k8sNode); err != nil {
-			ll.Errorf("Unable to remove annotation from node %s: %v", k8sNode.Name, err)
+		if err := bmc.removeLabels(k8sNode); err != nil {
+			ll.Errorf("Unable to remove labels from node %s: %v", k8sNode.Name, err)
 			bmc.enableForNode(k8sNode.Name)
 			return ctrl.Result{Requeue: true}, err
 		}
 
-		ll.Infof("Annotation from node %s was removed. Removing finalizer from %s.", k8sNode.Name, bmNode.Name)
+		ll.Infof("Labels from node %s was removed. Removing finalizer from %s.", k8sNode.Name, bmNode.Name)
 		bmNode.Finalizers = nil
 		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
 		if err != nil {
@@ -388,37 +385,18 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 
 	if len(matchedNodes) == 1 {
 		bmc.cache.put(k8sNode.Name, bmNode.Name)
-		return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
+		return bmc.updateNodeLabels(k8sNode)
 	}
 
 	ll.Warnf("Unable to detect k8s node that corresponds to Node %v, matched nodes: %v", bmNode, matchedNodes)
 	return ctrl.Result{}, nil
 }
 
-// updateNodeLabelsAndAnnotation checks nodeIDAnnotationKey annotation value for provided k8s Node and compare that value with goalValue
-// parses OS Image info and put/update os-name and os-version labels if needed
-func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalValue string) (ctrl.Result, error) {
-	ll := bmc.log.WithField("method", "updateNodeLabelsAndAnnotation")
+// updateNodeLabels parses OS Image info and put/update os-name, os-version and os-kernel labels if needed
+func (bmc *Controller) updateNodeLabels(k8sNode *coreV1.Node) (ctrl.Result, error) {
+	ll := bmc.log.WithField("method", "updateNodeLabels")
 
 	toUpdate := false
-	// check for annotations
-	val, ok := k8sNode.GetAnnotations()[nodeIDAnnotationKey]
-	if ok {
-		if val == goalValue {
-			ll.Tracef("%s value for node %s is already %s", nodeIDAnnotationKey, k8sNode.Name, goalValue)
-		} else {
-			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding Node's UUID) %s, going to update annotation's value.",
-				nodeIDAnnotationKey, k8sNode.Name, val, goalValue)
-			k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
-			toUpdate = true
-		}
-	} else {
-		if k8sNode.ObjectMeta.Annotations == nil {
-			k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
-		}
-		k8sNode.ObjectMeta.Annotations[nodeIDAnnotationKey] = goalValue
-		toUpdate = true
-	}
 
 	// initialize labels map if needed
 	if k8sNode.Labels == nil {
@@ -469,18 +447,8 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 	return ctrl.Result{}, nil
 }
 
-func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
-	if k8sNode.GetAnnotations() == nil {
-		return nil
-	}
-
+func (bmc *Controller) removeLabels(k8sNode *coreV1.Node) error {
 	toUpdate := false
-	// check annotations
-	annotations := k8sNode.GetAnnotations()
-	if _, ok := annotations[nodeIDAnnotationKey]; ok {
-		delete(annotations, nodeIDAnnotationKey)
-		toUpdate = true
-	}
 
 	// check labels
 	labels := k8sNode.GetLabels()
@@ -501,7 +469,6 @@ func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 	}
 
 	if toUpdate {
-		k8sNode.Annotations = annotations
 		k8sNode.Labels = labels
 		return bmc.k8sClient.UpdateCR(context.Background(), k8sNode)
 	}

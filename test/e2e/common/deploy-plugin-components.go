@@ -28,10 +28,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
-	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"sigs.k8s.io/yaml"
-
-	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 const (
@@ -305,10 +302,6 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 		return nil, err
 	}
 
-	if err = waitUntilAllNodesWillBeTagged(c); err != nil {
-		return nil, err
-	}
-
 	return func() {
 
 		if err := c.AppsV1().Deployments("default").Delete(depl.Name, &metav1.DeleteOptions{}); err != nil {
@@ -333,11 +326,6 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 				delete(node.Annotations, driverRegistarNodeAnnotation)
 				isFound = true
 			}
-			// try to remove annotations set by csi operator
-			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; ok {
-				delete(node.Annotations, akey.NodeIDAnnotationKey)
-				isFound = true
-			}
 			// update node object if required
 			if isFound {
 				if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
@@ -346,36 +334,4 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 			}
 		}
 	}, nil
-}
-
-func waitUntilAllNodesWillBeTagged(c clientset.Interface) error {
-	nodeAnnotationMap := make(map[string]string, 0)
-
-	timeout := time.Minute * 2
-	sleepTime := time.Second * 5
-	for start := time.Now(); time.Since(start) < timeout; time.Sleep(sleepTime) {
-		nodes, err := e2enode.GetReadySchedulableNodesOrDie(c)
-		allHas := true
-
-		if err != nil {
-			e2elog.Logf("Got error during waitUntilAllNodesWillBeTagged: %v. Sleep and retry", err)
-			allHas = false
-		}
-
-		for _, node := range nodes.Items {
-			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; !ok {
-				e2elog.Logf("Not all nodes has annotation %s. Sleep and retry", akey.NodeIDAnnotationKey)
-				allHas = false
-				break
-			}
-			nodeAnnotationMap[node.Name] = node.GetAnnotations()[akey.NodeIDAnnotationKey]
-		}
-		if allHas {
-			e2elog.Logf("Annotation %s was set for all nodes: %v", akey.NodeIDAnnotationKey, nodeAnnotationMap)
-			return nil
-		}
-		time.Sleep(sleepTime)
-	}
-
-	return nil
 }

@@ -527,7 +527,7 @@ var _ = Describe("CSINodeService NodeGetInfo()", func() {
 		resp, err := node.NodeGetInfo(testCtx, &csi.NodeGetInfoRequest{})
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
-		val, ok := resp.AccessibleTopology.Segments[csibmnodeconst.NodeIDAnnotationKey]
+		val, ok := resp.AccessibleTopology.Segments[csibmnodeconst.NodeIDKey]
 		Expect(ok).To(BeTrue())
 		Expect(val).To(Equal(nodeID))
 	})
