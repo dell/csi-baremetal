@@ -113,8 +113,6 @@ spec:
         pullPolicy: Always
         tag: shippable
     deployAlertsConfig: false
-    nodeSelector:
-        os: linux
   scheduler:
     enable: true
     image:
@@ -142,8 +140,6 @@ spec:
     testEnv: false
   operator:
     enable: true
-    nodeSelector:
-        os: linux
     image:
       name: csi-baremetal-operator
       registry: asdrepo.isus.emc.com:9042
@@ -153,6 +149,8 @@ spec:
       format: text
       level: info
     testEnv: false
+  globalResgitry: asdrepo.isus.emc.com:9042
+  nodeSelector:
 ```
 
 Example of CR in code:
@@ -166,9 +164,11 @@ type CSI struct {
 }
 
 type CSISpec struct {
-	Driver       *Driver       `json:"driver,omitempty"`
-	NodeOperator *NodeOperator `json:"operator,omitempty"`
-	Scheduler    *Scheduler    `json:"scheduler,omitempty"`
+	Driver         *Driver            `json:"driver,omitempty"`
+	NodeOperator   *NodeOperator      `json:"operator,omitempty"`
+	Scheduler      *Scheduler         `json:"scheduler,omitempty"`
+    GlobalRegistry  string            `json:"globalRegistry,omitempty"`
+    NodeSelectors   map[string]string `json:"nodeSelectors,omitempty"`
 }
 
 type Driver struct {
@@ -179,7 +179,6 @@ type Driver struct {
 	LogReceiver         *LogReceiver `json:"logReceiver,omitempty"`
 	DeployAlertsConfig   bool        `json:"deployAlertsConfig,omitempty"`
     MountRootHost        bool        `json:"mountRootHost,omitempty"`
-    NodeSelectors        map[string]string `json:"nodeSelectors,omitempty"`
 }
 
 type Controller struct {
@@ -209,7 +208,6 @@ type NodeOperator struct {
     Enable        bool              `json:"enable,omitempty"`
 	Image         *Image            `json:"image,omitempty"`
 	Log           *Log              `json:"log,omitempty"`
-    NodeSelectors map[string]string `json:"nodeSelectors,omitempty"`
 	TestEnv       bool              `json:"testEnv,omitempty"`
 }
 
