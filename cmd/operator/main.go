@@ -18,7 +18,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -27,12 +26,11 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 var (
@@ -45,13 +43,6 @@ var (
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	logFormat = flag.String("logformat", base.LogFormatText,
 		fmt.Sprintf("Log level, supported value is %s. Json format is used by default", base.LogFormatText))
-)
-
-const (
-	// HelmInstallCSICmdTmpl is a template for helm command
-	HelmInstallCSICmdTmpl = "helm install csi-baremetal /csi-baremetal-driver --set image.tag=%s --set drivemgr.type=%s"
-	// KernelValue is csi driver kernel version value in charts
-	KernelValue = " --set kernel.version=%s"
 )
 
 func main() {
@@ -75,25 +66,21 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
 
+	var (
+		installer *common.CSIInstaller
+		observer  common.Observer
+	)
 	if *deploy && *version != "" {
-		var (
-			node   = &nodecrd.NodeList{}
-			kernel string
-		)
-		err := kubeClient.ReadList(context.Background(), node)
-		cmd := fmt.Sprintf(HelmInstallCSICmdTmpl, *version, *drivemgr)
-		if err != nil || len(node.Items) == 0 {
-			logger.Errorf("Failed to get node list: %v", err)
-		} else {
-			kernel = node.Items[0].GetLabels()[common.NodeKernelVersionLabelKey]
-			cmd = fmt.Sprintf(HelmInstallCSICmdTmpl+KernelValue, *version, *drivemgr, kernel)
-		}
-		executor := command.NewExecutor(logger)
-		if _, _, err = executor.RunCmd(cmd); err != nil {
-			logger.Fatal("Failed to install CSI charts")
-		}
+		installer = common.NewCSIInstaller(*version, *drivemgr, kubeClient, logger)
+		observer = installer
+		logger.Info("Install CSI with helm")
+		go func() {
+			if err := installer.Install(); err != nil {
+				logger.Fatal(err)
+			}
+		}()
 	}
-	nodeCtrl, err := operator.NewController(*nodeSelector, kubeClient, logger)
+	nodeCtrl, err := operator.NewController(*nodeSelector, kubeClient, observer, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

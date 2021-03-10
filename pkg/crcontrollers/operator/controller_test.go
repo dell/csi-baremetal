@@ -62,10 +62,10 @@ var (
 		},
 	}
 
-	osName    = "ubuntu"
-	osVersion = "18.04"
+	osName        = "ubuntu"
+	osVersion     = "18.04"
 	kernelVersion = "4.15"
-	testNode1 = coreV1.Node{
+	testNode1     = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-1",
 			Namespace:   testNS,
@@ -93,7 +93,7 @@ func TestNewCSIBMController(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("Node selector is empty", func(t *testing.T) {
-		c, err := NewController("", k8sClient, testLogger)
+		c, err := NewController("", k8sClient, nil, testLogger)
 		assert.Nil(t, err)
 		assert.Nil(t, c.nodeSelector)
 		assert.NotNil(t, c)
@@ -108,7 +108,7 @@ func TestNewCSIBMController(t *testing.T) {
 			value = "value"
 		)
 
-		c, err := NewController("key:value", k8sClient, testLogger)
+		c, err := NewController("key:value", k8sClient, nil, testLogger)
 		assert.Nil(t, err)
 		assert.NotNil(t, c)
 		assert.NotNil(t, c.cache)
@@ -119,7 +119,7 @@ func TestNewCSIBMController(t *testing.T) {
 	})
 
 	t.Run("Node selector is wrong", func(t *testing.T) {
-		c, err := NewController("key:dfdf:value", k8sClient, testLogger)
+		c, err := NewController("key:dfdf:value", k8sClient, nil, testLogger)
 		assert.Nil(t, c)
 		assert.NotNil(t, err)
 	})
@@ -397,37 +397,37 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 
 func Test_checkAnnotationAndLabels(t *testing.T) {
 	testCases := []struct {
-		description                string
-		currentAnnotationValue     string
-		targetAnnotationValue      string
-		currentOsNameLabelValue    string
-		targetOsNameLabelValue     string
-		currentOsVersionLabelValue string
-		targetOsVersionLabelValue  string
+		description                    string
+		currentAnnotationValue         string
+		targetAnnotationValue          string
+		currentOsNameLabelValue        string
+		targetOsNameLabelValue         string
+		currentOsVersionLabelValue     string
+		targetOsVersionLabelValue      string
 		currentKernelVersionLabelValue string
 		targetKernelVersionLabelValue  string
 	}{
 		{
-			description:                "Node has required annotation and labels",
-			currentAnnotationValue:     "aaaa-bbbb",
-			targetAnnotationValue:      "aaaa-bbbb",
-			currentOsNameLabelValue:    osName,
-			targetOsNameLabelValue:     osName,
-			currentOsVersionLabelValue: osVersion,
-			targetOsVersionLabelValue:  osVersion,
+			description:                    "Node has required annotation and labels",
+			currentAnnotationValue:         "aaaa-bbbb",
+			targetAnnotationValue:          "aaaa-bbbb",
+			currentOsNameLabelValue:        osName,
+			targetOsNameLabelValue:         osName,
+			currentOsVersionLabelValue:     osVersion,
+			targetOsVersionLabelValue:      osVersion,
 			currentKernelVersionLabelValue: kernelVersion,
-			targetKernelVersionLabelValue: kernelVersion,
+			targetKernelVersionLabelValue:  kernelVersion,
 		},
 		{
-			description:                "Node has required annotation and labels with wrong values",
-			currentAnnotationValue:     "aaaa-bbbb",
-			targetAnnotationValue:      "ffff-dddd",
-			currentOsNameLabelValue:    osName,
-			targetOsNameLabelValue:     osName,
-			currentOsVersionLabelValue: osVersion,
-			targetOsVersionLabelValue:  "19.10",
+			description:                    "Node has required annotation and labels with wrong values",
+			currentAnnotationValue:         "aaaa-bbbb",
+			targetAnnotationValue:          "ffff-dddd",
+			currentOsNameLabelValue:        osName,
+			targetOsNameLabelValue:         osName,
+			currentOsVersionLabelValue:     osVersion,
+			targetOsVersionLabelValue:      "19.10",
 			currentKernelVersionLabelValue: kernelVersion,
-			targetKernelVersionLabelValue: "5.4",
+			targetKernelVersionLabelValue:  "5.4",
 		},
 	}
 
@@ -515,7 +515,7 @@ func setup(t *testing.T) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 
-	c, err := NewController("", k8sClient, testLogger)
+	c, err := NewController("", k8sClient, nil, testLogger)
 	assert.Nil(t, err)
 	return c
 }
