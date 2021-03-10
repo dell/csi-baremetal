@@ -17,11 +17,11 @@ Example of CRD:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: csi.dell.com
+  name: csi-baremetal.dell.com
   labels:
-    app.kubernetes.io/name: csi-operator
+    app.kubernetes.io/name: csi-baremetal-operator
 spec:
-  group: csi.dell.com
+  group: csi-baremetal.dell.com
   names:
     kind: CSI
     listKind: CSIList
@@ -36,14 +36,14 @@ spec:
 
 Example of CR:
 ```
-apiVersion: csi.dell.com/v1beta1
+apiVersion:  csi-baremetal.dell.com/v1beta1
 kind: CSI
 metadata:
   name: csi
   namespace: default
   labels:
     app.kubernetes.io/name: csi-baremetal
-    app.kubernetes.io/managed-by: csi-operator
+    app.kubernetes.io/managed-by: csi-baremetal-operator
     app.kubernetes.io/version: 1.0.0
 spec:
   driver:
@@ -113,7 +113,10 @@ spec:
         pullPolicy: Always
         tag: shippable
     deployAlertsConfig: false
+    nodeSelector:
+        os: linux
   scheduler:
+    enable: true
     image:
       name: csi-baremetal-scheduler-extender
       registry: asdrepo.isus.emc.com:9042
@@ -138,6 +141,9 @@ spec:
     storageProvisioner: csi-baremetal
     testEnv: false
   operator:
+    enable: true
+    nodeSelector:
+        os: linux
     image:
       name: csi-baremetal-operator
       registry: asdrepo.isus.emc.com:9042
@@ -166,12 +172,14 @@ type CSISpec struct {
 }
 
 type Driver struct {
-	Controller *Controller `json:"controller,omitempty"`
-	Node       *Node       `json:"node,omitempty"`
-	Image      *Image      `json:"image,omitempty"`
-	Metrics    *Metrics    `json:"metrics,omitempty"`
-	LogReceiver *LogReceiver `json:"logReceiver,omitempty"`
-	DeployAlertsConfig bool  `json:"deployAlertsConfig,omitempty"`
+	Controller          *Controller  `json:"controller,omitempty"`
+	Node                *Node        `json:"node,omitempty"`
+	Image               *Image       `json:"image,omitempty"`
+	Metrics             *Metrics     `json:"metrics,omitempty"`
+	LogReceiver         *LogReceiver `json:"logReceiver,omitempty"`
+	DeployAlertsConfig   bool        `json:"deployAlertsConfig,omitempty"`
+    MountRootHost        bool        `json:"mountRootHost,omitempty"`
+    NodeSelectors        map[string]string `json:"nodeSelectors,omitempty"`
 }
 
 type Controller struct {
@@ -198,12 +206,15 @@ type DriveMgr struct {
 }
 
 type NodeOperator struct {
-	Image   *Image `json:"image,omitempty"`
-	Log     *Log   `json:"log,omitempty"`
-	TestEnv bool   `json:"testEnv,omitempty"`
+    Enable        bool              `json:"enable,omitempty"`
+	Image         *Image            `json:"image,omitempty"`
+	Log           *Log              `json:"log,omitempty"`
+    NodeSelectors map[string]string `json:"nodeSelectors,omitempty"`
+	TestEnv       bool              `json:"testEnv,omitempty"`
 }
 
 type Scheduler struct {
+    Enable             bool     `json:"enable,omitempty"`
 	Image              *Image   `json:"image,omitempty"`
 	Log                *Log     `json:"log,omitempty"`
 	Metrics            *Metrics `json:"metrics,omitempty"`
