@@ -49,7 +49,6 @@ spec:
   driver:
     controller:
       image:
-        registry: asdrepo.isus.emc.com:9042
         name: csi-baremetal-driver
         pullPolicy: Always
         tag: green
@@ -60,19 +59,16 @@ spec:
         - name: csi-provisioner
           image:
             name: csi-provisioner
-            registry: asdrepo.isus.emc.com:9042
             pullPolicy: Always
             tag: v1.6.0
         - name: csi-attacher
           image:
             name: csi-attacher
-            registry: asdrepo.isus.emc.com:9042
             pullPolicy: Always
             tag: v1.0.1
         - name: csi-resizer
           image:
             name: csi-resizer
-            registry: asdrepo.isus.emc.com:9042
             pullPolicy: Always
             tag: v1.1.0
       testEnv: false
@@ -80,7 +76,6 @@ spec:
       driveMgr:
         image:
           name: csi-baremetal-basemgr
-          registry: asdrepo.isus.emc.com:9042
           pullPolicy: Always
           tag: green
         endpoint: tcp://localhost:8888
@@ -88,7 +83,7 @@ spec:
         amountOfLoopback: 3
         sizeOfLoopback: 101Mi
       image:
-        registry: asdrepo.isus.emc.com:9042
+        name: csi-baremetal-node
         pullPolicy: Always
         tag: green
       log:
@@ -98,7 +93,6 @@ spec:
         - name: csi-node-driver-registrar
           image:
             name: csi-node-driver-registrar
-            registry: asdrepo.isus.emc.com:9042
             pullPolicy: Always
             tag: v1.0.1-gke.0
       testEnv: false
@@ -109,7 +103,6 @@ spec:
       name: fluent-bit
       image:
         name: fluent-bit
-        registry: asdrepo.isus.emc.com:9042
         pullPolicy: Always
         tag: shippable
     deployAlertsConfig: false
@@ -117,7 +110,6 @@ spec:
     enable: true
     image:
       name: csi-baremetal-scheduler-extender
-      registry: asdrepo.isus.emc.com:9042
       pullPolicy: Always
       tag: green
     log:
@@ -142,14 +134,13 @@ spec:
     enable: true
     image:
       name: csi-baremetal-operator
-      registry: asdrepo.isus.emc.com:9042
       pullPolicy: Always
       tag: green
     log:
       format: text
       level: info
     testEnv: false
-  globalResgitry: asdrepo.isus.emc.com:9042
+  globalResgitry: 
   nodeSelector:
 ```
 
