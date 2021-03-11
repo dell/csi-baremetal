@@ -83,8 +83,7 @@ func (c *CSIInstaller) install(ctx context.Context) error {
 		ll.Infof("Receive kernel version: %s", version)
 		return c.installWithHelm(version)
 	case <-ctx.Done():
-		ll.Info("Context is done, install without kernel version")
-		return c.installWithHelm("")
+		return fmt.Errorf("context is done: %v", ctx.Err())
 	}
 }
 
@@ -92,10 +91,7 @@ func (c *CSIInstaller) install(ctx context.Context) error {
 // Receive string
 // Return error
 func (c *CSIInstaller) installWithHelm(kernelVersion string) error {
-	cmd := fmt.Sprintf(HelmInstallCSICmdTmpl, c.version, c.drivemgr)
-	if kernelVersion != "" {
-		cmd = fmt.Sprintf(HelmInstallCSICmdTmpl, c.version, c.drivemgr) + fmt.Sprintf(KernelValue, kernelVersion)
-	}
+	cmd := fmt.Sprintf(HelmInstallCSICmdTmpl, c.version, c.drivemgr) + fmt.Sprintf(KernelValue, kernelVersion)
 	executor := command.NewExecutor(c.log.Logger)
 	if _, _, err := executor.RunCmd(cmd); err != nil {
 		return err

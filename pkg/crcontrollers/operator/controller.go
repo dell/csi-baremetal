@@ -456,9 +456,9 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, goalV
 			ll.Infof("Setting label %s=%s on node %s", common.NodeKernelVersionLabelKey, version, k8sNode.Name)
 			k8sNode.Labels[common.NodeKernelVersionLabelKey] = version
 			toUpdate = true
-		}
-		if bmc.observer != nil {
-			bmc.observer.Notify(version)
+			if bmc.observer != nil {
+				bmc.observer.Notify(version)
+			}
 		}
 	} else {
 		ll.Errorf("Failed to obtain Kernel version information: %s", err)
