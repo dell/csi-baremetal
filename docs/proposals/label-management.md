@@ -1,6 +1,6 @@
 # Proposal: Node label management
 
-Last updated: 09.03.2021
+Last updated: 11.03.2021
 
 
 ## Abstract
@@ -60,20 +60,9 @@ csi-baremetal-node/node : get csibmnode-CR list and find matching hostname-uuid
 csi-baremetal-node/node : create topology with {topologyKey : UUID}
 ```
 
-2. Rename topologyKey:
+2. Remove label `nodes.csi-baremetal.dell.com/uuid` after `csi-baremetal-controller` and `node-daemonset` uninstallation.
 
-`nodes.csi-baremetal.dell.com/uuid -> nodes.csi-baremetal.dell.com/external-topology-key`
-
-```
-csi.Topology{
-	Segments: map[string]string{
-		"nodes.csi-baremetal.dell.com/external-topology-key": 98ad16dd-5702-4dfe-bbca-008b65422831,
-	}
-```
-
-3. Remove label `nodes.csi-baremetal.dell.com/uuid` after `csi-baremetal-controller` and `node-daemonset` uninstallation.
-
-It can be done in `csi-baremetal-node/node` after receiving SIGTERM with special handler.
+It can be done in `csi-baremetal-node/node` while uninstalling csi-baremetal CR
 
 ## Rationale
 
@@ -81,7 +70,7 @@ Removing label `nodes.csi-baremetal.dell.com/uuid`:
 
 - in `csi-baremetal-node/node` after receiving SIGTERM (if node-container has error and is deleted, label will be removed)
 - in `csi-baremetal-operator` after uninstalling csibmnode (node-components may exist, when user or other service delete csibmnode)
-- in `csi-baremetal-CR-operator`? after uninstalling csi-baremetal CR
+- in `csi-baremetal-CR-operator` while uninstalling csi-baremetal CR after all other components
 
 ## Compatibility
 
