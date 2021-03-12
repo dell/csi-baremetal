@@ -94,7 +94,7 @@ func (c *CSIInstaller) install(ctx context.Context) error {
 	}
 }
 
-// installWithHelm tris to install helm with kernel version or without it if parameter kernelVersion is empty
+// installWithHelm tries to install helm with kernel version
 // Receive string
 // Return error
 func (c *CSIInstaller) installWithHelm(kernelVersion string) error {
