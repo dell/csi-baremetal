@@ -28,6 +28,7 @@ import (
 
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator"
@@ -71,7 +72,7 @@ func main() {
 		observer  common.Observer
 	)
 	if *deploy && *version != "" {
-		installer = common.NewCSIInstaller(*version, *drivemgr, kubeClient, logger)
+		installer = common.NewCSIInstaller(*version, *drivemgr, kubeClient, command.NewExecutor(logger), logger)
 		observer = installer
 		logger.Info("Install CSI with helm")
 		go func() {

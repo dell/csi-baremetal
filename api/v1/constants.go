@@ -120,4 +120,6 @@ const (
 
 	LocateStatusOn  = int32(1)
 	LocateStatusOff = int32(0)
+
+	DockerImageKernelVersion = "5.4"
 )
