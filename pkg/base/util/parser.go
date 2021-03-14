@@ -49,7 +49,7 @@ func GetOSNameAndVersion(osInfo string) (name, version string, err error) {
 
 // GetKernelVersion receives string with the kernel version information in the following format:
 // "X.Y.Z-<Number>-<Description>". For example, "5.4.0-66-generic"
-// returns kernel version - major, minor and patch. For example, "5.4.0"
+// returns kernel version - major and minor. For example, "5.4"
 func GetKernelVersion(kernelVersion string) (version string, err error) {
 	// check input parameter
 	if len(kernelVersion) == 0 {

@@ -1,0 +1,7 @@
+FROM    ubuntu:20.04
+
+ADD     health_probe    health_probe
+
+RUN     apt update --no-install-recommends -y -q; apt install --no-install-recommends -y -q curl util-linux parted xfsprogs lvm2 gdisk strace udev net-tools
+
+
