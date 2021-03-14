@@ -102,6 +102,7 @@ or
 
 ```
 func GetNodeIDByName(client k8sClient.Client, nodeName string, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error)
+
 ```
 
 ## Open issues
