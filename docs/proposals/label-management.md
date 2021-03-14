@@ -1,6 +1,6 @@
 # Proposal: Node label management
 
-Last updated: 09.03.2021
+Last updated: 11.03.2021
 
 
 ## Abstract
@@ -50,30 +50,33 @@ csi-baremetal-operator has to remove k8sNode UUID-annotation after its uninstall
 
 ## Proposal
 
-1. Use only csibmnodes instead of annotations to mark work nodes in a cluster. node-driver-registrar will receive nodeID via parsing csibmnodes CR list.
+1. Remove label `nodes.csi-baremetal.dell.com/uuid` after `csi-baremetal-controller` and `node-daemonset` uninstallation.
 
-Proposed algorithm:
+It can be done in `csi-baremetal-node/node` while uninstalling csi-baremetal CR
 
-```
-csi-baremetal-operator/controller : create csibmnode
-csi-baremetal-node/node : get csibmnode-CR list and find matching hostname-uuid
-csi-baremetal-node/node : create topology with {topologyKey : UUID}
-```
+2. Add external annotation usage feature:
 
-2. Rename topologyKey:
-
-`nodes.csi-baremetal.dell.com/uuid -> nodes.csi-baremetal.dell.com/external-topology-key`
+In `csi-baremetal-operator`, `csi-baremetal-node/node`, `extender`, `loopbackmanager`: 
 
 ```
-csi.Topology{
-	Segments: map[string]string{
-		"nodes.csi-baremetal.dell.com/external-topology-key": 98ad16dd-5702-4dfe-bbca-008b65422831,
-	}
+check if annotationKey is exist
+use annotaionValue as UUID
 ```
 
-3. Remove label `nodes.csi-baremetal.dell.com/uuid` after `csi-baremetal-controller` and `node-daemonset` uninstallation.
+Update Helm charts:
 
-It can be done in `csi-baremetal-node/node` after receiving SIGTERM with special handler.
+```
+feature:
+  useexternalannotation: false
+  nodeIDAnnotation:
+```
+
+Set parameters as additional flags:
+
+```
+--useexternalannotation={{ .Values.feature.useexternalannotation }}
+--nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
+```
 
 ## Rationale
 
@@ -81,7 +84,7 @@ Removing label `nodes.csi-baremetal.dell.com/uuid`:
 
 - in `csi-baremetal-node/node` after receiving SIGTERM (if node-container has error and is deleted, label will be removed)
 - in `csi-baremetal-operator` after uninstalling csibmnode (node-components may exist, when user or other service delete csibmnode)
-- in `csi-baremetal-CR-operator`? after uninstalling csi-baremetal CR
+- in `csi-baremetal-CR-operator` while uninstalling csi-baremetal CR after all other components
 
 ## Compatibility
 
@@ -89,30 +92,16 @@ There is no problem with compatibility
 
 ## Implementation
 
-In csi-baremetal-operator/controller (remove annotation with nodeID):
+Create common function with the follow signature:
 
 ```
-updateNodeLabelsAndAnnotation -> updateNodeLabels
-removeLabelsAndAnnotation -> removeNodeLabels
+func GetNodeID(k8sNode corev1.Node, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error)
 ```
 
-In csi-baremetal-node/node, extender, loopbackmanager:
+or
 
 ```
-bmNodeCRs := new(nodecrd.NodeList)
-if err := client.ReadList(context.Background(), bmNodeCRs); err != nil {
-	return "", fmt.Errorf("Unable to read Node CRs list: %v", err)
-
-}
-bmNodes := bmNodeCRs.Items
-
-for i := range bmNodes {
-	if bmNodes[i].Spec.Addresses["Hostname"] == nodeName {
-		return bmNodes[i].Spec.Addresses["Hostname"], nil
-	}
-}
-
-return "", fmt.Errorf("csibmnode for %s hadn't been created", nodeName)
+func GetNodeIDByName(client k8sClient.Client, nodeName string, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error)
 ```
 
 ## Open issues
