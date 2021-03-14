@@ -156,7 +156,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	preferredNode := ""
 	if req.GetAccessibilityRequirements() != nil && len(req.GetAccessibilityRequirements().Preferred) > 0 {
-		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnodeconst.NodeIDKey]
+		preferredNode = req.GetAccessibilityRequirements().Preferred[0].Segments[csibmnodeconst.NodeIDTopologyLabelKey]
 		ll.Infof("Preferred node was provided: %s", preferredNode)
 	}
 
@@ -198,7 +198,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	ll.Infof("Construct response based on volume: %v", vol)
 	topologyList := []*csi.Topology{
-		{Segments: map[string]string{csibmnodeconst.NodeIDKey: vol.NodeId}},
+		{Segments: map[string]string{csibmnodeconst.NodeIDTopologyLabelKey: vol.NodeId}},
 	}
 
 	return &csi.CreateVolumeResponse{

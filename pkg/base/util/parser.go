@@ -57,7 +57,7 @@ func GetKernelVersion(kernelVersion string) (version string, err error) {
 	}
 
 	// extract kernel version - x.y.z
-	version = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+`).FindString(kernelVersion)
+	version = regexp.MustCompile(`^[0-9]+\.[0-9]+`).FindString(kernelVersion)
 	if len(version) == 0 {
 		return "", errTypes.ErrorFailedParsing
 	}

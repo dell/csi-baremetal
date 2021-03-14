@@ -23,6 +23,8 @@ const (
 	FeatureACReservation = "ACReservation"
 	// FeatureNodeIDFromAnnotation store name for NodeIDFromAnnotation feature
 	FeatureNodeIDFromAnnotation = "NodeIDFromAnnotation"
+	// FeatureExternalAnnotationForNode store name for ExternalAnnotationForNodeID feature
+	FeatureExternalAnnotationForNode = "ExternalAnnotationForNode"
 )
 
 // FeatureChecker is a "read" interface for FeatureConfig

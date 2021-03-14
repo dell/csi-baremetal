@@ -29,6 +29,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 )
 
@@ -38,16 +39,21 @@ var (
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
-		"Whether svc should read id from node annotation")
-	namespace = flag.String("namespace", "", "Namespace in which Node Service service run")
+		"Whether node svc should read id from node annotation and use it as id for all CRs or not")
+	useExternalAnnotation = flag.Bool("useexternalannotation", false,
+		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
+	nodeIDAnnotation = flag.String("nodeidannotation", "",
+		"Custom node annotation name. Use if \"useexternalannotation\" is True")
 )
 
 func main() {
-	flag.Parse()
 	nodeName := os.Getenv("KUBE_NODE_NAME")
+
+	flag.Parse()
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
+	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
 
 	logger, err := base.InitLogger(*logPath, *logLevel)
 	if err != nil {
@@ -58,9 +64,8 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 
-	nodeID, err := getNodeID(wrappedK8SClient, nodeName, featureConf)
+	nodeID, err := annotations.GetNodeIDByName(k8SClient, nodeName, *nodeIDAnnotation, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get nodeID, error: %v", err)
 	}
@@ -82,14 +87,4 @@ func main() {
 
 	go driveMgr.UpdateOnConfigChange(watcher)
 	dmsetup.SetupAndRunDriveMgr(driveMgr, serverRunner, driveMgr.CleanupLoopDevices, logger)
-}
-
-func getNodeID(client *k8s.KubeClient, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
-	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
-		return client.GetNodeUUIDFromCSIBMNodeCR(nodeName)
-	}
-
-	// use hostname of pod if uniq nodeID usage isn't enabled.
-	hostname := os.Getenv("HOSTNAME")
-	return hostname, nil
 }

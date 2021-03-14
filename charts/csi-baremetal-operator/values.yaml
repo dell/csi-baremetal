@@ -19,3 +19,7 @@ nodeSelector:
 csi:
   deploy: false
   drivemgr: basemgr
+
+feature:
+  useexternalannotation: false
+  nodeIDAnnotation:

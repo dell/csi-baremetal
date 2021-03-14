@@ -40,6 +40,8 @@ spec:
           - --nodeselector={{.Values.nodeSelector.key}}:{{.Values.nodeSelector.value}}
           {{- end }}
           - --namespace=$(NAMESPACE)
+          - --useexternalannotation={{ .Values.feature.useexternalannotation }}
+          - --nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
           - --loglevel={{ .Values.log.level }}
           - --logformat={{ .Values.log.format }}
           - --version={{ .Values.image.tag }}

@@ -18,7 +18,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -34,12 +33,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -54,6 +51,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
@@ -75,6 +73,10 @@ var (
 		"Whether node svc should read AvailableCapacityReservation CR during NodePublish request for ephemeral volumes or not")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
 		"Whether node svc should read id from node annotation and use it as id for all CRs or not")
+	useExternalAnnotation = flag.Bool("useexternalannotation", false,
+		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
+	nodeIDAnnotation = flag.String("nodeidannotation", "",
+		"Custom node annotation name. Use if \"useexternalannotation\" is True")
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
@@ -88,6 +90,7 @@ func main() {
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
+	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
 
 	var enableMetrics bool
 	if *metricspath != "" {
@@ -125,7 +128,7 @@ func main() {
 		logger.Fatalf("fail to start kubeCache, error: %v", err)
 	}
 
-	nodeID, err := getNodeID(wrappedK8SClient, *nodeName, featureConf)
+	nodeID, err := annotations.GetNodeIDByName(k8SClient, *nodeName, *nodeIDAnnotation, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
@@ -256,19 +259,6 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	}
 
 	return mgr
-}
-
-func getNodeID(client *k8s.KubeClient, nodeName string, featureChecker featureconfig.FeatureChecker) (string, error) {
-	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
-		return client.GetNodeUUIDFromCSIBMNodeCR(nodeName)
-	}
-
-	// use standard UID if uniq nodeID usage isn't enabled
-	k8sNode := corev1.Node{}
-	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
-		return "", err
-	}
-	return string(k8sNode.UID), nil
 }
 
 // prepareEventRecorder helper which makes all the work to get EventRecorder

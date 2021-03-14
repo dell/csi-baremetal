@@ -32,6 +32,8 @@ spec:
             - --certFile={{ .Values.tls.certFile }}
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
             - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+            - --useexternalannotation={{ .Values.feature.useexternalannotation }}
+            - --nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
             - --metrics-address=:{{ .Values.metrics.port }}
             - --metrics-path={{ .Values.metrics.path }}
           ports:

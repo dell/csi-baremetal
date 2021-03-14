@@ -18,7 +18,6 @@ package k8s
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -38,7 +37,7 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/metrics"
@@ -381,30 +380,6 @@ func (k *KubeClient) GetSystemDriveUUIDs() []string {
 		ll.Errorf("Failed to collect system drives, there are no system disks")
 	}
 	return drivesUUIDs
-}
-
-// GetNodeUUIDFromCSIBMNodeCR parse list of bmNodeCRs and find node UUID matching with nodeName
-func (k *KubeClient) GetNodeUUIDFromCSIBMNodeCR(nodeName string) (string, error) {
-	k8sNode := coreV1.Node{}
-	if err := k.Get(context.Background(), k8sCl.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
-		return "", err
-	}
-
-	// get all existed bmNodes in cluster
-	bmNodeCRs := new(nodecrd.NodeList)
-	if err := k.ReadList(context.Background(), bmNodeCRs); err != nil {
-		return "", fmt.Errorf("unable to read Node CRs list: %v", err)
-	}
-	bmNodes := bmNodeCRs.Items
-
-	// find bmNode with the same k8sNodeName
-	for i := range bmNodes {
-		if bmNodes[i].Spec.Addresses["Hostname"] == nodeName {
-			return bmNodes[i].Spec.UUID, nil
-		}
-	}
-
-	return "", fmt.Errorf("csibmnode for %s hadn't been created", nodeName)
 }
 
 // GetK8SClient returns controller-runtime k8s client with modified scheme which includes CSI custom resources

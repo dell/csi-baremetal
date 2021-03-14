@@ -9,6 +9,8 @@ env:
 feature:
   extender: true
   usenodeannotation: true
+  useexternalannotation: false
+  nodeIDAnnotation:
 
 # to deploy on specific nodes kubeclt get nodes -l <key>=<value>
 nodeSelector:

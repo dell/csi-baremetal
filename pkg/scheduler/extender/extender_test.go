@@ -36,13 +36,13 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 var (
@@ -454,47 +454,37 @@ func setup(t *testing.T) *Extender {
 
 func Test_getNodeId(t *testing.T) {
 	var (
-		e         = setup(t)
-		uid       = "1111-2222"
-		specialID = "aaaa-bbbb"
-		nodeName  = "node-1"
-		node      = coreV1.Node{
+		e    = setup(t)
+		uid  = "1111-2222"
+		val  = "aaaa-bbbb"
+		node = coreV1.Node{
 			ObjectMeta: metaV1.ObjectMeta{
-				UID:  types.UID(uid),
-				Name: nodeName,
+				UID:         types.UID(uid),
+				Name:        "node-1",
+				Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: val},
 			},
 		}
-		bmNode = nodecrd.Node{
-			TypeMeta: metaV1.TypeMeta{
-				Kind:       v1.CSIBMNodeKind,
-				APIVersion: v1.APIV1Version,
-			},
-			ObjectMeta: metaV1.ObjectMeta{
-				Name:      "csibmnode-1",
-				Namespace: "test",
-			},
-			Spec: genV1.Node{
-				UUID: specialID,
-				Addresses: map[string]string{
-					string(coreV1.NodeHostName):   nodeName,
-					string(coreV1.NodeInternalIP): "10.10.10.1",
-				},
-			},
-		}
-		res string
+		res           string
+		annotationKey string
 	)
 
-	applyObjs(t, e.k8sClient, &node, &bmNode)
-
-	res = e.getNodeID(node)
-	assert.Equal(t, uid, res)
-
 	featureConf := fc.NewFeatureConfig()
+
+	res, err := annotations.GetNodeID(node, annotationKey, featureConf)
+	assert.Equal(t, uid, res)
+	assert.Nil(t, err)
+
 	featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 	e.featureChecker = featureConf
 
-	res = e.getNodeID(node)
-	assert.Equal(t, specialID, res)
+	res, err = annotations.GetNodeID(node, annotationKey, featureConf)
+	assert.Equal(t, val, res)
+	assert.Nil(t, err)
+
+	node.Annotations = nil
+	res, err = annotations.GetNodeID(node, annotationKey, featureConf)
+	assert.Equal(t, "", res)
+	assert.NotNil(t, err)
 }
 
 func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...runtime.Object) {

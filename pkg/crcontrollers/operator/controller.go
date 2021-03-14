@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
-	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
@@ -59,6 +59,11 @@ type Controller struct {
 	// it is used in Node CR deletion for avoiding recreation
 	enabledForNode map[string]bool
 	enabledMu      sync.RWMutex
+
+	// if used external annotations
+	externalAnnotation bool
+	// holds annotation which contains node UUID
+	annotationKey string
 
 	log *logrus.Entry
 }
@@ -90,7 +95,8 @@ func (nc *nodesMapping) put(k8sNodeName, bmNodeName string) {
 }
 
 // NewController returns instance of Controller
-func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
+func NewController(nodeSelector string, useExternalAnnotaion bool, nodeAnnotaion string,
+	k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
 	c := &Controller{
 		k8sClient: k8sClient,
 		cache: nodesMapping{
@@ -108,6 +114,15 @@ func NewController(nodeSelector string, k8sClient *k8s.KubeClient, logger *logru
 		}
 		c.nodeSelector = &label{key: splitted[0], value: splitted[1]}
 		c.log.Infof("Controller will be working with nodes that matched next selector: %v", c.nodeSelector)
+	}
+
+	c.externalAnnotation = useExternalAnnotaion
+	if c.externalAnnotation {
+		c.annotationKey = nodeAnnotaion
+		c.log.Infof("External annotation feature is enabled. Annotation: %s", c.annotationKey)
+	} else {
+		c.annotationKey = common.DeafultNodeIDAnnotationKey
+		c.log.Infof("External annotation feature is disabled. Annotation: %s", c.annotationKey)
 	}
 
 	return c, nil
@@ -190,10 +205,11 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 					bmc.enableForNode(nodeNew.Name)
 				}
 
+				annotationAreTheSame := reflect.DeepEqual(nodeOld.GetAnnotations(), nodeNew.GetAnnotations())
 				addressesAreTheSame := reflect.DeepEqual(nodeOld.Status.Addresses, nodeNew.Status.Addresses)
 				labelsAreTheSame := bmc.nodeSelector == nil || reflect.DeepEqual(nodeOld.GetLabels(), nodeNew.GetLabels())
 
-				return !addressesAreTheSame || !labelsAreTheSame
+				return !annotationAreTheSame || !addressesAreTheSame || !labelsAreTheSame
 			},
 		}).
 		Complete(bmc)
@@ -298,7 +314,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 
 	// create Node CR
 	if len(matchedCRs) == 0 {
-		id := uuid.New().String()
+		id := bmc.constructNodeID(k8sNode)
 		bmNodeName := namePrefix + id
 		bmNode = bmc.k8sClient.ConstructCSIBMNodeCR(bmNodeName, api.Node{
 			UUID:      id,
@@ -312,7 +328,7 @@ func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, e
 	}
 
 	bmc.cache.put(k8sNode.Name, bmNode.Name)
-	return bmc.updateNodeLabels(k8sNode)
+	return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
 }
 
 func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result, error) {
@@ -368,7 +384,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 
 	if !bmNode.GetDeletionTimestamp().IsZero() {
 		bmc.disableForNode(k8sNode.Name)
-		if err := bmc.removeLabels(k8sNode); err != nil {
+		if err := bmc.removeLabelsAndAnnotation(k8sNode); err != nil {
 			ll.Errorf("Unable to remove labels from node %s: %v", k8sNode.Name, err)
 			bmc.enableForNode(k8sNode.Name)
 			return ctrl.Result{Requeue: true}, err
@@ -385,18 +401,42 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 
 	if len(matchedNodes) == 1 {
 		bmc.cache.put(k8sNode.Name, bmNode.Name)
-		return bmc.updateNodeLabels(k8sNode)
+		return bmc.updateNodeLabelsAndAnnotation(k8sNode, bmNode.Spec.UUID)
 	}
 
 	ll.Warnf("Unable to detect k8s node that corresponds to Node %v, matched nodes: %v", bmNode, matchedNodes)
 	return ctrl.Result{}, nil
 }
 
-// updateNodeLabels parses OS Image info and put/update os-name, os-version and os-kernel labels if needed
-func (bmc *Controller) updateNodeLabels(k8sNode *coreV1.Node) (ctrl.Result, error) {
-	ll := bmc.log.WithField("method", "updateNodeLabels")
+// updateNodeLabelsAndAnnotation checks nodeIDAnnotationKey annotation value for provided k8s Node and compare that value with goalValue
+// parses OS Image info and put/update os-name and os-version labels if needed
+func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeUUID string) (ctrl.Result, error) {
+	ll := bmc.log.WithField("method", "updateNodeLabelsAndAnnotation")
 
 	toUpdate := false
+	// check for annotations
+	val, ok := k8sNode.GetAnnotations()[bmc.annotationKey]
+	if bmc.externalAnnotation && !ok {
+		ll.Errorf("external annotaion %s is not accesible on node %s", bmc.annotationKey, k8sNode)
+	}
+	if !bmc.externalAnnotation && ok {
+		if val == nodeUUID {
+			ll.Tracef("%s value for node %s is already %s", bmc.annotationKey, k8sNode.Name, nodeUUID)
+		} else {
+			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding Node's UUID) %s, going to update annotation's value.",
+				bmc.annotationKey, k8sNode.Name, val, nodeUUID)
+			k8sNode.ObjectMeta.Annotations[bmc.annotationKey] = nodeUUID
+			toUpdate = true
+		}
+	}
+	if !bmc.externalAnnotation && !ok {
+		ll.Errorf("annotaion %s is not accesible on node %s", bmc.annotationKey, k8sNode)
+		if k8sNode.ObjectMeta.Annotations == nil {
+			k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
+		}
+		k8sNode.ObjectMeta.Annotations[bmc.annotationKey] = nodeUUID
+		toUpdate = true
+	}
 
 	// initialize labels map if needed
 	if k8sNode.Labels == nil {
@@ -447,8 +487,16 @@ func (bmc *Controller) updateNodeLabels(k8sNode *coreV1.Node) (ctrl.Result, erro
 	return ctrl.Result{}, nil
 }
 
-func (bmc *Controller) removeLabels(k8sNode *coreV1.Node) error {
+func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 	toUpdate := false
+	// check annotations
+	annotations := k8sNode.GetAnnotations()
+	if _, ok := annotations[bmc.annotationKey]; ok {
+		if !bmc.externalAnnotation {
+			delete(annotations, bmc.annotationKey)
+			toUpdate = true
+		}
+	}
 
 	// check labels
 	labels := k8sNode.GetLabels()
@@ -465,6 +513,12 @@ func (bmc *Controller) removeLabels(k8sNode *coreV1.Node) error {
 	// kernel version
 	if _, ok := labels[common.NodeKernelVersionLabelKey]; ok {
 		delete(labels, common.NodeKernelVersionLabelKey)
+		toUpdate = true
+	}
+	// external csi-provisioner label
+	// TODO https://github.com/dell/csi-baremetal/issues/319 Rework after operator implementation
+	if _, ok := labels[common.NodeIDTopologyLabelKey]; ok {
+		delete(labels, common.NodeIDTopologyLabelKey)
 		toUpdate = true
 	}
 
@@ -497,4 +551,14 @@ func (bmc *Controller) constructAddresses(k8sNode *coreV1.Node) map[string]strin
 	}
 
 	return res
+}
+
+func (bmc *Controller) constructNodeID(k8sNode *coreV1.Node) string {
+	if bmc.externalAnnotation {
+		if val, ok := k8sNode.GetAnnotations()[bmc.annotationKey]; ok {
+			return val
+		}
+	}
+
+	return uuid.New().String()
 }

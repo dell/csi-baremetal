@@ -67,6 +67,8 @@ spec:
           - --namespace=$(NAMESPACE)
           - --extender={{ .Values.feature.extender }}
           - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+          - --useexternalannotation={{ .Values.feature.useexternalannotation }}
+          - --nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
           - --loglevel={{ .Values.log.level }}
           - --metrics-address=:{{ .Values.node.metrics.port }}
           - --metrics-path={{ .Values.node.metrics.path }}
@@ -166,8 +168,9 @@ spec:
           - --loglevel={{ .Values.log.level }}
           - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
         {{- if eq .Values.drivemgr.type "loopbackmgr"}}
-          - --namespace=$(NAMESPACE)
           - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+          - --useexternalannotation={{ .Values.feature.useexternalannotation }}
+          - --nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
         {{- end }}
         {{- if .Values.logReceiver.create  }}
           - --logpath=/var/log/drivemgr.log
@@ -183,13 +186,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
-      {{- if eq .Values.drivemgr.type "loopbackmgr"}}
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-      {{- end }}
         ports:
         {{- if .Values.drivemgr.grpc.server.port }}
           - containerPort: {{ .Values.drivemgr.grpc.server.port }}
