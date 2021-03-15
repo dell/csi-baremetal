@@ -39,6 +39,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	observer "github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
@@ -60,12 +61,13 @@ type Controller struct {
 	enabledForNode map[string]bool
 	enabledMu      sync.RWMutex
 
-	// if used external annotations
+	observer       observer.Observer
+	log            *logrus.Entry
+  
+  // if used external annotations
 	externalAnnotation bool
 	// holds annotation which contains node UUID
 	annotationKey string
-
-	log *logrus.Entry
 }
 
 type label struct {
@@ -96,13 +98,14 @@ func (nc *nodesMapping) put(k8sNodeName, bmNodeName string) {
 
 // NewController returns instance of Controller
 func NewController(nodeSelector string, useExternalAnnotaion bool, nodeAnnotaion string,
-	k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
+	k8sClient *k8s.KubeClient, observer observer.Observer, logger *logrus.Logger) (*Controller, error) {
 	c := &Controller{
 		k8sClient: k8sClient,
 		cache: nodesMapping{
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
+		observer:       observer,
 		enabledForNode: make(map[string]bool, 3), // a little optimization, if cluster has 3 worker nodes this map won't be extended
 		log:            logger.WithField("component", "Controller"),
 	}
@@ -472,6 +475,9 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 			ll.Infof("Setting label %s=%s on node %s", common.NodeKernelVersionLabelKey, version, k8sNode.Name)
 			k8sNode.Labels[common.NodeKernelVersionLabelKey] = version
 			toUpdate = true
+			if bmc.observer != nil {
+				bmc.observer.Notify(version)
+			}
 		}
 	} else {
 		ll.Errorf("Failed to obtain Kernel version information: %s", err)
