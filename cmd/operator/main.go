@@ -26,10 +26,11 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator"
 )
 
@@ -45,9 +46,6 @@ var (
 		fmt.Sprintf("Log level, supported value is %s. Json format is used by default", base.LogFormatText))
 )
 
-// HelmInstallCSICmdTmpl is a template for helm command
-const HelmInstallCSICmdTmpl = "helm install csi-baremetal /csi-baremetal-driver --set image.tag=%s --set drivemgr.type=%s"
-
 func main() {
 	flag.Parse()
 
@@ -62,13 +60,6 @@ func main() {
 		fmt.Println("Unable to initialize logger")
 		os.Exit(1)
 	}
-	if *deploy && *version != "" {
-		executor := command.NewExecutor(logger)
-		cmd := fmt.Sprintf(HelmInstallCSICmdTmpl, *version, *drivemgr)
-		if _, _, err = executor.RunCmd(cmd); err != nil {
-			logger.Fatal("Failed to install CSI charts")
-		}
-	}
 
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
@@ -76,7 +67,21 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
 
-	nodeCtrl, err := operator.NewController(*nodeSelector, kubeClient, logger)
+	var (
+		installer *common.CSIInstaller
+		observer  common.Observer
+	)
+	if *deploy && *version != "" {
+		installer = common.NewCSIInstaller(*version, *drivemgr, kubeClient, command.NewExecutor(logger), logger)
+		observer = installer
+		logger.Info("Install CSI with helm")
+		go func() {
+			if err := installer.Install(); err != nil {
+				logger.Fatal(err)
+			}
+		}()
+	}
+	nodeCtrl, err := operator.NewController(*nodeSelector, kubeClient, observer, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

@@ -24,7 +24,7 @@ const (
 	DriveKind                        = "Drive"
 	CSIBMNodeKind                    = "Node"
 
-	Version = "v1"
+	Version            = "v1"
 	CSICRsGroupVersion = "csi-baremetal.dell.com"
 	APIV1Version       = "csi-baremetal.dell.com/v1"
 
@@ -120,4 +120,6 @@ const (
 
 	LocateStatusOn  = int32(1)
 	LocateStatusOff = int32(0)
+
+	DockerImageKernelVersion = "5.4"
 )
