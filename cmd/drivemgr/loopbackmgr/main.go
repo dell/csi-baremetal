@@ -39,9 +39,9 @@ var (
 	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
-		"Whether node svc should read id from node annotation and use it as id for all CRs or not")
+		"Whether svc should read id from node annotation")
 	useExternalAnnotation = flag.Bool("useexternalannotation", false,
-		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
+		"Whether node should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
 )

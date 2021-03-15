@@ -41,7 +41,7 @@ var (
 	drivemgr              = flag.String("drivemgr", "basemgr", "CSI drive manager type used in charts")
 	deploy                = flag.Bool("deploy", false, "Deploy indicates if csi-operator should deploy charts. False by default")
 	useExternalAnnotation = flag.Bool("useexternalannotation", false,
-		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
+		"Whether operator should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
 	logLevel = flag.String("loglevel", base.InfoLevel,

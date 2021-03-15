@@ -61,10 +61,10 @@ type Controller struct {
 	enabledForNode map[string]bool
 	enabledMu      sync.RWMutex
 
-	observer       observer.Observer
-	log            *logrus.Entry
-  
-  // if used external annotations
+	observer observer.Observer
+	log      *logrus.Entry
+
+	// if used external annotations
 	externalAnnotation bool
 	// holds annotation which contains node UUID
 	annotationKey string
@@ -105,9 +105,10 @@ func NewController(nodeSelector string, useExternalAnnotaion bool, nodeAnnotaion
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
-		observer:       observer,
-		enabledForNode: make(map[string]bool, 3), // a little optimization, if cluster has 3 worker nodes this map won't be extended
-		log:            logger.WithField("component", "Controller"),
+		observer:           observer,
+		enabledForNode:     make(map[string]bool, 3), // a little optimization, if cluster has 3 worker nodes this map won't be extended
+		log:                logger.WithField("component", "Controller"),
+		externalAnnotation: useExternalAnnotaion,
 	}
 
 	if nodeSelector != "" {
@@ -119,7 +120,6 @@ func NewController(nodeSelector string, useExternalAnnotaion bool, nodeAnnotaion
 		c.log.Infof("Controller will be working with nodes that matched next selector: %v", c.nodeSelector)
 	}
 
-	c.externalAnnotation = useExternalAnnotaion
 	if c.externalAnnotation {
 		c.annotationKey = nodeAnnotaion
 		c.log.Infof("External annotation feature is enabled. Annotation: %s", c.annotationKey)
@@ -388,12 +388,12 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 	if !bmNode.GetDeletionTimestamp().IsZero() {
 		bmc.disableForNode(k8sNode.Name)
 		if err := bmc.removeLabelsAndAnnotation(k8sNode); err != nil {
-			ll.Errorf("Unable to remove labels from node %s: %v", k8sNode.Name, err)
+			ll.Errorf("Unable to remove annotations or labels from node %s: %v", k8sNode.Name, err)
 			bmc.enableForNode(k8sNode.Name)
 			return ctrl.Result{Requeue: true}, err
 		}
 
-		ll.Infof("Labels from node %s was removed. Removing finalizer from %s.", k8sNode.Name, bmNode.Name)
+		ll.Infof("Annotations and labels from node %s was removed. Removing finalizer from %s.", k8sNode.Name, bmNode.Name)
 		bmNode.Finalizers = nil
 		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
 		if err != nil {
@@ -529,6 +529,7 @@ func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 	}
 
 	if toUpdate {
+		k8sNode.Annotations = annotations
 		k8sNode.Labels = labels
 		return bmc.k8sClient.UpdateCR(context.Background(), k8sNode)
 	}

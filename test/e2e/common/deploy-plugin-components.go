@@ -300,12 +300,12 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 		return nil, err
 	}
 
-	if err = waitUntilAllNodesWillBeTagged(c); err != nil {
+	depl, err := c.AppsV1().Deployments("default").Create(deployment)
+	if err != nil {
 		return nil, err
 	}
 
-	depl, err := c.AppsV1().Deployments("default").Create(deployment)
-	if err != nil {
+	if err = waitUntilAllNodesWillBeTagged(c); err != nil {
 		return nil, err
 	}
 

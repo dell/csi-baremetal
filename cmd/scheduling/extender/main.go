@@ -42,9 +42,9 @@ var (
 	privateKeyFile    = flag.String("privateKeyFile", "", "path to the private key file")
 	logLevel          = flag.String("loglevel", base.InfoLevel, "Log level")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
-		"Whether node svc should read id from node annotation and use it as id for all CRs or not")
+		"Whether extender should read id from node annotation and use it as id for all CRs or not")
 	useExternalAnnotation = flag.Bool("useexternalannotation", false,
-		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
+		"Whether node extender read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
