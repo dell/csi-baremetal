@@ -64,9 +64,8 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	kubeClient := k8s.NewKubeClient(k8SClient, logger, "")
 
-	nodeID, err := annotations.GetNodeIDByName(kubeClient, nodeName, *nodeIDAnnotation, featureConf)
+	nodeID, err := annotations.GetNodeIDByName(k8SClient, nodeName, *nodeIDAnnotation, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get nodeID, error: %v", err)
 	}

@@ -128,7 +128,7 @@ func main() {
 		logger.Fatalf("fail to start kubeCache, error: %v", err)
 	}
 
-	nodeID, err := annotations.GetNodeIDByName(wrappedK8SClient, *nodeName, *nodeIDAnnotation, featureConf)
+	nodeID, err := annotations.GetNodeIDByName(k8SClient, *nodeName, *nodeIDAnnotation, featureConf)
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
