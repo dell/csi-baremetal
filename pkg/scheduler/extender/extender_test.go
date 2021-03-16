@@ -470,19 +470,19 @@ func Test_getNodeId(t *testing.T) {
 
 	featureConf := fc.NewFeatureConfig()
 
-	res, err := annotations.GetNodeID(node, annotationKey, featureConf)
+	res, err := annotations.GetNodeID(&node, annotationKey, featureConf)
 	assert.Equal(t, uid, res)
 	assert.Nil(t, err)
 
 	featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 	e.featureChecker = featureConf
 
-	res, err = annotations.GetNodeID(node, annotationKey, featureConf)
+	res, err = annotations.GetNodeID(&node, annotationKey, featureConf)
 	assert.Equal(t, val, res)
 	assert.Nil(t, err)
 
 	node.Annotations = nil
-	res, err = annotations.GetNodeID(node, annotationKey, featureConf)
+	res, err = annotations.GetNodeID(&node, annotationKey, featureConf)
 	assert.Equal(t, "", res)
 	assert.NotNil(t, err)
 }

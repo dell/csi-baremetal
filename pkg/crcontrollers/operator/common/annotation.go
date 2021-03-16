@@ -24,22 +24,23 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
 // GetNodeIDByName return special id for k8sNode with nodeName
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func GetNodeIDByName(client k8sClient.Client, nodeName string, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func GetNodeIDByName(client *k8s.KubeClient, nodeName string, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	k8sNode := corev1.Node{}
 	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
 		return "", err
 	}
 
-	return GetNodeID(k8sNode, annotationKey, featureChecker)
+	return GetNodeID(&k8sNode, annotationKey, featureChecker)
 }
 
 // GetNodeID return special id for k8sNode
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func GetNodeID(k8sNode corev1.Node, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
 		akey, err := chooseAnnotaionKey(annotationKey, featureChecker)
 		if err != nil {

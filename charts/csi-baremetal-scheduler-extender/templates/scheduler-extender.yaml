@@ -33,7 +33,9 @@ spec:
             - --privateKeyFile={{ .Values.tls.privateKeyFile }}
             - --usenodeannotation={{ .Values.feature.usenodeannotation }}
             - --useexternalannotation={{ .Values.feature.useexternalannotation }}
+          {{- if and (.Values.feature.nodeIDAnnotation) (.Values.feature.useexternalannotation) }}
             - --nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
+          {{- end }}
             - --metrics-address=:{{ .Values.metrics.port }}
             - --metrics-path={{ .Values.metrics.path }}
           ports:

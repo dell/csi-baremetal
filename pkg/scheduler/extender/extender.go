@@ -334,7 +334,8 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 			continue
 		}
 
-		nodeID, err := annotations.GetNodeID(node, e.annotationKey, e.featureChecker)
+		node := node
+		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("failed to get NodeID: %s", err)
 		}
@@ -380,7 +381,8 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 		// set the highest priority if node doesn't have any volumes
 		rank := maxVolumeCount
 
-		nodeID, err := annotations.GetNodeID(node, e.annotationKey, e.featureChecker)
+		node := node
+		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("failed to get NodeID: %s", err)
 		}

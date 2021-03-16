@@ -38,7 +38,7 @@ func TestGetNodeID(t *testing.T) {
 	t.Run("All features disabled", func(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
 
-		nodeID, err := GetNodeID(testNode, annotationKey, featureConf)
+		nodeID, err := GetNodeID(&testNode, annotationKey, featureConf)
 		assert.Equal(t, nodeUID, nodeID)
 		assert.Nil(t, err)
 	})
@@ -50,7 +50,7 @@ func TestGetNodeID(t *testing.T) {
 		node := testNode.DeepCopy()
 		node.Annotations[DeafultNodeIDAnnotationKey] = annotationValue
 
-		nodeID, err := GetNodeID(*node, annotationKey, featureConf)
+		nodeID, err := GetNodeID(node, annotationKey, featureConf)
 		assert.Equal(t, annotationValue, nodeID)
 		assert.Nil(t, err)
 	})
@@ -63,7 +63,7 @@ func TestGetNodeID(t *testing.T) {
 		node := testNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
 
-		nodeID, err := GetNodeID(*node, annotationKey, featureConf)
+		nodeID, err := GetNodeID(node, annotationKey, featureConf)
 		assert.Equal(t, annotationValue, nodeID)
 		assert.Nil(t, err)
 	})
@@ -75,7 +75,7 @@ func TestGetNodeID(t *testing.T) {
 
 		node := testNode.DeepCopy()
 
-		_, err := GetNodeID(*node, annotationKey, featureConf)
+		_, err := GetNodeID(node, annotationKey, featureConf)
 		assert.NotNil(t, err)
 	})
 
@@ -87,7 +87,7 @@ func TestGetNodeID(t *testing.T) {
 		node := testNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
 
-		_, err := GetNodeID(*node, "", featureConf)
+		_, err := GetNodeID(node, "", featureConf)
 		assert.NotNil(t, err)
 	})
 }
