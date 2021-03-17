@@ -39,7 +39,7 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -51,6 +51,7 @@ type Extender struct {
 	namespace      string
 	provisioner    string
 	featureChecker fc.FeatureChecker
+	annotationKey  string
 	sync.Mutex
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
@@ -58,12 +59,13 @@ type Extender struct {
 
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
-	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker) (*Extender, error) {
+	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey string) (*Extender, error) {
 	return &Extender{
 		k8sClient:              kubeClient,
 		k8sCache:               kubeCache,
 		provisioner:            provisioner,
 		featureChecker:         featureConf,
+		annotationKey:          annotationKey,
 		logger:                 logger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}, nil
@@ -331,8 +333,14 @@ func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*g
 			failedNodesMap[node.Name] = noACForNodeMsg
 			continue
 		}
+
 		node := node
-		placingForNode := placingPlan.GetVolumesToACMapping(e.getNodeID(node))
+		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+		if err != nil {
+			e.logger.Errorf("failed to get NodeID: %s", err)
+		}
+
+		placingForNode := placingPlan.GetVolumesToACMapping(nodeID)
 		if placingForNode == nil {
 			failedNodesMap[node.Name] = noACForNodeMsg
 			continue
@@ -372,7 +380,14 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 	for _, node := range nodes {
 		// set the highest priority if node doesn't have any volumes
 		rank := maxVolumeCount
-		if r, ok := priorityFromVolumes[e.getNodeID(node)]; ok {
+
+		node := node
+		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+		if err != nil {
+			e.logger.Errorf("failed to get NodeID: %s", err)
+		}
+
+		if r, ok := priorityFromVolumes[nodeID]; ok {
 			rank = r
 		}
 		hostPriority = append(hostPriority, schedulerapi.HostPriority{
@@ -431,20 +446,4 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
 	return scNameTypeMap, nil
-}
-
-// getNodeID returns node ID, it could be a k8s node UID or value of annotation
-func (e *Extender) getNodeID(node coreV1.Node) string {
-	if e.featureChecker.IsEnabled(fc.FeatureNodeIDFromAnnotation) {
-		val, ok := node.GetAnnotations()[csibmnodeconst.NodeIDAnnotationKey]
-		if !ok {
-			e.logger.WithField("method", "getNodeID").
-				Errorf("Annotation %s isn't set for node %s. Unable to detect node UUID.",
-					csibmnodeconst.NodeIDAnnotationKey, node.Name)
-			return ""
-		}
-		return val
-	}
-
-	return string(node.UID)
 }

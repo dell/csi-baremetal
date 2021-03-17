@@ -42,7 +42,7 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
 var (
@@ -461,25 +461,30 @@ func Test_getNodeId(t *testing.T) {
 			ObjectMeta: metaV1.ObjectMeta{
 				UID:         types.UID(uid),
 				Name:        "node-1",
-				Annotations: map[string]string{csibmnodeconst.NodeIDAnnotationKey: val},
+				Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: val},
 			},
 		}
-		res string
+		res           string
+		annotationKey string
 	)
 
-	res = e.getNodeID(node)
-	assert.Equal(t, uid, res)
-
 	featureConf := fc.NewFeatureConfig()
+
+	res, err := annotations.GetNodeID(&node, annotationKey, featureConf)
+	assert.Equal(t, uid, res)
+	assert.Nil(t, err)
+
 	featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 	e.featureChecker = featureConf
 
-	res = e.getNodeID(node)
+	res, err = annotations.GetNodeID(&node, annotationKey, featureConf)
 	assert.Equal(t, val, res)
+	assert.Nil(t, err)
 
 	node.Annotations = nil
-	res = e.getNodeID(node)
+	res, err = annotations.GetNodeID(&node, annotationKey, featureConf)
 	assert.Equal(t, "", res)
+	assert.NotNil(t, err)
 }
 
 func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...runtime.Object) {

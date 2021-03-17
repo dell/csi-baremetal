@@ -50,19 +50,33 @@ csi-baremetal-operator has to remove k8sNode UUID-annotation after its uninstall
 
 ## Proposal
 
-1. Use only csibmnodes instead of annotations to mark work nodes in a cluster. node-driver-registrar will receive nodeID via parsing csibmnodes CR list.
-
-Proposed algorithm:
-
-```
-csi-baremetal-operator/controller : create csibmnode
-csi-baremetal-node/node : get csibmnode-CR list and find matching hostname-uuid
-csi-baremetal-node/node : create topology with {topologyKey : UUID}
-```
-
-2. Remove label `nodes.csi-baremetal.dell.com/uuid` after `csi-baremetal-controller` and `node-daemonset` uninstallation.
+1. Remove label `nodes.csi-baremetal.dell.com/uuid` after `csi-baremetal-controller` and `node-daemonset` uninstallation.
 
 It can be done in `csi-baremetal-node/node` while uninstalling csi-baremetal CR
+
+2. Add external annotation usage feature:
+
+In `csi-baremetal-operator`, `csi-baremetal-node/node`, `extender`, `loopbackmanager`: 
+
+```
+check if annotationKey is exist
+use annotaionValue as UUID
+```
+
+Update Helm charts:
+
+```
+feature:
+  useexternalannotation: false
+  nodeIDAnnotation:
+```
+
+Set parameters as additional flags:
+
+```
+--useexternalannotation={{ .Values.feature.useexternalannotation }}
+--nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
+```
 
 ## Rationale
 
@@ -78,30 +92,17 @@ There is no problem with compatibility
 
 ## Implementation
 
-In csi-baremetal-operator/controller (remove annotation with nodeID):
+Create common function with the follow signature:
 
 ```
-updateNodeLabelsAndAnnotation -> updateNodeLabels
-removeLabelsAndAnnotation -> removeNodeLabels
+func GetNodeID(k8sNode corev1.Node, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error)
 ```
 
-In csi-baremetal-node/node, extender, loopbackmanager:
+or
 
 ```
-bmNodeCRs := new(nodecrd.NodeList)
-if err := client.ReadList(context.Background(), bmNodeCRs); err != nil {
-	return "", fmt.Errorf("Unable to read Node CRs list: %v", err)
+func GetNodeIDByName(client k8sClient.Client, nodeName string, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error)
 
-}
-bmNodes := bmNodeCRs.Items
-
-for i := range bmNodes {
-	if bmNodes[i].Spec.Addresses["Hostname"] == nodeName {
-		return bmNodes[i].Spec.Addresses["Hostname"], nil
-	}
-}
-
-return "", fmt.Errorf("csibmnode for %s hadn't been created", nodeName)
 ```
 
 ## Open issues

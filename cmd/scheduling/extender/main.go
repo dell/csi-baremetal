@@ -43,6 +43,10 @@ var (
 	logLevel          = flag.String("loglevel", base.InfoLevel, "Log level")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
 		"Whether extender should read id from node annotation and use it as id for all CRs or not")
+	useExternalAnnotation = flag.Bool("useexternalannotation", false,
+		"Whether node extender read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
+	nodeIDAnnotation = flag.String("nodeidannotation", "",
+		"Custom node annotation name. Use if \"useexternalannotation\" is True")
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
@@ -73,6 +77,7 @@ func main() {
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
+	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
 
 	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
@@ -89,7 +94,7 @@ func main() {
 		logger.Fatalf("Fail to init kubeCache: %v", err)
 	}
 
-	newExtender, err := extender.NewExtender(logger, kubeClient, kubeCache, *provisioner, featureConf)
+	newExtender, err := extender.NewExtender(logger, kubeClient, kubeCache, *provisioner, featureConf, *nodeIDAnnotation)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}

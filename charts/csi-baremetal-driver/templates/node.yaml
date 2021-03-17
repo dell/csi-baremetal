@@ -70,6 +70,10 @@ spec:
           - --namespace=$(NAMESPACE)
           - --extender={{ .Values.feature.extender }}
           - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+          - --useexternalannotation={{ .Values.feature.useexternalannotation }}
+          {{- if and (.Values.feature.nodeIDAnnotation) (.Values.feature.useexternalannotation) }}
+          - --nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
+          {{- end }}
           - --loglevel={{ .Values.log.level }}
           - --metrics-address=:{{ .Values.node.metrics.port }}
           - --metrics-path={{ .Values.node.metrics.path }}
@@ -170,6 +174,10 @@ spec:
           - --drivemgrendpoint={{ .Values.drivemgr.grpc.server.endpoint }}
         {{- if eq .Values.drivemgr.type "loopbackmgr"}}
           - --usenodeannotation={{ .Values.feature.usenodeannotation }}
+          - --useexternalannotation={{ .Values.feature.useexternalannotation }}
+        {{- if and (.Values.feature.nodeIDAnnotation) (.Values.feature.useexternalannotation) }}
+          - --nodeidannotation={{ .Values.feature.nodeIDAnnotation }}
+        {{- end }}
         {{- end }}
         {{- if .Values.logReceiver.create  }}
           - --logpath=/var/log/drivemgr.log

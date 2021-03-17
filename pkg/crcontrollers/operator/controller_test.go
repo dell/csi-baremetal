@@ -16,7 +16,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
-	nodecrd "github.com/dell/csi-baremetal/api/v1/nodecrd"
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
@@ -93,7 +93,7 @@ func TestNewCSIBMController(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("Node selector is empty", func(t *testing.T) {
-		c, err := NewController("", k8sClient, nil, testLogger)
+		c, err := NewController("", false, "", k8sClient, nil, testLogger)
 		assert.Nil(t, err)
 		assert.Nil(t, c.nodeSelector)
 		assert.NotNil(t, c)
@@ -108,7 +108,7 @@ func TestNewCSIBMController(t *testing.T) {
 			value = "value"
 		)
 
-		c, err := NewController("key:value", k8sClient, nil, testLogger)
+		c, err := NewController("key:value", false, "", k8sClient, nil, testLogger)
 		assert.Nil(t, err)
 		assert.NotNil(t, c)
 		assert.NotNil(t, c.cache)
@@ -119,7 +119,7 @@ func TestNewCSIBMController(t *testing.T) {
 	})
 
 	t.Run("Node selector is wrong", func(t *testing.T) {
-		c, err := NewController("key:dfdf:value", k8sClient, nil, testLogger)
+		c, err := NewController("key:dfdf:value", false, "", k8sClient, nil, testLogger)
 		assert.Nil(t, c)
 		assert.NotNil(t, err)
 	})
@@ -162,7 +162,7 @@ func TestReconcile(t *testing.T) {
 		nodeCR := new(coreV1.Node)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, "", nodeCR))
 
-		val, ok := nodeCR.GetAnnotations()[nodeIDAnnotationKey]
+		val, ok := nodeCR.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.True(t, ok)
 		assert.Equal(t, bmNode.Spec.UUID, val)
 	})
@@ -183,7 +183,7 @@ func TestReconcile(t *testing.T) {
 		// read node obj
 		nodeObj := new(coreV1.Node)
 		assert.Nil(t, c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: node.Name}, nodeObj))
-		val, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		val, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.True(t, ok)
 		assert.Equal(t, bmNode.Spec.UUID, val)
 	})
@@ -216,7 +216,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		assert.Equal(t, len(bmNode.Spec.Addresses), c.matchedAddressesCount(&bmNode, k8sNode))
 
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", k8sNode))
-		val, ok := k8sNode.GetAnnotations()[nodeIDAnnotationKey]
+		val, ok := k8sNode.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.True(t, ok)
 		assert.Equal(t, bmNode.Spec.UUID, val)
 	})
@@ -267,7 +267,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		// read node obj
 		nodeObj := new(coreV1.Node)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
-		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		_, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
 
@@ -289,8 +289,42 @@ func Test_reconcileForK8sNode(t *testing.T) {
 		// read node obj
 		nodeObj := new(coreV1.Node)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
-		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		_, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.False(t, ok)
+	})
+
+	t.Run("Node was created with external ID", func(t *testing.T) {
+		var (
+			useExternalAnnotaionTest = true
+			nodeAnnotaionTest        = "example/uuid"
+			nodeID                   = "aaaa-bbbb-cccc-dddd"
+			k8sNode                  = testNode1.DeepCopy()
+		)
+
+		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+		assert.Nil(t, err)
+		c, err := NewController("", useExternalAnnotaionTest, nodeAnnotaionTest, k8sClient, nil, testLogger)
+		assert.Nil(t, err)
+
+		k8sNode.Annotations[nodeAnnotaionTest] = nodeID
+
+		createObjects(t, c.k8sClient, k8sNode)
+
+		res, err := c.reconcileForK8sNode(k8sNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		bmNodesList := &nodecrd.NodeList{}
+		assert.Nil(t, c.k8sClient.ReadList(testCtx, bmNodesList))
+		assert.Equal(t, 1, len(bmNodesList.Items))
+		bmNode := bmNodesList.Items[0]
+		assert.Equal(t, len(bmNode.Spec.Addresses), c.matchedAddressesCount(&bmNode, k8sNode))
+		assert.Equal(t, nodeID, bmNode.Spec.UUID)
+
+		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", k8sNode))
+		val, ok := k8sNode.GetAnnotations()[nodeAnnotaionTest]
+		assert.True(t, ok)
+		assert.Equal(t, nodeID, val)
 	})
 }
 
@@ -302,7 +336,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 			k8sNode = testNode1.DeepCopy()
 		)
 
-		k8sNode.Annotations[nodeIDAnnotationKey] = "aaaa-bbbb-cccc-dddd"
+		k8sNode.Annotations[common.DeafultNodeIDAnnotationKey] = "aaaa-bbbb-cccc-dddd"
 		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
 
 		createObjects(t, c.k8sClient, bmNode, k8sNode)
@@ -313,7 +347,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 
 		nodeObj := new(coreV1.Node)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
-		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		_, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.False(t, ok)
 		enabled := c.isEnabledForNode(nodeObj.Name)
 		assert.False(t, enabled)
@@ -365,7 +399,7 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		// read node obj
 		nodeObj := new(coreV1.Node)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode.Name, "", nodeObj))
-		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		_, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
 
@@ -387,10 +421,10 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		// read node obj
 		nodeObj := new(coreV1.Node)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode1.Name, "", nodeObj))
-		_, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		_, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.False(t, ok)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode2.Name, "", nodeObj))
-		_, ok = nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+		_, ok = nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
 }
@@ -439,7 +473,7 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			)
 
 			// set annotation
-			node.Annotations[nodeIDAnnotationKey] = testCase.currentAnnotationValue
+			node.Annotations[common.DeafultNodeIDAnnotationKey] = testCase.currentAnnotationValue
 			// set OS image and labels
 			node.Status.NodeInfo.OSImage = testCase.targetOsNameLabelValue + " " + testCase.targetOsVersionLabelValue
 			node.Labels[common.NodeOSNameLabelKey] = testCase.currentOsNameLabelValue
@@ -456,8 +490,8 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			// read node obj
 			nodeObj := new(coreV1.Node)
 			assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, "", nodeObj))
-			// check annotations
-			val, ok := nodeObj.GetAnnotations()[nodeIDAnnotationKey]
+			// check common
+			val, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 			assert.True(t, ok)
 			assert.Equal(t, testCase.targetAnnotationValue, val)
 			// check os name label
@@ -515,7 +549,7 @@ func setup(t *testing.T) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 
-	c, err := NewController("", k8sClient, nil, testLogger)
+	c, err := NewController("", false, "", k8sClient, nil, testLogger)
 	assert.Nil(t, err)
 	return c
 }

@@ -13,6 +13,8 @@ provisioner: csi-baremetal
 
 feature:
   usenodeannotation: false
+  useexternalannotation: false
+  nodeIDAnnotation:
 
 tls:
   certFile: ""

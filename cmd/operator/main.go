@@ -35,12 +35,16 @@ import (
 )
 
 var (
-	nodeSelector = flag.String("nodeselector", "", "controller will be work only with node with provided nodeSelector")
-	namespace    = flag.String("namespace", "", "Namespace in which controller service run")
-	version      = flag.String("version", "", "CSI version to deploy charts")
-	drivemgr     = flag.String("drivemgr", "basemgr", "CSI drive manager type used in charts")
-	deploy       = flag.Bool("deploy", false, "Deploy indicates if csi-operator should deploy charts. False by default")
-	logLevel     = flag.String("loglevel", base.InfoLevel,
+	nodeSelector          = flag.String("nodeselector", "", "controller will be work only with node with provided nodeSelector")
+	namespace             = flag.String("namespace", "", "Namespace in which controller service run")
+	version               = flag.String("version", "", "CSI version to deploy charts")
+	drivemgr              = flag.String("drivemgr", "basemgr", "CSI drive manager type used in charts")
+	deploy                = flag.Bool("deploy", false, "Deploy indicates if csi-operator should deploy charts. False by default")
+	useExternalAnnotation = flag.Bool("useexternalannotation", false,
+		"Whether operator should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
+	nodeIDAnnotation = flag.String("nodeidannotation", "",
+		"Custom node annotation name. Use if \"useexternalannotation\" is True")
+	logLevel = flag.String("loglevel", base.InfoLevel,
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	logFormat = flag.String("logformat", base.LogFormatText,
 		fmt.Sprintf("Log level, supported value is %s. Json format is used by default", base.LogFormatText))
@@ -81,7 +85,7 @@ func main() {
 			}
 		}()
 	}
-	nodeCtrl, err := operator.NewController(*nodeSelector, kubeClient, observer, logger)
+	nodeCtrl, err := operator.NewController(*nodeSelector, *useExternalAnnotation, *nodeIDAnnotation, kubeClient, observer, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

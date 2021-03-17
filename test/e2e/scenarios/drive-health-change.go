@@ -319,7 +319,7 @@ func findNodeNameByUID(f *framework.Framework, nodeUID string) (string, error) {
 	for _, node := range nodeList.Items {
 		var currID = string(node.UID)
 		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
-			currID, _ = node.GetAnnotations()[akey.NodeIDAnnotationKey]
+			currID, _ = node.GetAnnotations()[akey.DeafultNodeIDAnnotationKey]
 		}
 
 		if currID == nodeUID {

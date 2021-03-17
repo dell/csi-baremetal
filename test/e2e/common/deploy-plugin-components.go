@@ -334,8 +334,8 @@ func DeployCSIBMOperator(c clientset.Interface) (func(), error) {
 				isFound = true
 			}
 			// try to remove annotations set by csi operator
-			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; ok {
-				delete(node.Annotations, akey.NodeIDAnnotationKey)
+			if _, ok := node.GetAnnotations()[akey.DeafultNodeIDAnnotationKey]; ok {
+				delete(node.Annotations, akey.DeafultNodeIDAnnotationKey)
 				isFound = true
 			}
 			// update node object if required
@@ -363,15 +363,15 @@ func waitUntilAllNodesWillBeTagged(c clientset.Interface) error {
 		}
 
 		for _, node := range nodes.Items {
-			if _, ok := node.GetAnnotations()[akey.NodeIDAnnotationKey]; !ok {
-				e2elog.Logf("Not all nodes has annotation %s. Sleep and retry", akey.NodeIDAnnotationKey)
+			if _, ok := node.GetAnnotations()[akey.DeafultNodeIDAnnotationKey]; !ok {
+				e2elog.Logf("Not all nodes has annotation %s. Sleep and retry", akey.DeafultNodeIDAnnotationKey)
 				allHas = false
 				break
 			}
-			nodeAnnotationMap[node.Name] = node.GetAnnotations()[akey.NodeIDAnnotationKey]
+			nodeAnnotationMap[node.Name] = node.GetAnnotations()[akey.DeafultNodeIDAnnotationKey]
 		}
 		if allHas {
-			e2elog.Logf("Annotation %s was set for all nodes: %v", akey.NodeIDAnnotationKey, nodeAnnotationMap)
+			e2elog.Logf("Annotation %s was set for all nodes: %v", akey.DeafultNodeIDAnnotationKey, nodeAnnotationMap)
 			return nil
 		}
 		time.Sleep(sleepTime)
