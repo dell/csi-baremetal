@@ -143,7 +143,7 @@ func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 		for range time.Tick(10 * time.Second) {
 			err := csiNodeService.Discover()
 			if err != nil {
-				ll.Fatalf("Discover failed: %v", err)
+				ll.Errorf("Discover failed: %v", err)
 			}
 			doOnce.Do(func() {
 				nodeReady <- true

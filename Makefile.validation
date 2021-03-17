@@ -46,7 +46,7 @@ test-sanity:
 	ValidateVolumeCapabilities|\
 	should fail when the node does not exist|\
 	should fail when requesting to create a volume with already existing name and different capacity|\
-	should not fail when requesting to create a volume with already existing name and same capacity|" -ginkgo.v -timeout=0
+	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
 kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
