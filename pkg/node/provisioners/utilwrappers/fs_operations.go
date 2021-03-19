@@ -102,6 +102,9 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 
 		if srcInfo, err := os.Stat(src); err != nil {
 			ll.Debugf("failed to get src stat: %s", err)
+			if os.IsNotExist(err) {
+				ll.Debugf("src path (%s) is not exists", src)
+			}
 		} else {
 			ll.Debugf("Stat of src with failed mount: %s", srcInfo)
 		}
