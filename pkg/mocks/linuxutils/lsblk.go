@@ -28,6 +28,16 @@ type MockWrapLsblk struct {
 	mock.Mock
 }
 
+// GetMockWrapLsblk retruns MockWrapLsblk that perform each method without any error
+// everytimePath is a path that will be returning for each "SearchDrivePath" call
+func GetMockWrapLsblk(everytimePath string) *MockWrapLsblk {
+	mvl := MockWrapLsblk{}
+	mvl.On("GetBlockDevices", mock.Anything).Return(nil, nil)
+	mvl.On("SearchDrivePath", mock.Anything).Return(everytimePath, nil)
+
+	return &mvl
+}
+
 // GetBlockDevices is a mock implementations
 func (m *MockWrapLsblk) GetBlockDevices(device string) ([]lsblk.BlockDevice, error) {
 	args := m.Mock.Called(device)
