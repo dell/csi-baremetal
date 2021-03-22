@@ -103,7 +103,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 			if os.IsNotExist(err) {
 				ll.Debugf("src path (%s) is not exists", src)
 			} else {
-				ll.Warnf("failed to get src stat: %s", err)
+				ll.Warnf("failed to get src %s stat: %s", src, err)
 			}
 		} else {
 			ll.Debugf("Stat of src with failed mount: %s", srcInfo)
@@ -114,10 +114,10 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 			ll.Warnf("failed to execute isMount: %s", err)
 		}
 		if !isSrcMounted {
-			ll.Debugf("Src is not mounted")
+			ll.Debugf("Src %s is not mounted", src)
 		} else {
 			if srcMount, err := fsOp.FindMountPoint(src); err != nil {
-				ll.Warnf("failed to find mountPoint for src: %s", err)
+				ll.Warnf("failed to find mountPoint for src %s: %s", src, err)
 			} else {
 				ll.Debugf("Src mount point: %s", srcMount)
 				if spaceOnMountPoint, err := fsOp.GetFSSpace(srcMount); err != nil {
