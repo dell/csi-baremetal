@@ -28,35 +28,35 @@ If user aims to delete node from cluster, he/she must perform following steps f
 ####After node deletion: 
 1) Patch according Volumes custom resources with empty finalizer  
 ```
-kubectl get volume -o jsonpath='{range .items[?(.spec.NodeId == "<node_uuid>")]}{@.metadata.name}{" "}' | xargs kubectl patch volume --type merge -p '{"metadata":{"finalizers":null}}'
+kubectl get volume | grep <node_id> | awk '{print $1}' | xargs kubectl patch volume --type merge -p '{"metadata":{"finalizers":null}}'
 ```
 2) Delete volume CR with according node id
 ```
-kubectl get volume -o jsonpath='{range .items[?(.spec.NodeId == "<node_uuid>")]}{@.metadata.name}{" "}' | xargs kubectl delete volume
+kubectl get volume | grep <node_id> | awk '{print $1}' | xargs kubectl delete volume
 ```
 3) Patch according LVG custom resources with empty finalizer
 ```
-kubectl get lvg -o jsonpath='{range .items[?(.spec.Node == "<node_uuid>")]}{@.metadata.name}{" "}' | xargs kubectl patch lvg --type merge -p '{"metadata":{"finalizers":null}}'
+kubectl get lvg | grep <node_id> | awk '{print $1}' | xargs kubectl patch lvg --type merge -p '{"metadata":{"finalizers":null}}'
 ```
 4) Delete LVG CR with according node id
 ```
-kubectl get lvg -o jsonpath='{range .items[?(.spec.Node == "<node_uuid>")]}{@.metadata.name}{" "}' | xargs kubectl delete lvg
+kubectl get lvg | grep <node_id> | awk '{print $1}' | xargs kubectl delete lvg
 ```
 5) Patch according CSI bare-metal Node custom resources with empty finalizer
 ``` 
-kubectl get csibmnode -o jsonpath='{range .items[?(.spec.UUID == "<node_uuid>")]}{@.metadata.name}{" "}' | xargs kubectl patch csibmnode --type merge -p '{"metadata":{"finalizers":null}}'
+kubectl get csibmnode | grep <node_id> | awk '{print $1}' | xargs kubectl patch csibmnode --type merge -p '{"metadata":{"finalizers":null}}'
 ```
 6) Delete CSI bare-metal Node custom resource
 ``` 
-kubectl get csibmnode -o jsonpath='{range .items[?(.spec.UUID == "<node_uuid>")]}{@.metadata.name}' | xargs kubectl delete csibmnode
+kubectl get csibmnode | grep <node_id> | awk '{print $1}' | xargs kubectl delete csibmnode
 ```
 7) Delete available capacity CR with according node id
 ``` 
-kubectl get ac -o jsonpath='{range .items[?(.spec.NodeId == "<node_uuid>")]}{@.metadata.name}{" "}' | xargs kubectl delete ac
+kubectl get ac | grep <node_id> | awk '{print $1}' | xargs kubectl delete ac
 ```
 8) Delete drive CR with according node id 
 ``` 
-kubectl get drive -o jsonpath='{range .items[?(.spec.NodeId == "<node_uuid>")]}{@.metadata.name}{" "}' | xargs kubectl delete drive
+kubectl get drive | grep <node_id> | awk '{print $1}' | xargs kubectl delete drive
 ```
 9) Restart new created Pods to create new PVCs for them or create manually necessary PVCs for Pods
 

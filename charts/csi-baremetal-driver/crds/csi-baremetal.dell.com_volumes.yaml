@@ -71,6 +71,31 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+    - name: HEALTH
+      type: string
+      description: Volume health status
+      JSONPath: .spec.Health
+    - name: NODE
+      type: string
+      description: Volume node location
+      JSONPath: .spec.NodeId
+    - name: SIZE
+      type: string
+      description: Volume allocated size
+      JSONPath: .spec.Size
+    - name: LOCACTION
+      type: string
+      description: Volume LVG or drive location
+      JSONPath: .spec.Location
+    - name: STORAGE CLASS
+      type: string
+      description: Volume storage class
+      JSONPath: .spec.StorageClass
+    - name: CSI STATUS
+      type: string
+      description: Volume internal CSI status
+      JSONPath: .spec.CSIStatus
 status:
   acceptedNames:
     kind: ""
