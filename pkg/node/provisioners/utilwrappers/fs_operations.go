@@ -96,8 +96,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 	}
 	if err := fsOp.Mount(src, dst, opts); err != nil {
 		if wasCreated {
-			err = fsOp.RmDir(dst)
-			ll.Warnf("Failed to remove created dst: %s", err)
+			_ = fsOp.RmDir(dst)
 		}
 
 		if srcInfo, err := os.Stat(src); err != nil {
@@ -108,6 +107,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 		} else {
 			ll.Debugf("Stat of src with failed mount: %s", srcInfo)
 		}
+
 		isSrcMounted, err := fsOp.IsMounted(src)
 		if err != nil {
 			ll.Debugf("failed to execute isMount: %s", err)
