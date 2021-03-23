@@ -1,4 +1,4 @@
-# Proposal: Node remove
+# Node remove
 
 Last updated: 19.03.2021
 
