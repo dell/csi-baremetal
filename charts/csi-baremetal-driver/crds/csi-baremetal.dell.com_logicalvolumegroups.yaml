@@ -62,6 +62,23 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+    - name: HEALTH
+      type: string
+      description: LVG health status
+      JSONPath: .spec.Health
+    - name: NODE
+      type: string
+      description: LVG node location
+      JSONPath: .spec.NodeId
+    - name: SIZE
+      type: string
+      description: size of Logical volume group
+      JSONPath: .spec.Size
+    - name: LOCACTIONS
+      type: string
+      description: LVG drives locations list
+      JSONPath: .spec.Locations
 status:
   acceptedNames:
     kind: ""

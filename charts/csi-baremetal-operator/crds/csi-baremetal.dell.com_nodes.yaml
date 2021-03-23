@@ -51,6 +51,15 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+    - name: UUID
+      type: string
+      description: Node Id
+      JSONPath: .spec.UUID
+    - name: Addresses
+      type: string
+      description: Hostname and internal Node ip
+      JSONPath: .spec.Addresses
 status:
   acceptedNames:
     kind: ""

@@ -80,6 +80,31 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+    - name: SERIAL NUMBER
+      type: string
+      description: Drive serial number
+      JSONPath: .spec.SerialNumber
+    - name: HEALTH
+      type: string
+      description: Drive health status
+      JSONPath: .spec.Health
+    - name: TYPE
+      type: string
+      description: Drive type (HDD/LVG/NVME)
+      JSONPath: .spec.Type
+    - name: NODE
+      type: string
+      description: Drive node location
+      JSONPath: .spec.NodeId
+    - name: Size
+      type: string
+      description: Drive capacity
+      JSONPath: .spec.Size
+    - name: SLOT
+      type: string
+      description: Drive slot
+      JSONPath: .spec.Slot
 status:
   acceptedNames:
     kind: ""

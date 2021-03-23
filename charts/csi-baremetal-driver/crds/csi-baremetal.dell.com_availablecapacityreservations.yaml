@@ -55,6 +55,19 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+    - name: STORAGE CLASS
+      type: string
+      description: StorageClass of AvailableCapacityReservation
+      JSONPath: .spec.StorageClass
+    - name: SIZE
+      type: string
+      description: Size of AvailableCapacityReservation
+      JSONPath: .spec.Size
+    - name: RESERVATIONS
+      type: string
+      description: List of reserved AvailableCapacity
+      JSONPath: .spec.Reservations
 status:
   acceptedNames:
     kind: ""

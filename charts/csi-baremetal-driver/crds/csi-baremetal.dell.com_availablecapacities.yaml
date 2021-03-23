@@ -52,6 +52,23 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+    - name: LOCATION
+      type: string
+      description: Drive/LVG UUID used by AvailableCapacity
+      JSONPath: .spec.Location
+    - name: NODE
+      type: string
+      description: Node id of Available Capacity
+      JSONPath: .spec.NodeId
+    - name: STORAGE CLASS
+      type: string
+      description: StorageClass of AvailableCapacity
+      JSONPath: .spec.storageClass
+    - name: SIZE
+      type: string
+      description: Size of AvailableCapacity
+      JSONPath: .spec.Size
 status:
   acceptedNames:
     kind: ""
