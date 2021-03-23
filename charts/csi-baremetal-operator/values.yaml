@@ -1,6 +1,6 @@
 image:
-  registry: asdrepo.isus.emc.com:9042
-  tag: green
+  registry: docker.io/objectscale
+  tag: 0.0.13-376.008bda2
   pullPolicy: Always
 
 env:
