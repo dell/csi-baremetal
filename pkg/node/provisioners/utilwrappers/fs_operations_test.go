@@ -93,6 +93,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	wrapFS.On("MkDir", dst).Return(nil).Once()
 	wrapFS.On("Mount", src, dst, bindOption).Return(expectedErr).Once()
 	wrapFS.On("RmDir", dst).Return(nil).Once()
+	wrapFS.On("IsMounted", src).Return(false, nil).Once()
 
 	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
 	assert.Error(t, err)
@@ -102,6 +103,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	// mount operations failed and dst wasn't created during current call (do not expect RmDir)
 	dst = "/var" // existed path, different from such that used before - /tmp, (for check AssertNotCalled)
 	wrapFS.On("IsMounted", dst).Return(false, nil).Once()
+	wrapFS.On("IsMounted", src).Return(false, nil).Once()
 	wrapFS.On("Mount", src, dst, bindOption).Return(expectedErr).Once()
 
 	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
