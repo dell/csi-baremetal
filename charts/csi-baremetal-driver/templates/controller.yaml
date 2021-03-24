@@ -26,6 +26,10 @@ spec:
           {{.Values.nodeSelector.key}}: {{.Values.nodeSelector.value}}
       {{- end }}
       serviceAccount: csi-controller-sa
+      {{- if .Values.global.registrySecret }}
+      imagePullSecrets:
+        - name: {{ .Values.global.registrySecret }}
+      {{- end }}
       terminationGracePeriodSeconds: 10
       containers:
       # ********************** EXTERNAL-PROVISIONER sidecar container definition **********************

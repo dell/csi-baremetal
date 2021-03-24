@@ -14,6 +14,10 @@ spec:
         app: csi-operator
     spec:
       serviceAccount: csi-operator-sa
+      {{- if .Values.global.registrySecret }}
+      imagePullSecrets:
+        - name: {{ .Values.global.registrySecret }}
+      {{- end }}
       terminationGracePeriodSeconds: 10
       {{- if .Values.csi.deploy }}
       tolerations:
