@@ -1,3 +1,6 @@
+global:
+  registrySecret:
+
 image:
   registry: docker.io/objectscale
   tag: 0.0.13-376.008bda2

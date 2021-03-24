@@ -27,6 +27,10 @@ spec:
       {{- end }}
       hostIPC: True
       serviceAccountName: csi-node-sa
+      {{- if .Values.global.registrySecret }}
+      imagePullSecrets:
+       - name: {{ .Values.global.registrySecret }}
+      {{- end }}
       terminationGracePeriodSeconds: 10
       containers:
       # ********************** DRIVER-REGISTRAR sidecar container definition **********************

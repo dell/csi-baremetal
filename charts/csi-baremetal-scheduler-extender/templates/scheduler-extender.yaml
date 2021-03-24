@@ -18,6 +18,10 @@ spec:
         prometheus.io/path: '{{ .Values.metrics.path }}'
     spec:
       serviceAccountName: csi-baremetal-extender-sa
+      {{- if .Values.global.registrySecret }}
+      imagePullSecrets:
+        - name: {{ .Values.global.registrySecret }}
+      {{- end }}
       containers:
         - name: extender
           image: {{- if .Values.env.test }} csi-baremetal-scheduler-extender:{{ .Values.image.tag }}

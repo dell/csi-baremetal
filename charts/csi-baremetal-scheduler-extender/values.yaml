@@ -1,3 +1,6 @@
+global:
+  registrySecret:
+
 # Docker registry to pull images
 registry: docker.io/objectscale
 

@@ -42,29 +42,33 @@ Installation process
     
     1.4. *kubectl*
 
-2. Deploy CSI driver
+2. Create Docker registry pull secret
+
+    ```kubectl create secret docker-registry objectscale-registry --docker-server=docker.io/objectscale --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL```
+
+3. Deploy CSI driver
         
-    2.1 Deploy CSI Node Operator 
+    3.1 Deploy CSI Node Operator 
     
-    ```helm install csi-baremetal-operator charts/csi-baremetal-operator```
+    ```helm install csi-baremetal-operator charts/csi-baremetal-operator --set global.registrySecret=objectscale-registry```
     
-    2.2 Deploy CSI Driver
+    3.2 Deploy CSI Driver
     
-    ```helm install csi-baremetal-driver charts/csi-baremetal-driver --set drivemgr.type=halmgr```
+    ```helm install csi-baremetal-driver charts/csi-baremetal-driver --set drivemgr.type=halmgr --set global.registrySecret=objectscale-registry```
     
-    2.3 Deploy Kubernetes scheduler extender
+    3.3 Deploy Kubernetes scheduler extender
     
     * Vanilla Kubernetes
     
-    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set patcher.enable=true```
+    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set patcher.enable=true --set global.registrySecret=objectscale-registry```
     
     * OpenShift
     
-    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender```
+    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set global.registrySecret=objectscale-registry```
     
     ```pkg/scheduler/patcher/openshift_patcher.sh --install```
     
-3. Check default storage classes available
+4. Check default storage classes available
 
     ```kubectl get storageclasses```
 

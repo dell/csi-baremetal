@@ -22,6 +22,10 @@ spec:
         version: second
     spec:
       serviceAccountName: csi-baremetal-scheduler-sa
+      {{- if .Values.global.registrySecret }}
+      imagePullSecrets:
+        - name: {{ .Values.global.registrySecret }}
+      {{- end }}
       containers:
         - name: scheduler
           args:
