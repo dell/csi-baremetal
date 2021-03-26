@@ -13,7 +13,7 @@ spec:
     description: LVG health status
     name: HEALTH
     type: string
-  - JSONPath: .spec.NodeId
+  - JSONPath: .spec.Node
     description: LVG node location
     name: NODE
     type: string
