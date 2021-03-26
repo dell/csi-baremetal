@@ -8,6 +8,15 @@ metadata:
   creationTimestamp: null
   name: nodes.csi-baremetal.dell.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.UUID
+    description: Node Id
+    name: UUID
+    type: string
+  - JSONPath: .spec.Addresses
+    description: Hostname and internal Node ip
+    name: ADDRESSES
+    type: string
   group: csi-baremetal.dell.com
   names:
     kind: Node
@@ -18,6 +27,7 @@ spec:
     - csibmnodes
     singular: node
   scope: Cluster
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Node is the Schema for the Node API
@@ -51,15 +61,6 @@ spec:
   - name: v1
     served: true
     storage: true
-  additionalPrinterColumns:
-    - name: UUID
-      type: string
-      description: Node Id
-      JSONPath: .spec.UUID
-    - name: Addresses
-      type: string
-      description: Hostname and internal Node ip
-      JSONPath: .spec.Addresses
 status:
   acceptedNames:
     kind: ""

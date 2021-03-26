@@ -8,6 +8,31 @@ metadata:
   creationTimestamp: null
   name: drives.csi-baremetal.dell.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.SerialNumber
+    description: Drive serial number
+    name: SERIAL NUMBER
+    type: string
+  - JSONPath: .spec.Health
+    description: Drive health status
+    name: HEALTH
+    type: string
+  - JSONPath: .spec.Type
+    description: Drive type (HDD/LVG/NVME)
+    name: TYPE
+    type: string
+  - JSONPath: .spec.NodeId
+    description: Drive node location
+    name: NODE
+    type: string
+  - JSONPath: .spec.Size
+    description: Drive capacity
+    name: SIZE
+    type: string
+  - JSONPath: .spec.Slot
+    description: Drive slot
+    name: SLOT
+    type: string
   group: csi-baremetal.dell.com
   names:
     kind: Drive
@@ -15,9 +40,10 @@ spec:
     plural: drives
     singular: drive
   scope: Cluster
+  subresources: {}
   validation:
     openAPIV3Schema:
-      description: Drive is the Schema for the drives API kubebuilder:object:generate=false
+      description: Drive is the Schema for the drives API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -80,31 +106,6 @@ spec:
   - name: v1
     served: true
     storage: true
-  additionalPrinterColumns:
-    - name: SERIAL NUMBER
-      type: string
-      description: Drive serial number
-      JSONPath: .spec.SerialNumber
-    - name: HEALTH
-      type: string
-      description: Drive health status
-      JSONPath: .spec.Health
-    - name: TYPE
-      type: string
-      description: Drive type (HDD/LVG/NVME)
-      JSONPath: .spec.Type
-    - name: NODE
-      type: string
-      description: Drive node location
-      JSONPath: .spec.NodeId
-    - name: Size
-      type: string
-      description: Drive capacity
-      JSONPath: .spec.Size
-    - name: SLOT
-      type: string
-      description: Drive slot
-      JSONPath: .spec.Slot
 status:
   acceptedNames:
     kind: ""

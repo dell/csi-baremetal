@@ -31,6 +31,13 @@ import (
 
 // Drive is the Schema for the drives API
 //kubebuilder:object:generate=false
+// +kubebuilder:resource:scope=Cluster,shortName={ac,acs}
+// +kubebuilder:printcolumn:name="SERIAL NUMBER",type="string",JSONPath=".spec.SerialNumber",description="Drive serial number"
+// +kubebuilder:printcolumn:name="HEALTH",type="string",JSONPath=".spec.Health",description="Drive health status"
+// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.Type",description="Drive type (HDD/LVG/NVME)"
+// +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.NodeId",description="Drive node location"
+// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Drive capacity"
+// +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.Slot",description="Drive slot"
 // +kubebuilder:resource:scope=Cluster
 type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
