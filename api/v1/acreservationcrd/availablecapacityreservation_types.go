@@ -26,7 +26,7 @@ import (
 
 // +kubebuilder:resource:scope=Cluster,shortName={acr,acrs}
 // +kubebuilder:printcolumn:name="STORAGE CLASS",type="string",JSONPath=".spec.StorageClass",description="StorageClass of AvailableCapacityReservation"
-// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.SIZE",description="Size of AvailableCapacityReservation"
+// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Size of AvailableCapacityReservation"
 // +kubebuilder:printcolumn:name="RESERVATIONS",type="string",JSONPath=".spec.Reservations",description="List of reserved AvailableCapacity"
 // AvailableCapacityReservation is the Schema for the availablecapacitiereservations API
 type AvailableCapacityReservation struct {

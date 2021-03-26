@@ -23,7 +23,7 @@ spec:
     type: string
   - JSONPath: .spec.Location
     description: Volume LVG or drive location
-    name: LOCACTION
+    name: LOCATION
     type: string
   - JSONPath: .spec.StorageClass
     description: Volume storage class

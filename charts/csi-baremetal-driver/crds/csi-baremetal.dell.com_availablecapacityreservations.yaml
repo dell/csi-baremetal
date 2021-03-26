@@ -13,12 +13,12 @@ spec:
     description: StorageClass of AvailableCapacityReservation
     name: STORAGE CLASS
     type: string
-  - JSONPath: .spec.StorageClass
-    description: StorageClass of AvailableCapacityReservation
-    name: SIZE
-    type: string
   - JSONPath: .spec.Size
     description: Size of AvailableCapacityReservation
+    name: SIZE
+    type: string
+  - JSONPath: .spec.Reservations
+    description: List of reserved AvailableCapacity
     name: RESERVATIONS
     type: string
   group: csi-baremetal.dell.com
