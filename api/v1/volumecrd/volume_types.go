@@ -26,6 +26,12 @@ import (
 
 // Volume is the Schema for the volumes API
 // +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:printcolumn:name="HEALTH",type="string",JSONPath=".spec.Health",description="Volume health status"
+// +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.NodeId",description="Volume node location"
+// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Volume allocated size"
+// +kubebuilder:printcolumn:name="LOCATION",type="string",JSONPath=".spec.Location",description="Volume LVG or drive location"
+// +kubebuilder:printcolumn:name="STORAGE CLASS",type="string",JSONPath=".spec.StorageClass",description="Volume storage class"
+// +kubebuilder:printcolumn:name="CSI STATUS",type="string",JSONPath=".spec.CSIStatus",description="Volume internal CSI status"
 type Volume struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

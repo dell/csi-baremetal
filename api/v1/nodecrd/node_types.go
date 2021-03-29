@@ -25,6 +25,8 @@ import (
 // +kubebuilder:object:root=true
 
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="UUID",type="string",JSONPath=".spec.UUID",description="Node Id"
+// +kubebuilder:printcolumn:name="ADDRESSES",type="string",JSONPath=".spec.Addresses",description="Hostname and internal Node ip"
 // +kubebuilder:resource:scope=Cluster,shortName={csibmnode,csibmnodes}
 // Node is the Schema for the Node API
 type Node struct {

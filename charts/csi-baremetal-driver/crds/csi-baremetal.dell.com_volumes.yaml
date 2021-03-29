@@ -8,6 +8,31 @@ metadata:
   creationTimestamp: null
   name: volumes.csi-baremetal.dell.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.Health
+    description: Volume health status
+    name: HEALTH
+    type: string
+  - JSONPath: .spec.NodeId
+    description: Volume node location
+    name: NODE
+    type: string
+  - JSONPath: .spec.Size
+    description: Volume allocated size
+    name: SIZE
+    type: string
+  - JSONPath: .spec.Location
+    description: Volume LVG or drive location
+    name: LOCATION
+    type: string
+  - JSONPath: .spec.StorageClass
+    description: Volume storage class
+    name: STORAGE CLASS
+    type: string
+  - JSONPath: .spec.CSIStatus
+    description: Volume internal CSI status
+    name: CSI STATUS
+    type: string
   group: csi-baremetal.dell.com
   names:
     kind: Volume
@@ -15,6 +40,7 @@ spec:
     plural: volumes
     singular: volume
   scope: Namespaced
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Volume is the Schema for the volumes API
@@ -71,31 +97,6 @@ spec:
   - name: v1
     served: true
     storage: true
-  additionalPrinterColumns:
-    - name: HEALTH
-      type: string
-      description: Volume health status
-      JSONPath: .spec.Health
-    - name: NODE
-      type: string
-      description: Volume node location
-      JSONPath: .spec.NodeId
-    - name: SIZE
-      type: string
-      description: Volume allocated size
-      JSONPath: .spec.Size
-    - name: LOCACTION
-      type: string
-      description: Volume LVG or drive location
-      JSONPath: .spec.Location
-    - name: STORAGE CLASS
-      type: string
-      description: Volume storage class
-      JSONPath: .spec.StorageClass
-    - name: CSI STATUS
-      type: string
-      description: Volume internal CSI status
-      JSONPath: .spec.CSIStatus
 status:
   acceptedNames:
     kind: ""
