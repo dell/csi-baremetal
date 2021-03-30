@@ -7,7 +7,7 @@ Last updated: 3/30/2021
 
 Proposal to improve Available Capacity Reservation by:
 * Getting rid of race conditions and stuck reservations.
-* Suggesting uniform reservation algorithm for Scheduler and Scheduler Extender.   
+* Suggesting uniform reservation algorithm for Scheduler and Scheduler Extender.
 
 ## Background
 
@@ -16,7 +16,7 @@ Reservation is created in Scheduler Extender and removed in Controller when corr
 
 Since AvailableCapacityReservation or simply ACR doesn't have reference to the PVC name several unexpected behaviors observed:
 * ACR is used for another PVC with similar storage requirements (non critical)
-* ACR is created twice for the same PVC and never removed when volume provision failed for some reason (for example, defective disk). This prevents from further allocations for reserved storage space (critical)        
+* ACR is created twice for the same PVC and never removed when volume provision failed for some reason (for example, defective disk). This prevents from further allocations for reserved storage space (critical)
 
 ## Proposal
 
@@ -35,11 +35,11 @@ To avoid race conditions keep reservation logic in Controller:
 
 ## Rationale
 
-Reservation logic through CRD has some performance penalties but guarantees placement.   
+Reservation logic through CRD has some performance penalties but guarantees placement.
 
 ## Compatibility
 
-No compatibility with the previous versions. 
+No compatibility with the previous versions.
 
 ## Implementation
 
@@ -49,7 +49,7 @@ No compatibility with the previous versions.
     - For usual volumes
     - For inline volumes
 4. Add support for inline volumes in Node
-5. Future - implement logic in Scheduler 
+5. Future - implement logic in Scheduler
 
 
 ## Assumptions (if applicable)
