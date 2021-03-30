@@ -53,6 +53,12 @@ spec:
           properties:
             Name:
               type: string
+            Namespace:
+              type: string
+            Nodes:
+              items:
+                type: string
+              type: array
             Reservations:
               items:
                 type: string
@@ -60,6 +66,8 @@ spec:
             Size:
               format: int64
               type: integer
+            Status:
+              type: string
             StorageClass:
               type: string
           type: object
