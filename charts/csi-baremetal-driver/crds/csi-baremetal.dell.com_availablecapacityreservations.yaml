@@ -51,24 +51,35 @@ spec:
           type: object
         spec:
           properties:
-            Name:
-              type: string
             Namespace:
               type: string
             Nodes:
               items:
-                type: string
+                properties:
+                  Id:
+                    type: string
+                  Score:
+                    format: int64
+                    type: integer
+                type: object
               type: array
-            Reservations:
+            Requests:
               items:
-                type: string
+                properties:
+                  Name:
+                    type: string
+                  Reservations:
+                    items:
+                      type: string
+                    type: array
+                  Size:
+                    format: int64
+                    type: integer
+                  StorageClass:
+                    type: string
+                type: object
               type: array
-            Size:
-              format: int64
-              type: integer
             Status:
-              type: string
-            StorageClass:
               type: string
           type: object
       type: object

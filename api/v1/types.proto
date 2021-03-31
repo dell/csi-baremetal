@@ -51,13 +51,22 @@ message AvailableCapacity {
 }
 
 message AvailableCapacityReservation {
+    string Namespace = 1;
+    string Status = 2;
+    repeated NodeRequest Nodes = 3;
+    repeated ReservationRequest Requests = 4;
+}
+
+message NodeRequest {
+    string Id = 1;
+    int64 Score = 2;
+}
+
+message ReservationRequest {
     string Name = 1;
-    string Namespace = 2;
-    string StorageClass = 3;
-    int64 Size = 4;
-    string Status = 5;
-    repeated string Nodes = 6;
-    repeated string Reservations = 7;
+    string StorageClass = 2;
+    int64 Size = 3;
+    repeated string Reservations = 4;
 }
 
 message LogicalVolumeGroup {
