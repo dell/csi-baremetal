@@ -10,22 +10,22 @@ Need to determine actions for CSI for node removing process
 
 If user aims to delete node from cluster, he/she must perform following steps for CSI.  
 
-###Node is healthy
+### Node is healthy
 
-####After node drain
+#### After node drain
 1) Determine removing Node UUID 
 2) Delete PVCs used by Pods, which were run on deleted node
 
-###Node is unhealthy
+### Node is unhealthy
 
-####Before node deletion: 
+#### Before node deletion: 
 1) Determine removing Node UUID 
 
-####After node deletion: 
+#### After node deletion: 
 1) Delete PVCs used by Pods, which were run on deleted node
 
-###Common actions
-####After node deletion: 
+### Common actions
+#### After node deletion: 
 1) Patch according Volumes custom resources with empty finalizer  
 ```
 kubectl get volume | grep <node_id> | awk '{print $1}' | xargs kubectl patch volume --type merge -p '{"metadata":{"finalizers":null}}'
