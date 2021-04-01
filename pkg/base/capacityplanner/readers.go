@@ -18,7 +18,6 @@ package capacityplanner
 
 import (
 	"context"
-
 	"github.com/sirupsen/logrus"
 
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
@@ -97,6 +96,31 @@ func (acr *ACRReader) ReadReservations(ctx context.Context) ([]acrcrd.AvailableC
 		acr.cache = acrList.Items
 	}
 	return acrList.Items, nil
+}
+
+// ReadReservation returns ACR which was read from kubernetes API
+func (acr *ACRReader) ReadReservation(ctx context.Context, namespace string, name string) (*acrcrd.AvailableCapacityReservation, error) {
+	logger := util.AddCommonFields(ctx, acr.logger, "ACRReader.ReadReservations")
+
+	/*if acr.cached && acr.cache != nil {
+		logger.Tracef("Read AvailableCapacityReservations from cache: %+v", acr.cache)
+		return acr.cache, nil
+	}*/
+
+	reservation := &acrcrd.AvailableCapacityReservation{}
+
+	if err := acr.client.ReadCR(ctx, name, namespace, reservation); err != nil {
+		// todo check for not found
+		logger.Errorf("failed to read ACR %s: %s", name, err.Error())
+		return reservation, err
+	}
+
+	return reservation, nil
+	/*logger.Tracef("Read AvailableCapacityReservations: %+v", acrList.Items)
+	if acr.cached {
+		acr.cache = acrList.Items
+	}
+	return acrList.Items, nil*/
 }
 
 // NewUnreservedACReader returns instance of UnreservedACReader

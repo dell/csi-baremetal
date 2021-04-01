@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,10 +82,10 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 			acsNames[i] = acs[i].Name
 		}
 		acrCR := rh.client.ConstructACRCR(genV1.AvailableCapacityReservation{
-			Name:         uuid.New().String(),
+			/*Name:         uuid.New().String(),
 			StorageClass: v.StorageClass,
 			Size:         v.Size,
-			Reservations: acsNames,
+			Reservations: acsNames,*/
 		})
 		if createErr = rh.client.CreateCR(ctx, acrCR.Name, acrCR); createErr != nil {
 			createErr = fmt.Errorf("unable to create ACR CR %v for volume %v: %v", acrCR.Spec, v, createErr)
@@ -121,7 +120,7 @@ func (rh *ReservationHelper) ReleaseReservation(
 	// we should select ACR to remove from ACRs which have same size and SC as volume
 	filteredACRMap, filteredACNameToACR := buildACRMaps(
 		FilterACRList(rh.acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
-			return acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size
+			return true/*acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size*/
 		}))
 	_, acrToRemove := choseACFromOldestACR(ACMap{ac.Name: ac}, filteredACRMap, filteredACNameToACR)
 	if acrToRemove == nil {
@@ -163,7 +162,7 @@ func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 
 	var acrToUpdate []*acrcrd.AvailableCapacityReservation
 
-	for _, acr := range acrToCheck {
+	/*for _, acr := range acrToCheck {
 		alreadyExist := false
 		for _, res := range acr.Spec.Reservations {
 			if res == additionalAC {
@@ -175,7 +174,7 @@ func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 			acr.Spec.Reservations = append(acr.Spec.Reservations, additionalAC)
 			acrToUpdate = append(acrToUpdate, acr)
 		}
-	}
+	}*/
 
 	for _, acr := range acrToUpdate {
 		if err := rh.client.UpdateCR(ctx, acr); err != nil {
@@ -251,7 +250,7 @@ func (rh *ReservationHelper) removeACFromACRs(ctx context.Context, removedACR st
 			continue
 		}
 		removed := false
-		resLen := len(acr.Spec.Reservations)
+		/*resLen := len(acr.Spec.Reservations)
 		for i := 0; i < resLen; i++ {
 			if acr.Spec.Reservations[i] == ac.Name {
 				acr.Spec.Reservations[i] = acr.Spec.Reservations[len(acr.Spec.Reservations)-1]
@@ -260,7 +259,7 @@ func (rh *ReservationHelper) removeACFromACRs(ctx context.Context, removedACR st
 				resLen--
 				removed = true
 			}
-		}
+		}*/
 		if removed {
 			acrToUpdate = append(acrToUpdate, acr)
 		}
@@ -328,11 +327,11 @@ func FilterACList(
 // buildACInACRMap build map with AC names which included at least in one ACR
 func buildACInACRMap(acrs []acrcrd.AvailableCapacityReservation) map[string]struct{} {
 	acMap := map[string]struct{}{}
-	for _, acr := range acrs {
+	/*for _, acr := range acrs {
 		for _, acName := range acr.Spec.Reservations {
 			acMap[acName] = struct{}{}
 		}
-	}
+	}*/
 	return acMap
 }
 
@@ -397,12 +396,12 @@ func buildACRMaps(acrs []acrcrd.AvailableCapacityReservation) (ACRMap, ACNameToA
 	for _, acr := range acrs {
 		acr := acr
 		acrMAP[acr.Name] = &acr
-		for _, acName := range acr.Spec.Reservations {
+		/*for _, acName := range acr.Spec.Reservations {
 			if _, ok := acNameToACRNamesMap[acName]; !ok {
 				acNameToACRNamesMap[acName] = []string{}
 			}
 			acNameToACRNamesMap[acName] = append(acNameToACRNamesMap[acName], acr.Name)
-		}
+		}*/
 	}
 	return acrMAP, acNameToACRNamesMap
 }

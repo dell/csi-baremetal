@@ -253,7 +253,7 @@ func (rcm *ReservedCapacityManager) update(ctx context.Context, volume *genV1.Vo
 		return err
 	}
 	filteredACRs := FilterACRList(acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
-		return acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size
+		return true/*acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size*/
 	})
 	resFilter := NewReservationFilter()
 	reservedACs := resFilter.FilterByReservation(true, acList, filteredACRs)

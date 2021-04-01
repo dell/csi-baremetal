@@ -20,8 +20,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"net"
 	"net/http"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -102,8 +108,22 @@ func main() {
 		}()
 	}
 
+	// create Reservation manager
+	reservationManager, err := createReservationManager(kubeClient, logger)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	// start Reservation manager
 	go func() {
-		logger.Info("Starting Controller Health server ...")
+		logger.Info("Starting Reservation Controller")
+		// todo add correct sig term handler
+		if err := reservationManager.Start(ctrl.SetupSignalHandler()); err != nil {
+			logger.Fatalf("Reservation Controller failed with error: %v", err)
+		}
+	}()
+
+	go func() {
+		logger.Info("Starting Controller Health server")
 		if err := util.SetupAndStartHealthCheckServer(
 			controllerService, logger,
 			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(*healthPort))); err != nil {
@@ -115,4 +135,34 @@ func main() {
 		logger.Fatalf("fail to serve, error: %v", err)
 	}
 	logger.Info("Got SIGTERM signal")
+}
+
+func createReservationManager(client *k8s.KubeClient, log *logrus.Logger) (mgr ctrl.Manager, err error) {
+	// create scheme
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	// register ACR CRD
+	if err = acrcrd.AddToSchemeACR(scheme); err != nil {
+		return nil, err
+	}
+
+	mgr, err = ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:    scheme,
+		Namespace: *namespace,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// controller
+	reservationController := reservation.NewController(client, log)
+	if err = reservationController.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
+	return mgr, nil
 }

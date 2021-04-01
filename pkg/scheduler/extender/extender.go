@@ -19,7 +19,10 @@ package extender
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"sync"
@@ -33,6 +36,7 @@ import (
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
@@ -99,7 +103,8 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 
 	ll.Info("Filtering")
 	ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
-	volumes, err := e.gatherVolumesByProvisioner(ctxWithVal, extenderArgs.Pod)
+	pod := extenderArgs.Pod
+	volumes, err := e.gatherVolumesByProvisioner(ctxWithVal, pod)
 	if err != nil {
 		extenderRes.Error = err.Error()
 		if err := resp.Encode(extenderRes); err != nil {
@@ -109,9 +114,10 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	ll.Debugf("Required volumes: %v", volumes)
 
+	// todo we don't need locking here
 	e.Lock()
 	defer e.Unlock()
-	matchedNodes, failedNodes, err := e.filter(ctxWithVal, extenderArgs.Nodes.Items, volumes)
+	matchedNodes, failedNodes, err := e.filter(ctxWithVal, pod, extenderArgs.Nodes.Items, volumes)
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		extenderRes.Error = err.Error()
@@ -223,6 +229,8 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 	volumes := make([]*genV1.Volume, 0)
 	for _, v := range pod.Spec.Volumes {
 		// check whether there are Ephemeral volumes or no
+		// todo how to handle ephemeral volume when no PVC name exist
+		// todo put annotation on the pod?
 		if v.CSI != nil {
 			if v.CSI.Driver == e.provisioner {
 				volume, err := e.constructVolumeFromCSISource(v.CSI)
@@ -308,54 +316,92 @@ func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol 
 // nodes - list of node candidate, volumes - requested volumes
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // failedNodesMap - represents the filtered out nodes, with node names and failure messages
-func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
-	failedNodesMap schedulerapi.FailedNodesMap, err error) {
+func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, volumes []*genV1.Volume) (
+	matchedNodes []coreV1.Node, failedNodesMap schedulerapi.FailedNodesMap, err error) {
+
+	// ignore when no storage allocation requests
 	if len(volumes) == 0 {
-		return nodes, failedNodesMap, err
+		return nodes, nil, nil
 	}
 
-	// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
-	acReader := capacityplanner.NewACReader(e.k8sClient, e.logger, true)
-	acrReader := capacityplanner.NewACRReader(e.k8sClient, e.logger, true)
-	reservedCapReader := capacityplanner.NewUnreservedACReader(e.logger, acReader, acrReader)
-	capManager := e.capacityManagerBuilder.GetCapacityManager(e.logger, reservedCapReader)
+	// construct ACR name
+	namespace := pod.Namespace
+	reservationName := getReservationName(pod)
 
-	placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes)
+	// todo do we need to create it each time?
+	acrReader := capacityplanner.NewACRReader(e.k8sClient, e.logger, false)
+	reservationCustomResource, err := acrReader.ReadReservation(ctx, namespace, reservationName)
 	if err != nil {
-		return matchedNodes, failedNodesMap, err
+		if k8serrors.IsNotFound(err) {
+			// create new reservation
+			reservationCustomResource = createReservation(namespace, reservationName, nodes, volumes)
+			if err := e.k8sClient.CreateCR(ctx, reservationName, reservationCustomResource); err != nil {
+				// cannot create reservation
+				return nil, nil, err
+			}
+			// not an error - reservation requested
+			return nil, nil, nil
+		}
+		// issue with reading reservation
+		return nil, nil, err
 	}
 
-	noACForNodeMsg := "Node doesn't contain required amount of AvailableCapacity"
-
-	failedNodesMap = schedulerapi.FailedNodesMap{}
-	for _, node := range nodes {
-		if placingPlan == nil {
-			failedNodesMap[node.Name] = noACForNodeMsg
-			continue
-		}
-
-		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
-		if err != nil {
-			e.logger.Errorf("failed to get NodeID: %s", err)
-		}
-
-		placingForNode := placingPlan.GetVolumesToACMapping(nodeID)
-		if placingForNode == nil {
-			failedNodesMap[node.Name] = noACForNodeMsg
-			continue
-		}
-		matchedNodes = append(matchedNodes, node)
+	// reservation found
+	status := reservationCustomResource.Spec.Status
+	switch status {
+	case v1.ReservationRequested:
+		// not an error - reservation requested
+		return nil, nil, nil
+	case v1.ReservationConfirmed:
+		// need to filter nodes here
+		return nil, nil, nil
+	case v1.ReservationRejected:
+		// no available capacity
+		return nil, nil, errors.New("No available capacity found for pod " + pod.Name)
+	case v1.ReservationCancelled:
+		// request again?
+		return nil, nil, nil
+	default:
+		return nil, nil, errors.New("Wrong reservation status: " + status)
 	}
-	if len(matchedNodes) != 0 {
-		reservationHelper := capacityplanner.NewReservationHelper(e.logger, e.k8sClient, acReader, acrReader)
-		err = reservationHelper.CreateReservation(ctx, placingPlan)
-		if err != nil {
-			e.logger.Errorf("failed to create reservation: %s", err.Error())
-		}
+}
+
+func getReservationName(pod *coreV1.Pod) string {
+	namespace := pod.Namespace
+	if namespace == "" {
+		namespace = "default"
 	}
 
-	return matchedNodes, failedNodesMap, err
+	return namespace + "-" + pod.Name
+}
+
+func createReservation(namespace string, name string, nodes []coreV1.Node, volumes []*genV1.Volume) *acrcrd.AvailableCapacityReservation {
+	reservation := genV1.AvailableCapacityReservation{
+		Namespace: namespace,
+		Status:    v1.ReservationRequested,
+	}
+
+	// fill in reservation requests
+	reservation.Requests = make([]*genV1.ReservationRequest, len(volumes))
+	for i, volume := range volumes {
+		reservation.Requests[i] = &genV1.ReservationRequest{Name: volume.Id, StorageClass: volume.StorageClass, Size: volume.Size}
+	}
+
+	// fill in node requests
+	reservation.Nodes = make([]*genV1.NodeRequest, len(nodes))
+	for i, node := range nodes {
+		reservation.Nodes[i] = &genV1.NodeRequest{Id: node.Name}
+	}
+
+	// create new reservation
+	return &acrcrd.AvailableCapacityReservation{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1.AvailableCapacityReservationKind,
+			APIVersion: v1.APIV1Version,
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       reservation,
+	}
 }
 
 func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {

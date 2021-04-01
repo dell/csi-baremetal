@@ -192,7 +192,7 @@ func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: apiACR.Name,
+			Name: "apiACR.Name",
 		},
 		Spec: apiACR,
 	}

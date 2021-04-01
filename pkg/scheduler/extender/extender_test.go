@@ -286,7 +286,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 
 	// empty volumes
 	e = setup(t)
-	matched, failed, err := e.filter(testCtx, nodes, nil)
+	matched, failed, err := e.filter(testCtx, nil, nodes, nil)
 	assert.Nil(t, err)
 	assert.Nil(t, failed)
 	assert.Equal(t, len(nodes), len(matched))
@@ -387,7 +387,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		matchedNodes, failedNode, err := e.filter(testCtx, nodes, testCase.Volumes)
+		matchedNodes, failedNode, err := e.filter(testCtx, nil, nodes, testCase.Volumes)
 		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
 		matchedNodeNames := getNodeNames(matchedNodes)
 		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
@@ -402,9 +402,9 @@ func TestExtender_filterSuccess(t *testing.T) {
 		}
 
 		reservedACCount := 0
-		for _, acr := range acrList.Items {
+		/*for _, acr := range acrList.Items {
 			reservedACCount += len(acr.Spec.Reservations)
-		}
+		}*/
 		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.Volumes), reservedACCount, testCase.Msg)
 
 		for _, n := range testCase.ExpectedNodeNames {
@@ -562,4 +562,44 @@ func Test_nodePrioritize(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_reservationName(t *testing.T) {
+	podName := "mypod-0"
+	namespace := "mynamespace"
+	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name := getReservationName(pod)
+	assert.Equal(t, namespace + "-" + podName, name)
+
+	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: ""}}
+	name = getReservationName(pod)
+	assert.Equal(t, "default-" + podName, name)
+
+}
+
+func Test_createReservation(t *testing.T) {
+	// names
+	namespace := "test"
+	podName := "mypod-0"
+	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name := getReservationName(pod)
+	// volumes
+	volumes := []*genV1.Volume{{Id: "pvc-1", Size: 100, StorageClass: "HDD"}}
+	// nodes
+	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1"}}}
+	reservation := createReservation(namespace, name,  nodes, volumes)
+	assert.Equal(t, name, reservation.Name)
+	assert.Equal(t, namespace, reservation.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservation.Spec.Nodes))
+	assert.Equal(t, len(volumes), len(reservation.Spec.Requests))
+
+	// empty namespace
+	namespace = ""
+	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name = getReservationName(pod)
+	reservation = createReservation(namespace, name,  nodes, volumes)
+	assert.Equal(t, name, reservation.Name)
+	assert.Equal(t, namespace, reservation.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservation.Spec.Nodes))
+	assert.Equal(t, len(volumes), len(reservation.Spec.Requests))
 }
