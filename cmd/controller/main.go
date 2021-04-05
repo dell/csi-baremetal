@@ -108,19 +108,22 @@ func main() {
 		}()
 	}
 
-	// create Reservation manager
-	reservationManager, err := createReservationManager(kubeClient, logger)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	// start Reservation manager
-	go func() {
-		logger.Info("Starting Reservation Controller")
-		// todo add correct sig term handler
-		if err := reservationManager.Start(ctrl.SetupSignalHandler()); err != nil {
-			logger.Fatalf("Reservation Controller failed with error: %v", err)
+	// check ACR feature flag
+	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
+		// create Reservation manager
+		reservationManager, err := createReservationManager(kubeClient, logger)
+		if err != nil {
+			logger.Fatal(err)
 		}
-	}()
+		// start Reservation manager
+		go func() {
+			logger.Info("Starting Reservation Controller")
+			// todo add correct sig term handler
+			if err := reservationManager.Start(ctrl.SetupSignalHandler()); err != nil {
+				logger.Fatalf("Reservation Controller failed with error: %v", err)
+			}
+		}()
+	}
 
 	go func() {
 		logger.Info("Starting Controller Health server")

@@ -41,7 +41,7 @@ func GetNodeIDByName(client k8sClient.Client, nodeName string, annotationKey str
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
 func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
-		akey, err := chooseAnnotaionKey(annotationKey, featureChecker)
+		akey, err := chooseAnnotationKey(annotationKey, featureChecker)
 		if err != nil {
 			return "", err
 		}
@@ -56,7 +56,7 @@ func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featur
 	return string(k8sNode.UID), nil
 }
 
-func chooseAnnotaionKey(annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func chooseAnnotationKey(annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	if featureChecker.IsEnabled(featureconfig.FeatureExternalAnnotationForNode) {
 		if annotationKey == "" {
 			return "", fmt.Errorf("%s is set as True but ", featureconfig.FeatureExternalAnnotationForNode)

@@ -9,17 +9,21 @@ metadata:
   name: availablecapacityreservations.csi-baremetal.dell.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.StorageClass
-    description: StorageClass of AvailableCapacityReservation
-    name: STORAGE CLASS
+  - JSONPath: .spec.Namespace
+    description: Pod namespace
+    name: NAMESPACE
     type: string
-  - JSONPath: .spec.Size
-    description: Size of AvailableCapacityReservation
-    name: SIZE
+  - JSONPath: .spec.Status
+    description: Status of AvailableCapacityReservation
+    name: STATUS
     type: string
-  - JSONPath: .spec.Reservations
-    description: List of reserved AvailableCapacity
-    name: RESERVATIONS
+  - JSONPath: .spec.Nodes
+    description: List of nodes for AvailableCapacityReservation
+    name: NODES
+    type: string
+  - JSONPath: .spec.Requests
+    description: List of requests for AvailableCapacityReservation
+    name: REQUESTS
     type: string
   group: csi-baremetal.dell.com
   names:

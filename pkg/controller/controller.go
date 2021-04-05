@@ -160,12 +160,17 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		ll.Infof("Preferred node was provided: %s", preferredNode)
 	}
 
+	// kubernetes specifics
+	volumeInfo, err := util.NewVolumeInfo(req.Parameters)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	var (
 		fsType           string
-		err              error
 		mode             string
 		vol              *api.Volume
-		ctxWithNamespace = context.WithValue(ctx, base.VolumeNamespace, req.Parameters[base.PVCNamespaceKey])
+		ctxWithNamespace = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
 
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {

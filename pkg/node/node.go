@@ -419,7 +419,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	if !ok {
 		namespace = base.DefaultNamespace
 	}
-	ctxWithNamespace := context.WithValue(ctx, base.VolumeNamespace, namespace)
+	ctxWithNamespace := context.WithValue(ctx, util.VolumeInfoKey, namespace)
 
 	if bytes, err = util.StrToBytes(bytesStr); err != nil {
 		return nil, err

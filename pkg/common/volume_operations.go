@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/coreos/rkt/tests/testutils/logger"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"strconv"
 	"time"
 
@@ -114,8 +116,14 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		err       error
 		namespace = base.DefaultNamespace
 	)
-	if value := ctx.Value(base.VolumeNamespace); value != nil && value != "" {
-		namespace = value.(string)
+
+	// read information about PersistentVolumeClaim from context value
+	var volumeInfo util.VolumeInfo
+	if value := ctx.Value(util.VolumeInfoKey); value != nil {
+		volumeInfo := value.(util.VolumeInfo)
+		if !volumeInfo.IsDefaultNamespace() {
+			namespace = volumeInfo.Namespace
+		}
 	}
 
 	// at first check whether volume CR exist or no
@@ -152,39 +160,84 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			requiredBytes = capacityplanner.AlignSizeByPE(requiredBytes)
 		}
 
-		capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
+		//capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
 		resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, true)
 
-		capacityManager := vo.createCapacityManager(capReader, resReader)
-		plan, err := capacityManager.PlanVolumesPlacing(ctxWithID, []*api.Volume{&v})
+		reservations, err := resReader.ReadReservations(ctxWithID)
 		if err != nil {
-			ll.Errorf("error while planning placing for volume: %s", err.Error())
 			return nil, err
 		}
-		noResourceMsg := fmt.Sprintf("there is no suitable drive for volume %s", v.Id)
-		if plan == nil {
-			return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
-		}
-		if v.NodeId == "" {
-			v.NodeId = plan.SelectNode()
-		}
-		ll.Infof("Try to create volume on node %s", v.NodeId)
-		ac = plan.GetACForVolume(v.NodeId, &v)
-		if ac == nil {
-			return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
+
+		var podReservation *acrcrd.AvailableCapacityReservation
+		var capacityResevationNum int
+		for _, reservation := range reservations {
+			if reservation.Namespace == namespace {
+				for i, request := range reservation.Spec.Requests {
+					if request.Name == volumeInfo.Name {
+						podReservation = &reservation
+						capacityResevationNum = i
+						break
+					}
+				}
+			}
+			// exit if found
+			if podReservation != nil {
+				break
+			}
 		}
 
-		resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
+		var capacity *accrd.AvailableCapacity
+		isFound := false
+		for _, capacityName := range podReservation.Spec.Requests[capacityResevationNum].Reservations {
+			// at first check whether volume CR exist or no
+			err = vo.k8sClient.ReadCR(ctx, capacityName, "", capacity)
+			if err != nil {
+				logger.Errorf("Failed to read capacity %s: %v", capacityName, err)
+				return nil, err
+			}
 
-		origAC := ac
+			if capacity.Spec.NodeId == v.NodeId {
+				isFound = true
+				break
+			}
+		}
+
+		if !isFound {
+			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("there is no suitable drive for volume %s", v.Id))
+		}
+
+		ac = capacity
+
+		//capacityManager := vo.createCapacityManager(capReader, resReader)
+		//plan, err := capacityManager.PlanVolumesPlacing(ctxWithID, []*api.Volume{&v}, nil)
+		//if err != nil {
+		//	ll.Errorf("error while planning placing for volume: %s", err.Error())
+		//	return nil, err
+		//}
+		//noResourceMsg := fmt.Sprintf("there is no suitable drive for volume %s", v.Id)
+		//if plan == nil {
+		//	return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
+		//}
+		//if v.NodeId == "" {
+		//	v.NodeId = plan.SelectNode()
+		//}
+		//ll.Infof("Try to create volume on node %s", v.NodeId)
+		//ac = plan.GetACForVolume(v.NodeId, &v)
+		//if ac == nil {
+		//	return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
+		//}
+
+		//resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
+
+		//origAC := ac
 		if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
 			// we need to create reservation for newly created LogicalVolumeGroup AC before we sent LogicalVolumeGroup AC to kube-api
 			// this required to prevent race condition between csi-controller and scheduler extender
 			newACName := uuid.New().String()
-			if err := resHelper.ExtendReservations(ctx, origAC, newACName); err != nil {
+			/*if err := resHelper.ExtendReservations(ctx, origAC, newACName); err != nil {
 				return nil, status.Errorf(codes.Internal,
 					"failed to extender reservation after AC conversion %v", err)
-			}
+			}*/
 			// AC needs to be converted to LogicalVolumeGroup AC, LogicalVolumeGroup doesn't exist yet
 			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, newACName, v.StorageClass, *ac); ac == nil {
 				return nil, status.Errorf(codes.Internal,
@@ -235,9 +288,10 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
 		if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
-			if err = resHelper.ReleaseReservation(ctxWithID, &v, origAC, ac); err != nil {
+
+			/*if err = resHelper.ReleaseReservation(ctxWithID, &v, origAC, ac); err != nil {
 				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)
-			}
+			}*/
 		}
 	}
 	return &volumeCR.Spec, nil

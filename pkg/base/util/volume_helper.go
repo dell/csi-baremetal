@@ -25,7 +25,60 @@ import (
 const (
 	pvcPrefix = "pvc-"
 	csiPrefix = "csi-"
+
+	// VolumeInfo is the constant for context request
+	VolumeInfoKey = "VolumeInfo"
+	// PVCNamespaceKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
+	claimNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
+	// PVCNameKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
+	claimNameKey = "csi.storage.k8s.io/pvc/name"
 )
+
+// VolumeInfo holds infromation about Kubernetes PVC
+type VolumeInfo struct {
+	Namespace string
+	Name      string
+}
+
+// NewVolumeInfo receives parameters from CreateVolumeRequest and returns new VolumeInfo
+func NewVolumeInfo(parameters map[string]string) (*VolumeInfo, error) {
+	claimNamespace, ok := parameters[claimNamespaceKey]
+	if !ok {
+		return nil, errors.New("Persistent volume claim namespace is not set in request")
+	}
+	// PVC name
+	claimName, ok := parameters[claimNameKey]
+	if !ok {
+		return nil, errors.New("Persistent volume claim name is not set in request")
+	}
+
+	return &VolumeInfo{claimNamespace, claimName}, nil
+}
+
+func (v *VolumeInfo) IsDefaultNamespace() bool {
+	return v.Namespace == ""
+}
+
+func (v *VolumeInfo) GetContextKey() string {
+	return VolumeInfoKey
+}
+
+func (v *VolumeInfo) GetNamespaceKey() string {
+	return claimNamespaceKey
+}
+
+func (v *VolumeInfo) GetNameKey() string {
+	return claimNameKey
+}
+
+/*func (v *VolumeInfo) SetNamespace(namespace string) {
+	v.namespace = namespace
+}
+
+func (v *VolumeInfo) SetName(name string) {
+	v.name = name
+}*/
+
 
 // GetVolumeUUID extracts UUID from volume ID: pvc-<UUID>
 // Method will remove pvcPrefix `pvc-` and return UUID

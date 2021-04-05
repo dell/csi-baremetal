@@ -18,7 +18,8 @@ package capacityplanner
 
 import (
 	"context"
-	"fmt"
+	v1 "github.com/dell/csi-baremetal/api/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -65,46 +66,37 @@ type ReservationHelper struct {
 }
 
 // CreateReservation create reservation
-func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan) error {
+func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan,
+	nodes []corev1.Node, reservation *acrcrd.AvailableCapacityReservation) error {
 	defer rh.metric.EvaluateDurationForMethod("CreateReservation")()
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.CreateReservation")
 
-	volToAC := placingPlan.GetACsForVolumes()
+	nameToCapacity := map[string][]*accrd.AvailableCapacity{}
+	for volume, capacity := range placingPlan.GetACsForVolumes() {
+		nameToCapacity[volume.Id] = capacity
+	}
 
-	var (
-		createErr   error
-		createdACRs = make([]*acrcrd.AvailableCapacityReservation, 0, len(volToAC))
-	)
-
-	for v, acs := range volToAC {
-		acsNames := make([]string, len(acs))
+	for _, request := range reservation.Spec.Requests {
+		acs := nameToCapacity[request.Name]
+		request.Reservations = make([]string, len(acs))
 		for i := 0; i < len(acs); i++ {
-			acsNames[i] = acs[i].Name
-		}
-		acrCR := rh.client.ConstructACRCR(genV1.AvailableCapacityReservation{
-			/*Name:         uuid.New().String(),
-			StorageClass: v.StorageClass,
-			Size:         v.Size,
-			Reservations: acsNames,*/
-		})
-		if createErr = rh.client.CreateCR(ctx, acrCR.Name, acrCR); createErr != nil {
-			createErr = fmt.Errorf("unable to create ACR CR %v for volume %v: %v", acrCR.Spec, v, createErr)
-			break
-		}
-		createdACRs = append(createdACRs, acrCR)
-	}
-	if createErr == nil {
-		return nil
-	}
-	// try to remove all created ACRs
-	// ctx can be canceled at this moment, so we will create new one
-	ctx = context.Background()
-	for _, acr := range createdACRs {
-		if err := rh.client.DeleteCR(ctx, acr); err != nil {
-			logger.Errorf("Unable to remove ACR %s: %v", acr.Name, err)
+			request.Reservations[i] = acs[i].Name
 		}
 	}
-	return createErr
+
+	reservation.Spec.Nodes = make([]*genV1.NodeRequest, len(nodes))
+	for i, node := range nodes {
+		reservation.Spec.Nodes[i] = &genV1.NodeRequest{Id: node.Name}
+	}
+
+	// confirm reservation
+	reservation.Spec.Status = v1.ReservationConfirmed
+	if err := rh.client.UpdateCR(ctx, reservation); err != nil {
+		logger.Errorf("Unable to update reservation %s: %v", reservation.Name, err)
+		return err
+	}
+
+	return nil
 }
 
 // ReleaseReservation removes ACR for AC
@@ -327,11 +319,13 @@ func FilterACList(
 // buildACInACRMap build map with AC names which included at least in one ACR
 func buildACInACRMap(acrs []acrcrd.AvailableCapacityReservation) map[string]struct{} {
 	acMap := map[string]struct{}{}
-	/*for _, acr := range acrs {
-		for _, acName := range acr.Spec.Reservations {
-			acMap[acName] = struct{}{}
+	for _, acr := range acrs {
+		for _, request := range acr.Spec.Requests {
+			for _, acName := range request.Reservations {
+				acMap[acName] = struct{}{}
+			}
 		}
-	}*/
+	}
 	return acMap
 }
 

@@ -354,7 +354,22 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 		return nil, nil, nil
 	case v1.ReservationConfirmed:
 		// need to filter nodes here
-		return nil, nil, nil
+		failedNodesMap = schedulerapi.FailedNodesMap{}
+		for _, requestedNode := range nodes {
+			isFound := false
+			name := requestedNode.Name
+			for _, node := range reservationCustomResource.Spec.Nodes {
+				if name == node.Id {
+					matchedNodes = append(matchedNodes, requestedNode)
+					isFound = true
+					break
+				}
+			}
+			if !isFound {
+				failedNodesMap[name] = fmt.Sprintf("No available capacity found on the node %s", name)
+			}
+		}
+		return matchedNodes, failedNodesMap, nil
 	case v1.ReservationRejected:
 		// no available capacity
 		return nil, nil, errors.New("No available capacity found for pod " + pod.Name)
