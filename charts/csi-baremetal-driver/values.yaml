@@ -84,8 +84,6 @@ provisioner:
   image:
     # if you want to use topology feature (multiple PVCs per pod) you should use v1.2.2
     tag: v1.6.0
-  grpc:
-    timeout: 60
 
 resizer:
   image:
