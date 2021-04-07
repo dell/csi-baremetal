@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/coreos/rkt/tests/testutils/logger"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"strconv"
 	"time"
@@ -118,12 +117,17 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	)
 
 	// read information about PersistentVolumeClaim from context value
-	var volumeInfo util.VolumeInfo
+	var volumeInfo *util.VolumeInfo
 	if value := ctx.Value(util.VolumeInfoKey); value != nil {
-		volumeInfo := value.(util.VolumeInfo)
+		volumeInfo = value.(*util.VolumeInfo)
 		if !volumeInfo.IsDefaultNamespace() {
 			namespace = volumeInfo.Namespace
 		}
+	}
+
+	if volumeInfo == nil {
+		ll.Errorf("Volume info is not passed for %s", v.Id)
+		return nil, fmt.Errorf("volume info is not passed for %s", v.Id)
 	}
 
 	// at first check whether volume CR exist or no
@@ -169,30 +173,42 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		}
 
 		var podReservation *acrcrd.AvailableCapacityReservation
-		var capacityResevationNum int
+		var requestNum int
 		for _, reservation := range reservations {
-			if reservation.Namespace == namespace {
+			if reservation.Spec.Status != apiV1.ReservationConfirmed {
+				continue
+			}
+
+			ll.Infof("%s reservation namespace: %s", reservation.Name, reservation.Spec.Namespace)
+			if reservation.Spec.Namespace == namespace {
 				for i, request := range reservation.Spec.Requests {
+					ll.Infof("%s reservation request name: %s, number: %d", reservation.Name, request.Name, i)
 					if request.Name == volumeInfo.Name {
 						podReservation = &reservation
-						capacityResevationNum = i
+						requestNum = i
 						break
 					}
 				}
 			}
 			// exit if found
 			if podReservation != nil {
+				ll.Infof("Reservation for volume %s with id %d found: %v", v.Id, requestNum, podReservation)
 				break
 			}
 		}
 
-		var capacity *accrd.AvailableCapacity
+		if podReservation == nil {
+			ll.Infof("Reservation for volume %s not found. Volume info: %v", v.Id, volumeInfo)
+			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Reservation for volume %s not found", v.Id))
+		}
+
+		capacity := &accrd.AvailableCapacity{}
 		isFound := false
-		for _, capacityName := range podReservation.Spec.Requests[capacityResevationNum].Reservations {
+		for _, capacityName := range podReservation.Spec.Requests[requestNum].Reservations {
 			// at first check whether volume CR exist or no
 			err = vo.k8sClient.ReadCR(ctx, capacityName, "", capacity)
 			if err != nil {
-				logger.Errorf("Failed to read capacity %s: %v", capacityName, err)
+				ll.Errorf("Failed to read capacity %s: %v", capacityName, err)
 				return nil, err
 			}
 
@@ -288,6 +304,25 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
 		if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
+			orig := podReservation.Spec.Requests
+			size := len(orig)
+			if size == 1 {
+				// delete
+				if err := vo.k8sClient.DeleteCR(ctxWithID, podReservation); err != nil {
+					ll.Errorf("Unable to delete reservation %s: %v", podReservation.Name, err)
+				}
+			}
+			// remove reservation request
+			copy(orig[requestNum:], orig[requestNum+1:])
+			orig[len(orig)-1] = nil
+			orig = orig[:len(orig)-1]
+
+			podReservation.Spec.Requests = orig
+			// update
+			// delete
+			if err := vo.k8sClient.UpdateCR(ctxWithID, podReservation); err != nil {
+				ll.Errorf("Unable to update reservation %s: %v", podReservation.Name, err)
+			}
 
 			/*if err = resHelper.ReleaseReservation(ctxWithID, &v, origAC, ac); err != nil {
 				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)

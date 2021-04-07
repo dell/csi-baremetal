@@ -18,7 +18,7 @@ rules:
     verbs: ["get", "list"]
   - apiGroups: ["csi-baremetal.dell.com"]
     resources: ["availablecapacityreservations"]
-    verbs: ["get", "list", "create"]
+    verbs: ["get", "list", "create", "update"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
     verbs: ["get", "list", "watch"]

@@ -112,6 +112,9 @@ spec:
           - name: liveness-port
             containerPort: 9808
             protocol: TCP
+          - name: debug
+            containerPort: 40000
+            protocol: TCP
         livenessProbe:
             failureThreshold: 5
             httpGet:

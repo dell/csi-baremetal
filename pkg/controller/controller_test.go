@@ -19,6 +19,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"strings"
 	"testing"
 	"time"
@@ -43,7 +44,6 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -762,7 +762,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.C
 				},
 			},
 		},
-		Parameters: map[string]string{base.PVCNamespaceKey: testNs},
+		Parameters: map[string]string{util.ClaimNamespaceKey: testNs},
 	}
 
 	if preferredNode != "" {

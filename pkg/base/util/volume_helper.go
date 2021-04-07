@@ -29,9 +29,9 @@ const (
 	// VolumeInfo is the constant for context request
 	VolumeInfoKey = "VolumeInfo"
 	// PVCNamespaceKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
-	claimNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
+	ClaimNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
 	// PVCNameKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
-	claimNameKey = "csi.storage.k8s.io/pvc/name"
+	ClaimNameKey = "csi.storage.k8s.io/pvc/name"
 )
 
 // VolumeInfo holds infromation about Kubernetes PVC
@@ -42,12 +42,12 @@ type VolumeInfo struct {
 
 // NewVolumeInfo receives parameters from CreateVolumeRequest and returns new VolumeInfo
 func NewVolumeInfo(parameters map[string]string) (*VolumeInfo, error) {
-	claimNamespace, ok := parameters[claimNamespaceKey]
+	claimNamespace, ok := parameters[ClaimNamespaceKey]
 	if !ok {
 		return nil, errors.New("Persistent volume claim namespace is not set in request")
 	}
 	// PVC name
-	claimName, ok := parameters[claimNameKey]
+	claimName, ok := parameters[ClaimNameKey]
 	if !ok {
 		return nil, errors.New("Persistent volume claim name is not set in request")
 	}
@@ -64,11 +64,11 @@ func (v *VolumeInfo) GetContextKey() string {
 }
 
 func (v *VolumeInfo) GetNamespaceKey() string {
-	return claimNamespaceKey
+	return ClaimNamespaceKey
 }
 
 func (v *VolumeInfo) GetNameKey() string {
-	return claimNameKey
+	return ClaimNameKey
 }
 
 /*func (v *VolumeInfo) SetNamespace(namespace string) {

@@ -25,7 +25,7 @@ const (
 
 // Controller to reconcile aviliablecapacityreservation custom resource
 type Controller struct {
-	client *k8s.KubeClient
+	client                 *k8s.KubeClient
 	log                    *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 	featureChecker         fc.FeatureChecker
@@ -44,7 +44,7 @@ func NewController(client *k8s.KubeClient, log *logrus.Logger) *Controller {
 		//crHelper: k8s.NewCRHelper(client, log),
 		log:                    log.WithField("component", "ReservationController"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
-		featureChecker: featureConfig,
+		featureChecker:         featureConfig,
 		// todo pass annotation key
 		annotationKey: "",
 	}
@@ -77,7 +77,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	log.Infof("Reservation changed: %v", reservation)
-	switch reservation.Spec.Status{
+	switch reservation.Spec.Status {
 	case v1.ReservationRequested:
 		// not an error - reservation requested
 		// convert to volumes
@@ -108,13 +108,13 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		// todo it might have negative impact on scheduling... need to think about this...
-		idToNodeMap := map[string]*corev1.Node{}
+		idToNodeMap := map[string]corev1.Node{}
 		for _, node := range nodeList.Items {
-			nodeId, err := annotations.GetNodeID(&node, c.annotationKey, c.featureChecker)
+			nodeID, err := annotations.GetNodeID(&node, c.annotationKey, c.featureChecker)
 			if err != nil {
 				c.log.Errorf("failed to get NodeID: %s", err)
 			}
-			idToNodeMap[nodeId] = &node
+			idToNodeMap[nodeID] = node
 		}
 
 		// todo pass requested nodes to the capacity manager for placing
@@ -133,7 +133,8 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			if placingForNode == nil {
 				continue
 			}
-			matchedNodes = append(matchedNodes, *node)
+			matchedNodes = append(matchedNodes, node)
+			c.log.Infof("Matched node Id: %s, name %s", id, node.Name)
 		}
 		if len(matchedNodes) != 0 {
 			reservationHelper := capacityplanner.NewReservationHelper(c.log, c.client, acReader, acrReader)

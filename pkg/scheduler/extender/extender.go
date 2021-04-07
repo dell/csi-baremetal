@@ -372,7 +372,16 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 		return matchedNodes, failedNodesMap, nil
 	case v1.ReservationRejected:
 		// no available capacity
-		return nil, nil, errors.New("No available capacity found for pod " + pod.Name)
+		// request reservation again
+		// todo when to cancel?
+		reservationCustomResource.Spec.Status = v1.ReservationRequested
+		if err := e.k8sClient.UpdateCR(ctx, reservationCustomResource); err != nil {
+			// cannot update reservation
+			return nil, nil, err
+		}
+		// not an error - reservation requested
+		return nil, nil, nil
+		//return nil, nil, errors.New("No available capacity found for pod " + pod.Name)
 	case v1.ReservationCancelled:
 		// request again?
 		return nil, nil, nil

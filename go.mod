@@ -8,6 +8,7 @@ require (
 	github.com/coreos/rkt v1.30.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/golang/protobuf v1.3.5
+	github.com/golangplus/testing v0.0.0-20180327235837-af21d9c3145e
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0

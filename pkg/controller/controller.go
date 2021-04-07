@@ -167,10 +167,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}
 
 	var (
-		fsType           string
-		mode             string
-		vol              *api.Volume
-		ctxWithNamespace = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
+		fsType   string
+		mode     string
+		vol      *api.Volume
+		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
 
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
@@ -180,7 +180,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		mode = apiV1.ModeRAW
 	}
 	c.reqMu.Lock()
-	vol, err = c.svc.CreateVolume(ctxWithNamespace, api.Volume{
+	vol, err = c.svc.CreateVolume(ctxValue, api.Volume{
 		Id:           req.Name,
 		StorageClass: util.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
 		NodeId:       preferredNode,
