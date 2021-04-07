@@ -7,7 +7,7 @@ Bare-metal CSI Driver is a [CSI spec](https://github.com/container-storage-inter
 
 Supported environments
 ----------------------
-- **Kubernetes**: 1.18, 1.19
+- **Kubernetes**: 1.18
 - **OpenShift**: 4.6
 - **Node OS**:
   - Ubuntu 18.04 LTS
@@ -51,9 +51,17 @@ Installation process
     
     1.1. Build
  
-    - *go version 1.14.2*
+    - *docker >= 17.09*
     
-    - *protoc version 3*
+    - *go version >= 1.15.2*
+
+    - *protoc version 3* & *protoc-gen-go 1.3.5*
+
+        - To install execute `make install-protoc`
+
+    - *controller-gen 0.2.2*
+
+        - To install execute `make install-controller-gen`
         
     1.2. Installation 
     
@@ -71,7 +79,7 @@ Installation process
     
     2.2 Build images
         
-    ```REGISTRY=<your-registry.com> make images push```
+    ```REGISTRY=<your-registry.com> make images```
     
     2.3 Push images to your registry server
         
@@ -91,15 +99,40 @@ Installation process
 
     - Vanilla Kubernetes
         
-    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag> --set feature.usenodeannotation=true --set patcher.enable=true --set patcher.restore_on_shutdown=true```
+    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
 
     - OpenShift
 
+    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag> --set patcher.enable=false```
+
     ```chmod +x pkg/scheduler/patcher/openshift_patcher.sh && pkg/scheduler/patcher/openshift_patcher.sh --install```
     
-3. Check default storage classes available
+4. Check default storage classes available
 
     ```kubectl get storageclasses```
+
+5. To obtain information about:
+
+    5.1 Node IDs assigned by CSI:
+
+    ```kubectl get nodes.csi-baremetal.dell.com```
+
+    5.2 Local Drives discovered by CSI:
+
+    ```kubectl get drives.csi-baremetal.dell.com```
+
+    5.3 Capacity available for allocation:
+
+    ```kubectl get  availablecapacities.csi-baremetal.dell.com```
+
+    5.4 Provisioned logical volume groups:
+
+    ```kubectl get logicalvolumegroups.csi-baremetal.dell.com```
+
+    5.4 Provisioned volumes:
+
+    ```kubectl get volumes.csi-baremetal.dell.com```
+
 
 Usage
 ------
