@@ -1,14 +1,18 @@
-Bare-metal CSI Plugin
+Bare-metal CSI Driver
 =====================
 
-Bare-metal CSI Plugin is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached drives for Kubernetes.
+Bare-metal CSI Driver is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached drives for Kubernetes.
 
-- **Project status**: Alpha - no backward compatibility is provided   
+- **Project status**: Beta - no backward compatibility is provided   
 
 Supported environments
 ----------------------
-- **Kubernetes**: 1.18
-- **Node OS**: Ubuntu 18.10  
+- **Kubernetes**: 1.18, 1.19
+- **OpenShift**: 4.6
+- **Node OS**:
+  - Ubuntu 18.04 LTS
+  - Red Hat Enterprise Linux 7.7 / CoreOS 4.6   
+  - CentOS Linux 7.9 / 
 - **Helm**: 3.0
   
 Features
@@ -21,41 +25,71 @@ Features
 - Drive health detection
 - Scheduler extender
 - Support unique ID for each node in the K8s cluster
-
-### Planned features
 - Service procedures - node and disk replacement
 - Volume expand support
+- Raw block mode
+- Ability to deploy on subset of nodes within cluster
+
+### Planned features
 - User defined storage classes
 - NVMeOf support
-- Cross-platform
-- Raw block mode
+- CSI Operator
+- Kubernetes Scheduler
+- SMART Self Test execution
+- Volume cloning
+- Support of additional Linux distributions/versions
+
+Related repositories
+--------
+- [Bare-metal CSI Operator](https://github.com/dell/csi-baremetal-operator) - Kubernetes Operator to deploy and manage CSI
+- [Bare-metal CSI Scheduling](https://github.com/dell/csi-baremetal-scheduling) - Kubernetes Scheduler and Scheduler Extender to guarantee correct pod placement
 
 Installation process
 ---------------------
 
 1. Pre-requisites
+    
+    1.1. Build
  
-    1.1. *go version 1.14.2*
+    - *go version 1.14.2*
     
-    1.2. *protoc version 3*
-    
-    1.3. [*helm*](https://helm.sh/docs/intro/install/)
-    
-    1.4. *kubectl*
-
-2. Build and deploy CSI plugin
-    
-    2.1 Build Bare-metal CSI Plugin images and push them to your registry server
-    
-    ```REGISTRY=<your-registry.com> make generate-api build images```
-
-    2.2 Deploy CSI plugin 
-    
-    ```cd charts && helm install csi-baremetal-driver csi-baremetal-driver --set global.registry=<your-registry.com> --set image.tag=<tag> --set feature.extender=true```
-    
-    2.3 Deploy Kubernetes scheduler extender 
+    - *protoc version 3*
         
-    ```cd charts && helm install csi-baremetal-scheduler-extender csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
+    1.2. Installation 
+    
+    -  *lvm2* packet installed on the Kubernetes nodes
+    
+    - [*helm*](https://helm.sh/docs/intro/install/)
+    
+    - *kubectl*    
+
+2. Build CSI driver
+    
+    2.1 Build binaries
+    
+    ```make generate-api build```
+    
+    2.2 Build images
+        
+    ```REGISTRY=<your-registry.com> make images push```
+    
+    2.3 Push images to your registry server
+        
+    ```REGISTRY=<your-registry.com> make push```
+    
+3. Deploy CSI Driver
+
+    3.1 Deploy CSI Node Operator
+    
+    ```helm install csi-baremetal-operator charts/csi-baremetal-operator --set global.registry=<your-registry.com> --set image.tag=<tag>```
+    
+    3.2 Deploy CSI plugin 
+    
+    ```helm install csi-baremetal-driver charts/csi-baremetal-driver --set global.registry=<your-registry.com> --set image.tag=<tag> --set feature.extender=true```
+    
+    3.3 Deploy Kubernetes scheduler extender 
+        
+    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
     
 3. Check default storage classes available
 
