@@ -1,7 +1,7 @@
 Bare-metal CSI Driver
 =====================
 
-Bare-metal CSI Driver is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached drives for Kubernetes.
+Bare-metal CSI Driver is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached disks for Kubernetes.
 
 - **Project status**: Beta - no backward compatibility is provided   
 
@@ -83,26 +83,23 @@ Installation process
     
     ```helm install csi-baremetal-operator charts/csi-baremetal-operator --set global.registry=<your-registry.com> --set image.tag=<tag>```
     
-    3.2 Deploy CSI plugin 
+    3.2 Deploy CSI Driver
     
-    ```helm install csi-baremetal-driver charts/csi-baremetal-driver --set global.registry=<your-registry.com> --set image.tag=<tag> --set feature.extender=true```
+    ```helm install csi-baremetal-driver charts/csi-baremetal-driver --set global.registry=<your-registry.com> --set image.tag=<tag>```
     
-    3.3 Deploy Kubernetes scheduler extender 
+    3.3 Deploy Kubernetes scheduler extender
+
+    - Vanilla Kubernetes
         
-    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
+    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag> --set feature.usenodeannotation=true --set patcher.enable=true --set patcher.restore_on_shutdown=true```
+
+    - OpenShift
+
+    ```chmod +x pkg/scheduler/patcher/openshift_patcher.sh && pkg/scheduler/patcher/openshift_patcher.sh --install```
     
 3. Check default storage classes available
 
     ```kubectl get storageclasses```
-
-4. Unique node ID support
-   In order to support physical [node replacement](https://github.com/dell/csi-baremetal/blob/master/docs/proposals/node_replacement.md) during which drives remain same CSIBMNode operator should be installed before plugin and extender installation.
-    
-    ``` helm install operator charts/csibm-operator --set image.registry=<your-registry.com> --set image.tag=<tag> ```
-   All options could be found in [values.yaml](https://github.com/dell/csi-baremetal/blob/master/charts/csibm-operator/values.yaml)'
-
-   For using generated ID in plugin and extender they should be installed with next feature option:
-   ``` --set feature.usenodeannotation=true ```
 
 Usage
 ------
