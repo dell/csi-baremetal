@@ -39,7 +39,7 @@ spec:
         - "--v=5"
         - "--feature-gates=Topology=true"
         - "--extra-create-metadata"
-        - "--timeout=60"
+        - "--timeout={{.Values.provisioner.timeout}}"
         env:
         - name: ADDRESS
           value: /csi/csi.sock
