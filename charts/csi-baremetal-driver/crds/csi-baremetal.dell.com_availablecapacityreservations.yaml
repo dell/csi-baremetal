@@ -57,30 +57,38 @@ spec:
           properties:
             Namespace:
               type: string
-            Nodes:
+            NodeRequests:
+              properties:
+                Requested:
+                  description: requested - filled by scheduler/extender
+                  items:
+                    type: string
+                  type: array
+                Reserved:
+                  description: reserved - filled by csi driver controller
+                  items:
+                    type: string
+                  type: array
+              type: object
+            ReservationRequests:
               items:
                 properties:
-                  Id:
-                    type: string
-                  Score:
-                    format: int64
-                    type: integer
-                type: object
-              type: array
-            Requests:
-              items:
-                properties:
-                  Name:
-                    type: string
+                  CapacityRequest:
+                    description: request per volume filled by scheduler/extender
+                    properties:
+                      Name:
+                        type: string
+                      Size:
+                        format: int64
+                        type: integer
+                      StorageClass:
+                        type: string
+                    type: object
                   Reservations:
+                    description: reservation filled by csi driver controller
                     items:
                       type: string
                     type: array
-                  Size:
-                    format: int64
-                    type: integer
-                  StorageClass:
-                    type: string
                 type: object
               type: array
             Status:

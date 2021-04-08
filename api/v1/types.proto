@@ -53,20 +53,28 @@ message AvailableCapacity {
 message AvailableCapacityReservation {
     string Namespace = 1;
     string Status = 2;
-    repeated NodeRequest Nodes = 3;
-    repeated ReservationRequest Requests = 4;
+    NodeRequests NodeRequests = 3;
+    repeated ReservationRequest ReservationRequests = 4;
 }
 
-message NodeRequest {
-    string Id = 1;
-    int64 Score = 2;
+message NodeRequests {
+    // requested - filled by scheduler/extender
+    repeated string Requested = 1;
+    // reserved - filled by csi driver controller
+    repeated string Reserved = 2;
 }
 
 message ReservationRequest {
+    // request per volume filled by scheduler/extender
+    CapacityRequest CapacityRequest = 1;
+    // reservation filled by csi driver controller
+    repeated string Reservations = 2;
+}
+
+message CapacityRequest {
     string Name = 1;
     string StorageClass = 2;
     int64 Size = 3;
-    repeated string Reservations = 4;
 }
 
 message LogicalVolumeGroup {
