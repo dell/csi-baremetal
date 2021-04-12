@@ -181,9 +181,10 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 
 			ll.Infof("%s reservation namespace: %s", reservation.Name, reservation.Spec.Namespace)
 			if reservation.Spec.Namespace == namespace {
-				for i, request := range reservation.Spec.Requests {
-					ll.Infof("%s reservation request name: %s, number: %d", reservation.Name, request.Name, i)
-					if request.Name == volumeInfo.Name {
+				for i, request := range reservation.Spec.ReservationRequests {
+					name := request.CapacityRequest.Name
+					ll.Infof("%s reservation request name: %s, number: %d", reservation.Name, name, i)
+					if name == volumeInfo.Name {
 						podReservation = &reservation
 						requestNum = i
 						break
@@ -204,7 +205,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 
 		capacity := &accrd.AvailableCapacity{}
 		isFound := false
-		for _, capacityName := range podReservation.Spec.Requests[requestNum].Reservations {
+		for _, capacityName := range podReservation.Spec.ReservationRequests[requestNum].Reservations {
 			// at first check whether volume CR exist or no
 			err = vo.k8sClient.ReadCR(ctx, capacityName, "", capacity)
 			if err != nil {
@@ -304,7 +305,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
 		if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
-			orig := podReservation.Spec.Requests
+			orig := podReservation.Spec.ReservationRequests
 			size := len(orig)
 			if size == 1 {
 				// delete
@@ -317,7 +318,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			orig[len(orig)-1] = nil
 			orig = orig[:len(orig)-1]
 
-			podReservation.Spec.Requests = orig
+			podReservation.Spec.ReservationRequests = orig
 			// update
 			// delete
 			if err := vo.k8sClient.UpdateCR(ctxWithID, podReservation); err != nil {

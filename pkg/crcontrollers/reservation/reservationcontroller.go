@@ -81,9 +81,10 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	case v1.ReservationRequested:
 		// not an error - reservation requested
 		// convert to volumes
-		volumes := make([]*v1api.Volume, len(reservation.Spec.Requests))
-		for i, request := range reservation.Spec.Requests {
-			volumes[i] = &v1api.Volume{Id: request.Name, Size: request.Size, StorageClass: request.StorageClass}
+		volumes := make([]*v1api.Volume, len(reservation.Spec.ReservationRequests))
+		for i, request := range reservation.Spec.ReservationRequests {
+			capacity := request.CapacityRequest
+			volumes[i] = &v1api.Volume{Id: capacity.Name, Size: capacity.Size, StorageClass: capacity.StorageClass}
 		}
 
 		// convert to nodes

@@ -277,8 +277,8 @@ func (rcm *ReservedCapacityManager) update(ctx context.Context, info *util.Volum
 	}
 	filteredACRs := FilterACRList(acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
 		if acr.Namespace == info.Namespace {
-			for _, request := range acr.Spec.Requests {
-				if request.Name == info.Name {
+			for _, request := range acr.Spec.ReservationRequests {
+				if request.CapacityRequest.Name == info.Name {
 					return true
 				}
 			}

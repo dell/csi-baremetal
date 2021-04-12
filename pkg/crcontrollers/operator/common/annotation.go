@@ -40,6 +40,8 @@ func GetNodeIDByName(client k8sClient.Client, nodeName string, annotationKey str
 // GetNodeID return special id for k8sNode
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
 func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
+	// node name
+	name := k8sNode.Name
 	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
 		akey, err := chooseAnnotationKey(annotationKey, featureChecker)
 		if err != nil {
@@ -49,11 +51,16 @@ func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featur
 		if val, ok := k8sNode.GetAnnotations()[akey]; ok {
 			return val, nil
 		}
-		return "", fmt.Errorf("annotation %s hadn't been set for node %s", akey, k8sNode.Name)
+		return "", fmt.Errorf("annotation %s hadn't been set for node %s", akey, name)
 	}
 
 	// use standard UID if uniq nodeID usage isn't enabled
-	return string(k8sNode.UID), nil
+	id := string(k8sNode.UID)
+	if id == "" {
+		return "", fmt.Errorf("uid for node %s is not set", name)
+	}
+
+	return id, nil
 }
 
 func chooseAnnotationKey(annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {

@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	coreV1 "k8s.io/api/core/v1"
@@ -35,7 +34,6 @@ import (
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
@@ -45,6 +43,7 @@ import (
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
+// todo review all tests. some might not be relevant
 var (
 	testLogger = logrus.New()
 	testCtx    = context.Background()
@@ -146,7 +145,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	// create PVCs and SC
 	applyObjs(t, e.k8sClient, &testPVC1, &testPVC2, &testSC1)
 
-	volumes, err := e.gatherVolumesByProvisioner(testCtx, &pod)
+	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(volumes))
 }
@@ -156,11 +155,11 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 
 	// sc mapping empty
 	pod := testPod
-	volumes, err := e.gatherVolumesByProvisioner(testCtx, &pod)
+	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
 	assert.NotNil(t, err)
 
-	// constructVolumeFromCSISource failed
+	// createCapacityRequest failed
 	pod = testPod
 	badCSIVolumeSrc := testCSIVolumeSrc
 	badCSIVolumeSrc.VolumeAttributes = map[string]string{}
@@ -171,10 +170,10 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	// create SC
 	applyObjs(t, e.k8sClient, &testSC1)
 
-	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
+	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(volumes))
-	assert.True(t, volumes[0].Ephemeral)
+	//assert.True(t, volumes[0].Ephemeral)
 	// any because storageType key missing in csi volume sourc
 	assert.Equal(t, v1.StorageClassAny, volumes[0].StorageClass)
 
@@ -188,7 +187,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 			},
 		},
 	})
-	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
+	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
 	assert.NotNil(t, err)
 
@@ -206,7 +205,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 		},
 	}}
 
-	volumes, err = e.gatherVolumesByProvisioner(testCtx, &pod)
+	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
 	assert.NotNil(t, volumes)
 	assert.Equal(t, 1, len(volumes))
@@ -217,15 +216,15 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 	e := setup(t)
 	expectedSize, err := util.StrToBytes(testSizeStr)
 	assert.Nil(t, err)
-	expectedVolume := &genV1.Volume{
+	request := &genV1.CapacityRequest{
 		StorageClass: util.ConvertStorageClass(testStorageType),
 		Size:         expectedSize,
-		Ephemeral:    true,
+		//Ephemeral:    true,
 	}
 
-	curr, err := e.constructVolumeFromCSISource(&testCSIVolumeSrc)
+	curr, err := e.createCapacityRequest(&testCSIVolumeSrc)
 	assert.Nil(t, err)
-	assert.Equal(t, expectedVolume, curr)
+	assert.Equal(t, request, curr)
 
 }
 
@@ -237,9 +236,9 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 
 	// missing storage type
 	v.VolumeAttributes = map[string]string{}
-	expected := &genV1.Volume{StorageClass: v1.StorageClassAny, Ephemeral: true}
+	expected := &genV1.CapacityRequest{StorageClass: v1.StorageClassAny/*, Ephemeral: true*/}
 
-	curr, err := e.constructVolumeFromCSISource(&v)
+	curr, err := e.createCapacityRequest(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -247,8 +246,8 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 
 	// missing size
 	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
-	expected = &genV1.Volume{StorageClass: util.ConvertStorageClass(testStorageType), Ephemeral: true}
-	curr, err = e.constructVolumeFromCSISource(&v)
+	expected = &genV1.CapacityRequest{StorageClass: util.ConvertStorageClass(testStorageType), /*Ephemeral: true*/}
+	curr, err = e.createCapacityRequest(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -258,8 +257,8 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
 	sizeStr := "12S12"
 	v.VolumeAttributes[base.SizeKey] = sizeStr
-	expected = &genV1.Volume{StorageClass: util.ConvertStorageClass(testStorageType), Ephemeral: true}
-	curr, err = e.constructVolumeFromCSISource(&v)
+	expected = &genV1.CapacityRequest{StorageClass: util.ConvertStorageClass(testStorageType), /*Ephemeral: true*/}
+	curr, err = e.createCapacityRequest(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
@@ -268,6 +267,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 
 func TestExtender_filterSuccess(t *testing.T) {
 	var (
+		podName	  = "mypod"
 		node1Name = "NODE-1"
 		node2Name = "NODE-2"
 		node3Name = "NODE-3"
@@ -283,47 +283,69 @@ func TestExtender_filterSuccess(t *testing.T) {
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node2UID), Name: node2Name}},
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node3UID), Name: node3Name}},
 	}
+	
+	pod := &coreV1.Pod{
+		ObjectMeta: metaV1.ObjectMeta{Name: podName},
+	}
 
 	// empty volumes
 	e = setup(t)
-	matched, failed, err := e.filter(testCtx, nil, nodes, nil)
+	matched, failed, err := e.filter(testCtx, pod, nodes, nil)
 	assert.Nil(t, err)
 	assert.Nil(t, failed)
 	assert.Equal(t, len(nodes), len(matched))
 
 	// different scenarios
 	e = setup(t)
+	capacities := make([]*genV1.CapacityRequest, 1)
 
-	acs := []accrd.AvailableCapacity{
-		// NODE-1 ACs, HDD[50Gb, 100Gb]
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 50*int64(util.GBYTE) + int64(util.MBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)}),
-		// NODE-2 ACs, HDD[100Gb], SSD[50Gb]
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 100*int64(util.GBYTE) + int64(util.MBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 50*int64(util.GBYTE) + int64(util.MBYTE)}),
-		// NODE-3 ACs, HDDLVG[150Gb], SSDLVG[100Gb]
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)}),
-		*e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)}),
-	}
+	// reservation requested
+	reservation := *e.k8sClient.ConstructACRCR(getReservationName(pod), genV1.AvailableCapacityReservation{
+		Status: v1.ReservationRequested})
+	assert.Nil(t, e.k8sClient.Create(testCtx, &reservation))
 
-	// create all AC
+	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
+	assert.Nil(t, err)
+	assert.Nil(t, matched)
+	assert.Nil(t, failed)
+
+	// todo implement this use cases
+	/*// reservation confirmed
+	reservation.Spec.Status = v1.ReservationConfirmed
+	assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))
+	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
+	assert.Nil(t, err)
+	assert.Nil(t, matched)
+	assert.Nil(t, failed)
+
+	// reservation rejected
+	reservation.Spec.Status = v1.ReservationRejected
+	assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))
+	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
+	assert.Nil(t, err)
+	assert.Nil(t, matched)
+	assert.Nil(t, failed)
+
+	// reservation cancelled
+	reservation.Spec.Status = v1.ReservationCancelled
+	assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))
+	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
+	assert.Nil(t, err)
+	assert.Nil(t, matched)
+	assert.Nil(t, failed)*/
+
+	/*// create all AC
 	for _, ac := range acs {
 		assert.Nil(t, e.k8sClient.Create(testCtx, &ac))
-	}
+	}*/
 
-	testCases := []struct {
-		Volumes           []*genV1.Volume
+	/*testCases := []struct {
+		CapacityRequests  []*genV1.CapacityRequest
 		ExpectedNodeNames []string
 		Msg               string
 	}{
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
 			},
@@ -331,14 +353,14 @@ func TestExtender_filterSuccess(t *testing.T) {
 			Msg:               "Volumes: HDD[50Gb, 100Gb]; Expected nodes: [NODE-1]",
 		},
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node2Name},
 			Msg:               "Volumes: SSD[50Gb]; Expected nodes: [NODE-2]",
 		},
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassAny, Size: 150 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassAny, Size: 100 * int64(util.GBYTE)},
 			},
@@ -346,14 +368,14 @@ func TestExtender_filterSuccess(t *testing.T) {
 			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: []",
 		},
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node1Name, node2Name},
 			Msg:               "Volumes: HDD[80Gb]; Expected nodes: [NODE-1, NODE-2]",
 		},
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
@@ -362,7 +384,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 			Msg:               "Volumes: HDDLVG[50Gb, 50Gb, 50Gb]; Expected nodes: [NODE-1, NODE-3]",
 		},
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassSSDLVG, Size: 50 * int64(util.GBYTE)},
 			},
@@ -370,14 +392,14 @@ func TestExtender_filterSuccess(t *testing.T) {
 			Msg:               "Volumes: HDDLVG[100Gb], SSDLVG[50Gb]; Expected nodes: [NODE-2, NODE-3]",
 		},
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node1Name, node2Name, node3Name},
 			Msg:               "Volumes: HDDLVG[100Gb]; Expected nodes: [NODE-1, NODE-2, NODE-3]",
 		},
 		{
-			Volumes: []*genV1.Volume{
+			CapacityRequests: []*genV1.CapacityRequest{
 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
 			},
@@ -387,7 +409,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		matchedNodes, failedNode, err := e.filter(testCtx, nil, nodes, testCase.Volumes)
+		matchedNodes, failedNode, err := e.filter(testCtx, nil, nodes, testCase.CapacityRequests)
 		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
 		matchedNodeNames := getNodeNames(matchedNodes)
 		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
@@ -398,21 +420,21 @@ func TestExtender_filterSuccess(t *testing.T) {
 		acrList := &acrcrd.AvailableCapacityReservationList{}
 		assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList), testCase.Msg)
 		if len(testCase.ExpectedNodeNames) > 0 {
-			assert.Equal(t, len(testCase.Volumes), len(acrList.Items), testCase.Msg)
+			assert.Equal(t, len(testCase.CapacityRequests), len(acrList.Items), testCase.Msg)
 		}
 
 		reservedACCount := 0
-		/*for _, acr := range acrList.Items {
+		for _, acr := range acrList.Items {
 			reservedACCount += len(acr.Spec.Reservations)
-		}*/
-		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.Volumes), reservedACCount, testCase.Msg)
+		}
+		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.CapacityRequests), reservedACCount, testCase.Msg)
 
 		for _, n := range testCase.ExpectedNodeNames {
 			assert.True(t, util.ContainsString(matchedNodeNames, n),
 				fmt.Sprintf("Matched nodes: %v, msg - %s", matchedNodeNames, testCase.Msg))
 		}
 		removeAllACRs(e.k8sClient, t)
-	}
+	}*/
 }
 
 func TestExtender_getSCNameStorageType_Success(t *testing.T) {
@@ -584,22 +606,34 @@ func Test_createReservation(t *testing.T) {
 	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
 	name := getReservationName(pod)
 	// volumes
-	volumes := []*genV1.Volume{{Id: "pvc-1", Size: 100, StorageClass: "HDD"}}
+	capacityRequests := []*genV1.CapacityRequest{{Name: "pvc-1", Size: 100, StorageClass: "HDD"}}
 	// nodes
-	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1"}}}
-	reservation := createReservation(namespace, name,  nodes, volumes)
-	assert.Equal(t, name, reservation.Name)
-	assert.Equal(t, namespace, reservation.Spec.Namespace)
-	assert.Equal(t, len(nodes), len(reservation.Spec.Nodes))
-	assert.Equal(t, len(volumes), len(reservation.Spec.Requests))
+	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", UID: "uuid-1"}}}
+
+	e := setup(t)
+	err := e.createReservation(testCtx, namespace, name,  nodes, capacityRequests)
+	assert.Nil(t, err)
+
+	// read back and check fields
+	reservationResource := &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Nil(t, err)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 
 	// empty namespace
 	namespace = ""
 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
 	name = getReservationName(pod)
-	reservation = createReservation(namespace, name,  nodes, volumes)
-	assert.Equal(t, name, reservation.Name)
-	assert.Equal(t, namespace, reservation.Spec.Namespace)
-	assert.Equal(t, len(nodes), len(reservation.Spec.Nodes))
-	assert.Equal(t, len(volumes), len(reservation.Spec.Requests))
+	err = e.createReservation(testCtx, namespace, name,  nodes, capacityRequests)
+	assert.Nil(t, err)
+
+	reservationResource = &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 }

@@ -183,16 +183,16 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 }
 
 // ConstructACRCR constructs AvailableCapacityReservation custom resource from api.AvailableCapacityReservation struct
-// Receives an instance of api.AvailableCapacityReservation struct
+// Receives name and instance of api.AvailableCapacityReservation struct
 // Returns pointer on AvailableCapacityReservation CR struct
-func (k *KubeClient) ConstructACRCR(apiACR api.AvailableCapacityReservation) *acrcrd.AvailableCapacityReservation {
+func (k *KubeClient) ConstructACRCR(name string, apiACR api.AvailableCapacityReservation) *acrcrd.AvailableCapacityReservation {
 	return &acrcrd.AvailableCapacityReservation{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.AvailableCapacityReservationKind,
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: "apiACR.Name",
+			Name: name,
 		},
 		Spec: apiACR,
 	}

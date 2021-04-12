@@ -19,6 +19,7 @@ package capacityplanner
 import (
 	"context"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
@@ -99,9 +100,10 @@ func (acr *ACRReader) ReadReservations(ctx context.Context) ([]acrcrd.AvailableC
 }
 
 // ReadReservation returns ACR which was read from kubernetes API
-func (acr *ACRReader) ReadReservation(ctx context.Context, namespace string, name string) (*acrcrd.AvailableCapacityReservation, error) {
+func (acr *ACRReader) ReadReservation(ctx context.Context, name string) (*acrcrd.AvailableCapacityReservation, error) {
 	logger := util.AddCommonFields(ctx, acr.logger, "ACRReader.ReadReservations")
 
+	// todo do we need caching support for reservations?
 	/*if acr.cached && acr.cache != nil {
 		logger.Tracef("Read AvailableCapacityReservations from cache: %+v", acr.cache)
 		return acr.cache, nil
@@ -109,13 +111,18 @@ func (acr *ACRReader) ReadReservation(ctx context.Context, namespace string, nam
 
 	reservation := &acrcrd.AvailableCapacityReservation{}
 
-	if err := acr.client.ReadCR(ctx, name, namespace, reservation); err != nil {
-		// todo check for not found
-		logger.Errorf("failed to read ACR %s: %s", name, err.Error())
+	// ACR is cluster scoped
+	if err := acr.client.ReadCR(ctx, name, "", reservation); err != nil {
+		// don't print error message when not found since expected
+		if !errors.IsNotFound(err) {
+			logger.Errorf("failed to read ACR %s: %s", name, err.Error())
+		}
 		return reservation, err
 	}
 
 	return reservation, nil
+
+	// todo do we need caching support for reservations?
 	/*logger.Tracef("Read AvailableCapacityReservations: %+v", acrList.Items)
 	if acr.cached {
 		acr.cache = acrList.Items

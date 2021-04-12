@@ -76,17 +76,17 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 		nameToCapacity[volume.Id] = capacity
 	}
 
-	for _, request := range reservation.Spec.Requests {
-		acs := nameToCapacity[request.Name]
+	for _, request := range reservation.Spec.ReservationRequests {
+		acs := nameToCapacity[request.CapacityRequest.Name]
 		request.Reservations = make([]string, len(acs))
 		for i := 0; i < len(acs); i++ {
 			request.Reservations[i] = acs[i].Name
 		}
 	}
 
-	reservation.Spec.Nodes = make([]*genV1.NodeRequest, len(nodes))
+	reservation.Spec.NodeRequests.Reserved = make([]string, len(nodes))
 	for i, node := range nodes {
-		reservation.Spec.Nodes[i] = &genV1.NodeRequest{Id: node.Name}
+		reservation.Spec.NodeRequests.Reserved[i] = node.Name
 	}
 
 	// confirm reservation
@@ -320,7 +320,7 @@ func FilterACList(
 func buildACInACRMap(acrs []acrcrd.AvailableCapacityReservation) map[string]struct{} {
 	acMap := map[string]struct{}{}
 	for _, acr := range acrs {
-		for _, request := range acr.Spec.Requests {
+		for _, request := range acr.Spec.ReservationRequests {
 			for _, acName := range request.Reservations {
 				acMap[acName] = struct{}{}
 			}
