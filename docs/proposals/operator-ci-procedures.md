@@ -68,7 +68,7 @@ Versions:
 
 - csi-baremetal-##mgr docker image -> green
 
-####csi-baremetal-operator-ci
+#### csi-baremetal-operator-ci
 
 e2e testing stage: deploy csi-baremetal-CR with operator + perform all e2e tests
 
