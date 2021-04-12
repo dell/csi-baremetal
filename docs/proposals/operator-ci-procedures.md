@@ -9,7 +9,7 @@ csi-baremetal-operator (https://github.com/dell/csi-baremetal-operator) must be 
 
 ## Proposal
 
-####csi-baremetal-operator-build
+#### csi-baremetal-operator-build
 
 Linting & unity testing & bulding stages
 
@@ -23,7 +23,7 @@ Promoted artifacts:
 
 The artifacts have equal version gotten from 'make version'
 
-####csi-baremetal-build
+#### csi-baremetal-build
 
 Linting & unity testing & bulding stages
 
@@ -43,7 +43,7 @@ Promoted artifacts:
 
 The artifacts have equal version gotten from 'make version'
 
-####csi-baremetal-operator-ci
+#### csi-baremetal-operator-ci
 
 e2e testing stage: deploy csi-baremetal-CR with operator + perform base tests
 
@@ -93,7 +93,7 @@ Versions:
 
 - csi-baremetal-##mgr docker image -> ${new_version}
 
-####csi-custom-build and csi-custom-ci
+#### csi-custom-build and csi-custom-ci
 
 It can be used for testing changes in one or in both repositories.
 
