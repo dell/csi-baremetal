@@ -20,7 +20,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,12 +38,14 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 	plan := getSimpleVolumePlacingPlan()
 
 	reservation := genV1.AvailableCapacityReservation{}
-	reservation.Requests = make([]*genV1.ReservationRequest, 0)
+	reservation.ReservationRequests = make([]*genV1.ReservationRequest, 0)
 	for volume := range plan.GetACsForVolumes() {
-		reservation.Requests = append(reservation.Requests, &genV1.ReservationRequest{
-			Name: volume.Id,
-			Size: volume.Size,
-			StorageClass: volume.StorageClass,
+		reservation.ReservationRequests = append(reservation.ReservationRequests, &genV1.ReservationRequest{
+			CapacityRequest: &genV1.CapacityRequest{
+				Name: volume.Id,
+				Size: volume.Size,
+				StorageClass: volume.StorageClass,
+			},
 		})
 	}
 
@@ -140,7 +141,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 	})
 }
 
-func TestReservationHelper_ExtendReservations(t *testing.T) {
+/*func TestReservationHelper_ExtendReservations(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()
 
@@ -177,9 +178,9 @@ func TestReservationHelper_ExtendReservations(t *testing.T) {
 			// parent AC exist, additional AC already exist
 			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs),
 		}
-		/*testACRs[len(testACRs)-1].Spec.Reservations = append(
+		testACRs[len(testACRs)-1].Spec.Reservations = append(
 			testACRs[len(testACRs)-1].Spec.Reservations, additionalAC)
-*/
+
 		client := getKubeClient(t)
 		createACRsInAPi(t, client, testACRs)
 		createACsInAPi(t, client, testACs)
@@ -194,16 +195,16 @@ func TestReservationHelper_ExtendReservations(t *testing.T) {
 		acrsFromAPI := acrcrd.AvailableCapacityReservationList{}
 		_ = client.List(ctx, &acrsFromAPI)
 		assert.Len(t, acrsFromAPI.Items, len(testACRs))
-		/*for _, acr := range acrsFromAPI.Items {
+		for _, acr := range acrsFromAPI.Items {
 			switch acr.Name {
 			case testACRs[0].Name, testACRs[2].Name, testACRs[3].Name:
 				assert.Len(t, acr.Spec.Reservations, len(testACs)+1)
 			case testACRs[1].Name:
 				assert.Len(t, acr.Spec.Reservations, len(testACs)-1)
 			}
-		}*/
+		}
 	})
-}
+}*/
 
 func TestReservationFilter(t *testing.T) {
 	testACs := []accrd.AvailableCapacity{

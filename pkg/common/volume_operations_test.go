@@ -49,7 +49,7 @@ func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 
 	v := testVolume1
 	v.Spec.CSIStatus = apiV1.Created
-	ctx := context.WithValue(testCtx, base.VolumeInfo, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
 	err := svc.k8sClient.CreateCR(ctx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
@@ -91,7 +91,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 		}
 	)
 
-	ctx := context.WithValue(testCtx, base.VolumeInfo, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
 
 	capMBuilder, capMMock := getCapacityManagerMock()
 	svc.capacityManagerBuilder = capMBuilder
@@ -154,7 +154,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, &acToReturn).
 		Return(&recreatedAC).Times(1)
 
-	ctx := context.WithValue(testCtx, base.VolumeInfo, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
 	createdVolume, err = svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,
@@ -173,7 +173,7 @@ func TestVolumeOperationsImpl_CreateVolume_FaileCauseExist(t *testing.T) {
 	v := testVolume1
 	v.Spec.CSIStatus = apiV1.Failed
 	svc.cache.Set(v.Name, v.Namespace)
-	ctx := context.WithValue(testCtx, base.VolumeInfo, v.Namespace)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, v.Namespace)
 	assert.Nil(t, svc.k8sClient.CreateCR(ctx, testVolume1Name, &v))
 
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{Id: v.Spec.Id})
@@ -190,7 +190,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailCauseTimeout(t *testing.T) {
 	v.ObjectMeta.CreationTimestamp = v1.Time{
 		Time: time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local),
 	}
-	ctx := context.WithValue(testCtx, base.VolumeInfo, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
 	err := svc.k8sClient.CreateCR(ctx, v.Name, &v)
 	assert.Nil(t, err)
 
@@ -216,7 +216,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
 		Return(nil).Times(1)
 
-	ctx := context.WithValue(testCtx, base.VolumeInfo, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,
@@ -258,7 +258,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 	acProvider.On("RecreateACToLVGSC", ctxWithID, mock.Anything, requiredSC, mock.Anything).
 		Return(nil).Times(1)
 
-	ctx := context.WithValue(testCtx, base.VolumeInfo, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,

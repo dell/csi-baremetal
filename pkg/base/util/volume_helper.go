@@ -26,15 +26,15 @@ const (
 	pvcPrefix = "pvc-"
 	csiPrefix = "csi-"
 
-	// VolumeInfo is the constant for context request
+	// VolumeInfoKey is the constant for context request
 	VolumeInfoKey = "VolumeInfo"
-	// PVCNamespaceKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
+	// ClaimNamespaceKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
 	ClaimNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
-	// PVCNameKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
+	// ClaimNameKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
 	ClaimNameKey = "csi.storage.k8s.io/pvc/name"
 )
 
-// VolumeInfo holds infromation about Kubernetes PVC
+// VolumeInfo holds information about Kubernetes PVC
 type VolumeInfo struct {
 	Namespace string
 	Name      string
@@ -44,41 +44,21 @@ type VolumeInfo struct {
 func NewVolumeInfo(parameters map[string]string) (*VolumeInfo, error) {
 	claimNamespace, ok := parameters[ClaimNamespaceKey]
 	if !ok {
-		return nil, errors.New("Persistent volume claim namespace is not set in request")
+		return nil, errors.New("persistent volume claim namespace is not set in request")
 	}
 	// PVC name
 	claimName, ok := parameters[ClaimNameKey]
 	if !ok {
-		return nil, errors.New("Persistent volume claim name is not set in request")
+		return nil, errors.New("persistent volume claim name is not set in request")
 	}
 
 	return &VolumeInfo{claimNamespace, claimName}, nil
 }
 
+// IsDefaultNamespace returns true when namespace is not defined and false otherwise
 func (v *VolumeInfo) IsDefaultNamespace() bool {
 	return v.Namespace == ""
 }
-
-func (v *VolumeInfo) GetContextKey() string {
-	return VolumeInfoKey
-}
-
-func (v *VolumeInfo) GetNamespaceKey() string {
-	return ClaimNamespaceKey
-}
-
-func (v *VolumeInfo) GetNameKey() string {
-	return ClaimNameKey
-}
-
-/*func (v *VolumeInfo) SetNamespace(namespace string) {
-	v.namespace = namespace
-}
-
-func (v *VolumeInfo) SetName(name string) {
-	v.name = name
-}*/
-
 
 // GetVolumeUUID extracts UUID from volume ID: pvc-<UUID>
 // Method will remove pvcPrefix `pvc-` and return UUID

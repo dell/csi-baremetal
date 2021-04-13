@@ -20,31 +20,33 @@ package main
 import (
 	"flag"
 	"fmt"
-	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
+
+	"net"
+	"net/http"
+	"strconv"
+
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"net"
-	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	// +kubebuilder:scaffold:imports
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
 	"github.com/dell/csi-baremetal/pkg/metrics"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 var (

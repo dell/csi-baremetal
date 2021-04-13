@@ -128,7 +128,7 @@ func (rh *ReservationHelper) ReleaseReservation(
 }
 
 // ExtendReservations allows to add additional AC to ACRs which hold parent AC
-func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
+/*func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 	parentAC *accrd.AvailableCapacity, additionalAC string) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ExtendReservations")
 	if err := rh.updateIfRequired(ctx); err != nil {
@@ -150,7 +150,7 @@ func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 
 	var acrToUpdate []*acrcrd.AvailableCapacityReservation
 
-	/*for _, acr := range acrToCheck {
+	for _, acr := range acrToCheck {
 		alreadyExist := false
 		for _, res := range acr.Spec.Reservations {
 			if res == additionalAC {
@@ -162,7 +162,7 @@ func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 			acr.Spec.Reservations = append(acr.Spec.Reservations, additionalAC)
 			acrToUpdate = append(acrToUpdate, acr)
 		}
-	}*/
+	}
 
 	for _, acr := range acrToUpdate {
 		if err := rh.client.UpdateCR(ctx, acr); err != nil {
@@ -171,7 +171,7 @@ func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 		}
 	}
 	return nil
-}
+}*/
 
 func (rh *ReservationHelper) updateIfRequired(ctx context.Context) error {
 	if rh.updated {

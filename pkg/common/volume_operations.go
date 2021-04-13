@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"strconv"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -101,6 +101,8 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, c
 // CreateVolume searches AC and creates volume CR or returns existed volume CR
 // Receives golang context and api.Volume which is Spec of Volume CR to create
 // Returns api.Volume instance that took the place of chosen by SearchAC method AvailableCapacity CR
+// todo fix linter issue
+//nolint:funlen,gocognit,gocyclo
 func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error) {
 	defer vo.metrics.EvaluateDurationForMethod("CreateVolume")()
 	ll := vo.log.WithFields(logrus.Fields{
@@ -164,7 +166,6 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			requiredBytes = capacityplanner.AlignSizeByPE(requiredBytes)
 		}
 
-		//capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
 		resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, true)
 
 		reservations, err := resReader.ReadReservations(ctxWithID)
@@ -175,6 +176,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		var podReservation *acrcrd.AvailableCapacityReservation
 		var requestNum int
 		for _, reservation := range reservations {
+			reservation := reservation
 			if reservation.Spec.Status != apiV1.ReservationConfirmed {
 				continue
 			}
@@ -225,36 +227,10 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 
 		ac = capacity
 
-		//capacityManager := vo.createCapacityManager(capReader, resReader)
-		//plan, err := capacityManager.PlanVolumesPlacing(ctxWithID, []*api.Volume{&v}, nil)
-		//if err != nil {
-		//	ll.Errorf("error while planning placing for volume: %s", err.Error())
-		//	return nil, err
-		//}
-		//noResourceMsg := fmt.Sprintf("there is no suitable drive for volume %s", v.Id)
-		//if plan == nil {
-		//	return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
-		//}
-		//if v.NodeId == "" {
-		//	v.NodeId = plan.SelectNode()
-		//}
-		//ll.Infof("Try to create volume on node %s", v.NodeId)
-		//ac = plan.GetACForVolume(v.NodeId, &v)
-		//if ac == nil {
-		//	return nil, status.Error(codes.ResourceExhausted, noResourceMsg)
-		//}
-
-		//resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
-
-		//origAC := ac
 		if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
 			// we need to create reservation for newly created LogicalVolumeGroup AC before we sent LogicalVolumeGroup AC to kube-api
 			// this required to prevent race condition between csi-controller and scheduler extender
 			newACName := uuid.New().String()
-			/*if err := resHelper.ExtendReservations(ctx, origAC, newACName); err != nil {
-				return nil, status.Errorf(codes.Internal,
-					"failed to extender reservation after AC conversion %v", err)
-			}*/
 			// AC needs to be converted to LogicalVolumeGroup AC, LogicalVolumeGroup doesn't exist yet
 			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, newACName, v.StorageClass, *ac); ac == nil {
 				return nil, status.Errorf(codes.Internal,
@@ -333,13 +309,13 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	return &volumeCR.Spec, nil
 }
 
-func (vo *VolumeOperationsImpl) createCapacityManager(capReader capacityplanner.CapacityReader,
+/*func (vo *VolumeOperationsImpl) createCapacityManager(capReader capacityplanner.CapacityReader,
 	resReader capacityplanner.ReservationReader) capacityplanner.CapacityPlaner {
 	if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
 		return vo.capacityManagerBuilder.GetReservedCapacityManager(vo.log, capReader, resReader)
 	}
 	return vo.capacityManagerBuilder.GetCapacityManager(vo.log, capReader)
-}
+}*/
 
 // DeleteVolume changes volume CR state and updates it,
 // if volume CR doesn't exists return Not found error and that error should be handled by caller.

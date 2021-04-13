@@ -63,8 +63,7 @@ type PlannerMock struct {
 }
 
 // PlanVolumesPlacing mock implementation of PlanVolumesPlacing
-func (cr *PlannerMock) PlanVolumesPlacing(
-	ctx context.Context, volumes []*genV1.Volume) (*VolumesPlacingPlan, error) {
+func (cr *PlannerMock) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	args := cr.Mock.Called(ctx, volumes)
 
 	volIDToVol := make(map[string]*genV1.Volume, len(volumes))

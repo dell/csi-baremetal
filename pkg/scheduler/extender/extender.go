@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"sync"
@@ -31,7 +29,9 @@ import (
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
@@ -269,7 +269,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				}*/
 
 				requests = append(requests, &genV1.CapacityRequest{
-					Name:           pvc.Name,
+					Name:         pvc.Name,
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
 					/*Mode:         mode,
@@ -314,9 +314,8 @@ func (e *Extender) createCapacityRequest(v *coreV1.CSIVolumeSource) (request *ge
 // nodes - list of node candidate, volumes - requested volumes
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
-func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node,
-	capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
-
+func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
+	filteredNodes schedulerapi.FailedNodesMap, err error) {
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil
@@ -373,7 +372,7 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	reservation.NodeRequests.Requested = make([]string, len(nodes))
 
 	for i, node := range nodes {
-		// scopelint:ignore - not an issue here
+		node := node
 		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("failed to get NodeID: %s", err)
@@ -413,7 +412,8 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 		for _, requestedNode := range nodes {
 			isFound := false
 			// node ID
-			nodeID, err := annotations.GetNodeID(&requestedNode, e.annotationKey, e.featureChecker)
+			node := requestedNode
+			nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
 			if err != nil {
 				e.logger.Errorf("failed to get NodeID: %s", err)
 				continue
@@ -443,7 +443,6 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 		}
 		// not an error - reservation requested
 		return nil, nil, nil
-		//return nil, nil, errors.New("No available capacity found for pod " + pod.Name)
 	case v1.ReservationCancelled:
 		// request again?
 		return nil, nil, nil

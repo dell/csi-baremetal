@@ -18,9 +18,8 @@ package capacityplanner
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	
+
 	"github.com/sirupsen/logrus"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
@@ -69,8 +68,6 @@ type ReservationReader interface {
 type CapacityPlaner interface {
 	// PlanVolumesPlacing plan volumes placing on nodes
 	PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error)
-	// GetVolumePlacingPlan temp solution to finish POC
-	//GetVolumePlacingPlan(ctx context.Context, volume *genV1.Volume, info util.VolumeInfo) (*VolumesPlacingPlan, error)
 }
 
 // CapacityManagerBuilder interface for capacity managers creation
@@ -114,13 +111,6 @@ type CapacityManager struct {
 	nodesCapacity map[string]*nodeCapacity
 }
 
-
-func (cm *CapacityManager) GetVolumePlacingPlan(ctx context.Context, volume *genV1.Volume, info util.VolumeInfo) (*VolumesPlacingPlan, error) {
-	_, _, _ = ctx, volume, info
-
-	return nil, errors.New("Not implemented")
-}
-
 // PlanVolumesPlacing build placing plan for volumes
 func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.PlanVolumesPlacing")
@@ -132,7 +122,7 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 
 	for node := range cm.nodesCapacity {
 		// todo uncomment and fix issue with all reservation being in REJECTED state
-	/*	if nodes != nil {
+		/*	if nodes != nil {
 			if _, ok := nodes[node]; ok {
 				continue
 			}
@@ -221,12 +211,6 @@ type ReservedCapacityManager struct {
 	nodeCapacityMap     NodeCapacityMap
 	acrMap              ACRMap
 	acNameToACRNamesMap ACNameToACRNamesMap
-}
-
-func (rcm *ReservedCapacityManager) GetVolumePlacingPlan(ctx context.Context, volume *genV1.Volume, info util.VolumeInfo) (*VolumesPlacingPlan, error) {
-	_, _, _ = ctx, volume, info
-
-	return nil, errors.New("Not implemented")
 }
 
 // PlanVolumesPlacing build placing plan for reserved volumes
