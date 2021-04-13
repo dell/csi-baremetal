@@ -20,8 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-
+	
 	"github.com/sirupsen/logrus"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
@@ -69,7 +68,7 @@ type ReservationReader interface {
 // CapacityPlaner describes interface for volumes placing planing
 type CapacityPlaner interface {
 	// PlanVolumesPlacing plan volumes placing on nodes
-	PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes map[string]corev1.Node) (*VolumesPlacingPlan, error)
+	PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error)
 	// GetVolumePlacingPlan temp solution to finish POC
 	//GetVolumePlacingPlan(ctx context.Context, volume *genV1.Volume, info util.VolumeInfo) (*VolumesPlacingPlan, error)
 }
@@ -123,8 +122,7 @@ func (cm *CapacityManager) GetVolumePlacingPlan(ctx context.Context, volume *gen
 }
 
 // PlanVolumesPlacing build placing plan for volumes
-func (cm *CapacityManager) PlanVolumesPlacing(
-	ctx context.Context, volumes []*genV1.Volume, nodes map[string]corev1.Node) (*VolumesPlacingPlan, error) {
+func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.PlanVolumesPlacing")
 	err := cm.update(ctx)
 	if err != nil {
@@ -232,8 +230,7 @@ func (rcm *ReservedCapacityManager) GetVolumePlacingPlan(ctx context.Context, vo
 }
 
 // PlanVolumesPlacing build placing plan for reserved volumes
-func (rcm *ReservedCapacityManager) PlanVolumesPlacing(
-	ctx context.Context, volumes []*genV1.Volume, nodes map[string]corev1.Node) (*VolumesPlacingPlan, error) {
+func (rcm *ReservedCapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	logger := util.AddCommonFields(ctx, rcm.logger, "ReservedCapacityManager.PlanVolumesPlacing")
 	if len(volumes) == 0 {
 		return nil, nil

@@ -18,14 +18,13 @@ package capacityplanner
 
 import (
 	"context"
-	v1 "github.com/dell/csi-baremetal/api/v1"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -67,7 +66,7 @@ type ReservationHelper struct {
 
 // CreateReservation create reservation
 func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan,
-	nodes []corev1.Node, reservation *acrcrd.AvailableCapacityReservation) error {
+	nodes []string, reservation *acrcrd.AvailableCapacityReservation) error {
 	defer rh.metric.EvaluateDurationForMethod("CreateReservation")()
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.CreateReservation")
 
@@ -84,11 +83,8 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 		}
 	}
 
-	reservation.Spec.NodeRequests.Reserved = make([]string, len(nodes))
-	for i, node := range nodes {
-		reservation.Spec.NodeRequests.Reserved[i] = node.Name
-	}
-
+	// update reserved nodes
+	reservation.Spec.NodeRequests.Reserved = nodes
 	// confirm reservation
 	reservation.Spec.Status = v1.ReservationConfirmed
 	if err := rh.client.UpdateCR(ctx, reservation); err != nil {
@@ -112,7 +108,7 @@ func (rh *ReservationHelper) ReleaseReservation(
 	// we should select ACR to remove from ACRs which have same size and SC as volume
 	filteredACRMap, filteredACNameToACR := buildACRMaps(
 		FilterACRList(rh.acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
-			return true/*acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size*/
+			return true /*acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size*/
 		}))
 	_, acrToRemove := choseACFromOldestACR(ACMap{ac.Name: ac}, filteredACRMap, filteredACNameToACR)
 	if acrToRemove == nil {

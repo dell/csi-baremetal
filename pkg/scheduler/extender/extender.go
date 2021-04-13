@@ -405,20 +405,28 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 	switch reservation.Spec.Status {
 	case v1.ReservationRequested:
 		// not an error - reservation requested. need to retry
+		// todo check that requested nodes update
 		return nil, nil, nil
 	case v1.ReservationConfirmed:
 		// need to filter nodes here
 		filteredNodes = schedulerapi.FailedNodesMap{}
 		for _, requestedNode := range nodes {
 			isFound := false
-			name := requestedNode.Name
+			// node ID
+			nodeID, err := annotations.GetNodeID(&requestedNode, e.annotationKey, e.featureChecker)
+			if err != nil {
+				e.logger.Errorf("failed to get NodeID: %s", err)
+				continue
+			}
 			for _, node := range reservation.Spec.NodeRequests.Reserved {
-				if name == node {
+				if node == nodeID {
 					matchedNodes = append(matchedNodes, requestedNode)
 					isFound = true
 					break
 				}
 			}
+			// node name
+			name := requestedNode.Name
 			if !isFound {
 				filteredNodes[name] = fmt.Sprintf("No available capacity found on the node %s", name)
 			}

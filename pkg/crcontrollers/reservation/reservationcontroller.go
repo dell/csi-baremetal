@@ -2,19 +2,17 @@ package reservation
 
 import (
 	"context"
-	v1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1api "github.com/dell/csi-baremetal/api/generated/v1"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	metrics "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
@@ -72,29 +70,30 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// obtain corresponding reservation
 	reservation := &acrcrd.AvailableCapacityReservation{}
 	if err := c.client.ReadCR(ctx, name, "", reservation); err != nil {
-		log.Errorf("Failed to read available capacity reservation %s CR", name)
+		log.Warningf("Failed to read available capacity reservation %s CR", name)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log.Infof("Reservation changed: %v", reservation)
-	switch reservation.Spec.Status {
+	log.Debugf("Reservation changed: %v", reservation)
+	return c.handleReservationUpdate(ctx, log, reservation)
+}
+
+func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.Entry,
+	reservation *acrcrd.AvailableCapacityReservation) (ctrl.Result, error) {
+	reservationSpec := &reservation.Spec
+	// check status
+	status := reservationSpec.Status
+	log.Infof("Reservation status: %s", status)
+
+	switch status {
 	case v1.ReservationRequested:
-		// not an error - reservation requested
+		// handle reservation request
 		// convert to volumes
-		volumes := make([]*v1api.Volume, len(reservation.Spec.ReservationRequests))
-		for i, request := range reservation.Spec.ReservationRequests {
+		volumes := make([]*v1api.Volume, len(reservationSpec.ReservationRequests))
+		for i, request := range reservationSpec.ReservationRequests {
 			capacity := request.CapacityRequest
 			volumes[i] = &v1api.Volume{Id: capacity.Name, Size: capacity.Size, StorageClass: capacity.StorageClass}
 		}
-
-		// convert to nodes
-		/*nodes := make([]*corev1.Node, len(reservation.Spec.Nodes))
-		for i, node := range reservation.Spec.Nodes {
-			if err := c.client.Get(ctx, client.ObjectKey{Name: node.Id}, nodes[i]); err != nil {
-				log.Errorf("Failed to read node %s: %s", node.Id, err)
-				return ctrl.Result{Requeue: true}, err
-			}
-		}*/
 
 		// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
 		acReader := capacityplanner.NewACReader(c.client, c.log, true)
@@ -102,41 +101,24 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		reservedCapReader := capacityplanner.NewUnreservedACReader(c.log, acReader, acrReader)
 		capManager := c.capacityManagerBuilder.GetCapacityManager(c.log, reservedCapReader)
 
-		nodeList := &corev1.NodeList{}
-		if err := c.client.ReadList(ctx, nodeList); err != nil {
-			log.Errorf("Failed to get list of the nodes: %s", err)
-			return ctrl.Result{Requeue: true}, err
-		}
-
-		// todo it might have negative impact on scheduling... need to think about this...
-		idToNodeMap := map[string]corev1.Node{}
-		for _, node := range nodeList.Items {
-			nodeID, err := annotations.GetNodeID(&node, c.annotationKey, c.featureChecker)
-			if err != nil {
-				c.log.Errorf("failed to get NodeID: %s", err)
-			}
-			idToNodeMap[nodeID] = node
-		}
-
-		// todo pass requested nodes to the capacity manager for placing
-		placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes, idToNodeMap)
+		requestedNodes := reservationSpec.NodeRequests.Requested
+		placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes, requestedNodes)
 		if err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
 
-		var matchedNodes []corev1.Node
-		for id, node := range idToNodeMap {
-			if placingPlan == nil {
-				continue
+		var matchedNodes []string
+		if placingPlan != nil {
+			for _, id := range requestedNodes {
+				placingForNode := placingPlan.GetVolumesToACMapping(id)
+				if placingForNode == nil {
+					continue
+				}
+				matchedNodes = append(matchedNodes, id)
+				c.log.Infof("Matched node Id: %s", id)
 			}
-
-			placingForNode := placingPlan.GetVolumesToACMapping(id)
-			if placingForNode == nil {
-				continue
-			}
-			matchedNodes = append(matchedNodes, node)
-			c.log.Infof("Matched node Id: %s, name %s", id, node.Name)
 		}
+
 		if len(matchedNodes) != 0 {
 			reservationHelper := capacityplanner.NewReservationHelper(c.log, c.client, acReader, acrReader)
 			if err = reservationHelper.CreateReservation(ctx, placingPlan, matchedNodes, reservation); err != nil {
