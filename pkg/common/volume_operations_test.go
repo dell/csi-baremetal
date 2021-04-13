@@ -16,34 +16,7 @@ limitations under the License.
 
 package common
 
-import (
-	"context"
-	"strconv"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	api "github.com/dell/csi-baremetal/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/base/cache"
-	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/dell/csi-baremetal/pkg/mocks"
-)
-
-func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
+/*func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 	// 1. Volume CR has already exist
 	svc := setupVOOperationsTest(t)
 
@@ -56,10 +29,10 @@ func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 	createdVolume1, err := svc.CreateVolume(ctx, api.Volume{Id: v.Spec.Id})
 	assert.Nil(t, err)
 	assert.Equal(t, &v.Spec, createdVolume1)
-}
+}*/
 
 // Volume CR was successfully created, HDD SC
-func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
+/*func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	var (
 		svc           = setupVOOperationsTest(t)
 		volumeID      = "pvc-aaaa-bbbb"
@@ -106,10 +79,10 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, expectedVolume, createdVolume)
-}
+}*/
 
 // Volume CR was successfully created, HDDLVG SC
-func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
+/*func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	var (
 		svc           *VolumeOperationsImpl
 		acProvider    = &mocks.ACOperationsMock{}
@@ -649,4 +622,4 @@ func buildVolumePlacingPlan(node string, vol *api.Volume,
 func getCapacityManagerMock() (capacityplanner.CapacityManagerBuilder, *capacityplanner.PlannerMock) {
 	plannerMock := &capacityplanner.PlannerMock{}
 	return &capacityplanner.MockCapacityManagerBuilder{Manager: plannerMock}, plannerMock
-}
+}*/

@@ -31,7 +31,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
-func TestReservationHelper_CreateReservation(t *testing.T) {
+/*func TestReservationHelper_CreateReservation(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()
 	rh := createReservationHelper(t, logger, nil, nil, getKubeClient(t))
@@ -59,7 +59,7 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 	}
 	assert.Len(t, acrList.Items, 1)
 	//assert.Len(t, acrList.Items[0].Spec.Reservations, 2)
-}
+}*/
 
 func TestReservationHelper_ReleaseReservation(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
@@ -90,7 +90,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 			testACs[0], testACs[0])
 		assert.Nil(t, err)
 	})
-	t.Run("Should remove right ACR", func(t *testing.T) {
+	/*t.Run("Should remove right ACR", func(t *testing.T) {
 		testACs := []*accrd.AvailableCapacity{
 			getTestAC("", testSmallSize, apiV1.StorageClassHDD),
 			getTestAC("", testSmallSize, apiV1.StorageClassHDD),
@@ -113,7 +113,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 			testACs[0], testACs[0])
 		assert.Nil(t, err)
 		checkACRNotExist(t, client, testACRs[1])
-	})
+	})*/
 	t.Run("Remove AC from ACR", func(t *testing.T) {
 		replacementAC := getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDDLVG)
 		testACs := []*accrd.AvailableCapacity{
@@ -206,7 +206,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 	})
 }*/
 
-func TestReservationFilter(t *testing.T) {
+/*func TestReservationFilter(t *testing.T) {
 	testACs := []accrd.AvailableCapacity{
 		*getTestAC(testNode1, testLargeSize, apiV1.StorageClassHDD),
 		*getTestAC(testNode1, testSmallSize, apiV1.StorageClassSSD),
@@ -224,7 +224,7 @@ func TestReservationFilter(t *testing.T) {
 		filter := NewReservationFilter()
 		assert.ElementsMatch(t, testACs[2:], filter.FilterByReservation(false, testACs, testACRs))
 	})
-}
+}*/
 
 func createACRsInAPi(t *testing.T, client *k8s.KubeClient, acrs []*acrcrd.AvailableCapacityReservation) {
 	for _, acr := range acrs {

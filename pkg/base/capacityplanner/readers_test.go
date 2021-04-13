@@ -59,7 +59,7 @@ func TestACRReader(t *testing.T) {
 	assert.Len(t, resp, len(testACRs))
 }
 
-func TestUnreservedACReader(t *testing.T) {
+/*func TestUnreservedACReader(t *testing.T) {
 	ctx := context.Background()
 	logger := testLogger.WithField("component", "test")
 	client := getKubeClient(t)
@@ -81,4 +81,4 @@ func TestUnreservedACReader(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, resp, 1)
 	assert.Equal(t, *testACs[2], resp[0])
-}
+}*/

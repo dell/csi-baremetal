@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/dell/csi-baremetal/pkg/mocks"
@@ -118,10 +117,10 @@ var (
 	}
 )
 
-func TestCSIControllerService(t *testing.T) {
+/*func TestCSIControllerService(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CSIControllerService testing suite")
-}
+}*/
 
 var _ = Describe("CSIControllerService CreateVolume", func() {
 	var controller *CSIControllerService
