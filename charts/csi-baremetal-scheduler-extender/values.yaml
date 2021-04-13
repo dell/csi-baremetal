@@ -12,7 +12,7 @@ env:
 provisioner: csi-baremetal
 
 feature:
-  usenodeannotation: false
+  usenodeannotation: true
   useexternalannotation: false
   nodeIDAnnotation:
 
@@ -28,14 +28,14 @@ image:
   pullPolicy: Always
 
 patcher:
-  enable: false
+  enable: true
   manifest: /etc/kubernetes/manifests/kube-scheduler.yaml
   source_config_path: config.yaml
   source_policy_path: policy.yaml
   target_config_path: /etc/kubernetes/scheduler/config.yaml
   target_policy_path: /etc/kubernetes/scheduler/policy.yaml
   interval: 60
-  restore_on_shutdown: false
+  restore_on_shutdown: true
   config_map_name: schedulerpatcher-config
 
 metrics:
