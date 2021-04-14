@@ -288,22 +288,18 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 				if err := vo.k8sClient.DeleteCR(ctxWithID, podReservation); err != nil {
 					ll.Errorf("Unable to delete reservation %s: %v", podReservation.Name, err)
 				}
-			}
-			// remove reservation request
-			copy(orig[requestNum:], orig[requestNum+1:])
-			orig[len(orig)-1] = nil
-			orig = orig[:len(orig)-1]
+			} else {
+				// remove reservation request
+				copy(orig[requestNum:], orig[requestNum+1:])
+				orig[len(orig)-1] = nil
+				orig = orig[:len(orig)-1]
 
-			podReservation.Spec.ReservationRequests = orig
-			// update
-			// delete
-			if err := vo.k8sClient.UpdateCR(ctxWithID, podReservation); err != nil {
-				ll.Errorf("Unable to update reservation %s: %v", podReservation.Name, err)
+				podReservation.Spec.ReservationRequests = orig
+				// update
+				if err := vo.k8sClient.UpdateCR(ctxWithID, podReservation); err != nil {
+					ll.Errorf("Unable to update reservation %s: %v", podReservation.Name, err)
+				}
 			}
-
-			/*if err = resHelper.ReleaseReservation(ctxWithID, &v, origAC, ac); err != nil {
-				ll.Errorf("Unable to remove ACR reservation for AC %s, error: %v", ac.Name, err)
-			}*/
 		}
 	}
 	return &volumeCR.Spec, nil

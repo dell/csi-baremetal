@@ -120,13 +120,15 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 	}
 	plan := VolumesPlanMap{}
 
+	/*for _, node := range nodes {
+		volToACOnNode := cm.selectCapacityOnNode(ctx, node, volumes)
+		if volToACOnNode == nil {
+			continue
+		}
+		plan[node] = volToACOnNode
+	}*/
+
 	for node := range cm.nodesCapacity {
-		// todo uncomment and fix issue with all reservation being in REJECTED state
-		/*	if nodes != nil {
-			if _, ok := nodes[node]; ok {
-				continue
-			}
-		}*/
 		volToACOnNode := cm.selectCapacityOnNode(ctx, node, volumes)
 		if volToACOnNode == nil {
 			continue
