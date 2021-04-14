@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -141,7 +142,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 	})
 }
 
-/*func TestReservationHelper_ExtendReservations(t *testing.T) {
+func TestReservationHelper_ExtendReservations(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()
 
@@ -178,8 +179,8 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 			// parent AC exist, additional AC already exist
 			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, testACs),
 		}
-		testACRs[len(testACRs)-1].Spec.Reservations = append(
-			testACRs[len(testACRs)-1].Spec.Reservations, additionalAC)
+		testACRs[len(testACRs)-1].Spec.ReservationRequests[0].Reservations = append(
+			testACRs[len(testACRs)-1].Spec.ReservationRequests[0].Reservations, additionalAC)
 
 		client := getKubeClient(t)
 		createACRsInAPi(t, client, testACRs)
@@ -198,13 +199,13 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 		for _, acr := range acrsFromAPI.Items {
 			switch acr.Name {
 			case testACRs[0].Name, testACRs[2].Name, testACRs[3].Name:
-				assert.Len(t, acr.Spec.Reservations, len(testACs)+1)
+				assert.Len(t, acr.Spec.ReservationRequests[0].Reservations, len(testACs)+1)
 			case testACRs[1].Name:
-				assert.Len(t, acr.Spec.Reservations, len(testACs)-1)
+				assert.Len(t, acr.Spec.ReservationRequests[0].Reservations, len(testACs)-1)
 			}
 		}
 	})
-}*/
+}
 
 /*func TestReservationFilter(t *testing.T) {
 	testACs := []accrd.AvailableCapacity{

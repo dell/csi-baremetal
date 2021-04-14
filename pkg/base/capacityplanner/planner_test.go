@@ -74,11 +74,15 @@ func getTestACR(size int64, sc string,
 		TypeMeta: k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS,
 			CreationTimestamp: k8smetav1.NewTime(time.Now())},
-		/*Spec: genV1.AvailableCapacityReservation{
-			Size:         size,
-			StorageClass: sc,
-			Reservations: acNames,
-		},*/
+		Spec: genV1.AvailableCapacityReservation{
+			ReservationRequests: []*genV1.ReservationRequest{
+				{CapacityRequest: &genV1.CapacityRequest{
+					StorageClass:         sc,
+					Size:                 size,
+				},
+				Reservations: acNames},
+			},
+		},
 	}
 }
 

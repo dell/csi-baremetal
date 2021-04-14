@@ -38,7 +38,7 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	)
 
 	// there are no acs are provided
-	newAC = acOp.RecreateACToLVGSC(testCtx, "", apiV1.StorageClassHDDLVG)
+	newAC = acOp.RecreateACToLVGSC(testCtx, apiV1.StorageClassHDDLVG)
 	assert.Nil(t, newAC)
 
 	// ensure that there are 2 ACs
@@ -49,7 +49,7 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 
 	// expect that AC with SC HDDLVG will be created and will be size of 1Tb + 100Gb
 	// testAC2 and testAC3 should be removed
-	newAC = acOp.RecreateACToLVGSC(testCtx, "", apiV1.StorageClassHDDLVG, testAC2, testAC3)
+	newAC = acOp.RecreateACToLVGSC(testCtx, apiV1.StorageClassHDDLVG, testAC2, testAC3)
 
 	// check that LogicalVolumeGroup is in creating state
 	lvgList := lvgcrd.LogicalVolumeGroupList{}

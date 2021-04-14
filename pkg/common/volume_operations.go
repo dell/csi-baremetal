@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -154,7 +153,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	default:
 		// create volume
 		var (
-			ac             *accrd.AvailableCapacity
+			ac             = &accrd.AvailableCapacity{}
 			sc             string
 			requiredBytes  = v.Size
 			allocatedBytes int64
@@ -205,17 +204,16 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Reservation for volume %s not found", v.Id))
 		}
 
-		capacity := &accrd.AvailableCapacity{}
 		isFound := false
 		for _, capacityName := range podReservation.Spec.ReservationRequests[requestNum].Reservations {
 			// at first check whether volume CR exist or no
-			err = vo.k8sClient.ReadCR(ctx, capacityName, "", capacity)
+			err = vo.k8sClient.ReadCR(ctx, capacityName, "", ac)
 			if err != nil {
 				ll.Errorf("Failed to read capacity %s: %v", capacityName, err)
 				return nil, err
 			}
 
-			if capacity.Spec.NodeId == v.NodeId {
+			if ac.Spec.NodeId == v.NodeId {
 				isFound = true
 				break
 			}
@@ -225,14 +223,9 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("there is no suitable drive for volume %s", v.Id))
 		}
 
-		ac = capacity
-
 		if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
-			// we need to create reservation for newly created LogicalVolumeGroup AC before we sent LogicalVolumeGroup AC to kube-api
-			// this required to prevent race condition between csi-controller and scheduler extender
-			newACName := uuid.New().String()
 			// AC needs to be converted to LogicalVolumeGroup AC, LogicalVolumeGroup doesn't exist yet
-			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, newACName, v.StorageClass, *ac); ac == nil {
+			if ac = vo.acProvider.RecreateACToLVGSC(ctxWithID, v.StorageClass, *ac); ac == nil {
 				return nil, status.Errorf(codes.Internal,
 					"unable to prepare underlying storage for storage class %s", v.StorageClass)
 			}

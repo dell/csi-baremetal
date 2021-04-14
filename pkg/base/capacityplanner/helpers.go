@@ -128,7 +128,7 @@ func (rh *ReservationHelper) ReleaseReservation(
 }
 
 // ExtendReservations allows to add additional AC to ACRs which hold parent AC
-/*func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
+func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
 	parentAC *accrd.AvailableCapacity, additionalAC string) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ExtendReservations")
 	if err := rh.updateIfRequired(ctx); err != nil {
@@ -142,7 +142,7 @@ func (rh *ReservationHelper) ReleaseReservation(
 	for _, name := range acrNamesToCheck {
 		acr := rh.acrMap[name]
 		if acr == nil {
-			logger.Warningf("unknown AC Name in ACR.Spec.Reservations, posible bug")
+			logger.Warningf("unknown AC Name in ACR.Spec.Reservations, possible bug")
 			continue
 		}
 		acrToCheck = append(acrToCheck, acr)
@@ -151,15 +151,22 @@ func (rh *ReservationHelper) ReleaseReservation(
 	var acrToUpdate []*acrcrd.AvailableCapacityReservation
 
 	for _, acr := range acrToCheck {
-		alreadyExist := false
-		for _, res := range acr.Spec.Reservations {
-			if res == additionalAC {
-				alreadyExist = true
-				break
+		toUpdate := false
+		for i, request := range acr.Spec.ReservationRequests {
+			alreadyExist := false
+			for _, res := range request.Reservations {
+				if res == additionalAC {
+					alreadyExist = true
+					break
+				}
+			}
+			if !alreadyExist {
+				acr.Spec.ReservationRequests[i].Reservations = append(acr.Spec.ReservationRequests[i].Reservations, additionalAC)
+				toUpdate = true
 			}
 		}
-		if !alreadyExist {
-			acr.Spec.Reservations = append(acr.Spec.Reservations, additionalAC)
+		// add ACR to the list
+		if toUpdate {
 			acrToUpdate = append(acrToUpdate, acr)
 		}
 	}
@@ -171,7 +178,7 @@ func (rh *ReservationHelper) ReleaseReservation(
 		}
 	}
 	return nil
-}*/
+}
 
 func (rh *ReservationHelper) updateIfRequired(ctx context.Context) error {
 	if rh.updated {
@@ -386,12 +393,14 @@ func buildACRMaps(acrs []acrcrd.AvailableCapacityReservation) (ACRMap, ACNameToA
 	for _, acr := range acrs {
 		acr := acr
 		acrMAP[acr.Name] = &acr
-		/*for _, acName := range acr.Spec.Reservations {
-			if _, ok := acNameToACRNamesMap[acName]; !ok {
-				acNameToACRNamesMap[acName] = []string{}
+		for _, request := range acr.Spec.ReservationRequests {
+			for _, acName := range request.Reservations {
+				if _, ok := acNameToACRNamesMap[acName]; !ok {
+					acNameToACRNamesMap[acName] = []string{}
+				}
+				acNameToACRNamesMap[acName] = append(acNameToACRNamesMap[acName], acr.Name)
 			}
-			acNameToACRNamesMap[acName] = append(acNameToACRNamesMap[acName], acr.Name)
-		}*/
+		}
 	}
 	return acrMAP, acNameToACRNamesMap
 }
