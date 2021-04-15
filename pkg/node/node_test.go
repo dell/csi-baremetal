@@ -19,6 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"path"
 	"testing"
 	"time"
@@ -78,7 +79,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 	Context("NodePublish() success", func() {
 		It("Should publish volume", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[PodNameKey] = testPodName
+			req.VolumeContext[util.PodNameKey] = testPodName
 
 			fsOps.On("PrepareAndPerformMount",
 				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
@@ -590,7 +591,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
 			req.VolumeContext[EphemeralKey] = "true"
 			req.VolumeContext[base.SizeKey] = "50Gi"
-			req.VolumeContext[PodNameKey] = testPodName
+			req.VolumeContext[util.PodNameKey] = testPodName
 			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
 			Expect(err).To(BeNil())
 
@@ -635,7 +636,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
 			req.VolumeContext[EphemeralKey] = "true"
 			req.VolumeContext[base.SizeKey] = "50Gi"
-			req.VolumeContext[PodNameKey] = testPodName
+			req.VolumeContext[util.PodNameKey] = testPodName
 			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
 			Expect(err).To(BeNil())
 

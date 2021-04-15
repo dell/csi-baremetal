@@ -226,12 +226,10 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 
 	requests := make([]*genV1.CapacityRequest, 0)
 	for _, v := range pod.Spec.Volumes {
-		// check whether there are Ephemeral volumes or no
-		// todo how to handle ephemeral volume when no PVC name exist
-		// todo put annotation on the pod?
+		// check whether volume Ephemeral or not
 		if v.CSI != nil {
 			if v.CSI.Driver == e.provisioner {
-				request, err := e.createCapacityRequest(v.CSI)
+				request, err := e.createCapacityRequest(pod.Name, v)
 				if err != nil {
 					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
 				}
@@ -263,17 +261,10 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 					storageReq = resource.Quantity{}
 				}
 
-				/*mode := ""
-				if pvc.Spec.VolumeMode != nil {
-					mode = string(*pvc.Spec.VolumeMode)
-				}*/
-
 				requests = append(requests, &genV1.CapacityRequest{
 					Name:         pvc.Name,
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
-					/*Mode:         mode,
-					Ephemeral:    false,*/
 				})
 			}
 		}
@@ -281,15 +272,14 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 	return requests, nil
 }
 
-// createCapacityRequest constructs genV1.Volume based on fields from coreV1.Volume.CSI
-func (e *Extender) createCapacityRequest(v *coreV1.CSIVolumeSource) (request *genV1.CapacityRequest, err error) {
+// createCapacityRequest constructs genV1.CapacityRequest based on coreV1.Volume.Name and fields from coreV1.Volume.CSI
+func (e *Extender) createCapacityRequest(podName string, volume coreV1.Volume) (request *genV1.CapacityRequest, err error) {
 	// if some parameters aren't parsed for some reason
 	// empty volume will be returned in order count that volume
-	request = &genV1.CapacityRequest{
-		StorageClass: v1.StorageClassAny,
-		//Ephemeral:    true,
-	}
+	requestName := podName + "-" + volume.Name
+	request = &genV1.CapacityRequest{Name: requestName, StorageClass: v1.StorageClassAny}
 
+	v := volume.CSI
 	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
 	if !ok {
 		return request, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
