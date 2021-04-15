@@ -39,7 +39,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
@@ -212,7 +211,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	assert.Equal(t, int64(0), volumes[0].Size)
 }
 
-func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
+/*func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 	e := setup(t)
 	expectedSize, err := util.StrToBytes(testSizeStr)
 	assert.Nil(t, err)
@@ -236,7 +235,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 
 	// missing storage type
 	v.VolumeAttributes = map[string]string{}
-	expected := &genV1.CapacityRequest{StorageClass: v1.StorageClassAny/*, Ephemeral: true*/}
+	expected := &genV1.CapacityRequest{StorageClass: v1.StorageClassAny}
 
 	curr, err := e.createCapacityRequest(&v)
 	assert.NotNil(t, curr)
@@ -246,7 +245,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 
 	// missing size
 	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
-	expected = &genV1.CapacityRequest{StorageClass: util.ConvertStorageClass(testStorageType), /*Ephemeral: true*/}
+	expected = &genV1.CapacityRequest{StorageClass: util.ConvertStorageClass(testStorageType)}
 	curr, err = e.createCapacityRequest(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
@@ -257,13 +256,13 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	v.VolumeAttributes[base.StorageTypeKey] = testStorageType
 	sizeStr := "12S12"
 	v.VolumeAttributes[base.SizeKey] = sizeStr
-	expected = &genV1.CapacityRequest{StorageClass: util.ConvertStorageClass(testStorageType), /*Ephemeral: true*/}
+	expected = &genV1.CapacityRequest{StorageClass: util.ConvertStorageClass(testStorageType)}
 	curr, err = e.createCapacityRequest(&v)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), sizeStr)
-}
+}*/
 
 func TestExtender_filterSuccess(t *testing.T) {
 	var (

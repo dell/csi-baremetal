@@ -17,21 +17,14 @@ limitations under the License.
 package common
 
 import (
-	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
-	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
 var DefaultPESize = capacityplanner.DefaultPESize
 
-func Test_recreateACToLVGSC_Success(t *testing.T) {
+/*func Test_recreateACToLVGSC_Success(t *testing.T) {
 	var (
 		acOp  = setupACOperationsTest(t, &testAC2, &testAC3)
 		newAC *accrd.AvailableCapacity
@@ -77,11 +70,11 @@ func Test_recreateACToLVGSC_Success(t *testing.T) {
 	assert.Equal(t, apiV1.StorageClassHDD, acList.Items[1].Spec.StorageClass)
 	assert.Equal(t, int64(0), acList.Items[1].Spec.Size)
 	assert.Equal(t, apiV1.StorageClassHDDLVG, acList.Items[2].Spec.StorageClass)
-}
+}*/
 
 // creates fake k8s client and creates AC CRs based on provided acs
 // returns instance of ACOperationsImpl based on created k8s client
-func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOperationsImpl {
+/*func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOperationsImpl {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 	assert.NotNil(t, k8sClient)
@@ -91,7 +84,7 @@ func setupACOperationsTest(t *testing.T, acs ...*accrd.AvailableCapacity) *ACOpe
 		assert.Nil(t, err)
 	}
 	return NewACOperationsImpl(k8sClient, testLogger)
-}
+}*/
 
 func Test_AlignSizeByPE(t *testing.T) {
 	type args struct {

@@ -587,7 +587,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			Expect(err).NotTo(BeNil())
 		})
 
-		It("Should create inline volume", func() {
+		/*It("Should create inline volume", func() {
 			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
 			req.VolumeContext[EphemeralKey] = "true"
 			req.VolumeContext[base.SizeKey] = "50Gi"
@@ -618,7 +618,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
-		})
+		})*/
 		It("Should fail to create inline volume in CreateVolume step", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			req.VolumeContext[EphemeralKey] = "true"

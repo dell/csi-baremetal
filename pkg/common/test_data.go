@@ -16,38 +16,34 @@ limitations under the License.
 
 package common
 
-import (
-	"context"
-	"fmt"
-	"strings"
-	"time"
+// import (
+// "context"
+//	"fmt"
+//	"strings"
 
-	"github.com/sirupsen/logrus"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+// "github.com/sirupsen/logrus"
+//	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+/*	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base/util"
-)
+	"github.com/dell/csi-baremetal/pkg/base/util"*/
+// )
 
 var (
-	testLogger = logrus.New()
-	testNS     = "default"
+	// testLogger = logrus.New()
+	testNS = "default"
 
-	testCtx       = context.Background()
-	testNode1Name = "node1"
-	testNode2Name = "node2"
+	// testCtx = context.Background()
+	// testNode1Name = "node1"
+	// testNode2Name = "node2"
 
-	testDrive1UUID = "drive1-uuid"
-	testDrive2UUID = "drive2-uuid"
-	testDrive3UUID = "drive3-uuid"
-	testDrive4UUID = "drive4-uuid"
+	// testDrive1UUID = "drive1-uuid"
+	// testDrive2UUID = "drive2-uuid"
+	// testDrive3UUID = "drive3-uuid"
+	// testDrive4UUID = "drive4-uuid"
 
 	// Available Capacity variables
-	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
+	/*testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
 	testAC2     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
@@ -68,8 +64,8 @@ var (
 			Location:     testDrive3UUID,
 			NodeId:       testNode2Name,
 		},
-	}
-	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive4UUID))
+	}*/
+	/*testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive4UUID))
 	testAC4     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNS},
@@ -79,10 +75,10 @@ var (
 			Location:     testLVGName,
 			NodeId:       testNode2Name,
 		},
-	}
+	}*/
 
 	// LogicalVolumeGroup variables
-	testLVGName = "lvg-1"
+	/*testLVGName = "lvg-1"
 	testLVG     = lvgcrd.LogicalVolumeGroup{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "LogicalVolumeGroup", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: testNS},
@@ -93,10 +89,10 @@ var (
 			Size:      int64(util.GBYTE) * 90,
 			Status:    apiV1.Creating,
 		},
-	}
+	}*/
 
 	// Volumes variables
-	testVolume1Name = "aaaa-1111"
+	/*testVolume1Name = "aaaa-1111"
 	testVolume1     = vcrd.Volume{
 		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -112,5 +108,5 @@ var (
 			Location:     testDrive1UUID,
 			CSIStatus:    apiV1.Creating,
 		},
-	}
+	}*/
 )
