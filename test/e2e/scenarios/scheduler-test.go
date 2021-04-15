@@ -205,7 +205,6 @@ func schedulingTest(driver testsuites.TestDriver) {
 	})
 
 	ginkgo.It("2 LVM PV on one drive", func() {
-		// todo enable this test
 		framework.Skipf("skip test. See ATLDEF-83 for details")
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 2)
 		defaultDriveCount := 0
