@@ -110,6 +110,7 @@ func main() {
 		}()
 	}
 
+	// todo make ACR feature mandatory and get rid of feature flag https://github.com/dell/csi-baremetal/issues/366
 	// check ACR feature flag
 	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
 		// create Reservation manager
@@ -120,7 +121,6 @@ func main() {
 		// start Reservation manager
 		go func() {
 			logger.Info("Starting Reservation Controller")
-			// todo add correct sig term handler
 			if err := reservationManager.Start(ctrl.SetupSignalHandler()); err != nil {
 				logger.Fatalf("Reservation Controller failed with error: %v", err)
 			}

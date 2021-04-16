@@ -23,7 +23,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
@@ -64,7 +63,7 @@ type ReservationHelper struct {
 	metric metrics.Statistic
 }
 
-// CreateReservation create reservation
+// CreateReservation creates reservation CR
 func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan,
 	nodes []string, reservation *acrcrd.AvailableCapacityReservation) error {
 	defer rh.metric.EvaluateDurationForMethod("CreateReservation")()
@@ -95,96 +94,36 @@ func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan 
 	return nil
 }
 
-// ReleaseReservation removes ACR for AC
-// if AC is in multiple ACRs, most suitable ACR will be remove, check choseACFromOldestACR function doc for details
-// Also, if AC was converted to AC with another SC, for example HDD-> HDDLVG,
-// we need to replace old AC with new in all ACRs
-func (rh *ReservationHelper) ReleaseReservation(
-	ctx context.Context, volume *genV1.Volume, ac, acReplacement *accrd.AvailableCapacity) error {
-	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ReleaseReservation")
-	if err := rh.updateIfRequired(ctx); err != nil {
-		return err
-	}
-	// we should select ACR to remove from ACRs which have same size and SC as volume
-	filteredACRMap, filteredACNameToACR := buildACRMaps(
-		FilterACRList(rh.acrList, func(acr acrcrd.AvailableCapacityReservation) bool {
-			return true /*acr.Spec.StorageClass == volume.StorageClass && acr.Spec.Size == volume.Size*/
-		}))
-	_, acrToRemove := choseACFromOldestACR(ACMap{ac.Name: ac}, filteredACRMap, filteredACNameToACR)
-	if acrToRemove == nil {
-		logger.Infof("ACR holding AC %s not found. Skip deletion.", ac.Name)
-		return nil
-	}
-	if err := rh.removeACR(ctx, acrToRemove); err != nil {
-		return err
-	}
-	if ac == acReplacement {
-		return nil
-	}
-	if err := rh.removeACFromACRs(ctx, acrToRemove.Name, ac); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ExtendReservations allows to add additional AC to ACRs which hold parent AC
-func (rh *ReservationHelper) ExtendReservations(ctx context.Context,
-	parentAC *accrd.AvailableCapacity, additionalAC string) error {
-	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ExtendReservations")
-	if err := rh.updateIfRequired(ctx); err != nil {
-		return err
-	}
-
-	// list of ACRs names which hold parent AC
-	acrNamesToCheck := rh.acNameToACR[parentAC.Name]
-
-	acrToCheck := make([]*acrcrd.AvailableCapacityReservation, 0, len(acrNamesToCheck))
-	for _, name := range acrNamesToCheck {
-		acr := rh.acrMap[name]
-		if acr == nil {
-			logger.Warningf("unknown AC Name in ACR.Spec.Reservations, possible bug")
-			continue
-		}
-		acrToCheck = append(acrToCheck, acr)
-	}
-
-	var acrToUpdate []*acrcrd.AvailableCapacityReservation
-
-	for _, acr := range acrToCheck {
-		toUpdate := false
-		for i, request := range acr.Spec.ReservationRequests {
-			alreadyExist := false
-			for _, res := range request.Reservations {
-				if res == additionalAC {
-					alreadyExist = true
-					break
-				}
-			}
-			if !alreadyExist {
-				acr.Spec.ReservationRequests[i].Reservations = append(acr.Spec.ReservationRequests[i].Reservations, additionalAC)
-				toUpdate = true
-			}
-		}
-		// add ACR to the list
-		if toUpdate {
-			acrToUpdate = append(acrToUpdate, acr)
-		}
-	}
-
-	for _, acr := range acrToUpdate {
-		if err := rh.client.UpdateCR(ctx, acr); err != nil {
-			logger.Infof("Fail to update ACR %s: %s", acr.Name, err.Error())
+// ReleaseReservation removes AC from ACR or ACR completely when one volume requested or left
+func (rh *ReservationHelper) ReleaseReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
+	requestNum int) error {
+	// logging customization
+	log := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ReleaseReservation")
+	// need to remove found reservation from the list
+	orig := reservation.Spec.ReservationRequests
+	size := len(orig)
+	// if one volume request left delete whole reservation CR
+	if size == 1 {
+		// delete
+		if err := rh.client.DeleteCR(ctx, reservation); err != nil {
+			log.Errorf("Unable to delete reservation %s: %v", reservation.Name, err)
 			return err
 		}
-	}
-	return nil
-}
-
-func (rh *ReservationHelper) updateIfRequired(ctx context.Context) error {
-	if rh.updated {
 		return nil
 	}
-	return rh.Update(ctx)
+
+	// remove reservation request
+	copy(orig[requestNum:], orig[requestNum+1:])
+	orig[size-1] = nil
+	orig = orig[:size-1]
+
+	reservation.Spec.ReservationRequests = orig
+	// update
+	if err := rh.client.UpdateCR(ctx, reservation); err != nil {
+		log.Errorf("Unable to update reservation %s: %v", reservation.Name, err)
+		return err
+	}
+	return nil
 }
 
 // Update do a force data update

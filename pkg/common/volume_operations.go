@@ -166,7 +166,6 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		}
 
 		resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, true)
-
 		reservations, err := resReader.ReadReservations(ctxWithID)
 		if err != nil {
 			return nil, err
@@ -274,24 +273,11 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			ll.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 		}
 		if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
-			orig := podReservation.Spec.ReservationRequests
-			size := len(orig)
-			if size == 1 {
-				// delete
-				if err := vo.k8sClient.DeleteCR(ctxWithID, podReservation); err != nil {
-					ll.Errorf("Unable to delete reservation %s: %v", podReservation.Name, err)
-				}
-			} else {
-				// remove reservation request
-				copy(orig[requestNum:], orig[requestNum+1:])
-				orig[len(orig)-1] = nil
-				orig = orig[:len(orig)-1]
+			capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
+			resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
 
-				podReservation.Spec.ReservationRequests = orig
-				// update
-				if err := vo.k8sClient.UpdateCR(ctxWithID, podReservation); err != nil {
-					ll.Errorf("Unable to update reservation %s: %v", podReservation.Name, err)
-				}
+			if err := resHelper.ReleaseReservation(ctxWithID, podReservation, requestNum); err != nil {
+				return nil, err
 			}
 		}
 	}
