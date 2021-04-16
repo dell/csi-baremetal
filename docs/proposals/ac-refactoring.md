@@ -53,4 +53,4 @@ If drive is system, controller tries to update LVG AvailableCapacity.
 
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
-ISSUE-1 | How does Kubernetes handle 2 reconcile loop for one resource | Open | |
+ISSUE-1 | How does Kubernetes handle 2 reconcile loop for one resource |  | Open |
