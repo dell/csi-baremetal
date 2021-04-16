@@ -32,7 +32,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
-/*func TestReservationHelper_CreateReservation(t *testing.T) {
+func TestReservationHelper_CreateReservation(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()
 	rh := createReservationHelper(t, logger, nil, nil, getKubeClient(t))
@@ -49,8 +49,13 @@ import (
 			},
 		})
 	}
+	reservation.NodeRequests = &genV1.NodeRequests{Reserved: make([]string, 0)}
 
-	err := rh.CreateReservation(ctx, plan, nil, &acrcrd.AvailableCapacityReservation{Spec: reservation})
+	reservationResource := &acrcrd.AvailableCapacityReservation{
+		ObjectMeta: metav1.ObjectMeta{Name: "test"},
+		Spec: reservation,
+	}
+	err := rh.CreateReservation(ctx, plan, nil, reservationResource)
 	assert.Nil(t, err)
 	// check reservations exist
 	acrList := &acrcrd.AvailableCapacityReservationList{}
@@ -60,7 +65,7 @@ import (
 	}
 	assert.Len(t, acrList.Items, 1)
 	//assert.Len(t, acrList.Items[0].Spec.Reservations, 2)
-}*/
+}
 
 func TestReservationHelper_ReleaseReservation(t *testing.T) {
 	logger := testLogger.WithField("component", "test")

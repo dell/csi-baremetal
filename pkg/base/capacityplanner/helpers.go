@@ -105,11 +105,7 @@ func (rh *ReservationHelper) ReleaseReservation(ctx context.Context, reservation
 	// if one volume request left delete whole reservation CR
 	if size == 1 {
 		// delete
-		if err := rh.client.DeleteCR(ctx, reservation); err != nil {
-			log.Errorf("Unable to delete reservation %s: %v", reservation.Name, err)
-			return err
-		}
-		return nil
+		return rh.removeACR(ctx, reservation)
 	}
 
 	// remove reservation request
@@ -161,53 +157,6 @@ func (rh *ReservationHelper) removeACR(ctx context.Context, acr *acrcrd.Availabl
 	}
 	logger.Errorf("Fail to remove ACR %s: %s", acr.Name, err.Error())
 	return err
-}
-
-func (rh *ReservationHelper) removeACFromACRs(ctx context.Context, removedACR string, ac *accrd.AvailableCapacity) error {
-	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.removeACFromACRs")
-
-	acrToCheck, ok := rh.acNameToACR[ac.Name]
-	if !ok {
-		logger.Infof("Can't find ACRs for AC %s", ac.Name)
-		return nil
-	}
-
-	var acrToUpdate []*acrcrd.AvailableCapacityReservation
-
-	for _, acrName := range acrToCheck {
-		// ignore already removed ACR
-		if acrName == removedACR {
-			continue
-		}
-		acr, ok := rh.acrMap[acrName]
-		if !ok {
-			continue
-		}
-		removed := false
-		/*resLen := len(acr.Spec.Reservations)
-		for i := 0; i < resLen; i++ {
-			if acr.Spec.Reservations[i] == ac.Name {
-				acr.Spec.Reservations[i] = acr.Spec.Reservations[len(acr.Spec.Reservations)-1]
-				acr.Spec.Reservations = acr.Spec.Reservations[:len(acr.Spec.Reservations)-1]
-				i--
-				resLen--
-				removed = true
-			}
-		}*/
-		if removed {
-			acrToUpdate = append(acrToUpdate, acr)
-		}
-	}
-	for _, acr := range acrToUpdate {
-		err := rh.client.UpdateCR(ctx, acr)
-		if err != nil {
-			logger.Infof("Fail to update ACR %s: %s", acr.Name, err.Error())
-			return err
-		}
-		logger.Infof("ACR %s updated", acr.Name)
-	}
-
-	return nil
 }
 
 // NewReservationFilter returns new instance of ReservationFilter
