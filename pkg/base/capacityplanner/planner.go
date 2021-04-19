@@ -120,6 +120,8 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 	}
 	plan := VolumesPlanMap{}
 
+	// TODO reserve resources on requested nodes only - https://github.com/dell/csi-baremetal/issues/370
+	_ = nodes
 	/*for _, node := range nodes {
 		volToACOnNode := cm.selectCapacityOnNode(ctx, node, volumes)
 		if volToACOnNode == nil {
@@ -218,6 +220,8 @@ type ReservedCapacityManager struct {
 // PlanVolumesPlacing build placing plan for reserved volumes
 func (rcm *ReservedCapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	logger := util.AddCommonFields(ctx, rcm.logger, "ReservedCapacityManager.PlanVolumesPlacing")
+	// TODO reserve resources on requested nodes only - https://github.com/dell/csi-baremetal/issues/370
+	_ = nodes
 	if len(volumes) == 0 {
 		return nil, nil
 	}
@@ -225,6 +229,7 @@ func (rcm *ReservedCapacityManager) PlanVolumesPlacing(ctx context.Context, volu
 		return nil, fmt.Errorf("plannning for multipile volumes not supported, volumes count: %d", len(volumes))
 	}
 	volume := volumes[0]
+	// TODO refactor update logic here - https://github.com/dell/csi-baremetal/issues/371
 	err := rcm.update(ctx, nil)
 	if err != nil {
 		return nil, err

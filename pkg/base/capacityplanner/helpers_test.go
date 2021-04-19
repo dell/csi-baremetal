@@ -107,7 +107,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 	checkACRNotExist(t, client, reservation)
 }
 
-/*func TestReservationFilter(t *testing.T) {
+func TestReservationFilter(t *testing.T) {
 	testACs := []accrd.AvailableCapacity{
 		*getTestAC(testNode1, testLargeSize, apiV1.StorageClassHDD),
 		*getTestAC(testNode1, testSmallSize, apiV1.StorageClassSSD),
@@ -125,7 +125,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 		filter := NewReservationFilter()
 		assert.ElementsMatch(t, testACs[2:], filter.FilterByReservation(false, testACs, testACRs))
 	})
-}*/
+}
 
 func createACRsInAPi(t *testing.T, client *k8s.KubeClient, acrs []*acrcrd.AvailableCapacityReservation) {
 	for _, acr := range acrs {
