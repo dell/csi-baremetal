@@ -61,6 +61,14 @@ Alternative approach:
 
 Separate node-controller marks k8sNodes with labels with kernel version. Operator creates csi-baremetal-node daemonsets mapping `image: node-kernel-5.x` with `nodeAffinity label: kernel-version:5.x`.
 
+Problem: How to check if node-controller finishes work with set nodeSelector or one deleted csibmnode?
+
 ## Compatibility
 
 There is no problem with compatibility
+
+## Open issues (if applicable)
+
+ID | Name | Descriptions | Status | Comments
+---| -----| -------------| ------ | --------
+ISSUE-1 | Errors while csi-baremetal-node creation  | Currently we create csi-baremetal-node-controller and csi-baremetal-node in the same time. It leads to errors while node images creation until csibmnodes haven't been reconciled. We can wait updating labels on all k8sNodes before csi-baremetal-node installing | Open  | Some labels cannot be set because of nodeSelectors or csibmnode deleting. How to get actual list of available nodes?    
