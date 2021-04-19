@@ -50,12 +50,16 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 		})
 	}
 	reservation.NodeRequests = &genV1.NodeRequests{Reserved: make([]string, 0)}
-
+	name := "test"
 	reservationResource := &acrcrd.AvailableCapacityReservation{
-		ObjectMeta: metav1.ObjectMeta{Name: "test"},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: reservation,
 	}
-	err := rh.CreateReservation(ctx, plan, nil, reservationResource)
+	// request reservation
+	err := rh.client.CreateCR(ctx, name, reservationResource)
+	assert.Nil(t, err)
+	// confirm reservation
+	err = rh.UpdateReservation(ctx, plan, nil, reservationResource)
 	assert.Nil(t, err)
 	// check reservations exist
 	acrList := &acrcrd.AvailableCapacityReservationList{}
@@ -64,7 +68,8 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 		t.FailNow()
 	}
 	assert.Len(t, acrList.Items, 1)
-	//assert.Len(t, acrList.Items[0].Spec.Reservations, 2)
+	assert.Len(t, acrList.Items[0].Spec.ReservationRequests[0].Reservations, 2)
+	assert.Equal(t, acrList.Items[0].Spec.Status, apiV1.ReservationConfirmed)
 }
 
 func TestReservationHelper_ReleaseReservation(t *testing.T) {

@@ -121,8 +121,8 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 
 		if len(matchedNodes) != 0 {
 			reservationHelper := capacityplanner.NewReservationHelper(c.log, c.client, acReader, acrReader)
-			if err = reservationHelper.CreateReservation(ctx, placingPlan, matchedNodes, reservation); err != nil {
-				c.log.Errorf("failed to create reservation: %s", err.Error())
+			if err = reservationHelper.UpdateReservation(ctx, placingPlan, matchedNodes, reservation); err != nil {
+				c.log.Errorf("Failed to update reservation: %s", err.Error())
 				return ctrl.Result{Requeue: true}, err
 			}
 		} else {

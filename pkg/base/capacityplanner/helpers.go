@@ -63,11 +63,11 @@ type ReservationHelper struct {
 	metric metrics.Statistic
 }
 
-// CreateReservation creates reservation CR
-func (rh *ReservationHelper) CreateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan,
+// UpdateReservation updates reservation CR
+func (rh *ReservationHelper) UpdateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan,
 	nodes []string, reservation *acrcrd.AvailableCapacityReservation) error {
-	defer rh.metric.EvaluateDurationForMethod("CreateReservation")()
-	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.CreateReservation")
+	defer rh.metric.EvaluateDurationForMethod("UpdateReservation")()
+	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.UpdateReservation")
 
 	nameToCapacity := map[string][]*accrd.AvailableCapacity{}
 	for volume, capacity := range placingPlan.GetACsForVolumes() {
