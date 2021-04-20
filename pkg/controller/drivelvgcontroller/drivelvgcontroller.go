@@ -18,7 +18,6 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -101,19 +100,23 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 	if status == apiV1.Failed || health != apiV1.HealthGood {
 		return ctrl.Result{}, d.resetACSizeOfLVG(name)
 	}
-	if len(lvg.Annotations) != 0 {
-		if sizeString, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; ok {
-			byteSize, err := strconv.ParseInt(sizeString, 10, 64)
-			if err != nil {
-				log.Errorf("Failed to convert string size %s to int64, err: %v", sizeString, err)
-				return ctrl.Result{}, err
+	if drive := d.cachedCrHelper.GetDriveCRByUUID(lvg.Spec.Locations[0]); drive != nil {
+		if drive.Spec.IsSystem && len(lvg.Annotations) != 0 {
+			if sizeString, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; ok {
+				byteSize, err := strconv.ParseInt(sizeString, 10, 64)
+				if err != nil {
+					log.Errorf("Failed to convert string size %s to int64, err: %v", sizeString, err)
+					return ctrl.Result{}, err
+				}
+				return ctrl.Result{}, d.createACIfNotExists(name, node, byteSize)
 			}
-			return ctrl.Result{}, d.createACIfNotExists(name, node, byteSize)
+			log.Warnf("LVG doesn't contains annotation: %s", apiV1.LVGFreeSpaceAnnotation)
+			return ctrl.Result{}, d.createACIfNotExists(name, node, lvg.Spec.GetSize())
+		} else {
+			return ctrl.Result{}, d.updateLVGAC(name, lvg.Spec.GetSize())
 		}
-		log.Warnf("LVG doesn't contains annotation: %s", apiV1.LVGFreeSpaceAnnotation)
-		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, d.createACIfNotExists(name, node, lvg.Spec.GetSize())
+	return ctrl.Result{}, nil
 }
 
 func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
@@ -203,15 +206,8 @@ func (d *Controller) createACIfNotExists(location, nodeID string, size int64) er
 		size++ // if size is 0 it field will not display for CR
 	}
 	// check whether AC exists
-	if ac, _ := d.cachedCrHelper.GetACByLocation(location); ac != nil {
-		if ac.Spec.Size != size {
-			ac.Spec.Size = size
-			if err := d.client.UpdateCR(context.Background(), ac); err != nil {
-				d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
-				return err
-			}
-		}
-		return nil
+	if err := d.updateLVGAC(location, size); err != nil {
+		return err
 	}
 
 	if size > capacityplanner.AcSizeMinThresholdBytes {
@@ -236,20 +232,9 @@ func (d *Controller) createACIfNotExists(location, nodeID string, size int64) er
 func (d *Controller) resetACSizeOfLVG(lvgName string) error {
 	var (
 		err error
-		ac  *accrd.AvailableCapacity
 	)
 	// read AC
-	if ac, err = d.cachedCrHelper.GetACByLocation(lvgName); err == nil {
-		// update if not null already
-		if ac.Spec.Size != 0 {
-			ac.Spec.Size = 0
-			if err := d.client.UpdateCR(context.Background(), ac); err != nil {
-				d.log.Errorf("Unable to set AC CR %s size to 0, error: %v.", ac.Name, err)
-				return err
-			}
-		}
-		return nil
-	}
+	err = d.updateLVGAC(lvgName, 0)
 	if err == errTypes.ErrorNotFound {
 		// non re-triable error
 		d.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
@@ -271,6 +256,19 @@ func (d *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 		return filter(oldDrive.Spec, newDrive.Spec)
 	}
 	return true
+}
+
+func (d *Controller) updateLVGAC(name string, size int64) error {
+	if ac, _ := d.cachedCrHelper.GetACByLocation(name); ac != nil {
+		if ac.Spec.Size != size {
+			ac.Spec.Size = size
+			if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+				d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
+				return err
+			}
+		}
+	}
+	return nil
 }
 func filter(old api.Drive, new api.Drive) bool {
 	return old.GetIsClean() != new.GetIsClean() ||
