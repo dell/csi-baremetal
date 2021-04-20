@@ -104,17 +104,25 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string,
 	updatedAC.Spec.StorageClass = newSC
 	if err = a.k8sClient.UpdateCR(ctx, updatedAC); err != nil {
 		ll.Errorf("Unable to update AC %v, error: %v.", updatedAC, err)
+		return nil
 	}
 
 	// set size of remaining ACs to 0
-	for _, ac := range acs[:1] {
+	/*for _, ac := range acs[:1] {
 		ac.Spec.Size = 0
 		// nolint: scopelint
 		if err = a.k8sClient.UpdateCR(ctx, &ac); err != nil {
 			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
 		}
+	}*/
+
+	// get recent version
+	// TODO - refactor this code https://github.com/dell/csi-baremetal/issues/371
+	if err = a.k8sClient.ReadCR(ctx, updatedAC.Name, "", updatedAC); err != nil {
+		ll.Errorf("Unable to read latest AC version %v, error: %v.", updatedAC, err)
+		return nil
 	}
 
-	ll.Infof("AC was created: %v", updatedAC)
+	ll.Infof("AC was updated: %v", updatedAC)
 	return updatedAC
 }

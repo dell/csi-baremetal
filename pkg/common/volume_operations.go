@@ -131,6 +131,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			_ = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, volumeCR, 5)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
+		return &volumeCR.Spec, nil
 	case !k8sError.IsNotFound(err):
 		log.Errorf("Unable to read volume CR: %v", err)
 		return nil, status.Error(codes.Aborted, "unable to check volume existence")
