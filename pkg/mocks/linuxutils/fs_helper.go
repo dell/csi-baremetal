@@ -27,6 +27,13 @@ type MockWrapFS struct {
 	mock.Mock
 }
 
+// DriveHasData is a mock implementations
+func (m *MockWrapFS) DriveHasData(src string) (bool, error) {
+	args := m.Mock.Called(src)
+
+	return args.Bool(0), args.Error(1)
+}
+
 // GetFSSpace is a mock implementations
 func (m *MockWrapFS) GetFSSpace(src string) (int64, error) {
 	args := m.Mock.Called(src)

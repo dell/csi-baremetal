@@ -24,6 +24,7 @@ message Drive {
     int64 Endurance = 16;
     string LEDState = 17;
     bool IsSystem = 18;
+    bool IsClean = 19;
 }
 
 message Volume {

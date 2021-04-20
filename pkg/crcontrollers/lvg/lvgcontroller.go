@@ -35,7 +35,6 @@ import (
 	vccrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
@@ -107,16 +106,9 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// check for LogicalVolumeGroup state
-	switch lvg.Spec.Status {
-	case apiV1.Creating:
+	if lvg.Spec.Status == apiV1.Creating {
 		ll.Info("Creating LogicalVolumeGroup")
 		return c.handlerLVGCreation(lvg)
-	case apiV1.Failed:
-		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
-	}
-
-	if lvg.Spec.Health != apiV1.HealthGood {
-		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
 	}
 
 	return ctrl.Result{}, nil
@@ -337,32 +329,4 @@ func (c *Controller) increaseACSize(driveID string, size int64) {
 	}
 
 	ll.Errorf("Corresponding AC for drive ID %s not found", driveID)
-}
-
-// resetACSize sets size of corresponding AC to 0 to avoid further allocations
-func (c *Controller) resetACSizeOfLVG(lvgName string) error {
-	var (
-		err error
-		ac  *accrd.AvailableCapacity
-	)
-	// read AC
-	if ac, err = c.crHelper.GetACByLocation(lvgName); err == nil {
-		// update if not null already
-		if ac.Spec.Size != 0 {
-			ac.Spec.Size = 0
-			if err := c.k8sClient.UpdateCR(context.Background(), ac); err != nil {
-				c.log.Errorf("Unable to set AC CR %s size to 0, error: %v.", ac.Name, err)
-				return err
-			}
-		}
-		return nil
-	}
-
-	if err == errTypes.ErrorNotFound {
-		// non re-triable error
-		c.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
-		return nil
-	}
-
-	return err
 }

@@ -25,20 +25,26 @@ import (
 	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	// +kubebuilder:scaffold:imports
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	drive "github.com/dell/csi-baremetal/pkg/controller/drivelvgcontroller"
 	"github.com/dell/csi-baremetal/pkg/metrics"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 var (
@@ -102,6 +108,18 @@ func main() {
 		}()
 	}
 
+	stopCH := ctrl.SetupSignalHandler()
+	mgr, err := prepareControllerManager(kubeClient, logger, stopCH)
+	if err != nil {
+		logger.Fatalf("Failed to prepare manager for controller: %v", err)
+	}
+	go func() {
+		logger.Info("Starting CRD Controller Manager ...")
+		if err := mgr.Start(stopCH); err != nil {
+			logger.Fatalf("CRD Controller Manager failed with error: %v", err)
+		}
+	}()
+
 	go func() {
 		logger.Info("Starting Controller Health server ...")
 		if err := util.SetupAndStartHealthCheckServer(
@@ -115,4 +133,32 @@ func main() {
 		logger.Fatalf("fail to serve, error: %v", err)
 	}
 	logger.Info("Got SIGTERM signal")
+}
+
+func prepareControllerManager(k8SClient *k8s.KubeClient, logger *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
+	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+
+	kubeCache, err := k8s.InitKubeCache(logger, ch,
+		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
+	if err != nil {
+		return nil, err
+	}
+
+	scheme, err := k8s.PrepareScheme()
+	if err != nil {
+		return nil, err
+	}
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	driveLvgController := drive.NewDriveController(wrappedK8SClient, kubeCache, logger)
+	// bind CSINodeService's VolumeManager to K8s Controller Manager as a driveLvgController for Volume CR
+	if err = driveLvgController.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+	return mgr, nil
 }

@@ -18,9 +18,9 @@ package node
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,12 +38,10 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
@@ -545,12 +543,8 @@ func (m *VolumeManager) Discover() error {
 		}
 	}
 
-	if err = m.discoverVolumeCRs(); err != nil {
-		return fmt.Errorf("discoverVolumeCRs return error: %v", err)
-	}
-
-	if err = m.discoverAvailableCapacity(ctx); err != nil {
-		return fmt.Errorf("discoverAvailableCapacity return error: %v", err)
+	if err = m.discoverDataOnDrives(); err != nil {
+		return fmt.Errorf("discoverDataOnDrives return error: %v", err)
 	}
 
 	m.initialized = true
@@ -599,6 +593,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 					drivePtr.UUID = driveCR.Spec.UUID
 					drivePtr.Usage = driveCR.Spec.Usage
 					drivePtr.IsSystem = driveCR.Spec.IsSystem
+					drivePtr.IsClean = driveCR.Spec.IsClean
 
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
@@ -626,11 +621,13 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec.UUID = uuid.New().String()
 			// TODO: what operational status should be if drivemgr reported drive with not a good health
 			toCreateSpec.Usage = apiV1.DriveUsageInUse
+			toCreateSpec.IsClean = true
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
 				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
 			}
 			if isSystem {
+				toCreateSpec.IsClean = false
 				m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, toCreateSpec.UUID)
 			}
 			toCreateSpec.IsSystem = isSystem
@@ -708,7 +705,7 @@ func (m *VolumeManager) isDriveInLVG(d api.Drive) bool {
 // discoverVolumeCRs matches system block devices with driveCRs
 // searches drives in driveCRs that are not have volume and if there are some partitions on them - try to read
 // partition uuid and create volume CR object
-func (m *VolumeManager) discoverVolumeCRs() error {
+func (m *VolumeManager) discoverDataOnDrives() error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "discoverVolumeCRs",
 	})
@@ -750,6 +747,7 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 	}
 
 	for _, drive := range driveCRs {
+		drive := drive
 		if drive.Spec.IsSystem && m.isDriveInLVG(drive.Spec) {
 			continue
 		}
@@ -772,127 +770,25 @@ func (m *VolumeManager) discoverVolumeCRs() error {
 			if _, ok := locations[drive.Spec.UUID]; ok {
 				continue
 			}
-
-			partUUID := bdev.Children[0].PartUUID
-			if partUUID == "" {
-				partUUID = uuid.New().String() // just generate random and exclude drive
-				ll.Warnf("There is no part UUID for partition from device %v, UUID has been generated %s", bdev, partUUID)
-			}
-
-			volUUID := uuid.New().String() // generate new uuid to use it for  volume CR name
-
-			volumeCR := m.k8sClient.ConstructVolumeCR(volUUID, base.DefaultNamespace, api.Volume{
-				NodeId:       m.nodeID,
-				Id:           partUUID,
-				Size:         bdev.Size.Int64,
-				Location:     drive.Spec.UUID,
-				LocationType: apiV1.LocationTypeDrive,
-				Mode:         apiV1.ModeFS,
-				Type:         bdev.FSType,
-				Health:       drive.Spec.Health,
-				CSIStatus:    apiV1.Empty,
-			})
-
-			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeCR.Name)
-			if err = m.k8sClient.CreateCR(ctxWithID, volUUID, volumeCR); err != nil {
-				ll.Errorf("Unable to create volume CR %s: %v", volUUID, err)
-			}
-		}
-	}
-	return nil
-}
-
-// DiscoverAvailableCapacity inspect current available capacity on nodes and fill AC CRs. This method manages only
-// hardware available capacity such as HDD or SSD. If drive is healthy and online and also it is not used in LVGs
-// and it doesn't contain volume then this drive is in AvailableCapacity CRs.
-// Returns error if at least one drive from cache was handled badly
-func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
-	ll := m.log.WithField("method", "discoverAvailableCapacity")
-
-	acs, err := m.cachedCrHelper.GetACCRs(m.nodeID)
-	if err != nil {
-		return fmt.Errorf("unable to read AC list: %v", err)
-	}
-	volumes, err := m.cachedCrHelper.GetVolumeCRs(m.nodeID)
-	if err != nil {
-		return err
-	}
-	driveCRs, err := m.cachedCrHelper.GetDriveCRs(m.nodeID)
-	if err != nil {
-		return err
-	}
-
-	var (
-		// key - ac.Spec.Location that is Drive.Spec.UUID
-		acsLocations = make(map[string]*accrd.AvailableCapacity, len(acs))
-		// key - volume.Spec.Location that is Drive.Spec.UUID or LogicalVolumeGroup.Spec.Name (don't need to use info about LogicalVolumeGroup here)
-		volumeLocations = make(map[string]struct{})
-	)
-	for _, ac := range acs {
-		ac := ac
-		acsLocations[ac.Spec.Location] = &ac
-	}
-	for _, v := range volumes {
-		volumeLocations[v.Spec.Location] = struct{}{}
-	}
-
-	var wasError = false
-	for _, drive := range driveCRs {
-		if drive.Spec.Health != apiV1.HealthGood || drive.Spec.Status != apiV1.DriveStatusOnline {
-			// AC that points on such drive was removed before (if they had existed)
-			continue
-		}
-		// check whether there is Volume CR that points on same drive
-		if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
-			// check whether appropriate AC exists or not
-			if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
-				ll.Warnf("There is Volume CR that points on same drive %s as AC %s",
-					drive.Name, acsLocations[drive.Spec.UUID].Name)
-				ac := acsLocations[drive.Spec.UUID]
-				ac.Spec.Size = 0
-				acsLocations[drive.Spec.UUID] = ac
-				if err = m.k8sClient.UpdateCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
-					ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[drive.Spec.UUID].Name, err)
+			if drive.Spec.IsClean {
+				drive.Spec.IsClean = false
+				ctxWithID := context.WithValue(context.Background(), base.RequestUUID, drive.Name)
+				if err = m.k8sClient.Update(ctxWithID, &drive); err != nil {
+					ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
 				}
-				continue
 			}
-		}
-		if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
 			continue
 		}
-
-		// create AC based on drive
-		capacity := &api.AvailableCapacity{
-			Size:         drive.Spec.Size,
-			Location:     drive.Spec.UUID,
-			StorageClass: util.ConvertDriveTypeToStorageClass(drive.Spec.Type),
-			NodeId:       m.nodeID,
-		}
-
-		if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
-			capacity.Size = 0
-		}
-
-		if drive.Spec.IsSystem {
-			if m.isDriveInLVG(drive.Spec) {
-				capacity.Size = 0
+		if hasData, err := m.fsOps.DriveHasData(drive.Spec.Path); err != nil {
+			ll.Errorf("Unable to get fs information about drive %s: %v", drive.Spec.Path, err)
+		} else if hasData && drive.Spec.IsClean {
+			drive.Spec.IsClean = false
+			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, drive.Name)
+			if err = m.k8sClient.Update(ctxWithID, &drive); err != nil {
+				ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
 			}
 		}
-		name := uuid.New().String()
-
-		newAC := m.k8sClient.ConstructACCR(name, *capacity)
-		if err := m.k8sClient.CreateCR(context.WithValue(ctx, base.RequestUUID, name),
-			name, newAC); err != nil {
-			ll.Errorf("Error during CreateAvailableCapacity request to k8s: %v, error: %v",
-				capacity, err)
-			wasError = true
-		}
 	}
-
-	if wasError {
-		return errors.New("not all available capacity were created")
-	}
-
 	return nil
 }
 
@@ -923,12 +819,31 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return err
 	}
 	for _, lvg := range lvgs {
+		lvg := lvg
 		if lvg.Spec.Node == m.nodeID && len(lvg.Spec.Locations) > 0 && util.ContainsString(m.systemDrivesUUIDs, lvg.Spec.Locations[0]) {
 			if vgFreeSpace, err = m.lvmOps.GetVgFreeSpace(lvg.Spec.Name); err != nil {
 				return err
 			}
 			ll.Infof("LogicalVolumeGroup CR that points on system VG is exists: %v", lvg)
-			return m.createACIfFreeSpace(lvg.Name, apiV1.StorageClassSystemLVG, vgFreeSpace)
+			if lvg.Annotations == nil {
+				lvg.Annotations = make(map[string]string, 1)
+			}
+			if size, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; ok {
+				byteSize, err := strconv.ParseInt(size, 10, 64)
+				if err != nil {
+					ll.Errorf("Failed to convert string size %s to int64, err: %v", size, err)
+					return err
+				}
+				if byteSize == vgFreeSpace {
+					return nil
+				}
+			}
+			lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(vgFreeSpace, 10)
+			ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
+			if err = m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
+				return fmt.Errorf("unable to update LVG CR %v, error: %v", lvg, err)
+			}
+			return nil
 		}
 	}
 
@@ -993,7 +908,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LogicalVolumeGroup CR %v, error: %v", vgCR, err)
 	}
-	return m.createACIfFreeSpace(vgCRName, apiV1.StorageClassSystemLVG, vgFreeSpace)
+	driveCR.Spec.IsClean = false
+	if err = m.k8sClient.UpdateCR(ctx, driveCR); err != nil {
+		return fmt.Errorf("unable to update Drive CR %v, error: %v", driveCR, err)
+	}
+	return nil
 }
 
 // getProvisionerForVolume returns appropriate Provisioner implementation for volume
@@ -1018,14 +937,6 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 
 	// Handle resources without LogicalVolumeGroup
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
-	if drive.Health != apiV1.HealthGood || drive.Status == apiV1.DriveStatusOffline {
-		if ac, err := m.cachedCrHelper.GetACByLocation(drive.UUID); err == nil {
-			ll.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
-			if err := m.k8sClient.DeleteCR(ctx, ac); err != nil {
-				ll.Errorf("Failed to delete unhealthy available capacity CR: %v", err)
-			}
-		}
-	}
 	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, drive.UUID)
 	if lvg != nil {
 		lvg.Spec.Health = drive.Health
@@ -1075,39 +986,6 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 	return drive1.SerialNumber == drive2.SerialNumber &&
 		drive1.VID == drive2.VID &&
 		drive1.PID == drive2.PID
-}
-
-// createACIfFreeSpace creates AC CR if there is a free space on drive
-// Receive context, drive location, storage class, size of available capacity
-// Return error
-func (m *VolumeManager) createACIfFreeSpace(location string, sc string, size int64) error {
-	ll := m.log.WithFields(logrus.Fields{
-		"method": "createACIfFreeSpace",
-	})
-	if size == 0 {
-		size++ // if size is 0 it field will not display for CR
-	}
-	// check whether AC exists
-	if ac, _ := m.cachedCrHelper.GetACByLocation(location); ac != nil {
-		return nil
-	}
-
-	if size > capacityplanner.AcSizeMinThresholdBytes {
-		acName := uuid.New().String()
-		acCR := m.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
-			Location:     location,
-			NodeId:       m.nodeID,
-			StorageClass: sc,
-			Size:         size,
-		})
-		if err := m.k8sClient.CreateCR(context.Background(), acName, acCR); err != nil {
-			return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
-		}
-		ll.Infof("Created AC %v for lvg %s", acCR, location)
-		return nil
-	}
-	ll.Infof("There is no available space on %s", location)
-	return nil
 }
 
 // createEventsForDriveUpdates create required events for drive state change
