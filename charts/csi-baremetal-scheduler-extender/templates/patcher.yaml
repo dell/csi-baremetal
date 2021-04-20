@@ -28,11 +28,13 @@ spec:
             {{ if .Values.patcher.restore_on_shutdown }}- --restore {{ end }}
             - --interval={{ .Values.patcher.interval }}
             - --manifest={{ .Values.patcher.manifest }}
-            - --target-config-path={{ .Values.patcher.target_config_path}}
-            - --target-policy-path={{ .Values.patcher.target_policy_path}}
             - --source-config-path=/config/{{ .Values.patcher.source_config_path}}
+            - --target-config-path={{ .Values.patcher.target_config_path}}
             - --source-policy-path=/config/{{ .Values.patcher.source_policy_path}}
-            - --backup-path=/etc/kubernetes/scheduler
+            - --target-policy-path={{ .Values.patcher.target_policy_path}}
+            - --source_config_19_path=/config/{{ .Values.patcher.source_config_19_path}}
+            - --target_config_19_path={{ .Values.patcher.target_config_19_path}}
+            - --backup-path={{ .Values.patcher.backup_path}}
           volumeMounts:
             - mountPath: /config
               name: schedulerpatcher-config
