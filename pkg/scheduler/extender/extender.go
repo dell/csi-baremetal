@@ -359,16 +359,10 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 
 	// fill in node requests
 	reservation.NodeRequests = &genV1.NodeRequests{}
-	reservation.NodeRequests.Requested = make([]string, len(nodes))
-
-	for i, node := range nodes {
-		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
-		if err != nil {
-			e.logger.Errorf("failed to get NodeID: %s", err)
-			return err
-		}
-		reservation.NodeRequests.Requested[i] = nodeID
+	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
+		reservation.NodeRequests.Requested = nodes
+	} else {
+		return err
 	}
 
 	// create new reservation
@@ -386,6 +380,22 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 		return err
 	}
 	return nil
+}
+
+func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) ([]string, error) {
+	requestedNodes := make([]string, len(nodes))
+
+	for i, node := range nodes {
+		node := node
+		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+		if err != nil {
+			e.logger.Errorf("failed to get NodeID: %s", err)
+			return nil, err
+		}
+		requestedNodes[i] = nodeID
+	}
+
+	return requestedNodes, nil
 }
 
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
@@ -421,20 +431,42 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 				filteredNodes[name] = fmt.Sprintf("No available capacity found on the node %s", name)
 			}
 		}
+		// requested nodes has changed. need to update reservation with the new list of nodes
+		if len(matchedNodes) == 0 {
+			return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
+		}
+
 		return matchedNodes, filteredNodes, nil
 	case v1.ReservationRejected:
 		// no available capacity
 		// request reservation again
-		reservation.Spec.Status = v1.ReservationRequested
-		if err := e.k8sClient.UpdateCR(ctx, reservation); err != nil {
-			// cannot update reservation
-			return nil, nil, err
-		}
-		// not an error - reservation requested
-		return nil, nil, nil
+		return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
 	}
 
 	return nil, nil, errors.New("unsupported reservation status: " + reservation.Spec.Status)
+}
+
+func (e *Extender) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
+	nodes []coreV1.Node) error {
+	reservation.Spec.Status = v1.ReservationRequested
+	// update nodes
+	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
+		reservation.Spec.NodeRequests.Requested = nodes
+	} else {
+		return err
+	}
+
+	// remove reservations if any
+	for i := range reservation.Spec.ReservationRequests {
+		reservation.Spec.ReservationRequests[i].Reservations = nil
+	}
+
+	if err := e.k8sClient.UpdateCR(ctx, reservation); err != nil {
+		// cannot update reservation
+		return err
+	}
+
+	return nil
 }
 
 func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {
