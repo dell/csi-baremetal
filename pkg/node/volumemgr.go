@@ -788,6 +788,13 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 				ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
 			}
 		}
+		if !drive.Spec.IsClean {
+			drive.Spec.IsClean = true
+			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, drive.Name)
+			if err = m.k8sClient.Update(ctxWithID, &drive); err != nil {
+				ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
+			}
+		}
 	}
 	return nil
 }
