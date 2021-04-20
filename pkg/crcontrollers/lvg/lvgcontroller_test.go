@@ -207,10 +207,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 }
 
 func TestReconcile_LVGHealthBad(t *testing.T) {
-	var (
-		fLVG  = lvgCR1
-		newAC = &accrd.AvailableCapacity{}
-	)
+	var fLVG = lvgCR1
 	fLVG.Spec.Status = apiV1.Created
 	fLVG.Spec.Health = apiV1.HealthBad
 	fLVG.Finalizers = []string{lvgFinalizer}
@@ -224,9 +221,6 @@ func TestReconcile_LVGHealthBad(t *testing.T) {
 	res, err := c.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-
-	err = c.k8sClient.ReadCR(tCtx, acCR1Name, "", newAC)
-	assert.Equal(t, int64(0), newAC.Spec.Size)
 }
 
 func TestReconcile_SuccessDeletion(t *testing.T) {
