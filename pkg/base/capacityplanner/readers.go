@@ -104,7 +104,7 @@ func (acr *ACRReader) ReadReservations(ctx context.Context) ([]acrcrd.AvailableC
 func (acr *ACRReader) ReadReservation(ctx context.Context, name string) (*acrcrd.AvailableCapacityReservation, error) {
 	logger := util.AddCommonFields(ctx, acr.logger, "ACRReader.ReadReservations")
 
-	// todo do we need caching support for reservations?
+	// TODO do we need caching support for reservations - https://github.com/dell/csi-baremetal/issues/371
 	/*if acr.cached && acr.cache != nil {
 		logger.Tracef("Read AvailableCapacityReservations from cache: %+v", acr.cache)
 		return acr.cache, nil
@@ -123,7 +123,7 @@ func (acr *ACRReader) ReadReservation(ctx context.Context, name string) (*acrcrd
 
 	return reservation, nil
 
-	// todo do we need caching support for reservations?
+	// TODO do we need caching support for reservations - https://github.com/dell/csi-baremetal/issues/371
 	/*logger.Tracef("Read AvailableCapacityReservations: %+v", acrList.Items)
 	if acr.cached {
 		acr.cache = acrList.Items

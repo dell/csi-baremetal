@@ -167,11 +167,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}
 
 	var (
-		fsType string
-		mode   string
-		vol    *api.Volume
-		// todo solve linter issue
-		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo) //nolint:golint,staticcheck
+		fsType   string
+		mode     string
+		vol      *api.Volume
+		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
 
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {

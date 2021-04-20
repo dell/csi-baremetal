@@ -24,6 +24,7 @@ import (
 
 var DefaultPESize = capacityplanner.DefaultPESize
 
+// TODO refactor UT https://github.com/dell/csi-baremetal/issues/371
 /*func Test_recreateACToLVGSC_Success(t *testing.T) {
 	var (
 		acOp  = setupACOperationsTest(t, &testAC2, &testAC3)

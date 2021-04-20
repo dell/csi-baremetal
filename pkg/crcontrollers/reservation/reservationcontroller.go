@@ -12,7 +12,6 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	metrics "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
@@ -26,25 +25,16 @@ type Controller struct {
 	client                 *k8s.KubeClient
 	log                    *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
-	featureChecker         fc.FeatureChecker
-	annotationKey          string
 }
 
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
 func NewController(client *k8s.KubeClient, log *logrus.Logger) *Controller {
-	featureConfig := fc.NewFeatureConfig()
-	// todo get rid of hard code
-	featureConfig.Update(fc.FeatureNodeIDFromAnnotation, true)
 	return &Controller{
-		client: client,
-		//crHelper: k8s.NewCRHelper(client, log),
+		client:                 client,
 		log:                    log.WithField("component", "ReservationController"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
-		featureChecker:         featureConfig,
-		// todo pass annotation key
-		annotationKey: "",
 	}
 }
 
@@ -135,16 +125,12 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 		}
 		return ctrl.Result{}, nil
 	case v1.ReservationConfirmed:
-		// todo handle
 		return ctrl.Result{}, nil
 	case v1.ReservationRejected:
-		// todo handle
 		return ctrl.Result{}, nil
 	case v1.ReservationCancelled:
-		// todo handle
 		return ctrl.Result{}, nil
 	default:
-		// todo handle
 		return ctrl.Result{}, nil
 	}
 }

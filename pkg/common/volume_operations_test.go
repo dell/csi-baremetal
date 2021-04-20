@@ -16,6 +16,7 @@ limitations under the License.
 
 package common
 
+// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
 /*func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 	// 1. Volume CR has already exist
 	svc := setupVOOperationsTest(t)

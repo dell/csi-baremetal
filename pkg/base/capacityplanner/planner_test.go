@@ -258,6 +258,7 @@ func TestCapacityManager(t *testing.T) {
 	})
 }
 
+// TODO - refactor UT https://github.com/dell/csi-baremetal/issues/371
 /*func TestReservedCapacityManager(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()

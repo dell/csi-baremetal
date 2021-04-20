@@ -59,6 +59,7 @@ func TestACRReader(t *testing.T) {
 	assert.Len(t, resp, len(testACRs))
 }
 
+// TODO refactor UT - https://github.com/dell/csi-baremetal/issues/371
 /*func TestUnreservedACReader(t *testing.T) {
 	ctx := context.Background()
 	logger := testLogger.WithField("component", "test")

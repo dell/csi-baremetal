@@ -27,7 +27,7 @@ const (
 	csiPrefix = "csi-"
 
 	// VolumeInfoKey is the constant for context request
-	VolumeInfoKey = "VolumeInfo"
+	VolumeInfoKey CtxKey = "VolumeInfo"
 	// ClaimNamespaceKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
 	ClaimNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
 	// ClaimNameKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
@@ -37,6 +37,9 @@ const (
 	// PodNameKey to read pod name from PodInfoOnMount feature
 	PodNameKey = "csi.storage.k8s.io/pod.name"
 )
+
+// CtxKey variable type uses for keys in context WithValue
+type CtxKey string
 
 // VolumeInfo holds information about Kubernetes PVC
 type VolumeInfo struct {

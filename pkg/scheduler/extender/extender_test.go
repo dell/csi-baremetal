@@ -308,7 +308,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 	assert.Nil(t, matched)
 	assert.Nil(t, failed)
 
-	// todo implement this use cases
+	// todo implement this use cases - https://github.com/dell/csi-baremetal/issues/371
 	/*// reservation confirmed
 	reservation.Spec.Status = v1.ReservationConfirmed
 	assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))

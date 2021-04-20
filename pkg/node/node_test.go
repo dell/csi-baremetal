@@ -587,6 +587,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			Expect(err).NotTo(BeNil())
 		})
 
+		// TODO refactor UT - https://github.com/dell/csi-baremetal/issues/371
 		/*It("Should create inline volume", func() {
 			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
 			req.VolumeContext[EphemeralKey] = "true"

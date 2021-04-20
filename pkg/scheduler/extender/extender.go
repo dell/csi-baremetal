@@ -394,7 +394,7 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 	switch reservation.Spec.Status {
 	case v1.ReservationRequested:
 		// not an error - reservation requested. need to retry
-		// todo check that requested nodes update
+		// todo check for requested nodes update - https://github.com/dell/csi-baremetal/issues/370
 		return nil, nil, nil
 	case v1.ReservationConfirmed:
 		// need to filter nodes here
@@ -425,7 +425,6 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 	case v1.ReservationRejected:
 		// no available capacity
 		// request reservation again
-		// todo when to cancel?
 		reservation.Spec.Status = v1.ReservationRequested
 		if err := e.k8sClient.UpdateCR(ctx, reservation); err != nil {
 			// cannot update reservation
@@ -433,12 +432,9 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 		}
 		// not an error - reservation requested
 		return nil, nil, nil
-	case v1.ReservationCancelled:
-		// request again?
-		return nil, nil, nil
 	}
 
-	return nil, nil, errors.New("Wrong reservation status: " + reservation.Spec.Status)
+	return nil, nil, errors.New("unsupported reservation status: " + reservation.Spec.Status)
 }
 
 func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {

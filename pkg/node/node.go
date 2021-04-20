@@ -415,7 +415,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	ctxValue := context.WithValue(ctx, util.VolumeInfoKey, volumeInfo) //nolint:golint,staticcheck
+	ctxValue := context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 
 	if bytes, err = util.StrToBytes(bytesStr); err != nil {
 		return nil, err
