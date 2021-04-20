@@ -90,6 +90,7 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 // Probe is the implementation of CSI Spec Probe for IdentityServer.
 // This method checks if CSI driver is ready to serve requests
 // overrides same method from defaultIdentityServer struct
+// TODO need to introduce new liveness probe since node service doesn't discover AvailableCapacity anymore
 func (c *CSIControllerService) Probe(context.Context, *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{
