@@ -112,9 +112,8 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 			}
 			log.Warnf("LVG doesn't contains annotation: %s", apiV1.LVGFreeSpaceAnnotation)
 			return ctrl.Result{}, d.createACIfNotExists(name, node, lvg.Spec.GetSize())
-		} else {
-			return ctrl.Result{}, d.updateLVGAC(name, lvg.Spec.GetSize())
 		}
+		return ctrl.Result{}, d.updateLVGAC(name, lvg.Spec.GetSize())
 	}
 	return ctrl.Result{}, nil
 }
@@ -230,11 +229,8 @@ func (d *Controller) createACIfNotExists(location, nodeID string, size int64) er
 
 // resetACSize sets size of corresponding AC to 0 to avoid further allocations
 func (d *Controller) resetACSizeOfLVG(lvgName string) error {
-	var (
-		err error
-	)
 	// read AC
-	err = d.updateLVGAC(lvgName, 0)
+	err := d.updateLVGAC(lvgName, 0)
 	if err == errTypes.ErrorNotFound {
 		// non re-triable error
 		d.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
