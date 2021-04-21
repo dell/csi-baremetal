@@ -1,4 +1,4 @@
-package drive
+package drivelvgcontroller
 
 import (
 	"context"
@@ -101,21 +101,20 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 		return ctrl.Result{}, d.resetACSizeOfLVG(name)
 	}
 	if drive := d.cachedCrHelper.GetDriveCRByUUID(lvg.Spec.Locations[0]); drive != nil {
-		if drive.Spec.IsSystem && len(lvg.Annotations) != 0 {
-			if sizeString, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; ok {
-				byteSize, err := strconv.ParseInt(sizeString, 10, 64)
-				if err != nil {
-					log.Errorf("Failed to convert string size %s to int64, err: %v", sizeString, err)
-					return ctrl.Result{}, err
-				}
-				return ctrl.Result{}, d.createACIfNotExists(name, node, byteSize)
+		if drive.Spec.IsSystem {
+			size, err := getFreeSpaceFromLVGAnnotation(lvg.Annotations)
+			if err != nil {
+				log.Errorf("Failed to get free space from LVG %v, err: %v", lvg, err)
+				return ctrl.Result{}, err
 			}
-			log.Warnf("LVG doesn't contains annotation: %s", apiV1.LVGFreeSpaceAnnotation)
-			return ctrl.Result{}, d.createACIfNotExists(name, node, lvg.Spec.GetSize())
+			if size == 0 {
+				size = lvg.Spec.Size
+			}
+			return ctrl.Result{}, d.createACIfNotExists(name, node, size)
 		}
-		return ctrl.Result{}, d.updateLVGAC(name, lvg.Spec.GetSize())
+		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, fmt.Errorf("drive is not present for LVG %v", lvg)
 }
 
 func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
@@ -124,19 +123,18 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 		status  = drive.Spec.GetStatus()
 		isClean = drive.Spec.GetIsClean()
 	)
-
 	switch {
 	case isClean && (health == apiV1.HealthGood && status == apiV1.DriveStatusOnline):
-		return d.handleDrive(ctx, drive.Spec)
+		return d.handleAvailableCapacityChange(ctx, drive.Spec)
 	case health != apiV1.HealthGood || status != apiV1.DriveStatusOnline:
 		return d.handleDriveIsNotGood(ctx, drive.Spec)
 	case !isClean:
-		return d.handleDrive(ctx, drive.Spec)
+		return d.handleAvailableCapacityChange(ctx, drive.Spec)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (d *Controller) handleDrive(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
+func (d *Controller) handleAvailableCapacityChange(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
 	return d.createACIfNotExistOrUpdate(ctx, drive)
 }
 
@@ -160,6 +158,9 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 		return ctrl.Result{}, nil
 	case err == errTypes.ErrorNotFound:
 		name := uuid.New().String()
+		if lvg, err := d.cachedCrHelper.GetLVGByDrive(ctx, driveUUID); err != nil || lvg != nil {
+			return ctrl.Result{}, err
+		}
 		capacity := &api.AvailableCapacity{
 			Size:         size,
 			Location:     driveUUID,
@@ -167,6 +168,7 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 			NodeId:       drive.GetNodeId(),
 		}
 		newAC := d.client.ConstructACCR(name, *capacity)
+		// TODO if AC is removed, it isn't created again since Discover in Node doesn't create it, AC is created if drive is created. Need to use finilizer
 		if err := d.client.CreateCR(context.WithValue(ctx, base.RequestUUID, name), name, newAC); err != nil {
 			log.Errorf("Error during create AvailableCapacity request to k8s: %v, error: %v",
 				capacity, err)
@@ -205,8 +207,14 @@ func (d *Controller) createACIfNotExists(location, nodeID string, size int64) er
 		size++ // if size is 0 it field will not display for CR
 	}
 	// check whether AC exists
-	if err := d.updateLVGAC(location, size); err != nil {
+	ac, err := d.cachedCrHelper.GetACByLocation(location)
+
+	if err != nil && err != errTypes.ErrorNotFound {
 		return err
+	}
+
+	if ac != nil {
+		return nil
 	}
 
 	if size > capacityplanner.AcSizeMinThresholdBytes {
@@ -246,7 +254,7 @@ func (d *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 		ok       bool
 	)
 	if oldDrive, ok = old.(*drivecrd.Drive); !ok {
-		return true
+		return handleLVGObjects(old, new)
 	}
 	if newDrive, ok = new.(*drivecrd.Drive); ok {
 		return filter(oldDrive.Spec, newDrive.Spec)
@@ -254,20 +262,76 @@ func (d *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 	return true
 }
 
-func (d *Controller) updateLVGAC(name string, size int64) error {
-	if ac, _ := d.cachedCrHelper.GetACByLocation(name); ac != nil {
-		if ac.Spec.Size != size {
-			ac.Spec.Size = size
-			if err := d.client.UpdateCR(context.Background(), ac); err != nil {
-				d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
-				return err
-			}
-		}
+func handleLVGObjects(old runtime.Object, new runtime.Object) bool {
+	var (
+		oldLVG *lvgcrd.LogicalVolumeGroup
+		newLVG *lvgcrd.LogicalVolumeGroup
+		ok     bool
+	)
+	if oldLVG, ok = old.(*lvgcrd.LogicalVolumeGroup); !ok {
+		return false
 	}
-	return nil
+	if newLVG, ok = new.(*lvgcrd.LogicalVolumeGroup); ok {
+		return filterLVG(oldLVG, newLVG)
+	}
+	return false
 }
+
 func filter(old api.Drive, new api.Drive) bool {
 	return old.GetIsClean() != new.GetIsClean() ||
 		old.GetStatus() != new.GetStatus() ||
 		old.GetHealth() != new.GetHealth()
+}
+
+func filterLVG(old *lvgcrd.LogicalVolumeGroup, new *lvgcrd.LogicalVolumeGroup) bool {
+	return (new.Spec.GetHealth() != apiV1.HealthGood && old.Spec.GetStatus() != new.Spec.GetStatus()) ||
+		(new.Spec.GetStatus() == apiV1.Failed && old.Spec.GetHealth() != new.Spec.GetHealth()) ||
+		checkLVGAnnotation(old.Annotations, new.Annotations)
+}
+
+func checkLVGAnnotation(oldAnnotation, newAnnotation map[string]string) bool {
+	newSize, errNew := getFreeSpaceFromLVGAnnotation(newAnnotation)
+	oldSize, errOld := getFreeSpaceFromLVGAnnotation(oldAnnotation)
+
+	if errNew == errTypes.ErrorNotFound && errOld == errTypes.ErrorNotFound {
+		return true
+	}
+
+	if errNew == errTypes.ErrorNotFound {
+		return false
+	}
+
+	if newSize != oldSize {
+		return true
+	}
+	return false
+}
+
+func getFreeSpaceFromLVGAnnotation(annotation map[string]string) (int64, error) {
+	if annotation != nil {
+		if sizeString, ok := annotation[apiV1.LVGFreeSpaceAnnotation]; ok {
+			size, err := strconv.ParseInt(sizeString, 10, 64)
+			if err != nil {
+				return 0, err
+			}
+			return size, nil
+		}
+	}
+
+	return 0, errTypes.ErrorNotFound
+}
+
+func (d *Controller) updateLVGAC(name string, size int64) error {
+	ac, err := d.cachedCrHelper.GetACByLocation(name)
+	if err != nil {
+		return err
+	}
+	if ac.Spec.Size != size {
+		ac.Spec.Size = size
+		if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+			d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
+			return err
+		}
+	}
+	return nil
 }

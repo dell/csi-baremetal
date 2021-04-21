@@ -767,34 +767,22 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 			}
 		}
 		if len(bdev.Children) > 0 {
-			if _, ok := locations[drive.Spec.UUID]; ok {
-				continue
-			}
 			if drive.Spec.IsClean {
-				drive.Spec.IsClean = false
-				ctxWithID := context.WithValue(context.Background(), base.RequestUUID, drive.Name)
-				if err = m.k8sClient.Update(ctxWithID, &drive); err != nil {
-					ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
-				}
+				m.changeDriveIsCleanField(&drive, false)
 			}
 			continue
 		}
-		if hasData, err := m.fsOps.DriveHasData(drive.Spec.Path); err != nil {
+		hasData, err := m.fsOps.DriveHasData(drive.Spec.Path)
+		if err != nil {
 			ll.Errorf("Unable to get fs information about drive %s: %v", drive.Spec.Path, err)
-		} else if hasData && drive.Spec.IsClean {
-			drive.Spec.IsClean = false
-			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, drive.Name)
-			if err = m.k8sClient.Update(ctxWithID, &drive); err != nil {
-				ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
-			}
+			continue
+		}
+		if hasData && drive.Spec.IsClean {
+			m.changeDriveIsCleanField(&drive, false)
 			continue
 		}
 		if !drive.Spec.IsClean {
-			drive.Spec.IsClean = true
-			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, drive.Name)
-			if err = m.k8sClient.Update(ctxWithID, &drive); err != nil {
-				ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
-			}
+			m.changeDriveIsCleanField(&drive, true)
 		}
 	}
 	return nil
@@ -836,17 +824,11 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			if lvg.Annotations == nil {
 				lvg.Annotations = make(map[string]string, 1)
 			}
-			if size, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; ok {
-				byteSize, err := strconv.ParseInt(size, 10, 64)
-				if err != nil {
-					ll.Errorf("Failed to convert string size %s to int64, err: %v", size, err)
-					return err
-				}
-				if byteSize == vgFreeSpace {
-					return nil
-				}
+			if _, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; ok {
+				delete(lvg.Annotations, apiV1.LVGFreeSpaceAnnotation)
+			} else {
+				lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(vgFreeSpace, 10)
 			}
-			lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(vgFreeSpace, 10)
 			ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
 			if err = m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
 				return fmt.Errorf("unable to update LVG CR %v, error: %v", lvg, err)
@@ -947,6 +929,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, drive.UUID)
 	if lvg != nil {
+		// TODO handle situation when LVG health is changing from Bad/Suspec to Good
 		lvg.Spec.Health = drive.Health
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
 			ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
@@ -1124,4 +1107,15 @@ func (m *VolumeManager) handleExpandingStatus(ctx context.Context, volume *volum
 		return ctrl.Result{Requeue: true}, updateErr
 	}
 	return ctrl.Result{}, err
+}
+
+func (m *VolumeManager) changeDriveIsCleanField(drive *drivecrd.Drive, clean bool) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "changeDriveIsCleanField",
+	})
+	drive.Spec.IsClean = clean
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, drive.Name)
+	if err := m.k8sClient.Update(ctxWithID, drive); err != nil {
+		ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
+	}
 }

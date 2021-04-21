@@ -49,6 +49,7 @@ import (
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
+	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 // TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
@@ -1069,6 +1070,85 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 	vol = &vcrd.Volume{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
 	assert.Equal(t, apiV1.Resized, vol.Spec.CSIStatus)
+}
+
+func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
+	t.Run("Disk has data", func(t *testing.T) {
+		var (
+			vm      *VolumeManager
+			listBlk = &mocklu.MockWrapLsblk{}
+		)
+		vm = prepareSuccessVolumeManager(t)
+		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1}, nil)
+		vm.listBlk = listBlk
+		e := &mocks.GoMockExecutor{}
+		e.OnCommand(fmt.Sprintf(fs.DetectFSCmdTmpl, "/dev/sda")).Return("xfs", "", nil)
+		vm.fsOps = utilwrappers.NewFSOperationsImpl(e, testLogger)
+		testDrive := testDriveCR
+		testDrive.Spec.Path = "/dev/sda"
+		testDrive.Spec.IsClean = true
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
+		assert.Nil(t, err)
+
+		err = vm.discoverDataOnDrives()
+		assert.Nil(t, err)
+
+		newDrive := &drivecrd.Drive{}
+		err = vm.k8sClient.ReadCR(testCtx, testDrive.Name, "", newDrive)
+		assert.Nil(t, err)
+
+		assert.Equal(t, false, newDrive.Spec.IsClean)
+	})
+	t.Run("DriveHasData function failed", func(t *testing.T) {
+		var (
+			vm      *VolumeManager
+			listBlk = &mocklu.MockWrapLsblk{}
+		)
+		vm = prepareSuccessVolumeManager(t)
+		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1}, nil)
+		vm.listBlk = listBlk
+		e := &mocks.GoMockExecutor{}
+		e.OnCommand(fmt.Sprintf(fs.DetectFSCmdTmpl, "/dev/sda")).Return("", "", errors.New("error"))
+		vm.fsOps = utilwrappers.NewFSOperationsImpl(e, testLogger)
+		testDrive := testDriveCR
+		testDrive.Spec.Path = "/dev/sda"
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
+		assert.Nil(t, err)
+
+		err = vm.discoverDataOnDrives()
+		assert.Nil(t, err)
+		newDrive := &drivecrd.Drive{}
+		err = vm.k8sClient.ReadCR(testCtx, testDriveCR.Name, "", newDrive)
+		assert.Nil(t, err)
+		assert.Equal(t, false, newDrive.Spec.IsClean)
+	})
+
+	t.Run("Drive doesn't have data", func(t *testing.T) {
+		var (
+			vm      *VolumeManager
+			listBlk = &mocklu.MockWrapLsblk{}
+		)
+		vm = prepareSuccessVolumeManager(t)
+		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1}, nil)
+		vm.listBlk = listBlk
+		e := &mocks.GoMockExecutor{}
+		e.OnCommand(fmt.Sprintf(fs.DetectFSCmdTmpl, "/dev/sda")).Return("", "", nil)
+		vm.fsOps = utilwrappers.NewFSOperationsImpl(e, testLogger)
+		testDrive := testDriveCR
+		testDrive.Spec.Path = "/dev/sda"
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
+		assert.Nil(t, err)
+
+		err = vm.discoverDataOnDrives()
+		assert.Nil(t, err)
+		newDrive := &drivecrd.Drive{}
+		err = vm.k8sClient.ReadCR(testCtx, testDriveCR.Name, "", newDrive)
+		assert.Nil(t, err)
+		assert.Equal(t, true, newDrive.Spec.IsClean)
+	})
 }
 
 func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
