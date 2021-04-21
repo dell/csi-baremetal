@@ -824,14 +824,12 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			if lvg.Annotations == nil {
 				lvg.Annotations = make(map[string]string, 1)
 			}
-			if _, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; ok {
-				delete(lvg.Annotations, apiV1.LVGFreeSpaceAnnotation)
-			} else {
+			if _, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; !ok {
 				lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(vgFreeSpace, 10)
-			}
-			ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
-			if err = m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
-				return fmt.Errorf("unable to update LVG CR %v, error: %v", lvg, err)
+				ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
+				if err = m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
+					return fmt.Errorf("unable to update LVG CR %v, error: %v", lvg, err)
+				}
 			}
 			return nil
 		}

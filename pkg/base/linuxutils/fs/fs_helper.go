@@ -316,7 +316,7 @@ func (h *WrapFSImpl) Unmount(path string) error {
 	return err
 }
 
-// DriveHasData detect FS from the provided device using wipefs
+// DriveHasData detect FS from the provided device using lsblk --output FSTYPE
 // Receives file path of the device as a string
 // Returns error if something went wrong
 func (h *WrapFSImpl) DriveHasData(device string) (bool, error) {

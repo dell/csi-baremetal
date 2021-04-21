@@ -447,7 +447,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
-		assert.True(t, controller.filterUpdateEvent(&testLVG, &testLVG2))
+		assert.False(t, controller.filterUpdateEvent(&testLVG, &testLVG2))
 	})
 	t.Run("Both LVG have annotation", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)

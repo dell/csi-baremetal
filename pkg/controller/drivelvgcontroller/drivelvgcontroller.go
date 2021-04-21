@@ -87,6 +87,7 @@ func (d *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return d.reconcileLVG(lvg)
 }
 
+// reconcileLVG perform logic for LVG reconciliation
 func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "reconcileLVG",
@@ -97,16 +98,21 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 		name   = lvg.GetName()
 		node   = lvg.Spec.GetNode()
 	)
+	// If LVG status is failed or Health is not good, try to reset its AC size to 0
 	if status == apiV1.Failed || health != apiV1.HealthGood {
 		return ctrl.Result{}, d.resetACSizeOfLVG(name)
 	}
 	if drive := d.cachedCrHelper.GetDriveCRByUUID(lvg.Spec.Locations[0]); drive != nil {
+		// Logic is performed for system LVG only
 		if drive.Spec.IsSystem {
+			// If LVG is already presented on a machine but doesn't have AC, try to create its AC using annotation with
+			// VG free space
 			size, err := getFreeSpaceFromLVGAnnotation(lvg.Annotations)
 			if err != nil {
 				log.Errorf("Failed to get free space from LVG %v, err: %v", lvg, err)
 				return ctrl.Result{}, err
 			}
+			// If LVG was created without annotation, use its size to create AC
 			if size == 0 {
 				size = lvg.Spec.Size
 			}
@@ -117,6 +123,7 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 	return ctrl.Result{}, fmt.Errorf("drive is not present for LVG %v", lvg)
 }
 
+// reconcileDrive preforms logic for drive reconciliation
 func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	var (
 		health  = drive.Spec.GetHealth()
@@ -125,31 +132,30 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 	)
 	switch {
 	case isClean && (health == apiV1.HealthGood && status == apiV1.DriveStatusOnline):
-		return d.handleAvailableCapacityChange(ctx, drive.Spec)
+		return d.createACIfNotExistOrUpdate(ctx, drive.Spec)
 	case health != apiV1.HealthGood || status != apiV1.DriveStatusOnline:
 		return d.handleDriveIsNotGood(ctx, drive.Spec)
 	case !isClean:
-		return d.handleAvailableCapacityChange(ctx, drive.Spec)
+		return d.createACIfNotExistOrUpdate(ctx, drive.Spec)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (d *Controller) handleAvailableCapacityChange(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
-	return d.createACIfNotExistOrUpdate(ctx, drive)
-}
-
+// createACIfNotExistOrUpdate tries to create AC for drive or update its size if AC already exists
 func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "createACIfNotExistOrUpdate",
 	})
 	driveUUID := drive.GetUUID()
 	size := drive.GetSize()
+	// if drive is not clean, size is 0
 	if !drive.GetIsClean() {
 		size = 0
 	}
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
+		// If ac is exists, update its size to drive size
 		ac.Spec.Size = size
 		if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
 			log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
@@ -181,6 +187,7 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 	return ctrl.Result{}, nil
 }
 
+// handleDriveIsNotGood deletes AC for bad Drive
 func (d *Controller) handleDriveIsNotGood(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "handleDriveIsNotGood",
@@ -199,6 +206,7 @@ func (d *Controller) handleDriveIsNotGood(ctx context.Context, drive api.Drive) 
 	return ctrl.Result{}, nil
 }
 
+// createACIfNotExists creates AC for LVG
 func (d *Controller) createACIfNotExists(location, nodeID string, size int64) error {
 	ll := d.log.WithFields(logrus.Fields{
 		"method": "createACIfFreeSpace",
@@ -207,14 +215,8 @@ func (d *Controller) createACIfNotExists(location, nodeID string, size int64) er
 		size++ // if size is 0 it field will not display for CR
 	}
 	// check whether AC exists
-	ac, err := d.cachedCrHelper.GetACByLocation(location)
-
-	if err != nil && err != errTypes.ErrorNotFound {
+	if err := d.updateLVGAC(location, size); err != nil && err != errTypes.ErrorNotFound {
 		return err
-	}
-
-	if ac != nil {
-		return nil
 	}
 
 	if size > capacityplanner.AcSizeMinThresholdBytes {
@@ -278,14 +280,18 @@ func handleLVGObjects(old runtime.Object, new runtime.Object) bool {
 }
 
 func filter(old api.Drive, new api.Drive) bool {
+	// controller perform reconcile for drives, which have different statuses, health or isClean field.
+	// Another drives are skipped
 	return old.GetIsClean() != new.GetIsClean() ||
 		old.GetStatus() != new.GetStatus() ||
 		old.GetHealth() != new.GetHealth()
 }
 
 func filterLVG(old *lvgcrd.LogicalVolumeGroup, new *lvgcrd.LogicalVolumeGroup) bool {
-	return (new.Spec.GetHealth() != apiV1.HealthGood && old.Spec.GetStatus() != new.Spec.GetStatus()) ||
-		(new.Spec.GetStatus() == apiV1.Failed && old.Spec.GetHealth() != new.Spec.GetHealth()) ||
+	// controller perform reconcile for lvg, which have different statuses, health or annotation field.
+	// Another LVGs are skipped
+	return (new.Spec.GetHealth() != apiV1.HealthGood && old.Spec.GetHealth() != new.Spec.GetHealth()) ||
+		(new.Spec.GetStatus() == apiV1.Failed && old.Spec.GetStatus() != new.Spec.GetStatus()) ||
 		checkLVGAnnotation(old.Annotations, new.Annotations)
 }
 
@@ -293,11 +299,15 @@ func checkLVGAnnotation(oldAnnotation, newAnnotation map[string]string) bool {
 	newSize, errNew := getFreeSpaceFromLVGAnnotation(newAnnotation)
 	oldSize, errOld := getFreeSpaceFromLVGAnnotation(oldAnnotation)
 
-	if errNew == errTypes.ErrorNotFound && errOld == errTypes.ErrorNotFound {
-		return true
+	// Controller doesn't perform reconcile if new lvg doesn't have annotation
+	if errNew != nil {
+		return false
 	}
 
-	if errNew == errTypes.ErrorNotFound {
+	// Controller performs reconcile if both lvg have different VG space, for example old lvg doesn't have annotation
+	// new lvg have annotation. In this case oldSize = 0 and newSize equals size from annotation. This logic is used
+	// when lvg is already presented on a machine, but doesn't have AC
+	if errOld != nil && errOld != errTypes.ErrorNotFound {
 		return false
 	}
 
