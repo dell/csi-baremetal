@@ -106,8 +106,6 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		"method":   "CreateVolume",
 		"volumeID": v.Id,
 	})
-	log.Infof("Creating volume %v", v)
-
 	var (
 		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, v.Id)
 		volumeCR  = &volumecrd.Volume{}
@@ -115,6 +113,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		namespace = base.DefaultNamespace
 	)
 
+	log.Infof("Checking volume %v custom resource state", v)
 	// at first check whether volume CR exist or no
 	err = vo.k8sClient.ReadCR(ctx, v.Id, namespace, volumeCR)
 	switch {
@@ -136,6 +135,8 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		log.Errorf("Unable to read volume CR: %v", err)
 		return nil, status.Error(codes.Aborted, "unable to check volume existence")
 	}
+
+	log.Infof("Creating volume %v", v)
 
 	// read information about PersistentVolumeClaim from context value
 	var volumeInfo *util.VolumeInfo
