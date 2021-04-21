@@ -110,14 +110,27 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, v.Id)
 		volumeCR  = &volumecrd.Volume{}
 		err       error
-		namespace = base.DefaultNamespace
 	)
 
-	log.Infof("Checking volume %v custom resource state", v)
+	// read information about PersistentVolumeClaim from context value
+	namespace := base.DefaultNamespace
+	var volumeInfo *util.VolumeInfo
+	if value := ctx.Value(util.VolumeInfoKey); value != nil {
+		volumeInfo = value.(*util.VolumeInfo)
+		if !volumeInfo.IsDefaultNamespace() {
+			namespace = volumeInfo.Namespace
+		}
+	}
+
+	if volumeInfo == nil {
+		log.Errorf("Volume info is not passed for %s", v.Id)
+		return nil, fmt.Errorf("volume info is not passed for %s", v.Id)
+	}
+
+	log.Infof("Checking volume custom resource state...")
 	// at first check whether volume CR exist or no
 	err = vo.k8sClient.ReadCR(ctx, v.Id, namespace, volumeCR)
-	switch {
-	case err == nil:
+	if err == nil {
 		log.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
 		if volumeCR.Spec.CSIStatus == apiV1.Failed {
 			return nil, fmt.Errorf("corresponding volume CR %s has failed status", volumeCR.Spec.Id)
@@ -131,28 +144,16 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
 		return &volumeCR.Spec, nil
-	case !k8sError.IsNotFound(err):
-		log.Errorf("Unable to read volume CR: %v", err)
-		return nil, status.Error(codes.Aborted, "unable to check volume existence")
 	}
 
-	log.Infof("Creating volume %v", v)
-
-	// read information about PersistentVolumeClaim from context value
-	var volumeInfo *util.VolumeInfo
-	if value := ctx.Value(util.VolumeInfoKey); value != nil {
-		volumeInfo = value.(*util.VolumeInfo)
-		if !volumeInfo.IsDefaultNamespace() {
-			namespace = volumeInfo.Namespace
-		}
+	if k8sError.IsNotFound(err) {
+		log.Infof("Creating volume %v", v)
+		// create volume
+		return vo.handleVolumeCreation(ctxWithID, log, v, namespace, volumeInfo.Name)
 	}
 
-	if volumeInfo == nil {
-		log.Errorf("Volume info is not passed for %s", v.Id)
-		return nil, fmt.Errorf("volume info is not passed for %s", v.Id)
-	}
-	// create volume
-	return vo.handleVolumeCreation(ctxWithID, log, v, namespace, volumeInfo.Name)
+	log.Errorf("Unable to read volume CR: %v", err)
+	return nil, status.Error(codes.Aborted, "unable to check volume existence")
 }
 
 // TODO - refactor this method https://github.com/dell/csi-baremetal/issues/371
