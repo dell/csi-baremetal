@@ -67,10 +67,6 @@ type CSINodeService struct {
 }
 
 const (
-	// PodNameKey to read pod name from PodInfoOnMount feature
-	PodNameKey = "csi.storage.k8s.io/pod.name"
-	// PodNamespaceKey to read pod namespace from PodInfoOnMount feature
-	PodNamespaceKey = "csi.storage.k8s.io/pod.namespace"
 	// UnknownPodName is used when pod name isn't provided in request
 	UnknownPodName = "UNKNOWN"
 	// EphemeralKey in volume context means that in node publish request we need to create ephemeral volume
@@ -377,7 +373,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	var podName string
-	podName, ok := req.VolumeContext[PodNameKey]
+	podName, ok := req.VolumeContext[util.PodNameKey]
 	if !ok {
 		podName = UnknownPodName
 		ll.Warnf("flag podInfoOnMount isn't provided will add %s for volume owners", podName)
@@ -413,13 +409,13 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 		scl           string
 		bytes         int64
 		err           error
-		namespace     string
 	)
-	namespace, ok := volumeContext[PodNamespaceKey]
-	if !ok {
-		namespace = base.DefaultNamespace
+	// kubernetes specifics
+	volumeInfo, err := util.NewInlineVolumeInfo(req.TargetPath, volumeContext)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	ctxWithNamespace := context.WithValue(ctx, base.VolumeNamespace, namespace)
+	ctxValue := context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 
 	if bytes, err = util.StrToBytes(bytesStr); err != nil {
 		return nil, err
@@ -440,7 +436,7 @@ func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string
 	}
 
 	s.reqMu.Lock()
-	vol, err := s.svc.CreateVolume(ctxWithNamespace, api.Volume{
+	vol, err := s.svc.CreateVolume(ctxValue, api.Volume{
 		Id:           volumeID,
 		StorageClass: scl,
 		NodeId:       s.nodeID,

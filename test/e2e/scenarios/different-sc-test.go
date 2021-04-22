@@ -80,7 +80,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 	}
 
 	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test DriveHealthChange")
+		e2elog.Logf("Starting cleanup for test DifferentScTest")
 		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, pvcs)
 	}
 

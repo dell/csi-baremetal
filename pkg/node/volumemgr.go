@@ -821,19 +821,32 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	lvgs, err := m.cachedCrHelper.GetLVGCRs(m.nodeID)
+	if err != nil {
+		return err
+	}
 
 	var (
 		// key - ac.Spec.Location that is Drive.Spec.UUID
 		acsLocations = make(map[string]*accrd.AvailableCapacity, len(acs))
 		// key - volume.Spec.Location that is Drive.Spec.UUID or LogicalVolumeGroup.Spec.Name (don't need to use info about LogicalVolumeGroup here)
 		volumeLocations = make(map[string]struct{})
+		// key - lvg.Spec.Location that is Drive.Spec.UUID or LogicalVolumeGroup.Spec.Name
+		lvgLocations = make(map[string]struct{})
 	)
 	for _, ac := range acs {
 		ac := ac
 		acsLocations[ac.Spec.Location] = &ac
 	}
+	// volumes locations set
 	for _, v := range volumes {
 		volumeLocations[v.Spec.Location] = struct{}{}
+	}
+	// lvgs locations set
+	for _, lvg := range lvgs {
+		for _, location := range lvg.Spec.Locations {
+			lvgLocations[location] = struct{}{}
+		}
 	}
 
 	var wasError = false
@@ -842,34 +855,39 @@ func (m *VolumeManager) discoverAvailableCapacity(ctx context.Context) error {
 			// AC that points on such drive was removed before (if they had existed)
 			continue
 		}
+		driveUUID := drive.Spec.UUID
 		// check whether there is Volume CR that points on same drive
-		if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
+		if _, volumeExist := volumeLocations[driveUUID]; volumeExist {
 			// check whether appropriate AC exists or not
-			if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
+			if _, acExist := acsLocations[driveUUID]; acExist {
 				ll.Warnf("There is Volume CR that points on same drive %s as AC %s",
-					drive.Name, acsLocations[drive.Spec.UUID].Name)
-				ac := acsLocations[drive.Spec.UUID]
+					drive.Name, acsLocations[driveUUID].Name)
+				ac := acsLocations[driveUUID]
 				ac.Spec.Size = 0
-				acsLocations[drive.Spec.UUID] = ac
-				if err = m.k8sClient.UpdateCR(ctx, acsLocations[drive.Spec.UUID]); err != nil {
-					ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[drive.Spec.UUID].Name, err)
+				acsLocations[driveUUID] = ac
+				if err = m.k8sClient.UpdateCR(ctx, acsLocations[driveUUID]); err != nil {
+					ll.Errorf("Unable to delete AC CR %s: %v. Inconsistent ACs", acsLocations[driveUUID].Name, err)
 				}
 				continue
 			}
 		}
-		if _, acExist := acsLocations[drive.Spec.UUID]; acExist {
+		if _, acExist := acsLocations[driveUUID]; acExist {
+			continue
+		}
+		// skip if LVG is on top of this drive
+		if _, ok := lvgLocations[driveUUID]; ok {
 			continue
 		}
 
 		// create AC based on drive
 		capacity := &api.AvailableCapacity{
 			Size:         drive.Spec.Size,
-			Location:     drive.Spec.UUID,
+			Location:     driveUUID,
 			StorageClass: util.ConvertDriveTypeToStorageClass(drive.Spec.Type),
 			NodeId:       m.nodeID,
 		}
 
-		if _, volumeExist := volumeLocations[drive.Spec.UUID]; volumeExist {
+		if _, volumeExist := volumeLocations[driveUUID]; volumeExist {
 			capacity.Size = 0
 		}
 

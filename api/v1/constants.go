@@ -103,6 +103,12 @@ const (
 	LocationTypeLVM   = "LVM"
 	LocationTypeNVMe  = "NVME"
 
+	// Available Capacity Reservation statuses
+	ReservationRequested = "REQUESTED"
+	ReservationConfirmed = "RESERVED"
+	ReservationRejected  = "REJECTED"
+	ReservationCancelled = "CANCELLED"
+
 	// CSI StorageClass
 	// For volumes with storage class 'ANY' CSI will pick any AC except LVG AC
 	StorageClassAny       = "ANY"

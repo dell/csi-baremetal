@@ -20,25 +20,33 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	"net"
 	"net/http"
 	"strconv"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	// +kubebuilder:scaffold:imports
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
 	"github.com/dell/csi-baremetal/pkg/metrics"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 var (
@@ -102,8 +110,25 @@ func main() {
 		}()
 	}
 
+	// todo make ACR feature mandatory and get rid of feature flag https://github.com/dell/csi-baremetal/issues/366
+	// check ACR feature flag
+	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
+		// create Reservation manager
+		reservationManager, err := createReservationManager(kubeClient, logger)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		// start Reservation manager
+		go func() {
+			logger.Info("Starting Reservation Controller")
+			if err := reservationManager.Start(ctrl.SetupSignalHandler()); err != nil {
+				logger.Fatalf("Reservation Controller failed with error: %v", err)
+			}
+		}()
+	}
+
 	go func() {
-		logger.Info("Starting Controller Health server ...")
+		logger.Info("Starting Controller Health server")
 		if err := util.SetupAndStartHealthCheckServer(
 			controllerService, logger,
 			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(*healthPort))); err != nil {
@@ -115,4 +140,34 @@ func main() {
 		logger.Fatalf("fail to serve, error: %v", err)
 	}
 	logger.Info("Got SIGTERM signal")
+}
+
+func createReservationManager(client *k8s.KubeClient, log *logrus.Logger) (mgr ctrl.Manager, err error) {
+	// create scheme
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	// register ACR CRD
+	if err = acrcrd.AddToSchemeACR(scheme); err != nil {
+		return nil, err
+	}
+
+	mgr, err = ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:    scheme,
+		Namespace: *namespace,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// controller
+	reservationController := reservation.NewController(client, log)
+	if err = reservationController.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
+	return mgr, nil
 }

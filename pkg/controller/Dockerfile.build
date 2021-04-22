@@ -1,5 +1,5 @@
-FROM alpine:3.10
+FROM   alpine:3.10 
 
 ADD     health_probe    health_probe
 
-RUN     apk add bash curl util-linux parted xfsprogs-extra lvm2 sgdisk
+RUN     apk add bash curl

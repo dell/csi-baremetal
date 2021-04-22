@@ -225,7 +225,7 @@ func (cs *CRHelper) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
 	cs.log.WithFields(logrus.Fields{
 		"method":   "GetVolumeByID",
 		"volumeID": volID,
-	}).Infof("Volume CR isn't exist")
+	}).Infof("Volume CR not found")
 	return nil, fmt.Errorf("volume wasn't found")
 }
 
