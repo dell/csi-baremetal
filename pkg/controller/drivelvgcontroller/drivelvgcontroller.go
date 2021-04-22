@@ -28,6 +28,7 @@ import (
 	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
+// RequeueDriveTime is time between drives reconciliation
 const RequeueDriveTime = time.Second * 30
 
 // Controller reconciles drive custom resource
