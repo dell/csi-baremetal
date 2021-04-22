@@ -16,28 +16,12 @@ limitations under the License.
 
 package common
 
-import (
-	"context"
-	"fmt"
-	"strings"
-	"time"
-
-	"github.com/sirupsen/logrus"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	api "github.com/dell/csi-baremetal/api/generated/v1"
-	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base/util"
-)
-
 var (
-	testLogger = logrus.New()
-	testNS     = "default"
+	testNS = "default"
+	// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
+	/*testLogger = logrus.New()
 
-	testCtx       = context.Background()
+	testCtx = context.Background()
 	testNode1Name = "node1"
 	testNode2Name = "node2"
 
@@ -112,5 +96,5 @@ var (
 			Location:     testDrive1UUID,
 			CSIStatus:    apiV1.Creating,
 		},
-	}
+	}*/
 )

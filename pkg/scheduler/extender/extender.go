@@ -19,6 +19,7 @@ package extender
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,11 +29,14 @@ import (
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
@@ -99,7 +103,8 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 
 	ll.Info("Filtering")
 	ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
-	volumes, err := e.gatherVolumesByProvisioner(ctxWithVal, extenderArgs.Pod)
+	pod := extenderArgs.Pod
+	requests, err := e.gatherCapacityRequestsByProvisioner(ctxWithVal, pod)
 	if err != nil {
 		extenderRes.Error = err.Error()
 		if err := resp.Encode(extenderRes); err != nil {
@@ -107,11 +112,10 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	ll.Debugf("Required volumes: %v", volumes)
+	ll.Debugf("Required capacity: %v", requests)
 
-	e.Lock()
-	defer e.Unlock()
-	matchedNodes, failedNodes, err := e.filter(ctxWithVal, extenderArgs.Nodes.Items, volumes)
+	matchedNodes, failedNodes, err := e.filter(ctxWithVal, pod, extenderArgs.Nodes.Items, requests)
+
 	if err != nil {
 		ll.Errorf("filter finished with error: %v", err)
 		extenderRes.Error = err.Error()
@@ -205,12 +209,12 @@ func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// gatherVolumesByProvisioner search all volumes in pod' spec that should be provisioned
+// gatherCapacityRequestsByProvisioner search all volumes in pod' spec that should be provisioned
 // by provisioner e.provisioner and construct genV1.Volume struct for each of such volume
-func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.Volume, error) {
+func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.CapacityRequest, error) {
 	ll := e.logger.WithFields(logrus.Fields{
 		"sessionUUID": ctx.Value(base.RequestUUID),
-		"method":      "gatherVolumesByProvisioner",
+		"method":      "gatherCapacityRequestsByProvisioner",
 		"pod":         pod.Name,
 	})
 
@@ -220,17 +224,17 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 		return nil, err
 	}
 
-	volumes := make([]*genV1.Volume, 0)
+	requests := make([]*genV1.CapacityRequest, 0)
 	for _, v := range pod.Spec.Volumes {
-		// check whether there are Ephemeral volumes or no
+		// check whether volume Ephemeral or not
 		if v.CSI != nil {
 			if v.CSI.Driver == e.provisioner {
-				volume, err := e.constructVolumeFromCSISource(v.CSI)
+				request, err := e.createCapacityRequest(pod.Name, v)
 				if err != nil {
 					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
 				}
-				// need to apply any result for getting at leas amount of volumes
-				volumes = append(volumes, volume)
+				// need to apply any result for getting at leas amount of requests
+				requests = append(requests, request)
 			}
 			continue
 		}
@@ -257,105 +261,212 @@ func (e *Extender) gatherVolumesByProvisioner(ctx context.Context, pod *coreV1.P
 					storageReq = resource.Quantity{}
 				}
 
-				mode := ""
-				if pvc.Spec.VolumeMode != nil {
-					mode = string(*pvc.Spec.VolumeMode)
-				}
-
-				volumes = append(volumes, &genV1.Volume{
-					Id:           pvc.Name,
+				requests = append(requests, &genV1.CapacityRequest{
+					Name:         pvc.Name,
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
-					Mode:         mode,
-					Ephemeral:    false,
 				})
 			}
 		}
 	}
-	return volumes, nil
+	return requests, nil
 }
 
-// constructVolumeFromCSISource constructs genV1.Volume based on fields from coreV1.Volume.CSI
-func (e *Extender) constructVolumeFromCSISource(v *coreV1.CSIVolumeSource) (vol *genV1.Volume, err error) {
+// createCapacityRequest constructs genV1.CapacityRequest based on coreV1.Volume.Name and fields from coreV1.Volume.CSI
+func (e *Extender) createCapacityRequest(podName string, volume coreV1.Volume) (request *genV1.CapacityRequest, err error) {
 	// if some parameters aren't parsed for some reason
 	// empty volume will be returned in order count that volume
-	vol = &genV1.Volume{
-		StorageClass: v1.StorageClassAny,
-		Ephemeral:    true,
-	}
+	requestName := podName + "-" + volume.Name
+	request = &genV1.CapacityRequest{Name: requestName, StorageClass: v1.StorageClassAny}
 
+	v := volume.CSI
 	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
 	if !ok {
-		return vol, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
+		return request, fmt.Errorf("unable to detect storage class from attributes %v", v.VolumeAttributes)
 	}
-	vol.StorageClass = util.ConvertStorageClass(sc)
+	request.StorageClass = util.ConvertStorageClass(sc)
 
 	sizeStr, ok := v.VolumeAttributes[base.SizeKey]
 	if !ok {
-		return vol, fmt.Errorf("unable to detect size from attributes %v", v.VolumeAttributes)
+		return request, fmt.Errorf("unable to detect size from attributes %v", v.VolumeAttributes)
 	}
 
 	size, err := util.StrToBytes(sizeStr)
 	if err != nil {
-		return vol, fmt.Errorf("unable to convert string %s to bytes: %v", sizeStr, err)
+		return request, fmt.Errorf("unable to convert string %s to bytes: %v", sizeStr, err)
 	}
-	vol.Size = size
+	request.Size = size
 
-	return vol, nil
+	return request, nil
 }
 
 // filter is an algorithm for defining whether requested volumes could be provisioned on particular node or no
 // nodes - list of node candidate, volumes - requested volumes
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
-// failedNodesMap - represents the filtered out nodes, with node names and failure messages
-func (e *Extender) filter(ctx context.Context, nodes []coreV1.Node, volumes []*genV1.Volume) (matchedNodes []coreV1.Node,
-	failedNodesMap schedulerapi.FailedNodesMap, err error) {
-	if len(volumes) == 0 {
-		return nodes, failedNodesMap, err
+// filteredNodes - represents the filtered out nodes, with node names and failure messages
+func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
+	filteredNodes schedulerapi.FailedNodesMap, err error) {
+	// ignore when no storage allocation requests
+	if len(capacities) == 0 {
+		return nodes, nil, nil
 	}
 
-	// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
-	acReader := capacityplanner.NewACReader(e.k8sClient, e.logger, true)
-	acrReader := capacityplanner.NewACRReader(e.k8sClient, e.logger, true)
-	reservedCapReader := capacityplanner.NewUnreservedACReader(e.logger, acReader, acrReader)
-	capManager := e.capacityManagerBuilder.GetCapacityManager(e.logger, reservedCapReader)
-
-	placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes)
+	// construct ACR name
+	reservationName := getReservationName(pod)
+	// read reservation
+	reservation := &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(ctx, reservationName, "", reservation)
 	if err != nil {
-		return matchedNodes, failedNodesMap, err
+		if k8serrors.IsNotFound(err) {
+			// create new reservation
+			if err := e.createReservation(ctx, pod.Namespace, reservationName, nodes, capacities); err != nil {
+				// cannot create reservation
+				return nil, nil, err
+			}
+			// not an error - reservation requested
+			return nil, nil, nil
+		}
+		// issue with reading reservation
+		return nil, nil, err
 	}
 
-	noACForNodeMsg := "Node doesn't contain required amount of AvailableCapacity"
+	// reservation found
+	return e.handleReservation(ctx, reservation, nodes)
+}
 
-	failedNodesMap = schedulerapi.FailedNodesMap{}
-	for _, node := range nodes {
-		if placingPlan == nil {
-			failedNodesMap[node.Name] = noACForNodeMsg
-			continue
-		}
+func getReservationName(pod *coreV1.Pod) string {
+	namespace := pod.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
 
+	return namespace + "-" + pod.Name
+}
+
+func (e *Extender) createReservation(ctx context.Context, namespace string, name string, nodes []coreV1.Node,
+	capacities []*genV1.CapacityRequest) error {
+	// ACR CRD
+	reservation := genV1.AvailableCapacityReservation{
+		Namespace: namespace,
+		Status:    v1.ReservationRequested,
+	}
+
+	// fill in reservation requests
+	reservation.ReservationRequests = make([]*genV1.ReservationRequest, len(capacities))
+	for i, capacity := range capacities {
+		reservation.ReservationRequests[i] = &genV1.ReservationRequest{CapacityRequest: capacity}
+	}
+
+	// fill in node requests
+	reservation.NodeRequests = &genV1.NodeRequests{}
+	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
+		reservation.NodeRequests.Requested = nodes
+	} else {
+		return err
+	}
+
+	// create new reservation
+	reservationResource := &acrcrd.AvailableCapacityReservation{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1.AvailableCapacityReservationKind,
+			APIVersion: v1.APIV1Version,
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       reservation,
+	}
+
+	if err := e.k8sClient.CreateCR(ctx, name, reservationResource); err != nil {
+		// cannot create reservation
+		return err
+	}
+	return nil
+}
+
+func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) ([]string, error) {
+	requestedNodes := make([]string, len(nodes))
+
+	for i, node := range nodes {
 		node := node
 		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("failed to get NodeID: %s", err)
+			return nil, err
 		}
-
-		placingForNode := placingPlan.GetVolumesToACMapping(nodeID)
-		if placingForNode == nil {
-			failedNodesMap[node.Name] = noACForNodeMsg
-			continue
-		}
-		matchedNodes = append(matchedNodes, node)
-	}
-	if len(matchedNodes) != 0 {
-		reservationHelper := capacityplanner.NewReservationHelper(e.logger, e.k8sClient, acReader, acrReader)
-		err = reservationHelper.CreateReservation(ctx, placingPlan)
-		if err != nil {
-			e.logger.Errorf("failed to create reservation: %s", err.Error())
-		}
+		requestedNodes[i] = nodeID
 	}
 
-	return matchedNodes, failedNodesMap, err
+	return requestedNodes, nil
+}
+
+func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
+	nodes []coreV1.Node) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
+	// handle reservation status
+	switch reservation.Spec.Status {
+	case v1.ReservationRequested:
+		// not an error - reservation requested. need to retry
+		// todo check for requested nodes update - https://github.com/dell/csi-baremetal/issues/370
+		return nil, nil, nil
+	case v1.ReservationConfirmed:
+		// need to filter nodes here
+		filteredNodes = schedulerapi.FailedNodesMap{}
+		for _, requestedNode := range nodes {
+			isFound := false
+			// node ID
+			node := requestedNode
+			nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+			if err != nil {
+				e.logger.Errorf("failed to get NodeID: %s", err)
+				continue
+			}
+			for _, node := range reservation.Spec.NodeRequests.Reserved {
+				if node == nodeID {
+					matchedNodes = append(matchedNodes, requestedNode)
+					isFound = true
+					break
+				}
+			}
+			// node name
+			name := requestedNode.Name
+			if !isFound {
+				filteredNodes[name] = fmt.Sprintf("No available capacity found on the node %s", name)
+			}
+		}
+		// requested nodes has changed. need to update reservation with the new list of nodes
+		if len(matchedNodes) == 0 {
+			return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
+		}
+
+		return matchedNodes, filteredNodes, nil
+	case v1.ReservationRejected:
+		// no available capacity
+		// request reservation again
+		return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
+	}
+
+	return nil, nil, errors.New("unsupported reservation status: " + reservation.Spec.Status)
+}
+
+func (e *Extender) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
+	nodes []coreV1.Node) error {
+	reservation.Spec.Status = v1.ReservationRequested
+	// update nodes
+	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
+		reservation.Spec.NodeRequests.Requested = nodes
+	} else {
+		return err
+	}
+
+	// remove reservations if any
+	for i := range reservation.Spec.ReservationRequests {
+		reservation.Spec.ReservationRequests[i].Reservations = nil
+	}
+
+	if err := e.k8sClient.UpdateCR(ctx, reservation); err != nil {
+		// cannot update reservation
+		return err
+	}
+
+	return nil
 }
 
 func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {

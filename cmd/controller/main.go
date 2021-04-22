@@ -34,6 +34,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
+
+	// +kubebuilder:scaffold:imports
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -107,21 +110,26 @@ func main() {
 			}
 		}()
 	}
-
 	stopCH := ctrl.SetupSignalHandler()
-	mgr, err := prepareControllerManager(kubeClient, logger, stopCH)
-	if err != nil {
-		logger.Fatalf("Failed to prepare manager for controller: %v", err)
-	}
-	go func() {
-		logger.Info("Starting CRD Controller Manager ...")
-		if err := mgr.Start(stopCH); err != nil {
-			logger.Fatalf("CRD Controller Manager failed with error: %v", err)
+	// todo make ACR feature mandatory and get rid of feature flag https://github.com/dell/csi-baremetal/issues/366
+	// check ACR feature flag
+	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
+		// create Reservation manager
+		reservationManager, err := createReservationManager(kubeClient, logger)
+		if err != nil {
+			logger.Fatal(err)
 		}
-	}()
+		// start Reservation manager
+		go func() {
+			logger.Info("Starting Reservation Controller")
+			if err := reservationManager.Start(stopCH); err != nil {
+				logger.Fatalf("Reservation Controller failed with error: %v", err)
+			}
+		}()
+	}
 
 	go func() {
-		logger.Info("Starting Controller Health server ...")
+		logger.Info("Starting Controller Health server")
 		if err := util.SetupAndStartHealthCheckServer(
 			controllerService, logger,
 			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(*healthPort))); err != nil {
@@ -135,27 +143,35 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func prepareControllerManager(k8SClient *k8s.KubeClient, logger *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
-	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-
-	kubeCache, err := k8s.InitKubeCache(logger, ch,
-		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
-	if err != nil {
-		return nil, err
-	}
-
+func createReservationManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error)  {
+	// create scheme
 	scheme, err := k8s.PrepareScheme()
 	if err != nil {
 		return nil, err
 	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
+		Scheme:    scheme,
+		Namespace: *namespace,
 	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	driveLvgController := drive.NewDriveController(wrappedK8SClient, kubeCache, logger)
+	// controller
+	reservationController := reservation.NewController(client, log)
+	if err = reservationController.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+	wrappedK8SClient := k8s.NewKubeClient(client, log, *namespace)
+
+	kubeCache, err := k8s.InitKubeCache(log, ch,
+		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
+	if err != nil {
+		return nil, err
+	}
+	driveLvgController := drive.NewDriveController(wrappedK8SClient, kubeCache, log)
 	// bind CSINodeService's VolumeManager to K8s Controller Manager as a driveLvgController for Volume CR
 	if err = driveLvgController.SetupWithManager(mgr); err != nil {
 		return nil, err

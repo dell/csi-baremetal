@@ -63,9 +63,10 @@ type PlannerMock struct {
 }
 
 // PlanVolumesPlacing mock implementation of PlanVolumesPlacing
-func (cr *PlannerMock) PlanVolumesPlacing(
-	ctx context.Context, volumes []*genV1.Volume) (*VolumesPlacingPlan, error) {
+func (cr *PlannerMock) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	args := cr.Mock.Called(ctx, volumes)
+	// TODO reserve resources on requested nodes only - https://github.com/dell/csi-baremetal/issues/370
+	_ = nodes
 
 	volIDToVol := make(map[string]*genV1.Volume, len(volumes))
 	for _, vol := range volumes {

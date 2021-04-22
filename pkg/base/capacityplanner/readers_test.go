@@ -59,7 +59,8 @@ func TestACRReader(t *testing.T) {
 	assert.Len(t, resp, len(testACRs))
 }
 
-func TestUnreservedACReader(t *testing.T) {
+// TODO refactor UT - https://github.com/dell/csi-baremetal/issues/371
+/*func TestUnreservedACReader(t *testing.T) {
 	ctx := context.Background()
 	logger := testLogger.WithField("component", "test")
 	client := getKubeClient(t)
@@ -81,4 +82,4 @@ func TestUnreservedACReader(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, resp, 1)
 	assert.Equal(t, *testACs[2], resp[0])
-}
+}*/

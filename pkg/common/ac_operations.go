@@ -33,7 +33,7 @@ import (
 
 // AvailableCapacityOperations is the interface for interact with AvailableCapacity CRs from Controller
 type AvailableCapacityOperations interface {
-	RecreateACToLVGSC(ctx context.Context, acName, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
+	RecreateACToLVGSC(ctx context.Context, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
 }
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
@@ -52,15 +52,14 @@ func NewACOperationsImpl(k8sClient *k8s.KubeClient, l *logrus.Logger) *ACOperati
 	}
 }
 
-// RecreateACToLVGSC creates LVG(based on ACs) creates AC based on that LVG and set size of provided ACs to 0.
+// RecreateACToLVGSC creates new LVG using locations from provided ACs.
+// Concerts first AC to LVG SC and set size of remaining to 0
 // Receives newSC as string (e.g. HDDLVG) and AvailableCapacities where LVG should be based
-// acName will be used for newly created AC if provided
 // Returns created AC or nil
-func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, acName, newSC string,
+func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string,
 	acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":   "RecreateACToLVGSC",
-		"name":     acName,
 		"volumeID": ctx.Value(base.RequestUUID),
 	})
 
@@ -90,15 +89,6 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, acName, newSC 
 		}
 	)
 
-	// set size ACs to 0 to avoid allocations
-	for _, ac := range acs {
-		ac.Spec.Size = 0
-		// nolint: scopelint
-		if err = a.k8sClient.UpdateCR(ctx, &ac); err != nil {
-			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
-		}
-	}
-
 	// create LVG CR based on ACs
 	lvg := a.k8sClient.ConstructLVGCR(name, apiLVG)
 	if err = a.k8sClient.CreateCR(ctx, name, lvg); err != nil {
@@ -107,21 +97,32 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, acName, newSC 
 	}
 	ll.Infof("LVG %v was created.", apiLVG)
 
-	// create new AC
-	if acName == "" {
-		acName = uuid.New().String()
-	}
-	newACCR := a.k8sClient.ConstructACCR(acName, api.AvailableCapacity{
-		Location:     lvg.Name,
-		NodeId:       acs[0].Spec.NodeId,
-		StorageClass: newSC,
-		Size:         lvgSize,
-	})
-	if err = a.k8sClient.CreateCR(ctx, acName, newACCR); err != nil {
-		ll.Errorf("Unable to create AC %v, error: %v", acName, err)
+	// convert first AC to LVG type
+	updatedAC := &acs[0]
+	updatedAC.Spec.Size = lvgSize
+	updatedAC.Spec.Location = lvg.Name
+	updatedAC.Spec.StorageClass = newSC
+	if err = a.k8sClient.UpdateCR(ctx, updatedAC); err != nil {
+		ll.Errorf("Unable to update AC %v, error: %v.", updatedAC, err)
 		return nil
 	}
 
-	ll.Infof("AC was created: %v", newACCR)
-	return newACCR
+	// set size of remaining ACs to 0
+	/*for _, ac := range acs[:1] {
+		ac.Spec.Size = 0
+		// nolint: scopelint
+		if err = a.k8sClient.UpdateCR(ctx, &ac); err != nil {
+			ll.Errorf("Unable to update AC %v, error: %v.", ac, err)
+		}
+	}*/
+
+	// get recent version
+	// TODO - refactor this code https://github.com/dell/csi-baremetal/issues/371
+	if err = a.k8sClient.ReadCR(ctx, updatedAC.Name, "", updatedAC); err != nil {
+		ll.Errorf("Unable to read latest AC version %v, error: %v.", updatedAC, err)
+		return nil
+	}
+
+	ll.Infof("AC was updated: %v", updatedAC)
+	return updatedAC
 }

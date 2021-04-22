@@ -84,6 +84,7 @@ provisioner:
   image:
     # if you want to use topology feature (multiple PVCs per pod) you should use v1.2.2
     tag: v1.6.0
+  timeout: 30s
 
 resizer:
   image:
@@ -124,4 +125,3 @@ fluentbitAgent:
 
 alerts:
   deployConfig: false
-  

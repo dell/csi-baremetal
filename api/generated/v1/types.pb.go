@@ -412,13 +412,13 @@ func (m *AvailableCapacity) GetSize() int64 {
 }
 
 type AvailableCapacityReservation struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
-	StorageClass         string   `protobuf:"bytes,2,opt,name=StorageClass,proto3" json:"StorageClass,omitempty"`
-	Size                 int64    `protobuf:"varint,3,opt,name=Size,proto3" json:"Size,omitempty"`
-	Reservations         []string `protobuf:"bytes,4,rep,name=Reservations,proto3" json:"Reservations,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Namespace            string                `protobuf:"bytes,1,opt,name=Namespace,proto3" json:"Namespace,omitempty"`
+	Status               string                `protobuf:"bytes,2,opt,name=Status,proto3" json:"Status,omitempty"`
+	NodeRequests         *NodeRequests         `protobuf:"bytes,3,opt,name=NodeRequests,proto3" json:"NodeRequests,omitempty"`
+	ReservationRequests  []*ReservationRequest `protobuf:"bytes,4,rep,name=ReservationRequests,proto3" json:"ReservationRequests,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
 }
 
 func (m *AvailableCapacityReservation) Reset()         { *m = AvailableCapacityReservation{} }
@@ -446,32 +446,185 @@ func (m *AvailableCapacityReservation) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AvailableCapacityReservation proto.InternalMessageInfo
 
-func (m *AvailableCapacityReservation) GetName() string {
+func (m *AvailableCapacityReservation) GetNamespace() string {
+	if m != nil {
+		return m.Namespace
+	}
+	return ""
+}
+
+func (m *AvailableCapacityReservation) GetStatus() string {
+	if m != nil {
+		return m.Status
+	}
+	return ""
+}
+
+func (m *AvailableCapacityReservation) GetNodeRequests() *NodeRequests {
+	if m != nil {
+		return m.NodeRequests
+	}
+	return nil
+}
+
+func (m *AvailableCapacityReservation) GetReservationRequests() []*ReservationRequest {
+	if m != nil {
+		return m.ReservationRequests
+	}
+	return nil
+}
+
+type NodeRequests struct {
+	// requested - filled by scheduler/extender
+	Requested []string `protobuf:"bytes,1,rep,name=Requested,proto3" json:"Requested,omitempty"`
+	// reserved - filled by csi driver controller
+	Reserved             []string `protobuf:"bytes,2,rep,name=Reserved,proto3" json:"Reserved,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *NodeRequests) Reset()         { *m = NodeRequests{} }
+func (m *NodeRequests) String() string { return proto.CompactTextString(m) }
+func (*NodeRequests) ProtoMessage()    {}
+func (*NodeRequests) Descriptor() ([]byte, []int) {
+	return fileDescriptor_d938547f84707355, []int{4}
+}
+
+func (m *NodeRequests) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_NodeRequests.Unmarshal(m, b)
+}
+func (m *NodeRequests) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_NodeRequests.Marshal(b, m, deterministic)
+}
+func (m *NodeRequests) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeRequests.Merge(m, src)
+}
+func (m *NodeRequests) XXX_Size() int {
+	return xxx_messageInfo_NodeRequests.Size(m)
+}
+func (m *NodeRequests) XXX_DiscardUnknown() {
+	xxx_messageInfo_NodeRequests.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NodeRequests proto.InternalMessageInfo
+
+func (m *NodeRequests) GetRequested() []string {
+	if m != nil {
+		return m.Requested
+	}
+	return nil
+}
+
+func (m *NodeRequests) GetReserved() []string {
+	if m != nil {
+		return m.Reserved
+	}
+	return nil
+}
+
+type ReservationRequest struct {
+	// request per volume filled by scheduler/extender
+	CapacityRequest *CapacityRequest `protobuf:"bytes,1,opt,name=CapacityRequest,proto3" json:"CapacityRequest,omitempty"`
+	// reservation filled by csi driver controller
+	Reservations         []string `protobuf:"bytes,2,rep,name=Reservations,proto3" json:"Reservations,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ReservationRequest) Reset()         { *m = ReservationRequest{} }
+func (m *ReservationRequest) String() string { return proto.CompactTextString(m) }
+func (*ReservationRequest) ProtoMessage()    {}
+func (*ReservationRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_d938547f84707355, []int{5}
+}
+
+func (m *ReservationRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReservationRequest.Unmarshal(m, b)
+}
+func (m *ReservationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReservationRequest.Marshal(b, m, deterministic)
+}
+func (m *ReservationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReservationRequest.Merge(m, src)
+}
+func (m *ReservationRequest) XXX_Size() int {
+	return xxx_messageInfo_ReservationRequest.Size(m)
+}
+func (m *ReservationRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReservationRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ReservationRequest proto.InternalMessageInfo
+
+func (m *ReservationRequest) GetCapacityRequest() *CapacityRequest {
+	if m != nil {
+		return m.CapacityRequest
+	}
+	return nil
+}
+
+func (m *ReservationRequest) GetReservations() []string {
+	if m != nil {
+		return m.Reservations
+	}
+	return nil
+}
+
+type CapacityRequest struct {
+	Name                 string   `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	StorageClass         string   `protobuf:"bytes,2,opt,name=StorageClass,proto3" json:"StorageClass,omitempty"`
+	Size                 int64    `protobuf:"varint,3,opt,name=Size,proto3" json:"Size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CapacityRequest) Reset()         { *m = CapacityRequest{} }
+func (m *CapacityRequest) String() string { return proto.CompactTextString(m) }
+func (*CapacityRequest) ProtoMessage()    {}
+func (*CapacityRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_d938547f84707355, []int{6}
+}
+
+func (m *CapacityRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CapacityRequest.Unmarshal(m, b)
+}
+func (m *CapacityRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CapacityRequest.Marshal(b, m, deterministic)
+}
+func (m *CapacityRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CapacityRequest.Merge(m, src)
+}
+func (m *CapacityRequest) XXX_Size() int {
+	return xxx_messageInfo_CapacityRequest.Size(m)
+}
+func (m *CapacityRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CapacityRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CapacityRequest proto.InternalMessageInfo
+
+func (m *CapacityRequest) GetName() string {
 	if m != nil {
 		return m.Name
 	}
 	return ""
 }
 
-func (m *AvailableCapacityReservation) GetStorageClass() string {
+func (m *CapacityRequest) GetStorageClass() string {
 	if m != nil {
 		return m.StorageClass
 	}
 	return ""
 }
 
-func (m *AvailableCapacityReservation) GetSize() int64 {
+func (m *CapacityRequest) GetSize() int64 {
 	if m != nil {
 		return m.Size
 	}
 	return 0
-}
-
-func (m *AvailableCapacityReservation) GetReservations() []string {
-	if m != nil {
-		return m.Reservations
-	}
-	return nil
 }
 
 type LogicalVolumeGroup struct {
@@ -491,7 +644,7 @@ func (m *LogicalVolumeGroup) Reset()         { *m = LogicalVolumeGroup{} }
 func (m *LogicalVolumeGroup) String() string { return proto.CompactTextString(m) }
 func (*LogicalVolumeGroup) ProtoMessage()    {}
 func (*LogicalVolumeGroup) Descriptor() ([]byte, []int) {
-	return fileDescriptor_d938547f84707355, []int{4}
+	return fileDescriptor_d938547f84707355, []int{7}
 }
 
 func (m *LogicalVolumeGroup) XXX_Unmarshal(b []byte) error {
@@ -574,7 +727,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_d938547f84707355, []int{5}
+	return fileDescriptor_d938547f84707355, []int{8}
 }
 
 func (m *Node) XXX_Unmarshal(b []byte) error {
@@ -614,6 +767,9 @@ func init() {
 	proto.RegisterType((*Volume)(nil), "v1api.Volume")
 	proto.RegisterType((*AvailableCapacity)(nil), "v1api.AvailableCapacity")
 	proto.RegisterType((*AvailableCapacityReservation)(nil), "v1api.AvailableCapacityReservation")
+	proto.RegisterType((*NodeRequests)(nil), "v1api.NodeRequests")
+	proto.RegisterType((*ReservationRequest)(nil), "v1api.ReservationRequest")
+	proto.RegisterType((*CapacityRequest)(nil), "v1api.CapacityRequest")
 	proto.RegisterType((*LogicalVolumeGroup)(nil), "v1api.LogicalVolumeGroup")
 	proto.RegisterType((*Node)(nil), "v1api.Node")
 	proto.RegisterMapType((map[string]string)(nil), "v1api.Node.AddressesEntry")

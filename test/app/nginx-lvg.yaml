@@ -4,7 +4,7 @@ metadata:
   name: web
 spec:
   serviceName: "nginx"
-  replicas: 3
+  replicas: 4
   podManagementPolicy: Parallel
   selector:
     matchLabels:
@@ -37,28 +37,48 @@ spec:
           mountPath: /usr/share/nginx/data
         - name: logs
           mountPath: /usr/share/nginx/logs
+        - name: logs-2
+          mountPath: /usr/share/nginx/logs-2
+        - name: logs-3
+          mountPath: /usr/share/nginx/logs-3
   volumeClaimTemplates:
   - metadata:
       name: www
     spec:
-      storageClassName: csi-baremetal-sc
+      storageClassName: csi-baremetal-sc-syslvg
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 60Mi
+          storage: 1G
   - metadata:
       name: data
     spec:
-      storageClassName: csi-baremetal-sc
+      storageClassName: csi-baremetal-sc-syslvg
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 60Mi
+          storage: 1G
   - metadata:
       name: logs
     spec:
-      storageClassName: csi-baremetal-sc
+      storageClassName: csi-baremetal-sc-syslvg
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 60Mi
+          storage: 1G
+  - metadata:
+      name: logs-2
+    spec:
+      storageClassName: csi-baremetal-sc-syslvg
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1G
+  - metadata:
+      name: logs-3
+    spec:
+      storageClassName: csi-baremetal-sc-syslvg
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1G

@@ -15,22 +15,23 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import yaml
-import time
 import argparse
-import sys
-from os.path import isfile, dirname, basename
-from os import makedirs
-from shutil import copy
-from signal import signal, SIGINT, SIGTERM
-from filecmp import cmp, clear_cache
 import logging
+import sys
+import time
+from filecmp import clear_cache, cmp
+from os import makedirs
+from os.path import basename, dirname, isfile
+from shutil import copy
+from signal import SIGINT, SIGTERM, signal
+
+import yaml
+from kubernetes import client, config
 
 log = logging.getLogger('patcher')
 
 
 def run():
-
     parser = argparse.ArgumentParser(
         description='Patcher script for csi-baremetal kube-extender')
     parser.add_argument(
@@ -47,6 +48,10 @@ def run():
                         help='source path for scheduler config file', required=True)
     parser.add_argument('--source-policy-path',
                         help='source path for scheduler policy file', required=True)
+    parser.add_argument('--source_config_19_path',
+                        help='source path for scheduler config file for the kubernetes > 1.18', required=True)
+    parser.add_argument('--target_config_19_path',
+                        help='target path for scheduler config file for the kubernetes > 1.18', required=True)
     parser.add_argument(
         '--loglevel', help="Set level for logging", dest="loglevel", default='info')
     parser.add_argument(
@@ -57,20 +62,36 @@ def run():
  
     logging.basicConfig(level=logging.getLevelName(normalize_logging_level(lvl)))
 
-    log.info('patcher started')
+    config.load_incluster_config()
+    kube_ver_inf = client.VersionApi().get_code()
+    kube_minor_ver = int(kube_ver_inf.minor)
+    kube_major_ver = int(kube_ver_inf.major)
+    log.info('patcher started, kubernetes version %s.%s',kube_major_ver,kube_minor_ver )
 
     source_config = File(args.source_config_path)
     source_policy = File(args.source_policy_path)
+
     target_config = File(args.target_config_path)
-    target_policy = File(args.target_policy_path)
+    target_policy = File(args.target_policy_path)  
+
+    source_config_19 = File(args.source_config_19_path)
+    target_config_19 = File(args.target_config_19_path)
 
     config_volume = Volume("scheduler-config", args.target_config_path)
-    config_volume.compile_config()
+    config_volume.compile_config() 
+
     policy_volume = Volume("scheduler-policy", args.target_policy_path)
     policy_volume.compile_config()
 
+    config_19_volume = Volume("scheduler-config-19", args.target_config_19_path)
+    config_19_volume.compile_config()
+    
+    path =  args.target_config_path
+    if kube_major_ver==1 and kube_minor_ver>18:
+        path = args.target_config_19_path
+
     manifest = ManifestFile(
-        args.manifest, [config_volume, policy_volume], args.target_config_path, args.backup_path)
+        args.manifest, [config_volume, policy_volume, config_19_volume], path, args.backup_path)
 
     # add watcher on signals
     killer = GracefulKiller(args.restore, manifest)
@@ -79,9 +100,9 @@ def run():
 
     while True:
         # check everything is in a right place
-        _must_exist(manifest, source_config, source_policy)
-
-        # copy config and policy if they don't exist or they have different content
+        _must_exist(manifest, source_config, source_policy, source_config_19)
+            # copy config and policy if they don't exist or they have different content
+        copy_not_equal(source_config_19, target_config_19)
         copy_not_equal(source_config, target_config)
         copy_not_equal(source_policy, target_policy)
 

@@ -2,6 +2,6 @@ FROM    controller:base
 
 LABEL   description="Bare-metal CSI Controller Service"
 
-ADD     controller controller
+ADD     controller /controller
 
 ENTRYPOINT ["/controller"]

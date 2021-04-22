@@ -37,28 +37,20 @@ spec:
           mountPath: /usr/share/nginx/data
         - name: logs
           mountPath: /usr/share/nginx/logs
-  volumeClaimTemplates:
-  - metadata:
-      name: www
-    spec:
-      storageClassName: csi-baremetal-sc
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 60Mi
-  - metadata:
-      name: data
-    spec:
-      storageClassName: csi-baremetal-sc
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 60Mi
-  - metadata:
-      name: logs
-    spec:
-      storageClassName: csi-baremetal-sc
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 60Mi
+      volumes:
+      - name: www 
+        csi:
+          driver: csi-baremetal
+          volumeAttributes:
+            size: 60Mi
+      - name: data 
+        csi:
+          driver: csi-baremetal
+          volumeAttributes:
+            size: 60Mi
+      - name: logs 
+        csi:
+          driver: csi-baremetal
+          volumeAttributes:
+            size: 60Mi
+

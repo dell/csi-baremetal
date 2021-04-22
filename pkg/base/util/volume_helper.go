@@ -25,7 +25,72 @@ import (
 const (
 	pvcPrefix = "pvc-"
 	csiPrefix = "csi-"
+
+	// VolumeInfoKey is the constant for context request
+	VolumeInfoKey CtxKey = "VolumeInfo"
+	// ClaimNamespaceKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
+	ClaimNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
+	// ClaimNameKey is a key from volume_context in CreateVolumeRequest of NodePublishVolumeRequest
+	ClaimNameKey = "csi.storage.k8s.io/pvc/name"
+	// PodNamespaceKey to read pod namespace from PodInfoOnMount feature
+	PodNamespaceKey = "csi.storage.k8s.io/pod.namespace"
+	// PodNameKey to read pod name from PodInfoOnMount feature
+	PodNameKey = "csi.storage.k8s.io/pod.name"
 )
+
+// CtxKey variable type uses for keys in context WithValue
+type CtxKey string
+
+// VolumeInfo holds information about Kubernetes PVC
+type VolumeInfo struct {
+	Namespace string
+	Name      string
+}
+
+// NewVolumeInfo receives parameters from CreateVolumeRequest and returns new VolumeInfo
+func NewVolumeInfo(parameters map[string]string) (*VolumeInfo, error) {
+	claimNamespace, ok := parameters[ClaimNamespaceKey]
+	if !ok {
+		return nil, errors.New("persistent volume claim namespace is not set in request")
+	}
+	// PVC name
+	claimName, ok := parameters[ClaimNameKey]
+	if !ok {
+		return nil, errors.New("persistent volume claim name is not set in request")
+	}
+
+	return &VolumeInfo{claimNamespace, claimName}, nil
+}
+
+// NewInlineVolumeInfo receives parameters from NodePublishRequest and returns new VolumeInfo
+func NewInlineVolumeInfo(mountPath string, parameters map[string]string) (*VolumeInfo, error) {
+	volumeNamespace, ok := parameters[PodNamespaceKey]
+	if !ok {
+		return nil, errors.New("inline volume namespace is not set in request")
+	}
+	// Extract inline volume name from target mount path.
+	// For example - /var/lib/kubelet/pods/<uuid>/volumes/kubernetes.io~csi/<volume name>/mount
+	// this is hack and we might need to ask user to set volume name in csi.volumeAttributes in addition to
+	// spec.volumes[].volume.name
+	pathSplit := strings.Split(mountPath, "/")
+	length := len(pathSplit)
+	if length < 2 {
+		return nil, errors.New("unable to parse inline volume name")
+	}
+	// get pod name
+	podName, ok := parameters[PodNameKey]
+	if !ok {
+		return nil, errors.New("inline volume namespace is not set in request")
+	}
+	// inline volume name
+	volumeName := podName + "-" + pathSplit[length-2]
+	return &VolumeInfo{volumeNamespace, volumeName}, nil
+}
+
+// IsDefaultNamespace returns true when namespace is not defined and false otherwise
+func (v *VolumeInfo) IsDefaultNamespace() bool {
+	return v.Namespace == ""
+}
 
 // GetVolumeUUID extracts UUID from volume ID: pvc-<UUID>
 // Method will remove pvcPrefix `pvc-` and return UUID

@@ -9,17 +9,13 @@ metadata:
   name: availablecapacityreservations.csi-baremetal.dell.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.StorageClass
-    description: StorageClass of AvailableCapacityReservation
-    name: STORAGE CLASS
+  - JSONPath: .spec.Namespace
+    description: Pod namespace
+    name: NAMESPACE
     type: string
-  - JSONPath: .spec.Size
-    description: Size of AvailableCapacityReservation
-    name: SIZE
-    type: string
-  - JSONPath: .spec.Reservations
-    description: List of reserved AvailableCapacity
-    name: RESERVATIONS
+  - JSONPath: .spec.Status
+    description: Status of AvailableCapacityReservation
+    name: STATUS
     type: string
   group: csi-baremetal.dell.com
   names:
@@ -51,16 +47,43 @@ spec:
           type: object
         spec:
           properties:
-            Name:
+            Namespace:
               type: string
-            Reservations:
+            NodeRequests:
+              properties:
+                Requested:
+                  description: requested - filled by scheduler/extender
+                  items:
+                    type: string
+                  type: array
+                Reserved:
+                  description: reserved - filled by csi driver controller
+                  items:
+                    type: string
+                  type: array
+              type: object
+            ReservationRequests:
               items:
-                type: string
+                properties:
+                  CapacityRequest:
+                    description: request per volume filled by scheduler/extender
+                    properties:
+                      Name:
+                        type: string
+                      Size:
+                        format: int64
+                        type: integer
+                      StorageClass:
+                        type: string
+                    type: object
+                  Reservations:
+                    description: reservation filled by csi driver controller
+                    items:
+                      type: string
+                    type: array
+                type: object
               type: array
-            Size:
-              format: int64
-              type: integer
-            StorageClass:
+            Status:
               type: string
           type: object
       type: object
