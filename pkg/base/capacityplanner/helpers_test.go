@@ -18,12 +18,12 @@ package capacityplanner
 
 import (
 	"context"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -43,8 +43,8 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 	for volume := range plan.GetACsForVolumes() {
 		reservation.ReservationRequests = append(reservation.ReservationRequests, &genV1.ReservationRequest{
 			CapacityRequest: &genV1.CapacityRequest{
-				Name: volume.Id,
-				Size: volume.Size,
+				Name:         volume.Id,
+				Size:         volume.Size,
 				StorageClass: volume.StorageClass,
 			},
 		})
@@ -53,7 +53,7 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 	name := "test"
 	reservationResource := &acrcrd.AvailableCapacityReservation{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: reservation,
+		Spec:       reservation,
 	}
 	// request reservation
 	err := rh.client.CreateCR(ctx, name, reservationResource)

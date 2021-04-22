@@ -124,12 +124,6 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 			}
 		}
 		return ctrl.Result{}, nil
-	case v1.ReservationConfirmed:
-		return ctrl.Result{}, nil
-	case v1.ReservationRejected:
-		return ctrl.Result{}, nil
-	case v1.ReservationCancelled:
-		return ctrl.Result{}, nil
 	default:
 		return ctrl.Result{}, nil
 	}

@@ -19,7 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/util"
+
 	"path"
 	"testing"
 	"time"
@@ -39,6 +39,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
