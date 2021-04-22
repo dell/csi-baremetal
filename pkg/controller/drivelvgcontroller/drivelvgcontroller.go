@@ -28,6 +28,8 @@ import (
 	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
+const RequeueDriveTime = time.Second * 30
+
 // Controller reconciles drive custom resource
 type Controller struct {
 	client   *k8s.KubeClient
@@ -102,25 +104,14 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 	if status == apiV1.Failed || health != apiV1.HealthGood {
 		return ctrl.Result{}, d.resetACSizeOfLVG(name)
 	}
-	if drive := d.cachedCrHelper.GetDriveCRByUUID(lvg.Spec.Locations[0]); drive != nil {
-		// Logic is performed for system LVG only
-		if drive.Spec.IsSystem {
-			// If LVG is already presented on a machine but doesn't have AC, try to create its AC using annotation with
-			// VG free space
-			size, err := getFreeSpaceFromLVGAnnotation(lvg.Annotations)
-			if err != nil {
-				log.Errorf("Failed to get free space from LVG %v, err: %v", lvg, err)
-				return ctrl.Result{}, err
-			}
-			// If LVG was created without annotation, use its size to create AC
-			if size == 0 {
-				size = lvg.Spec.Size
-			}
-			return ctrl.Result{}, d.createACIfNotExists(name, node, size)
-		}
-		return ctrl.Result{}, nil
+	// If LVG is already presented on a machine but doesn't have AC, try to create its AC using annotation with
+	// VG free space
+	size, err := getFreeSpaceFromLVGAnnotation(lvg.Annotations)
+	if err != nil {
+		log.Errorf("Failed to get free space from LVG %v, err: %v", lvg, err)
+		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, fmt.Errorf("drive is not present for LVG %v", lvg)
+	return ctrl.Result{}, d.createLVGACIfNotExistsOrUpdate(name, node, size)
 }
 
 // reconcileDrive preforms logic for drive reconciliation
@@ -138,7 +129,7 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 	case !isClean:
 		return d.createACIfNotExistOrUpdate(ctx, drive.Spec)
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: time.Minute}, nil
 }
 
 // createACIfNotExistOrUpdate tries to create AC for drive or update its size if AC already exists
@@ -155,13 +146,27 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
-		// If ac is exists, update its size to drive size
-		ac.Spec.Size = size
-		if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
-			log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
+		lvg, err := d.cachedCrHelper.GetLVGByDrive(ctx, driveUUID)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
+		// If LVG exists for Drive, we delete drive AC, because CSI uses LVG AC
+		if lvg != nil {
+			if err := d.client.DeleteCR(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
+				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, err
+		}
+		// If ac is exists, update its size to drive size
+		if ac.Spec.Size != size {
+			ac.Spec.Size = size
+			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
+				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
 	case err == errTypes.ErrorNotFound:
 		name := uuid.New().String()
 		if lvg, err := d.cachedCrHelper.GetLVGByDrive(ctx, driveUUID); err != nil || lvg != nil {
@@ -174,7 +179,6 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 			NodeId:       drive.GetNodeId(),
 		}
 		newAC := d.client.ConstructACCR(name, *capacity)
-		// TODO if AC is removed, it isn't created again since Discover in Node doesn't create it, AC is created if drive is created. Need to use finilizer
 		if err := d.client.CreateCR(context.WithValue(ctx, base.RequestUUID, name), name, newAC); err != nil {
 			log.Errorf("Error during create AvailableCapacity request to k8s: %v, error: %v",
 				capacity, err)
@@ -184,7 +188,7 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 		log.Infof("Failed to read AvailableCapacity for drive %s: %v", driveUUID, err)
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
 }
 
 // handleDriveIsNotGood deletes AC for bad Drive
@@ -203,11 +207,11 @@ func (d *Controller) handleDriveIsNotGood(ctx context.Context, drive api.Drive) 
 	case err != errTypes.ErrorNotFound:
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
 }
 
-// createACIfNotExists creates AC for LVG
-func (d *Controller) createACIfNotExists(location, nodeID string, size int64) error {
+// createLVGACIfNotExistsOrUpdate creates AC for LVG
+func (d *Controller) createLVGACIfNotExistsOrUpdate(location, nodeID string, size int64) error {
 	ll := d.log.WithFields(logrus.Fields{
 		"method": "createACIfFreeSpace",
 	})
@@ -215,38 +219,59 @@ func (d *Controller) createACIfNotExists(location, nodeID string, size int64) er
 		size++ // if size is 0 it field will not display for CR
 	}
 	// check whether AC exists
-	if err := d.updateLVGAC(location, size); err != nil && err != errTypes.ErrorNotFound {
+	ac, err := d.crHelper.GetACByLocation(location)
+	switch {
+	case err == nil:
+		if ac.Spec.Size != size {
+			ac.Spec.Size += size
+			if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+				d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
+				return err
+			}
+		}
+		return nil
+	case err == errTypes.ErrorNotFound:
+		if size > capacityplanner.AcSizeMinThresholdBytes {
+			acName := uuid.New().String()
+			acCR := d.client.ConstructACCR(acName, api.AvailableCapacity{
+				Location:     location,
+				NodeId:       nodeID,
+				StorageClass: apiV1.StorageClassSystemLVG,
+				Size:         size,
+			})
+			if err := d.client.CreateCR(context.Background(), acName, acCR); err != nil {
+				return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
+			}
+			ll.Infof("Created AC %v for lvg %s", acCR, location)
+			return nil
+		}
+		ll.Infof("There is no available space on %s", location)
+		return nil
+	default:
 		return err
 	}
-
-	if size > capacityplanner.AcSizeMinThresholdBytes {
-		acName := uuid.New().String()
-		acCR := d.client.ConstructACCR(acName, api.AvailableCapacity{
-			Location:     location,
-			NodeId:       nodeID,
-			StorageClass: apiV1.StorageClassSystemLVG,
-			Size:         size,
-		})
-		if err := d.client.CreateCR(context.Background(), acName, acCR); err != nil {
-			return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
-		}
-		ll.Infof("Created AC %v for lvg %s", acCR, location)
-		return nil
-	}
-	ll.Infof("There is no available space on %s", location)
-	return nil
 }
 
 // resetACSize sets size of corresponding AC to 0 to avoid further allocations
 func (d *Controller) resetACSizeOfLVG(lvgName string) error {
 	// read AC
-	err := d.updateLVGAC(lvgName, 0)
-	if err == errTypes.ErrorNotFound {
-		// non re-triable error
-		d.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
-		return nil
+	ac, err := d.crHelper.GetACByLocation(lvgName)
+	if err != nil {
+		if err == errTypes.ErrorNotFound {
+			// non re-triable error
+			d.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
+			return nil
+		}
+		return err
 	}
-	return err
+	if ac.Spec.Size != 0 {
+		ac.Spec.Size = 0
+		if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+			d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) bool {
@@ -329,19 +354,4 @@ func getFreeSpaceFromLVGAnnotation(annotation map[string]string) (int64, error) 
 	}
 
 	return 0, errTypes.ErrorNotFound
-}
-
-func (d *Controller) updateLVGAC(name string, size int64) error {
-	ac, err := d.cachedCrHelper.GetACByLocation(name)
-	if err != nil {
-		return err
-	}
-	if ac.Spec.Size != size {
-		ac.Spec.Size = size
-		if err := d.client.UpdateCR(context.Background(), ac); err != nil {
-			d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
-			return err
-		}
-	}
-	return nil
 }

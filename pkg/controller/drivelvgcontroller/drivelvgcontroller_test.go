@@ -259,24 +259,6 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.NotNil(t, err)
 	})
 
-	t.Run("LVG is good, drive not system", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		testLVG := lvgCR1
-		err = kubeClient.Create(tCtx, &testLVG)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(acList.Items))
-	})
 	t.Run("LVG is good, Annotation is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)

@@ -821,15 +821,10 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 				return err
 			}
 			ll.Infof("LogicalVolumeGroup CR that points on system VG is exists: %v", lvg)
-			if lvg.Annotations == nil {
-				lvg.Annotations = make(map[string]string, 1)
-			}
-			if _, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; !ok {
-				lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(vgFreeSpace, 10)
-				ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
-				if err = m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
-					return fmt.Errorf("unable to update LVG CR %v, error: %v", lvg, err)
-				}
+			m.updateLVGAnnotation(&lvg, vgFreeSpace)
+			ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
+			if err := m.k8sClient.UpdateCR(ctx, &lvg); err != nil {
+				return err
 			}
 			return nil
 		}
@@ -893,6 +888,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
 	)
+	m.updateLVGAnnotation(vgCR, vgFreeSpace)
 	if err = m.k8sClient.CreateCR(ctx, vg.Name, vgCR); err != nil {
 		return fmt.Errorf("unable to create LogicalVolumeGroup CR %v, error: %v", vgCR, err)
 	}
@@ -901,6 +897,15 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 		return fmt.Errorf("unable to update Drive CR %v, error: %v", driveCR, err)
 	}
 	return nil
+}
+
+func (m *VolumeManager) updateLVGAnnotation(lvg *lvgcrd.LogicalVolumeGroup, vgFreeSpace int64) {
+	if lvg.Annotations == nil {
+		lvg.Annotations = make(map[string]string, 1)
+	}
+	if _, ok := lvg.Annotations[apiV1.LVGFreeSpaceAnnotation]; !ok {
+		lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(vgFreeSpace, 10)
+	}
 }
 
 // getProvisionerForVolume returns appropriate Provisioner implementation for volume
