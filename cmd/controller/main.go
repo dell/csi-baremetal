@@ -115,7 +115,7 @@ func main() {
 	// check ACR feature flag
 	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
 		// create Reservation manager
-		reservationManager, err := createReservationManager(kubeClient, logger)
+		reservationManager, err := createReservationManager(kubeClient, logger, stopCH)
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -143,7 +143,7 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func createReservationManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error)  {
+func createReservationManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
 	// create scheme
 	scheme, err := k8s.PrepareScheme()
 	if err != nil {

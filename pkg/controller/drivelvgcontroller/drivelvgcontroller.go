@@ -99,7 +99,6 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 		status = lvg.Spec.GetStatus()
 		health = lvg.Spec.GetHealth()
 		name   = lvg.GetName()
-		node   = lvg.Spec.GetNode()
 	)
 	// If LVG status is failed or Health is not good, try to reset its AC size to 0
 	if status == apiV1.Failed || health != apiV1.HealthGood {
@@ -110,9 +109,12 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 	size, err := getFreeSpaceFromLVGAnnotation(lvg.Annotations)
 	if err != nil {
 		log.Errorf("Failed to get free space from LVG %v, err: %v", lvg, err)
+		if err == errTypes.ErrorNotFound {
+			err = nil
+		}
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, d.createLVGACIfNotExistsOrUpdate(name, node, size)
+	return ctrl.Result{}, d.createLVGACIfNotExistsOrUpdate(lvg, size)
 }
 
 // reconcileDrive preforms logic for drive reconciliation
@@ -212,13 +214,17 @@ func (d *Controller) handleDriveIsNotGood(ctx context.Context, drive api.Drive) 
 }
 
 // createLVGACIfNotExistsOrUpdate creates AC for LVG
-func (d *Controller) createLVGACIfNotExistsOrUpdate(location, nodeID string, size int64) error {
+func (d *Controller) createLVGACIfNotExistsOrUpdate(lvg *lvgcrd.LogicalVolumeGroup, size int64) error {
 	ll := d.log.WithFields(logrus.Fields{
 		"method": "createACIfFreeSpace",
 	})
 	if size == 0 {
 		size++ // if size is 0 it field will not display for CR
 	}
+	var (
+		location  = lvg.GetName()
+		driveUUID = lvg.Spec.Locations[0]
+	)
 	// check whether AC exists
 	ac, err := d.crHelper.GetACByLocation(location)
 	switch {
@@ -233,17 +239,18 @@ func (d *Controller) createLVGACIfNotExistsOrUpdate(location, nodeID string, siz
 		return nil
 	case err == errTypes.ErrorNotFound:
 		if size > capacityplanner.AcSizeMinThresholdBytes {
-			acName := uuid.New().String()
-			acCR := d.client.ConstructACCR(acName, api.AvailableCapacity{
-				Location:     location,
-				NodeId:       nodeID,
-				StorageClass: apiV1.StorageClassSystemLVG,
-				Size:         size,
-			})
-			if err := d.client.CreateCR(context.Background(), acName, acCR); err != nil {
+			driveAC, err := d.crHelper.GetACByLocation(driveUUID)
+			if err != nil {
+				ll.Infof("Failed to get drive AC by UUID %s, err: %v", driveUUID, err)
+				return err
+			}
+			driveAC.Spec.Size = size
+			driveAC.Spec.Location = location
+			driveAC.Spec.StorageClass = apiV1.StorageClassSystemLVG
+			if err := d.client.Update(context.Background(), driveAC); err != nil {
 				return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 			}
-			ll.Infof("Created AC %v for lvg %s", acCR, location)
+			ll.Infof("Created AC %v for lvg %s", driveAC, location)
 			return nil
 		}
 		ll.Infof("There is no available space on %s", location)

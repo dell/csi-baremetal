@@ -247,7 +247,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 }
 
 func TestController_ReconcileLVG(t *testing.T) {
-	t.Run("LVG is good, drive is not present", func(t *testing.T) {
+	t.Run("LVG is good, lvg doesn't have annotation", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
 		controller := NewDriveController(kubeClient, kubeClient, testLogger)
@@ -256,7 +256,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
 		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
-		assert.NotNil(t, err)
+		assert.Nil(t, err)
 	})
 
 	t.Run("LVG is good, Annotation is present", func(t *testing.T) {
@@ -267,6 +267,9 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testDrive := drive1CR
 		testDrive.Spec.IsSystem = true
 		err = kubeClient.Create(tCtx, &testDrive)
+		assert.Nil(t, err)
+		testAC := acCR
+		err = kubeClient.Create(tCtx, &testAC)
 		assert.Nil(t, err)
 		testLVG := lvgCR1
 		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: strconv.FormatInt(int64(util.GBYTE), 10)}
