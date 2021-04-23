@@ -751,6 +751,12 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 		if drive.Spec.IsSystem && m.isDriveInLVG(drive.Spec) {
 			continue
 		}
+		if _, ok := locations[drive.Spec.UUID]; ok {
+			if drive.Spec.IsClean {
+				m.changeDriveIsCleanField(&drive, false)
+			}
+			continue
+		}
 		bdev, ok := bdevMap[strings.ToLower(drive.Spec.Path)]
 		if !ok {
 			ll.Errorf("Block device for drive %v not found", drive)
@@ -777,8 +783,10 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 			ll.Errorf("Unable to get fs information about drive %s: %v", drive.Spec.Path, err)
 			continue
 		}
-		if hasData && drive.Spec.IsClean {
-			m.changeDriveIsCleanField(&drive, false)
+		if hasData {
+			if drive.Spec.IsClean {
+				m.changeDriveIsCleanField(&drive, false)
+			}
 			continue
 		}
 		if !drive.Spec.IsClean {

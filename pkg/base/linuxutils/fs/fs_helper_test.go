@@ -248,3 +248,27 @@ func TestUnmount(t *testing.T) {
 	err = fh.Unmount(path)
 	assert.NotNil(t, err)
 }
+
+func Test_DriveHasData(t *testing.T) {
+	var (
+		e    = &mocks.GoMockExecutor{}
+		fh   = NewFSImpl(e)
+		path = "/dev/sda"
+		cmd  = fmt.Sprintf(DetectFSCmdTmpl, path)
+	)
+
+	e.OnCommand(cmd).Return("", "", nil).Times(1)
+	hasData, err := fh.DriveHasData(path)
+	assert.Nil(t, err)
+	assert.False(t, hasData)
+
+	e.OnCommand(cmd).Return("xfs", "", testError).Times(1)
+	hasData, err = fh.DriveHasData(path)
+	assert.NotNil(t, err)
+	assert.False(t, hasData)
+
+	e.OnCommand(cmd).Return("xfs", "", nil).Times(1)
+	hasData, err = fh.DriveHasData(path)
+	assert.Nil(t, err)
+	assert.True(t, hasData)
+}
