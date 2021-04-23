@@ -35,7 +35,7 @@ def run():
     parser = argparse.ArgumentParser(
         description='Patcher script for csi-baremetal kube-extender')
     parser.add_argument(
-        '--manifest', help='path to the scheduler manifest file', required=True)
+        '--platform', help='platform, where scheduler is deployed, could be rke or vanilla', required=True)
     parser.add_argument(
         '--restore', help='restore manifest when on shutdown', action='store_true')
     parser.add_argument('--interval', type=int,
@@ -90,8 +90,12 @@ def run():
     if kube_major_ver==1 and kube_minor_ver>18:
         path = args.target_config_19_path
 
+    manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
+    if args.platform == "rke":
+        manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
+
     manifest = ManifestFile(
-        args.manifest, [config_volume, policy_volume, config_19_volume], path, args.backup_path)
+        manifest, [config_volume, policy_volume, config_19_volume], path, args.backup_path)
 
     # add watcher on signals
     killer = GracefulKiller(args.restore, manifest)

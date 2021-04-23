@@ -27,7 +27,7 @@ spec:
             - --loglevel={{ .Values.log.level }}
             {{ if .Values.patcher.restore_on_shutdown }}- --restore {{ end }}
             - --interval={{ .Values.patcher.interval }}
-            - --manifest={{ .Values.patcher.manifest }}
+            - --platform={{ .Values.patcher.platform }}
             - --source-config-path=/config/{{ .Values.patcher.source_config_path}}
             - --target-config-path={{ .Values.patcher.target_config_path}}
             - --source-policy-path=/config/{{ .Values.patcher.source_policy_path}}
