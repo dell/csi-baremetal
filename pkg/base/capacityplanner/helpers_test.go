@@ -35,7 +35,7 @@ import (
 func TestReservationHelper_CreateReservation(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()
-	rh := createReservationHelper(t, logger, nil, nil, getKubeClient(t))
+	rh := createReservationHelper(t, logger, nil, getKubeClient(t))
 	plan := getSimpleVolumePlacingPlan()
 
 	reservation := genV1.AvailableCapacityReservation{}
@@ -88,8 +88,7 @@ func TestReservationHelper_ReleaseReservation(t *testing.T) {
 	client := getKubeClient(t)
 	createACRsInAPi(t, client, reservationList)
 
-	rh := createReservationHelper(t, logger, getCapReaderMock(nil, testErr),
-		getResReaderMock(reservationList, testErr), client)
+	rh := createReservationHelper(t, logger, getCapReaderMock(nil, testErr), client)
 
 	// remove first
 	err := rh.ReleaseReservation(ctx, reservation, 0)
@@ -146,10 +145,9 @@ func checkACRNotExist(t *testing.T, client *k8s.KubeClient, acr *acrcrd.Availabl
 	assert.True(t, k8serrors.IsNotFound(err))
 }
 
-func createReservationHelper(t *testing.T, logger *logrus.Entry,
-	capReader CapacityReader, resReader ReservationReader, client *k8s.KubeClient) *ReservationHelper {
-	return NewReservationHelper(logger,
-		client, capReader, resReader)
+func createReservationHelper(t *testing.T, logger *logrus.Entry, capReader CapacityReader,
+	client *k8s.KubeClient) *ReservationHelper {
+	return NewReservationHelper(logger, client, capReader)
 }
 
 func getKubeClient(t *testing.T) *k8s.KubeClient {
