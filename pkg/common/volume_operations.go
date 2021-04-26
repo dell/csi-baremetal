@@ -130,100 +130,52 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	log.Infof("Checking volume custom resource state...")
 	// at first check whether volume CR exist or no
 	err = vo.k8sClient.ReadCR(ctx, v.Id, namespace, volumeCR)
-	if err == nil {
-		log.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
-		if volumeCR.Spec.CSIStatus == apiV1.Failed {
-			return nil, fmt.Errorf("corresponding volume CR %s has failed status", volumeCR.Spec.Id)
+	if err != nil {
+		if k8sError.IsNotFound(err) {
+			log.Infof("Creating volume %v", v)
+			// create volume
+			return vo.handleVolumeCreation(ctxWithID, log, v, namespace, volumeInfo.Name)
 		}
-		// check that volume is in created state or time is over (for creating)
-		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForVolumeOperations)
-		if expiredAt.Before(time.Now()) {
-			log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
-			volumeCR.Spec.CSIStatus = apiV1.Failed
-			_ = vo.k8sClient.UpdateCRWithAttempts(ctxWithID, volumeCR, 5)
-			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
-		}
-		return &volumeCR.Spec, nil
+
+		log.Errorf("Unable to read volume CR: %v", err)
+		return nil, status.Error(codes.Aborted, "unable to check volume state")
 	}
 
-	if k8sError.IsNotFound(err) {
-		log.Infof("Creating volume %v", v)
-		// create volume
-		return vo.handleVolumeCreation(ctxWithID, log, v, namespace, volumeInfo.Name)
-	}
-
-	log.Errorf("Unable to read volume CR: %v", err)
-	return nil, status.Error(codes.Aborted, "unable to check volume existence")
+	return vo.handleVolumeInProgress(ctxWithID, log, volumeCR, namespace, volumeInfo.Name)
 }
 
-// TODO - refactor this method https://github.com/dell/csi-baremetal/issues/371
 func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *logrus.Entry, v api.Volume,
 	podNamespace string, reservationName string) (*api.Volume, error) {
-	var (
-		sc             string
-		requiredBytes  = v.Size
-		allocatedBytes int64
-		locationType   string
-		csiStatus      = apiV1.Creating
-	)
-
-	if util.IsStorageClassLVG(sc) {
-		requiredBytes = capacityplanner.AlignSizeByPE(requiredBytes)
-	}
-
-	resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, true)
-	reservations, err := resReader.ReadReservations(ctx)
+	// read volume reservation
+	podReservation, volumeReservationNum, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName)
 	if err != nil {
 		return nil, err
 	}
 
-	var podReservation *acrcrd.AvailableCapacityReservation
-	var requestNum int
-	for _, reservation := range reservations {
-		reservation := reservation
-		if reservation.Spec.Status != apiV1.ReservationConfirmed {
-			continue
-		}
-
-		if reservation.Spec.Namespace == podNamespace {
-			for i, request := range reservation.Spec.ReservationRequests {
-				name := request.CapacityRequest.Name
-				if name == reservationName {
-					podReservation = &reservation
-					requestNum = i
-					break
-				}
-			}
-		}
-		// exit if found
-		if podReservation != nil {
-			log.Debugf("Reservation for volume %s found: %v", v.Id, podReservation)
-			break
-		}
-	}
-
-	if podReservation == nil {
-		return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("Reservation for volume %s not found", v.Id))
-	}
-
-	isFound := false
-	ac := &accrd.AvailableCapacity{}
-	for _, capacityName := range podReservation.Spec.ReservationRequests[requestNum].Reservations {
+	var (
+		isFound           = false
+		ac                = &accrd.AvailableCapacity{}
+		volumeReservation = podReservation.Spec.ReservationRequests[volumeReservationNum]
+	)
+	// scheduler extender reserves capacity on different nodes during filter stage since 'reserve' API is not available
+	// need to find capacity on requested node
+	for _, capacityName := range volumeReservation.Reservations {
 		// read available capacity
 		err = vo.k8sClient.ReadCR(ctx, capacityName, "", ac)
 		if err != nil {
 			log.Errorf("Failed to read capacity %s: %v", capacityName, err)
 			return nil, err
 		}
-
+		// break when found
 		if ac.Spec.NodeId == v.NodeId {
 			isFound = true
 			break
 		}
 	}
-
+	// capacity must be found when reservation exists
 	if !isFound {
-		return nil, status.Error(codes.ResourceExhausted, fmt.Sprintf("there is no suitable drive for volume %s", v.Id))
+		return nil, status.Error(codes.ResourceExhausted,
+			fmt.Sprintf("there is no suitable drive for volume %s", v.Id))
 	}
 
 	if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
@@ -237,10 +189,14 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	// if sc was parsed as an ANY then we can choose AC with any storage class and then
 	// volume should be created with that particular SC
-	sc = ac.Spec.StorageClass
+	var (
+		sc             = ac.Spec.StorageClass
+		allocatedBytes int64
+		locationType   string
+	)
 
 	if util.IsStorageClassLVG(sc) {
-		allocatedBytes = requiredBytes
+		allocatedBytes = capacityplanner.AlignSizeByPE(v.Size)
 		locationType = apiV1.LocationTypeLVM
 	} else {
 		allocatedBytes = ac.Spec.Size
@@ -253,7 +209,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		NodeId:            ac.Spec.NodeId,
 		Size:              allocatedBytes,
 		Location:          ac.Spec.Location,
-		CSIStatus:         csiStatus,
+		CSIStatus:         apiV1.Creating,
 		StorageClass:      sc,
 		Ephemeral:         v.Ephemeral,
 		Health:            apiV1.HealthGood,
@@ -276,16 +232,92 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 	if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
 		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 	}
-	if vo.featureChecker.IsEnabled(fc.FeatureACReservation) {
-		capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
-		resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader, resReader)
-
-		if err := resHelper.ReleaseReservation(ctx, podReservation, requestNum); err != nil {
-			return nil, err
-		}
+	// release reservation
+	if err := vo.deleteVolumeReservation(ctx, podReservation, volumeReservationNum); err != nil {
+		return nil, err
 	}
 
 	return &volumeCR.Spec, nil
+}
+
+func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log *logrus.Entry, volumeCR *volumecrd.Volume,
+	podNamespace string, reservationName string) (*api.Volume, error) {
+	log.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
+	// release reservation if it was requested by scheduler again
+	if reservation, number, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName); err == nil {
+		err = vo.deleteVolumeReservation(ctx, reservation, number)
+		if err != nil {
+			log.Errorf("Unable to release volume reservation %v", err)
+		}
+	}
+
+	if volumeCR.Spec.CSIStatus == apiV1.Failed {
+		return nil, fmt.Errorf("corresponding volume CR %s has failed status", volumeCR.Spec.Id)
+	}
+	// check that volume is in created state or time is over (for creating)
+	expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForVolumeOperations)
+	if expiredAt.Before(time.Now()) {
+		log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
+		volumeCR.Spec.CSIStatus = apiV1.Failed
+		_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
+		return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
+	}
+	return &volumeCR.Spec, nil
+}
+
+func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *logrus.Entry, namespace string,
+	name string) (*acrcrd.AvailableCapacityReservation, int, error) {
+	resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, false)
+	reservations, err := resReader.ReadReservations(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var (
+		podReservation *acrcrd.AvailableCapacityReservation
+		requestNum     int
+	)
+	for _, reservation := range reservations {
+		reservation := reservation
+		if reservation.Spec.Status != apiV1.ReservationConfirmed {
+			continue
+		}
+
+		if reservation.Spec.Namespace == namespace {
+			for i, request := range reservation.Spec.ReservationRequests {
+				reqName := request.CapacityRequest.Name
+				if reqName == name {
+					podReservation = &reservation
+					requestNum = i
+					break
+				}
+			}
+		}
+		// exit if found
+		if podReservation != nil {
+			log.Debugf("Reservation %s found: %v", name, podReservation)
+			break
+		}
+	}
+
+	if podReservation == nil {
+		return nil, 0, status.Error(codes.NotFound, fmt.Sprintf("Reservation %s not found", name))
+	}
+
+	return podReservation, requestNum, nil
+}
+
+func (vo *VolumeOperationsImpl) deleteVolumeReservation(ctx context.Context,
+	reservation *acrcrd.AvailableCapacityReservation, number int) error {
+	// release reservation if exists
+	if reservation != nil {
+		capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
+		resHelper := capacityplanner.NewReservationHelper(vo.log, vo.k8sClient, capReader)
+
+		return resHelper.ReleaseReservation(ctx, reservation, number)
+	}
+
+	return nil
 }
 
 // DeleteVolume changes volume CR state and updates it,

@@ -34,11 +34,10 @@ import (
 
 // NewReservationHelper returns new instance of ReservationHelper
 func NewReservationHelper(logger *logrus.Entry, client *k8s.KubeClient,
-	capReader CapacityReader, resReader ReservationReader) *ReservationHelper {
+	capReader CapacityReader) *ReservationHelper {
 	return &ReservationHelper{
 		logger:    logger,
 		client:    client,
-		resReader: resReader,
 		capReader: capReader,
 		metric:    common.ReservationDuration,
 	}
@@ -46,21 +45,11 @@ func NewReservationHelper(logger *logrus.Entry, client *k8s.KubeClient,
 
 // ReservationHelper provides methods to create and release reservation
 type ReservationHelper struct {
-	logger  *logrus.Entry
-	client  *k8s.KubeClient
-	updated bool
+	logger *logrus.Entry
+	client *k8s.KubeClient
 
-	resReader ReservationReader
 	capReader CapacityReader
-
-	acList  []accrd.AvailableCapacity
-	acrList []acrcrd.AvailableCapacityReservation
-
-	acMap       ACMap
-	acrMap      ACRMap
-	acNameToACR ACNameToACRNamesMap
-
-	metric metrics.Statistic
+	metric    metrics.Statistic
 }
 
 // UpdateReservation updates reservation CR
@@ -123,7 +112,7 @@ func (rh *ReservationHelper) ReleaseReservation(ctx context.Context, reservation
 }
 
 // Update do a force data update
-func (rh *ReservationHelper) Update(ctx context.Context) error {
+/*func (rh *ReservationHelper) Update(ctx context.Context) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.update")
 	var err error
 	rh.acList, err = rh.capReader.ReadCapacity(ctx)
@@ -142,7 +131,7 @@ func (rh *ReservationHelper) Update(ctx context.Context) error {
 	rh.updated = true
 
 	return nil
-}
+}*/
 
 func (rh *ReservationHelper) removeACR(ctx context.Context, acr *acrcrd.AvailableCapacityReservation) error {
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.removeACR")
@@ -266,14 +255,14 @@ func buildNodeCapacityMap(acs []accrd.AvailableCapacity) NodeCapacityMap {
 	return capMap
 }
 
-func buildACMap(acs []accrd.AvailableCapacity) ACMap {
+/*func buildACMap(acs []accrd.AvailableCapacity) ACMap {
 	acMap := ACMap{}
 	for _, ac := range acs {
 		ac := ac
 		acMap[ac.Name] = &ac
 	}
 	return acMap
-}
+}*/
 
 func buildACRMaps(acrs []acrcrd.AvailableCapacityReservation) (ACRMap, ACNameToACRNamesMap) {
 	acrMAP := ACRMap{}
