@@ -37,10 +37,17 @@ patcher:
   target_config_19_path: /etc/kubernetes/scheduler/config-19.yaml
   target_policy_path: /etc/kubernetes/scheduler/policy.yaml
   kubeconfig: /etc/kubernetes/scheduler.conf
-  backup_path: /etc/kubernetes/scheduler
+  kube_manifests: /etc/kubernetes/manifests
+  kube_scheduler: /etc/kubernetes/scheduler
   interval: 60
   restore_on_shutdown: true
   config_map_name: schedulerpatcher-config
+  rke:
+    target_config_path: /var/lib/rancher/rke2/agent/pod-manifests/scheduler/config.yaml
+    target_config_19_path: /var/lib/rancher/rke2/agent/pod-manifests/scheduler/config-19.yaml
+    target_policy_path: /var/lib/rancher/rke2/agent/pod-manifests/scheduler/policy.yaml
+    kube_manifests: /var/lib/rancher/rke2/agent/pod-manifests/
+    kube_scheduler: /var/lib/rancher/rke2/agent/pod-manifests/scheduler
 
 metrics:
   port: 8787

@@ -75,6 +75,10 @@ def run():
     kube_major_ver = int(kube_ver_inf.major)
     log.info('patcher started, kubernetes version %s.%s',kube_major_ver,kube_minor_ver )
 
+    manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
+    if args.platform == "rke":
+        manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
+
     source_config = File(args.source_config_path)
     source_policy = File(args.source_policy_path)
 
