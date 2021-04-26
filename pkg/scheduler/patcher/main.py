@@ -63,6 +63,13 @@ def run():
     logging.basicConfig(level=logging.getLevelName(normalize_logging_level(lvl)))
 
     config.load_incluster_config()
+    
+    from kubernetes.client import Configuration as KCConfig
+    cfg = KCConfig.get_default_copy()
+    cfg.verify_ssl = False
+    cfg.debug = False
+    client.Configuration.set_default(cfg)
+
     kube_ver_inf = client.VersionApi().get_code()
     kube_minor_ver = int(kube_ver_inf.minor)
     kube_major_ver = int(kube_ver_inf.major)
