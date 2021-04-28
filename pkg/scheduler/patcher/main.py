@@ -21,7 +21,7 @@ import sys
 import time
 from filecmp import clear_cache, cmp
 from os import makedirs
-from os.path import basename, dirname, isfile
+from os.path import basename, dirname, isfile , join
 from shutil import copy
 from signal import SIGINT, SIGTERM, signal
 
@@ -197,11 +197,11 @@ class ManifestFile(File):
 
     def backup(self):
         makedirs(dirname(self.backup_folder), exist_ok=True)
-        backup_path = self.backup_folder + basename(self.path)
+        backup_path = join(self.backup_folder,basename(self.path))
         copy(self.path, backup_path)
 
     def restore(self):
-        backup_path = self.backup_folder + basename(self.path)
+        backup_path = join(self.backup_folder,basename(self.path))
         copy(backup_path, self.path)
 
     def need_patching(self):

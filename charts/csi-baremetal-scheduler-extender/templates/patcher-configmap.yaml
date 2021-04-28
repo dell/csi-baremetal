@@ -15,7 +15,11 @@ data:
     leaderElection:
       leaderElect: true
     clientConnection:
+    {{- if eq .Values.patcher.platform "rke" }}
+      kubeconfig: {{ .Values.patcher.rke.kubeconfig }}
+    {{- else }}
       kubeconfig: {{ .Values.patcher.kubeconfig }}
+    {{- end }}
   {{ .Values.patcher.source_policy_path }}: |
     apiVersion: v1
     kind: Policy
