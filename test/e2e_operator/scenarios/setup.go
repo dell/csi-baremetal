@@ -23,6 +23,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"k8s.io/kubernetes/test/e2e/framework"
 	"path"
 
 	"github.com/onsi/ginkgo"
@@ -31,7 +32,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 
-	"github.com/dell/csi-baremetal/test/e2e2/common"
+	"github.com/dell/csi-baremetal/test/e2e_operator/common"
 )
 
 var CSITestSuites = []func() testsuites.TestSuite{
@@ -44,10 +45,10 @@ var CSITestSuites = []func() testsuites.TestSuite{
 }
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
-	logrus.Infof("RepoRoot: %s", common.BMDriverTestContext.RepoRoot)
+	logrus.Infof("RepoRoot: %s", framework.TestContext.RepoRoot)
 
 	pathToTheManifests := path.Join(
-		common.BMDriverTestContext.RepoRoot, "/tmp/")
+		framework.TestContext.RepoRoot, "/tmp/")
 
 	testfiles.AddFileSource(testfiles.RootFileSource{
 		Root: pathToTheManifests,
@@ -74,11 +75,11 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		//testsuites.DefineTestSuite(curDriver, CSITestSuites)
-		DefineDriveHealthChangeTestSuite(curDriver) //not work
+		//DefineDriveHealthChangeTestSuite(curDriver) //not work
 		//DefineControllerNodeFailTestSuite(curDriver)
 		//DefineNodeRebootTestSuite(curDriver) //not work
 		//DefineDifferentSCTestSuite(curDriver) //infinity
-		//DefineStressTestSuite(curDriver)
+		DefineStressTestSuite(curDriver)
 		//DefineSchedulerTestSuite(curDriver)
 		//DefineLabeledDeployTestSuite(curDriver)
 	})

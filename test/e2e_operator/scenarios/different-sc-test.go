@@ -30,7 +30,7 @@ import (
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"github.com/dell/csi-baremetal/test/e2e2/common"
+	"github.com/dell/csi-baremetal/test/e2e_operator/common"
 )
 
 // DefineDifferentSCTestSuite defines different SCs tests

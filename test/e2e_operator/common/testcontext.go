@@ -17,9 +17,9 @@ limitations under the License.
 package common
 
 // OperatorTestContextType stores custom testing context
-type OperatorTestContextType struct {
+type BMDriverTestContextType struct {
 	ChartsFolder      string
 	CompleteUninstall bool
 }
 
-var OperatorTestContext OperatorTestContextType
+var BMDriverTestContext BMDriverTestContextType

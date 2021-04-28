@@ -49,7 +49,7 @@ func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) 
 		operatorVersion = os.Getenv(operatorVersionEnv)
 		chart           = HelmChart{
 			name:      "csi-baremetal-operator",
-			path:      path.Join(OperatorTestContext.ChartsFolder, "csi-baremetal-operator"),
+			path:      path.Join(BMDriverTestContext.ChartsFolder, "csi-baremetal-operator"),
 			namespace: ns,
 		}
 		installArgs = fmt.Sprintf("--set image.tag=%s", operatorVersion)
@@ -88,7 +88,7 @@ func DeployCSI(f *framework.Framework) (func(), error) {
 		csiVersion = os.Getenv(csiVersionEnv)
 		chart      = HelmChart{
 			name:      "csi-baremetal",
-			path:      path.Join(OperatorTestContext.ChartsFolder, "csi-baremetal-deployment"),
+			path:      path.Join(BMDriverTestContext.ChartsFolder, "csi-baremetal-deployment"),
 			namespace: f.Namespace.Name,
 		}
 		installArgs = fmt.Sprintf("--set image.tag=%s "+
@@ -103,7 +103,7 @@ func DeployCSI(f *framework.Framework) (func(), error) {
 
 	cleanup := func() {
 		// delete resources with finalizers
-		if OperatorTestContext.CompleteUninstall {
+		if BMDriverTestContext.CompleteUninstall {
 			deleteCSIResources([]string{"pvc", "volumes", "lvgs"})
 		}
 
@@ -112,7 +112,7 @@ func DeployCSI(f *framework.Framework) (func(), error) {
 		}
 
 		// delete resources without finalizers
-		if OperatorTestContext.CompleteUninstall {
+		if BMDriverTestContext.CompleteUninstall {
 			deleteCSIResources([]string{"acr", "ac", "drives"})
 		}
 	}

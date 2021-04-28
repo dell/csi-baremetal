@@ -33,7 +33,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/test/e2e2/common"
+	"github.com/dell/csi-baremetal/test/e2e_operator/common"
 )
 
 // DefineSchedulerTestSuite defines tests for scheduler extender

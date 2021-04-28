@@ -39,6 +39,10 @@ pr-validation-junit:
 test-ci:
 	${GO_ENV_VARS} CI=true go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=${HOME}/.kube/config -timeout=0 > log.txt
 
+test-ci-with-operator:
+    docker pull ${REGISTRY}/
+	${GO_ENV_VARS} CI=true go test -v test/e2e_operator/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=${HOME}/.kube/config -timeout=0 > log.txt
+
 # Run commnity sanity tests for CSI. TODO https://github.com/dell/csi-baremetal/issues/298 Make sanity test work for expansion
 # TODO enable tests back - https://github.com/dell/csi-baremetal/issues/371
 test-sanity:

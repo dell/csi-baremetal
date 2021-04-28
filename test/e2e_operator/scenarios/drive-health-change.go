@@ -36,7 +36,7 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
-	"github.com/dell/csi-baremetal/test/e2e2/common"
+	"github.com/dell/csi-baremetal/test/e2e_operator/common"
 )
 
 const (

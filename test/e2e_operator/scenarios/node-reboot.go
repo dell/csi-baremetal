@@ -29,7 +29,7 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"github.com/dell/csi-baremetal/test/e2e2/common"
+	"github.com/dell/csi-baremetal/test/e2e_operator/common"
 )
 
 // DefineNodeRebootTestSuite defines custom csi-baremetal node reboot test

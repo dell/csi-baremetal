@@ -27,8 +27,8 @@ import (
 	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/test/e2e/framework"
 
-	"github.com/dell/csi-baremetal/test/e2e2/common"
-	_ "github.com/dell/csi-baremetal/test/e2e2/scenarios"
+	"github.com/dell/csi-baremetal/test/e2e_operator/common"
+	_ "github.com/dell/csi-baremetal/test/e2e_operator/scenarios"
 )
 
 // Use env to skip this test during go test ./...
@@ -38,28 +38,16 @@ func skipIfNotCI(t *testing.T) {
 	}
 }
 
-func registerBMDriverFlags(flags *flag.FlagSet) {
-	flags.BoolVar(&common.BMDriverTestContext.BMDeploySchedulerExtender, "bm-deploy-scheduler-extender",
-		true, "Deploy extender for scheduler")
-	flags.BoolVar(&common.BMDriverTestContext.BMDeploySchedulerPatcher, "bm-deploy-scheduler-patcher",
-		true, "Deploy patcher for scheduler config")
-	flags.BoolVar(&common.BMDriverTestContext.BMWaitSchedulerRestart, "bm-wait-scheduler-restart",
-		true, "Wait for scheduler restart")
-	flags.BoolVar(&common.BMDriverTestContext.BMDeployCSIBMNodeOperator, "bm-deploy-csi-bm-node-operator",
-		true, "Deploy controller for CSIBMNode CRs")
-}
-
 func registerCustomFlags2(flags *flag.FlagSet) {
-	flags.StringVar(&common.OperatorTestContext.ChartsFolder, "chartsFolder",
+	flags.StringVar(&common.BMDriverTestContext.ChartsFolder, "chartsFolder",
 		"/tmp/charts", "Path to folder with helm charts")
-	flags.BoolVar(&common.OperatorTestContext.CompleteUninstall, "completeUninstall",
+	flags.BoolVar(&common.BMDriverTestContext.CompleteUninstall, "completeUninstall",
 		true, "Uninstall pvc, volumes, lvgs, csibmnodes")
 }
 
 func init() {
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)
-	registerBMDriverFlags(flag.CommandLine)
 	registerCustomFlags2(flag.CommandLine)
 }
 
