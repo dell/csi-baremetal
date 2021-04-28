@@ -29,6 +29,9 @@ image:
 
 patcher:
   enable: true
+  # options for the platform :
+  #   - vanilla
+  #   - rke
   platform: vanilla
   source_config_path: config.yaml
   source_config_19_path: config-19.yaml
