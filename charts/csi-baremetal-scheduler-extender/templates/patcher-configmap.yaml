@@ -55,5 +55,5 @@ data:
       kubeconfig: {{ .Values.patcher.rke.kubeconfig }}
     {{- else }}
       kubeconfig: {{ .Values.patcher.kubeconfig }}
-    {{- end }}}
+    {{- end }}
 {{ end }}
