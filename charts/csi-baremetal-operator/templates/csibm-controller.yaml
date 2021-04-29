@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: csi-operator
+        release: {{ .Release.Name }}
     spec:
       serviceAccount: csi-operator-sa
       terminationGracePeriodSeconds: 10

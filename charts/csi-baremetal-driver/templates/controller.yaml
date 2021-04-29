@@ -16,6 +16,7 @@ spec:
         app.kubernetes.io/name: csi-baremetal
         app: csi-baremetal-controller
         role: csi-do
+        release: {{ .Release.Name }}
       annotations:                        
         prometheus.io/scrape: 'true'
         prometheus.io/port: '{{ .Values.controller.metrics.port }}'

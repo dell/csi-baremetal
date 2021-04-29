@@ -13,6 +13,7 @@ spec:
       labels:
         app: csi-baremetal-node
         app.kubernetes.io/name: csi-baremetal
+        release: {{ .Release.Name }}
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '{{ .Values.node.metrics.port }}'

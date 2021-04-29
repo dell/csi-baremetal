@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: csi-baremetal-se-patcher
+        release: {{ .Release.Name }}
     spec:
       containers:
         - name: schedulerpatcher
