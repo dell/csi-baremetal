@@ -92,9 +92,10 @@ func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) 
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
 func DeployCSI(f *framework.Framework) (func(), error) {
 	var (
-		executor   = CmdHelmExecutor{framework.TestContext.KubeConfig}
-		csiVersion = os.Getenv(csiVersionEnv)
-		chart      = HelmChart{
+		executor    = CmdHelmExecutor{framework.TestContext.KubeConfig}
+		cmdExecutor = GetExecutor()
+		csiVersion  = os.Getenv(csiVersionEnv)
+		chart       = HelmChart{
 			name:      "csi-baremetal",
 			path:      path.Join(BMDriverTestContext.ChartsFolder, "csi-baremetal-deployment"),
 			namespace: f.Namespace.Name,
@@ -122,6 +123,25 @@ func DeployCSI(f *framework.Framework) (func(), error) {
 		// delete resources without finalizers
 		if BMDriverTestContext.CompleteUninstall {
 			deleteCSIResources([]string{"acr", "ac", "drives"})
+		}
+
+		nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+		if err != nil {
+			e2elog.Logf("CRD deletion failed")
+		}
+
+		for _, node := range nodeList.Items {
+			cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete", node.Name)
+			_, _, err := cmdExecutor.RunCmd(cmd)
+			if err != nil {
+				e2elog.Logf("CRD deletion failed")
+			}
+
+			cmd = fmt.Sprintf("docker exec %s losetup --detach-all", node.Name)
+			_, _, err = cmdExecutor.RunCmd(cmd)
+			if err != nil {
+				e2elog.Logf("CRD deletion failed")
+			}
 		}
 	}
 
