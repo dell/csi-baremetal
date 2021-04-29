@@ -44,7 +44,7 @@ func labeledDeployTestSuite() {
 		f                  = framework.NewDefaultFramework("node-label")
 		label              = "labeltag"
 		tag                = "csi"
-		setNodeSelectorArg = fmt.Sprintf("--set nodeSelector.key=%s --set nodeSelector.value=%s", label, tag)
+		setNodeSelectorArg = fmt.Sprintf(" --set nodeSelector.key=%s --set nodeSelector.value=%s", label, tag)
 	)
 
 	ginkgo.It("CSI should use label on nodes", func() {
@@ -69,10 +69,6 @@ func labeledDeployTestSuite() {
 		}
 		Expect(len(np)).To(Equal(2))
 
-		nodes, err = f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
-		if err != nil {
-			ginkgo.Fail(err.Error())
-		}
 		for _, node := range nodes.Items {
 			node.Labels[label] = tag
 			if _, err := f.ClientSet.CoreV1().Nodes().Update(&node); err != nil {

@@ -18,6 +18,7 @@ package common
 
 import (
 	"fmt"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"os"
 	"path"
 	"time"
@@ -71,7 +72,7 @@ func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) 
 		//}
 	}
 
-	if _, err := c.CoreV1().Namespaces().Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}); err != nil {
+	if _, err := c.CoreV1().Namespaces().Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}); err != nil && !k8sError.IsAlreadyExists(err) {
 		return nil, err
 	}
 
@@ -109,7 +110,7 @@ func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (fu
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set driver.drivemgr.deployConfig=true "+
-			"--set scheduler.patcher.enable=true "+
+			"--set scheduler.patcher.enable=true"+
 			additionalInstallArgs, csiVersion)
 		podWait         = 3 * time.Minute
 		sleepBeforeWait = 10 * time.Second
@@ -137,7 +138,7 @@ func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (fu
 		}
 
 		for _, node := range nodeList.Items {
-			cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
+			cmd := fmt.Sprintf("ssh root@100.64.25.144 docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
 			_, _, err = cmdExecutor.RunCmd(cmd)
 			if err != nil {
 				e2elog.Logf("Failed to clean loopback devices: %s", err)
