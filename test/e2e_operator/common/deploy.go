@@ -87,10 +87,15 @@ func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) 
 	return cleanup, nil
 }
 
-// DeployCSI deploys csi-baremetal-deployment with CmdHelmExecutor
+// DeployCSI calls DeployCSIWithArgs with empty args
+func DeployCSI(f *framework.Framework) (func(), error) {
+	return DeployCSIWithArgs(f, "")
+}
+
+// DeployCSIWithArgs deploys csi-baremetal-deployment with CmdHelmExecutor
 // After install - waiting all pods ready, checking kubernetes-scheduler restart
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
-func DeployCSI(f *framework.Framework) (func(), error) {
+func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		executor    = CmdHelmExecutor{framework.TestContext.KubeConfig}
 		cmdExecutor = GetExecutor()
@@ -104,7 +109,8 @@ func DeployCSI(f *framework.Framework) (func(), error) {
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set driver.drivemgr.deployConfig=true "+
-			"--set scheduler.patcher.enable=true", csiVersion)
+			"--set scheduler.patcher.enable=true "+
+			additionalInstallArgs, csiVersion)
 		podWait         = 3 * time.Minute
 		sleepBeforeWait = 10 * time.Second
 		schedulerRC     = newSchedulerRestartChecker(f.ClientSet)
@@ -131,16 +137,10 @@ func DeployCSI(f *framework.Framework) (func(), error) {
 		}
 
 		for _, node := range nodeList.Items {
-			cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete", node.Name)
-			_, _, err := cmdExecutor.RunCmd(cmd)
-			if err != nil {
-				e2elog.Logf("CRD deletion failed")
-			}
-
-			cmd = fmt.Sprintf("docker exec %s losetup --detach-all", node.Name)
+			cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
 			_, _, err = cmdExecutor.RunCmd(cmd)
 			if err != nil {
-				e2elog.Logf("CRD deletion failed")
+				e2elog.Logf("Failed to clean loopback devices: %s", err)
 			}
 		}
 	}

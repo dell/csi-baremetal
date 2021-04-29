@@ -18,102 +18,58 @@ package scenarios
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-	"sigs.k8s.io/yaml"
+	"github.com/dell/csi-baremetal/test/e2e_operator/common"
 )
 
 const nodeName = "csi-baremetal-node"
 
 // DefineLabeledDeployTestSuite defines label tests
-func DefineLabeledDeployTestSuite(driver testsuites.TestDriver) {
+func DefineLabeledDeployTestSuite() {
 	ginkgo.Context("Baremetal-csi labels are used", func() {
-		labeledDeployTestSuite(driver)
+		labeledDeployTestSuite()
 	})
 }
 
-func labeledDeployTestSuite(driver testsuites.TestDriver) {
+func labeledDeployTestSuite() {
 	var (
-		chartsDir               = "/tmp"
-		operatorManifestsFolder = "csi-baremetal-operator/templates"
-		f                       = framework.NewDefaultFramework("node-label")
-		label                   = "labeltag"
-		tag                     = "csi"
+		f                  = framework.NewDefaultFramework("node-label")
+		label              = "labeltag"
+		tag                = "csi"
+		setNodeSelectorArg = fmt.Sprintf("--set nodeSelector.key=%s --set nodeSelector.value=%s", label, tag)
 	)
 
 	ginkgo.It("CSI should use label on nodes", func() {
-		file, err := ioutil.ReadFile(path.Join(chartsDir, operatorManifestsFolder, "csibm-controller.yaml"))
+		nodes, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}
-
-		deployment := &appsv1.Deployment{}
-		err = yaml.Unmarshal(file, deployment)
-		if err != nil {
+		node := nodes.Items[1]
+		node.Labels[label] = tag
+		if _, err := f.ClientSet.CoreV1().Nodes().Update(&node); err != nil {
 			ginkgo.Fail(err.Error())
 		}
 
-		deployment.Spec.Template.Spec.Containers[0].Args = append(deployment.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--nodeselector=%s:%s", label, tag))
-
-		_, err = f.ClientSet.AppsV1().Deployments("default").Update(deployment)
-		if err != nil {
-			ginkgo.Fail(err.Error())
-		}
-
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
-			1*time.Minute, nil)
-		if err != nil {
-			framework.Failf("Pods not ready, error: %s", err.Error())
-		}
-
-		perTestConf, driverCleanup := driver.PrepareTest(f)
+		driverCleanup, err := common.DeployCSIWithArgs(f, setNodeSelectorArg)
 		defer driverCleanup()
 
-		k8sSC := driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
 		framework.ExpectNoError(err)
 
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
-			1*time.Minute, nil)
-		if err != nil {
-			framework.Failf("Pods not ready, error: %s", err.Error())
-		}
-
-		nodeDep, err := f.ClientSet.AppsV1().DaemonSets(f.Namespace.Name).Get(nodeName, metav1.GetOptions{})
-		Expect(nodeDep).ToNot(BeNil())
-
-		if nodeDep.Spec.Template.Spec.NodeSelector == nil {
-			nodeDep.Spec.Template.Spec.NodeSelector = map[string]string{label: tag}
-		}
-
-		_, err = f.ClientSet.AppsV1().DaemonSets(f.Namespace.Name).Update(nodeDep)
-
-		// give some time to put nodes to termination state
-		time.Sleep(10 * time.Second)
-
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
-			1*time.Minute, nil)
-		if err != nil {
-			framework.Failf("Pods not ready, error: %s", err.Error())
-		}
 		np, err := getNodePodsNames(f)
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}
+		Expect(len(np)).To(Equal(2))
 
-		Expect(len(np)).To(Equal(0))
-		nodes, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+		nodes, err = f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}
@@ -132,7 +88,6 @@ func labeledDeployTestSuite(driver testsuites.TestDriver) {
 			ginkgo.Fail(err.Error())
 		}
 		e2elog.Logf("nodePODS\n%+v\n", np)
-		Expect(len(np)).To(Not(Equal(0)))
+		Expect(len(np)).To(Equal(7))
 	})
-
 }
