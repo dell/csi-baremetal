@@ -47,7 +47,7 @@ type HelmChart struct {
 func (c *CmdHelmExecutor) InstallRelease(ch *HelmChart, args string) error {
 	cmdStr := fmt.Sprintf("helm install "+
 		"--kubeconfig %s "+
-		"-n %s --create-namespace "+
+		"-n %s "+
 		"%s "+"%s "+args,
 		c.kubeconfig, ch.namespace, ch.name, ch.path)
 

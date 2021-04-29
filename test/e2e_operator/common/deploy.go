@@ -61,10 +61,18 @@ func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) 
 			e2elog.Logf("CSI Operator helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
+		if err := c.CoreV1().Namespaces().Delete(ns, nil); err != nil {
+			e2elog.Logf("Namespace %s deletion failed.", chart.namespace)
+		}
+
 		//crdPath := path.Join(chart.path, "crds")
 		//if err := execCmdObj(framework.KubectlCmd("delete", "-f", crdPath)); err != nil {
 		//	e2elog.Logf("CRD deletion failed")
 		//}
+	}
+
+	if _, err := c.CoreV1().Namespaces().Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}); err != nil {
+		return nil, err
 	}
 
 	if err := executor.InstallRelease(&chart, installArgs); err != nil {

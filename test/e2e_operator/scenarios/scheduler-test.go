@@ -118,7 +118,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		return pod, podPVCs
 	}
 
-	createTestPods := func(testPodsCount int, testPodsDisksPerPod int) {
+	/*createTestPods := func(testPodsCount int, testPodsDisksPerPod int) {
 		wg := sync.WaitGroup{}
 		var podSCList []string
 		for i := 0; i < testPodsDisksPerPod; i++ {
@@ -177,23 +177,23 @@ func schedulingTest(driver testsuites.TestDriver) {
 		init(lmConfig)
 		defer cleanup()
 		createTestPods(testPodsCount, testPodsDisksPerPod)
-	})
+	})*/
 
 	ginkgo.It("Scheduler should respect SC", func() {
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 3)
 
 		node1, node2, node3 := nodes[0], nodes[1], nodes[2]
 
-		defaultDriveCount := 0
+		defaultDriveCount := 4
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
 			Nodes: []common.LoopBackManagerConfigNode{
 				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeSSD}}),
+					{DriveType: &driveTypeSSD}}),
 				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeNVMe}, {DriveType: &driveTypeHDD}}),
+					{DriveType: &driveTypeNVMe}}),
 				*buildLMDrivesConfig(node3, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeHDD}}),
+					{DriveType: &driveTypeHDD}}),
 			}}
 		init(lmConfig)
 		defer cleanup()
@@ -207,7 +207,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 	ginkgo.It("2 LVM PV on one drive", func() {
 		framework.Skipf("skip test. See ATLDEF-83 for details")
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 2)
-		defaultDriveCount := 0
+		defaultDriveCount := 3
 		node1, node2 := nodes[0], nodes[1]
 		driveSize := "250Mi"
 		lmConfig := &common.LoopBackManagerConfig{
@@ -296,11 +296,11 @@ func hostsNeedToHaveEqualNumberVolumes(volumes map[string][]string, count int) e
 
 }
 func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevice) *common.LoopBackManagerConfigNode {
-	drivesCount := len(drives)
+	//drivesCount := len(drives)
 	return &common.LoopBackManagerConfigNode{
-		NodeID:     &node,
-		DriveCount: &drivesCount,
-		Drives:     drives,
+		NodeID: &node,
+		//DriveCount: &drivesCount,
+		Drives: drives,
 	}
 }
 
