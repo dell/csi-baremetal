@@ -101,6 +101,8 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
+        - mountPath: /crash-dump
+          name: crash-dump
         - name: socket-dir
           mountPath: /csi
         - name: logs
@@ -185,6 +187,8 @@ spec:
       {{- end }}
       volumes:
       - name: logs
+        emptyDir: {}
+      - name: crash-dump
         emptyDir: {}
       {{- if .Values.logReceiver.create }}
       - name: logs-config

@@ -54,6 +54,9 @@ spec:
                   fieldPath: metadata.namespace
             - name: LOG_FORMAT
               value: text
+          volumeMounts:
+            - mountPath: /crash-dump
+              name: crash-dump
       hostNetwork: true
       tolerations:
         - key: CriticalAddonsOnly
@@ -67,3 +70,6 @@ spec:
               - matchExpressions:
                   - key: node-role.kubernetes.io/master
                     operator: Exists
+      volumes:
+        - name: crash-dump
+          emptyDir: {}
