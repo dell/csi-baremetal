@@ -41,7 +41,7 @@ import (
 
 const (
 	// maximum time to wait before drive state will change after LM config change
-	driveStateChangeTimeout = time.Minute * 1
+	driveStateChangeTimeout = time.Minute * 3
 )
 
 var (
@@ -89,7 +89,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
 	}
 
-	/*ginkgo.It("AC for unhealthy drive should be removed", func() {
+	ginkgo.It("AC for unhealthy drive should be removed", func() {
 		defaultDriveCount := 3
 		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
 
@@ -142,7 +142,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 			}
 			time.Sleep(time.Second * 3)
 		}
-	})*/
+	})
 
 	ginkgo.It("volume health should change after drive health changed", func() {
 		defaultDriveCount := 3
@@ -199,7 +199,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		}, eventsWaitTimeout)
 	})
 
-	/*ginkgo.It("Check drive events", func() {
+	ginkgo.It("Check drive events", func() {
 		defaultDriveCount := 3
 		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
 
@@ -276,7 +276,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 			eventing.DriveStatusOffline,
 			eventing.DriveStatusOnline,
 		}, eventsWaitTimeout)
-	})*/
+	})
 }
 
 // constructPVC constructs pvc for test purposes

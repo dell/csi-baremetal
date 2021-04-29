@@ -18,6 +18,7 @@ package scenarios
 
 import (
 	"fmt"
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -27,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
-	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	"github.com/dell/csi-baremetal/test/e2e_operator/common"
@@ -62,6 +62,8 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
+		perTestConf, driverCleanup = driver.PrepareTest(f)
+
 		if scType == "SSD" {
 			nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
 			framework.ExpectNoError(err)
@@ -69,10 +71,10 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 			for _, item := range nodes.Items {
 				nodeNames = append(nodeNames, item.Name)
 			}
-			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(constructLoopbackConfigWithDriveType(ns, nodeNames, scType))
+			configMap := constructLoopbackConfigWithDriveType(ns, nodeNames, scType)
+			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(configMap)
 			framework.ExpectNoError(err)
 		}
-		perTestConf, driverCleanup = driver.PrepareTest(f)
 
 		k8sSC = driver.(*baremetalDriver).GetStorageClassWithStorageType(perTestConf, scType)
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
@@ -92,7 +94,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 
-	ginkgo.It("should create Pod with PVC with ANY type", func() {
+	/*ginkgo.It("should create Pod with PVC with ANY type", func() {
 		scType := "ANY"
 		init(scType)
 		defer cleanup()
@@ -133,7 +135,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
 			f, 1, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)}
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-	})
+	})*/
 }
 
 func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) *corev1.PersistentVolumeClaim {
@@ -192,7 +194,7 @@ func constructLoopbackConfigWithDriveType(namespace string, nodes []string, driv
 		},
 		Data: map[string]string{
 			"config.yaml": "\n" +
-				"defaultDrivePerNodeCount: 3\n" +
+				"defaultDrivePerNodeCount: 6\n" +
 				"nodes:\n" +
 				nodeConfig,
 		},
