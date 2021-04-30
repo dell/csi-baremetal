@@ -23,6 +23,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"k8s.io/kubernetes/test/e2e/framework"
 	"path"
 
 	"github.com/onsi/ginkgo"
@@ -44,10 +45,10 @@ var CSITestSuites = []func() testsuites.TestSuite{
 }
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
-	logrus.Infof("RepoRoot: %s", common.BMDriverTestContext.RepoRoot)
+	logrus.Infof("RepoRoot: %s", framework.TestContext.RepoRoot)
 
 	pathToTheManifests := path.Join(
-		common.BMDriverTestContext.RepoRoot, "/tmp/")
+		framework.TestContext.RepoRoot, "/tmp/")
 
 	testfiles.AddFileSource(testfiles.RootFileSource{
 		Root: pathToTheManifests,
@@ -55,41 +56,31 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	curDriver := BaremetalDriver()
 
-	patcherCleanup := func() {}
-	csibmOperatorCleanup := func() {}
+	operatorCleanup := func() {}
 	ginkgo.BeforeSuite(func() {
-		c, err := common.GetGlobalClientSet()
+		clientset, err := common.GetGlobalClientSet()
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}
 
-		if common.BMDriverTestContext.BMDeploySchedulerPatcher {
-			patcherCleanup, err = common.DeployPatcher(c, "kube-system")
-			if err != nil {
-				ginkgo.Fail(err.Error())
-			}
-		}
-		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
-			csibmOperatorCleanup, err = common.DeployCSIBMOperator(c)
-			if err != nil {
-				ginkgo.Fail(err.Error())
-			}
+		operatorCleanup, err = common.DeployOperatorWithClient(clientset)
+		if err != nil {
+			ginkgo.Fail(err.Error())
 		}
 	})
 
 	ginkgo.AfterSuite(func() {
-		csibmOperatorCleanup()
-		patcherCleanup()
+		operatorCleanup()
 	})
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
-		testsuites.DefineTestSuite(curDriver, CSITestSuites)
-		DefineDriveHealthChangeTestSuite(curDriver)
-		DefineControllerNodeFailTestSuite(curDriver)
-		DefineNodeRebootTestSuite(curDriver)
+		//testsuites.DefineTestSuite(curDriver, CSITestSuites)
+		//DefineDriveHealthChangeTestSuite(curDriver)
+		//DefineControllerNodeFailTestSuite(curDriver)
+		//DefineNodeRebootTestSuite(curDriver)
+		//DefineStressTestSuite(curDriver)
 		DefineDifferentSCTestSuite(curDriver)
-		DefineStressTestSuite(curDriver)
-		DefineSchedulerTestSuite(curDriver)
-		DefineLabeledDeployTestSuite(curDriver)
+		//DefineSchedulerTestSuite(curDriver)
+		//DefineLabeledDeployTestSuite()
 	})
 })

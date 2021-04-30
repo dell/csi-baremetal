@@ -18,25 +18,19 @@ package scenarios
 
 import (
 	"fmt"
-	"io/ioutil"
 	"strings"
 	"time"
 
+	"github.com/dell/csi-baremetal/test/e2e/common"
 	"github.com/onsi/ginkgo"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-	"sigs.k8s.io/yaml"
-
-	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 type baremetalDriver struct {
@@ -50,7 +44,7 @@ var (
 	manifestsFolder = "csi-baremetal-driver/templates/"
 )
 
-func initBaremetalDriver(name string) testsuites.TestDriver {
+func initBaremetalDriver(name string) *baremetalDriver {
 	return &baremetalDriver{
 		driverInfo: testsuites.DriverInfo{
 			Name:        name,
@@ -72,7 +66,7 @@ func initBaremetalDriver(name string) testsuites.TestDriver {
 	}
 }
 
-func InitBaremetalDriver() testsuites.TestDriver {
+func InitBaremetalDriver() *baremetalDriver {
 	return initBaremetalDriver("csi-baremetal")
 }
 
@@ -92,40 +86,13 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 	}
 }
 
-// PrepareTest is implementation of TestDriver interface method
-func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) (*testsuites.PerTestConfig, func()) {
 	ginkgo.By("deploying baremetal driver")
 
 	cancelLogging := testsuites.StartPodLogs(f)
 
-	manifests := []string{
-		manifestsFolder + "controller-rbac.yaml",
-		manifestsFolder + "node-rbac.yaml",
-		manifestsFolder + "node.yaml",
-	}
-	file, err := ioutil.ReadFile("/tmp/csi-baremetal-driver/templates/controller.yaml")
+	cleanupCSI, err := common.DeployCSI(f, installArgs)
 	framework.ExpectNoError(err)
-
-	deployment := &appsv1.Deployment{}
-	err = yaml.Unmarshal(file, deployment)
-	framework.ExpectNoError(err)
-
-	ns := f.Namespace.Name
-	f.PatchNamespace(&deployment.ObjectMeta.Namespace)
-	_, err = f.ClientSet.AppsV1().Deployments(ns).Create(deployment)
-	framework.ExpectNoError(err)
-
-	// CreateFromManifests doesn't support ConfigMaps so deploy it from framework's client
-	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(d.constructDefaultLoopbackConfig(ns))
-	if !errors.IsAlreadyExists(err) {
-		framework.ExpectNoError(err)
-	}
-
-	driverCleanup, err := f.CreateFromManifests(nil, manifests...)
-
-	if err != nil {
-		framework.Failf("deploying csi baremetal driver: %v", err)
-	}
 
 	testConf := &testsuites.PerTestConfig{
 		Driver:    d,
@@ -133,55 +100,23 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		Framework: f,
 	}
 
-	extenderCleanup := func() {}
-	if common.BMDriverTestContext.BMDeploySchedulerExtender {
-		extenderCleanup, err = common.DeploySchedulerExtender(f)
-		framework.ExpectNoError(err)
-	}
-
-	// always create at least one SC, this required for Inline volumes testing
-	// TODO remove after ISSUE-128 will be solved
-	defaultSC, err := f.ClientSet.StorageV1().StorageClasses().Create(
-		d.GetDynamicProvisionStorageClass(testConf, ""))
-	if err != nil {
-		framework.Failf("Failed to create default SC, error: %s", err.Error())
-	}
-	defaultSCCleanup := func() {
-		err := f.ClientSet.StorageV1().StorageClasses().Delete(defaultSC.Name, &metav1.DeleteOptions{})
-		if err != nil {
-			framework.Logf("Failed to remove default SC, error: ", err)
-		}
-	}
-
 	cleanup := func() {
 		framework.Logf("Delete loopback devices")
-		err := CleanupLoopbackDevices(f)
-		if err != nil {
-			framework.Logf("Failed to clean up devices, error: ", err)
-		}
-		driverCleanup()
-		extenderCleanup()
-		defaultSCCleanup()
-		err = d.removeAllCRs(f)
-		if err != nil {
-			framework.Logf("Failed to clean up CRs, error: ", err)
-		}
+		cleanupCSI()
 	}
-	err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 2, 0,
-		90*time.Second, nil)
-	if err != nil {
-		cleanup()
-		framework.Failf("Pods not ready, error: %s", err.Error())
-	}
+
 	return testConf, func() {
 		// wait until ephemeral volume will be deleted
 		time.Sleep(time.Second * 20)
-		err = f.ClientSet.AppsV1().Deployments(ns).Delete(deployment.Name, &metav1.DeleteOptions{})
-		framework.ExpectNoError(err)
 		ginkgo.By("uninstalling baremetal driver")
 		cleanup()
 		cancelLogging()
 	}
+}
+
+// PrepareTest is implementation of TestDriver interface method
+func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+	return PrepareCSI(d, f, "")
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method
@@ -295,7 +230,9 @@ func getNodePodsNames(f *framework.Framework) ([]string, error) {
 	}
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
-		if strings.Contains(pod.Name, "csi-baremetal-node") {
+		if len(pod.OwnerReferences) == 1 &&
+			pod.OwnerReferences[0].Name == "csi-baremetal-node" &&
+			pod.OwnerReferences[0].Kind == "DaemonSet" {
 			podsNames = append(podsNames, pod.Name)
 		}
 	}

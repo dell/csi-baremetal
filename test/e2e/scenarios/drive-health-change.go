@@ -17,6 +17,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"github.com/dell/csi-baremetal/pkg/eventing"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -35,7 +36,6 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
-	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
@@ -76,10 +76,6 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
-
-		if lmConf != nil {
-			applyLMConfig(f, lmConf)
-		}
 
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 
@@ -317,10 +313,7 @@ func findNodeNameByUID(f *framework.Framework, nodeUID string) (string, error) {
 	}
 	var nodeName string
 	for _, node := range nodeList.Items {
-		var currID = string(node.UID)
-		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
-			currID, _ = node.GetAnnotations()[akey.DeafultNodeIDAnnotationKey]
-		}
+		currID, _ := node.GetAnnotations()[akey.DeafultNodeIDAnnotationKey]
 
 		if currID == nodeUID {
 			nodeName = node.Name

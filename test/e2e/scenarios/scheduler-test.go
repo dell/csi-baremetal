@@ -37,7 +37,7 @@ import (
 )
 
 // DefineSchedulerTestSuite defines tests for scheduler extender
-func DefineSchedulerTestSuite(driver testsuites.TestDriver) {
+func DefineSchedulerTestSuite(driver *baremetalDriver) {
 	ginkgo.Context("Baremetal-csi driver scheduling tests", func() {
 		schedulingTest(driver)
 	})
@@ -57,7 +57,7 @@ var (
 )
 
 // schedulingTest test custom extender for scheduler
-func schedulingTest(driver testsuites.TestDriver) {
+func schedulingTest(driver *baremetalDriver) {
 	var (
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim
@@ -77,16 +77,16 @@ func schedulingTest(driver testsuites.TestDriver) {
 		)
 		ns = f.Namespace.Name
 
+		perTestConf, driverCleanup = PrepareCSI(driver, f, "--set driver.drivemgr.amountOfLoopDevices=0")
+
 		if lmConf != nil {
 			lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
 			framework.ExpectNoError(err)
-			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(lmConfigMap)
+			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(lmConfigMap)
 		}
 
-		perTestConf, driverCleanup = driver.PrepareTest(f)
-
 		for _, scName := range availableSC {
-			sc := driver.(*baremetalDriver).GetStorageClassWithStorageType(perTestConf, scName)
+			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)
 			sc, err = f.ClientSet.StorageV1().StorageClasses().Create(sc)
 			framework.ExpectNoError(err)
 			storageClasses[scName] = sc
@@ -105,7 +105,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		for _, scKey := range podSCList {
 			sc := storageClasses[scKey]
 			pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(
-				constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(),
+				constructPVC(ns, driver.GetClaimSize(),
 					sc.Name, pvcName+"-"+uuid.New().String()))
 			framework.ExpectNoError(err)
 			podPVCs = append(podPVCs, pvc)
@@ -205,8 +205,9 @@ func schedulingTest(driver testsuites.TestDriver) {
 	})
 
 	ginkgo.It("2 LVM PV on one drive", func() {
+		framework.Skipf("skip test. See ATLDEF-83 for details")
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 2)
-		defaultDriveCount := 0
+		defaultDriveCount := 3
 		node1, node2 := nodes[0], nodes[1]
 		driveSize := "250Mi"
 		lmConfig := &common.LoopBackManagerConfig{

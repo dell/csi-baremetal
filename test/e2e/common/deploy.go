@@ -124,7 +124,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	cleanup := func() {
 		// delete resources with finalizers
 		if BMDriverTestContext.CompleteUninstall {
-			deleteCSIResources(cmdExecutor, []string{"lvgs", "csibmnodes"})
+			deleteCSIResources(cmdExecutor, []string{"lvgs"})
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
@@ -134,17 +134,17 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		// delete resources without finalizers
 		if BMDriverTestContext.CompleteUninstall {
 			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
-		}
 
-		nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
-		if err != nil {
-			e2elog.Logf("CRD deletion failed")
-		}
+			nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+			if err != nil {
+				e2elog.Logf("CRD deletion failed")
+			}
 
-		for _, node := range nodeList.Items {
-			cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
-			if _, _, err = cmdExecutor.RunCmd(cmd); err != nil {
-				e2elog.Logf("Failed to clean loopback devices: %s", err)
+			for _, node := range nodeList.Items {
+				cmd := fmt.Sprintf("ssh root@100.64.25.144 docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
+				if _, _, err = cmdExecutor.RunCmd(cmd); err != nil {
+					e2elog.Logf("Failed to clean loopback devices: %s", err)
+				}
 			}
 		}
 	}
