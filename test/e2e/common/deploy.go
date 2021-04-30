@@ -190,7 +190,7 @@ func cleanLoopDevices(c clientset.Interface, e command.CmdExecutor) {
 		e2elog.Logf("Failed to get k8sNode list: %s", err)
 	}
 	for _, node := range nodeList.Items {
-		cmd := fmt.Sprintf("ssh root@100.64.25.144 docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
+		cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
 		if _, _, err = e.RunCmd(cmd); err != nil {
 			e2elog.Logf("Failed to clean loopback device on node %s: %s", node.Name, err)
 		}
