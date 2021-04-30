@@ -65,11 +65,6 @@ func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
 		if err := c.CoreV1().Namespaces().Delete(operatorNamespace, nil); err != nil {
 			e2elog.Logf("Namespace %s deletion failed.", chart.namespace)
 		}
-
-		//crdPath := path.Join(chart.path, "crds")
-		//if err := execCmdObj(framework.KubectlCmd("delete", "-f", crdPath)); err != nil {
-		//	e2elog.Logf("CRD deletion failed")
-		//}
 	}
 
 	if _, err := c.CoreV1().Namespaces().Create(
@@ -122,8 +117,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	cleanup := func() {
-		// delete resources with finalizers
 		if BMDriverTestContext.CompleteUninstall {
+			// delete resources with finalizers
 			deleteCSIResources(cmdExecutor, []string{"lvgs"})
 		}
 
@@ -131,21 +126,11 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
-		// delete resources without finalizers
 		if BMDriverTestContext.CompleteUninstall {
+			// delete resources without finalizers
 			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
 
-			nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
-			if err != nil {
-				e2elog.Logf("CRD deletion failed")
-			}
-
-			for _, node := range nodeList.Items {
-				cmd := fmt.Sprintf("ssh root@100.64.25.144 docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
-				if _, _, err = cmdExecutor.RunCmd(cmd); err != nil {
-					e2elog.Logf("Failed to clean loopback devices: %s", err)
-				}
-			}
+			cleanLoopDevices(f.ClientSet, cmdExecutor)
 		}
 	}
 
@@ -169,11 +154,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		if isRestarted, err := schedulerRC.WaitForRestart(); err != nil {
 			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
 		} else {
-			if isRestarted {
-				e2elog.Logf("Scheduler is restarted")
-			} else {
-				e2elog.Logf("Scheduler is not restarted")
-			}
+			e2elog.Logf("Scheduler is restarted: %t", isRestarted)
 		}
 	}
 
@@ -199,6 +180,19 @@ func deleteCSIResources(e command.CmdExecutor, resources []string) {
 		cmd := framework.KubectlCmd("delete", name, "--all")
 		if _, _, err := e.RunCmd(cmd); err != nil {
 			e2elog.Logf("%s deletion failed", name)
+		}
+	}
+}
+
+func cleanLoopDevices(c clientset.Interface, e command.CmdExecutor) {
+	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		e2elog.Logf("Failed to get k8sNode list: %s", err)
+	}
+	for _, node := range nodeList.Items {
+		cmd := fmt.Sprintf("ssh root@100.64.25.144 docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
+		if _, _, err = e.RunCmd(cmd); err != nil {
+			e2elog.Logf("Failed to clean loopback device on node %s: %s", node.Name, err)
 		}
 	}
 }

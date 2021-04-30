@@ -17,7 +17,6 @@ limitations under the License.
 package scenarios
 
 import (
-	"github.com/dell/csi-baremetal/pkg/eventing"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -36,6 +35,7 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 

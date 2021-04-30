@@ -38,7 +38,7 @@ func skipIfNotCI(t *testing.T) {
 	}
 }
 
-func registerCustomFlags2(flags *flag.FlagSet) {
+func registerCustomFlags(flags *flag.FlagSet) {
 	flags.StringVar(&common.BMDriverTestContext.ChartsDir, "chartsDir",
 		"/tmp/charts", "Path to folder with helm charts")
 	flags.BoolVar(&common.BMDriverTestContext.CompleteUninstall, "completeUninstall",
@@ -48,7 +48,7 @@ func registerCustomFlags2(flags *flag.FlagSet) {
 func init() {
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)
-	registerCustomFlags2(flag.CommandLine)
+	registerCustomFlags(flag.CommandLine)
 }
 
 func Test(t *testing.T) {

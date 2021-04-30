@@ -205,9 +205,8 @@ func schedulingTest(driver *baremetalDriver) {
 	})
 
 	ginkgo.It("2 LVM PV on one drive", func() {
-		framework.Skipf("skip test. See ATLDEF-83 for details")
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 2)
-		defaultDriveCount := 3
+		defaultDriveCount := 0
 		node1, node2 := nodes[0], nodes[1]
 		driveSize := "250Mi"
 		lmConfig := &common.LoopBackManagerConfig{

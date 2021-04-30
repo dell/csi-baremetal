@@ -18,7 +18,6 @@ package scenarios
 
 import (
 	"fmt"
-	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -28,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
@@ -87,7 +87,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 	}
 
 	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test DriveHealthChange")
+		e2elog.Logf("Starting cleanup for test DifferentScTest")
 		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, pvcs)
 	}
 

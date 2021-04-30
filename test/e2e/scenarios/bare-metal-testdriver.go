@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -31,6 +30,8 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 type baremetalDriver struct {
