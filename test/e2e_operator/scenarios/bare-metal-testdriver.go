@@ -226,7 +226,9 @@ func getNodePodsNames(f *framework.Framework) ([]string, error) {
 	}
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
-		if strings.Contains(pod.Name, "csi-baremetal-node") {
+		if len(pod.OwnerReferences) == 1 &&
+			pod.OwnerReferences[0].Name == "csi-baremetal-node" &&
+			pod.OwnerReferences[0].Kind == "DaemonSet" {
 			podsNames = append(podsNames, pod.Name)
 		}
 	}

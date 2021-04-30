@@ -22,7 +22,9 @@ import (
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
@@ -30,7 +32,11 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e_operator/common"
 )
 
-const nodeName = "csi-baremetal-node"
+const (
+	masterNodeLabel = "node-role.kubernetes.io/master"
+	label           = "labeltag"
+	tag             = "csi"
+)
 
 // DefineLabeledDeployTestSuite defines label tests
 func DefineLabeledDeployTestSuite() {
@@ -42,19 +48,15 @@ func DefineLabeledDeployTestSuite() {
 func labeledDeployTestSuite() {
 	var (
 		f                  = framework.NewDefaultFramework("node-label")
-		label              = "labeltag"
-		tag                = "csi"
 		setNodeSelectorArg = fmt.Sprintf(" --set nodeSelector.key=%s --set nodeSelector.value=%s", label, tag)
 	)
 
 	ginkgo.It("CSI should use label on nodes", func() {
-		nodes, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
-		if err != nil {
-			ginkgo.Fail(err.Error())
-		}
-		node := nodes.Items[1]
-		node.Labels[label] = tag
-		if _, err := f.ClientSet.CoreV1().Nodes().Update(&node); err != nil {
+		nodes := getWorkerNodes(f.ClientSet)
+		defer cleanNodeLabels(nodes, f.ClientSet)
+
+		nodes[0].Labels[label] = tag
+		if _, err := f.ClientSet.CoreV1().Nodes().Update(&nodes[0]); err != nil {
 			ginkgo.Fail(err.Error())
 		}
 
@@ -67,9 +69,9 @@ func labeledDeployTestSuite() {
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}
-		Expect(len(np)).To(Equal(2))
+		Expect(len(np)).To(Equal(1))
 
-		for _, node := range nodes.Items {
+		for _, node := range nodes {
 			node.Labels[label] = tag
 			if _, err := f.ClientSet.CoreV1().Nodes().Update(&node); err != nil {
 				ginkgo.Fail(err.Error())
@@ -84,6 +86,35 @@ func labeledDeployTestSuite() {
 			ginkgo.Fail(err.Error())
 		}
 		e2elog.Logf("nodePODS\n%+v\n", np)
-		Expect(len(np)).To(Equal(7))
+		Expect(len(np)).To(Equal(len(nodes)))
 	})
+}
+
+func getWorkerNodes(c clientset.Interface) []corev1.Node {
+	var workerNodes []corev1.Node
+
+	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		ginkgo.Fail(err.Error())
+	}
+
+	for _, node := range nodes.Items {
+		if _, ok := node.Labels[masterNodeLabel]; !ok {
+			workerNodes = append(workerNodes, node)
+		}
+	}
+
+	return workerNodes
+}
+
+func cleanNodeLabels(nodes []corev1.Node, c clientset.Interface) {
+	for _, node := range nodes {
+		if _, ok := node.Labels[label]; ok {
+			delete(node.Labels, label)
+
+			if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
+				e2elog.Logf("Error updating node: %s", err)
+			}
+		}
+	}
 }
