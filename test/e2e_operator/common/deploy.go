@@ -50,7 +50,7 @@ func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
 		operatorVersion = os.Getenv(operatorVersionEnv)
 		chart           = HelmChart{
 			name:      "csi-baremetal-operator",
-			path:      path.Join(BMDriverTestContext.ChartsFolder, "csi-baremetal-operator"),
+			path:      path.Join(BMDriverTestContext.ChartsDir, "csi-baremetal-operator"),
 			namespace: operatorNamespace,
 		}
 		installArgs = fmt.Sprintf("--set image.tag=%s", operatorVersion)
@@ -91,39 +91,40 @@ func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
 	return cleanup, nil
 }
 
-// DeployCSI calls DeployCSIWithArgs with empty args
-func DeployCSI(f *framework.Framework) (func(), error) {
-	return DeployCSIWithArgs(f, "")
-}
-
 // DeployCSIWithArgs deploys csi-baremetal-deployment with CmdHelmExecutor
 // After install - waiting all pods ready, checking kubernetes-scheduler restart
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
-func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (func(), error) {
+func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		cmdExecutor  = GetExecutor()
 		helmExecutor = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: cmdExecutor}
 		csiVersion   = os.Getenv(csiVersionEnv)
 		chart        = HelmChart{
 			name:      "csi-baremetal",
-			path:      path.Join(BMDriverTestContext.ChartsFolder, "csi-baremetal-deployment"),
+			path:      path.Join(BMDriverTestContext.ChartsDir, "csi-baremetal-deployment"),
 			namespace: f.Namespace.Name,
 		}
 		installArgs = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set driver.drivemgr.deployConfig=true "+
-			"--set scheduler.patcher.enable=true"+
-			additionalInstallArgs, csiVersion)
+			"--set scheduler.patcher.enable=true "+
+			"--set scheduler.log.level=debug "+
+			"--set nodeController.log.level=debug "+
+			"--set driver.log.level=debug", csiVersion)
 		podWait         = 3 * time.Minute
 		sleepBeforeWait = 10 * time.Second
 		schedulerRC     = newSchedulerRestartChecker(f.ClientSet)
 	)
 
+	if additionalInstallArgs != "" {
+		installArgs += " " + additionalInstallArgs
+	}
+
 	cleanup := func() {
 		// delete resources with finalizers
 		if BMDriverTestContext.CompleteUninstall {
-			deleteCSIResources(cmdExecutor, []string{"pvc", "volumes", "lvgs"})
+			deleteCSIResources(cmdExecutor, []string{"lvgs", "csibmnodes"})
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {

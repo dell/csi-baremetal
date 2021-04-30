@@ -39,7 +39,7 @@ func skipIfNotCI(t *testing.T) {
 }
 
 func registerCustomFlags2(flags *flag.FlagSet) {
-	flags.StringVar(&common.BMDriverTestContext.ChartsFolder, "chartsFolder",
+	flags.StringVar(&common.BMDriverTestContext.ChartsDir, "chartsDir",
 		"/tmp/charts", "Path to folder with helm charts")
 	flags.BoolVar(&common.BMDriverTestContext.CompleteUninstall, "completeUninstall",
 		true, "Uninstall pvc, volumes, lvgs, csibmnodes")

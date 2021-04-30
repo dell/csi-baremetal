@@ -44,7 +44,7 @@ var (
 	manifestsFolder = "csi-baremetal-driver/templates/"
 )
 
-func initBaremetalDriver(name string) testsuites.TestDriver {
+func initBaremetalDriver(name string) *baremetalDriver {
 	return &baremetalDriver{
 		driverInfo: testsuites.DriverInfo{
 			Name:        name,
@@ -66,7 +66,7 @@ func initBaremetalDriver(name string) testsuites.TestDriver {
 	}
 }
 
-func InitBaremetalDriver() testsuites.TestDriver {
+func InitBaremetalDriver() *baremetalDriver {
 	return initBaremetalDriver("csi-baremetal")
 }
 
@@ -86,13 +86,12 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 	}
 }
 
-// PrepareTest is implementation of TestDriver interface method
-func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) (*testsuites.PerTestConfig, func()) {
 	ginkgo.By("deploying baremetal driver")
 
 	cancelLogging := testsuites.StartPodLogs(f)
 
-	cleanupCSI, err := common.DeployCSI(f)
+	cleanupCSI, err := common.DeployCSI(f, installArgs)
 	framework.ExpectNoError(err)
 
 	testConf := &testsuites.PerTestConfig{
@@ -113,6 +112,11 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 		cleanup()
 		cancelLogging()
 	}
+}
+
+// PrepareTest is implementation of TestDriver interface method
+func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+	return PrepareCSI(d, f, "")
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method

@@ -52,6 +52,17 @@ test-sanity:
 #	should fail when requesting to create a volume with already existing name and different capacity|\
 #	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
+load-helm-charts:
+	wget -P ./charts https://asdrepo.isus.emc.com/artifactory/atlantic-helm-build/csi-operator/${OPERATOR_VERSION}/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
+	wget -P ./charts https://asdrepo.isus.emc.com/artifactory/atlantic-helm-build/csi-operator/${OPERATOR_VERSION}/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
+	tar -xzvf ./charts/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
+	tar -xzvf ./charts/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
+
+load-Operator-image:
+	docker pull ${registry}/csi-baremetal-operator:${operatorVersion}
+	docker tag ${registry}/csi-baremetal-operator:${operatorVersion} csi-baremetal-operator:${operatorVersion}
+	kind load docker-image csi-baremetal-operator:${operatorVersion}
+
 kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${NODE}:${TAG}

@@ -18,7 +18,7 @@ package common
 
 // OperatorTestContextType stores custom testing context
 type BMDriverTestContextType struct {
-	ChartsFolder      string
+	ChartsDir         string
 	CompleteUninstall bool
 }
 

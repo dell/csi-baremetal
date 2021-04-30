@@ -34,7 +34,7 @@ import (
 )
 
 // DefineDifferentSCTestSuite defines different SCs tests
-func DefineDifferentSCTestSuite(driver testsuites.TestDriver) {
+func DefineDifferentSCTestSuite(driver *baremetalDriver) {
 	ginkgo.Context("Baremetal-csi driver different SCs tests", func() {
 		// It consists of 3 suites with following.
 		// 1) Create StorageClass with defined type
@@ -46,7 +46,7 @@ func DefineDifferentSCTestSuite(driver testsuites.TestDriver) {
 }
 
 // differentSCTypesTest test work of different SCs of CSI driver
-func differentSCTypesTest(driver testsuites.TestDriver) {
+func differentSCTypesTest(driver *baremetalDriver) {
 	var (
 		pod           *corev1.Pod
 		pvcs          []*corev1.PersistentVolumeClaim
@@ -60,23 +60,28 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		var (
 			perTestConf *testsuites.PerTestConfig
 			err         error
+			driverType  string
 		)
 		ns = f.Namespace.Name
-		perTestConf, driverCleanup = driver.PrepareTest(f)
+		perTestConf, driverCleanup = PrepareCSI(driver, f, "--set driver.drivemgr.amountOfLoopDevices=0")
 
 		if scType == "SSD" {
-			nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
-			framework.ExpectNoError(err)
-			var nodeNames []string
-			for _, item := range nodes.Items {
-				nodeNames = append(nodeNames, item.Name)
-			}
-			configMap := constructLoopbackConfigWithDriveType(ns, nodeNames, scType)
-			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(configMap)
-			framework.ExpectNoError(err)
+			driverType = driveTypeSSD
+		} else {
+			driverType = driveTypeHDD
 		}
 
-		k8sSC = driver.(*baremetalDriver).GetStorageClassWithStorageType(perTestConf, scType)
+		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
+		framework.ExpectNoError(err)
+		var nodeNames []string
+		for _, item := range nodes.Items {
+			nodeNames = append(nodeNames, item.Name)
+		}
+		configMap := constructLoopbackConfigWithDriveType(ns, nodeNames, driverType)
+		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(configMap)
+		framework.ExpectNoError(err)
+
+		k8sSC = driver.GetStorageClassWithStorageType(perTestConf, scType)
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
 		framework.ExpectNoError(err)
 	}
@@ -90,7 +95,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		scType := "SSD"
 		init(scType)
 		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 
@@ -98,7 +103,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		scType := "ANY"
 		init(scType)
 		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 
@@ -106,7 +111,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		scType := "HDD"
 		init(scType)
 		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 
@@ -115,7 +120,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		scType := "HDDLVG"
 		init(scType)
 		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 	// test for raw block volumes
@@ -124,7 +129,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		init(scType)
 		defer cleanup()
 		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
-			f, 1, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)}
+			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 
@@ -133,7 +138,7 @@ func differentSCTypesTest(driver testsuites.TestDriver) {
 		init(scType)
 		defer cleanup()
 		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
-			f, 1, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, ns)}
+			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 }
@@ -194,7 +199,7 @@ func constructLoopbackConfigWithDriveType(namespace string, nodes []string, driv
 		},
 		Data: map[string]string{
 			"config.yaml": "\n" +
-				"defaultDrivePerNodeCount: 6\n" +
+				"defaultDrivePerNodeCount: 3\n" +
 				"nodes:\n" +
 				nodeConfig,
 		},

@@ -60,7 +60,7 @@ func labeledDeployTestSuite() {
 			ginkgo.Fail(err.Error())
 		}
 
-		driverCleanup, err := common.DeployCSIWithArgs(f, setNodeSelectorArg)
+		driverCleanup, err := common.DeployCSI(f, setNodeSelectorArg)
 		defer driverCleanup()
 
 		framework.ExpectNoError(err)

@@ -37,7 +37,7 @@ import (
 )
 
 // DefineSchedulerTestSuite defines tests for scheduler extender
-func DefineSchedulerTestSuite(driver testsuites.TestDriver) {
+func DefineSchedulerTestSuite(driver *baremetalDriver) {
 	ginkgo.Context("Baremetal-csi driver scheduling tests", func() {
 		schedulingTest(driver)
 	})
@@ -57,7 +57,7 @@ var (
 )
 
 // schedulingTest test custom extender for scheduler
-func schedulingTest(driver testsuites.TestDriver) {
+func schedulingTest(driver *baremetalDriver) {
 	var (
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim
@@ -77,7 +77,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		)
 		ns = f.Namespace.Name
 
-		perTestConf, driverCleanup = driver.PrepareTest(f)
+		perTestConf, driverCleanup = PrepareCSI(driver, f, "--set driver.drivemgr.amountOfLoopDevices=0")
 
 		if lmConf != nil {
 			lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
@@ -86,7 +86,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		}
 
 		for _, scName := range availableSC {
-			sc := driver.(*baremetalDriver).GetStorageClassWithStorageType(perTestConf, scName)
+			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)
 			sc, err = f.ClientSet.StorageV1().StorageClasses().Create(sc)
 			framework.ExpectNoError(err)
 			storageClasses[scName] = sc
@@ -105,7 +105,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		for _, scKey := range podSCList {
 			sc := storageClasses[scKey]
 			pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(
-				constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(),
+				constructPVC(ns, driver.GetClaimSize(),
 					sc.Name, pvcName+"-"+uuid.New().String()))
 			framework.ExpectNoError(err)
 			podPVCs = append(podPVCs, pvc)
@@ -184,16 +184,16 @@ func schedulingTest(driver testsuites.TestDriver) {
 
 		node1, node2, node3 := nodes[0], nodes[1], nodes[2]
 
-		defaultDriveCount := 4
+		defaultDriveCount := 0
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
 			Nodes: []common.LoopBackManagerConfigNode{
 				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeSSD}}),
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeSSD}}),
 				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeNVMe}}),
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeNVMe}, {DriveType: &driveTypeHDD}}),
 				*buildLMDrivesConfig(node3, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}}),
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeHDD}}),
 			}}
 		init(lmConfig)
 		defer cleanup()
@@ -296,11 +296,11 @@ func hostsNeedToHaveEqualNumberVolumes(volumes map[string][]string, count int) e
 
 }
 func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevice) *common.LoopBackManagerConfigNode {
-	//drivesCount := len(drives)
+	drivesCount := len(drives)
 	return &common.LoopBackManagerConfigNode{
-		NodeID: &node,
-		//DriveCount: &drivesCount,
-		Drives: drives,
+		NodeID:     &node,
+		DriveCount: &drivesCount,
+		Drives:     drives,
 	}
 }
 
