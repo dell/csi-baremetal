@@ -50,12 +50,12 @@ test-sanity:
 #	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
 load-helm-charts:
-	wget -P ./charts https://asdrepo.isus.emc.com/artifactory/atlantic-helm-build/csi-operator/${OPERATOR_VERSION}/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
-	wget -P ./charts https://asdrepo.isus.emc.com/artifactory/atlantic-helm-build/csi-operator/${OPERATOR_VERSION}/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
-	tar -xzvf ./charts/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
-	tar -xzvf ./charts/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
+	wget -P ${LOAD_DIR} https://asdrepo.isus.emc.com/artifactory/atlantic-helm-build/csi-operator/${OPERATOR_VERSION}/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
+	wget -P ${LOAD_DIR} https://asdrepo.isus.emc.com/artifactory/atlantic-helm-build/csi-operator/${OPERATOR_VERSION}/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
+	tar -xzvf ${LOAD_DIR}/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
+	tar -xzvf ${LOAD_DIR}/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
 
-load-Operator-image:
+load-operator-image:
 	docker pull ${REGISTRY}/csi-baremetal-operator:${OPERATOR_VERSION}
 	docker tag ${REGISTRY}/csi-baremetal-operator:${OPERATOR_VERSION} csi-baremetal-operator:${OPERATOR_VERSION}
 	kind load docker-image csi-baremetal-operator:${OPERATOR_VERSION}
