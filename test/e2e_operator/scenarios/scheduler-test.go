@@ -118,7 +118,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		return pod, podPVCs
 	}
 
-	/*createTestPods := func(testPodsCount int, testPodsDisksPerPod int) {
+	createTestPods := func(testPodsCount int, testPodsDisksPerPod int) {
 		wg := sync.WaitGroup{}
 		var podSCList []string
 		for i := 0; i < testPodsDisksPerPod; i++ {
@@ -177,7 +177,7 @@ func schedulingTest(driver testsuites.TestDriver) {
 		init(lmConfig)
 		defer cleanup()
 		createTestPods(testPodsCount, testPodsDisksPerPod)
-	})*/
+	})
 
 	ginkgo.It("Scheduler should respect SC", func() {
 		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 3)

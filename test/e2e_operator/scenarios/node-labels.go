@@ -52,9 +52,9 @@ func labeledDeployTestSuite() {
 	)
 
 	ginkgo.It("CSI should use label on nodes", func() {
-		nodes := getWorkerNodes(f.ClientSet)
-		defer cleanNodeLabels(nodes, f.ClientSet)
+		defer cleanNodeLabels(f.ClientSet)
 
+		nodes := getWorkerNodes(f.ClientSet)
 		nodes[0].Labels[label] = tag
 		if _, err := f.ClientSet.CoreV1().Nodes().Update(&nodes[0]); err != nil {
 			ginkgo.Fail(err.Error())
@@ -71,6 +71,7 @@ func labeledDeployTestSuite() {
 		}
 		Expect(len(np)).To(Equal(1))
 
+		nodes = getWorkerNodes(f.ClientSet)
 		for _, node := range nodes {
 			node.Labels[label] = tag
 			if _, err := f.ClientSet.CoreV1().Nodes().Update(&node); err != nil {
@@ -107,7 +108,8 @@ func getWorkerNodes(c clientset.Interface) []corev1.Node {
 	return workerNodes
 }
 
-func cleanNodeLabels(nodes []corev1.Node, c clientset.Interface) {
+func cleanNodeLabels(c clientset.Interface) {
+	nodes := getWorkerNodes(c)
 	for _, node := range nodes {
 		if _, ok := node.Labels[label]; ok {
 			delete(node.Labels, label)

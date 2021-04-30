@@ -18,40 +18,40 @@ package common
 
 import (
 	"fmt"
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
+
 	"os"
 	"path"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
+
+	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 const (
 	operatorVersionEnv = "OPERATOR_VERSION"
 	csiVersionEnv      = "CSI_VERSION"
-)
 
-// DeployOperator calls DeployOperatorWithClient with f.ClientSet
-func DeployOperator(f *framework.Framework) (func(), error) {
-	return DeployOperatorWithClient(f.ClientSet, f.Namespace.Name)
-}
+	operatorNamespace = "e2e-test-operator"
+)
 
 // DeployOperatorWithClient deploys csi-baremetal-operator with CmdHelmExecutor
 // After install - waiting before all pods ready
 // Cleanup - deleting operator-chart and csi crds
-func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) {
+func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
 	var (
-		executor        = CmdHelmExecutor{framework.TestContext.KubeConfig}
+		executor        = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: GetExecutor()}
 		operatorVersion = os.Getenv(operatorVersionEnv)
 		chart           = HelmChart{
 			name:      "csi-baremetal-operator",
 			path:      path.Join(BMDriverTestContext.ChartsFolder, "csi-baremetal-operator"),
-			namespace: ns,
+			namespace: operatorNamespace,
 		}
 		installArgs = fmt.Sprintf("--set image.tag=%s", operatorVersion)
 		waitTime    = 1 * time.Minute
@@ -62,7 +62,7 @@ func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) 
 			e2elog.Logf("CSI Operator helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
-		if err := c.CoreV1().Namespaces().Delete(ns, nil); err != nil {
+		if err := c.CoreV1().Namespaces().Delete(operatorNamespace, nil); err != nil {
 			e2elog.Logf("Namespace %s deletion failed.", chart.namespace)
 		}
 
@@ -72,7 +72,10 @@ func DeployOperatorWithClient(c clientset.Interface, ns string) (func(), error) 
 		//}
 	}
 
-	if _, err := c.CoreV1().Namespaces().Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}); err != nil && !k8sError.IsAlreadyExists(err) {
+	if _, err := c.CoreV1().Namespaces().Create(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: operatorNamespace}}); err != nil && !k8sError.IsAlreadyExists(err) {
 		return nil, err
 	}
 
@@ -98,10 +101,10 @@ func DeployCSI(f *framework.Framework) (func(), error) {
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
 func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
-		executor    = CmdHelmExecutor{framework.TestContext.KubeConfig}
-		cmdExecutor = GetExecutor()
-		csiVersion  = os.Getenv(csiVersionEnv)
-		chart       = HelmChart{
+		cmdExecutor  = GetExecutor()
+		helmExecutor = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: cmdExecutor}
+		csiVersion   = os.Getenv(csiVersionEnv)
+		chart        = HelmChart{
 			name:      "csi-baremetal",
 			path:      path.Join(BMDriverTestContext.ChartsFolder, "csi-baremetal-deployment"),
 			namespace: f.Namespace.Name,
@@ -120,16 +123,16 @@ func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (fu
 	cleanup := func() {
 		// delete resources with finalizers
 		if BMDriverTestContext.CompleteUninstall {
-			deleteCSIResources([]string{"pvc", "volumes", "lvgs"})
+			deleteCSIResources(cmdExecutor, []string{"pvc", "volumes", "lvgs"})
 		}
 
-		if err := executor.DeleteRelease(&chart); err != nil {
+		if err := helmExecutor.DeleteRelease(&chart); err != nil {
 			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
 		// delete resources without finalizers
 		if BMDriverTestContext.CompleteUninstall {
-			deleteCSIResources([]string{"acr", "ac", "drives"})
+			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
 		}
 
 		nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -138,9 +141,8 @@ func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (fu
 		}
 
 		for _, node := range nodeList.Items {
-			cmd := fmt.Sprintf("ssh root@100.64.25.144 docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
-			_, _, err = cmdExecutor.RunCmd(cmd)
-			if err != nil {
+			cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
+			if _, _, err = cmdExecutor.RunCmd(cmd); err != nil {
 				e2elog.Logf("Failed to clean loopback devices: %s", err)
 			}
 		}
@@ -150,7 +152,7 @@ func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (fu
 		e2elog.Logf("SchedulerRestartChecker is not initialized. Err: %s", err)
 	}
 
-	if err := executor.InstallRelease(&chart, installArgs); err != nil {
+	if err := helmExecutor.InstallRelease(&chart, installArgs); err != nil {
 		return nil, err
 	}
 
@@ -175,139 +177,27 @@ func DeployCSIWithArgs(f *framework.Framework, additionalInstallArgs string) (fu
 	}
 
 	// print info about all custom resources into log messages
-	getCSIResources()
+	getCSIResources(cmdExecutor)
 
 	return cleanup, nil
 }
 
-func getCSIResources() {
+func getCSIResources(e command.CmdExecutor) {
 	resources := []string{"pvc", "volumes", "lvgs", "csibmnodes", "acr", "ac", "drives"}
 
 	for _, name := range resources {
-		if err := execCmdObj(framework.KubectlCmd("get", name)); err != nil {
+		cmd := framework.KubectlCmd("get", name)
+		if _, _, err := e.RunCmd(cmd); err != nil {
 			e2elog.Logf("Failed to get %s with kubectl", name)
 		}
 	}
 }
 
-func deleteCSIResources(resources []string) {
+func deleteCSIResources(e command.CmdExecutor, resources []string) {
 	for _, name := range resources {
-		if err := execCmdObj(framework.KubectlCmd("delete", name, "--all")); err != nil {
+		cmd := framework.KubectlCmd("delete", name, "--all")
+		if _, _, err := e.RunCmd(cmd); err != nil {
 			e2elog.Logf("%s deletion failed", name)
 		}
 	}
-}
-
-func newSchedulerRestartChecker(client clientset.Interface) *schedulerRestartChecker {
-	return &schedulerRestartChecker{
-		IsInitialized:      false,
-		c:                  client,
-		schedulerLabel:     "component=kube-scheduler",
-		restartWaitTimeout: time.Minute * 2,
-	}
-}
-
-type schedulerRestartChecker struct {
-	c                  clientset.Interface
-	initialState       map[string]metav1.Time
-	schedulerLabel     string
-	restartWaitTimeout time.Duration
-	IsInitialized      bool
-}
-
-func (rc *schedulerRestartChecker) ReadInitialState() error {
-	var err error
-	rc.initialState, err = rc.getPODStartTimeMap()
-	if err != nil {
-		return err
-	}
-	if len(rc.initialState) == 0 {
-		return fmt.Errorf("can't find schedulers PODs during reading initial state")
-	}
-
-	rc.IsInitialized = true
-	return nil
-}
-
-func (rc *schedulerRestartChecker) WaitForRestart() (bool, error) {
-	e2elog.Logf("Wait for scheduler restart")
-
-	deadline := time.Now().Add(rc.restartWaitTimeout)
-	for {
-		ready, err := rc.CheckRestarted()
-		if err != nil {
-			return false, err
-		}
-		if ready {
-			e2elog.Logf("Scheduler restarted")
-			return true, nil
-		}
-		msg := "Scheduler restart NOT detected yet"
-		e2elog.Logf(msg)
-		if time.Now().After(deadline) {
-			e2elog.Logf("Scheduler didn't receive extender configuration after %f minutes. Continue...",
-				rc.restartWaitTimeout.Minutes())
-			break
-		}
-		time.Sleep(time.Second * 5)
-	}
-
-	return false, nil
-}
-
-func (rc *schedulerRestartChecker) CheckRestarted() (bool, error) {
-	currentState, err := rc.getPODStartTimeMap()
-	if err != nil {
-		return false, err
-	}
-	for podName, initialTime := range rc.initialState {
-		currentTime, ok := currentState[podName]
-		if !ok {
-			// podName not found
-			return false, nil
-		}
-		// check that POD start time changed
-		if !currentTime.After(initialTime.Time) {
-			// at lease on pod not restarted yet
-			return false, nil
-		}
-		// check that POD uptime more than 10 seconds
-		// we need to wait additional 10 seconds to protect from CrashLoopBackOff caused by frequently POD restarts
-		if time.Since(currentTime.Time).Seconds() <= 10 {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-func (rc *schedulerRestartChecker) getPODStartTimeMap() (map[string]metav1.Time, error) {
-	pods, err := rc.findSchedulerPods()
-	if err != nil {
-		return nil, err
-	}
-	return rc.buildPODStartTimeMap(pods), nil
-}
-
-func (rc *schedulerRestartChecker) buildPODStartTimeMap(pods *corev1.PodList) map[string]metav1.Time {
-	data := map[string]metav1.Time{}
-	for _, p := range pods.Items {
-		if len(p.Status.ContainerStatuses) == 0 {
-			continue
-		}
-		if p.Status.ContainerStatuses[0].State.Running == nil {
-			data[p.Name] = metav1.Time{}
-			continue
-		}
-		data[p.Name] = p.Status.ContainerStatuses[0].State.Running.StartedAt
-	}
-	return data
-}
-
-func (rc *schedulerRestartChecker) findSchedulerPods() (*corev1.PodList, error) {
-	pods, err := rc.c.CoreV1().Pods("").List(metav1.ListOptions{LabelSelector: rc.schedulerLabel})
-	if err != nil {
-		return nil, err
-	}
-	e2elog.Logf("Find %d scheduler pods", len(pods.Items))
-	return pods, nil
 }
