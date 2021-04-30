@@ -16,7 +16,7 @@ limitations under the License.
 
 package common
 
-// OperatorTestContextType stores custom testing context
+// BMDriverTestContextType stores custom testing context
 type BMDriverTestContextType struct {
 	ChartsDir         string
 	CompleteUninstall bool
