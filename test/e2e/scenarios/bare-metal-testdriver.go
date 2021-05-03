@@ -87,6 +87,7 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 	}
 }
 
+// PrepareCSI deploys CSI and enables logging for containers
 func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) (*testsuites.PerTestConfig, func()) {
 	ginkgo.By("deploying baremetal driver")
 
