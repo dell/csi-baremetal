@@ -119,7 +119,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	cleanup := func() {
 		if BMDriverTestContext.CompleteUninstall {
 			// delete resources with finalizers
-			deleteCSIResources(cmdExecutor, []string{"lvgs"})
+			deleteCSIResources(cmdExecutor, []string{"lvgs", "csibmnodes"})
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
@@ -130,7 +130,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			// delete resources without finalizers
 			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
 
-			cleanLoopDevices(f.ClientSet, cmdExecutor)
+			//cleanLoopDevices(f.ClientSet, cmdExecutor)
 		}
 	}
 
