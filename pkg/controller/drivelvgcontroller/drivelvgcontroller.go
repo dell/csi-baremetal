@@ -225,7 +225,7 @@ func (d *Controller) createLVGACIfNotExistsOrUpdate(lvg *lvgcrd.LogicalVolumeGro
 		driveUUID = lvg.Spec.Locations[0]
 	)
 	// check whether AC exists
-	ac, err := d.crHelper.GetACByLocation(location)
+	ac, err := d.cachedCrHelper.GetACByLocation(location)
 	switch {
 	case err == nil:
 		if ac.Spec.Size != size {
@@ -238,7 +238,7 @@ func (d *Controller) createLVGACIfNotExistsOrUpdate(lvg *lvgcrd.LogicalVolumeGro
 		return nil
 	case err == errTypes.ErrorNotFound:
 		if size > capacityplanner.AcSizeMinThresholdBytes {
-			driveAC, err := d.crHelper.GetACByLocation(driveUUID)
+			driveAC, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 			if err != nil {
 				ll.Infof("Failed to get drive AC by UUID %s, err: %v", driveUUID, err)
 				return err
@@ -262,7 +262,7 @@ func (d *Controller) createLVGACIfNotExistsOrUpdate(lvg *lvgcrd.LogicalVolumeGro
 // resetACSize sets size of corresponding AC to 0 to avoid further allocations
 func (d *Controller) resetACSizeOfLVG(lvgName string) error {
 	// read AC
-	ac, err := d.crHelper.GetACByLocation(lvgName)
+	ac, err := d.cachedCrHelper.GetACByLocation(lvgName)
 	if err != nil {
 		if err == errTypes.ErrorNotFound {
 			// non re-triable error
