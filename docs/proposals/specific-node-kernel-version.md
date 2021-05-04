@@ -1,11 +1,11 @@
-# Proposal: Cross platform support
+# Proposal: Specific kernel version for Node daemonset
 
-Last updated: 19.04.2021
+Last updated: 04.05.2021
 
 
 ## Abstract
 
-Logic to select a csi-baremetal-node image based on reconciliation of k8sNodes metainfo.
+Logic to select a csi-baremetal-node image with specific kernel version based on reconciliation of k8sNodes metainfo.
 
 ## Background
 
@@ -33,7 +33,7 @@ We used specific system calls in the node part, which depends on kernel version.
 
 	4. Deploy required daemonsets
 
-- Run reconciliation loop on cluster resize events caused by adding or deleting a k8sNode
+- Add reconciliation loop running on cluster resize events caused by adding or deleting a k8sNode
 
 - Merge labels
 
@@ -61,11 +61,11 @@ Alternative approach:
 
 Separate node-controller marks k8sNodes with labels with kernel version. Operator creates csi-baremetal-node daemonsets mapping `image: node-kernel-5.x` with `nodeAffinity label: kernel-version:5.x`.
 
-Problem: How to check if node-controller finishes work with set nodeSelector or one deleted csibmnode?
+Problem: How to check if node-controller finishes work with setting nodeSelectors? How to identify case if one csibmnode is deleted?
 
 ## Compatibility
 
-There is no problem with compatibility
+This logic would work only for deploying CSI with Operator
 
 ## Open issues (if applicable)
 
