@@ -940,7 +940,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, drive.UUID)
 	if lvg != nil {
-		// TODO handle situation when LVG health is changing from Bad/Suspec to Good
+		// TODO handle situation when LVG health is changing from Bad/Suspect to Good https://github.com/dell/csi-baremetal/issues/385
 		lvg.Spec.Health = drive.Health
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
 			ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)

@@ -205,7 +205,8 @@ func TestController_ReconcileDrive(t *testing.T) {
 		acList := &accrd.AvailableCapacityList{}
 		err = kubeClient.ReadList(tCtx, acList)
 		assert.Nil(t, err)
-		assert.Equal(t, 0, len(acList.Items))
+		assert.Equal(t, 1, len(acList.Items))
+		assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
 	})
 	t.Run("Drive is good and not clean, AC is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)

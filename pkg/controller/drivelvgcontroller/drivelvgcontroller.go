@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,10 +82,11 @@ func (d *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := d.client.ReadCR(ctx, resourceName, "", drive); err == nil {
 		return d.reconcileDrive(ctx, drive)
 	}
-	log.Warnf("Failed to read Drive %s CR, try to read LVG CR", resourceName)
 	lvg := &lvgcrd.LogicalVolumeGroup{}
 	if err := d.client.ReadCR(ctx, resourceName, "", lvg); err != nil {
-		log.Errorf("Failed to read LVG %s CR", resourceName)
+		if k8serrors.IsNotFound(err) {
+			log.Warnf("Failed to read LVG and Drive CRs, resource with name %s is not found", resourceName)
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	return d.reconcileLVG(lvg)
@@ -120,19 +122,15 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 // reconcileDrive preforms logic for drive reconciliation
 func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	var (
-		health  = drive.Spec.GetHealth()
-		status  = drive.Spec.GetStatus()
-		isClean = drive.Spec.GetIsClean()
+		health = drive.Spec.GetHealth()
+		status = drive.Spec.GetStatus()
 	)
 	switch {
-	case isClean && (health == apiV1.HealthGood && status == apiV1.DriveStatusOnline):
-		return d.createACIfNotExistOrUpdate(ctx, drive.Spec)
 	case health != apiV1.HealthGood || status != apiV1.DriveStatusOnline:
-		return d.handleDriveIsNotGood(ctx, drive.Spec)
-	case !isClean:
+		return d.handleInaccessibleDrive(ctx, drive.Spec)
+	default:
 		return d.createACIfNotExistOrUpdate(ctx, drive.Spec)
 	}
-	return ctrl.Result{RequeueAfter: time.Minute}, nil
 }
 
 // createACIfNotExistOrUpdate tries to create AC for drive or update its size if AC already exists
@@ -194,16 +192,17 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 	return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
 }
 
-// handleDriveIsNotGood deletes AC for bad Drive
-func (d *Controller) handleDriveIsNotGood(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
+// handleInaccessibleDrive deletes AC for bad Drive
+func (d *Controller) handleInaccessibleDrive(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
-		"method": "handleDriveIsNotGood",
+		"method": "handleInaccessibleDrive",
 	})
 	ac, err := d.cachedCrHelper.GetACByLocation(drive.GetUUID())
 	switch {
 	case err == nil:
-		log.Infof("Removing AC %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
-		if err := d.client.DeleteCR(ctx, ac); err != nil {
+		log.Infof("Update AC size to 0 %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
+		ac.Spec.Size = 0
+		if err := d.client.UpdateCR(ctx, ac); err != nil {
 			log.Errorf("Failed to delete unhealthy available capacity CR: %v", err)
 			return ctrl.Result{}, err
 		}

@@ -30,10 +30,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
 
 	// +kubebuilder:scaffold:imports
@@ -115,7 +119,7 @@ func main() {
 	// check ACR feature flag
 	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
 		// create Reservation manager
-		reservationManager, err := createReservationManager(kubeClient, logger, stopCH)
+		reservationManager, err := createManagers(kubeClient, logger, stopCH)
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -143,10 +147,27 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func createReservationManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
+func createManagers(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
 	// create scheme
-	scheme, err := k8s.PrepareScheme()
-	if err != nil {
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	// register ACR CRD
+	if err := acrcrd.AddToSchemeACR(scheme); err != nil {
+		return nil, err
+	}
+
+	if err := drivecrd.AddToSchemeDrive(scheme); err != nil {
+		return nil, err
+	}
+
+	if err := accrd.AddToSchemeAvailableCapacity(scheme); err != nil {
+		return nil, err
+	}
+
+	if err := lvgcrd.AddToSchemeLVG(scheme); err != nil {
 		return nil, err
 	}
 
@@ -154,7 +175,6 @@ func createReservationManager(client *k8s.KubeClient, log *logrus.Logger, ch <-c
 		Scheme:    scheme,
 		Namespace: *namespace,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +191,7 @@ func createReservationManager(client *k8s.KubeClient, log *logrus.Logger, ch <-c
 	if err != nil {
 		return nil, err
 	}
+
 	driveLvgController := drive.NewDriveController(wrappedK8SClient, kubeCache, log)
 	// bind CSINodeService's VolumeManager to K8s Controller Manager as a driveLvgController for Volume CR
 	if err = driveLvgController.SetupWithManager(mgr); err != nil {
