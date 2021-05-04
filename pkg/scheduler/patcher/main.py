@@ -21,7 +21,7 @@ import sys
 import time
 from filecmp import clear_cache, cmp
 from os import makedirs
-from os.path import basename, dirname, isfile
+from os.path import basename, dirname, isfile , join
 from shutil import copy
 from signal import SIGINT, SIGTERM, signal
 
@@ -35,7 +35,7 @@ def run():
     parser = argparse.ArgumentParser(
         description='Patcher script for csi-baremetal kube-extender')
     parser.add_argument(
-        '--manifest', help='path to the scheduler manifest file', required=True)
+        '--platform', help='platform, where scheduler is deployed, could be rke or vanilla', required=True)
     parser.add_argument(
         '--restore', help='restore manifest when on shutdown', action='store_true')
     parser.add_argument('--interval', type=int,
@@ -63,10 +63,21 @@ def run():
     logging.basicConfig(level=logging.getLevelName(normalize_logging_level(lvl)))
 
     config.load_incluster_config()
+    
+    from kubernetes.client import Configuration as KCConfig
+    cfg = KCConfig.get_default_copy()
+    cfg.verify_ssl = False
+    cfg.debug = False
+    client.Configuration.set_default(cfg)
+
     kube_ver_inf = client.VersionApi().get_code()
     kube_minor_ver = int(kube_ver_inf.minor)
     kube_major_ver = int(kube_ver_inf.major)
     log.info('patcher started, kubernetes version %s.%s',kube_major_ver,kube_minor_ver )
+
+    manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
+    if args.platform == "rke":
+        manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
 
     source_config = File(args.source_config_path)
     source_policy = File(args.source_policy_path)
@@ -90,8 +101,12 @@ def run():
     if kube_major_ver==1 and kube_minor_ver>18:
         path = args.target_config_19_path
 
+    manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
+    if args.platform == "rke":
+        manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
+
     manifest = ManifestFile(
-        args.manifest, [config_volume, policy_volume, config_19_volume], path, args.backup_path)
+        manifest, [config_volume, policy_volume, config_19_volume], path, args.backup_path)
 
     # add watcher on signals
     killer = GracefulKiller(args.restore, manifest)
@@ -182,11 +197,11 @@ class ManifestFile(File):
 
     def backup(self):
         makedirs(dirname(self.backup_folder), exist_ok=True)
-        backup_path = self.backup_folder + basename(self.path)
+        backup_path = join(self.backup_folder,basename(self.path))
         copy(self.path, backup_path)
 
     def restore(self):
-        backup_path = self.backup_folder + basename(self.path)
+        backup_path = join(self.backup_folder,basename(self.path))
         copy(backup_path, self.path)
 
     def need_patching(self):

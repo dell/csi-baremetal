@@ -116,7 +116,7 @@ func getCapReaderMock(acList []*accrd.AvailableCapacity, err error) *CapacityRea
 	return capReaderMock
 }
 
-func getResReaderMock(acrList []*acrcrd.AvailableCapacityReservation, err error) *ReservationReaderMock {
+/*func getResReaderMock(acrList []*acrcrd.AvailableCapacityReservation, err error) *ReservationReaderMock {
 	acrListV := make([]acrcrd.AvailableCapacityReservation, len(acrList))
 	for i := 0; i < len(acrList); i++ {
 		acrListV[i] = *acrList[i]
@@ -125,4 +125,4 @@ func getResReaderMock(acrList []*acrcrd.AvailableCapacityReservation, err error)
 	resReaderMock.On("ReadReservations", mock.Anything).Return(
 		acrListV, err)
 	return resReaderMock
-}
+}*/

@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: csi-baremetal-se-patcher
+        release: {{ .Release.Name }}
     spec:
       containers:
         - name: schedulerpatcher
@@ -27,33 +28,60 @@ spec:
             - --loglevel={{ .Values.log.level }}
             {{ if .Values.patcher.restore_on_shutdown }}- --restore {{ end }}
             - --interval={{ .Values.patcher.interval }}
-            - --manifest={{ .Values.patcher.manifest }}
+            - --platform={{ .Values.patcher.platform }}
             - --source-config-path=/config/{{ .Values.patcher.source_config_path}}
-            - --target-config-path={{ .Values.patcher.target_config_path}}
             - --source-policy-path=/config/{{ .Values.patcher.source_policy_path}}
-            - --target-policy-path={{ .Values.patcher.target_policy_path}}
             - --source_config_19_path=/config/{{ .Values.patcher.source_config_19_path}}
+            {{- if eq .Values.patcher.platform "rke" }}
+            - --target-config-path={{ .Values.patcher.rke.target_config_path}}
+            - --target-policy-path={{ .Values.patcher.rke.target_policy_path}}
+            - --target_config_19_path={{ .Values.patcher.rke.target_config_19_path}}
+            - --backup-path={{ .Values.patcher.rke.kube_scheduler}}
+            {{- else }}
+            - --target-config-path={{ .Values.patcher.target_config_path}}
+            - --target-policy-path={{ .Values.patcher.target_policy_path}}
             - --target_config_19_path={{ .Values.patcher.target_config_19_path}}
-            - --backup-path={{ .Values.patcher.backup_path}}
+            - --backup-path={{ .Values.patcher.kube_scheduler}}
+            {{- end}}
           volumeMounts:
+            - mountPath: /crash-dump
+              name: crash-dump
             - mountPath: /config
               name: schedulerpatcher-config
               readOnly: true
-            - mountPath: /etc/kubernetes/manifests
+            {{- if eq .Values.patcher.platform "rke" }}
+            - mountPath: {{ .Values.patcher.rke.kube_manifests }}
               name: kubernetes-manifests
-            - mountPath: /etc/kubernetes/scheduler
+            - mountPath: {{ .Values.patcher.rke.kube_scheduler }}
               name: kubernetes-scheduler
+            {{- else }}
+            - mountPath: {{ .Values.patcher.kube_manifests }}
+              name: kubernetes-manifests
+            - mountPath: {{ .Values.patcher.kube_scheduler }}
+              name: kubernetes-scheduler
+            {{- end}}
       volumes:
+        - name: crash-dump
+          emptyDir: {}
         {{- if .Values.patcher.enable }}
         - name: schedulerpatcher-config
           configMap:
             name: {{ .Values.patcher.config_map_name }}
+        {{- if eq .Values.patcher.platform "rke" }}
         - name: kubernetes-manifests
           hostPath:
-            path: /etc/kubernetes/manifests
+            path: {{ .Values.patcher.rke.kube_manifests }}
         - name: kubernetes-scheduler
           hostPath:
-            path: /etc/kubernetes/scheduler
+            path: {{ .Values.patcher.rke.kube_scheduler }}
+        {{- else }}
+        - name: kubernetes-manifests
+          hostPath:
+            path: {{ .Values.patcher.kube_manifests }}
+        - name: kubernetes-scheduler
+          hostPath:
+            path: {{ .Values.patcher.kube_scheduler }}
+        {{- end }}
       {{- end }}
       tolerations:
         - key: CriticalAddonsOnly
