@@ -119,6 +119,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	cleanup := func() {
 		if BMDriverTestContext.CompleteUninstall {
 			// delete resources with finalizers
+			// pvcs and volumes are namespaced resources and deleting with it
 			deleteCSIResources(cmdExecutor, []string{"lvgs", "csibmnodes"})
 		}
 
@@ -130,6 +131,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			// delete resources without finalizers
 			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
 
+			// not work in CI
+			// TODO clean devices in loopback drivemgr https://github.com/dell/csi-baremetal/issues/387
 			//cleanLoopDevices(f.ClientSet, cmdExecutor)
 		}
 	}

@@ -26,6 +26,8 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 )
 
+// TODO move this logic to Operator https://github.com/dell/csi-baremetal/issues/388
+
 func newSchedulerRestartChecker(client clientset.Interface) *schedulerRestartChecker {
 	return &schedulerRestartChecker{
 		IsInitialized:      false,
