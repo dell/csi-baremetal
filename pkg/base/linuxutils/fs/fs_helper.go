@@ -84,7 +84,7 @@ type WrapFS interface {
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
-	DriveHasData(src string) (bool, error)
+	IsContainFs(src string) (bool, error)
 }
 
 // WrapFSImpl is a WrapFS implementer
@@ -319,7 +319,7 @@ func (h *WrapFSImpl) Unmount(path string) error {
 // DriveHasData detect FS from the provided device using lsblk --output FSTYPE
 // Receives file path of the device as a string
 // Returns error if something went wrong
-func (h *WrapFSImpl) DriveHasData(device string) (bool, error) {
+func (h *WrapFSImpl) IsContainFs(device string) (bool, error) {
 	var (
 		cmd          = fmt.Sprintf(DetectFSCmdTmpl, device)
 		stdout       string

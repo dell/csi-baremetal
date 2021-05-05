@@ -778,7 +778,7 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 			}
 			continue
 		}
-		hasData, err := m.fsOps.DriveHasData(drive.Spec.Path)
+		hasData, err := m.fsOps.IsContainFs(drive.Spec.Path)
 		if err != nil {
 			ll.Errorf("Unable to get fs information about drive %s: %v", drive.Spec.Path, err)
 			continue

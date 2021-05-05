@@ -41,6 +41,8 @@ type WrapPartition interface {
 	GetPartitionUUID(device, partNum string) (string, error)
 	SyncPartitionTable(device string) error
 	GetPartitionNameByUUID(device, partUUID string) (string, error)
+	IsContainPartitionTable(device string) (bool, error)
+	IsContainPartition(device, serialNumber string) (bool, error)
 }
 
 const (
@@ -65,6 +67,9 @@ const (
 	CreatePartitionCmdTmpl = parted + "-s %s mkpart --align optimal %s 0%% 100%%"
 	// DeletePartitionCmdTmpl delete partition from provided device cmd template, fill device and partition number
 	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
+
+	// DeletePartitionCmdTmpl is used to print information, which contain partition table
+	DetectPartitionTableCmdTmpl = parted + "-s %s print"
 
 	// SetPartitionUUIDCmdTmpl command for set GUID of the partition, fill device, part number and part UUID
 	SetPartitionUUIDCmdTmpl = sgdisk + "%s --partition-guid=%s:%s"
@@ -313,4 +318,68 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 
 	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s within %v",
 		partUUID, device, blockdevices)
+}
+
+func (p *WrapPartitionImpl) IsContainPartitionTable(device string) (bool, error) {
+	/*
+		Model: ATA TOSHIBA MG04ACA1 (scsi)
+		Disk /dev/sdd: 1000GB
+		Sector size (logical/physical): 512B/512B
+		Partition Table: unknown
+		Disk Flags:
+	*/
+	const (
+		unknownPartTable = "unknown"
+		partitionTable   = "Partition Table"
+	)
+	cmd := fmt.Sprintf(DetectPartitionTableCmdTmpl, device)
+
+	p.opMutex.Lock()
+	stdout, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(DetectPartitionTableCmdTmpl, ""))))
+	p.opMutex.Unlock()
+
+	if err != nil {
+		return false, err
+	}
+
+	outputLines := strings.Split(stdout, "\n")
+
+	for _, line := range outputLines {
+		if strings.Contains(line, partitionTable) {
+			splitedLine := strings.Split(line, ":")
+			if len(splitedLine) != 2 {
+				return false, fmt.Errorf("wrong output of %s, failed line %s", cmd, line)
+			}
+			if splitedLine[1] == unknownPartTable {
+				return false, nil
+			}
+			return true, nil
+		}
+	}
+	return false, fmt.Errorf("wrong output of %s, output %s", cmd, stdout)
+}
+
+func (p *WrapPartitionImpl) IsContainPartition(device, serialNumber string) (bool, error) {
+	blockDevices, err := p.lsblkUtil.GetBlockDevices(device)
+	if len(blockDevices) != 1 {
+		return false, fmt.Errorf("wrong output of lsblk for %s, block devices: %v", device, blockDevices)
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	bdev := blockDevices[0]
+
+	if !strings.EqualFold(bdev.Serial, serialNumber) {
+		return false, fmt.Errorf("serial numbers for block device %s don't match: %s != %s", bdev.Name, bdev.Serial,
+			serialNumber)
+	}
+	if len(bdev.Children) > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }

@@ -42,6 +42,8 @@ const (
 	PVRemoveCmdTmpl = lvmPath + "pvremove --yes %s" // add PV name
 	// PVsInVGCmdTmpl print PVs in VG cmd
 	PVsInVGCmdTmpl = lvmPath + "pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
+	//  print all PVs name on node
+	PVsListCmdTmpl = lvmPath + "pvs -o pv_name --noheadings"
 	// VGCreateCmdTmpl create VG on provided PVs cmd
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
 	// VGRemoveCmdTmpl remove VG cmd
@@ -79,6 +81,7 @@ type WrapLVM interface {
 	GetLVsInVG(vgName string) ([]string, error)
 	GetVGNameByPVName(pvName string) (string, error)
 	ExpandLV(lvName string, requiredSize int64) error
+	IsDevicePV(device string) (bool, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -319,4 +322,18 @@ func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	}
 
 	return splitted[1], nil
+}
+
+func (l *LVM) IsDevicePV(device string) (bool, error) {
+	cmd := fmt.Sprintf(PVsListCmdTmpl)
+	stdout, _, err := l.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(PVsListCmdTmpl))))
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(stdout, device) {
+		return true, nil
+	}
+	return false, nil
 }

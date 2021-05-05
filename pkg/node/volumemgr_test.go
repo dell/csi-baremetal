@@ -1127,7 +1127,7 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 
 		assert.Equal(t, false, newDrive.Spec.IsClean)
 	})
-	t.Run("DriveHasData function failed", func(t *testing.T) {
+	t.Run("IsContainFs function failed", func(t *testing.T) {
 		var (
 			vm      *VolumeManager
 			listBlk = &mocklu.MockWrapLsblk{}

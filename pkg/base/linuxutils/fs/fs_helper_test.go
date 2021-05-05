@@ -258,17 +258,17 @@ func Test_DriveHasData(t *testing.T) {
 	)
 
 	e.OnCommand(cmd).Return("", "", nil).Times(1)
-	hasData, err := fh.DriveHasData(path)
+	hasData, err := fh.IsContainFs(path)
 	assert.Nil(t, err)
 	assert.False(t, hasData)
 
 	e.OnCommand(cmd).Return("xfs", "", testError).Times(1)
-	hasData, err = fh.DriveHasData(path)
+	hasData, err = fh.IsContainFs(path)
 	assert.NotNil(t, err)
 	assert.False(t, hasData)
 
 	e.OnCommand(cmd).Return("xfs", "", nil).Times(1)
-	hasData, err = fh.DriveHasData(path)
+	hasData, err = fh.IsContainFs(path)
 	assert.Nil(t, err)
 	assert.True(t, hasData)
 }
