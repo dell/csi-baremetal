@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-
 	"os"
 	"testing"
 
