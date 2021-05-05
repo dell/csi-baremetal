@@ -73,7 +73,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 
 		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
 		framework.ExpectNoError(err)
-		var nodeNames []string
+		nodeNames := make([]string, len(nodes.Items))
 		for _, item := range nodes.Items {
 			nodeNames = append(nodeNames, item.Name)
 		}

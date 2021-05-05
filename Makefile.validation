@@ -36,7 +36,7 @@ pr-validation-junit:
 
 # Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
 # Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.
-test-ci-with-operator:
+test-ci:
 	${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout=0 > log.txt
 
 # Run commnity sanity tests for CSI. TODO https://github.com/dell/csi-baremetal/issues/298 Make sanity test work for expansion
@@ -49,16 +49,10 @@ test-sanity:
 #	should fail when requesting to create a volume with already existing name and different capacity|\
 #	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
-load-helm-charts:
-	wget -P ${LOAD_DIR} ${ARTIFACTORY}/${OPERATOR_VERSION}/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
-	wget -P ${LOAD_DIR} ${ARTIFACTORY}/${OPERATOR_VERSION}/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
-	tar -xzvf ${LOAD_DIR}/csi-baremetal-operator-${OPERATOR_VERSION}.tgz
-	tar -xzvf ${LOAD_DIR}/csi-baremetal-deployment-${OPERATOR_VERSION}.tgz
-
 load-operator-image:
-	docker pull ${REGISTRY}/csi-baremetal-operator:${OPERATOR_VERSION}
-	docker tag ${REGISTRY}/csi-baremetal-operator:${OPERATOR_VERSION} csi-baremetal-operator:${OPERATOR_VERSION}
-	kind load docker-image csi-baremetal-operator:${OPERATOR_VERSION}
+	docker pull ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
+	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION} ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
+	kind load docker-image ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
 
 kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}

@@ -29,14 +29,14 @@ import (
 func newSchedulerRestartChecker(client clientset.Interface) *schedulerRestartChecker {
 	return &schedulerRestartChecker{
 		IsInitialized:      false,
-		c:                  client,
+		client:             client,
 		schedulerLabel:     "component=kube-scheduler",
 		restartWaitTimeout: time.Minute * 2,
 	}
 }
 
 type schedulerRestartChecker struct {
-	c                  clientset.Interface
+	client             clientset.Interface
 	initialState       map[string]metav1.Time
 	schedulerLabel     string
 	restartWaitTimeout time.Duration
@@ -117,7 +117,7 @@ func (rc *schedulerRestartChecker) getPODStartTimeMap() (map[string]metav1.Time,
 }
 
 func (rc *schedulerRestartChecker) buildPODStartTimeMap(pods *corev1.PodList) map[string]metav1.Time {
-	data := map[string]metav1.Time{}
+	data := make(map[string]metav1.Time, len(pods.Items))
 	for _, p := range pods.Items {
 		if len(p.Status.ContainerStatuses) == 0 {
 			continue
@@ -132,7 +132,7 @@ func (rc *schedulerRestartChecker) buildPODStartTimeMap(pods *corev1.PodList) ma
 }
 
 func (rc *schedulerRestartChecker) findSchedulerPods() (*corev1.PodList, error) {
-	pods, err := rc.c.CoreV1().Pods("").List(metav1.ListOptions{LabelSelector: rc.schedulerLabel})
+	pods, err := rc.client.CoreV1().Pods("").List(metav1.ListOptions{LabelSelector: rc.schedulerLabel})
 	if err != nil {
 		return nil, err
 	}

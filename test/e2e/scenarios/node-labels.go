@@ -113,7 +113,6 @@ func cleanNodeLabels(c clientset.Interface) {
 	for _, node := range nodes {
 		if _, ok := node.Labels[label]; ok {
 			delete(node.Labels, label)
-
 			if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
 				e2elog.Logf("Error updating node: %s", err)
 			}
