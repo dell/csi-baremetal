@@ -44,6 +44,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
@@ -113,6 +114,9 @@ type VolumeManager struct {
 	// metrics
 	metricDriveMgrDuration metrics.Statistic
 	metricDriveMgrCount    prometheus.Gauge
+
+	// discover data on drive
+	dataDiscover datadiscover.WrapDataDiscover
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -178,6 +182,10 @@ func NewVolumeManager(
 		}
 	}
 
+	partImpl := ph.NewWrapPartitionImpl(executor, logger)
+	lvm := lvm.NewLVM(executor, logger)
+	fsOps := utilwrappers.NewFSOperationsImpl(executor, logger)
+
 	vm := &VolumeManager{
 		k8sClient:      k8sClient,
 		k8sCache:       k8sCache,
@@ -189,10 +197,10 @@ func NewVolumeManager(
 			p.DriveBasedVolumeType: p.NewDriveProvisioner(executor, k8sClient, logger),
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sClient, logger),
 		},
-		fsOps:                  utilwrappers.NewFSOperationsImpl(executor, logger),
-		lvmOps:                 lvm.NewLVM(executor, logger),
+		fsOps:                  fsOps,
+		lvmOps:                 lvm,
 		listBlk:                lsblk.NewLSBLK(logger),
-		partOps:                ph.NewWrapPartitionImpl(executor, logger),
+		partOps:                partImpl,
 		nodeID:                 nodeID,
 		log:                    logger.WithField("component", "VolumeManager"),
 		recorder:               recorder,
@@ -201,6 +209,7 @@ func NewVolumeManager(
 		systemDrivesUUIDs:      make([]string, 0),
 		metricDriveMgrDuration: driveMgrDuration,
 		metricDriveMgrCount:    driveMgrCount,
+		dataDiscover:           datadiscover.NewDataDiscover(fsOps, partImpl, lvm),
 	}
 	return vm
 }
@@ -715,12 +724,6 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 		return err
 	}
 
-	// explore each drive from driveCRs
-	blockDevices, err := m.listBlk.GetBlockDevices("")
-	if err != nil {
-		return fmt.Errorf("unable to get list of block devices: %v", err)
-	}
-
 	volumeCRs, err := m.cachedCrHelper.GetVolumeCRs(m.nodeID)
 	if err != nil {
 		return err
@@ -740,13 +743,8 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 		}
 	}
 
-	// map key - block device name, value - block device structure
-	bdevMap := make(map[string]lsblk.BlockDevice, len(blockDevices))
-	for _, bdev := range blockDevices {
-		bdevMap[strings.ToLower(bdev.Name)] = bdev
-	}
-
 	for _, drive := range driveCRs {
+		var hasData bool
 		drive := drive
 		if drive.Spec.IsSystem && m.isDriveInLVG(drive.Spec) {
 			continue
@@ -757,30 +755,8 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 			}
 			continue
 		}
-		bdev, ok := bdevMap[strings.ToLower(drive.Spec.Path)]
-		if !ok {
-			ll.Errorf("Block device for drive %v not found", drive)
-			continue
-		}
-		// confirm device SN if set
-		bDevSerialNum := bdev.Serial
-		driveSerialNum := drive.Spec.SerialNumber
-		if bDevSerialNum != "" && driveSerialNum != "" {
-			if !strings.EqualFold(bDevSerialNum, driveSerialNum) {
-				ll.Errorf("Serial numbers for block device %s don't match: %s != %s", bdev.Name, bDevSerialNum,
-					driveSerialNum)
-				continue
-			}
-		}
-		if len(bdev.Children) > 0 {
-			if drive.Spec.IsClean {
-				m.changeDriveIsCleanField(&drive, false)
-			}
-			continue
-		}
-		hasData, err := m.fsOps.IsContainFs(drive.Spec.Path)
-		if err != nil {
-			ll.Errorf("Unable to get fs information about drive %s: %v", drive.Spec.Path, err)
+		if hasData, err = m.dataDiscover.DiscoverData(drive.Spec.Path, drive.Spec.SerialNumber); err != nil {
+			ll.Errorf("Failed to discover data on drive %s, err: %v", drive.Spec.SerialNumber, err)
 			continue
 		}
 		if hasData {

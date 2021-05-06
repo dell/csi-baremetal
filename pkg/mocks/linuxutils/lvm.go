@@ -25,6 +25,13 @@ type MockWrapLVM struct {
 	mock.Mock
 }
 
+// DeviceHasVG is a mock implementations
+func (m *MockWrapLVM) DeviceHasVG(device string) (bool, error) {
+	args := m.Mock.Called(device)
+
+	return args.Bool(0), args.Error(1)
+}
+
 // ExpandLV is a mock implementations
 func (m *MockWrapLVM) ExpandLV(lvName string, requiredSize int64) error {
 	args := m.Mock.Called(lvName, requiredSize)

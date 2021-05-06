@@ -18,6 +18,7 @@ package partitionhelper
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -233,4 +234,94 @@ func TestGetPartitionNameByUUIDFail(t *testing.T) {
 	res, err = p.GetPartitionNameByUUID(device, "anotherUUID")
 	assert.Equal(t, "", res)
 	assert.NotNil(t, err)
+}
+
+func TestLinuxUtils_DeviceHasPartitions(t *testing.T) {
+	var (
+		p            = NewWrapPartitionImpl(&command.Executor{}, testLogger)
+		mockLsblk    = &mocklu.MockWrapLsblk{}
+		device       = "/dev/sda"
+		partUUID     = "uuid-1111"
+		serialNumber = "test"
+	)
+	p.lsblkUtil = mockLsblk
+
+	t.Run("Device has partition", func(t *testing.T) {
+		blkDev1 := lsblk.BlockDevice{Serial: serialNumber, Children: []lsblk.BlockDevice{
+			{PartUUID: partUUID, Name: ""},
+		}}
+		mockLsblk.On("GetBlockDevices", device).
+			Return([]lsblk.BlockDevice{blkDev1}, nil).Times(1)
+		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
+		assert.Nil(t, err)
+		assert.True(t, hasPart)
+	})
+
+	t.Run("Device doesn't have partitions", func(t *testing.T) {
+		blkDev1 := lsblk.BlockDevice{Serial: serialNumber}
+		mockLsblk.On("GetBlockDevices", device).
+			Return([]lsblk.BlockDevice{blkDev1}, nil).Times(1)
+		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
+		assert.Nil(t, err)
+		assert.False(t, hasPart)
+	})
+
+	t.Run("Command failed", func(t *testing.T) {
+		mockLsblk.On("GetBlockDevices", device).
+			Return(nil, errors.New("error")).Times(1)
+		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
+		assert.NotNil(t, err)
+		assert.False(t, hasPart)
+	})
+	t.Run("Bad output", func(t *testing.T) {
+		mockLsblk.On("GetBlockDevices", device).
+			Return(nil, nil).Times(1)
+		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
+		assert.NotNil(t, err)
+		assert.False(t, hasPart)
+	})
+	t.Run("Different serial numbers", func(t *testing.T) {
+		blkDev1 := lsblk.BlockDevice{Serial: serialNumber}
+		mockLsblk.On("GetBlockDevices", device).
+			Return([]lsblk.BlockDevice{blkDev1}, nil).Times(1)
+		hasPart, err := p.DeviceHasPartitions(device, "test2")
+		assert.NotNil(t, err)
+		assert.False(t, hasPart)
+	})
+}
+
+func TestLinuxUtils_DeviceHasPartitionTable(t *testing.T) {
+	var (
+		e      = mocks.GoMockExecutor{}
+		p      = NewWrapPartitionImpl(&e, testLogger)
+		device = "/dev/sda"
+	)
+	t.Run("Device has partition table", func(t *testing.T) {
+		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
+			Return("Partition Table: gpt", "", nil).Times(1)
+		hasPart, err := p.DeviceHasPartitionTable(device)
+		assert.Nil(t, err)
+		assert.True(t, hasPart)
+	})
+	t.Run("Device doesn't have partition table", func(t *testing.T) {
+		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
+			Return("Partition Table: unknown", "", nil).Times(1)
+		hasPart, err := p.DeviceHasPartitionTable(device)
+		assert.Nil(t, err)
+		assert.False(t, hasPart)
+	})
+	t.Run("Command failed", func(t *testing.T) {
+		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
+			Return("", "", errors.New("error")).Times(1)
+		hasPart, err := p.DeviceHasPartitionTable(device)
+		assert.NotNil(t, err)
+		assert.False(t, hasPart)
+	})
+	t.Run("Bad output", func(t *testing.T) {
+		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
+			Return(" ", "", nil).Times(1)
+		hasPart, err := p.DeviceHasPartitionTable(device)
+		assert.NotNil(t, err)
+		assert.False(t, hasPart)
+	})
 }

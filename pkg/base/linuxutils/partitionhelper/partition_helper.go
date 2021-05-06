@@ -41,8 +41,8 @@ type WrapPartition interface {
 	GetPartitionUUID(device, partNum string) (string, error)
 	SyncPartitionTable(device string) error
 	GetPartitionNameByUUID(device, partUUID string) (string, error)
-	IsContainPartitionTable(device string) (bool, error)
-	IsContainPartition(device, serialNumber string) (bool, error)
+	DeviceHasPartitionTable(device string) (bool, error)
+	DeviceHasPartitions(device, serialNumber string) (bool, error)
 }
 
 const (
@@ -68,7 +68,7 @@ const (
 	// DeletePartitionCmdTmpl delete partition from provided device cmd template, fill device and partition number
 	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
 
-	// DeletePartitionCmdTmpl is used to print information, which contain partition table
+	// DetectPartitionTableCmdTmpl is used to print information, which contain partition table
 	DetectPartitionTableCmdTmpl = parted + "-s %s print"
 
 	// SetPartitionUUIDCmdTmpl command for set GUID of the partition, fill device, part number and part UUID
@@ -320,7 +320,10 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 		partUUID, device, blockdevices)
 }
 
-func (p *WrapPartitionImpl) IsContainPartitionTable(device string) (bool, error) {
+// DeviceHasPartitionTable calls parted  and determine if device has partition table from output
+// Receive device path
+// Return true if device has partition table, false in opposite, error if something went wrong
+func (p *WrapPartitionImpl) DeviceHasPartitionTable(device string) (bool, error) {
 	/*
 		Model: ATA TOSHIBA MG04ACA1 (scsi)
 		Disk /dev/sdd: 1000GB
@@ -352,7 +355,7 @@ func (p *WrapPartitionImpl) IsContainPartitionTable(device string) (bool, error)
 			if len(splitedLine) != 2 {
 				return false, fmt.Errorf("wrong output of %s, failed line %s", cmd, line)
 			}
-			if splitedLine[1] == unknownPartTable {
+			if strings.EqualFold(strings.TrimSpace(splitedLine[1]), unknownPartTable) {
 				return false, nil
 			}
 			return true, nil
@@ -361,7 +364,10 @@ func (p *WrapPartitionImpl) IsContainPartitionTable(device string) (bool, error)
 	return false, fmt.Errorf("wrong output of %s, output %s", cmd, stdout)
 }
 
-func (p *WrapPartitionImpl) IsContainPartition(device, serialNumber string) (bool, error) {
+// DeviceHasPartitions calls lsblk and determine if device has partitions (children)
+// Receive device path and serial number
+// Return true if device has partitions, false in opposite, error if something went wrong
+func (p *WrapPartitionImpl) DeviceHasPartitions(device, serialNumber string) (bool, error) {
 	blockDevices, err := p.lsblkUtil.GetBlockDevices(device)
 	if len(blockDevices) != 1 {
 		return false, fmt.Errorf("wrong output of lsblk for %s, block devices: %v", device, blockDevices)

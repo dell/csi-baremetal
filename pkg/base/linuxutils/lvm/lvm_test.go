@@ -347,3 +347,34 @@ func TestLinuxUtils_GetVGNameByPVName(t *testing.T) {
 		assert.Contains(t, err.Error(), "unable to find VG name for PV")
 	})
 }
+
+func TestLinuxUtils_DeviceHasVG(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLVM(e, testLogger)
+		pvName      = "/dev/sda2"
+		cmd         = fmt.Sprintf(VGsListCmdTmpl)
+		expectedErr = errors.New("error")
+	)
+
+	t.Run("Device is present in the output", func(t *testing.T) {
+		e.OnCommand(cmd).Return(fmt.Sprintf("%s\n/dev/sda", pvName), "", nil).Once()
+		hasVg, err := l.DeviceHasVG(pvName)
+		assert.Nil(t, err)
+		assert.True(t, hasVg)
+	})
+
+	t.Run("Device is not present in the output", func(t *testing.T) {
+		e.OnCommand(cmd).Return("/dev/sda", "", nil).Once()
+		hasVg, err := l.DeviceHasVG(pvName)
+		assert.Nil(t, err)
+		assert.False(t, hasVg)
+	})
+
+	t.Run("Command failed", func(t *testing.T) {
+		e.OnCommand(cmd).Return("", "", expectedErr).Once()
+		hasVg, err := l.DeviceHasVG(pvName)
+		assert.NotNil(t, err)
+		assert.False(t, hasVg)
+	})
+}

@@ -49,7 +49,6 @@ import (
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
-	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 // TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
@@ -591,9 +590,9 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID)
-		listBlk := &mocklu.MockWrapLsblk{}
-		listBlk.On("GetBlockDevices", "").Return(nil, testErr).Once()
-		vm.listBlk = listBlk
+		discoverData := &mocklu.MockWrapDataDiscover{}
+		discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(false, testErr).Once()
+		vm.dataDiscover = discoverData
 		vm.discoverSystemLVG = false
 		mockK8sClient.On("List", mock.Anything, &drivecrd.DriveList{}, mock.Anything).Return(nil)
 		mockK8sClient.On("List", mock.Anything, &lvgcrd.LogicalVolumeGroupList{}, mock.Anything).Return(nil)
@@ -608,18 +607,15 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	var (
 		vm             *VolumeManager
-		listBlk        = &mocklu.MockWrapLsblk{}
 		driveMgrClient = mocks.NewMockDriveMgrClient(getDriveMgrRespBasedOnDrives(drive1, drive2))
 		err            error
 	)
 
 	vm = prepareSuccessVolumeManager(t)
 	vm.driveMgrClient = driveMgrClient
-	vm.listBlk = listBlk
-
-	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2}, nil).Once()
-	listBlk.On("GetBlockDevices", drive1.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
-	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev2}, nil).Once()
+	discoverData := &mocklu.MockWrapDataDiscover{}
+	discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(false, nil)
+	vm.dataDiscover = discoverData
 	// expect that Volume CRs won't be created because of all drives don't have children
 	err = vm.Discover()
 	assert.Nil(t, err)
@@ -641,28 +637,31 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	dItems := getDriveCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 0, len(dItems))
 
-	listBlk := &mocklu.MockWrapLsblk{}
-	vm.listBlk = listBlk
-	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2}, nil).Once()
-	listBlk.On("GetBlockDevices", drive1.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
-	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev2}, nil).Once()
+	discoverData := &mocklu.MockWrapDataDiscover{}
+	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(false, nil)
+	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(false, nil)
+	vm.dataDiscover = discoverData
 
 	err := vm.Discover()
 	assert.Nil(t, err)
 
 	dItems = getDriveCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 2, len(dItems))
+	assert.Equal(t, true, dItems[0].Spec.IsClean)
+	assert.Equal(t, true, dItems[1].Spec.IsClean)
 
 	// second iteration
-	bdev2WithChildren := bdev2
-	bdev2WithChildren.Children = []lsblk.BlockDevice{{Name: "/dev/sda1", PartUUID: testPartUUID}}
-	listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1, bdev2WithChildren}, nil).Once()
-
+	discoverData = &mocklu.MockWrapDataDiscover{}
+	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(true, nil)
+	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(false, nil)
+	vm.dataDiscover = discoverData
 	err = vm.Discover()
 	assert.Nil(t, err)
 
 	dItems = getDriveCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 2, len(dItems))
+	assert.Equal(t, false, dItems[0].Spec.IsClean)
+	assert.Equal(t, true, dItems[1].Spec.IsClean)
 }
 
 func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
@@ -1074,19 +1073,14 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 
 func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 	t.Run("Disk has data", func(t *testing.T) {
-		var (
-			vm      *VolumeManager
-			listBlk = &mocklu.MockWrapLsblk{}
-		)
+		var vm *VolumeManager
 		vm = prepareSuccessVolumeManager(t)
-		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1}, nil)
-		vm.listBlk = listBlk
-		e := &mocks.GoMockExecutor{}
-		e.OnCommand(fmt.Sprintf(fs.DetectFSCmdTmpl, "/dev/sda")).Return("xfs", "", nil)
-		vm.fsOps = utilwrappers.NewFSOperationsImpl(e, testLogger)
 		testDrive := testDriveCR
 		testDrive.Spec.Path = "/dev/sda"
 		testDrive.Spec.IsClean = true
+		discoverData := &mocklu.MockWrapDataDiscover{}
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(true, nil).Once()
+		vm.dataDiscover = discoverData
 
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
 		assert.Nil(t, err)
@@ -1101,19 +1095,16 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 		assert.Equal(t, false, newDrive.Spec.IsClean)
 	})
 	t.Run("Disk has data and field IsClean is false", func(t *testing.T) {
-		var (
-			vm      *VolumeManager
-			listBlk = &mocklu.MockWrapLsblk{}
-		)
+		var vm *VolumeManager
 		vm = prepareSuccessVolumeManager(t)
-		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1}, nil)
-		vm.listBlk = listBlk
-		e := &mocks.GoMockExecutor{}
-		e.OnCommand(fmt.Sprintf(fs.DetectFSCmdTmpl, "/dev/sda")).Return("xfs", "", nil)
-		vm.fsOps = utilwrappers.NewFSOperationsImpl(e, testLogger)
+
 		testDrive := testDriveCR
 		testDrive.Spec.Path = "/dev/sda"
 		testDrive.Spec.IsClean = false
+
+		discoverData := &mocklu.MockWrapDataDiscover{}
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(true, nil).Once()
+		vm.dataDiscover = discoverData
 
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
 		assert.Nil(t, err)
@@ -1127,19 +1118,15 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 
 		assert.Equal(t, false, newDrive.Spec.IsClean)
 	})
-	t.Run("IsContainFs function failed", func(t *testing.T) {
-		var (
-			vm      *VolumeManager
-			listBlk = &mocklu.MockWrapLsblk{}
-		)
+	t.Run("DiscoverData function failed", func(t *testing.T) {
+		var vm *VolumeManager
 		vm = prepareSuccessVolumeManager(t)
-		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1}, nil)
-		vm.listBlk = listBlk
-		e := &mocks.GoMockExecutor{}
-		e.OnCommand(fmt.Sprintf(fs.DetectFSCmdTmpl, "/dev/sda")).Return("", "", errors.New("error"))
-		vm.fsOps = utilwrappers.NewFSOperationsImpl(e, testLogger)
 		testDrive := testDriveCR
 		testDrive.Spec.Path = "/dev/sda"
+		discoverData := &mocklu.MockWrapDataDiscover{}
+
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(false, testErr).Once()
+		vm.dataDiscover = discoverData
 
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
 		assert.Nil(t, err)
@@ -1153,19 +1140,14 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 	})
 
 	t.Run("Drive doesn't have data", func(t *testing.T) {
-		var (
-			vm      *VolumeManager
-			listBlk = &mocklu.MockWrapLsblk{}
-		)
+		var vm *VolumeManager
 		vm = prepareSuccessVolumeManager(t)
-		listBlk.On("GetBlockDevices", "").Return([]lsblk.BlockDevice{bdev1}, nil)
-		vm.listBlk = listBlk
-		e := &mocks.GoMockExecutor{}
-		e.OnCommand(fmt.Sprintf(fs.DetectFSCmdTmpl, "/dev/sda")).Return("", "", nil)
-		vm.fsOps = utilwrappers.NewFSOperationsImpl(e, testLogger)
 		testDrive := testDriveCR
 		testDrive.Spec.Path = "/dev/sda"
 
+		discoverData := &mocklu.MockWrapDataDiscover{}
+		vm.dataDiscover = discoverData
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(false, nil).Once()
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
 		assert.Nil(t, err)
 

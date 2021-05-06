@@ -42,8 +42,8 @@ const (
 	PVRemoveCmdTmpl = lvmPath + "pvremove --yes %s" // add PV name
 	// PVsInVGCmdTmpl print PVs in VG cmd
 	PVsInVGCmdTmpl = lvmPath + "pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
-	//  print all PVs name on node
-	PVsListCmdTmpl = lvmPath + "pvs -o pv_name --noheadings"
+	// VGsListCmdTmpl print all PVs name on node
+	VGsListCmdTmpl = lvmPath + "vgs -o pv_name --noheadings"
 	// VGCreateCmdTmpl create VG on provided PVs cmd
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
 	// VGRemoveCmdTmpl remove VG cmd
@@ -81,7 +81,7 @@ type WrapLVM interface {
 	GetLVsInVG(vgName string) ([]string, error)
 	GetVGNameByPVName(pvName string) (string, error)
 	ExpandLV(lvName string, requiredSize int64) error
-	IsDevicePV(device string) (bool, error)
+	DeviceHasVG(device string) (bool, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -324,11 +324,13 @@ func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	return splitted[1], nil
 }
 
-func (l *LVM) IsDevicePV(device string) (bool, error) {
-	cmd := fmt.Sprintf(PVsListCmdTmpl)
-	stdout, _, err := l.e.RunCmd(cmd,
+// DeviceHasVG execute vgs to determine if given device is presented in output
+// Receive device path
+// Return true if device has vg, false in opposite, error if something went wrong
+func (l *LVM) DeviceHasVG(device string) (bool, error) {
+	stdout, _, err := l.e.RunCmd(VGsListCmdTmpl,
 		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(PVsListCmdTmpl))))
+		command.CmdName(VGsListCmdTmpl))
 	if err != nil {
 		return false, err
 	}

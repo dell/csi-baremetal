@@ -1,9 +1,7 @@
 package datadiscover
 
 import (
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
-	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 )
@@ -15,83 +13,54 @@ type WrapDataDiscover interface {
 
 // WrapDataDiscoverImpl is the basic implementation of WrapDataDiscover interface
 type WrapDataDiscoverImpl struct {
-	e          command.CmdExecutor
-	lsblkHlper lsblk.WrapLsblk
 	fsHelper   fs.WrapFS
 	partHelper partitionhelper.WrapPartition
 	lvmHelper  lvm.WrapLVM
 }
 
+// NewDataDiscover is a constructor for WrapDataDiscoverImpl
+func NewDataDiscover(fs fs.WrapFS,
+	part partitionhelper.WrapPartition,
+	lvm lvm.WrapLVM) *WrapDataDiscoverImpl {
+	return &WrapDataDiscoverImpl{fsHelper: fs, partHelper: part, lvmHelper: lvm}
+}
+
+// DiscoverData perform linux operation to determine if device has data on it
+// It executes lsblk to find file systems and partitions, parted for partition table
+// Receive device path and serial number
+// Return true if device has data, false in opposite, error if something went wrong
 func (w *WrapDataDiscoverImpl) DiscoverData(device, serialNumber string) (bool, error) {
 	var (
-		data bool
-		err  error
+		hasData bool
+		err     error
 	)
-	if data, err = w.fsHelper.IsContainFs(device); err != nil {
+
+	if hasData, err = w.fsHelper.DeviceHasFs(device); err != nil {
 		return false, err
 	}
-	if data == true {
-		return data, err
+	if hasData {
+		return hasData, nil
 	}
 
-	if data, err = w.partHelper.IsContainPartitionTable(device); err != nil {
+	if hasData, err = w.partHelper.DeviceHasPartitionTable(device); err != nil {
 		return false, err
 	}
-	if data == true {
-		return data, err
+	if hasData {
+		return hasData, nil
 	}
 
-	if data, err = w.partHelper.IsContainPartition(device, serialNumber); err != nil {
+	if hasData, err = w.partHelper.DeviceHasPartitions(device, serialNumber); err != nil {
 		return false, err
 	}
-	if data == true {
-		return data, err
+	if hasData {
+		return hasData, nil
 	}
 
-	if data, err = w.lvmHelper.IsDevicePV(device); err != nil {
+	if hasData, err = w.lvmHelper.DeviceHasVG(device); err != nil {
 		return false, err
 	}
-	if data == true {
-		return data, err
+	if hasData {
+		return hasData, nil
 	}
 	return false, nil
-}
-
-type Builder struct {
-	e     command.CmdExecutor
-	lsblk lsblk.WrapLsblk
-	fs    fs.WrapFS
-	part  partitionhelper.WrapPartition
-	lvm   lvm.WrapLVM
-}
-
-func (b *Builder) WithExecutor(e command.CmdExecutor) {
-	b.e = e
-}
-
-func (b *Builder) WithLsblk(lsblk lsblk.WrapLsblk) {
-	b.lsblk = lsblk
-}
-
-func (b *Builder) WithFsHelper(fs fs.WrapFS) {
-	b.fs = fs
-}
-
-func (b *Builder) WithPartHelper(part partitionhelper.WrapPartition) {
-	b.part = part
-}
-
-func (b *Builder) WithLVM(lvm lvm.WrapLVM) {
-	b.lvm = lvm
-}
-
-func (b *Builder) Build() WrapDataDiscover {
-	dataDiscover := WrapDataDiscoverImpl{
-		e:          b.e,
-		lsblkHlper: b.lsblk,
-		fsHelper:   b.fs,
-		partHelper: b.part,
-		lvmHelper:  b.lvm,
-	}
-	return &dataDiscover
 }

@@ -25,6 +25,20 @@ type MockWrapPartition struct {
 	mock.Mock
 }
 
+// DeviceHasPartitionTable is a mock implementations
+func (m *MockWrapPartition) DeviceHasPartitionTable(device string) (bool, error) {
+	args := m.Mock.Called(device)
+
+	return args.Bool(0), args.Error(1)
+}
+
+// DeviceHasPartitions is a mock implementations
+func (m *MockWrapPartition) DeviceHasPartitions(device, serialNumber string) (bool, error) {
+	args := m.Mock.Called(device, serialNumber)
+
+	return args.Bool(0), args.Error(1)
+}
+
 // IsPartitionExists is a mock implementations
 func (m *MockWrapPartition) IsPartitionExists(device, partNum string) (exists bool, err error) {
 	args := m.Mock.Called(device, partNum)
