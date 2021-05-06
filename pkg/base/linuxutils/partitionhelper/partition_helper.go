@@ -324,44 +324,22 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 // Receive device path
 // Return true if device has partition table, false in opposite, error if something went wrong
 func (p *WrapPartitionImpl) DeviceHasPartitionTable(device string) (bool, error) {
-	/*
-		Model: ATA TOSHIBA MG04ACA1 (scsi)
-		Disk /dev/sdd: 1000GB
-		Sector size (logical/physical): 512B/512B
-		Partition Table: unknown
-		Disk Flags:
-	*/
-	const (
-		unknownPartTable = "unknown"
-		partitionTable   = "Partition Table"
-	)
+	const labelError = "unrecognised disk label"
 	cmd := fmt.Sprintf(DetectPartitionTableCmdTmpl, device)
 
 	p.opMutex.Lock()
-	stdout, _, err := p.e.RunCmd(cmd,
+	_, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(DetectPartitionTableCmdTmpl, ""))))
 	p.opMutex.Unlock()
 
 	if err != nil {
+		if strings.Contains(err.Error(), labelError) {
+			return false, nil
+		}
 		return false, err
 	}
-
-	outputLines := strings.Split(stdout, "\n")
-
-	for _, line := range outputLines {
-		if strings.Contains(line, partitionTable) {
-			splitedLine := strings.Split(line, ":")
-			if len(splitedLine) != 2 {
-				return false, fmt.Errorf("wrong output of %s, failed line %s", cmd, line)
-			}
-			if strings.EqualFold(strings.TrimSpace(splitedLine[1]), unknownPartTable) {
-				return false, nil
-			}
-			return true, nil
-		}
-	}
-	return false, fmt.Errorf("wrong output of %s, output %s", cmd, stdout)
+	return true, nil
 }
 
 // DeviceHasPartitions calls lsblk and determine if device has partitions (children)
