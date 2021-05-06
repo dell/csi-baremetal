@@ -65,7 +65,7 @@ func labeledDeployTestSuite() {
 
 		framework.ExpectNoError(err)
 
-		np, err := getNodePodsNames(f)
+		np, err := common.GetNodePodsNames(f)
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}
@@ -82,7 +82,7 @@ func labeledDeployTestSuite() {
 		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
 			3*time.Minute, nil)
 
-		np, err = getNodePodsNames(f)
+		np, err = common.GetNodePodsNames(f)
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}

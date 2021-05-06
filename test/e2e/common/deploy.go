@@ -130,9 +130,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			// delete resources without finalizers
 			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
 
-			// not work in CI
-			// TODO clean devices in loopback drivemgr https://github.com/dell/csi-baremetal/issues/387
-			//cleanLoopDevices(f.ClientSet, cmdExecutor)
+			CleanupLoopbackDevices(f)
 		}
 	}
 
@@ -186,15 +184,35 @@ func deleteCSIResources(e command.CmdExecutor, resources []string) {
 	}
 }
 
-func cleanLoopDevices(c clientset.Interface, e command.CmdExecutor) {
-	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+// CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
+// Returns error if it's failed to get node pods
+func CleanupLoopbackDevices(f *framework.Framework) error {
+	pods, err := GetNodePodsNames(f)
 	if err != nil {
-		e2elog.Logf("Failed to get k8sNode list: %s", err)
+		return err
 	}
-	for _, node := range nodeList.Items {
-		cmd := fmt.Sprintf("docker exec %s find /home -type f -name \"*.img\" -delete -print", node.Name)
-		if _, _, err = e.RunCmd(cmd); err != nil {
-			e2elog.Logf("Failed to clean loopback device on node %s: %s", node.Name, err)
+	for _, pod := range pods {
+		f.ExecShellInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
+	}
+	return nil
+}
+
+// GetNodePodsNames tries to get slice of node pods names
+// Receives framework.Framewor
+// Returns slice of pods name, error if it's failed to get node pods
+func GetNodePodsNames(f *framework.Framework) ([]string, error) {
+	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	podsNames := make([]string, 0)
+	for _, pod := range pods.Items {
+		if len(pod.OwnerReferences) == 1 &&
+			pod.OwnerReferences[0].Name == "csi-baremetal-node" &&
+			pod.OwnerReferences[0].Kind == "DaemonSet" {
+			podsNames = append(podsNames, pod.Name)
 		}
 	}
+	framework.Logf("Find node pods: ", podsNames)
+	return podsNames, nil
 }
