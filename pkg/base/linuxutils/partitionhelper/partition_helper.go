@@ -55,7 +55,7 @@ const (
 	// sgdisk is a name of system util
 	sgdisk = "sgdisk "
 	// fdiks is a name of system util
-	fdiks = "fdiks "
+	fdisk = "fdisk "
 
 	// PartprobeDeviceCmdTmpl check that device has partition cmd
 	PartprobeDeviceCmdTmpl = partprobe + "-d -s %s"
@@ -71,7 +71,7 @@ const (
 	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
 
 	// DetectPartitionTableCmdTmpl is used to print information, which contain partition table
-	DetectPartitionTableCmdTmpl = fdiks + " --list %s"
+	DetectPartitionTableCmdTmpl = fdisk + "--list %s"
 
 	// SetPartitionUUIDCmdTmpl command for set GUID of the partition, fill device, part number and part UUID
 	SetPartitionUUIDCmdTmpl = sgdisk + "%s --partition-guid=%s:%s"
