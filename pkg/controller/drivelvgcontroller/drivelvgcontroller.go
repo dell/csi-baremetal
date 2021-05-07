@@ -147,16 +147,11 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
-		lvg, err := d.cachedCrHelper.GetLVGByDrive(ctx, driveUUID)
+		lvg, err := d.crHelper.GetLVGByDrive(ctx, driveUUID)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		// If LVG exists for Drive, we delete drive AC, because CSI uses LVG AC
 		if lvg != nil {
-			if err := d.client.DeleteCR(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
-				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
-				return ctrl.Result{}, err
-			}
 			return ctrl.Result{}, err
 		}
 		// If ac is exists, update its size to drive size
@@ -170,7 +165,7 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 		return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
 	case err == errTypes.ErrorNotFound:
 		name := uuid.New().String()
-		if lvg, err := d.cachedCrHelper.GetLVGByDrive(ctx, driveUUID); err != nil || lvg != nil {
+		if lvg, err := d.crHelper.GetLVGByDrive(ctx, driveUUID); err != nil || lvg != nil {
 			return ctrl.Result{}, err
 		}
 		capacity := &api.AvailableCapacity{
