@@ -50,7 +50,7 @@ NodeMap will be updated each time when CSI Deployment reconciles. We don't need 
 
 	3. Update CSI labels with kernel-version on k8sNodes
 
-	4. Deploy required daemonsets (for all value with isDeployed=true in NodeMap we need to create DaemonSet with passed name and node-image)
+	4. Deploy required daemonsets with specific node-image and nodeSelector (for all value with isDeployed=true in NodeMap we need to create DaemonSet with passed name and node-image)
 	
 Using label:
 
@@ -61,8 +61,10 @@ nodes.csi-baremetal.dell.com/kernel-version=<NodeKernelVersion>
 - Add reconciliation loop running on cluster resize events caused by adding or updating a k8sNode
 
 Events:
+
 	1. Create a k8sNode
-	2. Update the kernel-version status field for any k8sNode
+	
+	2. Update kernel-version status field for any k8sNode
 
 
 ## Rationale
