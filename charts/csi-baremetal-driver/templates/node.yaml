@@ -13,6 +13,7 @@ spec:
       labels:
         app: csi-baremetal-node
         app.kubernetes.io/name: csi-baremetal
+        release: {{ .Release.Name }}
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '{{ .Values.node.metrics.port }}'
@@ -132,6 +133,8 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
+        - mountPath: /crash-dump
+          name: crash-dump
         - name: logs
           mountPath: /var/log
         - name: host-dev
@@ -198,6 +201,8 @@ spec:
           - containerPort: {{ .Values.drivemgr.grpc.server.port }}
         {{- end }}
         volumeMounts:
+        - mountPath: /crash-dump
+          name: crash-dump
         - name: host-dev
           mountPath: /dev
         {{- if eq .Values.drivemgr.deployConfig true }}
@@ -250,6 +255,8 @@ spec:
                 fieldPath: metadata.namespace
       {{- end }}
       volumes:
+      - name: crash-dump
+        emptyDir: {}
       {{- if .Values.logReceiver.create }}
       - name: logs-config
         configMap:

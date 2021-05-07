@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: csi-baremetal-se-patcher
+        release: {{ .Release.Name }}
     spec:
       containers:
         - name: schedulerpatcher
@@ -43,6 +44,8 @@ spec:
             - --backup-path={{ .Values.patcher.kube_scheduler}}
             {{- end}}
           volumeMounts:
+            - mountPath: /crash-dump
+              name: crash-dump
             - mountPath: /config
               name: schedulerpatcher-config
               readOnly: true
@@ -58,6 +61,8 @@ spec:
               name: kubernetes-scheduler
             {{- end}}
       volumes:
+        - name: crash-dump
+          emptyDir: {}
         {{- if .Values.patcher.enable }}
         - name: schedulerpatcher-config
           configMap:
