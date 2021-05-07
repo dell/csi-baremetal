@@ -298,14 +298,14 @@ func TestLinuxUtils_DeviceHasPartitionTable(t *testing.T) {
 	)
 	t.Run("Device has partition table", func(t *testing.T) {
 		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
-			Return("Partition Table: gpt", "", nil).Times(1)
+			Return("Disklabel type: gpt", "", nil).Times(1)
 		hasPart, err := p.DeviceHasPartitionTable(device)
 		assert.Nil(t, err)
 		assert.True(t, hasPart)
 	})
 	t.Run("Device doesn't have partition table", func(t *testing.T) {
 		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
-			Return("Partition Table: unknown", "", nil).Times(1)
+			Return(" ", "", nil).Times(1)
 		hasPart, err := p.DeviceHasPartitionTable(device)
 		assert.Nil(t, err)
 		assert.False(t, hasPart)
@@ -313,13 +313,6 @@ func TestLinuxUtils_DeviceHasPartitionTable(t *testing.T) {
 	t.Run("Command failed", func(t *testing.T) {
 		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
 			Return("", "", errors.New("error")).Times(1)
-		hasPart, err := p.DeviceHasPartitionTable(device)
-		assert.NotNil(t, err)
-		assert.False(t, hasPart)
-	})
-	t.Run("Bad output", func(t *testing.T) {
-		e.On("RunCmd", fmt.Sprintf(DetectPartitionTableCmdTmpl, device)).
-			Return(" ", "", nil).Times(1)
 		hasPart, err := p.DeviceHasPartitionTable(device)
 		assert.NotNil(t, err)
 		assert.False(t, hasPart)

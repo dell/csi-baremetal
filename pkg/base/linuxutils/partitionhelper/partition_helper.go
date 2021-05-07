@@ -54,6 +54,8 @@ const (
 	partprobe = "partprobe "
 	// sgdisk is a name of system util
 	sgdisk = "sgdisk "
+	// fdiks is a name of system util
+	fdiks = "fdiks "
 
 	// PartprobeDeviceCmdTmpl check that device has partition cmd
 	PartprobeDeviceCmdTmpl = partprobe + "-d -s %s"
@@ -69,7 +71,7 @@ const (
 	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
 
 	// DetectPartitionTableCmdTmpl is used to print information, which contain partition table
-	DetectPartitionTableCmdTmpl = parted + "-s %s print"
+	DetectPartitionTableCmdTmpl = fdiks + "--list %s"
 
 	// SetPartitionUUIDCmdTmpl command for set GUID of the partition, fill device, part number and part UUID
 	SetPartitionUUIDCmdTmpl = sgdisk + "%s --partition-guid=%s:%s"
@@ -324,22 +326,32 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 // Receive device path
 // Return true if device has partition table, false in opposite, error if something went wrong
 func (p *WrapPartitionImpl) DeviceHasPartitionTable(device string) (bool, error) {
-	const labelError = "unrecognised disk label"
+	/*
+		Disk /dev/sda: 931.5 GiB, 1000204886016 bytes, 1953525168 sectors
+		Units: sectors of 1 * 512 = 512 bytes
+		Sector size (logical/physical): 512 bytes / 512 bytes
+		I/O size (minimum/optimal): 512 bytes / 512 bytes
+		Disklabel type: gpt
+
+	*/
+	const labelKey = "Disklabel type"
+
 	cmd := fmt.Sprintf(DetectPartitionTableCmdTmpl, device)
 
 	p.opMutex.Lock()
-	_, _, err := p.e.RunCmd(cmd,
+	stdout, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(DetectPartitionTableCmdTmpl, ""))))
 	p.opMutex.Unlock()
 
 	if err != nil {
-		if strings.Contains(err.Error(), labelError) {
-			return false, nil
-		}
 		return false, err
 	}
-	return true, nil
+
+	if strings.Contains(stdout, labelKey) {
+		return true, nil
+	}
+	return false, nil
 }
 
 // DeviceHasPartitions calls lsblk and determine if device has partitions (children)
