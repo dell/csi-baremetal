@@ -13,47 +13,57 @@ We used specific system calls in the node part, which depends on kernel version.
 
 ## Proposal
 
-- Create Map:
+- Create Map (NodeMap) in CSI Operator:
 
+Example:
 ```
+Struct NodeDescription: {
+	name,
+	meta: (ImageName, DaemonSetName),
+	isFit: func(kernel-version) bool //Parse kernel-version and decide if it is fit
+	}
+	
+NodeMap: {
 {
-	default: {image: node, daemonset: csi-baremetal-node, isDeployed: False}
-	5.x: {image: node-kernel-5.x, daemonset: csi-baremetal-node-kernel-5.x, isDeployed: False}
+	default: {default NodeDescription, isDeployed: False}
+	5.4: {NodeDescription:
+			name: kernel-5.4
+			image: node-kernel-5.4, 
+			daemonset: csi-baremetal-node-kernel-5.4,
+			isFit: kernel-version > 5.4
+		,isDeployed: False}
 	...
 }
 ```
 
-- Move logic of updating k8sNodes' labels to operator. Steps in `Node.Update`:
+If we want to add new Platform:
+	1. Create Dockerfile with specific reference, build and push image to repo
+	2. Implement new NodeDescription and add field in NodeMap
+
+NodeMap will be updated each time when CSI Deployment reconciles. We don't need to create specific recource, becouse kernel information for all nodes can be recieved in any moment.
+
+- Move logic of updating k8sNodes' labels to operator. Steps in `Node.Update` in reconciliation loop:
 
 	1. Get list of all k8sNodes
 
-	2. Parse kernel-version and update k8sNodes' labels
+	2. Parse kernel-version for each node and update NodeMap (Check if at least one k8sNode with specific kernel-version exists -> isDeployed=true)
 
-	3. Update kernel-version Map (isDeployed -> true if version detected)
+	3. Update CSI labels with kernel-version on k8sNodes
 
-	4. Deploy required daemonsets
-
-- Add reconciliation loop running on cluster resize events caused by adding or deleting a k8sNode
-
-- Merge labels
-
-Old: 
+	4. Deploy required daemonsets (for all value with isDeployed=true in NodeMap we need to create DaemonSet with passed name and node-image)
+	
+Using label:
 
 ```
-{
-	os-name: x
-	os-version: x
-	kernel-version: x
-}
+nodes.csi-baremetal.dell.com/kernel-version=<NodeKernelVersion>
 ```
 
-New:
+- Add reconciliation loop running on cluster resize events caused by adding or updating a k8sNode
 
-```
-{
-	node-daemonset-image: x
-}
-```
+Events:
+	1. Create a k8sNode
+	2. Update the kernel-version status field for any k8sNode
+
 
 ## Rationale
 
