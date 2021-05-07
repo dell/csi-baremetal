@@ -151,7 +151,12 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		// If LVG exists for Drive, we delete drive AC, because CSI uses LVG AC
 		if lvg != nil {
+			if err := d.client.DeleteCR(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
+				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, err
 		}
 		// If ac is exists, update its size to drive size
@@ -233,18 +238,32 @@ func (d *Controller) createLVGACIfNotExistsOrUpdate(lvg *lvgcrd.LogicalVolumeGro
 		return nil
 	case err == errTypes.ErrorNotFound:
 		if size > capacityplanner.AcSizeMinThresholdBytes {
-			driveAC, err := d.cachedCrHelper.GetACByLocation(driveUUID)
-			if err != nil {
+			ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
+			if err != nil && err != errTypes.ErrorNotFound {
 				ll.Infof("Failed to get drive AC by UUID %s, err: %v", driveUUID, err)
 				return err
 			}
-			driveAC.Spec.Size = size
-			driveAC.Spec.Location = location
-			driveAC.Spec.StorageClass = apiV1.StorageClassSystemLVG
-			if err := d.client.Update(context.Background(), driveAC); err != nil {
-				return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
+			if err == errTypes.ErrorNotFound {
+				name := uuid.New().String()
+				capacity := &api.AvailableCapacity{
+					Size:         size,
+					Location:     lvg.Name,
+					StorageClass: util.ConvertDriveTypeToStorageClass(apiV1.StorageClassSystemLVG),
+					NodeId:       lvg.Spec.Node,
+				}
+				ac = d.client.ConstructACCR(name, *capacity)
+				if err := d.client.CreateCR(context.Background(), name, ac); err != nil {
+					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
+				}
+			} else {
+				ac.Spec.Size = size
+				ac.Spec.Location = location
+				ac.Spec.StorageClass = apiV1.StorageClassSystemLVG
+				if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
+				}
 			}
-			ll.Infof("Created AC %v for lvg %s", driveAC, location)
+			ll.Infof("Created AC %v for lvg %s", ac, location)
 			return nil
 		}
 		ll.Infof("There is no available space on %s", location)
