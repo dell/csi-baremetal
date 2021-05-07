@@ -71,7 +71,7 @@ const (
 	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
 
 	// DetectPartitionTableCmdTmpl is used to print information, which contain partition table
-	DetectPartitionTableCmdTmpl = "fdisk" + " --list %s"
+	DetectPartitionTableCmdTmpl = fdiks + " --list %s"
 
 	// SetPartitionUUIDCmdTmpl command for set GUID of the partition, fill device, part number and part UUID
 	SetPartitionUUIDCmdTmpl = sgdisk + "%s --partition-guid=%s:%s"
