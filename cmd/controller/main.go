@@ -119,7 +119,7 @@ func main() {
 	// check ACR feature flag
 	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
 		// create Reservation manager
-		reservationManager, err := createManagers(kubeClient, logger, stopCH)
+		reservationManager, err := createReservationManager(kubeClient, logger)
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -131,6 +131,18 @@ func main() {
 			}
 		}()
 	}
+
+	capacityManager, err := createCapacityManager(kubeClient, logger, stopCH)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	// start Reservation manager
+	go func() {
+		logger.Info("Starting Capacity Controller")
+		if err := capacityManager.Start(stopCH); err != nil {
+			logger.Fatalf("Capacity Controller failed with error: %v", err)
+		}
+	}()
 
 	go func() {
 		logger.Info("Starting Controller Health server")
@@ -147,15 +159,10 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func createManagers(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
+func createCapacityManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
 	// create scheme
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
-
-	// register ACR CRD
-	if err := acrcrd.AddToSchemeACR(scheme); err != nil {
 		return nil, err
 	}
 
@@ -179,11 +186,6 @@ func createManagers(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct
 		return nil, err
 	}
 
-	// controller
-	reservationController := reservation.NewController(client, log)
-	if err = reservationController.SetupWithManager(mgr); err != nil {
-		return nil, err
-	}
 	wrappedK8SClient := k8s.NewKubeClient(client, log, *namespace)
 
 	kubeCache, err := k8s.InitKubeCache(log, ch,
@@ -193,9 +195,38 @@ func createManagers(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct
 	}
 
 	driveLvgController := drive.NewDriveController(wrappedK8SClient, kubeCache, log)
-	// bind CSINodeService's VolumeManager to K8s Controller Manager as a driveLvgController for Volume CR
 	if err = driveLvgController.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
+	return mgr, nil
+}
+
+func createReservationManager(client *k8s.KubeClient, log *logrus.Logger) (mgr ctrl.Manager, err error) {
+	// create scheme
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	// register ACR CRD
+	if err = acrcrd.AddToSchemeACR(scheme); err != nil {
+		return nil, err
+	}
+
+	mgr, err = ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:    scheme,
+		Namespace: *namespace,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// controller
+	reservationController := reservation.NewController(client, log)
+	if err = reservationController.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
 	return mgr, nil
 }
