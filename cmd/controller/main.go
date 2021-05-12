@@ -34,7 +34,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
@@ -114,31 +113,15 @@ func main() {
 	}
 	stopCH := ctrl.SetupSignalHandler()
 	// todo make ACR feature mandatory and get rid of feature flag https://github.com/dell/csi-baremetal/issues/366
-	// check ACR feature flag
-	if featureConf.IsEnabled(featureconfig.FeatureACReservation) {
-		// create Reservation manager
-		reservationManager, err := createReservationManager(kubeClient, logger)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		// start Reservation manager
-		go func() {
-			logger.Info("Starting Reservation Controller")
-			if err := reservationManager.Start(stopCH); err != nil {
-				logger.Fatalf("Reservation Controller failed with error: %v", err)
-			}
-		}()
-	}
-
-	capacityManager, err := createCapacityManager(kubeClient, logger, stopCH)
+	mgr, err := createManager(kubeClient, logger, featureConf.IsEnabled(featureconfig.FeatureACReservation), stopCH)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	// start Reservation manager
 	go func() {
-		logger.Info("Starting Capacity Controller")
-		if err := capacityManager.Start(stopCH); err != nil {
-			logger.Fatalf("Capacity Controller failed with error: %v", err)
+		logger.Info("Starting Reservation Controller")
+		if err := mgr.Start(stopCH); err != nil {
+			logger.Fatalf("Reservation Controller failed with error: %v", err)
 		}
 	}()
 
@@ -157,10 +140,15 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func createCapacityManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan struct{}) (manager.Manager, error) {
+func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bool, ch <-chan struct{}) (ctrl.Manager, error) {
 	// create scheme
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	// register ACR CRD
+	if err := acrcrd.AddToSchemeACR(scheme); err != nil {
 		return nil, err
 	}
 
@@ -184,6 +172,13 @@ func createCapacityManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan
 		return nil, err
 	}
 
+	if featureEnabled {
+		// controller
+		reservationController := reservation.NewController(client, log)
+		if err = reservationController.SetupWithManager(mgr); err != nil {
+			return nil, err
+		}
+	}
 	wrappedK8SClient := k8s.NewKubeClient(client, log, *namespace)
 
 	kubeCache, err := k8s.InitKubeCache(log, ch,
@@ -192,39 +187,10 @@ func createCapacityManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan
 		return nil, err
 	}
 
-	capController := capacitycontroller.NewCapacityController(wrappedK8SClient, kubeCache, log)
-	if err = capController.SetupWithManager(mgr); err != nil {
+	capacityController := capacitycontroller.NewCapacityController(wrappedK8SClient, kubeCache, log)
+	// bind CSINodeService's VolumeManager to K8s Controller Manager as a driveLvgController for Volume CR
+	if err = capacityController.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
-	return mgr, nil
-}
-
-func createReservationManager(client *k8s.KubeClient, log *logrus.Logger) (mgr ctrl.Manager, err error) {
-	// create scheme
-	scheme := runtime.NewScheme()
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
-
-	// register ACR CRD
-	if err = acrcrd.AddToSchemeACR(scheme); err != nil {
-		return nil, err
-	}
-
-	mgr, err = ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:    scheme,
-		Namespace: *namespace,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	// controller
-	reservationController := reservation.NewController(client, log)
-	if err = reservationController.SetupWithManager(mgr); err != nil {
-		return nil, err
-	}
-
 	return mgr, nil
 }
