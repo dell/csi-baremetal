@@ -90,14 +90,15 @@ func TestCapacityManager(t *testing.T) {
 	logger := testLogger.WithField("component", "test")
 	ctx := context.Background()
 
-	callPlanVolumesPlacing := func(capRead CapacityReader, volumes []*genV1.Volume) (*VolumesPlacingPlan, error) {
+	callPlanVolumesPlacing := func(capRead CapacityReader, volumes []*genV1.Volume,
+		nodes []string) (*VolumesPlacingPlan, error) {
 		capManager := NewCapacityManager(logger, capRead)
-		return capManager.PlanVolumesPlacing(ctx, volumes, nil)
+		return capManager.PlanVolumesPlacing(ctx, volumes, nodes)
 	}
 	t.Run("Failed to read capacity", func(t *testing.T) {
 		capManager := NewCapacityManager(logger, getCapReaderMock(nil, testErr))
 		plan, err := capManager.PlanVolumesPlacing(ctx,
-			[]*genV1.Volume{getTestVol(testNode1, testSmallSize, apiV1.StorageClassHDD)}, nil)
+			[]*genV1.Volume{getTestVol(testNode1, testSmallSize, apiV1.StorageClassHDD)}, []string{testNode1})
 		assert.Nil(t, plan)
 		assert.Error(t, err)
 	})
@@ -107,14 +108,14 @@ func TestCapacityManager(t *testing.T) {
 			getTestVol(testNode1, testLargeSize, apiV1.StorageClassHDD),
 		}
 		var testACs []*accrd.AvailableCapacity
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols, []string{testNode1})
 		assert.Nil(t, plan)
 		assert.Nil(t, err)
 		// no enough capacity
 		testACs = []*accrd.AvailableCapacity{
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 		}
-		plan, err = callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols)
+		plan, err = callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols, []string{testNode1})
 		assert.Nil(t, plan)
 		assert.Nil(t, err)
 	})
@@ -126,7 +127,7 @@ func TestCapacityManager(t *testing.T) {
 		testACs := []*accrd.AvailableCapacity{
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols, []string{testNode1})
 		assert.Nil(t, plan)
 		assert.Nil(t, err)
 	})
@@ -137,14 +138,10 @@ func TestCapacityManager(t *testing.T) {
 		testACs := []*accrd.AvailableCapacity{
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols, []string{testNode1})
 		assert.NotNil(t, plan)
 		assert.Nil(t, err)
-		if plan != nil {
-			assert.Equal(t, VolumesPlanMap{
-				testNode1: VolToACMap{testVols[0]: testACs[0]}}, plan.plan)
-		}
-
+		assert.Equal(t, VolumesPlanMap{testNode1: VolToACMap{testVols[0]: testACs[0]}}, plan.plan)
 	})
 	t.Run("Multiple volumes", func(t *testing.T) {
 		testVols := []*genV1.Volume{
@@ -155,7 +152,7 @@ func TestCapacityManager(t *testing.T) {
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 			getTestAC(testNode1, testLargeSize, apiV1.StorageClassHDDLVG),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACs, nil), testVols, []string{testNode1})
 		assert.NotNil(t, plan)
 		assert.Nil(t, err)
 	})
@@ -170,7 +167,7 @@ func TestCapacityManager(t *testing.T) {
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDD),
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassNVMe),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols, []string{testNode1})
 		assert.NotNil(t, plan)
 		assert.Nil(t, err)
 		if plan != nil {
@@ -189,7 +186,7 @@ func TestCapacityManager(t *testing.T) {
 		testACS := []*accrd.AvailableCapacity{
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassHDDLVG),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols, []string{testNode1})
 		assert.Nil(t, plan)
 		assert.Nil(t, err)
 	})
@@ -201,7 +198,8 @@ func TestCapacityManager(t *testing.T) {
 			getTestAC(testNode1, testSmallSize, apiV1.StorageClassSSD),
 			getTestAC(testNode2, testSmallSize, apiV1.StorageClassHDD),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols,
+			[]string{testNode1, testNode2})
 		assert.NotNil(t, plan)
 		assert.Nil(t, err)
 		if plan != nil {
@@ -217,7 +215,7 @@ func TestCapacityManager(t *testing.T) {
 		testACS := []*accrd.AvailableCapacity{
 			getTestAC(testNode1, testSmallSize+LvgDefaultMetadataSize, apiV1.StorageClassHDD),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols, []string{testNode1})
 		assert.NotNil(t, plan)
 		assert.Nil(t, err)
 		if plan != nil {
@@ -232,7 +230,7 @@ func TestCapacityManager(t *testing.T) {
 		testACS := []*accrd.AvailableCapacity{
 			getTestAC(testNode1, (testSmallSize*2)+LvgDefaultMetadataSize, apiV1.StorageClassHDD),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols, []string{testNode1})
 		assert.NotNil(t, plan)
 		assert.Nil(t, err)
 		if plan != nil {
@@ -248,13 +246,25 @@ func TestCapacityManager(t *testing.T) {
 		testACS := []*accrd.AvailableCapacity{
 			getTestAC(testNode1, (testSmallSize*2)+LvgDefaultMetadataSize, apiV1.StorageClassHDD),
 		}
-		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols)
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols, []string{testNode1})
 		assert.NotNil(t, plan)
 		assert.Nil(t, err)
 		if plan != nil {
 			assert.Equal(t, testACS[0], plan.GetACForVolume(testNode1, testVols[0]))
 			assert.Equal(t, testACS[0], plan.GetACForVolume(testNode1, testVols[1]))
 		}
+	})
+	t.Run("Node selection - capacity not found", func(t *testing.T) {
+		testVols := []*genV1.Volume{
+			getTestVol("", testSmallSize, apiV1.StorageClassHDD),
+			getTestVol("", testSmallSize, apiV1.StorageClassHDD),
+		}
+		testACS := []*accrd.AvailableCapacity{
+			getTestAC(testNode2, testSmallSize, apiV1.StorageClassHDD),
+		}
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), testVols, []string{testNode1})
+		assert.Nil(t, plan)
+		assert.Nil(t, err)
 	})
 }
 
