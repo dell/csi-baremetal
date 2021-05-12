@@ -25,7 +25,7 @@ func NewDataDiscover(fs fs.WrapFS,
 	return &WrapDataDiscoverImpl{fsHelper: fs, partHelper: part, lvmHelper: lvm}
 }
 
-// DiscoverData perform linux operation to determine if device has data on it
+// DiscoverData perform linux operation to determine if device has logical entities like filesystem on it
 // It executes lsblk to find file systems and partitions, parted for partition table
 // Receive device path and serial number
 // Return true if device has data, false in opposite, error if something went wrong

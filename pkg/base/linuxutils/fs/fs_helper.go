@@ -328,8 +328,8 @@ func (h *WrapFSImpl) DeviceHasFs(device string) (bool, error) {
 	)
 	if stdout, _, err = h.e.RunCmd(cmd,
 		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(DetectFSCmdTmpl, "")))); err != nil {
-		return false, fmt.Errorf("failed to wipe file system on %s: %v", device, err)
+		command.CmdName(fmt.Sprintf(DetectFSCmdTmpl, ""))); err != nil {
+		return false, fmt.Errorf("failed to detect file system on %s: %v", device, err)
 	}
 	if strings.TrimSpace(stdout) != "" {
 		driveHasData = true

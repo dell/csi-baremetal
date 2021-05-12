@@ -37,12 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
-
-	// +kubebuilder:scaffold:imports
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -50,7 +47,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
-	drive "github.com/dell/csi-baremetal/pkg/controller/drivelvgcontroller"
+	"github.com/dell/csi-baremetal/pkg/controller/capacitycontroller"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
@@ -194,8 +192,8 @@ func createCapacityManager(client *k8s.KubeClient, log *logrus.Logger, ch <-chan
 		return nil, err
 	}
 
-	driveLvgController := drive.NewDriveController(wrappedK8SClient, kubeCache, log)
-	if err = driveLvgController.SetupWithManager(mgr); err != nil {
+	capController := capacitycontroller.NewCapacityController(wrappedK8SClient, kubeCache, log)
+	if err = capController.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
 	return mgr, nil

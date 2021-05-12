@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package drivelvgcontroller
+package capacitycontroller
 
 import (
 	"context"
@@ -129,7 +129,7 @@ var (
 )
 
 func Test_NewLVGController(t *testing.T) {
-	c := NewDriveController(nil, nil, testLogger)
+	c := NewCapacityController(nil, nil, testLogger)
 	assert.NotNil(t, c)
 }
 
@@ -137,7 +137,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 	t.Run("Drive is good, AC is not present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		err = kubeClient.Create(tCtx, &testDrive)
@@ -154,7 +154,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 	t.Run("Drive is good, AC is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		err = kubeClient.Create(tCtx, &testDrive)
@@ -174,7 +174,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 	t.Run("Drive is bad, AC is not present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive.Spec.Health = apiV1.HealthBad
@@ -191,7 +191,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 	t.Run("Drive is bad, AC is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive.Spec.Health = apiV1.HealthBad
@@ -211,7 +211,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 	t.Run("Drive is good and not clean, AC is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive.Spec.IsClean = false
@@ -231,7 +231,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 	t.Run("Drive is good and not clean, AC is not present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive.Spec.IsClean = false
@@ -251,7 +251,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 	t.Run("LVG is good, lvg doesn't have annotation", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		err = kubeClient.Create(tCtx, &testLVG)
@@ -263,7 +263,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 	t.Run("LVG is good, Annotation is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive.Spec.IsSystem = true
@@ -287,7 +287,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 	t.Run("LVG is good, Annotation is present, wrong annotation value", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive.Spec.IsSystem = true
@@ -303,7 +303,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 	t.Run("LVG is bad, AC is not present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG.Spec.Health = apiV1.HealthBad
@@ -315,7 +315,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 	t.Run("LVG is bad, AC is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testAC := acCR1
 		err = kubeClient.Create(tCtx, &testAC)
@@ -337,7 +337,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 func TestController_ReconcileResourcesNotFound(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)
-	controller := NewDriveController(kubeClient, kubeClient, testLogger)
+	controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 	assert.NotNil(t, controller)
 	_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: drive1UUID}})
 	assert.Nil(t, err)
@@ -347,7 +347,7 @@ func TestController_filterUpdateEvent_Drive(t *testing.T) {
 	t.Run("Drives have different statuses", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive2 := drive1CR
@@ -357,7 +357,7 @@ func TestController_filterUpdateEvent_Drive(t *testing.T) {
 	t.Run("Drives have different health statuses", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive2 := drive1CR
@@ -367,7 +367,7 @@ func TestController_filterUpdateEvent_Drive(t *testing.T) {
 	t.Run("Drives have different clean", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive2 := drive1CR
@@ -377,7 +377,7 @@ func TestController_filterUpdateEvent_Drive(t *testing.T) {
 	t.Run("Drives are filtered", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive2 := drive1CR
@@ -389,7 +389,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 	t.Run("LVG have different health statuses", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
@@ -399,7 +399,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 	t.Run("LVG have different statuses", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
@@ -409,7 +409,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 	t.Run("Old lvg has annotation, new one doesn't", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
@@ -419,7 +419,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 	t.Run("Old lvg doesn't annotation, new one does", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
@@ -429,7 +429,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 	t.Run("Old lvg doesn't annotation, new one doesn't have annotation", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
@@ -438,7 +438,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 	t.Run("Both LVG have annotation", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 		assert.Nil(t, err)
-		controller := NewDriveController(kubeClient, kubeClient, testLogger)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1

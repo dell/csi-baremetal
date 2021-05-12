@@ -42,8 +42,8 @@ const (
 	PVRemoveCmdTmpl = lvmPath + "pvremove --yes %s" // add PV name
 	// PVsInVGCmdTmpl print PVs in VG cmd
 	PVsInVGCmdTmpl = lvmPath + "pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
-	// VGsListCmdTmpl print all PVs name on node
-	VGsListCmdTmpl = lvmPath + "vgs -o pv_name --noheadings"
+	// PVsListCmdTmpl print all PVs name on node
+	PVsListCmdTmpl = lvmPath + "pvdisplay --short"
 	// VGCreateCmdTmpl create VG on provided PVs cmd
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
 	// VGRemoveCmdTmpl remove VG cmd
@@ -328,9 +328,9 @@ func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 // Receive device path
 // Return true if device has vg, false in opposite, error if something went wrong
 func (l *LVM) DeviceHasVG(device string) (bool, error) {
-	stdout, _, err := l.e.RunCmd(VGsListCmdTmpl,
+	stdout, _, err := l.e.RunCmd(PVsListCmdTmpl,
 		command.UseMetrics(true),
-		command.CmdName(VGsListCmdTmpl))
+		command.CmdName(PVsListCmdTmpl))
 	if err != nil {
 		return false, err
 	}

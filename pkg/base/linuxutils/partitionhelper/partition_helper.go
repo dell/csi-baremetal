@@ -334,7 +334,7 @@ func (p *WrapPartitionImpl) DeviceHasPartitionTable(device string) (bool, error)
 		Disklabel type: gpt
 
 	*/
-	const labelKey = "Disklabel type"
+	labelKey := "Disklabel type"
 
 	cmd := fmt.Sprintf(DetectPartitionTableCmdTmpl, device)
 

@@ -728,19 +728,10 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 	if err != nil {
 		return err
 	}
-	lvgCRs, err := m.cachedCrHelper.GetLVGCRs(m.nodeID)
-	if err != nil {
-		return err
-	}
 
-	locations := make(map[string]struct{}, len(volumeCRs)+len(lvgCRs))
+	locations := make(map[string]struct{}, len(volumeCRs))
 	for _, v := range volumeCRs {
 		locations[v.Spec.Location] = struct{}{}
-	}
-	for _, lvg := range lvgCRs {
-		for _, l := range lvg.Spec.Locations {
-			locations[l] = struct{}{}
-		}
 	}
 
 	for _, drive := range driveCRs {

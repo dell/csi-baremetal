@@ -353,7 +353,7 @@ func TestLinuxUtils_DeviceHasVG(t *testing.T) {
 		e           = &mocks.GoMockExecutor{}
 		l           = NewLVM(e, testLogger)
 		pvName      = "/dev/sda2"
-		cmd         = fmt.Sprintf(VGsListCmdTmpl)
+		cmd         = fmt.Sprintf(PVsListCmdTmpl)
 		expectedErr = errors.New("error")
 	)
 

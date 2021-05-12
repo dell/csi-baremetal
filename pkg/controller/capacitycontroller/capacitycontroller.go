@@ -1,4 +1,4 @@
-package drivelvgcontroller
+package capacitycontroller
 
 import (
 	"context"
@@ -41,10 +41,10 @@ type Controller struct {
 	log            *logrus.Entry
 }
 
-// NewDriveController creates new instance of Controller structure
+// NewCapacityController creates new instance of Controller structure
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of Controller
-func NewDriveController(client *k8s.KubeClient, k8sCache k8s.CRReader, log *logrus.Logger) *Controller {
+func NewCapacityController(client *k8s.KubeClient, k8sCache k8s.CRReader, log *logrus.Logger) *Controller {
 	return &Controller{
 		client:         client,
 		crHelper:       k8s.NewCRHelper(client, log),
@@ -116,7 +116,7 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 		}
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, d.createLVGACIfNotExistsOrUpdate(lvg, size)
+	return ctrl.Result{}, d.createOrUpdateLVGCapacity(lvg, size)
 }
 
 // reconcileDrive preforms logic for drive reconciliation
@@ -129,14 +129,14 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 	case health != apiV1.HealthGood || status != apiV1.DriveStatusOnline:
 		return d.handleInaccessibleDrive(ctx, drive.Spec)
 	default:
-		return d.createACIfNotExistOrUpdate(ctx, drive.Spec)
+		return d.createOrUpdateCapacity(ctx, drive.Spec)
 	}
 }
 
-// createACIfNotExistOrUpdate tries to create AC for drive or update its size if AC already exists
-func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
+// createOrUpdateCapacity tries to create AC for drive or update its size if AC already exists
+func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
-		"method": "createACIfNotExistOrUpdate",
+		"method": "createOrUpdateCapacity",
 	})
 	driveUUID := drive.GetUUID()
 	size := drive.GetSize()
@@ -147,18 +147,6 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
-		lvg, err := d.crHelper.GetLVGByDrive(ctx, driveUUID)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		// If LVG exists for Drive, we delete drive AC, because CSI uses LVG AC
-		if lvg != nil {
-			if err := d.client.DeleteCR(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
-				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, err
-		}
 		// If ac is exists, update its size to drive size
 		if ac.Spec.Size != size {
 			ac.Spec.Size = size
@@ -186,7 +174,7 @@ func (d *Controller) createACIfNotExistOrUpdate(ctx context.Context, drive api.D
 			return ctrl.Result{}, err
 		}
 	default:
-		log.Infof("Failed to read AvailableCapacity for drive %s: %v", driveUUID, err)
+		log.Errorf("Failed to read AvailableCapacity for drive %s: %v", driveUUID, err)
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
@@ -203,7 +191,7 @@ func (d *Controller) handleInaccessibleDrive(ctx context.Context, drive api.Driv
 		log.Infof("Update AC size to 0 %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
 		ac.Spec.Size = 0
 		if err := d.client.UpdateCR(ctx, ac); err != nil {
-			log.Errorf("Failed to delete unhealthy available capacity CR: %v", err)
+			log.Errorf("Failed to update unhealthy available capacity CR: %v", err)
 			return ctrl.Result{}, err
 		}
 	case err != errTypes.ErrorNotFound:
@@ -212,8 +200,8 @@ func (d *Controller) handleInaccessibleDrive(ctx context.Context, drive api.Driv
 	return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
 }
 
-// createLVGACIfNotExistsOrUpdate creates AC for LVG
-func (d *Controller) createLVGACIfNotExistsOrUpdate(lvg *lvgcrd.LogicalVolumeGroup, size int64) error {
+// createOrUpdateLVGCapacity creates AC for LVG
+func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, size int64) error {
 	ll := d.log.WithFields(logrus.Fields{
 		"method": "createACIfFreeSpace",
 	})
