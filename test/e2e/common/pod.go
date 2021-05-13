@@ -68,8 +68,9 @@ func MakePod(ns string, nodeSelector map[string]string, pvclaims []*v1.Persisten
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				{
-					Name:  "write-pod",
-					Image: "centos",
+					Name:            "write-pod",
+					Image:           "centos",
+					ImagePullPolicy: v1.PullIfNotPresent,
 					//Image:   framework.BusyBoxImage,
 					Command: []string{"/bin/sh"},
 					Args:    []string{"-c", command},
