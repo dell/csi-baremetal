@@ -120,23 +120,14 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 	}
 	plan := VolumesPlanMap{}
 
-	// TODO reserve resources on requested nodes only - https://github.com/dell/csi-baremetal/issues/370
-	_ = nodes
-	/*for _, node := range nodes {
-		volToACOnNode := cm.selectCapacityOnNode(ctx, node, volumes)
-		if volToACOnNode == nil {
-			continue
-		}
-		plan[node] = volToACOnNode
-	}*/
-
-	for node := range cm.nodesCapacity {
+	for _, node := range nodes {
 		volToACOnNode := cm.selectCapacityOnNode(ctx, node, volumes)
 		if volToACOnNode == nil {
 			continue
 		}
 		plan[node] = volToACOnNode
 	}
+
 	if len(plan) == 0 {
 		logger.Warning("Required capacity for volumes not found")
 		return nil, nil
@@ -148,6 +139,11 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 func (cm *CapacityManager) selectCapacityOnNode(ctx context.Context, node string, volumes []*genV1.Volume) VolToACMap {
 	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.selectCapacityOnNode")
 	nodeCap := cm.nodesCapacity[node]
+	// capacity might not exists
+	if nodeCap == nil {
+		logger.Tracef("No AC found on node %s", node)
+		return nil
+	}
 
 	result := VolToACMap{}
 
