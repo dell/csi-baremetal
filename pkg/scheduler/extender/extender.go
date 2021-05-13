@@ -256,8 +256,8 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				continue
 			}
 
-			var volume *volcrd.Volume
-			if err = e.k8sCache.ReadCR(ctx, pvc.Spec.VolumeName, pod.Namespace, volume); err != nil && !k8serrors.IsNotFound(err) {
+			var volume volcrd.Volume
+			if err = e.k8sCache.ReadCR(ctx, pvc.Spec.VolumeName, pod.Namespace, &volume); err != nil && !k8serrors.IsNotFound(err) {
 				ll.Errorf("Unable to read Volume %s in NS %s: %v. ", pvc.Spec.VolumeName, pod.Namespace, err)
 				return nil, err
 			}
