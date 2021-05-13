@@ -359,21 +359,21 @@ func TestLinuxUtils_DeviceHasVG(t *testing.T) {
 
 	t.Run("Device is present in the output", func(t *testing.T) {
 		e.OnCommand(cmd).Return(fmt.Sprintf("%s\n/dev/sda", pvName), "", nil).Once()
-		hasVg, err := l.DeviceHasVG(pvName)
+		hasVg, err := l.DeviceHasPV(pvName)
 		assert.Nil(t, err)
 		assert.True(t, hasVg)
 	})
 
 	t.Run("Device is not present in the output", func(t *testing.T) {
 		e.OnCommand(cmd).Return("/dev/sda", "", nil).Once()
-		hasVg, err := l.DeviceHasVG(pvName)
+		hasVg, err := l.DeviceHasPV(pvName)
 		assert.Nil(t, err)
 		assert.False(t, hasVg)
 	})
 
 	t.Run("Command failed", func(t *testing.T) {
 		e.OnCommand(cmd).Return("", "", expectedErr).Once()
-		hasVg, err := l.DeviceHasVG(pvName)
+		hasVg, err := l.DeviceHasPV(pvName)
 		assert.NotNil(t, err)
 		assert.False(t, hasVg)
 	})

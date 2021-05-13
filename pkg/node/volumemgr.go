@@ -45,6 +45,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover/types"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
@@ -116,7 +117,7 @@ type VolumeManager struct {
 	metricDriveMgrCount    prometheus.Gauge
 
 	// discover data on drive
-	dataDiscover datadiscover.WrapDataDiscover
+	dataDiscover types.WrapDataDiscover
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -229,7 +230,7 @@ func (m *VolumeManager) SetListBlk(listBlk lsblk.WrapLsblk) {
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
 // VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
 // Volume.Spec.CSIStatus is Removing.
-// Returns reconcile result as ctrl.Result or error if something went wrong
+// Returns reconcile result as ctrl.DiscoverResult or error if something went wrong
 func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_volume_controller")()
 	m.volMu.LockKey(req.Name)
@@ -735,7 +736,7 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 	}
 
 	for _, drive := range driveCRs {
-		var hasData bool
+		var discoverResult *types.DiscoverResult
 		drive := drive
 		if drive.Spec.IsSystem && m.isDriveInLVG(drive.Spec) {
 			continue
@@ -746,17 +747,21 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 			}
 			continue
 		}
-		if hasData, err = m.dataDiscover.DiscoverData(drive.Spec.Path, drive.Spec.SerialNumber); err != nil {
+		if discoverResult, err = m.dataDiscover.DiscoverData(drive.Spec.Path, drive.Spec.SerialNumber); err != nil {
 			ll.Errorf("Failed to discover data on drive %s, err: %v", drive.Spec.SerialNumber, err)
 			continue
 		}
-		if hasData {
+		if discoverResult.HasData {
 			if drive.Spec.IsClean {
+				ll.Info(discoverResult.Message)
+				m.sendEventForDrive(&drive, eventing.NormalType, eventing.DriveHasData, discoverResult.Message)
 				m.changeDriveIsCleanField(&drive, false)
 			}
 			continue
 		}
 		if !drive.Spec.IsClean {
+			ll.Info(discoverResult.Message)
+			m.sendEventForDrive(&drive, eventing.NormalType, eventing.DriveClean, discoverResult.Message)
 			m.changeDriveIsCleanField(&drive, true)
 		}
 	}
@@ -1065,7 +1070,7 @@ func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeN
 // handleExpandingStatus handles volume CR with Resizing status, it calls ExpandLV to expand volume
 // To get logical volume name it use LVM provisioner function GetVolumePath
 // Receive context, volume CR
-// Return ctrl.Result, error
+// Return ctrl.DiscoverResult, error
 func (m *VolumeManager) handleExpandingStatus(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "handleExpandingStatus",

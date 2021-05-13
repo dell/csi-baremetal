@@ -41,6 +41,7 @@ import (
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	dataDiscover "github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover/types"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -614,7 +615,7 @@ func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	vm = prepareSuccessVolumeManager(t)
 	vm.driveMgrClient = driveMgrClient
 	discoverData := &mocklu.MockWrapDataDiscover{}
-	discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(false, nil)
+	discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(&dataDiscover.DiscoverResult{}, nil)
 	vm.dataDiscover = discoverData
 	// expect that Volume CRs won't be created because of all drives don't have children
 	err = vm.Discover()
@@ -638,8 +639,16 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	assert.Equal(t, 0, len(dItems))
 
 	discoverData := &mocklu.MockWrapDataDiscover{}
-	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(false, nil)
-	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(false, nil)
+	testResultDrive1 := &dataDiscover.DiscoverResult{
+		Message: fmt.Sprintf("Drive with path %s, SN %s, doesn't have filesystem, partition table, partitions and PV", drive1.Path, drive1.SerialNumber),
+		HasData: false,
+	}
+	testResultDrive2 := &dataDiscover.DiscoverResult{
+		Message: fmt.Sprintf("Drive with path %s, SN %s, doesn't have filesystem, partition table, partitions and PV", drive2.Path, drive2.SerialNumber),
+		HasData: false,
+	}
+	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(testResultDrive1, nil)
+	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(testResultDrive2, nil)
 	vm.dataDiscover = discoverData
 
 	err := vm.Discover()
@@ -652,8 +661,16 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 
 	// second iteration
 	discoverData = &mocklu.MockWrapDataDiscover{}
-	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(true, nil)
-	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(false, nil)
+	testResultDrive1 = &dataDiscover.DiscoverResult{
+		Message: fmt.Sprintf("Drive with path %s, SN %s, has filesystem", drive1.Path, drive1.SerialNumber),
+		HasData: true,
+	}
+	testResultDrive2 = &dataDiscover.DiscoverResult{
+		Message: fmt.Sprintf("Drive with path %s, SN %s, doesn't have filesystem, partition table, partitions and PV", drive2.Path, drive2.SerialNumber),
+		HasData: false,
+	}
+	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(testResultDrive1, nil)
+	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(testResultDrive2, nil)
 	vm.dataDiscover = discoverData
 	err = vm.Discover()
 	assert.Nil(t, err)
@@ -1079,7 +1096,11 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 		testDrive.Spec.Path = "/dev/sda"
 		testDrive.Spec.IsClean = true
 		discoverData := &mocklu.MockWrapDataDiscover{}
-		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(true, nil).Once()
+		testResult := &dataDiscover.DiscoverResult{
+			Message: fmt.Sprintf("Drive with path %s, SN %s, has filesystem", testDrive.Spec.Path, testDrive.Spec.SerialNumber),
+			HasData: true,
+		}
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(testResult, nil).Once()
 		vm.dataDiscover = discoverData
 
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
@@ -1103,7 +1124,11 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 		testDrive.Spec.IsClean = false
 
 		discoverData := &mocklu.MockWrapDataDiscover{}
-		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(true, nil).Once()
+		testResult := &dataDiscover.DiscoverResult{
+			Message: fmt.Sprintf("Drive with path %s, SN %s, has filesystem", testDrive.Spec.Path, testDrive.Spec.SerialNumber),
+			HasData: true,
+		}
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(testResult, nil).Once()
 		vm.dataDiscover = discoverData
 
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
@@ -1125,7 +1150,8 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 		testDrive.Spec.Path = "/dev/sda"
 		discoverData := &mocklu.MockWrapDataDiscover{}
 
-		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(false, testErr).Once()
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).
+			Return(&dataDiscover.DiscoverResult{}, testErr).Once()
 		vm.dataDiscover = discoverData
 
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
@@ -1147,7 +1173,11 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 
 		discoverData := &mocklu.MockWrapDataDiscover{}
 		vm.dataDiscover = discoverData
-		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(false, nil).Once()
+		testResult := &dataDiscover.DiscoverResult{
+			Message: fmt.Sprintf("Drive with path %s, SN %s doesn't have filesystem, partition table, partitions and PV", testDrive.Spec.Path, testDrive.Spec.SerialNumber),
+			HasData: false,
+		}
+		discoverData.On("DiscoverData", testDrive.Spec.Path, testDrive.Spec.SerialNumber).Return(testResult, nil).Once()
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, &testDrive)
 		assert.Nil(t, err)
 

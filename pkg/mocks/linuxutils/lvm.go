@@ -25,8 +25,8 @@ type MockWrapLVM struct {
 	mock.Mock
 }
 
-// DeviceHasVG is a mock implementations
-func (m *MockWrapLVM) DeviceHasVG(device string) (bool, error) {
+// DeviceHasPV is a mock implementations
+func (m *MockWrapLVM) DeviceHasPV(device string) (bool, error) {
 	args := m.Mock.Called(device)
 
 	return args.Bool(0), args.Error(1)

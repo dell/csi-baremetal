@@ -81,7 +81,7 @@ type WrapLVM interface {
 	GetLVsInVG(vgName string) ([]string, error)
 	GetVGNameByPVName(pvName string) (string, error)
 	ExpandLV(lvName string, requiredSize int64) error
-	DeviceHasVG(device string) (bool, error)
+	DeviceHasPV(device string) (bool, error)
 }
 
 // LVM is an implementation of WrapLVM interface and is a wrap for system /sbin/lvm util in
@@ -324,10 +324,10 @@ func (l *LVM) GetVGNameByPVName(pvName string) (string, error) {
 	return splitted[1], nil
 }
 
-// DeviceHasVG execute vgs to determine if given device is presented in output
+// DeviceHasPV execute vgs to determine if given device is presented in output
 // Receive device path
 // Return true if device has vg, false in opposite, error if something went wrong
-func (l *LVM) DeviceHasVG(device string) (bool, error) {
+func (l *LVM) DeviceHasPV(device string) (bool, error) {
 	stdout, _, err := l.e.RunCmd(PVsListCmdTmpl,
 		command.UseMetrics(true),
 		command.CmdName(PVsListCmdTmpl))
