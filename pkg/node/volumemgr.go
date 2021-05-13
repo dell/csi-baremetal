@@ -759,8 +759,8 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 			}
 			continue
 		}
+		ll.Info(discoverResult.Message)
 		if !drive.Spec.IsClean {
-			ll.Info(discoverResult.Message)
 			m.sendEventForDrive(&drive, eventing.NormalType, eventing.DriveClean, discoverResult.Message)
 			m.changeDriveIsCleanField(&drive, true)
 		}
