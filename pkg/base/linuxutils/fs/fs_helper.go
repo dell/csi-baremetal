@@ -84,7 +84,7 @@ type WrapFS interface {
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
-	DeviceHasFs(device string) (bool, error)
+	DeviceFs(device string) (string, error)
 }
 
 // WrapFSImpl is a WrapFS implementer
@@ -316,23 +316,19 @@ func (h *WrapFSImpl) Unmount(path string) error {
 	return err
 }
 
-// DeviceHasFs detect FS from the provided device using lsblk --output FSTYPE
+// DeviceFs detect FS from the provided device using lsblk --output FSTYPE
 // Receives file path of the device as a string
 // Returns error if something went wrong
-func (h *WrapFSImpl) DeviceHasFs(device string) (bool, error) {
+func (h *WrapFSImpl) DeviceFs(device string) (string, error) {
 	var (
-		cmd          = fmt.Sprintf(DetectFSCmdTmpl, device)
-		stdout       string
-		driveHasData bool
-		err          error
+		cmd    = fmt.Sprintf(DetectFSCmdTmpl, device)
+		stdout string
+		err    error
 	)
 	if stdout, _, err = h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(fmt.Sprintf(DetectFSCmdTmpl, ""))); err != nil {
-		return false, fmt.Errorf("failed to detect file system on %s: %v", device, err)
+		return "", fmt.Errorf("failed to detect file system on %s: %v", device, err)
 	}
-	if strings.TrimSpace(stdout) != "" {
-		driveHasData = true
-	}
-	return driveHasData, nil
+	return strings.TrimSpace(stdout), err
 }

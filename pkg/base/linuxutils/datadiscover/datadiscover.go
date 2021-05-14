@@ -46,17 +46,18 @@ func NewDataDiscover(fs fs.WrapFS,
 // Return true if device has data, false in opposite, error if something went wrong
 func (w *WrapDataDiscoverImpl) DiscoverData(device, serialNumber string) (*types.DiscoverResult, error) {
 	var (
-		hasData bool
-		err     error
+		fileSystem string
+		hasData    bool
+		err        error
 	)
 
-	if hasData, err = w.fsHelper.DeviceHasFs(device); err != nil {
+	if fileSystem, err = w.fsHelper.DeviceFs(device); err != nil {
 		return nil, err
 	}
-	if hasData {
+	if fileSystem != "" {
 		return &types.DiscoverResult{
-			Message: fmt.Sprintf("Drive with path %s, SN %s has filesystem.", device, serialNumber),
-			HasData: hasData,
+			Message: fmt.Sprintf("Drive with path %s, SN %s has filesystem %s.", device, serialNumber, fileSystem),
+			HasData: true,
 		}, nil
 	}
 
@@ -77,20 +78,11 @@ func (w *WrapDataDiscoverImpl) DiscoverData(device, serialNumber string) (*types
 		return &types.DiscoverResult{
 			Message: fmt.Sprintf("Drive with path %s, SN %s has partitions.", device, serialNumber),
 			HasData: hasData,
-		}, err
-	}
-
-	if hasData, err = w.lvmHelper.DeviceHasPV(device); err != nil {
-		return nil, err
-	}
-	if hasData {
-		return &types.DiscoverResult{
-			Message: fmt.Sprintf("Drive with path %s, SN %s has LVM PV.", device, serialNumber),
-			HasData: hasData,
 		}, nil
 	}
+
 	return &types.DiscoverResult{
-		Message: fmt.Sprintf("Drive with path %s, SN %s doesn't have filesystem, partition table, partitions and PV.", device, serialNumber),
+		Message: fmt.Sprintf("Drive with path %s, SN %s doesn't have filesystem, partition table, partitions or PV.", device, serialNumber),
 		HasData: hasData,
 	}, nil
 }

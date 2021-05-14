@@ -258,17 +258,17 @@ func Test_DeviceHasFs(t *testing.T) {
 	)
 
 	e.OnCommand(cmd).Return("", "", nil).Times(1)
-	hasData, err := fh.DeviceHasFs(path)
+	hasData, err := fh.DeviceFs(path)
 	assert.Nil(t, err)
-	assert.False(t, hasData)
+	assert.Equal(t, "", hasData)
 
 	e.OnCommand(cmd).Return("xfs", "", testError).Times(1)
-	hasData, err = fh.DeviceHasFs(path)
+	hasData, err = fh.DeviceFs(path)
 	assert.NotNil(t, err)
-	assert.False(t, hasData)
+	assert.Equal(t, "", hasData)
 
 	e.OnCommand(cmd).Return("xfs", "", nil).Times(1)
-	hasData, err = fh.DeviceHasFs(path)
+	hasData, err = fh.DeviceFs(path)
 	assert.Nil(t, err)
-	assert.True(t, hasData)
+	assert.Equal(t, "xfs", hasData)
 }

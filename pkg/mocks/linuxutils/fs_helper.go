@@ -27,11 +27,11 @@ type MockWrapFS struct {
 	mock.Mock
 }
 
-// DeviceHasFs is a mock implementations
-func (m *MockWrapFS) DeviceHasFs(src string) (bool, error) {
-	args := m.Mock.Called(src)
+// DeviceFs is a mock implementations
+func (m *MockWrapFS) DeviceFs(device string) (string, error) {
+	args := m.Mock.Called(device)
 
-	return args.Bool(0), args.Error(1)
+	return args.String(0), args.Error(1)
 }
 
 // GetFSSpace is a mock implementations
