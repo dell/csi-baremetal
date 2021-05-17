@@ -42,6 +42,8 @@ const (
 	PVRemoveCmdTmpl = lvmPath + "pvremove --yes %s" // add PV name
 	// PVsInVGCmdTmpl print PVs in VG cmd
 	PVsInVGCmdTmpl = lvmPath + "pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
+	// PVsListCmdTmpl print all PVs name on node
+	PVsListCmdTmpl = lvmPath + "pvdisplay --short"
 	// VGCreateCmdTmpl create VG on provided PVs cmd
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
 	// VGRemoveCmdTmpl remove VG cmd

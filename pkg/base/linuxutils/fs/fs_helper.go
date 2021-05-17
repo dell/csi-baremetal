@@ -53,7 +53,9 @@ const (
 	// RmDirCmdTmpl rm template
 	RmDirCmdTmpl = "rm -rf %s"
 	// WipeFSCmdTmpl cmd for wiping FS on device
-	WipeFSCmdTmpl = wipefs + "-af %s"
+	WipeFSCmdTmpl = wipefs + "-af %s" //
+	// DetectFSCmdTmpl cmd for detecting FS on device
+	DetectFSCmdTmpl = "lsblk %s --output FSTYPE --noheadings"
 	// GetFSTypeCmdTmpl cmd for retrieving FS type
 	GetFSTypeCmdTmpl = wipefs + "%s --output TYPE --noheadings"
 	// MountInfoFile "/proc/mounts" path
@@ -82,6 +84,7 @@ type WrapFS interface {
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
+	DeviceFs(device string) (string, error)
 }
 
 // WrapFSImpl is a WrapFS implementer
@@ -311,4 +314,21 @@ func (h *WrapFSImpl) Unmount(path string) error {
 	h.opMutex.Unlock()
 
 	return err
+}
+
+// DeviceFs detect FS from the provided device using lsblk --output FSTYPE
+// Receives file path of the device as a string
+// Returns error if something went wrong
+func (h *WrapFSImpl) DeviceFs(device string) (string, error) {
+	var (
+		cmd    = fmt.Sprintf(DetectFSCmdTmpl, device)
+		stdout string
+		err    error
+	)
+	if stdout, _, err = h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(fmt.Sprintf(DetectFSCmdTmpl, ""))); err != nil {
+		return "", fmt.Errorf("failed to detect file system on %s: %v", device, err)
+	}
+	return strings.TrimSpace(stdout), err
 }

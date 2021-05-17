@@ -93,10 +93,12 @@ const (
 	VolumePreviousStatus   = "expansion/previous-status"
 	VolumePreviousCapacity = "expansion/previous-capacity"
 	// TODO Mount status?
-
 	// Volume mode
 	ModeRAW = "RAW"
 	ModeFS  = "FS"
+
+	//LVG annotations
+	LVGFreeSpaceAnnotation = "lvg/free-space"
 
 	// Volume location type
 	LocationTypeDrive = "DRIVE"

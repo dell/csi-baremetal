@@ -77,10 +77,10 @@ func getTestACR(size int64, sc string,
 		Spec: genV1.AvailableCapacityReservation{
 			ReservationRequests: []*genV1.ReservationRequest{
 				{CapacityRequest: &genV1.CapacityRequest{
-					StorageClass:         sc,
-					Size:                 size,
+					StorageClass: sc,
+					Size:         size,
 				},
-				Reservations: acNames},
+					Reservations: acNames},
 			},
 		},
 	}

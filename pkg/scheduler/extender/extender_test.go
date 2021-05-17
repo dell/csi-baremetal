@@ -266,7 +266,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 
 func TestExtender_filterSuccess(t *testing.T) {
 	var (
-		podName	  = "mypod"
+		podName   = "mypod"
 		node1Name = "NODE-1"
 		node2Name = "NODE-2"
 		node3Name = "NODE-3"
@@ -282,7 +282,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node2UID), Name: node2Name}},
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node3UID), Name: node3Name}},
 	}
-	
+
 	pod := &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{Name: podName},
 	}
@@ -590,11 +590,11 @@ func Test_reservationName(t *testing.T) {
 	namespace := "mynamespace"
 	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
 	name := getReservationName(pod)
-	assert.Equal(t, namespace + "-" + podName, name)
+	assert.Equal(t, namespace+"-"+podName, name)
 
 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: ""}}
 	name = getReservationName(pod)
-	assert.Equal(t, "default-" + podName, name)
+	assert.Equal(t, "default-"+podName, name)
 
 }
 
@@ -610,7 +610,7 @@ func Test_createReservation(t *testing.T) {
 	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", UID: "uuid-1"}}}
 
 	e := setup(t)
-	err := e.createReservation(testCtx, namespace, name,  nodes, capacityRequests)
+	err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
 	assert.Nil(t, err)
 
 	// read back and check fields
@@ -626,7 +626,7 @@ func Test_createReservation(t *testing.T) {
 	namespace = ""
 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
 	name = getReservationName(pod)
-	err = e.createReservation(testCtx, namespace, name,  nodes, capacityRequests)
+	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
 	assert.Nil(t, err)
 
 	reservationResource = &acrcrd.AvailableCapacityReservation{}

@@ -41,6 +41,8 @@ type WrapPartition interface {
 	GetPartitionUUID(device, partNum string) (string, error)
 	SyncPartitionTable(device string) error
 	GetPartitionNameByUUID(device, partUUID string) (string, error)
+	DeviceHasPartitionTable(device string) (bool, error)
+	DeviceHasPartitions(device, serialNumber string) (bool, error)
 }
 
 const (
@@ -52,6 +54,8 @@ const (
 	partprobe = "partprobe "
 	// sgdisk is a name of system util
 	sgdisk = "sgdisk "
+	// fdiks is a name of system util
+	fdisk = "fdisk "
 
 	// PartprobeDeviceCmdTmpl check that device has partition cmd
 	PartprobeDeviceCmdTmpl = partprobe + "-d -s %s"
@@ -65,6 +69,9 @@ const (
 	CreatePartitionCmdTmpl = parted + "-s %s mkpart --align optimal %s 0%% 100%%"
 	// DeletePartitionCmdTmpl delete partition from provided device cmd template, fill device and partition number
 	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
+
+	// DetectPartitionTableCmdTmpl is used to print information, which contain partition table
+	DetectPartitionTableCmdTmpl = fdisk + "--list %s"
 
 	// SetPartitionUUIDCmdTmpl command for set GUID of the partition, fill device, part number and part UUID
 	SetPartitionUUIDCmdTmpl = sgdisk + "%s --partition-guid=%s:%s"
@@ -313,4 +320,62 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 
 	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s within %v",
 		partUUID, device, blockdevices)
+}
+
+// DeviceHasPartitionTable calls parted  and determine if device has partition table from output
+// Receive device path
+// Return true if device has partition table, false in opposite, error if something went wrong
+func (p *WrapPartitionImpl) DeviceHasPartitionTable(device string) (bool, error) {
+	/*
+		Disk /dev/sda: 931.5 GiB, 1000204886016 bytes, 1953525168 sectors
+		Units: sectors of 1 * 512 = 512 bytes
+		Sector size (logical/physical): 512 bytes / 512 bytes
+		I/O size (minimum/optimal): 512 bytes / 512 bytes
+		Disklabel type: gpt
+
+	*/
+	labelKey := "Disklabel type"
+
+	cmd := fmt.Sprintf(DetectPartitionTableCmdTmpl, device)
+
+	p.opMutex.Lock()
+	stdout, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(DetectPartitionTableCmdTmpl, ""))))
+	p.opMutex.Unlock()
+
+	if err != nil {
+		return false, err
+	}
+
+	if strings.Contains(stdout, labelKey) {
+		return true, nil
+	}
+	return false, nil
+}
+
+// DeviceHasPartitions calls lsblk and determine if device has partitions (children)
+// Receive device path and serial number
+// Return true if device has partitions, false in opposite, error if something went wrong
+func (p *WrapPartitionImpl) DeviceHasPartitions(device, serialNumber string) (bool, error) {
+	blockDevices, err := p.lsblkUtil.GetBlockDevices(device)
+	if len(blockDevices) != 1 {
+		return false, fmt.Errorf("wrong output of lsblk for %s, block devices: %v", device, blockDevices)
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	bdev := blockDevices[0]
+
+	if !strings.EqualFold(bdev.Serial, serialNumber) {
+		return false, fmt.Errorf("serial numbers for block device %s don't match: %s != %s", bdev.Name, bdev.Serial,
+			serialNumber)
+	}
+	if len(bdev.Children) > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
