@@ -207,10 +207,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 }
 
 func TestReconcile_LVGHealthBad(t *testing.T) {
-	var (
-		fLVG  = lvgCR1
-		newAC = &accrd.AvailableCapacity{}
-	)
+	var fLVG = lvgCR1
 	fLVG.Spec.Status = apiV1.Created
 	fLVG.Spec.Health = apiV1.HealthBad
 	fLVG.Finalizers = []string{lvgFinalizer}
@@ -224,9 +221,6 @@ func TestReconcile_LVGHealthBad(t *testing.T) {
 	res, err := c.Reconcile(req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
-
-	err = c.k8sClient.ReadCR(tCtx, acCR1Name, "", newAC)
-	assert.Equal(t, int64(0), newAC.Spec.Size)
 }
 
 func TestReconcile_SuccessDeletion(t *testing.T) {
@@ -409,17 +403,18 @@ func Test_increaseACSize(t *testing.T) {
 	c := setup(t, node1ID)
 
 	// add AC CR that point in LVGCR1
-	err := c.k8sClient.CreateCR(tCtx, acCR1Name, &acCR1)
+	testLVG := lvgCR1
+	err := c.k8sClient.CreateCR(tCtx, testLVG.Name, &testLVG)
 	assert.Nil(t, err)
 
-	size := acCR1.Spec.Size
-	drive := acCR1.Spec.Location
-	c.increaseACSize(drive, 1)
+	assert.Nil(t, c.setNewVGSize(&testLVG, int64(1)))
 
-	acList := &accrd.AvailableCapacityList{}
-	err = c.k8sClient.ReadList(tCtx, acList)
-
-	assert.Equal(t, size+1, acList.Items[0].Spec.Size)
+	uLVG := &lvgcrd.LogicalVolumeGroup{}
+	err = c.k8sClient.ReadCR(tCtx, testLVG.Name, "", uLVG)
+	assert.Nil(t, c.setNewVGSize(&testLVG, int64(1)))
+	assert.NotNil(t, testLVG.Annotations)
+	_, ok := testLVG.Annotations[apiV1.LVGFreeSpaceAnnotation]
+	assert.True(t, ok)
 }
 
 // setup creates drive CRs and LogicalVolumeGroup CRs and returns Controller instance

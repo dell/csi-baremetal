@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,13 +30,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vccrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
@@ -107,16 +106,9 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// check for LogicalVolumeGroup state
-	switch lvg.Spec.Status {
-	case apiV1.Creating:
+	if lvg.Spec.Status == apiV1.Creating {
 		ll.Info("Creating LogicalVolumeGroup")
 		return c.handlerLVGCreation(lvg)
-	case apiV1.Failed:
-		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
-	}
-
-	if lvg.Spec.Health != apiV1.HealthGood {
-		return ctrl.Result{}, c.resetACSizeOfLVG(lvg.Name)
 	}
 
 	return ctrl.Result{}, nil
@@ -192,12 +184,15 @@ func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Res
 	// we prevent removing, because this LogicalVolumeGroup is still used.
 	for _, item := range volumes.Items {
 		if item.Spec.Location == lvg.Name && item.DeletionTimestamp.IsZero() {
+			// update AC size that point on that LogicalVolumeGroup
+			if err := c.setNewVGSize(lvg, lvg.Spec.Size); err != nil {
+				ll.Errorf("Unable to update LVG: %v", err)
+				return ctrl.Result{}, err
+			}
 			ll.Debugf("There are volume %v with LogicalVolumeGroup location, stop LogicalVolumeGroup deletion", item)
 			return ctrl.Result{}, nil
 		}
 	}
-	// update AC size that point on that LogicalVolumeGroup
-	c.increaseACSize(lvg.Spec.Locations[0], lvg.Spec.Size)
 
 	drivesUUIDs := c.k8sClient.GetSystemDriveUUIDs()
 	if !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
@@ -309,60 +304,14 @@ func (c *Controller) removeLVGArtifacts(lvgName string) error {
 	return nil
 }
 
-// increaseACSize updates size of AC related to drive
-func (c *Controller) increaseACSize(driveID string, size int64) {
-	ll := c.log.WithFields(logrus.Fields{
-		"method":  "increaseACSize",
-		"driveID": driveID,
-	})
-
-	// read all ACs
-	acList := &accrd.AvailableCapacityList{}
-	if err := c.k8sClient.ReadList(context.Background(), acList); err != nil {
-		ll.Errorf("Unable to list ACs: %v", err)
-		return
+func (c *Controller) setNewVGSize(lvg *lvgcrd.LogicalVolumeGroup, size int64) error {
+	if lvg.Annotations == nil {
+		lvg.Annotations = make(map[string]string, 1)
 	}
-
-	// search for AC and update size
-	for _, ac := range acList.Items {
-		if ac.Spec.Location == driveID {
-			ac.Spec.Size += size
-			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, driveID)
-			// nolint: scopelint
-			if err := c.k8sClient.UpdateCR(ctxWithID, &ac); err != nil {
-				ll.Errorf("Unable to update size of AC %v, error: %v", ac, err)
-			}
-			return
-		}
+	lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(size, 10)
+	ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
+	if err := c.k8sClient.UpdateCR(ctx, lvg); err != nil {
+		return err
 	}
-
-	ll.Errorf("Corresponding AC for drive ID %s not found", driveID)
-}
-
-// resetACSize sets size of corresponding AC to 0 to avoid further allocations
-func (c *Controller) resetACSizeOfLVG(lvgName string) error {
-	var (
-		err error
-		ac  *accrd.AvailableCapacity
-	)
-	// read AC
-	if ac, err = c.crHelper.GetACByLocation(lvgName); err == nil {
-		// update if not null already
-		if ac.Spec.Size != 0 {
-			ac.Spec.Size = 0
-			if err := c.k8sClient.UpdateCR(context.Background(), ac); err != nil {
-				c.log.Errorf("Unable to set AC CR %s size to 0, error: %v.", ac.Name, err)
-				return err
-			}
-		}
-		return nil
-	}
-
-	if err == errTypes.ErrorNotFound {
-		// non re-triable error
-		c.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
-		return nil
-	}
-
-	return err
+	return nil
 }

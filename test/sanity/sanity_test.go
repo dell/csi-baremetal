@@ -26,11 +26,15 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/coreos/rkt/tests/testutils/logger"
+	"github.com/google/uuid"
 	"github.com/kubernetes-csi/csi-test/v3/pkg/sanity"
 	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -147,6 +151,25 @@ func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 				ll.Fatalf("Discover failed: %v", err)
 			}
 			doOnce.Do(func() {
+				drives := &drivecrd.DriveList{}
+				_ = kubeClient.ReadList(context.Background(), drives)
+				for _, d := range drives.Items {
+					name := uuid.New().String()
+					location := d.Name
+					var ac = accrd.AvailableCapacity{}
+					err = kubeClient.ReadCR(context.Background(), location, "", &ac)
+					if k8serrors.IsNotFound(err) {
+						acCR := kubeClient.ConstructACCR(name, api.AvailableCapacity{
+							Location:     d.Spec.UUID,
+							NodeId:       d.Spec.NodeId,
+							StorageClass: d.Spec.Type,
+							Size:         d.Spec.Size,
+						})
+						if err := kubeClient.CreateCR(context.Background(), name, acCR); err != nil {
+							logger.Errorf("unable to create AC, error: %v", err)
+						}
+					}
+				}
 				nodeReady <- true
 			})
 		}

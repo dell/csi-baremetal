@@ -27,6 +27,13 @@ type MockWrapFS struct {
 	mock.Mock
 }
 
+// DeviceFs is a mock implementations
+func (m *MockWrapFS) DeviceFs(device string) (string, error) {
+	args := m.Mock.Called(device)
+
+	return args.String(0), args.Error(1)
+}
+
 // GetFSSpace is a mock implementations
 func (m *MockWrapFS) GetFSSpace(src string) (int64, error) {
 	args := m.Mock.Called(src)

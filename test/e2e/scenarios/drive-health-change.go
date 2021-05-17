@@ -137,12 +137,15 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		deadline := time.Now().Add(time.Second * 30)
 		for {
 			acUnstructuredList = getUObjList(f, common.ACGVR)
-			if len(acUnstructuredList.Items) == amountOfACBeforeDiskFailure-1 {
-				e2elog.Logf("AC count decreased")
+			targetAC := acUnstructuredList.Items[0]
+			size, _, err := unstructured.NestedInt64(targetAC.Object, "spec", "Size")
+			framework.ExpectNoError(err)
+			if size == 0 {
+				e2elog.Logf("AC size is 0")
 				return
 			}
 			if time.Now().After(deadline) {
-				framework.Failf("AC count doesn't decreased")
+				framework.Failf("AC size is %d, should be 0", size)
 			}
 			time.Sleep(time.Second * 3)
 		}

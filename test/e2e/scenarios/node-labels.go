@@ -100,7 +100,7 @@ func labeledDeployTestSuite(driver testsuites.TestDriver) {
 		_, err = f.ClientSet.AppsV1().DaemonSets(f.Namespace.Name).Update(nodeDep)
 
 		// give some time to put nodes to termination state
-		time.Sleep(10* time.Second)
+		time.Sleep(10 * time.Second)
 
 		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
 			1*time.Minute, nil)
