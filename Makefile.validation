@@ -72,6 +72,7 @@ kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker pull ${REGISTRY}/library/nginx:1.14-alpine
+	docker pull docker.io/library/centos:latest
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -98,6 +99,7 @@ kind-load-images:
 	kind load docker-image ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	kind load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
 	kind load docker-image docker.io/library/nginx:1.14-alpine
+	kind load docker-image docker.io/library/centos:latest
 	kind load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	kind load docker-image ${PROJECT}-${NODE}:${TAG}
 	kind load docker-image ${PROJECT}-${NODE}-kernel-5.4:${TAG}

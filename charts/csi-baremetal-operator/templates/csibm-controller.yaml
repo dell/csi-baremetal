@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: csi-operator
+        release: {{ .Release.Name }}
     spec:
       serviceAccount: csi-operator-sa
       terminationGracePeriodSeconds: 10
@@ -57,10 +58,14 @@ spec:
                 fieldPath: metadata.namespace
         {{- if .Values.csi.deploy }}
         volumeMounts:
+          - mountPath: /crash-dump
+            name: crash-dump
           - mountPath: /root/.kube/config
             name: kube-config
             mountPropagation: "HostToContainer"
       volumes:
+        - name: crash-dump
+          emptyDir: {}
         - name: kube-config
           hostPath:
             path: /etc/kubernetes/admin.conf

@@ -405,7 +405,6 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 	switch reservation.Spec.Status {
 	case v1.ReservationRequested:
 		// not an error - reservation requested. need to retry
-		// todo check for requested nodes update - https://github.com/dell/csi-baremetal/issues/370
 		return nil, nil, nil
 	case v1.ReservationConfirmed:
 		// need to filter nodes here
