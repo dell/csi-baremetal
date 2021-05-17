@@ -117,6 +117,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 
 	cleanup := func() {
 		if BMDriverTestContext.CompleteUninstall {
+			CleanupLoopbackDevices(f)
 			// delete resources with finalizers
 			// pvcs and volumes are namespaced resources and deleting with it
 			deleteCSIResources(cmdExecutor, []string{"lvgs", "csibmnodes"})
@@ -129,8 +130,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		if BMDriverTestContext.CompleteUninstall {
 			// delete resources without finalizers
 			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
-
-			CleanupLoopbackDevices(f)
 		}
 	}
 

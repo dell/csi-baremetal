@@ -30,7 +30,6 @@ import (
 // Modified version of CreatePod function from k8s.io/kubernetes/test/e2e/framework/pod
 func CreatePod(client clientset.Interface, namespace string, nodeSelector map[string]string, pvclaims []*v1.PersistentVolumeClaim, isPrivileged bool, command string) (*v1.Pod, error) {
 	pod := MakePod(namespace, nodeSelector, pvclaims, isPrivileged, command)
-	pod.Spec.Containers[0].ImagePullPolicy = "IfNotPresent"
 
 	pod, err := client.CoreV1().Pods(namespace).Create(pod)
 	if err != nil {
@@ -70,8 +69,9 @@ func MakePod(ns string, nodeSelector map[string]string, pvclaims []*v1.Persisten
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				{
-					Name:  "write-pod",
-					Image: "centos",
+					Name:            "write-pod",
+					Image:           "centos",
+					ImagePullPolicy: v1.PullIfNotPresent,
 					//Image:   framework.BusyBoxImage,
 					Command: []string{"/bin/sh"},
 					Args:    []string{"-c", command},
