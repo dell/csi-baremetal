@@ -431,37 +431,19 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 
 func Test_checkAnnotationAndLabels(t *testing.T) {
 	testCases := []struct {
-		description                    string
-		currentAnnotationValue         string
-		targetAnnotationValue          string
-		currentOsNameLabelValue        string
-		targetOsNameLabelValue         string
-		currentOsVersionLabelValue     string
-		targetOsVersionLabelValue      string
-		currentKernelVersionLabelValue string
-		targetKernelVersionLabelValue  string
+		description            string
+		currentAnnotationValue string
+		targetAnnotationValue  string
 	}{
 		{
-			description:                    "Node has required annotation and labels",
-			currentAnnotationValue:         "aaaa-bbbb",
-			targetAnnotationValue:          "aaaa-bbbb",
-			currentOsNameLabelValue:        osName,
-			targetOsNameLabelValue:         osName,
-			currentOsVersionLabelValue:     osVersion,
-			targetOsVersionLabelValue:      osVersion,
-			currentKernelVersionLabelValue: kernelVersion,
-			targetKernelVersionLabelValue:  kernelVersion,
+			description:            "Node has required annotation and labels",
+			currentAnnotationValue: "aaaa-bbbb",
+			targetAnnotationValue:  "aaaa-bbbb",
 		},
 		{
-			description:                    "Node has required annotation and labels with wrong values",
-			currentAnnotationValue:         "aaaa-bbbb",
-			targetAnnotationValue:          "ffff-dddd",
-			currentOsNameLabelValue:        osName,
-			targetOsNameLabelValue:         osName,
-			currentOsVersionLabelValue:     osVersion,
-			targetOsVersionLabelValue:      "19.10",
-			currentKernelVersionLabelValue: kernelVersion,
-			targetKernelVersionLabelValue:  "5.4",
+			description:            "Node has required annotation and labels with wrong values",
+			currentAnnotationValue: "aaaa-bbbb",
+			targetAnnotationValue:  "ffff-dddd",
 		},
 	}
 
@@ -474,13 +456,6 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 
 			// set annotation
 			node.Annotations[common.DeafultNodeIDAnnotationKey] = testCase.currentAnnotationValue
-			// set OS image and labels
-			node.Status.NodeInfo.OSImage = testCase.targetOsNameLabelValue + " " + testCase.targetOsVersionLabelValue
-			node.Labels[common.NodeOSNameLabelKey] = testCase.currentOsNameLabelValue
-			node.Labels[common.NodeOSVersionLabelKey] = testCase.currentOsVersionLabelValue
-			// set Kernel version and label
-			node.Status.NodeInfo.KernelVersion = testCase.targetKernelVersionLabelValue
-			node.Labels[common.NodeKernelVersionLabelKey] = testCase.currentKernelVersionLabelValue
 
 			createObjects(t, c.k8sClient, node)
 			res, err := c.updateNodeLabelsAndAnnotation(node, testCase.targetAnnotationValue)
@@ -494,18 +469,6 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			val, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 			assert.True(t, ok)
 			assert.Equal(t, testCase.targetAnnotationValue, val)
-			// check os name label
-			val, ok = nodeObj.GetLabels()[common.NodeOSNameLabelKey]
-			assert.True(t, ok)
-			assert.Equal(t, testCase.targetOsNameLabelValue, val)
-			// check os version label
-			val, ok = nodeObj.GetLabels()[common.NodeOSVersionLabelKey]
-			assert.True(t, ok)
-			assert.Equal(t, testCase.targetOsVersionLabelValue, val)
-			// check kernel version label
-			val, ok = nodeObj.GetLabels()[common.NodeKernelVersionLabelKey]
-			assert.True(t, ok)
-			assert.Equal(t, testCase.targetKernelVersionLabelValue, val)
 		})
 	}
 }
