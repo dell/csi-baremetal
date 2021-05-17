@@ -28,9 +28,7 @@ import (
 
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator"
 )
 
@@ -39,7 +37,6 @@ var (
 	namespace             = flag.String("namespace", "", "Namespace in which controller service run")
 	version               = flag.String("version", "", "CSI version to deploy charts")
 	drivemgr              = flag.String("drivemgr", "basemgr", "CSI drive manager type used in charts")
-	deploy                = flag.Bool("deploy", false, "Deploy indicates if csi-operator should deploy charts. False by default")
 	useExternalAnnotation = flag.Bool("useexternalannotation", false,
 		"Whether operator should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
@@ -71,21 +68,7 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
 
-	var (
-		installer *common.CSIInstaller
-		observer  common.Observer
-	)
-	if *deploy && *version != "" {
-		installer = common.NewCSIInstaller(*version, *drivemgr, kubeClient, command.NewExecutor(logger), logger)
-		observer = installer
-		logger.Info("Install CSI with helm")
-		go func() {
-			if err := installer.Install(); err != nil {
-				logger.Fatal(err)
-			}
-		}()
-	}
-	nodeCtrl, err := operator.NewController(*nodeSelector, *useExternalAnnotation, *nodeIDAnnotation, kubeClient, observer, logger)
+	nodeCtrl, err := operator.NewController(*nodeSelector, *useExternalAnnotation, *nodeIDAnnotation, kubeClient, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}

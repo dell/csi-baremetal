@@ -93,7 +93,7 @@ func TestNewCSIBMController(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("Node selector is empty", func(t *testing.T) {
-		c, err := NewController("", false, "", k8sClient, nil, testLogger)
+		c, err := NewController("", false, "", k8sClient, testLogger)
 		assert.Nil(t, err)
 		assert.Nil(t, c.nodeSelector)
 		assert.NotNil(t, c)
@@ -108,7 +108,7 @@ func TestNewCSIBMController(t *testing.T) {
 			value = "value"
 		)
 
-		c, err := NewController("key:value", false, "", k8sClient, nil, testLogger)
+		c, err := NewController("key:value", false, "", k8sClient, testLogger)
 		assert.Nil(t, err)
 		assert.NotNil(t, c)
 		assert.NotNil(t, c.cache)
@@ -119,7 +119,7 @@ func TestNewCSIBMController(t *testing.T) {
 	})
 
 	t.Run("Node selector is wrong", func(t *testing.T) {
-		c, err := NewController("key:dfdf:value", false, "", k8sClient, nil, testLogger)
+		c, err := NewController("key:dfdf:value", false, "", k8sClient, testLogger)
 		assert.Nil(t, c)
 		assert.NotNil(t, err)
 	})
@@ -303,7 +303,7 @@ func Test_reconcileForK8sNode(t *testing.T) {
 
 		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 		assert.Nil(t, err)
-		c, err := NewController("", useExternalAnnotaionTest, nodeAnnotaionTest, k8sClient, nil, testLogger)
+		c, err := NewController("", useExternalAnnotaionTest, nodeAnnotaionTest, k8sClient, testLogger)
 		assert.Nil(t, err)
 
 		k8sNode.Annotations[nodeAnnotaionTest] = nodeID
@@ -549,7 +549,7 @@ func setup(t *testing.T) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 	assert.Nil(t, err)
 
-	c, err := NewController("", false, "", k8sClient, nil, testLogger)
+	c, err := NewController("", false, "", k8sClient, testLogger)
 	assert.Nil(t, err)
 	return c
 }
