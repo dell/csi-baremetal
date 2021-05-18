@@ -255,6 +255,18 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			if pvc.Status.Phase == coreV1.ClaimBound || pvc.Status.Phase == coreV1.ClaimLost {
 				continue
 			}
+
+			var volume volcrd.Volume
+			if err = e.k8sCache.ReadCR(ctx, pvc.Spec.VolumeName, pod.Namespace, &volume); err != nil && !k8serrors.IsNotFound(err) {
+				ll.Errorf("Unable to read Volume %s in NS %s: %v. ", pvc.Spec.VolumeName, pod.Namespace, err)
+				return nil, err
+			}
+
+			if err == nil {
+				ll.Infof("Found volume %v for PVC %s", volume, pvc.Name)
+				continue
+			}
+
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
 				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
 				if !ok {
