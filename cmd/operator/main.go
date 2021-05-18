@@ -35,8 +35,6 @@ import (
 var (
 	nodeSelector          = flag.String("nodeselector", "", "controller will be work only with node with provided nodeSelector")
 	namespace             = flag.String("namespace", "", "Namespace in which controller service run")
-	version               = flag.String("version", "", "CSI version to deploy charts")
-	drivemgr              = flag.String("drivemgr", "basemgr", "CSI drive manager type used in charts")
 	useExternalAnnotation = flag.Bool("useexternalannotation", false,
 		"Whether operator should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
