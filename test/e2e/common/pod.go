@@ -30,6 +30,7 @@ import (
 // Modified version of CreatePod function from k8s.io/kubernetes/test/e2e/framework/pod
 func CreatePod(client clientset.Interface, namespace string, nodeSelector map[string]string, pvclaims []*v1.PersistentVolumeClaim, isPrivileged bool, command string) (*v1.Pod, error) {
 	pod := MakePod(namespace, nodeSelector, pvclaims, isPrivileged, command)
+
 	pod, err := client.CoreV1().Pods(namespace).Create(pod)
 	if err != nil {
 		return nil, fmt.Errorf("pod Create API error: %v", err)

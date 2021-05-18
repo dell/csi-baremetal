@@ -23,11 +23,7 @@ limitations under the License.
 package scenarios
 
 import (
-	"path"
-
 	"github.com/onsi/ginkgo"
-	"github.com/sirupsen/logrus"
-	"k8s.io/kubernetes/test/e2e/framework/testfiles"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 
@@ -44,42 +40,25 @@ var CSITestSuites = []func() testsuites.TestSuite{
 }
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
-	logrus.Infof("RepoRoot: %s", common.BMDriverTestContext.RepoRoot)
+	var (
+		curDriver       = BaremetalDriver()
+		operatorCleanup = func() {}
+	)
 
-	pathToTheManifests := path.Join(
-		common.BMDriverTestContext.RepoRoot, "/tmp/")
-
-	testfiles.AddFileSource(testfiles.RootFileSource{
-		Root: pathToTheManifests,
-	})
-
-	curDriver := BaremetalDriver()
-
-	patcherCleanup := func() {}
-	csibmOperatorCleanup := func() {}
 	ginkgo.BeforeSuite(func() {
-		c, err := common.GetGlobalClientSet()
+		clientset, err := common.GetGlobalClientSet()
 		if err != nil {
 			ginkgo.Fail(err.Error())
 		}
 
-		if common.BMDriverTestContext.BMDeploySchedulerPatcher {
-			patcherCleanup, err = common.DeployPatcher(c, "kube-system")
-			if err != nil {
-				ginkgo.Fail(err.Error())
-			}
-		}
-		if common.BMDriverTestContext.BMDeployCSIBMNodeOperator {
-			csibmOperatorCleanup, err = common.DeployCSIBMOperator(c)
-			if err != nil {
-				ginkgo.Fail(err.Error())
-			}
+		operatorCleanup, err = common.DeployOperatorWithClient(clientset)
+		if err != nil {
+			ginkgo.Fail(err.Error())
 		}
 	})
 
 	ginkgo.AfterSuite(func() {
-		csibmOperatorCleanup()
-		patcherCleanup()
+		operatorCleanup()
 	})
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
@@ -87,9 +66,9 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 		DefineDriveHealthChangeTestSuite(curDriver)
 		DefineControllerNodeFailTestSuite(curDriver)
 		DefineNodeRebootTestSuite(curDriver)
-		DefineDifferentSCTestSuite(curDriver)
 		DefineStressTestSuite(curDriver)
+		DefineDifferentSCTestSuite(curDriver)
 		DefineSchedulerTestSuite(curDriver)
-		DefineLabeledDeployTestSuite(curDriver)
+		DefineLabeledDeployTestSuite()
 	})
 })

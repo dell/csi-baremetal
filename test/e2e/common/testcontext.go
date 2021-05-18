@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
+Copyright © 2021 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,20 +16,10 @@ limitations under the License.
 
 package common
 
-import (
-	"k8s.io/kubernetes/test/e2e/framework"
-)
-
+// BMDriverTestContextType stores custom testing context
 type BMDriverTestContextType struct {
-	*framework.TestContextType
-	BMDeploySchedulerExtender bool
-	BMDeploySchedulerPatcher  bool
-	BMWaitSchedulerRestart    bool
-	BMDeployCSIBMNodeOperator bool
+	ChartsDir         string
+	CompleteUninstall bool
 }
 
 var BMDriverTestContext BMDriverTestContextType
-
-func init() {
-	BMDriverTestContext.TestContextType = &framework.TestContext
-}
