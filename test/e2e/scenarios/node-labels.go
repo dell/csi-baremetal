@@ -92,7 +92,7 @@ func labeledDeployTestSuite() {
 				break
 			}
 			if time.Now().After(deadline) {
-				framework.Failf("Pods number is %d, should be %d", len(np), len(nodes))
+				ginkgo.Fail(fmt.Sprintf("Pods number is %d, should be %d", len(np), len(nodes)))
 			}
 			time.Sleep(time.Second * 3)
 		}
