@@ -80,7 +80,9 @@ func labeledDeployTestSuite() {
 		}
 
 		// wait till operator reconcile csi
-		time.Sleep(15 * time.Second)
+		// operator has to receive NodeUpdate request and label new nodes to expand node-daemonset
+		// if new pods aren't created in time, WaitForPodsRunningReady will be skipped
+		time.Sleep(10 * time.Second)
 
 		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
 			3*time.Minute, nil)
