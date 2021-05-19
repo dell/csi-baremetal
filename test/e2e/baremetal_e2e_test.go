@@ -37,21 +37,17 @@ func skipIfNotCI(t *testing.T) {
 	}
 }
 
-func registerBMDriverFlags(flags *flag.FlagSet) {
-	flags.BoolVar(&common.BMDriverTestContext.BMDeploySchedulerExtender, "bm-deploy-scheduler-extender",
-		true, "Deploy extender for scheduler")
-	flags.BoolVar(&common.BMDriverTestContext.BMDeploySchedulerPatcher, "bm-deploy-scheduler-patcher",
-		true, "Deploy patcher for scheduler config")
-	flags.BoolVar(&common.BMDriverTestContext.BMWaitSchedulerRestart, "bm-wait-scheduler-restart",
-		true, "Wait for scheduler restart")
-	flags.BoolVar(&common.BMDriverTestContext.BMDeployCSIBMNodeOperator, "bm-deploy-csi-bm-node-operator",
-		true, "Deploy controller for CSIBMNode CRs")
+func registerCustomFlags(flags *flag.FlagSet) {
+	flags.StringVar(&common.BMDriverTestContext.ChartsDir, "chartsDir",
+		"/tmp/charts", "Path to folder with helm charts")
+	flags.BoolVar(&common.BMDriverTestContext.CompleteUninstall, "completeUninstall",
+		true, "Uninstall pvc, volumes, lvgs, csibmnodes")
 }
 
 func init() {
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)
-	registerBMDriverFlags(flag.CommandLine)
+	registerCustomFlags(flag.CommandLine)
 }
 
 func Test(t *testing.T) {

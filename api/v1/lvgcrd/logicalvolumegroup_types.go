@@ -29,7 +29,7 @@ import (
 // +kubebuilder:printcolumn:name="HEALTH",type="string",JSONPath=".spec.Health",description="LVG health status"
 // +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.Node",description="LVG node location"
 // +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Size of Logical volume group"
-// +kubebuilder:printcolumn:name="LOCACTIONS",type="string",JSONPath=".spec.Locations",description="LVG drives locations list"
+// +kubebuilder:printcolumn:name="LOCATIONS",type="string",JSONPath=".spec.Locations",description="LVG drives locations list"
 // LogicalVolumeGroup is the Schema for the LVGs API
 type LogicalVolumeGroup struct {
 	metav1.TypeMeta   `json:",inline"`

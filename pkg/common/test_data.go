@@ -17,9 +17,10 @@ limitations under the License.
 package common
 
 var (
+// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
+/*
 	testNS = "default"
-	// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
-	/*testLogger = logrus.New()
+	testLogger = logrus.New()
 
 	testCtx = context.Background()
 	testNode1Name = "node1"

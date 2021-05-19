@@ -38,8 +38,6 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/base/util"
-	observer "github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
@@ -61,8 +59,7 @@ type Controller struct {
 	enabledForNode map[string]bool
 	enabledMu      sync.RWMutex
 
-	observer observer.Observer
-	log      *logrus.Entry
+	log *logrus.Entry
 
 	// if used external annotations
 	externalAnnotation bool
@@ -98,14 +95,13 @@ func (nc *nodesMapping) put(k8sNodeName, bmNodeName string) {
 
 // NewController returns instance of Controller
 func NewController(nodeSelector string, useExternalAnnotaion bool, nodeAnnotaion string,
-	k8sClient *k8s.KubeClient, observer observer.Observer, logger *logrus.Logger) (*Controller, error) {
+	k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
 	c := &Controller{
 		k8sClient: k8sClient,
 		cache: nodesMapping{
 			k8sToBMNode: make(map[string]string),
 			bmToK8sNode: make(map[string]string),
 		},
-		observer:           observer,
 		enabledForNode:     make(map[string]bool, 3), // a little optimization, if cluster has 3 worker nodes this map won't be extended
 		log:                logger.WithField("component", "Controller"),
 		externalAnnotation: useExternalAnnotaion,
@@ -417,6 +413,10 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 	ll := bmc.log.WithField("method", "updateNodeLabelsAndAnnotation")
 
 	toUpdate := false
+	// initialize labels map if needed
+	if k8sNode.Labels == nil {
+		k8sNode.ObjectMeta.Labels = make(map[string]string, 1)
+	}
 	// check for annotations
 	val, ok := k8sNode.GetAnnotations()[bmc.annotationKey]
 	if bmc.externalAnnotation && !ok {
@@ -439,48 +439,6 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 		}
 		k8sNode.ObjectMeta.Annotations[bmc.annotationKey] = nodeUUID
 		toUpdate = true
-	}
-
-	// initialize labels map if needed
-	if k8sNode.Labels == nil {
-		k8sNode.ObjectMeta.Labels = make(map[string]string, 1)
-	}
-	// check for OS labels
-	name, version, err := util.GetOSNameAndVersion(k8sNode.Status.NodeInfo.OSImage)
-	if err == nil {
-		// os name
-		if k8sNode.Labels[common.NodeOSNameLabelKey] != name {
-			// not set or matches
-			ll.Infof("Setting label %s=%s on node %s", common.NodeOSNameLabelKey, name, k8sNode.Name)
-			k8sNode.Labels[common.NodeOSNameLabelKey] = name
-			toUpdate = true
-		}
-		// os version
-		if k8sNode.Labels[common.NodeOSVersionLabelKey] != version {
-			// not set or matches
-			ll.Infof("Setting label %s=%s on node %s", common.NodeOSVersionLabelKey, version, k8sNode.Name)
-			k8sNode.Labels[common.NodeOSVersionLabelKey] = version
-			toUpdate = true
-		}
-	} else {
-		ll.Errorf("Failed to obtain OS information: %s", err)
-	}
-
-	// check for kernel version label
-	version, err = util.GetKernelVersion(k8sNode.Status.NodeInfo.KernelVersion)
-	if err == nil {
-		// os name
-		if k8sNode.Labels[common.NodeKernelVersionLabelKey] != version {
-			// not set or matches
-			ll.Infof("Setting label %s=%s on node %s", common.NodeKernelVersionLabelKey, version, k8sNode.Name)
-			k8sNode.Labels[common.NodeKernelVersionLabelKey] = version
-			toUpdate = true
-			if bmc.observer != nil {
-				bmc.observer.Notify(version)
-			}
-		}
-	} else {
-		ll.Errorf("Failed to obtain Kernel version information: %s", err)
 	}
 
 	if toUpdate {
@@ -506,21 +464,6 @@ func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 
 	// check labels
 	labels := k8sNode.GetLabels()
-	// os name
-	if _, ok := labels[common.NodeOSNameLabelKey]; ok {
-		delete(labels, common.NodeOSNameLabelKey)
-		toUpdate = true
-	}
-	// os version
-	if _, ok := labels[common.NodeOSVersionLabelKey]; ok {
-		delete(labels, common.NodeOSVersionLabelKey)
-		toUpdate = true
-	}
-	// kernel version
-	if _, ok := labels[common.NodeKernelVersionLabelKey]; ok {
-		delete(labels, common.NodeKernelVersionLabelKey)
-		toUpdate = true
-	}
 	// external csi-provisioner label
 	// TODO https://github.com/dell/csi-baremetal/issues/319 Rework after operator implementation
 	if _, ok := labels[common.NodeIDTopologyLabelKey]; ok {
