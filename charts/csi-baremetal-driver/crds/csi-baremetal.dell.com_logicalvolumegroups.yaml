@@ -23,7 +23,7 @@ spec:
     type: string
   - JSONPath: .spec.Locations
     description: LVG drives locations list
-    name: LOCACTIONS
+    name: LOCATIONS
     type: string
   group: csi-baremetal.dell.com
   names:
