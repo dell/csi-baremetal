@@ -52,8 +52,9 @@ func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
 			path:      path.Join(BMDriverTestContext.ChartsDir, "csi-baremetal-operator"),
 			namespace: operatorNamespace,
 		}
-		installArgs = fmt.Sprintf("--set image.tag=%s", operatorVersion)
-		waitTime    = 1 * time.Minute
+		installArgs = fmt.Sprintf("--set image.tag=%s "+
+			"--set image.pullPolicy=IfNotPresent", operatorVersion)
+		waitTime = 1 * time.Minute
 	)
 
 	cleanup := func() {

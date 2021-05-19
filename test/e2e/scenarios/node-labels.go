@@ -79,6 +79,9 @@ func labeledDeployTestSuite() {
 			}
 		}
 
+		// wait till operator reconcile csi
+		time.Sleep(15 * time.Second)
+
 		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
 			3*time.Minute, nil)
 
