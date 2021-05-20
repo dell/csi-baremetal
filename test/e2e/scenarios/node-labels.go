@@ -79,15 +79,26 @@ func labeledDeployTestSuite() {
 			}
 		}
 
+		// wait till operator reconcile csi
+		// operator has to receive NodeUpdate request and label new nodes to expand node-daemonset
+		// if new pods aren't created in time, WaitForPodsRunningReady will be skipped
+		deadline := time.Now().Add(time.Second * 30)
+		for {
+			np, err = common.GetNodePodsNames(f)
+			if err != nil {
+				ginkgo.Fail(err.Error())
+			}
+			if len(np) == len(nodes) {
+				break
+			}
+			if time.Now().After(deadline) {
+				ginkgo.Fail(fmt.Sprintf("Pods number is %d, should be %d", len(np), len(nodes)))
+			}
+			time.Sleep(time.Second * 3)
+		}
+
 		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
 			3*time.Minute, nil)
-
-		np, err = common.GetNodePodsNames(f)
-		if err != nil {
-			ginkgo.Fail(err.Error())
-		}
-		e2elog.Logf("nodePODS\n%+v\n", np)
-		Expect(len(np)).To(Equal(len(nodes)))
 	})
 }
 
