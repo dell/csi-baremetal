@@ -47,9 +47,6 @@ spec:
           {{- end }}
           - --loglevel={{ .Values.log.level }}
           - --logformat={{ .Values.log.format }}
-          - --version={{ .Values.image.tag }}
-          - --deploy={{ .Values.csi.deploy }}
-          - --drivemgr={{ .Values.csi.drivemgr }}
         env:
           - name: NAMESPACE
             valueFrom:
