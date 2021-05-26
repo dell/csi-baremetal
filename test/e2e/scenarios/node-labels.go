@@ -99,6 +99,7 @@ func labeledDeployTestSuite() {
 
 		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
 			3*time.Minute, nil)
+		framework.ExpectNoError(err)
 	})
 }
 

@@ -17,9 +17,11 @@ limitations under the License.
 package common
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +40,7 @@ const (
 	csiVersionEnv      = "CSI_VERSION"
 
 	operatorNamespace = "e2e-test-operator"
+	operatorContainer = "manager"
 )
 
 // DeployOperatorWithClient deploys csi-baremetal-operator with CmdHelmExecutor
@@ -110,6 +113,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		podWait         = 3 * time.Minute
 		sleepBeforeWait = 10 * time.Second
 		schedulerRC     = newSchedulerRestartChecker(f.ClientSet)
+		isRestarted     = false
+		err             error
 	)
 
 	if additionalInstallArgs != "" {
@@ -117,6 +122,13 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	cleanup := func() {
+		// Collect and print Operator logs
+		if logs, err := GetOperatorLogs(f.ClientSet); err != nil {
+			e2elog.Logf("Failed to get Operator pod: %v", err)
+		} else {
+			e2elog.Logf("---CSI Operator logs---\n%v", logs)
+		}
+
 		if BMDriverTestContext.CompleteUninstall {
 			CleanupLoopbackDevices(f)
 			// delete resources with finalizers
@@ -151,11 +163,16 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	if schedulerRC.IsInitialized {
-		if isRestarted, err := schedulerRC.WaitForRestart(); err != nil {
+		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
 			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-		} else {
-			e2elog.Logf("Scheduler is restarted: %t", isRestarted)
 		}
+	}
+
+	if isRestarted {
+		e2elog.Logf("Scheduler is restarted")
+	} else {
+		cleanup()
+		return nil, errors.New("scheduler is not restarted")
 	}
 
 	// print info about all custom resources into log messages
@@ -208,11 +225,23 @@ func GetNodePodsNames(f *framework.Framework) ([]string, error) {
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
 		if len(pod.OwnerReferences) == 1 &&
-			pod.OwnerReferences[0].Name == "csi-baremetal-node" &&
-			pod.OwnerReferences[0].Kind == "DaemonSet" {
+			pod.OwnerReferences[0].Kind == "DaemonSet" &&
+			strings.Contains(pod.OwnerReferences[0].Name, "csi-baremetal-node") {
 			podsNames = append(podsNames, pod.Name)
 		}
 	}
 	framework.Logf("Find node pods: ", podsNames)
 	return podsNames, nil
+}
+
+func GetOperatorLogs(c clientset.Interface) (string, error) {
+	operatorPod, err := e2epod.GetPodsInNamespace(c, operatorNamespace, nil)
+	if err != nil {
+		return "", err
+	}
+	logs, err := e2epod.GetPodLogs(c, operatorNamespace, operatorPod[0].Name, operatorContainer)
+	if err != nil {
+		return "", err
+	}
+	return logs, nil
 }
