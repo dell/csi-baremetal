@@ -82,7 +82,7 @@ func labeledDeployTestSuite() {
 		// wait till operator reconcile csi
 		// operator has to receive NodeUpdate request and label new nodes to expand node-daemonset
 		// if new pods aren't created in time, WaitForPodsRunningReady will be skipped
-		deadline := time.Now().Add(time.Second * 30)
+		deadline := time.Now().Add(2 * time.Minute)
 		for {
 			np, err = common.GetNodePodsNames(f)
 			if err != nil {
