@@ -38,6 +38,10 @@ const (
 	csiVersionEnv      = "CSI_VERSION"
 )
 
+// DeployCSIComponents deploys csi-baremetal-operator and csi-baremetal-deployment with CmdHelmExecutor
+// and start print containers logs from framework namespace
+// returns cleanup function and error if failed
+// See DeployOperator and DeployCSI descriptions for more details
 func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	cancelLogging := testsuites.StartPodLogs(f)
 
@@ -47,7 +51,7 @@ func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (
 		return nil, err
 	}
 
-	cleanupCSI, err := DeployCSIA(f, additionalInstallArgs)
+	cleanupCSI, err := DeployCSI(f, additionalInstallArgs)
 	if err != nil {
 		cancelLogging()
 		cleanupOperator()
@@ -111,7 +115,7 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 //			--set scheduler.log.level=debug
 //			--set nodeController.log.level=debug
 //			--set driver.log.level=debug"
-func DeployCSIA(f *framework.Framework, additionalInstallArgs string) (func(), error) {
+func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		cmdExecutor  = GetExecutor()
 		helmExecutor = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: cmdExecutor}
