@@ -89,11 +89,8 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 
 // PrepareCSI deploys CSI and enables logging for containers
 func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) (*testsuites.PerTestConfig, func()) {
-	ginkgo.By("deploying baremetal driver")
-
-	cancelLogging := testsuites.StartPodLogs(f)
-
-	cleanupCSI, err := common.DeployCSI(f, installArgs)
+	ginkgo.By("Deploying CSI Baremetal")
+	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
 
 	testConf := &testsuites.PerTestConfig{
@@ -102,17 +99,11 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) 
 		Framework: f,
 	}
 
-	cleanup := func() {
-		framework.Logf("Delete loopback devices")
-		cleanupCSI()
-	}
-
 	return testConf, func() {
 		// wait until ephemeral volume will be deleted
 		time.Sleep(time.Second * 20)
-		ginkgo.By("uninstalling baremetal driver")
+		ginkgo.By("Uninstalling CSI Baremetal")
 		cleanup()
-		cancelLogging()
 	}
 }
 

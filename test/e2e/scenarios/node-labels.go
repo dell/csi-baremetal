@@ -56,27 +56,22 @@ func labeledDeployTestSuite() {
 
 		nodes := getWorkerNodes(f.ClientSet)
 		nodes[0].Labels[label] = tag
-		if _, err := f.ClientSet.CoreV1().Nodes().Update(&nodes[0]); err != nil {
-			ginkgo.Fail(err.Error())
-		}
+		_, err := f.ClientSet.CoreV1().Nodes().Update(&nodes[0])
+		framework.ExpectNoError(err)
 
-		driverCleanup, err := common.DeployCSI(f, setNodeSelectorArg)
+		driverCleanup, err := common.DeployCSIComponents(f, setNodeSelectorArg)
 		defer driverCleanup()
-
 		framework.ExpectNoError(err)
 
 		np, err := common.GetNodePodsNames(f)
-		if err != nil {
-			ginkgo.Fail(err.Error())
-		}
+		framework.ExpectNoError(err)
 		Expect(len(np)).To(Equal(1))
 
 		nodes = getWorkerNodes(f.ClientSet)
 		for _, node := range nodes {
 			node.Labels[label] = tag
-			if _, err := f.ClientSet.CoreV1().Nodes().Update(&node); err != nil {
-				ginkgo.Fail(err.Error())
-			}
+			_, err := f.ClientSet.CoreV1().Nodes().Update(&node)
+			framework.ExpectNoError(err)
 		}
 
 		// wait till operator reconcile csi
@@ -85,14 +80,12 @@ func labeledDeployTestSuite() {
 		deadline := time.Now().Add(2 * time.Minute)
 		for {
 			np, err = common.GetNodePodsNames(f)
-			if err != nil {
-				ginkgo.Fail(err.Error())
-			}
+			framework.ExpectNoError(err)
 			if len(np) == len(nodes) {
 				break
 			}
 			if time.Now().After(deadline) {
-				ginkgo.Fail(fmt.Sprintf("Pods number is %d, should be %d", len(np), len(nodes)))
+				framework.Failf("Pods number is %d, should be %d", len(np), len(nodes))
 			}
 			time.Sleep(time.Second * 3)
 		}
