@@ -49,7 +49,7 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 		//DefineNodeRebootTestSuite(curDriver)
 		//DefineStressTestSuite(curDriver)
 		DefineDifferentSCTestSuite(curDriver)
-		DefineSchedulerTestSuite(curDriver)
+		//DefineSchedulerTestSuite(curDriver)
 		//DefineLabeledDeployTestSuite()
 	})
 })

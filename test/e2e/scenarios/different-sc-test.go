@@ -100,7 +100,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
 	})
 
-	ginkgo.It("should create Pod with PVC with ANY type", func() {
+	/*ginkgo.It("should create Pod with PVC with ANY type", func() {
 		scType := "ANY"
 		init(scType)
 		defer cleanup()
@@ -141,7 +141,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
 			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
 		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-	})
+	})*/
 }
 
 func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) *corev1.PersistentVolumeClaim {

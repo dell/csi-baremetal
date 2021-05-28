@@ -137,6 +137,5 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 
 		err = f.WaitForPodRunning(pod.Name)
 		framework.ExpectNoError(err)
-
 	})
 }
