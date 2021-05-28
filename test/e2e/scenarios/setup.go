@@ -26,8 +26,6 @@ import (
 	"github.com/onsi/ginkgo"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
-
-	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 var CSITestSuites = []func() testsuites.TestSuite{
@@ -41,25 +39,8 @@ var CSITestSuites = []func() testsuites.TestSuite{
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	var (
-		curDriver       = BaremetalDriver()
-		operatorCleanup = func() {}
+		curDriver = BaremetalDriver()
 	)
-
-	ginkgo.BeforeSuite(func() {
-		clientset, err := common.GetGlobalClientSet()
-		if err != nil {
-			ginkgo.Fail(err.Error())
-		}
-
-		operatorCleanup, err = common.DeployOperatorWithClient(clientset)
-		if err != nil {
-			ginkgo.Fail(err.Error())
-		}
-	})
-
-	ginkgo.AfterSuite(func() {
-		operatorCleanup()
-	})
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)

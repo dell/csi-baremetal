@@ -17,18 +17,18 @@ limitations under the License.
 package common
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
+	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
 )
@@ -36,21 +36,49 @@ import (
 const (
 	operatorVersionEnv = "OPERATOR_VERSION"
 	csiVersionEnv      = "CSI_VERSION"
-
-	operatorNamespace = "e2e-test-operator"
 )
 
-// DeployOperatorWithClient deploys csi-baremetal-operator with CmdHelmExecutor
+// DeployCSIComponents deploys csi-baremetal-operator and csi-baremetal-deployment with CmdHelmExecutor
+// and start print containers logs from framework namespace
+// returns cleanup function and error if failed
+// See DeployOperator and DeployCSI descriptions for more details
+func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (func(), error) {
+	cancelLogging := testsuites.StartPodLogs(f)
+
+	cleanupOperator, err := DeployOperator(f)
+	if err != nil {
+		cancelLogging()
+		return nil, err
+	}
+
+	cleanupCSI, err := DeployCSI(f, additionalInstallArgs)
+	if err != nil {
+		cancelLogging()
+		cleanupOperator()
+		return nil, err
+	}
+
+	return func() {
+		cancelLogging()
+		cleanupCSI()
+		cleanupOperator()
+	}, nil
+}
+
+// DeployOperator deploys csi-baremetal-operator with CmdHelmExecutor
 // After install - waiting before all pods ready
 // Cleanup - deleting operator-chart and csi crds
-func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
+// Helm command - "helm install csi-baremetal-operator <CHARTS_DIR>/csi-baremetal-operator
+// 			--set image.tag=<OPERATOR_VERSION>
+//			--set image.pullPolicy=IfNotPresent"
+func DeployOperator(f *framework.Framework) (func(), error) {
 	var (
 		executor        = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: GetExecutor()}
 		operatorVersion = os.Getenv(operatorVersionEnv)
 		chart           = HelmChart{
 			name:      "csi-baremetal-operator",
 			path:      path.Join(BMDriverTestContext.ChartsDir, "csi-baremetal-operator"),
-			namespace: operatorNamespace,
+			namespace: f.Namespace.Name,
 		}
 		installArgs = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent", operatorVersion)
@@ -61,24 +89,13 @@ func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
 		if err := executor.DeleteRelease(&chart); err != nil {
 			e2elog.Logf("CSI Operator helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
-
-		if err := c.CoreV1().Namespaces().Delete(operatorNamespace, nil); err != nil {
-			e2elog.Logf("Namespace %s deletion failed.", chart.namespace)
-		}
-	}
-
-	if _, err := c.CoreV1().Namespaces().Create(
-		&corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: operatorNamespace}}); err != nil && !k8sError.IsAlreadyExists(err) {
-		return nil, err
 	}
 
 	if err := executor.InstallRelease(&chart, installArgs); err != nil {
 		return nil, err
 	}
 
-	if err := e2epod.WaitForPodsRunningReady(c, chart.namespace, 0, 0, waitTime, nil); err != nil {
+	if err := e2epod.WaitForPodsRunningReady(f.ClientSet, chart.namespace, 0, 0, waitTime, nil); err != nil {
 		cleanup()
 		return nil, err
 	}
@@ -89,6 +106,15 @@ func DeployOperatorWithClient(c clientset.Interface) (func(), error) {
 // DeployCSIWithArgs deploys csi-baremetal-deployment with CmdHelmExecutor
 // After install - waiting all pods ready, checking kubernetes-scheduler restart
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
+// Helm command - "helm install csi-baremetal <CHARTS_DIR>/csi-baremetal-deployment
+// 			--set image.tag=<CSI_VERSION>
+//			--set image.pullPolicy=IfNotPresent
+//			--set driver.drivemgr.type=loopbackmgr
+//			--set driver.drivemgr.deployConfig=true
+//			--set scheduler.patcher.enable=true
+//			--set scheduler.log.level=debug
+//			--set nodeController.log.level=debug
+//			--set driver.log.level=debug"
 func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		cmdExecutor  = GetExecutor()
@@ -110,6 +136,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		podWait         = 3 * time.Minute
 		sleepBeforeWait = 10 * time.Second
 		schedulerRC     = newSchedulerRestartChecker(f.ClientSet)
+		isRestarted     = false
+		err             error
 	)
 
 	if additionalInstallArgs != "" {
@@ -151,11 +179,16 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	if schedulerRC.IsInitialized {
-		if isRestarted, err := schedulerRC.WaitForRestart(); err != nil {
+		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
 			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-		} else {
-			e2elog.Logf("Scheduler is restarted: %t", isRestarted)
 		}
+	}
+
+	if isRestarted {
+		e2elog.Logf("Scheduler is restarted")
+	} else {
+		cleanup()
+		return nil, errors.New("scheduler is not restarted")
 	}
 
 	// print info about all custom resources into log messages
@@ -208,8 +241,8 @@ func GetNodePodsNames(f *framework.Framework) ([]string, error) {
 	podsNames := make([]string, 0)
 	for _, pod := range pods.Items {
 		if len(pod.OwnerReferences) == 1 &&
-			pod.OwnerReferences[0].Name == "csi-baremetal-node" &&
-			pod.OwnerReferences[0].Kind == "DaemonSet" {
+			pod.OwnerReferences[0].Kind == "DaemonSet" &&
+			strings.Contains(pod.OwnerReferences[0].Name, "csi-baremetal-node") {
 			podsNames = append(podsNames, pod.Name)
 		}
 	}
