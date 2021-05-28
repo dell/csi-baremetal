@@ -88,8 +88,13 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 }
 
 // PrepareCSI deploys CSI and enables logging for containers
-func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) (*testsuites.PerTestConfig, func()) {
+func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (*testsuites.PerTestConfig, func()) {
 	ginkgo.By("Deploying CSI Baremetal")
+
+	installArgs := ""
+	if deployConfig {
+		installArgs += "--set driver.drivemgr.deployConfig=true"
+	}
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
 
@@ -109,7 +114,7 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) 
 
 // PrepareTest is implementation of TestDriver interface method
 func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
-	return PrepareCSI(d, f, "")
+	return PrepareCSI(d, f, true)
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method

@@ -74,16 +74,16 @@ func schedulingTest(driver *baremetalDriver) {
 		var (
 			perTestConf *testsuites.PerTestConfig
 			err         error
+			ns          = f.Namespace.Name
 		)
-		ns = f.Namespace.Name
-
-		perTestConf, driverCleanup = PrepareCSI(driver, f, "--set driver.drivemgr.amountOfLoopDevices=0")
 
 		if lmConf != nil {
 			lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
 			framework.ExpectNoError(err)
-			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(lmConfigMap)
+			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(lmConfigMap)
 		}
+
+		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		for _, scName := range availableSC {
 			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)

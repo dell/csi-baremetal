@@ -61,9 +61,8 @@ func differentSCTypesTest(driver *baremetalDriver) {
 			perTestConf *testsuites.PerTestConfig
 			err         error
 			driverType  string
+			ns          = f.Namespace.Name
 		)
-		ns = f.Namespace.Name
-		perTestConf, driverCleanup = PrepareCSI(driver, f, "--set driver.drivemgr.amountOfLoopDevices=0")
 
 		if scType == "SSD" {
 			driverType = driveTypeSSD
@@ -78,8 +77,10 @@ func differentSCTypesTest(driver *baremetalDriver) {
 			nodeNames = append(nodeNames, item.Name)
 		}
 		configMap := constructLoopbackConfigWithDriveType(ns, nodeNames, driverType)
-		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(configMap)
+		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
 		framework.ExpectNoError(err)
+
+		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		k8sSC = driver.GetStorageClassWithStorageType(perTestConf, scType)
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)

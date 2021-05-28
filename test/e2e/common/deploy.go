@@ -110,7 +110,6 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 // 			--set image.tag=<CSI_VERSION>
 //			--set image.pullPolicy=IfNotPresent
 //			--set driver.drivemgr.type=loopbackmgr
-//			--set driver.drivemgr.deployConfig=true
 //			--set scheduler.patcher.enable=true
 //			--set scheduler.log.level=debug
 //			--set nodeController.log.level=debug
@@ -128,7 +127,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		installArgs = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
-			"--set driver.drivemgr.deployConfig=true "+
 			"--set scheduler.patcher.enable=true "+
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+
