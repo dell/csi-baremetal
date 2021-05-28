@@ -18,7 +18,6 @@ package scenarios
 
 import (
 	"fmt"
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -75,10 +74,6 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 		// try to make node ready again
 		cmd := fmt.Sprintf("docker exec %s systemctl start kubelet.service", nodeName)
 		_, _, err := executor.RunCmd(cmd)
-		framework.ExpectNoError(err)
-
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
-			3*time.Minute, nil)
 		framework.ExpectNoError(err)
 
 		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
