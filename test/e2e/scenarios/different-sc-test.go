@@ -57,7 +57,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		ns            string
 	)
 
-	init := func(scType string) error {
+	init := func(scType string) {
 		var (
 			perTestConf *testsuites.PerTestConfig
 			driverType  string
@@ -74,33 +74,22 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		}
 
 		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
-		if err != nil {
-			return err
-		}
+		framework.ExpectNoError(err)
 
 		configMap := constructLoopbackConfigWithDriveType(ns, nodes.Items, driverType)
 		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
-		if err != nil {
-			return err
-		}
+		framework.ExpectNoError(err)
 
 		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		k8sSC = driver.GetStorageClassWithStorageType(perTestConf, scType)
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		framework.ExpectNoError(err)
 	}
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test DifferentScTest")
-
-		if driverCleanup != nil {
-			common.CleanupAfterCustomTest(f, driverCleanup, pods, pvcs)
-		}
+		common.CleanupAfterCustomTest(f, driverCleanup, pods, pvcs)
 
 		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(cmName, &metav1.DeleteOptions{})
 		if err != nil {
@@ -119,63 +108,63 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		}
 	})
 
-	/*	ginkgo.It("should create Pod with PVC with ANY type", func() {
-			scType := "ANY"
-			init(scType)
-			defer cleanup()
-			pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-			if testPod != nil {
-				pods = append(pods, testPod)
-			}
-		})
+	ginkgo.It("should create Pod with PVC with ANY type", func() {
+		scType := "ANY"
+		init(scType)
+		defer cleanup()
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
+		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		if testPod != nil {
+			pods = append(pods, testPod)
+		}
+	})
 
-		ginkgo.It("should create Pod with PVC with HDD type", func() {
-			scType := "HDD"
-			init(scType)
-			defer cleanup()
-			pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-			if testPod != nil {
-				pods = append(pods, testPod)
-			}
-		})
+	ginkgo.It("should create Pod with PVC with HDD type", func() {
+		scType := "HDD"
+		init(scType)
+		defer cleanup()
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
+		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		if testPod != nil {
+			pods = append(pods, testPod)
+		}
+	})
 
-		// test for logical volume group storage class
-		ginkgo.It("should create Pod with PVC with HDDLVG type", func() {
-			scType := "HDDLVG"
-			init(scType)
-			defer cleanup()
-			pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-			if testPod != nil {
-				pods = append(pods, testPod)
-			}
-		})
-		// test for raw block volumes
-		ginkgo.It("should create Pod with raw block volume HDD", func() {
-			scType := "HDD"
-			init(scType)
-			defer cleanup()
-			pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
-				f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
-			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-			if testPod != nil {
-				pods = append(pods, testPod)
-			}
-		})
+	// test for logical volume group storage class
+	ginkgo.It("should create Pod with PVC with HDDLVG type", func() {
+		scType := "HDDLVG"
+		init(scType)
+		defer cleanup()
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
+		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		if testPod != nil {
+			pods = append(pods, testPod)
+		}
+	})
+	// test for raw block volumes
+	ginkgo.It("should create Pod with raw block volume HDD", func() {
+		scType := "HDD"
+		init(scType)
+		defer cleanup()
+		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
+			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
+		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		if testPod != nil {
+			pods = append(pods, testPod)
+		}
+	})
 
-		ginkgo.It("should create Pod with raw block volume HDDLVG", func() {
-			scType := "HDDLVG"
-			init(scType)
-			defer cleanup()
-			pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
-				f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
-			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-			if testPod != nil {
-				pods = append(pods, testPod)
-			}
-		})*/
+	ginkgo.It("should create Pod with raw block volume HDDLVG", func() {
+		scType := "HDDLVG"
+		init(scType)
+		defer cleanup()
+		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
+			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
+		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		if testPod != nil {
+			pods = append(pods, testPod)
+		}
+	})
 }
 
 func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) *corev1.PersistentVolumeClaim {
