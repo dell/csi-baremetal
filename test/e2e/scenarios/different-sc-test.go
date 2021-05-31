@@ -48,21 +48,24 @@ func DefineDifferentSCTestSuite(driver *baremetalDriver) {
 // differentSCTypesTest test work of different SCs of CSI driver
 func differentSCTypesTest(driver *baremetalDriver) {
 	var (
-		pod           *corev1.Pod
+		testPod       *corev1.Pod
+		pods          []*corev1.Pod
 		pvcs          []*corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
 		driverCleanup func()
-		ns            string
 		f             = framework.NewDefaultFramework("different-scs")
+		ns            string
 	)
 
-	init := func(scType string) {
+	init := func(scType string) error {
 		var (
 			perTestConf *testsuites.PerTestConfig
-			err         error
 			driverType  string
-			ns          = f.Namespace.Name
 		)
+
+		ns = f.Namespace.Name
+		pods = make([]*corev1.Pod, 0)
+		pvcs = make([]*corev1.PersistentVolumeClaim, 0)
 
 		if scType == "SSD" {
 			driverType = driveTypeSSD
@@ -71,77 +74,108 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		}
 
 		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
-		framework.ExpectNoError(err)
-		nodeNames := make([]string, len(nodes.Items))
-		for _, item := range nodes.Items {
-			nodeNames = append(nodeNames, item.Name)
+		if err != nil {
+			return err
 		}
-		configMap := constructLoopbackConfigWithDriveType(ns, nodeNames, driverType)
+
+		configMap := constructLoopbackConfigWithDriveType(ns, nodes.Items, driverType)
 		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
-		framework.ExpectNoError(err)
+		if err != nil {
+			return err
+		}
 
 		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		k8sSC = driver.GetStorageClassWithStorageType(perTestConf, scType)
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
-		framework.ExpectNoError(err)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test DifferentScTest")
-		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, pvcs)
+
+		if driverCleanup != nil {
+			common.CleanupAfterCustomTest(f, driverCleanup, pods, pvcs)
+		}
+
+		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(cmName, &metav1.DeleteOptions{})
+		if err != nil {
+			e2elog.Logf("Configmap %s deletion failed: %v", cmName, err)
+		}
 	}
 
 	ginkgo.It("should create Pod with PVC with SSD type", func() {
 		scType := "SSD"
 		init(scType)
 		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, f.Namespace.Name)
+		testPod = startAndWaitForPodWithPVCRunning(f, f.Namespace.Name, pvcs)
+		if testPod != nil {
+			pods = append(pods, testPod)
+		}
 	})
 
-	/*ginkgo.It("should create Pod with PVC with ANY type", func() {
-		scType := "ANY"
-		init(scType)
-		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-	})
+	/*	ginkgo.It("should create Pod with PVC with ANY type", func() {
+			scType := "ANY"
+			init(scType)
+			defer cleanup()
+			pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
+			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+			if testPod != nil {
+				pods = append(pods, testPod)
+			}
+		})
 
-	ginkgo.It("should create Pod with PVC with HDD type", func() {
-		scType := "HDD"
-		init(scType)
-		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-	})
+		ginkgo.It("should create Pod with PVC with HDD type", func() {
+			scType := "HDD"
+			init(scType)
+			defer cleanup()
+			pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
+			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+			if testPod != nil {
+				pods = append(pods, testPod)
+			}
+		})
 
-	// test for logical volume group storage class
-	ginkgo.It("should create Pod with PVC with HDDLVG type", func() {
-		scType := "HDDLVG"
-		init(scType)
-		defer cleanup()
-		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-	})
-	// test for raw block volumes
-	ginkgo.It("should create Pod with raw block volume HDD", func() {
-		scType := "HDD"
-		init(scType)
-		defer cleanup()
-		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
-			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
-		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-	})
+		// test for logical volume group storage class
+		ginkgo.It("should create Pod with PVC with HDDLVG type", func() {
+			scType := "HDDLVG"
+			init(scType)
+			defer cleanup()
+			pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
+			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+			if testPod != nil {
+				pods = append(pods, testPod)
+			}
+		})
+		// test for raw block volumes
+		ginkgo.It("should create Pod with raw block volume HDD", func() {
+			scType := "HDD"
+			init(scType)
+			defer cleanup()
+			pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
+				f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
+			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+			if testPod != nil {
+				pods = append(pods, testPod)
+			}
+		})
 
-	ginkgo.It("should create Pod with raw block volume HDDLVG", func() {
-		scType := "HDDLVG"
-		init(scType)
-		defer cleanup()
-		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
-			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
-		pod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
-	})*/
+		ginkgo.It("should create Pod with raw block volume HDDLVG", func() {
+			scType := "HDDLVG"
+			init(scType)
+			defer cleanup()
+			pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
+				f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
+			testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+			if testPod != nil {
+				pods = append(pods, testPod)
+			}
+		})*/
 }
 
 func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) *corev1.PersistentVolumeClaim {
@@ -183,10 +217,10 @@ func startAndWaitForPodWithPVCRunning(f *framework.Framework, ns string, pvc []*
 // constructLoopbackConfigWithSSDDevices constructs ConfigMap with 3 drive with given driveType for LoopBackManager
 // Receives namespace where cm should be deployed, nodes names, driveType
 // Returns ConfigMap
-func constructLoopbackConfigWithDriveType(namespace string, nodes []string, driveType string) *corev1.ConfigMap {
+func constructLoopbackConfigWithDriveType(namespace string, nodes []corev1.Node, driveType string) *corev1.ConfigMap {
 	var nodeConfig string
 	for _, node := range nodes {
-		nodeConfig += fmt.Sprintf("- nodeID: %s\n", node) +
+		nodeConfig += fmt.Sprintf("- nodeID: %s\n", node.Name) +
 			"  drives:\n"
 		for _, sn := range []string{"LOOPBACK1", "LOOPBACK2", "LOOPBACK3"} {
 			nodeConfig += fmt.Sprintf("  - serialNumber: %s\n", sn) +

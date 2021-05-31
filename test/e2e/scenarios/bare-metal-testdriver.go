@@ -42,7 +42,6 @@ type baremetalDriver struct {
 var (
 	BaremetalDriver = InitBaremetalDriver
 	cmName          = "loopback-config"
-	manifestsFolder = "csi-baremetal-driver/templates/"
 )
 
 func initBaremetalDriver(name string) *baremetalDriver {

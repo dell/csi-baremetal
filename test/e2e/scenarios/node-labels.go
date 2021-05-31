@@ -49,6 +49,8 @@ func labeledDeployTestSuite() {
 	var (
 		f                  = framework.NewDefaultFramework("node-label")
 		setNodeSelectorArg = fmt.Sprintf(" --set nodeSelector.key=%s --set nodeSelector.value=%s", label, tag)
+		deployConfigArg    = fmt.Sprintf(" --set driver.drivemgr.deployConfig=true")
+		installArgs        = setNodeSelectorArg + deployConfigArg
 	)
 
 	ginkgo.It("CSI should use label on nodes", func() {
@@ -59,7 +61,7 @@ func labeledDeployTestSuite() {
 		_, err := f.ClientSet.CoreV1().Nodes().Update(&nodes[0])
 		framework.ExpectNoError(err)
 
-		driverCleanup, err := common.DeployCSIComponents(f, setNodeSelectorArg)
+		driverCleanup, err := common.DeployCSIComponents(f, installArgs)
 		defer driverCleanup()
 		framework.ExpectNoError(err)
 

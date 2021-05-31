@@ -131,7 +131,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+
 			"--set driver.log.level=debug", csiVersion)
-		podWait         = 3 * time.Minute
+		podWait         = 5 * time.Minute
 		sleepBeforeWait = 10 * time.Second
 		schedulerRC     = newSchedulerRestartChecker(f.ClientSet)
 		isRestarted     = false
