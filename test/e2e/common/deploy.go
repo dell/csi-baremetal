@@ -143,8 +143,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	cleanup := func() {
-		isVolumesDeleted := true
-
 		if BMDriverTestContext.CompleteUninstall {
 			CleanupLoopbackDevices(f)
 			// delete resources with finalizers
@@ -152,27 +150,23 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			removeCRs(f, CsibmnodeGVR, LVGGVR)
 		}
 
-		// all VolumeCRs must be deleted during test cleanup with pvcs
-		// if not, print them into logs, clean and create an error
-		volumes, err := f.DynamicClient.Resource(VolumeGVR).Namespace(f.Namespace.Name).List(metav1.ListOptions{})
-		if (err == nil) && (len(volumes.Items) != 0) {
-			e2elog.Logf("Not deleted volumes:")
-			printCRList(volumes.Items)
-			removeCRs(f, VolumeGVR)
-			isVolumesDeleted = false
+		if err := schedulerRC.ReadInitialState(); err != nil {
+			e2elog.Logf("SchedulerRestartChecker is not initialized. Err: %s", err)
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
 			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
+		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
+			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
+		} else {
+			e2elog.Logf("Scheduler restarted after CSI deletion: %t", isRestarted)
+		}
+
 		if BMDriverTestContext.CompleteUninstall {
 			// delete resources without finalizers
 			removeCRs(f, ACGVR, ACRGVR, DriveGVR)
-		}
-
-		if !isVolumesDeleted {
-			framework.Failf("VolumeCRs is not deleted with PVC")
 		}
 	}
 
@@ -192,10 +186,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		return nil, err
 	}
 
-	if schedulerRC.IsInitialized {
-		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
-			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-		}
+	if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
+		e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
 	}
 
 	if isRestarted {
