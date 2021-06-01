@@ -53,5 +53,9 @@ var (
 		Resource: "logicalvolumegroups",
 	}
 
-	AllGVRs = []schema.GroupVersionResource{DriveGVR, ACGVR, ACRGVR, VolumeGVR, LVGGVR}
+	CsibmnodeGVR = schema.GroupVersionResource{
+		Group:    apiV1.CSICRsGroupVersion,
+		Version:  apiV1.Version,
+		Resource: "nodes",
+	}
 )

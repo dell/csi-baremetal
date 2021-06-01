@@ -19,6 +19,8 @@ package common
 import (
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path"
 	"strings"
@@ -29,8 +31,6 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-
-	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 const (
@@ -143,11 +143,23 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	cleanup := func() {
+		isVolumesDeleted := true
+
 		if BMDriverTestContext.CompleteUninstall {
 			CleanupLoopbackDevices(f)
 			// delete resources with finalizers
 			// pvcs and volumes are namespaced resources and deleting with it
-			deleteCSIResources(cmdExecutor, []string{"lvgs", "csibmnodes"})
+			removeCRs(f, CsibmnodeGVR, LVGGVR)
+		}
+
+		// all VolumeCRs must be deleted during test cleanup with pvcs
+		// if not, print them into logs, clean and create an error
+		volumes, err := f.DynamicClient.Resource(VolumeGVR).Namespace(f.Namespace.Name).List(metav1.ListOptions{})
+		if (err == nil) && (len(volumes.Items) != 0) {
+			e2elog.Logf("Not deleted volumes:")
+			printCRList(volumes.Items)
+			removeCRs(f, VolumeGVR)
+			isVolumesDeleted = false
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
@@ -156,7 +168,11 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 
 		if BMDriverTestContext.CompleteUninstall {
 			// delete resources without finalizers
-			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
+			removeCRs(f, ACGVR, ACRGVR, DriveGVR)
+		}
+
+		if !isVolumesDeleted {
+			framework.Failf("VolumeCRs is not deleted with PVC")
 		}
 	}
 
@@ -190,29 +206,9 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	// print info about all custom resources into log messages
-	getCSIResources(cmdExecutor)
+	printCRs(f, CsibmnodeGVR, DriveGVR, ACGVR)
 
 	return cleanup, nil
-}
-
-func getCSIResources(e command.CmdExecutor) {
-	resources := []string{"pvc", "volumes", "lvgs", "csibmnodes", "acr", "ac", "drives"}
-
-	for _, name := range resources {
-		cmd := framework.KubectlCmd("get", name)
-		if _, _, err := e.RunCmd(cmd); err != nil {
-			e2elog.Logf("Failed to get %s with kubectl", name)
-		}
-	}
-}
-
-func deleteCSIResources(e command.CmdExecutor, resources []string) {
-	for _, name := range resources {
-		cmd := framework.KubectlCmd("delete", name, "--all")
-		if _, _, err := e.RunCmd(cmd); err != nil {
-			e2elog.Logf("%s deletion failed", name)
-		}
-	}
 }
 
 // CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
@@ -246,4 +242,35 @@ func GetNodePodsNames(f *framework.Framework) ([]string, error) {
 	}
 	framework.Logf("Find node pods: ", podsNames)
 	return podsNames, nil
+}
+
+// printCRs prints all CRs that were passed by type into logs using e2elog
+func printCRs(f *framework.Framework, GVRs ...schema.GroupVersionResource) {
+	for _, gvr := range GVRs {
+		recources, err := f.DynamicClient.Resource(gvr).Namespace("").List(metav1.ListOptions{})
+		if err != nil {
+			e2elog.Logf("Failed to get CR list %s: %s", gvr.String(), err.Error())
+		}
+		e2elog.Logf("CR Type: %s", gvr.String())
+		printCRList(recources.Items)
+	}
+}
+
+// printCRList prints into logs list of unstructured.Unstructured
+// Format: <name>string - <spec>map\n
+func printCRList(list []unstructured.Unstructured) {
+	for _, item := range list {
+		e2elog.Logf("%s - %v", item.Object["metadata"].(map[string]interface{})["name"], item.Object["spec"])
+	}
+}
+
+// removeCRs removes all CRs that were passed by type
+func removeCRs(f *framework.Framework, GVRs ...schema.GroupVersionResource) {
+	for _, gvr := range GVRs {
+		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(
+			&metav1.DeleteOptions{}, metav1.ListOptions{})
+		if err != nil {
+			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
+		}
+	}
 }
