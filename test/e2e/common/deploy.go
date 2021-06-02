@@ -25,12 +25,12 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -59,9 +59,9 @@ func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (
 	}
 
 	return func() {
-		cancelLogging()
 		cleanupCSI()
 		cleanupOperator()
+		cancelLogging()
 	}, nil
 }
 
@@ -148,6 +148,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			// delete resources with finalizers
 			// pvcs and volumes are namespaced resources and deleting with it
 			removeCRs(f, CsibmnodeGVR, LVGGVR)
+			time.Sleep(10 * time.Second)
 		}
 
 		if err := schedulerRC.ReadInitialState(); err != nil {
@@ -168,6 +169,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			// delete resources without finalizers
 			removeCRs(f, ACGVR, ACRGVR, DriveGVR)
 		}
+
+		printCRs(f, VolumeGVR, CsibmnodeGVR, ACGVR, ACRGVR, LVGGVR, DriveGVR)
 	}
 
 	if err := schedulerRC.ReadInitialState(); err != nil {
