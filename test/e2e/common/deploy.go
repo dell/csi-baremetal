@@ -146,7 +146,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		if BMDriverTestContext.CompleteUninstall {
 			CleanupLoopbackDevices(f)
 			// delete resources with finalizers and wait until node- and lvgcontroller reconcile requests
-			e2elog.Logf("remove1")
 			removeCRs(f, CsibmnodeGVR, LVGGVR)
 			deadline := time.Now().Add(30 * time.Second)
 			for {
@@ -159,7 +158,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 					break
 				}
 			}
-			e2elog.Logf("remove2")
 		}
 
 		if err := schedulerRC.ReadInitialState(); err != nil {
