@@ -145,10 +145,21 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	cleanup := func() {
 		if BMDriverTestContext.CompleteUninstall {
 			CleanupLoopbackDevices(f)
-			// delete resources with finalizers
-			// pvcs and volumes are namespaced resources and deleting with it
+			// delete resources with finalizers and wait until node- and lvgcontroller reconcile requests
+			e2elog.Logf("remove1")
 			removeCRs(f, CsibmnodeGVR, LVGGVR)
-			time.Sleep(10 * time.Second)
+			deadline := time.Now().Add(30 * time.Second)
+			for {
+				time.Sleep(2 * time.Second)
+				if !isCRInstancesExists(f, CsibmnodeGVR) && !isCRInstancesExists(f, LVGGVR) {
+					break
+				}
+				if time.Now().After(deadline) {
+					e2elog.Logf("All csibmnodes or lvgs have not been deleted yet")
+					break
+				}
+			}
+			e2elog.Logf("remove2")
 		}
 
 		if err := schedulerRC.ReadInitialState(); err != nil {
@@ -268,4 +279,12 @@ func removeCRs(f *framework.Framework, GVRs ...schema.GroupVersionResource) {
 			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
 		}
 	}
+}
+
+func isCRInstancesExists(f *framework.Framework, GVR schema.GroupVersionResource) bool {
+	recources, err := f.DynamicClient.Resource(GVR).Namespace("").List(metav1.ListOptions{})
+	if err != nil {
+		return true
+	}
+	return len(recources.Items) != 0
 }
