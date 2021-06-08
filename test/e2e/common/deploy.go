@@ -154,7 +154,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 					break
 				}
 				if time.Now().After(deadline) {
-					e2elog.Logf("All csibmnodes or lvgs have not been deleted yet")
+					e2elog.Logf("Some csibmnodes or lvgs have not been deleted yet")
+					printCRs(f, CsibmnodeGVR, LVGGVR)
 					break
 				}
 			}
