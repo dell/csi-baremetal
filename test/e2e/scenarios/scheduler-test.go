@@ -75,15 +75,18 @@ func schedulingTest(driver *baremetalDriver) {
 			perTestConf *testsuites.PerTestConfig
 			err         error
 		)
-		ns = f.Namespace.Name
 
-		perTestConf, driverCleanup = PrepareCSI(driver, f, "--set driver.drivemgr.amountOfLoopDevices=0")
+		ns = f.Namespace.Name
+		testPODs, testPVCs = nil, nil
+		storageClasses = make(map[string]*storagev1.StorageClass)
 
 		if lmConf != nil {
 			lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
 			framework.ExpectNoError(err)
-			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(lmConfigMap)
+			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(lmConfigMap)
 		}
+
+		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		for _, scName := range availableSC {
 			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)
@@ -96,8 +99,11 @@ func schedulingTest(driver *baremetalDriver) {
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test SchedulingTests")
 		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
-		testPODs, testPVCs = nil, nil
-		storageClasses = make(map[string]*storagev1.StorageClass)
+
+		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(cmName, &metav1.DeleteOptions{})
+		if err != nil {
+			e2elog.Logf("Configmap %s deletion failed: %v", cmName, err)
+		}
 	}
 
 	createTestPod := func(podSCList []string) (*corev1.Pod, []*corev1.PersistentVolumeClaim) {

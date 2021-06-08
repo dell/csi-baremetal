@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
@@ -42,7 +41,6 @@ type baremetalDriver struct {
 var (
 	BaremetalDriver = InitBaremetalDriver
 	cmName          = "loopback-config"
-	manifestsFolder = "csi-baremetal-driver/templates/"
 )
 
 func initBaremetalDriver(name string) *baremetalDriver {
@@ -88,8 +86,13 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 }
 
 // PrepareCSI deploys CSI and enables logging for containers
-func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) (*testsuites.PerTestConfig, func()) {
+func PrepareCSI(d *baremetalDriver, f *framework.Framework,  deployConfig bool) (*testsuites.PerTestConfig, func()) {
 	ginkgo.By("Deploying CSI Baremetal")
+
+	installArgs := ""
+	if deployConfig {
+		installArgs += "--set driver.drivemgr.deployConfig=true"
+	}
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
 
@@ -109,7 +112,7 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, installArgs string) 
 
 // PrepareTest is implementation of TestDriver interface method
 func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
-	return PrepareCSI(d, f, "")
+	return PrepareCSI(d, f, true)
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method
@@ -183,19 +186,4 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 	}
 
 	return &cm
-}
-
-// removeAllCRs removes all CRs that were created during plugin installation except
-// CSIBMNodes CRs because CSIBMNodes CRs creates once at common BeforeSuite step
-func (d *baremetalDriver) removeAllCRs(f *framework.Framework) error {
-	var savedErr error
-	for _, gvr := range common.AllGVRs {
-		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(
-			&metav1.DeleteOptions{}, metav1.ListOptions{})
-		if err != nil {
-			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
-			savedErr = err
-		}
-	}
-	return savedErr
 }

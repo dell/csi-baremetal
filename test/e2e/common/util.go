@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
@@ -111,18 +110,10 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		}
 	}
 
-	// Removes all driver's manifests installed during init(). (Driver, its RBACs, SC)
+	// Removes CSI Baremetal
 	if driverCleanupFn != nil {
 		driverCleanupFn()
 		driverCleanupFn = nil
 	}
 	e2elog.Logf("Cleanup finished.")
-}
-
-func GetGlobalClientSet() (clientset.Interface, error) {
-	conf, err := framework.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	return clientset.NewForConfig(conf)
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -60,8 +61,11 @@ func (rc *schedulerRestartChecker) ReadInitialState() error {
 }
 
 func (rc *schedulerRestartChecker) WaitForRestart() (bool, error) {
-	e2elog.Logf("Wait for scheduler restart")
+	if !rc.IsInitialized {
+		return false, errors.New("SchedulerRestartChecker is not initialized")
+	}
 
+	e2elog.Logf("Wait for scheduler restart")
 	deadline := time.Now().Add(rc.restartWaitTimeout)
 	for {
 		ready, err := rc.CheckRestarted()

@@ -25,12 +25,12 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-
-	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
 const (
@@ -59,9 +59,9 @@ func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (
 	}
 
 	return func() {
-		cancelLogging()
 		cleanupCSI()
 		cleanupOperator()
+		cancelLogging()
 	}, nil
 }
 
@@ -110,7 +110,6 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 // 			--set image.tag=<CSI_VERSION>
 //			--set image.pullPolicy=IfNotPresent
 //			--set driver.drivemgr.type=loopbackmgr
-//			--set driver.drivemgr.deployConfig=true
 //			--set scheduler.patcher.enable=true
 //			--set scheduler.log.level=debug
 //			--set nodeController.log.level=debug
@@ -128,7 +127,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		installArgs = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
-			"--set driver.drivemgr.deployConfig=true "+
 			"--set scheduler.patcher.enable=true "+
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+
@@ -147,19 +145,42 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	cleanup := func() {
 		if BMDriverTestContext.CompleteUninstall {
 			CleanupLoopbackDevices(f)
-			// delete resources with finalizers
-			// pvcs and volumes are namespaced resources and deleting with it
-			deleteCSIResources(cmdExecutor, []string{"lvgs", "csibmnodes"})
+			// delete resources with finalizers and wait until node- and lvgcontroller reconcile requests
+			removeCRs(f, CsibmnodeGVR, LVGGVR)
+			deadline := time.Now().Add(30 * time.Second)
+			for {
+				time.Sleep(2 * time.Second)
+				if !isCRInstancesExists(f, CsibmnodeGVR) && !isCRInstancesExists(f, LVGGVR) {
+					break
+				}
+				if time.Now().After(deadline) {
+					e2elog.Logf("Some csibmnodes or lvgs have not been deleted yet")
+					printCRs(f, CsibmnodeGVR, LVGGVR)
+					break
+				}
+			}
+		}
+
+		if err := schedulerRC.ReadInitialState(); err != nil {
+			e2elog.Logf("SchedulerRestartChecker is not initialized. Err: %s", err)
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
 			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
+		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
+			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
+		} else {
+			e2elog.Logf("Scheduler restarted after CSI deletion: %t", isRestarted)
+		}
+
 		if BMDriverTestContext.CompleteUninstall {
 			// delete resources without finalizers
-			deleteCSIResources(cmdExecutor, []string{"acr", "ac", "drives"})
+			removeCRs(f, ACGVR, ACRGVR, DriveGVR)
 		}
+
+		printCRs(f, VolumeGVR, CsibmnodeGVR, ACGVR, ACRGVR, LVGGVR, DriveGVR)
 	}
 
 	if err := schedulerRC.ReadInitialState(); err != nil {
@@ -178,10 +199,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		return nil, err
 	}
 
-	if schedulerRC.IsInitialized {
-		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
-			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-		}
+	if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
+		e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
 	}
 
 	if isRestarted {
@@ -192,29 +211,9 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	}
 
 	// print info about all custom resources into log messages
-	getCSIResources(cmdExecutor)
+	printCRs(f, CsibmnodeGVR, DriveGVR, ACGVR)
 
 	return cleanup, nil
-}
-
-func getCSIResources(e command.CmdExecutor) {
-	resources := []string{"pvc", "volumes", "lvgs", "csibmnodes", "acr", "ac", "drives"}
-
-	for _, name := range resources {
-		cmd := framework.KubectlCmd("get", name)
-		if _, _, err := e.RunCmd(cmd); err != nil {
-			e2elog.Logf("Failed to get %s with kubectl", name)
-		}
-	}
-}
-
-func deleteCSIResources(e command.CmdExecutor, resources []string) {
-	for _, name := range resources {
-		cmd := framework.KubectlCmd("delete", name, "--all")
-		if _, _, err := e.RunCmd(cmd); err != nil {
-			e2elog.Logf("%s deletion failed", name)
-		}
-	}
 }
 
 // CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
@@ -248,4 +247,43 @@ func GetNodePodsNames(f *framework.Framework) ([]string, error) {
 	}
 	framework.Logf("Find node pods: ", podsNames)
 	return podsNames, nil
+}
+
+// printCRs prints all CRs that were passed by type into logs using e2elog
+func printCRs(f *framework.Framework, GVRs ...schema.GroupVersionResource) {
+	for _, gvr := range GVRs {
+		recources, err := f.DynamicClient.Resource(gvr).Namespace("").List(metav1.ListOptions{})
+		if err != nil {
+			e2elog.Logf("Failed to get CR list %s: %s", gvr.String(), err.Error())
+		}
+		e2elog.Logf("CR Type: %s", gvr.String())
+		printCRList(recources.Items)
+	}
+}
+
+// printCRList prints into logs list of unstructured.Unstructured
+// Format: <name>string - <spec>map\n
+func printCRList(list []unstructured.Unstructured) {
+	for _, item := range list {
+		e2elog.Logf("%s - %v", item.Object["metadata"].(map[string]interface{})["name"], item.Object["spec"])
+	}
+}
+
+// removeCRs removes all CRs that were passed by type
+func removeCRs(f *framework.Framework, GVRs ...schema.GroupVersionResource) {
+	for _, gvr := range GVRs {
+		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(
+			&metav1.DeleteOptions{}, metav1.ListOptions{})
+		if err != nil {
+			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
+		}
+	}
+}
+
+func isCRInstancesExists(f *framework.Framework, GVR schema.GroupVersionResource) bool {
+	recources, err := f.DynamicClient.Resource(GVR).Namespace("").List(metav1.ListOptions{})
+	if err != nil {
+		return true
+	}
+	return len(recources.Items) != 0
 }
