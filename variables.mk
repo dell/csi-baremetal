@@ -10,7 +10,7 @@ EXTENDER_CHART_PATH		:= charts/csi-baremetal-scheduler-extender
 ### version
 MAJOR            := 0
 MINOR            := 2
-PATCH            := 1
+PATCH            := 2
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
 BUILD_REL_B      := $(shell git rev-parse --short HEAD)
