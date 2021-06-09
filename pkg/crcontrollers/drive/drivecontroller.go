@@ -33,6 +33,12 @@ type Controller struct {
 	log            *logrus.Entry
 }
 
+const (
+	ignore uint8 = 0
+	update uint8 = 1
+	delete uint8 = 2
+)
+
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
@@ -82,7 +88,6 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_drive_controller")()
 	// read name
 	driveName := req.Name
-	// TODO why do we need 60 seconds here?
 	// create context
 	ctx, cancelFn := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancelFn()
@@ -93,29 +98,51 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// obtain corresponding drive
 	drive := &drivecrd.Drive{}
 	if err := c.client.ReadCR(ctx, driveName, "", drive); err != nil {
-		log.Errorf("Failed to read Drive %s CR", driveName)
-		// TODO is this correct error here?
+		log.Warningf("Unable to read Drive %s CR", driveName)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log.Infof("Drive changed: %v", drive)
 
+	status, err := c.handleDriveUpdate(ctx, log, drive)
+	if err != nil {
+		return ctrl.Result{RequeueAfter: base.DefaultRequeueForVolume}, err
+	}
+	// check status - update or delete
+	switch status {
+	case update:
+		if err := c.client.UpdateCR(ctx, drive); err != nil {
+			log.Errorf("Failed to update Drive %s CR", driveName)
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
+	case delete:
+		if err := c.client.DeleteCR(ctx, drive); err != nil {
+			log.Errorf("Failed to delete Drive %s CR", driveName)
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	// get drive fields
 	usage := drive.Spec.GetUsage()
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
-	toUpdate := false
 
+	// check whether update is required
+	toUpdate := false
 	switch usage {
 	case apiV1.DriveUsageInUse:
 		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
-			// TODO update health of volumes
 			drive.Spec.Usage = apiV1.DriveUsageReleasing
 			toUpdate = true
 		}
 	case apiV1.DriveUsageReleasing:
 		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
 		if err != nil {
-			return ctrl.Result{RequeueAfter: base.DefaultRequeueForVolume}, err
+			return ignore, err
 		}
 		allFound := true
 		for _, vol := range volumes {
@@ -140,11 +167,28 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		toUpdate = true
 		drive.Spec.Usage = apiV1.DriveUsageRemoving
+
+		// check volumes annotations and update if required
+		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
+		if err != nil {
+			return ignore, err
+		}
+		for _, vol := range volumes {
+			value, found := vol.Annotations[apiV1.DriveAnnotationReplacement]
+			if !found || value != apiV1.DriveAnnotationReplacementReady {
+				// need to update volume annotations
+				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationReplacementReady
+				if err := c.client.UpdateCR(ctx, vol); err != nil {
+					log.Errorf("Failed to update volume %s annotations, error: %v", vol.Name, err)
+					return ignore, err
+				}
+			}
+		}
 		fallthrough
 	case apiV1.DriveUsageRemoving:
 		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
 		if err != nil {
-			return ctrl.Result{RequeueAfter: base.DefaultRequeueForVolume}, err
+			return ignore, err
 		}
 		if c.checkAllVolsRemoved(volumes) {
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
@@ -165,23 +209,14 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	case apiV1.DriveUsageRemoved:
 		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
-			if err := c.client.DeleteCR(ctx, drive); err != nil {
-				log.Errorf("Failed to delete Drive %s CR", driveName)
-				return ctrl.Result{}, client.IgnoreNotFound(err)
-			}
-			return ctrl.Result{}, nil
+			return delete, nil
 		}
 	}
 
-	// update drive CR if needed
 	if toUpdate {
-		if err := c.client.UpdateCR(ctx, drive); err != nil {
-			log.Errorf("Failed to update Drive %s CR", driveName)
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		}
+		return update, nil
 	}
-
-	return ctrl.Result{}, nil
+	return ignore, nil
 }
 
 func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
