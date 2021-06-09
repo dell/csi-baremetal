@@ -170,32 +170,38 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
+	switch currStatus {
 	// if currStatus not in [Created (first call), VolumeReady (retry), Published (multiple pods)]
-	if currStatus != apiV1.Created && currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
-		ll.Errorf("Current volume CR status - %s, expected to be in - [%s, %s, %s]",
-			currStatus, apiV1.Created, apiV1.VolumeReady, apiV1.Published)
-		return nil, fmt.Errorf("corresponding volume CR is in unexpected state - %s",
-			currStatus)
+	case apiV1.Created, apiV1.VolumeReady, apiV1.Published:
+		ll.Infof("Volume status: %s", currStatus)
+	// also need to retry on FAILED
+	case apiV1.Failed:
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	default:
+		ll.Errorf("Unexpected volume status: %s", currStatus)
+		return nil, fmt.Errorf("corresponding volume is in unexpected state - %s", currStatus)
 	}
 
 	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
-
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
-	if err != nil {
-		ll.Errorf("failed to get partition, for volume %v: %v", volumeCR.Spec, err)
-		return nil, status.Error(codes.Internal, "failed to stage volume: partition error")
-	}
-	ll.Infof("Work with partition %s", partition)
 
 	var (
 		resp        = &csi.NodeStageVolumeResponse{}
 		errToReturn error
 		newStatus   = apiV1.VolumeReady
 	)
-	if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
-		ll.Errorf("Unable to prepare and mount: %v. Going to set volumes status to failed", err)
+
+	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
+	if err != nil {
+		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
 		newStatus = apiV1.Failed
-		resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: mount error")
+		resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
+	} else {
+		ll.Infof("Partition to stage: %s", partition)
+		if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
+			ll.Errorf("Unable to stage volume: %v", err)
+			newStatus = apiV1.Failed
+			resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
+		}
 	}
 
 	if currStatus != apiV1.VolumeReady || newStatus == apiV1.Failed {
