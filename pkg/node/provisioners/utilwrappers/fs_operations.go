@@ -32,7 +32,7 @@ type FSOperations interface {
 	// and performs mount operation from src to dst
 	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error
 	// FakeAttach does attach of a temporary folder on failure
-	FakeAttach(name, dst string) error
+	FakeAttach(name, dst string, dstIsDir bool) error
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	fs.WrapFS
@@ -151,20 +151,26 @@ func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
 }
 
 // FakeAttach does attach of temp folder in read only mode
-func (fsOp *FSOperationsImpl) FakeAttach(name, dst string) error {
-	ll := fsOp.log.WithFields(logrus.Fields{
-		"method": "PrepareAndPerformMount",
-	})
-	ll.Warningf("Simulate attachment of volume %s", name)
+func (fsOp *FSOperationsImpl) FakeAttach(src, dst string, dstIsDir bool) error {
+	ll := fsOp.log.WithFields(logrus.Fields{"method": "FakeAttach"})
 
-	tmpDevFile := "/tmp/" + name + "/dev"
-	if err := fsOp.MkFile(tmpDevFile); err != nil {
-		ll.Errorf("Failed to create temporary file %v", err)
-		return err
+	ll.Warningf("Simulate attachment")
+	_, err := os.Stat(dst)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		createCMD := fsOp.MkDir
+		if !dstIsDir {
+			createCMD = fsOp.MkFile
+		}
+		if err = createCMD(dst); err != nil {
+			return err
+		}
 	}
 
-	if err := fsOp.Mount(tmpDevFile, dst, fs.BindOption, fs.ReadOnlyOption); err != nil {
-		ll.Errorf("Failed to bind mount temporary file %v", err)
+	if err := fsOp.Mount(src, dst, fs.BindOption, fs.ReadOnlyOption); err != nil {
+		ll.Errorf("Failed to bind mount temporary path %v", err)
 		return err
 	}
 

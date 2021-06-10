@@ -195,7 +195,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
 		//newStatus = apiV1.Failed
 		//resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
-		if err := s.fsOps.FakeAttach(volumeID, targetPath); err != nil {
+		if err := s.fsOps.FakeAttach("/tmp/" + volumeID + "/dev", targetPath, false); err != nil {
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, status.Error(codes.Internal, "fake attach failed: "+err.Error())
 		}
@@ -205,7 +205,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			ll.Errorf("Unable to stage volume: %v", err)
 			//newStatus = apiV1.Failed
 			//resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
-			if err := s.fsOps.FakeAttach(volumeID, targetPath); err != nil {
+			if err := s.fsOps.FakeAttach("/tmp/" + volumeID + "/dev", targetPath, false); err != nil {
 				newStatus = apiV1.Failed
 				resp, errToReturn = nil, status.Error(codes.Internal, "fake attach failed: "+err.Error())
 			}
@@ -384,7 +384,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		ll.Errorf("Unable to mount volume: %v", err)
 		//newStatus = apiV1.Failed
 		//resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
-		if err := s.fsOps.FakeAttach(srcPath, dstPath); err != nil {
+		if err := s.fsOps.FakeAttach(srcPath, dstPath, true); err != nil {
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
 		}
