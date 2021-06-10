@@ -382,8 +382,12 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
 	if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock); err != nil {
 		ll.Errorf("Unable to mount volume: %v", err)
-		newStatus = apiV1.Failed
-		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
+		//newStatus = apiV1.Failed
+		//resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
+		if err := s.fsOps.FakeAttach(srcPath, dstPath); err != nil {
+			newStatus = apiV1.Failed
+			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
+		}
 	}
 
 	var podName string
