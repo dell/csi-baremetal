@@ -193,14 +193,22 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
 	if err != nil {
 		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
-		newStatus = apiV1.Failed
-		resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
+		//newStatus = apiV1.Failed
+		//resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
+		if err := s.fsOps.FakeAttach(volumeID, targetPath); err != nil {
+			newStatus = apiV1.Failed
+			resp, errToReturn = nil, status.Error(codes.Internal, "fake attach failed: "+err.Error())
+		}
 	} else {
 		ll.Infof("Partition to stage: %s", partition)
 		if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
 			ll.Errorf("Unable to stage volume: %v", err)
-			newStatus = apiV1.Failed
-			resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
+			//newStatus = apiV1.Failed
+			//resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
+			if err := s.fsOps.FakeAttach(volumeID, targetPath); err != nil {
+				newStatus = apiV1.Failed
+				resp, errToReturn = nil, status.Error(codes.Internal, "fake attach failed: "+err.Error())
+			}
 		}
 	}
 
