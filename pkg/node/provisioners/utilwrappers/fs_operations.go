@@ -157,14 +157,14 @@ func (fsOp *FSOperationsImpl) FakeAttach(name, dst string) error {
 	})
 	ll.Warningf("Simulate attachment of volume %s", name)
 
-	tmpFolderPath := "/tmp/" + name
-	if err := fsOp.MkDir(tmpFolderPath); err != nil {
-		ll.Errorf("Failed to create temporary folder %v", err)
+	tmpDevFile := "/tmp/" + name + "/dev"
+	if err := fsOp.MkFile(tmpDevFile); err != nil {
+		ll.Errorf("Failed to create temporary file %v", err)
 		return err
 	}
 
-	if err := fsOp.Mount(tmpFolderPath, dst, fs.ReadOnlyOption); err != nil {
-		ll.Errorf("Failed to mount temporary folder %v", err)
+	if err := fsOp.Mount(tmpDevFile, dst, fs.BindOption, fs.ReadOnlyOption); err != nil {
+		ll.Errorf("Failed to bind mount temporary file %v", err)
 		return err
 	}
 
