@@ -190,31 +190,34 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		newStatus   = apiV1.VolumeReady
 	)
 
+	isFakeAttach := false
 	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
+
 	if err != nil {
 		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
-		//newStatus = apiV1.Failed
-		//resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
-		if err := s.fsOps.FakeAttach("/tmp/" + volumeID + "/dev", targetPath, false); err != nil {
-			newStatus = apiV1.Failed
-			resp, errToReturn = nil, status.Error(codes.Internal, "fake attach failed: "+err.Error())
-		}
+		// ignore error for fake attach
+		isFakeAttach = true
 	} else {
 		ll.Infof("Partition to stage: %s", partition)
 		if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
 			ll.Errorf("Unable to stage volume: %v", err)
-			//newStatus = apiV1.Failed
-			//resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: "+err.Error())
-			if err := s.fsOps.FakeAttach("/tmp/" + volumeID + "/dev", targetPath, false); err != nil {
-				newStatus = apiV1.Failed
-				resp, errToReturn = nil, status.Error(codes.Internal, "fake attach failed: "+err.Error())
-			}
+			// ignore error for fake attach
+			isFakeAttach = true
 		}
 	}
 
-	if currStatus != apiV1.VolumeReady || newStatus == apiV1.Failed {
+	if isFakeAttach {
+		if volumeCR.Annotations == nil {
+			volumeCR.Annotations = make(map[string]string)
+		}
+		volumeCR.Annotations["fake-attach"] = "yes"
+		ll.Warningf("Adding fake-attach annotation to the volume")
+	}
+
+	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
-		if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
+		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
+		//if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 		}
@@ -379,14 +382,17 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		errToReturn error
 	)
 
-	_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
-	if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock); err != nil {
-		ll.Errorf("Unable to mount volume: %v", err)
-		//newStatus = apiV1.Failed
-		//resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
+	if volumeCR.Annotations["fake-attach"] == "yes" {
 		if err := s.fsOps.FakeAttach(srcPath, dstPath, true); err != nil {
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
+		}
+	} else {
+		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
+		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock); err != nil {
+			ll.Errorf("Unable to mount volume: %v", err)
+			newStatus = apiV1.Failed
+			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
 		}
 	}
 

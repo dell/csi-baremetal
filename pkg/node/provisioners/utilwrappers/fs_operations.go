@@ -19,6 +19,7 @@ package utilwrappers
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/sirupsen/logrus"
 
@@ -169,8 +170,13 @@ func (fsOp *FSOperationsImpl) FakeAttach(src, dst string, dstIsDir bool) error {
 		}
 	}
 
-	if err := fsOp.Mount(src, dst, fs.BindOption, fs.ReadOnlyOption); err != nil {
-		ll.Errorf("Failed to bind mount temporary path %v", err)
+	cmd := exec.Cmd{}
+	cmd.Path = "mount"
+	cmd.Args = []string{"-t tmpfs", "-o size=1M", "-o ro", "tmpfs", dst}
+
+	err = cmd.Run()
+	if err != nil {
+		ll.Errorf("Failed to mount tmpf %v", err)
 		return err
 	}
 
