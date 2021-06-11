@@ -29,8 +29,13 @@ This feature will require application Operator to put specific annotation on PVC
 
 ## Implementation
 
-When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI must ignore NodeStage errors and invoke
-Fake Attach logic by mounting tmpfs volume in read-only mode and generating event to notify user about this.
+When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI must ignore NodeStageVolume errors and
+put `fake-attach: yes` annotation on CSI Volume CR. On NodePublishVolume CSI must check `fake-attach` annotation and mount
+tmpfs volume in read-only mode.
+
+Command to mount tmpfs volume: `mount -t tmpfs -o size=1K -o ro tmpfs <destination folder>`
+
+CSI must generate event to notify user about this Fake-Attach Volume.
 
 On NodeUnstage tmpfs volume must be deleted.
 
