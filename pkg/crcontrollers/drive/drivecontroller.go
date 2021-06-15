@@ -127,12 +127,35 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
 	// get drive fields
+	status := drive.Spec.GetStatus()
 	usage := drive.Spec.GetUsage()
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
 
+    // handle offline status
+	if status == apiV1.DriveStatusOffline  {
+	    if usage == apiV1.DriveUsageRemoved {
+	        return delete, nil
+        } else {
+            volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
+            if err != nil {
+                return ignore, err
+            }
+
+            for _, vol := range volumes {
+                volume.OperationalStatus = apiV1.OperationalStatusMissing
+                if err := cs.k8sClient.UpdateCR(ctxWithID, &volume); err != nil {
+                    ll.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
+            	    isError = true
+                }
+            }
+            return update, nil
+        }
+	}
+
 	// check whether update is required
 	toUpdate := false
+
 	switch usage {
 	case apiV1.DriveUsageInUse:
 		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
@@ -207,10 +230,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			toUpdate = true
 		}
 	case apiV1.DriveUsageRemoved:
-		if drive.Spec.Status == apiV1.DriveStatusOffline {
-			// drive was removed from the system. need to clean corresponding custom resource
-			return delete, nil
-		}
+        // TODO: something
+        break
 	}
 
 	if toUpdate {

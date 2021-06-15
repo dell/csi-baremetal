@@ -941,7 +941,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		// initiate volume release
 		// TODO need to check for specific annotation instead
 		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
-			if vol.Spec.Usage == apiV1.VolumeUsageInUse {
+			if vol.Spec.UsageUsage == apiV1.VolumeUsageInUse {
 				vol.Spec.Usage = apiV1.VolumeUsageReleasing
 			}
 		}
