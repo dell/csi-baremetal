@@ -1110,12 +1110,12 @@ func (m *VolumeManager) changeDriveIsCleanField(drive *drivecrd.Drive, clean boo
 	}
 }
 
-func (m *VolumeManager) isPVCNeedFakeAttach(VolumeID string) bool {
-	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, VolumeID)
+func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeID)
 
 	pv := &corev1.PersistentVolume{}
-	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: VolumeID}, pv); err != nil {
-		m.log.Errorf("Failed to get Persistent Volume %s: %v", VolumeID, err)
+	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: volumeID}, pv); err != nil {
+		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
 		return false
 	}
 
