@@ -125,7 +125,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive, id string) (error) {
+func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *ddrivecrd.Drive) (uint8, error) {
 	// get drive fields
 	status := drive.Spec.GetStatus()
 	usage := drive.Spec.GetUsage()
