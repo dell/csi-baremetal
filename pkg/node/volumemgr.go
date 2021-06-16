@@ -27,11 +27,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/keymutex"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -58,9 +60,14 @@ import (
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
-const volumeFinalizer = "dell.emc.csi/volume-cleanup"
+const (
+	volumeFinalizer = "dell.emc.csi/volume-cleanup"
 
-const deleteVolumeFailedMsg = "Failed to remove volume %s with error: %s"
+	deleteVolumeFailedMsg = "Failed to remove volume %s with error: %s"
+
+	fakeAttachAnnotation = "pv.attach.kubernetes.io/ignore-if-inaccessible"
+	fakeAttachAllowKey   = "yes"
+)
 
 // eventRecorder interface for sending events
 type eventRecorder interface {
@@ -1101,4 +1108,31 @@ func (m *VolumeManager) changeDriveIsCleanField(drive *drivecrd.Drive, clean boo
 	if err := m.k8sClient.Update(ctxWithID, drive); err != nil {
 		ll.Errorf("Unable to update drive CR %s: %v", drive.Name, err)
 	}
+}
+
+func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeID)
+
+	pv := &corev1.PersistentVolume{}
+	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: volumeID}, pv); err != nil {
+		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
+		return false
+	}
+
+	pvcName := pv.Spec.ClaimRef.Name
+	pvcNamespace := pv.Spec.ClaimRef.Namespace
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: pvcName, Namespace: pvcNamespace}, pvc); err != nil {
+		m.log.Errorf("Failed to get Persistent Volume Claim %s in namespace %s: %v", pvcName, pvcNamespace, err)
+		return false
+	}
+
+	m.log.Debugf("PVC %s/%s was found for PV with ID - %s", pvc.Namespace, pvc.Name, pv.Name)
+
+	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
+		return true
+	}
+
+	return false
 }

@@ -183,6 +183,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
 	if err != nil {
 		ll.Errorf("failed to get partition, for volume %v: %v", volumeCR.Spec, err)
+		ll.Infof("Volume %s can be ignored - %t. Mount fake path...", volumeID, s.isPVCNeedFakeAttach(volumeID))
 		return nil, status.Error(codes.Internal, "failed to stage volume: partition error")
 	}
 	ll.Infof("Work with partition %s", partition)
@@ -194,6 +195,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	)
 	if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
 		ll.Errorf("Unable to prepare and mount: %v. Going to set volumes status to failed", err)
+		ll.Infof("Volume %s can be ignored - %t. Mount fake path...", volumeID, s.isPVCNeedFakeAttach(volumeID))
 		newStatus = apiV1.Failed
 		resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: mount error")
 	}
