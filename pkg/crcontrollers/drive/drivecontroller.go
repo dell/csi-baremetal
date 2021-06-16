@@ -125,7 +125,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive, id string) (error) {
 	// get drive fields
 	status := drive.Spec.GetStatus()
 	usage := drive.Spec.GetUsage()
@@ -133,25 +133,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	id := drive.Spec.GetUUID()
 
     // handle offline status
-	if status == apiV1.DriveStatusOffline  {
-	    if usage == apiV1.DriveUsageRemoved {
-	        // drive was removed from the system. need to clean corresponding custom resource
-	        return delete, nil
-        }
-
-        volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
-        if err != nil {
+	if status == apiV1.DriveStatusOffline {
+        if err := c.crHelper.UpdateVolumesOpStatusByLocation(ctx, id, apiV1.OperationalStatusMissing); err != nil {
             return ignore, err
         }
-
-        for _, vol := range volumes {
-            vol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
-            if err := c.client.UpdateCR(ctx, vol); err != nil {
-                log.Errorf("Unable to update operational status for volume ID %s: %s", vol.Spec.Id, err)
-            	return ignore, err
-            }
-        }
-        return ignore, nil
 	}
 
 	// check whether update is required
@@ -231,7 +216,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			toUpdate = true
 		}
 	case apiV1.DriveUsageRemoved:
-        // TODO: something
+        if usage == apiV1.DriveUsageRemoved {
+            // drive was removed from the system. need to clean corresponding custom resource
+        	return delete, nil
+        }
         break
 	}
 
