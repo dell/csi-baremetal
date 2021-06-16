@@ -463,6 +463,7 @@ func (cs *CRHelper) UpdateVolumesOpStatusByLocation(ctx context.Context, uuid st
             if err := cs.k8sClient.UpdateCR(ctx, volume); err != nil {
                 cs.log.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
                 return err
+            }
         }
     }
 
