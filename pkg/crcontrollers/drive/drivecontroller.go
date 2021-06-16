@@ -143,13 +143,13 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
             }
 
             for _, vol := range volumes {
-                volume.OperationalStatus = apiV1.OperationalStatusMissing
-                if err := cs.k8sClient.UpdateCR(ctxWithID, &volume); err != nil {
-                    ll.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
-            	    isError = true
+                vol.OperationalStatus = apiV1.OperationalStatusMissing
+                if err := cs.k8sClient.UpdateCR(ctx, &vol); err != nil {
+                    log.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
+            	    return ignore, err
                 }
             }
-            return update, nil
+            return ignore, nil
         }
 	}
 
