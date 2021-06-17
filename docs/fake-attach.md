@@ -27,17 +27,21 @@ failure.
 This feature will require application Operator to put specific annotation on PVC
 `pv.attach.kubernetes.io/ignore-if-inaccessible: yes`
 
+If fake-attach volume is successfully created, CSI Volume CR will be annotated with `fake-attach:yes` and `Operational Status` will equal to `MISSING`
+
 ## Implementation
 
-When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI must ignore NodeStageVolume errors and
-put `fake-attach: yes` annotation on CSI Volume CR. On NodePublishVolume CSI must check `fake-attach` annotation and mount
-tmpfs volume in read-only mode.
+When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI must ignore NodeStageVolume errors and put `fake-attach: yes` annotation on CSI Volume CR. 
 
-Command to mount tmpfs volume: `mount -t tmpfs -o size=1K -o ro tmpfs <destination folder>`
+On NodePublishVolume CSI must check `fake-attach` annotation and mount
+tmpfs volume in read-only mode.
+Command to mount tmpfs volume: `mount -t tmpfs -o size=1M,ro <volumeID> <destination folder>`
 
 CSI must generate event to notify user about this Fake-Attach Volume.
 
-On NodeUnstage tmpfs volume must be deleted.
+On NodeUnpublishVolume tmpfs volume must be unmounted usually.
+
+On NodeUnstageVolume `fake-attach` annotation must be deleted.
 
 ## Assumptions (if applicable)
 

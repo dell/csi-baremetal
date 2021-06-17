@@ -176,7 +176,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	currStatus := volumeCR.Spec.CSIStatus
 	switch currStatus {
-	// if currStatus not in [Created (first call), VolumeReady (retry), Published (multiple pods)]
+	// expected currStatus in [Created (first call), VolumeReady (retry), Published (multiple pods)]
 	case apiV1.Created, apiV1.VolumeReady, apiV1.Published:
 		ll.Infof("Volume status: %s", currStatus)
 	// also need to retry on FAILED
