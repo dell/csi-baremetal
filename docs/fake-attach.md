@@ -27,7 +27,7 @@ failure.
 This feature will require application Operator to put specific annotation on PVC
 `pv.attach.kubernetes.io/ignore-if-inaccessible: yes`
 
-If fake-attach volume is successfully created, CSI Volume CR will be annotated with `fake-attach:yes` and `Operational Status` will equal to `MISSING`
+If fake-attach volume is successfully created, CSI Volume CR will be annotated with `fake-attach:yes` and `Operational Status` will equal to `MISSING`. The pod must be restarted after `Operational Status` returns to `OPERATIVE`.
 
 ## Implementation
 
