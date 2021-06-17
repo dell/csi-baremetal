@@ -296,11 +296,9 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
 		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
 		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
-	} else {
-		if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
-			volumeCR.Spec.CSIStatus = apiV1.Failed
-			resp = nil
-		}
+	} else if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
+		volumeCR.Spec.CSIStatus = apiV1.Failed
+		resp = nil
 	}
 
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
