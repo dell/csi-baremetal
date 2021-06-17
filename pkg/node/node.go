@@ -204,6 +204,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		if s.isPVCNeedFakeAttach(volumeID) {
 			isFakeAttach = true
 		} else {
+			newStatus = apiV1.Failed
 			resp, errToReturn = nil, status.Error(codes.Internal, fmt.Sprintf("failed to stage volume: %s", err.Error()))
 		}
 	}
@@ -228,7 +229,6 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
-			//if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 		}
