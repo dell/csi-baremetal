@@ -48,7 +48,12 @@ import (
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
-const stagingFileName = "dev"
+const (
+	stagingFileName = "dev"
+
+	fakeAttachVolumeAnnotation = "fake-attach"
+	fakeAttachVolumeKey        = "yes"
+)
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
@@ -161,7 +166,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
 
-	volumeID := req.VolumeId
+	volumeID := req.GetVolumeId()
 	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
 	if err != nil {
 		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
@@ -170,39 +175,60 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	// if currStatus not in [Created (first call), VolumeReady (retry), Published (multiple pods)]
-	if currStatus != apiV1.Created && currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
-		ll.Errorf("Current volume CR status - %s, expected to be in - [%s, %s, %s]",
-			currStatus, apiV1.Created, apiV1.VolumeReady, apiV1.Published)
-		return nil, fmt.Errorf("corresponding volume CR is in unexpected state - %s",
-			currStatus)
+	switch currStatus {
+	// expected currStatus in [Created (first call), VolumeReady (retry), Published (multiple pods)]
+	case apiV1.Created, apiV1.VolumeReady, apiV1.Published:
+		ll.Infof("Volume status: %s", currStatus)
+	// also need to retry on FAILED
+	case apiV1.Failed:
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	default:
+		ll.Errorf("Unexpected volume status: %s", currStatus)
+		return nil, fmt.Errorf("corresponding volume is in unexpected state - %s", currStatus)
 	}
-
-	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
-
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
-	if err != nil {
-		ll.Errorf("failed to get partition, for volume %v: %v", volumeCR.Spec, err)
-		ll.Infof("Volume %s can be ignored - %t. Mount fake path...", volumeID, s.isPVCNeedFakeAttach(volumeID))
-		return nil, status.Error(codes.Internal, "failed to stage volume: partition error")
-	}
-	ll.Infof("Work with partition %s", partition)
 
 	var (
 		resp        = &csi.NodeStageVolumeResponse{}
 		errToReturn error
 		newStatus   = apiV1.VolumeReady
 	)
-	if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
-		ll.Errorf("Unable to prepare and mount: %v. Going to set volumes status to failed", err)
-		ll.Infof("Volume %s can be ignored - %t. Mount fake path...", volumeID, s.isPVCNeedFakeAttach(volumeID))
-		newStatus = apiV1.Failed
-		resp, errToReturn = nil, status.Error(codes.Internal, "failed to stage volume: mount error")
+
+	if volumeCR.Annotations == nil {
+		volumeCR.Annotations = make(map[string]string)
 	}
 
-	if currStatus != apiV1.VolumeReady || newStatus == apiV1.Failed {
+	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
+
+	isFakeAttach := false
+	ignoreErrorIfFakeAttach := func(err error) {
+		if s.isPVCNeedFakeAttach(volumeID) {
+			isFakeAttach = true
+		} else {
+			newStatus = apiV1.Failed
+			resp, errToReturn = nil, status.Error(codes.Internal, fmt.Sprintf("failed to stage volume: %s", err.Error()))
+		}
+	}
+
+	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
+	if err != nil {
+		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
+		ignoreErrorIfFakeAttach(err)
+	} else {
+		ll.Infof("Partition to stage: %s", partition)
+		if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
+			ll.Errorf("Unable to stage volume: %v", err)
+			ignoreErrorIfFakeAttach(err)
+		}
+	}
+
+	if isFakeAttach {
+		volumeCR.Annotations["fake-attach"] = "yes"
+		ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
+	}
+
+	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
-		if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
+		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 		}
@@ -240,9 +266,13 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
+
+	volumeID := req.GetVolumeId()
+	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
 	if err != nil {
-		return nil, status.Error(codes.NotFound, "Unable to find volume")
+		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
+		ll.Error(message)
+		return nil, status.Error(codes.NotFound, message)
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
@@ -262,7 +292,11 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		resp        = &csi.NodeUnstageVolumeResponse{}
 		errToReturn error
 	)
-	if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
+
+	if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
+		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
+		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
+	} else if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
 		volumeCR.Spec.CSIStatus = apiV1.Failed
 		resp = nil
 	}
@@ -367,11 +401,18 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		errToReturn error
 	)
 
-	_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
-	if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock); err != nil {
-		ll.Errorf("Unable to mount volume: %v", err)
-		newStatus = apiV1.Failed
-		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
+	if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
+		if err := s.fsOps.MountFakeTmpfs(volumeID, dstPath); err != nil {
+			newStatus = apiV1.Failed
+			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
+		}
+	} else {
+		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
+		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock); err != nil {
+			ll.Errorf("Unable to mount volume: %v", err)
+			newStatus = apiV1.Failed
+			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error %s", err.Error())
+		}
 	}
 
 	var podName string

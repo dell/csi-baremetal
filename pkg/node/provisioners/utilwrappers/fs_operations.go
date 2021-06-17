@@ -31,6 +31,8 @@ type FSOperations interface {
 	// PrepareAndPerformMount composite methods which is prepare source and destination directories
 	// and performs mount operation from src to dst
 	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error
+	// MountFakeTmpfs does attach of a temporary folder on failure
+	MountFakeTmpfs(volumeID, dst string) error
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	fs.WrapFS
@@ -146,4 +148,27 @@ func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
 	}
 
 	return fsOp.Unmount(path)
+}
+
+// MountFakeTmpfs does attach of temp folder in read only mode
+func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
+	/*
+		CMD example:
+			mount -t tmpfs -o size=1M,ro <volumeID> <dst>
+	*/
+	ll := fsOp.log.WithFields(logrus.Fields{"method": "FakeAttach"})
+
+	ll.Warningf("Simulate attachment")
+	_, err := os.Stat(dst)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		createCMD := fsOp.MkDir
+		if err = createCMD(dst); err != nil {
+			return err
+		}
+	}
+
+	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,ro")
 }

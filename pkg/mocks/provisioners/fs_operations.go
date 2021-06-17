@@ -30,6 +30,13 @@ func (m *MockFsOpts) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir
 	return args.Error(0)
 }
 
+// MountFakeTmpfs is a mock implementation
+func (m *MockFsOpts) MountFakeTmpfs(volumeID, path string) error {
+	args := m.Mock.Called(volumeID, path)
+
+	return args.Error(0)
+}
+
 // UnmountWithCheck is a mock implementation
 func (m *MockFsOpts) UnmountWithCheck(path string) error {
 	args := m.Mock.Called(path)
