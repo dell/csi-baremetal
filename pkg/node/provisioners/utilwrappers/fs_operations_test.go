@@ -18,7 +18,6 @@ package utilwrappers
 
 import (
 	"errors"
-	"os/exec"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -170,11 +169,4 @@ func TestFSOperationsImpl_MountWithCheck_Fail(t *testing.T) {
 	err = fsOps.UnmountWithCheck(path)
 	assert.NotNil(t, err)
 	assert.Equal(t, unmountErr, err)
-}
-
-func Test_Tmp(t *testing.T) {
-	cmd := exec.Command("mount", "-t tmpfs -o size=1M -o ro tmpfs /tmp")
-
-	err := cmd.Run()
-	assert.Nil(t, err)
 }

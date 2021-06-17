@@ -48,7 +48,12 @@ import (
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
 )
 
-const stagingFileName = "dev"
+const (
+	stagingFileName = "dev"
+
+	fakeAttachVolumeAnnotation = "fake-attach"
+	fakeAttachVolumeKey        = "yes"
+)
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
@@ -161,7 +166,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
 
-	volumeID := req.VolumeId
+	volumeID := req.GetVolumeId()
 	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
 	if err != nil {
 		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
@@ -182,42 +187,48 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, fmt.Errorf("corresponding volume is in unexpected state - %s", currStatus)
 	}
 
-	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
-
 	var (
 		resp        = &csi.NodeStageVolumeResponse{}
 		errToReturn error
 		newStatus   = apiV1.VolumeReady
 	)
 
-	isFakeAttach := false
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
+	if volumeCR.Annotations == nil {
+		volumeCR.Annotations = make(map[string]string)
+	}
 
+	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
+
+	isFakeAttach := false
+	ignoreErrorIfFakeAttach := func(err error) {
+		if s.isPVCNeedFakeAttach(volumeID) {
+			isFakeAttach = true
+		} else {
+			resp, errToReturn = nil, status.Error(codes.Internal, fmt.Sprintf("failed to stage volume: %s", err.Error()))
+		}
+	}
+
+	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
 	if err != nil {
 		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
-		// ignore error for fake attach
-		isFakeAttach = true
+		ignoreErrorIfFakeAttach(err)
 	} else {
 		ll.Infof("Partition to stage: %s", partition)
 		if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
 			ll.Errorf("Unable to stage volume: %v", err)
-			// ignore error for fake attach
-			isFakeAttach = true
+			ignoreErrorIfFakeAttach(err)
 		}
 	}
 
 	if isFakeAttach {
-		if volumeCR.Annotations == nil {
-			volumeCR.Annotations = make(map[string]string)
-		}
 		volumeCR.Annotations["fake-attach"] = "yes"
-		ll.Warningf("Adding fake-attach annotation to the volume")
+		ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
 	}
 
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
-		//if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
+			//if err := s.crHelper.UpdateVolumeCRSpec(volumeCR.Name, volumeCR.Namespace, volumeCR.Spec); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
 		}
@@ -255,9 +266,13 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	volumeCR, err := s.crHelper.GetVolumeByID(req.GetVolumeId())
+
+	volumeID := req.GetVolumeId()
+	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
 	if err != nil {
-		return nil, status.Error(codes.NotFound, "Unable to find volume")
+		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
+		ll.Error(message)
+		return nil, status.Error(codes.NotFound, message)
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
@@ -277,9 +292,15 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		resp        = &csi.NodeUnstageVolumeResponse{}
 		errToReturn error
 	)
-	if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
-		volumeCR.Spec.CSIStatus = apiV1.Failed
-		resp = nil
+
+	if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
+		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
+		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
+	} else {
+		if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			resp = nil
+		}
 	}
 
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
@@ -382,8 +403,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		errToReturn error
 	)
 
-	if volumeCR.Annotations["fake-attach"] == "yes" {
-		if err := s.fsOps.FakeAttach(srcPath, dstPath, true); err != nil {
+	if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
+		if err := s.fsOps.MountFakeTmpfs(volumeID, dstPath); err != nil {
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
 		}
@@ -392,7 +413,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock); err != nil {
 			ll.Errorf("Unable to mount volume: %v", err)
 			newStatus = apiV1.Failed
-			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error")
+			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error %s", err.Error())
 		}
 	}
 

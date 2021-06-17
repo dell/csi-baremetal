@@ -19,7 +19,6 @@ package utilwrappers
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/sirupsen/logrus"
 
@@ -32,8 +31,8 @@ type FSOperations interface {
 	// PrepareAndPerformMount composite methods which is prepare source and destination directories
 	// and performs mount operation from src to dst
 	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error
-	// FakeAttach does attach of a temporary folder on failure
-	FakeAttach(name, dst string, dstIsDir bool) error
+	// MountFakeTmpfs does attach of a temporary folder on failure
+	MountFakeTmpfs(volumeID, dst string) error
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	fs.WrapFS
@@ -151,8 +150,12 @@ func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
 	return fsOp.Unmount(path)
 }
 
-// FakeAttach does attach of temp folder in read only mode
-func (fsOp *FSOperationsImpl) FakeAttach(src, dst string, dstIsDir bool) error {
+// MountFakeTmpfs does attach of temp folder in read only mode
+func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
+	/*
+		CMD example:
+			mount -t tmpfs -o size=1M,ro <volumeID> <dst>
+	*/
 	ll := fsOp.log.WithFields(logrus.Fields{"method": "FakeAttach"})
 
 	ll.Warningf("Simulate attachment")
@@ -162,20 +165,10 @@ func (fsOp *FSOperationsImpl) FakeAttach(src, dst string, dstIsDir bool) error {
 			return err
 		}
 		createCMD := fsOp.MkDir
-		if !dstIsDir {
-			createCMD = fsOp.MkFile
-		}
 		if err = createCMD(dst); err != nil {
 			return err
 		}
 	}
 
-	cmd := exec.Command("mount", "-t tmpfs -o size=1M -o ro tmpfs " + dst)
-	err = cmd.Run()
-	if err != nil {
-		ll.Errorf("Failed to execute %s: %v", cmd.String(), err)
-		return err
-	}
-
-	return nil
+	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,ro")
 }
