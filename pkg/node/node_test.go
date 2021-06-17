@@ -19,8 +19,6 @@ package node
 import (
 	"errors"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-
 	"path"
 	"testing"
 	"time"
@@ -33,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -107,30 +106,6 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(len(volumeCR.Spec.Owners)).To(Equal(1))
-		})
-
-		It("Should publish volume with fake-attach annotation", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[util.PodNameKey] = testPodName
-
-			vol1 := testVolumeCR1
-			vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
-			Expect(err).To(BeNil())
-
-			fsOps.On("MountFakeTmpfs",
-				testV1ID, req.GetTargetPath()).
-				Return(nil)
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-
-			// check owner appearance
-			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
-			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
 		})
 	})
 
@@ -253,46 +228,6 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
-		})
-		It("Should stage volume with fake-attach annotation", func() {
-			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
-			vol1 := testVolumeCR1
-			vol1.Spec.CSIStatus = apiV1.Created
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
-			Expect(err).To(BeNil())
-
-			pvcName := "pvcName"
-			pvcNamespace := "pvcNamespace"
-
-			pv := &corev1.PersistentVolume{}
-			pv.Name = vol1.Name
-			pv.Spec.ClaimRef = &corev1.ObjectReference{}
-			pv.Spec.ClaimRef.Name = pvcName
-			pv.Spec.ClaimRef.Namespace = pvcNamespace
-			err = node.k8sClient.Create(testCtx, pv)
-			Expect(err).To(BeNil())
-
-			pvc := &corev1.PersistentVolumeClaim{}
-			pvc.Name = pvcName
-			pvc.Namespace = pvcNamespace
-			pvc.Annotations = map[string]string{fakeAttachAnnotation: fakeAttachAllowKey}
-			err = node.k8sClient.Create(testCtx, pvc)
-			Expect(err).To(BeNil())
-
-			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
-			fsOps.On("PrepareAndPerformMount",
-				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
-				Return(errors.New("mount error"))
-
-			resp, err := node.NodeStageVolume(testCtx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", &vol1)
-			Expect(err).To(BeNil())
-			Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
-			Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
 		})
 	})
 
@@ -481,25 +416,6 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
-		})
-		It("Should unstage volume with fake-attach", func() {
-			req := getNodeUnstageRequest(testV1ID, stagePath)
-
-			vol1 := testVolumeCR1
-			vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
-			Expect(err).To(BeNil())
-
-			resp, err := node.NodeUnstageVolume(testCtx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-			// check owners and CSI status
-			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
-			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
-			_, ok := volumeCR.Annotations[fakeAttachVolumeAnnotation]
-			Expect(ok).To(Equal(false))
 		})
 	})
 
@@ -759,6 +675,95 @@ var _ = Describe("CSINodeService Probe()", func() {
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.Ready.Value).To(Equal(false))
+	})
+})
+
+var _ = Describe("CSINodeService Fake-Attach", func() {
+	BeforeEach(func() {
+		setVariables()
+	})
+
+	It("Should stage volume with fake-attach annotation", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		vol1 := testVolumeCR1
+		vol1.Spec.CSIStatus = apiV1.Created
+		err := node.k8sClient.UpdateCR(testCtx, &vol1)
+		Expect(err).To(BeNil())
+
+		pvcName := "pvcName"
+		pvcNamespace := "pvcNamespace"
+
+		pv := &corev1.PersistentVolume{}
+		pv.Name = vol1.Name
+		pv.Spec.ClaimRef = &corev1.ObjectReference{}
+		pv.Spec.ClaimRef.Name = pvcName
+		pv.Spec.ClaimRef.Namespace = pvcNamespace
+		err = node.k8sClient.Create(testCtx, pv)
+		Expect(err).To(BeNil())
+
+		pvc := &corev1.PersistentVolumeClaim{}
+		pvc.Name = pvcName
+		pvc.Namespace = pvcNamespace
+		pvc.Annotations = map[string]string{fakeAttachAnnotation: fakeAttachAllowKey}
+		err = node.k8sClient.Create(testCtx, pvc)
+		Expect(err).To(BeNil())
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(errors.New("mount error"))
+
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", &vol1)
+		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
+	})
+	It("Should publish volume with fake-attach annotation", func() {
+		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+		req.VolumeContext[util.PodNameKey] = testPodName
+
+		vol1 := testVolumeCR1
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		err := node.k8sClient.UpdateCR(testCtx, &vol1)
+		Expect(err).To(BeNil())
+
+		fsOps.On("MountFakeTmpfs",
+			testV1ID, req.GetTargetPath()).
+			Return(nil)
+
+		resp, err := node.NodePublishVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		// check owner appearance
+		volumeCR := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+		Expect(err).To(BeNil())
+		Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
+	})
+	It("Should unstage volume with fake-attach", func() {
+		req := getNodeUnstageRequest(testV1ID, stagePath)
+
+		vol1 := testVolumeCR1
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		err := node.k8sClient.UpdateCR(testCtx, &vol1)
+		Expect(err).To(BeNil())
+
+		resp, err := node.NodeUnstageVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+		// check owners and CSI status
+		volumeCR := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+		Expect(err).To(BeNil())
+		Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+		_, ok := volumeCR.Annotations[fakeAttachVolumeAnnotation]
+		Expect(ok).To(Equal(false))
 	})
 })
 
