@@ -280,7 +280,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("partition error"))
+			Expect(err.Error()).To(ContainSubstring("failed to stage volume"))
 			Expect(status.Code(err)).To(Equal(codes.Internal))
 		})
 		It("Failed because PrepareAndPerformMount had failed", func() {
@@ -312,17 +312,6 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("mount error"))
-		})
-		It("Should fail, because Volume has failed status", func() {
-			req := getNodeStageRequest(testV1ID, *testVolumeCap)
-			vol1 := testVolumeCR1
-			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
-			Expect(err).To(BeNil())
-
-			resp, err := node.NodeStageVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
 		})
 	})
 })
