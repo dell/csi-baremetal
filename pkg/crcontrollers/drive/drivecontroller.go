@@ -127,13 +127,12 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
 	// get drive fields
-	status := drive.Spec.GetStatus()
 	usage := drive.Spec.GetUsage()
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
 
 	// handle offline status
-	if status == apiV1.DriveStatusOffline {
+	if drive.Spec.Status == apiV1.DriveStatusOffline {
 		if err := c.crHelper.UpdateVolumesOpStatusByLocation(ctx, id, apiV1.OperationalStatusMissing); err != nil {
 			return ignore, err
 		}
@@ -216,7 +215,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			toUpdate = true
 		}
 	case apiV1.DriveUsageRemoved:
-		if usage == apiV1.DriveUsageRemoved {
+		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
 			return delete, nil
 		}
