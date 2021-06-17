@@ -131,6 +131,13 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
 
+	// handle offline status
+	if drive.Spec.Status == apiV1.DriveStatusOffline {
+		if err := c.crHelper.UpdateVolumesOpStatusByLocation(ctx, id, apiV1.OperationalStatusMissing); err != nil {
+			return ignore, err
+		}
+	}
+
 	// check whether update is required
 	toUpdate := false
 	switch usage {

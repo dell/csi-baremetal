@@ -448,3 +448,24 @@ func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespa
 
 	return cs.k8sClient.DeleteCR(context.Background(), obj)
 }
+
+// UpdateVolumesOpStatusByLocation reads volume CR with with location uuid and update operational status to opStatus
+// returns nil or error in case of error
+func (cs *CRHelper) UpdateVolumesOpStatusByLocation(ctx context.Context, uuid string, opStatus string) error {
+	volumes, err := cs.GetVolumesByLocation(ctx, uuid)
+	if err != nil {
+		return err
+	}
+
+	for _, volume := range volumes {
+		if volume.Spec.OperationalStatus != opStatus {
+			volume.Spec.OperationalStatus = opStatus
+			if err := cs.k8sClient.UpdateCR(ctx, volume); err != nil {
+				cs.log.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
