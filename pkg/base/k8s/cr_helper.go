@@ -449,27 +449,21 @@ func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespa
 	return cs.k8sClient.DeleteCR(context.Background(), obj)
 }
 
-// UpdateVolumesOpStatusByLocation reads volume CR with with location uuid and update operational status to opStatus
-// returns nil or error in case of error
-func (cs *CRHelper) UpdateVolumesOpStatusByLocation(ctx context.Context, log *logrus.Entry, uuid string, opStatus string) error {
-	volumes, err := cs.GetVolumesByLocation(ctx, uuid)
-	if err != nil {
-		return err
-	}
-	return cs.UpdateVolumesOpStatus(ctx, log, volumes, opStatus)
-}
-
-// UpdateVolumesOpStatus Update Operational status to opStatus for list of volumes
+// UpdateVolumeOpStatus Update volume Operational status to opStatus
 //
 // returns nil or error in case of error
-func (cs *CRHelper) UpdateVolumesOpStatus(ctx context.Context, log *logrus.Entry, volumes []*volumecrd.Volume, opStatus string) error {
-	for _, volume := range volumes {
-		if volume.Spec.OperationalStatus != opStatus {
-			volume.Spec.OperationalStatus = opStatus
-			if err := cs.k8sClient.UpdateCR(ctx, volume); err != nil {
-				log.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
-				return err
-			}
+func (cs *CRHelper) UpdateVolumeOpStatus(ctx context.Context, volume *volumecrd.Volume, opStatus string) error {
+	ll := cs.log.WithFields(logrus.Fields{
+		"method":   "UpdateVolumeOpStatus",
+		"volume":   volume.Name,
+		"opStatus": opStatus,
+	})
+
+	if volume.Spec.OperationalStatus != opStatus {
+		volume.Spec.OperationalStatus = opStatus
+		if err := cs.k8sClient.UpdateCR(ctx, volume); err != nil {
+			ll.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
+			return err
 		}
 	}
 	return nil
