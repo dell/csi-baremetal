@@ -450,7 +450,6 @@ func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespa
 }
 
 // UpdateVolumeOpStatus Update volume Operational status to opStatus
-//
 // returns nil or error in case of error
 func (cs *CRHelper) UpdateVolumeOpStatus(ctx context.Context, volume *volumecrd.Volume, opStatus string) error {
 	ll := cs.log.WithFields(logrus.Fields{
