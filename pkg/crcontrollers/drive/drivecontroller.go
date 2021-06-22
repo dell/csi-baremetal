@@ -237,7 +237,6 @@ func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Driv
 				return err
 			}
 		}
-
 	case apiV1.DriveStatusOnline:
 		// move MISSING volumes to OPERATIVE status
 		for _, volume := range volumes {
