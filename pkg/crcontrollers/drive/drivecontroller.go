@@ -126,17 +126,15 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	// handle offline/online drive status
+	if err := c.handleDriveStatus(ctx, log, drive); err != nil {
+		return ignore, err
+	}
+
 	// get drive fields
 	usage := drive.Spec.GetUsage()
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
-
-	// handle offline status
-	if drive.Spec.Status == apiV1.DriveStatusOffline {
-		if err := c.crHelper.UpdateVolumesOpStatusByLocation(ctx, id, apiV1.OperationalStatusMissing); err != nil {
-			return ignore, err
-		}
-	}
 
 	// check whether update is required
 	toUpdate := false
@@ -224,6 +222,29 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return update, nil
 	}
 	return ignore, nil
+}
+
+func (c *Controller) handleDriveStatus(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) error {
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+	if err != nil {
+		return err
+	}
+
+	switch drive.Spec.Status {
+	case apiV1.DriveStatusOffline:
+		return c.crHelper.UpdateVolumesOpStatus(ctx, log, volumes, apiV1.OperationalStatusMissing)
+
+	case apiV1.DriveStatusOnline:
+		// move MISSING volumes to OPERATIVE status
+		missingVolumes := volumes[:0]
+		for _, volume := range volumes {
+			if volume.Spec.OperationalStatus == apiV1.OperationalStatusMissing {
+				missingVolumes = append(missingVolumes, volume)
+			}
+		}
+		return c.crHelper.UpdateVolumesOpStatus(ctx, log, missingVolumes, apiV1.OperationalStatusOperative)
+	}
+	return nil
 }
 
 func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
