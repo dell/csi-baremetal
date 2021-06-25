@@ -990,6 +990,7 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 		}
 		// skip HealthChange event if drive health was overridden
 		if updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation] != updDrive.PreviousState.Annotations[driveHealthOverrideAnnotation] {
+			m.log.Errorf("OVER")
 			m.createEventForDriveHealthOverridden(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
 			continue

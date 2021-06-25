@@ -126,9 +126,6 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
-	// check whether update is required
-	var toUpdate = false
-
 	// handle offline/online drive status
 	if err := c.handleDriveStatus(ctx, drive); err != nil {
 		return ignore, err
@@ -139,6 +136,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	health := drive.Spec.GetHealth()
 	id := drive.Spec.GetUUID()
 
+	// check whether update is required
+	toUpdate := false
 	switch usage {
 	case apiV1.DriveUsageInUse:
 		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
