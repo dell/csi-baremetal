@@ -233,10 +233,11 @@ func (n *ServicesStateMonitor) getPodToNodeList() (map[string]stateComponents, e
 		}
 
 		if podNode == nil {
-			//nolint
+			// nolint
 			log.Fatalf("Unable to find node for pod %s", pod.Name)
 		}
-		nodeID := string(podNode.ObjectMeta.UID)
+		// nolint - doesn't detect Exit() in Fatalf
+		nodeID := string(podNode.GetUID())
 		stateComponentsMap[nodeID] = stateComponents{podNode, pod}
 	}
 
