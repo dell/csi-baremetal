@@ -39,10 +39,6 @@ const (
 	delete uint8 = 2
 )
 
-const (
-	driveHealthOverrideAnnotation = "health"
-)
-
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
@@ -136,10 +132,6 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	// handle offline/online drive status
 	if err := c.handleDriveStatus(ctx, drive); err != nil {
 		return ignore, err
-	}
-
-	if isOverrided := c.overrideDriveHealth(drive, log); isOverrided {
-		toUpdate = true
 	}
 
 	// get drive fields
@@ -257,38 +249,6 @@ func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Driv
 		}
 	}
 	return nil
-}
-
-func (c *Controller) overrideDriveHealth(drive *drivecrd.Drive, log *logrus.Entry) bool {
-	var (
-		newHealth string
-		oldHealth = drive.Spec.Health
-	)
-	value, ok := drive.Annotations[driveHealthOverrideAnnotation]
-	if !ok {
-		return false
-	}
-
-	switch value {
-	case apiV1.HealthSuspect:
-		newHealth = apiV1.HealthSuspect
-	case apiV1.HealthBad:
-		newHealth = apiV1.HealthBad
-	default:
-		log.Warningf("Drive %s has health annotation, but value %s is not %s or %s. Health is not overrided.", drive.Name, value, apiV1.HealthSuspect, apiV1.HealthBad)
-		return false
-	}
-
-	if newHealth == oldHealth {
-		return false
-	}
-
-	drive.Spec.Health = newHealth
-
-	eventMsg := fmt.Sprintf("Drive health %s is overrided with %s", oldHealth, newHealth)
-	c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveHealthOverrided, eventMsg)
-
-	return true
 }
 
 func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {

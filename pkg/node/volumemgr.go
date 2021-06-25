@@ -67,6 +67,8 @@ const (
 
 	fakeAttachAnnotation = "pv.attach.kubernetes.io/ignore-if-inaccessible"
 	fakeAttachAllowKey   = "yes"
+
+	driveHealthOverrideAnnotation = "health"
 )
 
 // eventRecorder interface for sending events
@@ -602,6 +604,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				if searchSystemDrives && driveCR.Spec.IsSystem {
 					m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, driveCR.Spec.UUID)
 				}
+				if value, ok := driveCR.GetAnnotations()[driveHealthOverrideAnnotation]; ok {
+					m.overrideDriveHealth(drivePtr, value, driveCR.Name)
+				}
 				if driveCR.Equals(drivePtr) {
 					updates.AddNotChanged(&driveCR)
 				} else {
@@ -979,13 +984,19 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			createdDrive, apiV1.HealthUnknown, createdDrive.Spec.Health)
 	}
 	for _, updDrive := range updates.Updated {
-		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health {
-			m.createEventForDriveHealthChange(
-				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
-		}
 		if updDrive.CurrentState.Spec.Status != updDrive.PreviousState.Spec.Status {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
+		}
+		// skip HealthChange event if drive health was overridden
+		if updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation] != updDrive.PreviousState.Annotations[driveHealthOverrideAnnotation] {
+			m.createEventForDriveHealthOverridden(
+				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
+			continue
+		}
+		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health {
+			m.createEventForDriveHealthChange(
+				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
 		}
 	}
 }
@@ -1029,6 +1040,15 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 	}
 	m.sendEventForDrive(drive, eventType, reason,
 		statusMsgTemplate, currentStatus, prevStatus)
+}
+
+func (m *VolumeManager) createEventForDriveHealthOverridden(
+	drive *drivecrd.Drive, realHealth, overriddenHealth string) {
+	msgTemplate := "Drive health is overridden with: %s, real state: %s."
+	eventType := eventing.WarningType
+	reason := eventing.DriveHealthOverridden
+	m.sendEventForDrive(drive, eventType, reason,
+		msgTemplate, overriddenHealth, realHealth)
 }
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reason, messageFmt string,
@@ -1135,4 +1155,13 @@ func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
 	}
 
 	return false
+}
+
+func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, driveCRName string) {
+	if overriddenHealth == apiV1.HealthSuspect && overriddenHealth == apiV1.HealthBad {
+		drive.Health = overriddenHealth
+	} else {
+		m.log.Warningf("Drive %s has health annotation, but value %s is not %s or %s. Health is not overrided.",
+			driveCRName, overriddenHealth, apiV1.HealthSuspect, apiV1.HealthBad)
+	}
 }
