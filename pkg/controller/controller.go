@@ -192,6 +192,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	c.reqMu.Unlock()
 
 	if err != nil {
+		ll.Errorf("Failed to create volume: %v", err)
 		return nil, err
 	}
 

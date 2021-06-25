@@ -226,6 +226,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 
 	requests := make([]*genV1.CapacityRequest, 0)
 	for _, v := range pod.Spec.Volumes {
+		ll.Debugf("Volume details: %s", v.String())
 		// check whether volume Ephemeral or not
 		if v.CSI != nil {
 			if v.CSI.Driver == e.provisioner {
