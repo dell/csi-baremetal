@@ -44,4 +44,7 @@ const (
 	DriveSuccessfullyReplaced = "DriveSuccessfullyReplaced"
 	DriveHasData              = "DriveHasData"
 	DriveClean                = "DriveClean"
+
+	FakeAttachInvolved  = "FakeAttachInvolved"
+	FakeAttachCleared = "FakeAttachCleared"
 )
