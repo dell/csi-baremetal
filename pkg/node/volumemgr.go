@@ -68,6 +68,8 @@ const (
 	fakeAttachAnnotation = "pv.attach.kubernetes.io/ignore-if-inaccessible"
 	fakeAttachAllowKey   = "yes"
 
+	// Annotation key for health overriding
+	// Discover function replaces drive health with passed value if the annotation is set
 	driveHealthOverrideAnnotation = "health"
 )
 
@@ -1042,6 +1044,7 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 		statusMsgTemplate, currentStatus, prevStatus)
 }
 
+// createEventForDriveHealthOverridden creates DriveHealthOverridden with Warning type
 func (m *VolumeManager) createEventForDriveHealthOverridden(
 	drive *drivecrd.Drive, realHealth, overriddenHealth string) {
 	msgTemplate := "Drive health is overridden with: %s, real state: %s."
@@ -1157,6 +1160,8 @@ func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
 	return false
 }
 
+// overrideDriveHealth replaces drive health with passed value
+// generates error if value is not BAD or SUSPECT
 func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, driveCRName string) {
 	if (overriddenHealth == apiV1.HealthSuspect) || (overriddenHealth == apiV1.HealthBad) {
 		drive.Health = overriddenHealth
