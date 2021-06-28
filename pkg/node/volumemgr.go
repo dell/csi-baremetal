@@ -1160,13 +1160,18 @@ func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
 	return false
 }
 
-// overrideDriveHealth replaces drive health with passed value
-// generates error if value is not BAD or SUSPECT
+// overrideDriveHealth replaces drive health with passed value,
+// generates error message if value is not valid
 func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, driveCRName string) {
-	if (overriddenHealth == apiV1.HealthSuspect) || (overriddenHealth == apiV1.HealthBad) {
+	if (overriddenHealth == apiV1.HealthGood) ||
+		(overriddenHealth == apiV1.HealthSuspect) ||
+		(overriddenHealth == apiV1.HealthBad) ||
+		(overriddenHealth == apiV1.HealthUnknown) {
+		m.log.Warnf("Drive %s has health annotation. Health %s has been overridden with %s.",
+			driveCRName, drive.Health, overriddenHealth)
 		drive.Health = overriddenHealth
 	} else {
-		m.log.Errorf("Drive %s has health annotation, but value %s is not %s or %s. Health is not overridden.",
-			driveCRName, overriddenHealth, apiV1.HealthSuspect, apiV1.HealthBad)
+		m.log.Errorf("Drive %s has health annotation, but value %s is not %s/%s/%s/%s. Health is not overridden.",
+			driveCRName, overriddenHealth, apiV1.HealthGood, apiV1.HealthSuspect, apiV1.HealthBad, apiV1.HealthUnknown)
 	}
 }
