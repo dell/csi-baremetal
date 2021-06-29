@@ -2,7 +2,7 @@ name: codecov
 
 on:
   push:
-    branches: [ codecov ]
+    branches: [ master ]
 
 env:
   go_version: '1.16.0'
