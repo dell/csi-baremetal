@@ -39,6 +39,11 @@ const (
 	delete uint8 = 2
 )
 
+const (
+	driveRetryIfFailedAnnotationKey   = "restart"
+	driveRetryIfFailedAnnotationValue = "yes"
+)
+
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
@@ -215,6 +220,12 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
 			return delete, nil
+		}
+	case apiV1.DriveUsageFailed:
+		//
+		if value, ok := drive.GetAnnotations()[driveRetryIfFailedAnnotationKey]; ok && value == driveRetryIfFailedAnnotationValue {
+			drive.Spec.Usage = apiV1.DriveUsageInUse
+			toUpdate = true
 		}
 	}
 
