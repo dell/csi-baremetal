@@ -64,6 +64,8 @@ Negotiation between CSI and Operator is optional and will be done though annotat
 #### User
 To trigger physical drive replacement user must put the following annotation on the corresponding Drive custom resource:
   - `driveremove.csi-baremetal/replacement: ready` - informs that drive replacement is ready
+
+*User can trigger drive releasing himself. If user annotates driveCR with `health=<SUSPECT/BAD>`, drive health will be overridden with passed value.*
 ### Detailed workflow
 * When drive health changed from `GOOD` to `SUSPECT` or `BAD` CSI will:
   - Set drive operational status to `RELEASING`
