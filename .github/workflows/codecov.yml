@@ -1,0 +1,44 @@
+name: codecov
+
+on:
+  push:
+    branches: [ codecov ]
+
+env:
+  go_version: '1.16.0'
+  golangci_version: '1.37.0'
+
+jobs:
+  codecov:
+    name: codecov
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Prepare Golang
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{env.go_version}}
+
+      - name: Load dep cache
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: go-dep-${{ env.go_version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-dep-${{ env.go_version }}-
+
+      - name: Get dependencies
+        run:  make dependency
+
+      - name: Generate coverage report
+        run: |
+          make test
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
