@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/safronovD/csi-baremetal/branch/master/graph/badge.svg)](https://codecov.io/gh/safronovD/csi-baremetal)
+
 Bare-metal CSI Driver
 =====================
 
