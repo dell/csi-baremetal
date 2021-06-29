@@ -8,35 +8,43 @@ Implementation of the option to delete CSI CRs from a node, which going to be re
 
 ## Background
 
-User manual actions for node removal are described in [doc](https://github.com/dell/csi-baremetal/blob/master/docs/node-removal.md). The goal of this POC is automating most of the steps of that procedure. 
+User manual actions for node removal are described in [doc](https://github.com/dell/csi-baremetal/blob/master/docs/node-removal.md).
+The goal of this proposal is automating most of the steps of that procedure. 
 
 ## Proposal
 
-CSI CRs deletion(Volumes, AC, ACR, Drives, LVGs) will be triggerred on deletion of appropriate csibmnode and we be performed by node-controller.
-Before implementation, we need to replace node-uuid annotation with label and add node-affinity `uuid label is exists` to csi-baremetal-node daemonset.
+#### User API
+
+CSI CRs deletion(Volumes, AC, ACR, Drives, LVGs, Csibmnode) may be triggerred on annotating a Node. The annotation has 2 options:
+- `csi-baremetal/node-removal-request=yes` - CSI waits until there are no PVC associated with Node
+- `csi-baremetal/node-removal-request=force` - CSI deletes all PVC
+
+CSI puts `csi-baremetal/node-removal-process` label on Node, which has to be removed. Statuses:
+- `wait` - wait until all related PVCs will be deleted
+- `in-progress` - CSI is deleting Custom Resources
+- `completed` - removal is finished with success
+- `failed` - removal is finished with failure
+
+*Failed status can be set if CSI is not in Running state completely. For example `node-controller` is not ready and can't delete Csibmnode CR in the normal way.*
 
 Updated node removal steps performed by user:
-1. Get node uuid mapped to node name
-2. Delete all related Pods and PVCs
-3. Delete csibmnode CR with same node uuid
+- for safe mode
+1. Delete all related Pods and PVCs
+2. Annotate corresponding Node
+3. Wait `completed` (or `failed`) status
+4. Disable Node
+- for force mode
+1. Annotate corresponding Node with `force`
+2. Wait `completed` (or `failed`) status
+3. Disable Node
 
-Node removal steps performed by node-controller:
-1. Check csibmnode deletion timestamp and start node removal if needed
-2. Delete Volume CRs and LVGs (patch finalizers if stacked)
-3. Remove uuid label from node
-4. Wait until csi-baremetal-node pod will be destroyed (to not restore Drive, LVG and AC CRs)
-5. Delete Drive, LVG and AC CRs
-
-The approach may work if k8sNode is a part of the cluster yet or if it is deleted (skip 3,4 steps).
-Csibmnode deletion may be performed in CSI Operator or other Operator and triggerred after taint, label or annotate node with specific value.
+*For node replacement procedure user should edit csibmnode CR and not annotate Node.*  
 
 ## Rationale
 
 #### Alternative approach 1
 
-Perform CSI CRs deletion in CSI Operator. Trigger will be taint `NoShedule` on Node. Node removal steps will be the same. In 3 Operator must delete node-platform label.
-
-Problem - if node was removed from cluster before taint with `NoShedule`, there is no opportunity for user to clean CSI Resources in automated way.
+Perform CSI CRs deletion in CSI Node-controller. Trigger will be deleting the corresponding `csibmnode` CR.
 
 #### Alternative approach 2
 
@@ -46,15 +54,27 @@ Problem - if node was removed from cluster before and csi-baremetal-node pod is 
 
 ## Compatibility
 
-It has no issues with compatibility
+This proposal is valid for CSI deployed with CSI Operator
 
 ## Implementation
 
-TBD
+Algorithm for CSI Operator:
+1. CSI Operator must reconcile Nodes and check `csi-baremetal/node-removal-request` annotation
+2. Put `csi-baremetal/node-removal-process=wait` label after `safe` and check related PVCs
+3. Delete PVSs after `force`
+4. Put `csi-baremetal/node-removal-process=in-progress` label
+5. Delete CRs with finalizers (Volumes, LVGs)
+6. Delete `platform` label from Node
+7. Wait until `csi-baremetal-node` pod is destroyed (to not restore Drive, AC)
+8. Delete all remaining CRs(Drives, ACs, ACRs, Csibmnode)
+9. Check stacked Volumes and LVGs, patch finalizers and delete CRs
+10. Put `csi-baremetal/node-removal-process=completed`
 
 ## Open issues (same as [here](https://github.com/dell/csi-baremetal/blob/master/docs/node-removal.md))
 
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
-ISSUE-1 | Should we mark drives as OFFLINE instead of removing?  |  | Open  |
-ISSUE-2 | Should we marked volumes as INOPERATIVE instead of removing?  |  | Open  |   
+ISSUE-1 | Should user annotate Csibmnode instead of k8sNode | If node was removed from cluster before annotating, there is no opportunity for user to clean CSI Resources in automated way. | Open |
+ISSUE-2 | How can CSI Operator wait `related PVCs == 0` condition?  | Should CSI Operator reconcile PVCs? | Open  |
+ISSUE-3 | Should we mark drives as OFFLINE instead of removing?  |  | Open  |
+ISSUE-4 | Should we marked volumes as INOPERATIVE instead of removing?  |  | Open  |   
