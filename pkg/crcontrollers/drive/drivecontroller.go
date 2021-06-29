@@ -40,6 +40,7 @@ const (
 )
 
 const (
+	// Annotations for driveCR to perform restart process
 	driveRetryIfFailedAnnotationKey   = "removing"
 	driveRetryIfFailedAnnotationValue = "restart"
 )
@@ -222,7 +223,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			return remove, nil
 		}
 	case apiV1.DriveUsageFailed:
-		//
+		// Restore drive.Usage if CR is annotated
+		// Delete the annotation to avoid event repeating
 		if value, ok := drive.GetAnnotations()[driveRetryIfFailedAnnotationKey]; ok && value == driveRetryIfFailedAnnotationValue {
 			drive.Spec.Usage = apiV1.DriveUsageInUse
 			delete(drive.Annotations, driveRetryIfFailedAnnotationKey)
