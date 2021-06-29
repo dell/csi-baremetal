@@ -33,7 +33,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          make test
+          GO111MODULE=on GOPROXY=https://proxy.golang.org,direct go test `go list ./... | grep pkg` -cover -coverprofile=coverage.out -covermode=atomic
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v1.0.2
