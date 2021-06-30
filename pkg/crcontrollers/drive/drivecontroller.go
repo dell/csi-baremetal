@@ -41,8 +41,8 @@ const (
 
 const (
 	// Annotations for driveCR to perform restart process
-	driveRetryIfFailedAnnotationKey   = "removing"
-	driveRetryIfFailedAnnotationValue = "restart"
+	driveRestartReplacementAnnotationKey   = "replacement"
+	driveRestartReplacementAnnotationValue = "restart"
 )
 
 // NewController creates new instance of Controller structure
@@ -172,6 +172,11 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 
 	case apiV1.DriveUsageReleased:
+		if c.restartReplacement(drive) {
+			toUpdate = true
+			break
+		}
+
 		status, found := drive.Annotations[apiV1.DriveAnnotationReplacement]
 		if !found || status != apiV1.DriveAnnotationReplacementReady {
 			break
@@ -223,11 +228,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			return remove, nil
 		}
 	case apiV1.DriveUsageFailed:
-		// Restore drive.Usage if CR is annotated
-		// Delete the annotation to avoid event repeating
-		if value, ok := drive.GetAnnotations()[driveRetryIfFailedAnnotationKey]; ok && value == driveRetryIfFailedAnnotationValue {
-			drive.Spec.Usage = apiV1.DriveUsageInUse
-			delete(drive.Annotations, driveRetryIfFailedAnnotationKey)
+		if c.restartReplacement(drive) {
 			toUpdate = true
 		}
 	}
@@ -271,4 +272,16 @@ func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 		}
 	}
 	return true
+}
+
+// restartReplacement restores drive.Usage to IN_USE if CR is annotated
+// deletes the annotation to avoid event repeating
+func (c *Controller) restartReplacement(drive *drivecrd.Drive) bool {
+	if value, ok := drive.GetAnnotations()[driveRestartReplacementAnnotationKey]; ok && value == driveRestartReplacementAnnotationValue {
+		drive.Spec.Usage = apiV1.DriveUsageInUse
+		delete(drive.Annotations, driveRestartReplacementAnnotationKey)
+		return true
+	}
+
+	return false
 }
