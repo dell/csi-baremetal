@@ -1,0 +1,11 @@
+--- ./kind-0.11.1/pkg/cluster/internal/providers/docker/provision.go	2021-05-28 02:18:13.000000000 +0300
++++ ./kind-0.11.1/pkg/cluster/internal/providers/docker/patched_provision.go	2021-06-30 17:25:58.317297835 +0300
+@@ -243,6 +243,8 @@
+ 		"--volume", "/var",
+ 		// some k8s things want to read /lib/modules
+ 		"--volume", "/lib/modules:/lib/modules:ro",
++		// ipc host
++		"--ipc", "host",
+ 	},
+ 		args...,
+ 	)
