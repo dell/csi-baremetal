@@ -110,7 +110,9 @@ kind-load-images:
 	kind load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
 	kind load docker-image ${PROJECT}-${OPERATOR}:${TAG}
 
-prepare-kind:
+prepare-kind: build-kind copy-kind
+
+build-kind:
 	# Get kind sources
 	wget -O kind-src https://codeload.github.com/kubernetes-sigs/kind/tar.gz/refs/tags/v0.11.1
 	tar -xzvf kind-src
@@ -119,14 +121,14 @@ prepare-kind:
 	patch -p0 < test/kind/kind.patch
 	cd kind-0.11.1 && make build
 
+	# Copy file
+	mv kind-0.11.1/bin/kind .
+
+copy-kind:
 	# Copy executive file
 	rm /usr/bin/kind
 	chmod +x kind-0.11.1/bin/kind
-	mv kind-0.11.1/bin/kind /usr/bin
+	mv ./kind /usr/bin
 
 	# Check
 	kind version
-
-	# Clean workdir
-	rm kind-src
-	rm -rf kind-0.11.1
