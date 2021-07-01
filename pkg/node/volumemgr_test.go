@@ -778,6 +778,26 @@ func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	assert.Equal(t, 1, len(res.Created))
 }
 
+func TestVolumeManager_updatesDrivesCRs_Override(t *testing.T) {
+	client, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, client, client, new(mocks.NoOpRecorder), nodeID)
+
+	testDriveCR1 := testDriveCR.DeepCopy()
+	testDriveCR1.Annotations = map[string]string{driveHealthOverrideAnnotation: apiV1.HealthSuspect}
+	err = client.CreateCR(testCtx, testDriveCR1.Name, testDriveCR1)
+	assert.Nil(t, err)
+
+	drive := drive1
+	drives := []*api.Drive{&drive}
+
+	updates, err := vm.updateDrivesCRs(testCtx, drives)
+	assert.Nil(t, err)
+	assert.Equal(t, len(updates.Updated), 1)
+	assert.Equal(t, updates.Updated[0].PreviousState.Spec.Health, drive1.Health)
+	assert.Equal(t, updates.Updated[0].CurrentState.Spec.Health, apiV1.HealthSuspect)
+}
+
 func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	vm := prepareSuccessVolumeManagerWithDrives(nil, t)
 

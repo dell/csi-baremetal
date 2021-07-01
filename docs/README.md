@@ -1,3 +1,5 @@
+[![PR validation](https://github.com/dell/csi-baremetal/actions/workflows/pr.yml/badge.svg)](https://github.com/dell/csi-baremetal/actions/workflows/pr.yml)
+
 Bare-metal CSI Driver
 =====================
 

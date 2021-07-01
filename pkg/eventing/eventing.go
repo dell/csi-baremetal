@@ -44,6 +44,7 @@ const (
 	DriveSuccessfullyReplaced = "DriveSuccessfullyReplaced"
 	DriveHasData              = "DriveHasData"
 	DriveClean                = "DriveClean"
+	DriveHealthOverridden     = "DriveHealthOverridden"
 
 	FakeAttachInvolved  = "FakeAttachInvolved"
 	FakeAttachCleared = "FakeAttachCleared"

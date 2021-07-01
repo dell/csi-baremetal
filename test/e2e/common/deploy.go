@@ -103,7 +103,7 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 	return cleanup, nil
 }
 
-// DeployCSIWithArgs deploys csi-baremetal-deployment with CmdHelmExecutor
+// DeployCSI deploys csi-baremetal-deployment with CmdHelmExecutor
 // After install - waiting all pods ready, checking kubernetes-scheduler restart
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
 // Helm command - "helm install csi-baremetal <CHARTS_DIR>/csi-baremetal-deployment
