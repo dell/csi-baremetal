@@ -46,6 +46,6 @@ const (
 	DriveClean                = "DriveClean"
 	DriveHealthOverridden     = "DriveHealthOverridden"
 
-	FakeAttachInvolved  = "FakeAttachInvolved"
-	FakeAttachCleared = "FakeAttachCleared"
+	FakeAttachInvolved = "FakeAttachInvolved"
+	FakeAttachCleared  = "FakeAttachCleared"
 )
