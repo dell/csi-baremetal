@@ -110,9 +110,7 @@ kind-load-images:
 	kind load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
 	kind load docker-image ${PROJECT}-${OPERATOR}:${TAG}
 
-prepare-kind: build-kind copy-kind
-
-build-kind:
+kind-build:
 	# Get kind sources
 	wget -O kind-src https://codeload.github.com/kubernetes-sigs/kind/tar.gz/refs/tags/v0.11.1
 	tar -xzvf kind-src
@@ -134,7 +132,7 @@ build-kind:
 	rm -rf kind-0.11.1
 	rm -f kind-src
 
-install-kind: build-kind
+kind-install: kind-build
 	# Delete actual
 	rm -f /usr/bin/kind
 
