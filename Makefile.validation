@@ -122,13 +122,24 @@ build-kind:
 	cd kind-0.11.1 && make build
 
 	# Copy file
-	mv kind-0.11.1/bin/kind .
+	cp kind-0.11.1/bin/kind test/kind
 
-copy-kind:
+	# Make executive
+	chmod +x test/kind/kind
+
+	# Check
+	test/kind/kind version
+
+	# Clean workdir
+	rm -rf kind-0.11.1
+	rm -f kind-src
+
+install-kind: build-kind
+	# Delete actual
+	rm -f /usr/bin/kind
+
 	# Copy executive file
-	rm /usr/bin/kind
-	chmod +x ./kind
-	mv ./kind /usr/bin
+	mv test/kind/kind /usr/bin
 
 	# Check
 	kind version
