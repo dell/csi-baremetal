@@ -41,8 +41,8 @@ const (
 
 const (
 	// Annotations for driveCR to perform restart process
-	driveRestartReplacementAnnotationKey   = "replacement"
-	driveRestartReplacementAnnotationValue = "restart"
+	driveRestartReplacementAnnotationKey   = "drive"
+	driveRestartReplacementAnnotationValue = "add"
 )
 
 // NewController creates new instance of Controller structure
