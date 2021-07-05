@@ -52,7 +52,7 @@ test-sanity:
 load-operator-image:
 	docker pull ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
 	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION} ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
-	kind load docker-image ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
+	$(KIND) load docker-image ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
 
 kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
@@ -93,19 +93,57 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} ${PROJECT}-${OPERATOR}:${TAG}
 
 kind-load-images:
-	kind load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
-	kind load docker-image ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	kind load docker-image ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
-	kind load docker-image ${CSI_RESIZER}:${CSI_RESIZER_TAG}
-	kind load docker-image ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
-	kind load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
-	kind load docker-image docker.io/library/nginx:1.14-alpine
-	kind load docker-image docker.io/library/centos:latest
-	kind load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
-	kind load docker-image ${PROJECT}-${NODE}:${TAG}
-	kind load docker-image ${PROJECT}-${NODE}-kernel-5.4:${TAG}
-	kind load docker-image ${PROJECT}-${CONTROLLER}:${TAG}
-	kind load docker-image ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
-	kind load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
-	kind load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
-	kind load docker-image ${PROJECT}-${OPERATOR}:${TAG}
+	$(KIND) load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	$(KIND) load docker-image ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	$(KIND) load docker-image ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
+	$(KIND) load docker-image ${CSI_RESIZER}:${CSI_RESIZER_TAG}
+	$(KIND) load docker-image ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	$(KIND) load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
+	$(KIND) load docker-image docker.io/library/nginx:1.14-alpine
+	$(KIND) load docker-image docker.io/library/centos:latest
+	$(KIND) load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${NODE}:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${NODE}-kernel-5.4:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${CONTROLLER}:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${OPERATOR}:${TAG}
+
+kind-build:
+	# Get kind sources
+	wget -O kind-src https://codeload.github.com/kubernetes-sigs/kind/tar.gz/refs/tags/v0.11.1
+	tar -xzvf kind-src
+
+	# Add "--ipc=host" docker option and build binary
+	patch -p0 < $(KIND_DIR)/kind.patch
+	cd kind-0.11.1 && make build
+
+	# Copy file
+	cp kind-0.11.1/bin/kind $(KIND_DIR)
+
+	# Make executive
+	chmod +x $(KIND)
+
+	# Check
+	$(KIND) version
+
+	# Clean workdir
+	rm -rf kind-0.11.1
+	rm -f kind-src
+
+kind-install: kind-build
+	# Delete actual
+	rm -f /usr/bin/kind
+
+	# Copy executive file
+	mv $(KIND) /usr/bin
+
+	# Check
+	kind version
+
+kind-create-cluster:
+	$(KIND) create cluster --config $(KIND_DIR)/kind.yaml --image kindest/node:v1.18.19
+
+kind-delete-cluster:
+	$(KIND) delete cluster
