@@ -73,5 +73,9 @@ GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
 METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
 LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
 
+### Kind
+KIND_DIR := test/kind
+KIND     := ${KIND_DIR}/kind
+
 # override some of variables, optional file
 -include variables.override.mk
