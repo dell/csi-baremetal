@@ -33,16 +33,16 @@ After removal the node can't be restored ad in [replacement](https://github.com/
 
 Set label:
 1. CSI Operator must watch Nodes on taint changing events
-2. Label the Csibmnode with `should-be-removed=yes` if the Node has taint `node.dell.com/drain=drain:NoSchedule`
+2. Label the Csibmnode with `node.dell.com/drain=drain` if the Node has taint `node.dell.com/drain=drain:NoSchedule`
 
 Unset label:
 1. CSI Operator must watch Nodes on taint changing events
-2. Check, if the Csibmnode has `should-be-removed=yes` label and the Node with the same ID has no `node.dell.com/drain=drain:NoSchedule` taint
-3. Delete `should-be-removed=yes` label
+2. Check, if the Csibmnode has `node.dell.com/drain=drain` label and the Node with the same ID has no `node.dell.com/drain=drain:NoSchedule` taint
+3. Delete `node.dell.com/drain=drain` label
 
 Removal:
 1. CSI Operator must watch Nodes on deleting events
-2. Start removal procedure, if if the Csibmnode has `should-be-removed=yes` label and the Node with the same ID has been deleted from kubernetes cluster
+2. Start removal procedure, if if the Csibmnode has `node.dell.com/drain=drain` label and the Node with the same ID has been deleted from kubernetes cluster
 3. Delete drives, ACs
 4. Patch and delete Volumes, Lvgs, Csibmnode 
 
