@@ -147,33 +147,3 @@ kind-create-cluster:
 
 kind-delete-cluster:
 	$(KIND) delete cluster
-
-sidecars-pull:
-	docker pull k8s.gcr.io/sig-storage/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
-	docker pull quay.io/k8scsi/${CSI_REGISTRAR}:${CSI_REGISTRAR_OPEN_TAG}
-	docker pull quay.io/k8scsi/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
-	docker pull k8s.gcr.io/sig-storage/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
-	docker pull k8s.gcr.io/sig-storage/${CSI_RESIZER}:${CSI_RESIZER_TAG}
-	docker pull ${BUSYBOX}:${BUSYBOX_TAG}
-	docker pull nginx:1.14-alpine
-	docker pull centos:latest
-
-sidecars-tag:
-	docker tag k8s.gcr.io/sig-storage/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
-	docker tag quay.io/k8scsi/${CSI_REGISTRAR}:${CSI_REGISTRAR_OPEN_TAG} ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	docker tag quay.io/k8scsi/${CSI_ATTACHER}:${CSI_ATTACHER_TAG} ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
-	docker tag k8s.gcr.io/sig-storage/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
-	docker tag k8s.gcr.io/sig-storage/${CSI_RESIZER}:${CSI_RESIZER_TAG} ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
-	docker tag ${BUSYBOX}:${BUSYBOX_TAG} ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
-	docker tag nginx:1.14-alpine ${REGISTRY}/library/nginx:1.14-alpine
-	docker tag centos:latest ${REGISTRY}/library/centos:latest
-
-sidecars-push:
-	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
-	docker tag ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	docker tag ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
-	docker tag ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
-	docker tag ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
-	docker tag ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
-	docker tag ${REGISTRY}/library/nginx:1.14-alpine
-	docker tag ${REGISTRY}/library/centos:latest
