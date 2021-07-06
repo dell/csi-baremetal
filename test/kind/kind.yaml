@@ -55,7 +55,7 @@ nodes:
       containerPath: /run/lvm
     - hostPath: /run/lock
       containerPath: /run/lock
-- role: worke
+- role: worker
   extraMounts:
     - hostPath: /dev
       containerPath: /dev
