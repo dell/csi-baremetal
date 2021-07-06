@@ -4,10 +4,8 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 # the control plane node config
 - role: control-plane
-  image: kindest/node:v1.18.19
 # the two workers
 - role: worker
-  image: kindest/node:v1.18.19
   extraMounts:
   - hostPath: /dev
     containerPath: /dev
@@ -18,7 +16,6 @@ nodes:
   - hostPath: /run/lock
     containerPath: /run/lock
 - role: worker
-  image: kindest/node:v1.18.19
   extraMounts:
   - hostPath: /dev
     containerPath: /dev
@@ -29,7 +26,6 @@ nodes:
   - hostPath: /run/lock
     containerPath: /run/lock
 - role: worker
-  image: kindest/node:v1.18.19
   extraMounts:
     - hostPath: /dev
       containerPath: /dev
@@ -40,7 +36,6 @@ nodes:
     - hostPath: /run/lock
       containerPath: /run/lock
 - role: worker
-  image: kindest/node:v1.18.19
   extraMounts:
     - hostPath: /dev
       containerPath: /dev
@@ -51,7 +46,6 @@ nodes:
     - hostPath: /run/lock
       containerPath: /run/lock
 - role: worker
-  image: kindest/node:v1.18.19
   extraMounts:
     - hostPath: /dev
       containerPath: /dev
@@ -62,7 +56,6 @@ nodes:
     - hostPath: /run/lock
       containerPath: /run/lock
 - role: worker
-  image: kindest/node:v1.18.19
   extraMounts:
     - hostPath: /dev
       containerPath: /dev
