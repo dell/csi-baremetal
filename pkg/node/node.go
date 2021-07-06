@@ -46,6 +46,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	"github.com/dell/csi-baremetal/pkg/eventing"
 )
 
 const (
@@ -199,10 +200,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
 
-	isFakeAttach := false
+	isFakeAttachNeed := false
 	ignoreErrorIfFakeAttach := func(err error) {
 		if s.isPVCNeedFakeAttach(volumeID) {
-			isFakeAttach = true
+			isFakeAttachNeed = true
 		} else {
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, status.Error(codes.Internal, fmt.Sprintf("failed to stage volume: %s", err.Error()))
@@ -221,9 +222,18 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 	}
 
-	if isFakeAttach {
-		volumeCR.Annotations["fake-attach"] = "yes"
-		ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
+	if isFakeAttachNeed {
+		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
+			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
+			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.NormalType, eventing.FakeAttachInvolved,
+				"Fake-attach involved for volume with ID %s", volumeID)
+		}
+	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
+		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
+		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
+		s.VolumeManager.recorder.Eventf(volumeCR, eventing.NormalType, eventing.FakeAttachCleared,
+			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
 	if currStatus != apiV1.VolumeReady {
@@ -293,12 +303,11 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		errToReturn error
 	)
 
-	if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
-		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
-		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
-	} else if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
-		volumeCR.Spec.CSIStatus = apiV1.Failed
-		resp = nil
+	if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
+		if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			resp = nil
+		}
 	}
 
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
