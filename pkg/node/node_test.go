@@ -748,21 +748,43 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 	})
 	It("Should stage healthy volume with fake-attach annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
-
 		vol1 := testVolumeCR1
-		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		vol1.Spec.CSIStatus = apiV1.Created
 		err := node.k8sClient.UpdateCR(testCtx, &vol1)
 		Expect(err).To(BeNil())
+
+		pvcName := "pvcName"
+		pvcNamespace := "pvcNamespace"
+
+		pv := &corev1.PersistentVolume{}
+		pv.Name = vol1.Name
+		pv.Spec.ClaimRef = &corev1.ObjectReference{}
+		pv.Spec.ClaimRef.Name = pvcName
+		pv.Spec.ClaimRef.Namespace = pvcNamespace
+		err = node.k8sClient.Create(testCtx, pv)
+		Expect(err).To(BeNil())
+
+		pvc := &corev1.PersistentVolumeClaim{}
+		pvc.Name = pvcName
+		pvc.Namespace = pvcNamespace
+		pvc.Annotations = map[string]string{fakeAttachAnnotation: fakeAttachAllowKey}
+		err = node.k8sClient.Create(testCtx, pvc)
+		Expect(err).To(BeNil())
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil)
 
 		resp, err := node.NodeStageVolume(testCtx, req)
 		Expect(resp).NotTo(BeNil())
 		Expect(err).To(BeNil())
-		// check owners and CSI status
-		volumeCR := &vcrd.Volume{}
-		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", &vol1)
 		Expect(err).To(BeNil())
-		Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
-		_, ok := volumeCR.Annotations[fakeAttachVolumeAnnotation]
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		_, ok := vol1.Annotations[fakeAttachVolumeAnnotation]
 		Expect(ok).To(Equal(false))
 	})
 	It("Should unstage volume with fake-attach annotation", func() {
