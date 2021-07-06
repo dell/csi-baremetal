@@ -226,7 +226,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
 			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
 			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
-			s.VolumeManager.recorder.Eventf(volumeCR, eventing.NormalType, eventing.FakeAttachInvolved,
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.ErrorType, eventing.FakeAttachInvolved,
 				"Fake-attach involved for volume with ID %s", volumeID)
 		}
 	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
