@@ -1,6 +1,6 @@
 # Proposal: Fake Attach Volume
 
-Last updated: June 11 2011
+Last updated: July 1 2021
 
 
 ## Abstract
@@ -29,19 +29,30 @@ This feature will require application Operator to put specific annotation on PVC
 
 If fake-attach volume is successfully created, CSI Volume CR will be annotated with `fake-attach:yes` and `Operational Status` will equal to `MISSING`. The pod must be restarted after `Operational Status` returns to `OPERATIVE`.
 
+
 ## Implementation
 
-When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI must ignore NodeStageVolume errors and put `fake-attach: yes` annotation on CSI Volume CR. 
+### NodeStageVolume
+When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI must:
+- ignore NodeStageVolume errors
+- put `fake-attach: yes` annotation on CSI Volume CR if error is and annotation wasn't set before
+- delete `fake-attach: yes` annotation on CSI Volume CR if error is not and annotation was set before
 
-On NodePublishVolume CSI must check `fake-attach` annotation and mount
-tmpfs volume in read-only mode.
+Event FakeAttachInvolved generated when `fake-attach: yes` annotation is setting.
+
+Event FakeAttachCleared generated when `fake-attach: yes` annotation is deleting.
+
+### NodePublishVolume 
+CSI must check `fake-attach` annotation and mount tmpfs volume in read-only mode.
+
 Command to mount tmpfs volume: `mount -t tmpfs -o size=1M,ro <volumeID> <destination folder>`
 
-CSI must generate event to notify user about this Fake-Attach Volume.
+### NodeUnpublishVolume 
+tmpfs volume must be unmounted usually.
 
-On NodeUnpublishVolume tmpfs volume must be unmounted usually.
+### NodeUnstageVolume 
+Do nothing.
 
-On NodeUnstageVolume `fake-attach` annotation must be deleted.
 
 ## Assumptions (if applicable)
 

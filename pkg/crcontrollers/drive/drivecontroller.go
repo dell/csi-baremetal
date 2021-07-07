@@ -36,7 +36,13 @@ type Controller struct {
 const (
 	ignore uint8 = 0
 	update uint8 = 1
-	delete uint8 = 2
+	remove uint8 = 2
+)
+
+const (
+	// Annotations for driveCR to perform restart process
+	driveRestartReplacementAnnotationKey   = "drive"
+	driveRestartReplacementAnnotationValue = "add"
 )
 
 // NewController creates new instance of Controller structure
@@ -115,7 +121,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			log.Errorf("Failed to update Drive %s CR", driveName)
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
-	case delete:
+	case remove:
 		if err := c.client.DeleteCR(ctx, drive); err != nil {
 			log.Errorf("Failed to delete Drive %s CR", driveName)
 			return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -166,6 +172,11 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 
 	case apiV1.DriveUsageReleased:
+		if c.restartReplacement(drive) {
+			toUpdate = true
+			break
+		}
+
 		status, found := drive.Annotations[apiV1.DriveAnnotationReplacement]
 		if !found || status != apiV1.DriveAnnotationReplacementReady {
 			break
@@ -214,7 +225,11 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	case apiV1.DriveUsageRemoved:
 		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
-			return delete, nil
+			return remove, nil
+		}
+	case apiV1.DriveUsageFailed:
+		if c.restartReplacement(drive) {
+			toUpdate = true
 		}
 	}
 
@@ -257,4 +272,16 @@ func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 		}
 	}
 	return true
+}
+
+// restartReplacement restores drive.Usage to IN_USE if CR is annotated
+// deletes the annotation to avoid event repeating
+func (c *Controller) restartReplacement(drive *drivecrd.Drive) bool {
+	if value, ok := drive.GetAnnotations()[driveRestartReplacementAnnotationKey]; ok && value == driveRestartReplacementAnnotationValue {
+		drive.Spec.Usage = apiV1.DriveUsageInUse
+		delete(drive.Annotations, driveRestartReplacementAnnotationKey)
+		return true
+	}
+
+	return false
 }
