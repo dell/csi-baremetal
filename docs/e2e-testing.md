@@ -91,8 +91,8 @@ kind get kubeconfig > <path_to_kubeconfig>
 # If you have sidecar images pushed into your registary
 make kind-pull-sidecar-images
 # If you have no ones
-make sidecars-pull
-make sidecars-tag
+make deps-docker-pull
+make deps-docker-tag
 
 # Retag CSI images and load them to kind
 make kind-tag-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
@@ -106,7 +106,6 @@ You can use specific versions of CSI or Operator or helm charts via editing envi
 
 Logs from `go test` executing will be saved into log.txt.
 
-You can use ``
 ```
 make test-ci CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${CSI_OPERATOR_VERSION} CHARTS_DIR=${CSI_BAREMETAL_OPERATOR_DIR/charts}
 ```
