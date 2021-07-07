@@ -62,7 +62,7 @@ jobs:
     - name: Upload coverage report to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: coverage
+        name: coverage.html
         path: ./coverage.html
 
     - name: Upload coverage report to codecov
