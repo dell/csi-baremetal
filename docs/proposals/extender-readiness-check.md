@@ -33,6 +33,7 @@ Secondly there are some options to deliver extender deployment state:
 1. Add check in Operator after both patching methods to wait kube-scheduler restart before move to ready state.
    
 To trigger restart if config stacked:
+
 2. For Openshift - recreate scheduling configmap after CSI installation
 3. For Patcher - add kube-scheduler pod deletion step on first try (maybe only if not changed?)
 
