@@ -27,11 +27,20 @@ Restart check is implemented in E2E testing, but it's need to provide this infor
 
 ## Proposal
 First step - implement CSI CR status field (ready/unready), which is updated in Operator.
-Secondly there are some options to deliver extender deployment state:
+Readiness check - kube-scheduler restarted after patching process.
 
-#### Approach 1
+Kube-scheduler restart time - `pod.Status.ContainerStatuses[0].State.Running.StartedAt`
+
+Patching time:
+- For Openshift - Operator checks ConfigMap creation timestamp.
+- For Patcher - Operator checks modified time of kube-scheduler manifest from master node annotation.
+  (Patcher gets info about the manifest file from os.Stat and annotates the appropriate master node)
+
+## Rationale
+Other options to make stable kube-scheduler restart check:
+#### Option 1
 1. Add check in Operator after both patching methods to wait kube-scheduler restart before move to ready state.
-   
+
 To trigger restart if config stacked:
 
 2. For Openshift - recreate scheduling configmap after CSI installation
@@ -39,11 +48,10 @@ To trigger restart if config stacked:
 
 Disadvantages:
 - kube-scheduler deletion action may lead to negative consequences
-
-#### Approach 2
+#### Option 2
 For Openshift - same as in the approach 1
 
-For Patcher: 
+For Patcher:
 1. Move kube-scheduler restart check to patcher code and integrate it with readiness check.
    - if configs are changed, it checks restart and becomes ready after
    - if configs doesn't need patching, it becomes ready at once
@@ -51,16 +59,13 @@ For Patcher:
 Disadvantages:
 - Patcher uses Python language, it's technically complicated to rewrite code for it
 - We need to have code for checking restart in 2 places
-
-#### Approach 3
+#### Option 3
 1. Add check based only on patching state and not try to watch on kube-scheduler
 
 For Openshift - become ready if configmap is actual and Scheduler is updated
 
-For Patcher - become ready if all patcher-daemonset pods are running and their count equals to kube-schedulers count (control-plane nodes may not provide master labels and pods won't be created at all) 
-
-## Rationale
-
+For Patcher - become ready if all patcher-daemonset pods are running and their count equals to kube-schedulers count (control-plane nodes may not provide master labels and pods won't be created at all)
+### Approach
 Implement readiness check in scheduler-extender.
 
 Problems:
@@ -68,7 +73,6 @@ Problems:
 - need to create separate API for each extender pod (a lot of additional Kubernetes API calls)
 
 ## Open issues (if applicable)
-
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
 ISSUE-1 |   |   |   |   
