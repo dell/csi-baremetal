@@ -4,11 +4,12 @@ Last updated: 08.07.2021
 
 
 ## Abstract
-CSI has no way to verify scheduler-extender deployment status.
-The goal - create an opportunity for user to understand: is scheduler-extender installed completely and able to work or not.
+CSI Operator (or another recourse) must inform user about scheduler-extender deployment status.
 
 ## Background
-Currently, there are 2 patching methods depends on platforms.
+Currently, CSI Operator doesn't wait for scheduler extender to be completely installed on the system.
+
+Scheduler-extender deployment process:
 
 - For rke/vanilla kubernetes:
 1. Deploy configuration configmap
@@ -19,13 +20,49 @@ In patcher:
     
 - For Openshift
 1. Deploy specific scheduler configmap
-2. Update Scheduler recourse
+2. Update OpenShift Scheduler Operator configuration
 
-In the both cases patching triggers kube-scheduler restarting process. 
+In the both cases patching triggers kube-scheduler restarting. 
 If kube-scheduler is not restarted, a custom scheduler-extender might not work correctly.
 Restart check is implemented in E2E testing, but it's need to provide this information to user.
 
 ## Proposal
+Implement readiness check in scheduler-extender.
+![Screenshot](images/extender_flow.png)
+
+CSI Operator behavior for Openshift Platform
+![Screenshot](images/Operator_openshift_flow.png)
+
+Update Timeout ~ 20 sec. Readiness timeout ~ 20 min.
+
+Specific cases:
+- The ConfigMap was deployed before - Kube-Scheduler pod must restart anyway after updating ConfigMap.
+If it is not detected, Operator will recreate ConfigMap
+- A new master node in cluster - a new Kube-Scheduler will use updated configuration from ConfigMap and its started time will be after ConfigMap creation.
+- If scheduler-extenders is not ready for a long time, Operator will recreate ConfigMap
+
+CSI Operator behavior for RKE/Vanilla Platform
+![Screenshot](images/Operator_vanilla_flow.png)
+
+Also, Patcher mast have the following functionality
+![Screenshot](images/Patcher_flow.png)
+
+Readiness check behavior is the same for 2 platforms - after ConfigMap creation Kube-Scheduler must restart.
+
+Different places:
+1. Deploy ConfigMap
+- For Openshift - update scheduler configuration
+- For RKE/Vanilla - deploy patcher
+2. Try to trigger restart
+- For Openshift - recreate configmap
+- For RKE/Vanilla - restart the appropriate Patcher (Patcher will force update manifest after start)
+
+Problems:
+- a way to force Kube-Scheduler restart in Patcher is not clear
+- need to create separate API for each extender pod (a lot of additional Kubernetes API calls)
+
+## Rationale
+### Alternative approach
 First step - implement CSI CR status field (ready/unready), which is updated in Operator.
 Readiness check - kube-scheduler restarted after patching process.
 
@@ -36,7 +73,6 @@ Patching time:
 - For Patcher - Operator checks modified time of kube-scheduler manifest from master node annotation.
   (Patcher gets info about the manifest file from os.Stat and annotates the appropriate master node)
 
-## Rationale
 Other options to make stable kube-scheduler restart check:
 #### Option 1
 1. Add check in Operator after both patching methods to wait kube-scheduler restart before move to ready state.
@@ -65,12 +101,6 @@ Disadvantages:
 For Openshift - become ready if configmap is actual and Scheduler is updated
 
 For Patcher - become ready if all patcher-daemonset pods are running and their count equals to kube-schedulers count (control-plane nodes may not provide master labels and pods won't be created at all)
-### Approach
-Implement readiness check in scheduler-extender.
-
-Problems:
-- extender doesn't really know about patching process and can't check status itself
-- need to create separate API for each extender pod (a lot of additional Kubernetes API calls)
 
 ## Open issues (if applicable)
 ID | Name | Descriptions | Status | Comments
