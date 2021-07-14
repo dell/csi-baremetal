@@ -990,11 +990,9 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
 		}
-		// skip HealthChange event if drive health was overridden
 		if _, ok := updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation]; ok {
 			m.createEventForDriveHealthOverridden(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
-			continue
 		}
 		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health {
 			m.createEventForDriveHealthChange(
@@ -1163,6 +1161,7 @@ func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
 // overrideDriveHealth replaces drive health with passed value,
 // generates error message if value is not valid
 func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, driveCRName string) {
+	overriddenHealth = strings.ToUpper(overriddenHealth)
 	if (overriddenHealth == apiV1.HealthGood) ||
 		(overriddenHealth == apiV1.HealthSuspect) ||
 		(overriddenHealth == apiV1.HealthBad) ||
