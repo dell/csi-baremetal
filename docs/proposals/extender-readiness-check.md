@@ -69,25 +69,39 @@ Readiness flag - kube-scheduler is restarted after CM deployed.
 Readiness check in scheduler-extender
 ![Screenshot](images/extender_flow.png)
 
+Readiness flag - CSI Operator sets `<node_name>=Ready` in sharable `extender-status` ConfigMap, if the related kube-scheduler restarted after CM creation.
+Extender can read this information and compare `<node_name>` with value gotten from Pod parameters.
+
 CSI Operator behavior for Openshift Platform
 ![Screenshot](images/Operator_openshift_flow.png)
+
+kube-scheduler restart time - `pod.Status.ContainerStatuses[0].State.Running.StartedAt`
 
 Update Timeout and Readiness Timeout will be configurable.
 Default values: Update Timeout = 20 sec. Readiness timeout = 20 min.
 
 Corner cases:
+- Extenders don't become ready after Readiness Timeout - Operator will recreate CM 
+- The ConfigMap was deployed before - Kube-Scheduler pod must restart anyway after updating CM.
+If it is not detected, Operator will recreate CM
+- A new master node in cluster - a new Kube-Scheduler will use updated configuration from CM and its started time will be after CM creation.
 
-- The ConfigMap was deployed before - Kube-Scheduler pod must restart anyway after updating ConfigMap.
-If it is not detected, Operator will recreate ConfigMap
-- A new master node in cluster - a new Kube-Scheduler will use updated configuration from ConfigMap and its started time will be after ConfigMap creation.
+CSI Operator deletion handler for Openshift Platform
+![Screenshot](images/Operator_Openshift_deletion-handle.png)
 
 CSI Operator behavior for RKE/Vanilla Platform
 ![Screenshot](images/Operator_vanilla_flow.png)
 
-Also, Patcher mast have the following functionality
+CSI Operator deletion handler for RKE/Vanilla Platform
+![Screenshot](images/Operator_vanilla_deletion-handle.png)
+
+Also, Patcher must have the following functionality
 ![Screenshot](images/Patcher_flow.png)
 
-Readiness check behavior is the same for 2 platforms - after ConfigMap creation Kube-Scheduler must restart.
+Patcher SIGTERM handler
+![Screenshot](images/Patcher_SIGTERM_flow.png)
+
+Readiness check behavior is the same for 2 platforms - after CM creation kube-scheduler must restart.
 
 Different places:
 1. Deploy ConfigMap
@@ -99,14 +113,22 @@ Different places:
 
 Problems:
 - a way to force Kube-Scheduler restart in Patcher is not clear
-- need to create separate API for each extender pod (a lot of additional Kubernetes API calls)
+
+### Manual patching
+
+**For discussion**
+
+Possible solutions:
+1. Create clear guidelines for users, how they can add CSI extender without patching.
+    - move CM stetting to yaml or other config-file
+    - fix Openshift patching disabling 
+2. Implement "smart" way for Operator to patch kube-scheduler
+    - update configs if it exists already (CM for Openshift, policy file for RKE/vanilla)
+    - clear only patched fields on shutdown
 
 ## Rationale
 ### Alternative approach
-First step - implement CSI CR status field (ready/unready), which is updated in Operator.
-Readiness check - kube-scheduler restarted after patching process.
-
-Kube-scheduler restart time - `pod.Status.ContainerStatuses[0].State.Running.StartedAt`
+Implement CSI CR status field (ready/unready), which is updated in Operator.
 
 Patching time:
 - For Openshift - Operator checks ConfigMap creation timestamp.
@@ -114,16 +136,16 @@ Patching time:
   (Patcher gets info about the manifest file from os.Stat and annotates the appropriate master node)
 
 Other options to make stable kube-scheduler restart check:
-#### Option 1
-1. Add check in Operator after both patching methods to wait kube-scheduler restart before move to ready state.
 
-To trigger restart if config stacked:
+#### Option 1
+Trigger restart if config stacked:
 
 2. For Openshift - recreate scheduling configmap after CSI installation
 3. For Patcher - add kube-scheduler pod deletion step on first try (maybe only if not changed?)
 
 Disadvantages:
 - kube-scheduler deletion action may lead to negative consequences
+
 #### Option 2
 For Openshift - same as in the approach 1
 
@@ -136,11 +158,10 @@ Disadvantages:
 - Patcher uses Python language, it's technically complicated to rewrite code for it
 - We need to have code for checking restart in 2 places
 #### Option 3
-1. Add check based only on patching state and not try to watch on kube-scheduler
+Add check based only on patching state and not try to watch on kube-scheduler
 
-For Openshift - become ready if configmap is actual and Scheduler is updated
-
-For Patcher - become ready if all patcher-daemonset pods are running and their count equals to kube-schedulers count (control-plane nodes may not provide master labels and pods won't be created at all)
+- For Openshift - become ready if configmap is actual and Scheduler is updated
+- For Patcher - become ready if all patcher-daemonset pods are running and their count equals to kube-schedulers count (control-plane nodes may not provide master labels and pods won't be created at all)
 
 ## Open issues (if applicable)
 ID | Name | Descriptions | Status | Comments
