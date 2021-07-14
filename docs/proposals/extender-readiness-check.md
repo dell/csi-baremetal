@@ -21,8 +21,8 @@ Patching process on supported platforms:
 
 - For RKE/vanilla
 1. Deploy CM
-2. Deploy csi-baremetal-patcher daemonset
-In each patcher:
+2. Deploy csi-baremetal-patcher daemonset. 
+   In each patcher:
    - Copy police file from CM to local folder on host
    - Update kubernetes-scheduler manifest (add path to policy into parameters)
     
@@ -55,6 +55,10 @@ Using CSI patching with other custom extenders may lead to unexpected behavior. 
 - change CM name in schedulers.config.openshift.io CR - CSI Operator returns error in Reconcile
 - update CM content (add another extender) - CSI Operator rewrites it with hardcoded value
 
+#### Others
+
+Scheduler policy, which used for configuring extender, is deprecated in Openshift 4.7 - https://docs.openshift.com/container-platform/4.7/nodes/scheduling/nodes-scheduler-default.html
+
 ## Proposal
 
 ### Readiness check
@@ -69,7 +73,7 @@ Readiness flag - kube-scheduler is restarted after CM deployed.
 Readiness check in scheduler-extender
 ![Screenshot](images/extender_flow.png)
 
-Readiness flag - CSI Operator sets `<node_name>=Ready` in sharable `extender-status` ConfigMap, if the related kube-scheduler restarted after CM creation.
+Readiness flag - CSI Operator sets `<node_name>=Ready` in shareable `extender-status` ConfigMap, if the related kube-scheduler restarted after CM creation.
 Extender can read this information and compare `<node_name>` with value gotten from Pod parameters.
 
 CSI Operator behavior for Openshift Platform
