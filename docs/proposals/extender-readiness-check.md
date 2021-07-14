@@ -4,42 +4,82 @@ Last updated: 08.07.2021
 
 
 ## Abstract
-CSI Operator (or another recourse) must inform user about scheduler-extender deployment status.
+CSI must inform user about scheduler-extender deployment status.
 
 ## Background
-Currently, CSI Operator doesn't wait for scheduler extender to be completely installed on the system.
+#### Abbreviations
+- CM - ConfigMap with policy options 
+  (for Openshift - ConfigMap in `openshift-config` namespace used in Scheduler, for vanilla/RKE - internal configmap mounted in Patcher)
+- kube-scheduler - Pod with name `(openshift-)kube-scheduler-<node_name>`
+- extender - CSI scheduler-extender pod/daemonset
 
-Scheduler-extender deployment process:
+#### Current implementation
+Extender will be completely installed on the system after kube-scheduler will be patched. 
+Currently, CSI provides no status if patching is completed successfully or not.
 
-- For rke/vanilla kubernetes:
-1. Deploy configuration configmap
-2. Deploy csi-baremetal-patcher daemonset.
-In patcher:
-   - Copy configs from cm to local files on host
-   - Update kubernetes-scheduler manifest
+Patching process on supported platforms:
+
+- For RKE/vanilla
+1. Deploy CM
+2. Deploy csi-baremetal-patcher daemonset
+In each patcher:
+   - Copy police file from CM to local folder on host
+   - Update kubernetes-scheduler manifest (add path to policy into parameters)
     
 - For Openshift
-1. Deploy specific scheduler configmap
-2. Update OpenShift Scheduler Operator configuration
+1. Deploy CM
+2. Update schedulers.config.openshift.io CR with CM name
 
-In the both cases patching triggers kube-scheduler restarting. 
-If kube-scheduler is not restarted, a custom scheduler-extender might not work correctly.
-Restart check is implemented in E2E testing, but it's need to provide this information to user.
+In the both cases patching triggers kube-scheduler restart. 
+If kube-scheduler is not restarted, the extender might not work correctly.
+Restart check is implemented in E2E testing, but it's not stable.
+
+#### Patching limitations
+
+If user wants to add another scheduler-extender, he has to manage configs for CSI extender himself.
+
+Manual patching:
+- For Openshift
+1. Set `scheduler.patcher.enable = false`
+2. Update Extenders section in CM, which is currently in use, with CSI extender settings
+   (Settings is hardcoded now! User need to find them in .go file)
+   
+- For RKE/vanilla
+1. Set `scheduler.patcher.enable = false`
+2. Merge Extenders section from config/policy files into current policy file 
+   (for k8s 1.18 - config.yaml and policy.yaml, for k8s 1.19 - config-19.yaml from `schedulerpatcher-config` CM)
+
+If user wants to add another scheduler-extender after CSI Installation, he has to upgrade `csi-baremetal` helm release with `scheduler.patcher.enable = false` and go to step 2 from previous list.
+
+Using CSI patching with other custom extenders may lead to unexpected behavior. Examples for Openshift:
+- change CM name in schedulers.config.openshift.io CR - CSI Operator returns error in Reconcile
+- update CM content (add another extender) - CSI Operator rewrites it with hardcoded value
 
 ## Proposal
-Implement readiness check in scheduler-extender.
+
+### Readiness check
+
+#### User API
+
+`csi-baremetal-se-...` pods will be in unready state until CSI Operator will not provide readiness flag for them.
+Readiness flag - kube-scheduler is restarted after CM deployed.
+
+#### Implementation
+
+Readiness check in scheduler-extender
 ![Screenshot](images/extender_flow.png)
 
 CSI Operator behavior for Openshift Platform
 ![Screenshot](images/Operator_openshift_flow.png)
 
-Update Timeout ~ 20 sec. Readiness timeout ~ 20 min.
+Update Timeout and Readiness Timeout will be configurable.
+Default values: Update Timeout = 20 sec. Readiness timeout = 20 min.
 
-Specific cases:
+Corner cases:
+
 - The ConfigMap was deployed before - Kube-Scheduler pod must restart anyway after updating ConfigMap.
 If it is not detected, Operator will recreate ConfigMap
 - A new master node in cluster - a new Kube-Scheduler will use updated configuration from ConfigMap and its started time will be after ConfigMap creation.
-- If scheduler-extenders is not ready for a long time, Operator will recreate ConfigMap
 
 CSI Operator behavior for RKE/Vanilla Platform
 ![Screenshot](images/Operator_vanilla_flow.png)
