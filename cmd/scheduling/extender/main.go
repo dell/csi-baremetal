@@ -19,8 +19,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
@@ -30,7 +32,9 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
+	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -50,6 +54,10 @@ var (
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
+	healthIP    = flag.String("healthip", base.DefaultHealthIP, "IP for health service")
+	healthPort  = flag.Int("healthport", base.DefaultHealthPort, "Port for health service")
+	nodeName    = flag.String("nodeName", "", "Name of the node with assigned extender pod")
+	statusFile  = flag.String("statusFile", "", "Path to file from ConfigMap with readiness status")
 )
 
 // TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
@@ -93,6 +101,20 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Fail to init kubeCache: %v", err)
 	}
+
+	extenderHealth, err := healthserver.NewExtenderHealthServer(kubeClient, logger, *statusFile, *nodeName)
+	if err != nil {
+		logger.Fatalf("Fail to init extender health server: %s", err.Error())
+	}
+
+	go func() {
+		logger.Info("Starting Controller Health server")
+		if err := util.SetupAndStartHealthCheckServer(
+			extenderHealth, logger,
+			"tcp://"+net.JoinHostPort(*healthIP, strconv.Itoa(*healthPort))); err != nil {
+			logger.Fatalf("Controller service failed with error: %v", err)
+		}
+	}()
 
 	newExtender, err := extender.NewExtender(logger, kubeClient, kubeCache, *provisioner, featureConf, *nodeIDAnnotation)
 	if err != nil {

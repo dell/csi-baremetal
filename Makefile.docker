@@ -48,8 +48,9 @@ image-controller: base-image-controller
 	cp ./pkg/${CONTROLLER}/Dockerfile ./build/${CONTROLLER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ./build/${CONTROLLER}
 
-image-extender:
+image-extender: download-grpc-health-probe
 	cp ./pkg/${SCHEDULER}/${EXTENDER}/Dockerfile ./build/${SCHEDULING_PKG}/${EXTENDER}/
+	cp ./build/${HEALTH_PROBE} ./build/${SCHEDULING_PKG}/${EXTENDER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
 
 image-extender-patcher:

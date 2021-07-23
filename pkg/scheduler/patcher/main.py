@@ -20,7 +20,7 @@ import logging
 import sys
 import time
 from filecmp import clear_cache, cmp
-from os import makedirs
+from os import makedirs, remove
 from os.path import basename, dirname, isfile , join
 from shutil import copy
 from signal import SIGINT, SIGTERM, signal
@@ -75,10 +75,6 @@ def run():
     kube_major_ver = int(kube_ver_inf.major)
     log.info('patcher started, kubernetes version %s.%s',kube_major_ver,kube_minor_ver )
 
-    manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
-    if args.platform == "rke":
-        manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
-
     source_config = File(args.source_config_path)
     source_policy = File(args.source_policy_path)
 
@@ -113,6 +109,8 @@ def run():
     killer.watch(SIGINT)
     killer.watch(SIGTERM)
 
+    first_try = True
+
     while True:
         # check everything is in a right place
         _must_exist(manifest, source_config, source_policy, source_config_19)
@@ -125,15 +123,18 @@ def run():
         manifest.load()
         manifest.patch()
 
-        # todo on a first run we need to change inode for a scheduler config to trigger pod restart to make sure
-        # <todo> that configuration delivered. this is also affects e2e tests, refer for details -
-        # <todo> https://github.com/dell/csi-baremetal/issues/236
         if manifest.changed:
             manifest.backup()
             manifest.flush()
             log.info('manifest file({}) was patched'.format(manifest.path))
+            first_try = False
 
-        log.debug('sleeping {} seconds'.format(args.interval))
+        if first_try:
+            manifest.remove()
+            manifest.flush()
+            first_try = False
+            log.info('manifest file({}) was removed'.format(manifest.path))
+
         time.sleep(args.interval)
 
 
@@ -240,6 +241,12 @@ class ManifestFile(File):
     def patch(self):
         self.patch_commands()
         self.patch_volumes()
+
+    def remove(self):
+        try:
+            remove(self.path)
+        except OSError as e:
+            log.info('manifest file({}) can not be removed: {}'.format(self.path, e))
 
 
 def _name_exists(items, name):
