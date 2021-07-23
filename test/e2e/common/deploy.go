@@ -17,7 +17,6 @@ limitations under the License.
 package common
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -127,15 +126,11 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		installArgs = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
-			"--set scheduler.patcher.enable=true "+
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+
 			"--set driver.log.level=debug", csiVersion)
 		podWait         = 3 * time.Minute
 		sleepBeforeWait = 10 * time.Second
-		schedulerRC     = newSchedulerRestartChecker(f.ClientSet)
-		isRestarted     = false
-		err             error
 	)
 
 	if additionalInstallArgs != "" {
@@ -161,18 +156,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			}
 		}
 
-		if err := schedulerRC.ReadInitialState(); err != nil {
-			e2elog.Logf("SchedulerRestartChecker is not initialized. Err: %s", err)
-		}
-
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
 			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
-		}
-
-		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
-			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-		} else {
-			e2elog.Logf("Scheduler restarted after CSI deletion: %t", isRestarted)
 		}
 
 		if BMDriverTestContext.CompleteUninstall {
@@ -181,10 +166,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		}
 
 		printCRs(f, VolumeGVR, CsibmnodeGVR, ACGVR, ACRGVR, LVGGVR, DriveGVR)
-	}
-
-	if err := schedulerRC.ReadInitialState(); err != nil {
-		e2elog.Logf("SchedulerRestartChecker is not initialized. Err: %s", err)
 	}
 
 	if err := helmExecutor.InstallRelease(&chart, installArgs); err != nil {
@@ -197,17 +178,6 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	if err := e2epod.WaitForPodsRunningReady(f.ClientSet, chart.namespace, 0, 0, podWait, nil); err != nil {
 		cleanup()
 		return nil, err
-	}
-
-	if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
-		e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-	}
-
-	if isRestarted {
-		e2elog.Logf("Scheduler is restarted")
-	} else {
-		cleanup()
-		return nil, errors.New("scheduler is not restarted")
 	}
 
 	// print info about all custom resources into log messages
