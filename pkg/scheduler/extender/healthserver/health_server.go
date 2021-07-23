@@ -14,6 +14,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
+// ExtenderHealthServer provides endpoint for extender readiness check
 type ExtenderHealthServer struct {
 	kubeClient     *k8s.KubeClient
 	logger         *logrus.Logger
@@ -21,16 +22,19 @@ type ExtenderHealthServer struct {
 	nodeName       string
 }
 
+// ReadinessStatus contains info about kube-scheduler restart for the related node
 type ReadinessStatus struct {
 	NodeName      string `yaml:"node_name"`
 	KubeScheduler string `yaml:"kube_scheduler"`
 	Restarted     bool   `yaml:"restarted"`
 }
 
+// ReadinessStatusList contains info about all kube-schedulers
 type ReadinessStatusList struct {
 	Items []ReadinessStatus `yaml:"nodes"`
 }
 
+// NewExtenderHealthServer constructs ExtenderHealthServer for extender pod
 func NewExtenderHealthServer(kubeClient *k8s.KubeClient, logger *logrus.Logger, statusFilePath, nodeName string) (*ExtenderHealthServer, error) {
 	if nodeName == "" {
 		return nil, errors.New("nodeName parameter is empty")
@@ -43,6 +47,12 @@ func NewExtenderHealthServer(kubeClient *k8s.KubeClient, logger *logrus.Logger, 
 		nodeName:       nodeName,
 	}, nil
 }
+
+const (
+	ready    = 0
+	notReady = 1
+	notFound = 3
+)
 
 // Check does the health check and changes the status of the server based on drives cache size
 func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
@@ -69,14 +79,25 @@ func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthChec
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, err
 	}
 
+	isReady := notFound
 	for _, nodeStatus := range readinessStatuses.Items {
 		if nodeStatus.NodeName == e.nodeName {
 			if nodeStatus.Restarted {
-				return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
+				isReady = ready
+				break
 			} else {
-				return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
+				isReady = notReady
+				break
 			}
 		}
+	}
+
+	if isReady == ready {
+		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
+	}
+
+	if isReady == notReady {
+		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
 	}
 
 	ll.Errorf("Node %s is not found in extenders status list", e.nodeName)
