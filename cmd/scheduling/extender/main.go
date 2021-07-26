@@ -102,7 +102,7 @@ func main() {
 		logger.Fatalf("Fail to init kubeCache: %v", err)
 	}
 
-	extenderHealth, err := healthserver.NewExtenderHealthServer(kubeClient, logger, *statusFile, *nodeName)
+	extenderHealth, err := healthserver.NewExtenderHealthServer(logger, *statusFile, *nodeName)
 	if err != nil {
 		logger.Fatalf("Fail to init extender health server: %s", err.Error())
 	}

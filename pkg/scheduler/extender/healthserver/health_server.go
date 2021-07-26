@@ -10,16 +10,13 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
-
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
 // ExtenderHealthServer provides endpoint for extender readiness check
 type ExtenderHealthServer struct {
-	kubeClient     *k8s.KubeClient
-	logger         *logrus.Logger
-	statusFilePath string
-	nodeName       string
+	logger   *logrus.Logger
+	reader   yamlReader
+	nodeName string
 }
 
 // ReadinessStatus contains info about kube-scheduler restart for the related node
@@ -34,17 +31,27 @@ type ReadinessStatusList struct {
 	Items []ReadinessStatus `yaml:"nodes"`
 }
 
+type yamlReader interface {
+	getStatuses() (*ReadinessStatusList, error)
+	isPathSet() bool
+}
+
+type yamlReaderImpl struct {
+	statusFilePath string
+}
+
 // NewExtenderHealthServer constructs ExtenderHealthServer for extender pod
-func NewExtenderHealthServer(kubeClient *k8s.KubeClient, logger *logrus.Logger, statusFilePath, nodeName string) (*ExtenderHealthServer, error) {
+func NewExtenderHealthServer(logger *logrus.Logger, statusFilePath, nodeName string) (*ExtenderHealthServer, error) {
 	if nodeName == "" {
 		return nil, errors.New("nodeName parameter is empty")
 	}
 
 	return &ExtenderHealthServer{
-		kubeClient:     kubeClient,
-		logger:         logger,
-		statusFilePath: statusFilePath,
-		nodeName:       nodeName,
+		logger: logger,
+		reader: &yamlReaderImpl{
+			statusFilePath: statusFilePath,
+		},
+		nodeName: nodeName,
 	}, nil
 }
 
@@ -60,22 +67,13 @@ func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthChec
 		"method": "Check",
 	})
 
-	if e.statusFilePath == "" {
+	if !e.reader.isPathSet() {
 		ll.Debugf("Patcher is not enabled")
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 	}
 
-	yamlFile, err := ioutil.ReadFile(e.statusFilePath)
+	readinessStatuses, err := e.reader.getStatuses()
 	if err != nil {
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, err
-	}
-
-	readinessStatuses := &ReadinessStatusList{}
-	ll.Debugf("%s", yamlFile)
-
-	err = yaml.Unmarshal(yamlFile, readinessStatuses)
-	if err != nil {
-		ll.Debugf("%s", err)
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, err
 	}
 
@@ -108,4 +106,24 @@ func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthChec
 // Watch only dummy implemented just to satisfy the interface.
 func (e *ExtenderHealthServer) Watch(*grpc_health_v1.HealthCheckRequest, grpc_health_v1.Health_WatchServer) error {
 	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
+}
+
+func (y *yamlReaderImpl) getStatuses() (*ReadinessStatusList, error) {
+	readinessStatuses := &ReadinessStatusList{}
+
+	yamlFile, err := ioutil.ReadFile(y.statusFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal(yamlFile, readinessStatuses)
+	if err != nil {
+		return nil, err
+	}
+
+	return readinessStatuses, nil
+}
+
+func (y *yamlReaderImpl) isPathSet() bool {
+	return y.statusFilePath != ""
 }
