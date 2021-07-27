@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,7 +36,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
