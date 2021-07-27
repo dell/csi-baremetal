@@ -54,7 +54,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		reader.On("isPathSet").Return(true)
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
-		assert.Nil(t, err)
+		assert.NotNil(t, err)
 		assert.Equal(t, notReadyResponse, responce)
 	})
 
