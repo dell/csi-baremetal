@@ -13,9 +13,6 @@ import (
 
 var (
 	reader *mockYamlReader
-
-	eReady    = &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}
-	eNotReady = &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}
 )
 
 func TestExtenderHealthServerCheck(t *testing.T) {
@@ -37,7 +34,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Nil(t, err)
-		assert.Equal(t, eReady, responce)
+		assert.Equal(t, readyResponse, responce)
 	})
 
 	t.Run("Check_NotReady", func(t *testing.T) {
@@ -58,7 +55,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Nil(t, err)
-		assert.Equal(t, eNotReady, responce)
+		assert.Equal(t, notReadyResponse, responce)
 	})
 
 	t.Run("Check_Ready_MultipleExtenders", func(t *testing.T) {
@@ -81,7 +78,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Nil(t, err)
-		assert.Equal(t, eReady, responce)
+		assert.Equal(t, readyResponse, responce)
 	})
 
 	t.Run("Check_NotEnabled", func(t *testing.T) {
@@ -102,7 +99,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Nil(t, err)
-		assert.Equal(t, eReady, responce)
+		assert.Equal(t, readyResponse, responce)
 	})
 
 	t.Run("Check_ReaderError", func(t *testing.T) {
@@ -119,7 +116,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Equal(t, returnedErr, err)
-		assert.Equal(t, eNotReady, responce)
+		assert.Equal(t, notReadyResponse, responce)
 	})
 }
 

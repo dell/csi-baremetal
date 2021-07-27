@@ -3,6 +3,7 @@ package healthserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/sirupsen/logrus"
@@ -61,6 +62,11 @@ const (
 	notFound = 3
 )
 
+var (
+	readyResponse    = &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}
+	notReadyResponse = &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}
+)
+
 // Check does the health check and changes the status of the server based on drives cache size
 func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 	ll := e.logger.WithFields(logrus.Fields{
@@ -69,17 +75,19 @@ func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthChec
 
 	if !e.reader.isPathSet() {
 		ll.Debugf("Patcher is not enabled")
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
+		return readyResponse, nil
 	}
 
 	readinessStatuses, err := e.reader.getStatuses()
 	if err != nil {
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, err
+		return notReadyResponse, err
 	}
 
+	var scheduler string
 	isReady := notFound
 	for _, nodeStatus := range readinessStatuses.Items {
 		if nodeStatus.NodeName == e.nodeName {
+			scheduler = nodeStatus.KubeScheduler
 			if nodeStatus.Restarted {
 				isReady = ready
 				break
@@ -91,15 +99,14 @@ func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthChec
 	}
 
 	if isReady == ready {
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
+		return readyResponse, nil
 	}
 
 	if isReady == notReady {
-		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
+		return notReadyResponse, fmt.Errorf("kube-scheduler %s is not restarted after patching", scheduler)
 	}
 
-	ll.Errorf("Node %s is not found in extenders status list", e.nodeName)
-	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
+	return notReadyResponse, fmt.Errorf("node %s is not found in extenders status list", e.nodeName)
 }
 
 // Watch is used by clients to receive updates when the svc status changes.
