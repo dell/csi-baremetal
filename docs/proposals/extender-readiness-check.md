@@ -40,16 +40,16 @@ If user wants to add another scheduler-extender, he has to manage configs for CS
 
 Manual patching:
 - For Openshift
-1. Set `scheduler.patcher.enable = false`
+1. Set `platform=""` value in csi-baremetal-deployment helm chart
 2. Update Extenders section in CM, which is currently in use, with CSI extender settings
    (Settings is hardcoded now! User need to find them in .go file)
    
 - For RKE/vanilla
-1. Set `scheduler.patcher.enable = false`
+1. Set `platform=""` value in csi-baremetal-deployment helm chart
 2. Merge Extenders section from config/policy files into current policy file 
    (for k8s 1.18 - config.yaml and policy.yaml, for k8s 1.19 - config-19.yaml from `schedulerpatcher-config` CM)
 
-If user wants to add another scheduler-extender after CSI Installation, he has to upgrade `csi-baremetal` helm release with `scheduler.patcher.enable = false` and go to step 2 from previous list.
+If users want to add another scheduler-extender after CSI Installation, they have to upgrade `csi-baremetal` helm release with `platform=""` and go to step 2 from previous list.
 
 Using CSI patching with other custom extenders may lead to unexpected behavior. Examples for Openshift:
 - change CM name in schedulers.config.openshift.io CR - CSI Operator returns error in Reconcile
@@ -73,8 +73,21 @@ Readiness flag - kube-scheduler is restarted after CM deployed.
 Readiness check in scheduler-extender
 ![Screenshot](images/extender_flow.png)
 
-Readiness flag - CSI Operator sets `<node_name>=Ready` in shareable `extender-status` ConfigMap, if the related kube-scheduler restarted after CM creation.
+Readiness flag - CSI Operator sets `Restarted=true` in shareable `extender-status` ConfigMap, if the related kube-scheduler restarted after CM creation.
 Extender can read this information and compare `<node_name>` with value gotten from Pod parameters.
+
+Configmap struct example:
+```
+nodes.yaml:
+----
+nodes:
+    - node_name: master0
+      kube_scheduler: openshift-kube-scheduler-master0
+      restarted: true
+    - node_name: master1
+      kube_scheduler: openshift-kube-scheduler-master1
+      restarted: false
+```
 
 CSI Operator behavior for Openshift Platform
 ![Screenshot](images/Operator_openshift_flow.png)
@@ -113,7 +126,7 @@ Different places:
 - For RKE/Vanilla - deploy patcher
 2. Try to trigger restart
 - For Openshift - recreate configmap
-- For RKE/Vanilla - restart the appropriate Patcher (Patcher will force update manifest after start)
+- For RKE/Vanilla - recreate configmap and patcher daemonset
 
 Problems:
 - a way to force Kube-Scheduler restart in Patcher is not clear
