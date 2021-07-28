@@ -58,6 +58,19 @@ jobs:
     
     - name: Coverage
       run: make coverage
+
+    - name: Upload coverage report to artifacts
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: coverage.html
+        path: ./coverage.html
+
+    - name: Upload coverage report to codecov
+      uses: codecov/codecov-action@v1.0.2
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.out
+        flags: unittests
       
     - name: Build binaries
       run: |
@@ -65,26 +78,9 @@ jobs:
         make DRIVE_MANAGER_TYPE=loopbackmgr build-drivemgr
         make DRIVE_MANAGER_TYPE=idracmgr build-drivemgr
 
-    - uses: helm/kind-action@v1.1.0
-      with:
-        version: "v0.8.1"
-        wait: "1s" # not wasting time here
-
-    - name: Get kind cluster information
-      run: |
-          kubectl cluster-info
-          kubectl get pods --all-namespaces
-          echo "current-context:" $(kubectl config current-context)
-          echo "environment-kubeconfig:" ${KUBECONFIG}
-
     - name: Test sanity
       run: |
-        helm install csi-baremetal-operator ./charts/csi-baremetal-operator
-        helm install csi-baremetal-driver ./charts/csi-baremetal-driver
-        helm install csi-baremetal-scheduler-extender ./charts/csi-baremetal-scheduler-extender
-        helm install csi-baremetal-scheduler ./charts/csi-baremetal-scheduler
         make test-sanity
-        kubectl get pods --all-namespaces
         
   gen-files-validate:
     name: Generated files should be consistent
