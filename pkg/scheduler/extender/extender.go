@@ -134,7 +134,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
 	}
 
-	extenderRes  = &schedulerapi.ExtenderFilterResult{}
+	extenderRes = &schedulerapi.ExtenderFilterResult{}
 	ll.Debugf("Response: with empty struct")
 }
 
