@@ -133,6 +133,9 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	if err := resp.Encode(extenderRes); err != nil {
 		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
 	}
+
+	extenderRes  = &schedulerapi.ExtenderFilterResult{}
+	ll.Debugf("Response: with empty struct")
 }
 
 // PrioritizeHandler helps with even distribution of the volumes across the nodes.
