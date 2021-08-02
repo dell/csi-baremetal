@@ -245,7 +245,8 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			err := e.k8sCache.ReadCR(ctx, v.PersistentVolumeClaim.ClaimName, pod.Namespace, pvc)
 			if err != nil {
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
-				return nil, err
+				// PVC can be created later. csi-provisioner repeat request if not error.
+				return nil, nil
 			}
 			if pvc.Spec.StorageClassName == nil {
 				continue
