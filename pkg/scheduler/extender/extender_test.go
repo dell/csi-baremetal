@@ -188,7 +188,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	})
 	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
-	assert.NotNil(t, err)
+	assert.Nil(t, err) // PVC can be created later
 
 	// PVC doesn't contain information about size
 	pod.Namespace = testNs
