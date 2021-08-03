@@ -19,18 +19,19 @@ base-image-drivemgr:
 	${BASE_IMAGE_DRIVEMGR_ARGS_${shell echo $(DRIVE_MANAGER_TYPE) | tr '[a-z]' '[A-Z]'}}
 
 download-grpc-health-probe:
+	mkdir -p build
 	if [ ! -s build/health_probe ]; then curl -L ${HEALTH_PROBE_BIN_URL} -o build/health_probe; fi
 	chmod +x build/health_probe
 
 # NOTE: Output directory for binary file should be in Docker context.
 # So we can't use csi-baremetal/build to build the image.
-base-image-node: download-grpc-health-probe
+base-image-node:
 	cp ./pkg/${NODE}/Dockerfile* ./build/${NODE}/
 	cp ./build/${HEALTH_PROBE} ./build/${NODE}/
 	docker build --network host --file ./build/${NODE}/Dockerfile.build --tag ${NODE}:base ./build/${NODE}
 	docker build --network host --file ./build/${NODE}/Dockerfile-kernel-5.4.build --tag ${NODE}:base-kernel-5.4 ./build/${NODE}
 
-base-image-controller: download-grpc-health-probe
+base-image-controller:
 	cp ./pkg/${CONTROLLER}/Dockerfile.build ./build/${CONTROLLER}/
 	cp ./build/${HEALTH_PROBE} ./build/${CONTROLLER}/
 	docker build --network host --file ./build/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./build/${CONTROLLER}
@@ -50,6 +51,7 @@ image-controller: base-image-controller
 
 image-extender:
 	cp ./pkg/${SCHEDULER}/${EXTENDER}/Dockerfile ./build/${SCHEDULING_PKG}/${EXTENDER}/
+	cp ./build/${HEALTH_PROBE} ./build/${SCHEDULING_PKG}/${EXTENDER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
 
 image-extender-patcher:
