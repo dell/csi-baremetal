@@ -36,7 +36,7 @@ Restart check is implemented in E2E testing, but it's not stable.
 
 #### Patching limitations
 
-If user wants to add another scheduler-extender, he has to manage configs for CSI extender himself.
+If it's need to add another scheduler-extender, user has to manage configs for CSI extender himself.
 
 Manual patching:
 - For Openshift
@@ -49,7 +49,7 @@ Manual patching:
 2. Merge Extenders section from config/policy files into current policy file 
    (for k8s 1.18 - config.yaml and policy.yaml, for k8s 1.19 - config-19.yaml from `schedulerpatcher-config` CM)
 
-If users want to add another scheduler-extender after CSI Installation, they have to upgrade `csi-baremetal` helm release with `platform=""` and go to step 2 from previous list.
+If it's need to add another scheduler-extender after CSI Installation, user has to upgrade `csi-baremetal` helm release with `platform=""` and go to step 2 from previous list.
 
 Using CSI patching with other custom extenders may lead to unexpected behavior. Examples for Openshift:
 - change CM name in schedulers.config.openshift.io CR - CSI Operator returns error in Reconcile

@@ -5,36 +5,27 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
+
+	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver/common"
 )
 
 // ExtenderHealthServer provides endpoint for extender readiness check
 type ExtenderHealthServer struct {
-	logger   *logrus.Logger
-	reader   yamlReader
-	nodeName string
-}
-
-// ReadinessStatus contains info about kube-scheduler restart for the related node
-type ReadinessStatus struct {
-	NodeName      string `yaml:"node_name"`
-	KubeScheduler string `yaml:"kube_scheduler"`
-	Restarted     bool   `yaml:"restarted"`
-}
-
-// ReadinessStatusList contains info about all kube-schedulers
-type ReadinessStatusList struct {
-	Items []ReadinessStatus `yaml:"nodes"`
+	logger            *logrus.Logger
+	reader            yamlReader
+	nodeName          string
+	isPatchingEnabled bool
 }
 
 type yamlReader interface {
-	getStatuses() (*ReadinessStatusList, error)
-	isPathSet() bool
+	getStatuses() (*common.ReadinessStatusList, error)
 }
 
 type yamlReaderImpl struct {
@@ -42,7 +33,8 @@ type yamlReaderImpl struct {
 }
 
 // NewExtenderHealthServer constructs ExtenderHealthServer for extender pod
-func NewExtenderHealthServer(logger *logrus.Logger, statusFilePath, nodeName string) (*ExtenderHealthServer, error) {
+func NewExtenderHealthServer(logger *logrus.Logger, isPatchingEnabled bool) (*ExtenderHealthServer, error) {
+	nodeName := os.Getenv("KUBE_NODE_NAME")
 	if nodeName == "" {
 		return nil, errors.New("nodeName parameter is empty")
 	}
@@ -50,9 +42,10 @@ func NewExtenderHealthServer(logger *logrus.Logger, statusFilePath, nodeName str
 	return &ExtenderHealthServer{
 		logger: logger,
 		reader: &yamlReaderImpl{
-			statusFilePath: statusFilePath,
+			statusFilePath: common.ExtenderConfigMapFullPath,
 		},
-		nodeName: nodeName,
+		nodeName:          nodeName,
+		isPatchingEnabled: isPatchingEnabled,
 	}, nil
 }
 
@@ -73,7 +66,7 @@ func (e *ExtenderHealthServer) Check(context.Context, *grpc_health_v1.HealthChec
 		"method": "Check",
 	})
 
-	if !e.reader.isPathSet() {
+	if !e.isPatchingEnabled {
 		ll.Debugf("Patcher is not enabled")
 		return readyResponse, nil
 	}
@@ -115,8 +108,8 @@ func (e *ExtenderHealthServer) Watch(*grpc_health_v1.HealthCheckRequest, grpc_he
 	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 
-func (y *yamlReaderImpl) getStatuses() (*ReadinessStatusList, error) {
-	readinessStatuses := &ReadinessStatusList{}
+func (y *yamlReaderImpl) getStatuses() (*common.ReadinessStatusList, error) {
+	readinessStatuses := &common.ReadinessStatusList{}
 
 	yamlFile, err := ioutil.ReadFile(y.statusFilePath)
 	if err != nil {
@@ -129,8 +122,4 @@ func (y *yamlReaderImpl) getStatuses() (*ReadinessStatusList, error) {
 	}
 
 	return readinessStatuses, nil
-}
-
-func (y *yamlReaderImpl) isPathSet() bool {
-	return y.statusFilePath != ""
 }

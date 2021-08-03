@@ -53,11 +53,10 @@ var (
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
-	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
-	healthIP    = flag.String("healthip", base.DefaultHealthIP, "IP for health service")
-	healthPort  = flag.Int("healthport", base.DefaultHealthPort, "Port for health service")
-	nodeName    = flag.String("nodeName", "", "Name of the node with assigned extender pod")
-	statusFile  = flag.String("statusFile", "", "Path to file from ConfigMap with readiness status")
+	metricspath       = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
+	healthIP          = flag.String("healthip", base.DefaultHealthIP, "IP for health service")
+	healthPort        = flag.Int("healthport", base.DefaultHealthPort, "Port for health service")
+	isPatchingEnabled = flag.Bool("isPatchingEnabled", false, "should enable readiness probe")
 )
 
 // TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
@@ -102,7 +101,7 @@ func main() {
 		logger.Fatalf("Fail to init kubeCache: %v", err)
 	}
 
-	extenderHealth, err := healthserver.NewExtenderHealthServer(logger, *statusFile, *nodeName)
+	extenderHealth, err := healthserver.NewExtenderHealthServer(logger, *isPatchingEnabled)
 	if err != nil {
 		logger.Fatalf("Fail to init extender health server: %s", err.Error())
 	}

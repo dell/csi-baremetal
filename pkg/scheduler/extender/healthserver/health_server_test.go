@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/health/grpc_health_v1"
+
+	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver/common"
 )
 
 var (
@@ -20,8 +22,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		var (
 			nodeName      = "node"
 			schedulerName = "scheduler"
-			statuses      = &ReadinessStatusList{
-				Items: []ReadinessStatus{
+			statuses      = &common.ReadinessStatusList{
+				Items: []common.ReadinessStatus{
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: true},
 				}}
 		)
@@ -30,7 +32,6 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		assert.Nil(t, err)
 
 		reader.On("getStatuses").Return(statuses, nil)
-		reader.On("isPathSet").Return(true)
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Nil(t, err)
@@ -41,8 +42,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		var (
 			nodeName      = "node"
 			schedulerName = "scheduler"
-			statuses      = &ReadinessStatusList{
-				Items: []ReadinessStatus{
+			statuses      = &common.ReadinessStatusList{
+				Items: []common.ReadinessStatus{
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: false},
 				}}
 		)
@@ -51,7 +52,6 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		assert.Nil(t, err)
 
 		reader.On("getStatuses").Return(statuses, nil)
-		reader.On("isPathSet").Return(true)
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.NotNil(t, err)
@@ -62,8 +62,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		var (
 			nodeName      = "node"
 			schedulerName = "scheduler"
-			statuses      = &ReadinessStatusList{
-				Items: []ReadinessStatus{
+			statuses      = &common.ReadinessStatusList{
+				Items: []common.ReadinessStatus{
 					{NodeName: nodeName + "1", KubeScheduler: schedulerName, Restarted: true},
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: true},
 					{NodeName: nodeName + "2", KubeScheduler: schedulerName, Restarted: true},
@@ -74,7 +74,6 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		assert.Nil(t, err)
 
 		reader.On("getStatuses").Return(statuses, nil)
-		reader.On("isPathSet").Return(true)
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Nil(t, err)
@@ -85,8 +84,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		var (
 			nodeName      = "node"
 			schedulerName = "scheduler"
-			statuses      = &ReadinessStatusList{
-				Items: []ReadinessStatus{
+			statuses      = &common.ReadinessStatusList{
+				Items: []common.ReadinessStatus{
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: true},
 				}}
 		)
@@ -94,8 +93,9 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		server, err := prepareExtenderHealthServer(nodeName)
 		assert.Nil(t, err)
 
+		server.isPatchingEnabled = false
+
 		reader.On("getStatuses").Return(statuses, nil)
-		reader.On("isPathSet").Return(false)
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Nil(t, err)
@@ -111,8 +111,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 		server, err := prepareExtenderHealthServer(nodeName)
 		assert.Nil(t, err)
 
-		reader.On("getStatuses").Return(&ReadinessStatusList{}, returnedErr)
-		reader.On("isPathSet").Return(true)
+		reader.On("getStatuses").Return(&common.ReadinessStatusList{}, returnedErr)
 
 		responce, err := server.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
 		assert.Equal(t, returnedErr, err)
@@ -129,9 +128,10 @@ func prepareExtenderHealthServer(nodeName string) (*ExtenderHealthServer, error)
 	reader = &mockYamlReader{}
 
 	return &ExtenderHealthServer{
-		logger:   logger,
-		reader:   reader,
-		nodeName: nodeName,
+		logger:            logger,
+		reader:            reader,
+		nodeName:          nodeName,
+		isPatchingEnabled: true,
 	}, nil
 }
 
@@ -139,10 +139,10 @@ type mockYamlReader struct {
 	mock.Mock
 }
 
-func (m *mockYamlReader) getStatuses() (*ReadinessStatusList, error) {
+func (m *mockYamlReader) getStatuses() (*common.ReadinessStatusList, error) {
 	args := m.Mock.Called()
 
-	return args.Get(0).(*ReadinessStatusList), args.Error(1)
+	return args.Get(0).(*common.ReadinessStatusList), args.Error(1)
 }
 
 func (m *mockYamlReader) isPathSet() bool {
