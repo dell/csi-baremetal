@@ -123,13 +123,15 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			path:      path.Join(BMDriverTestContext.ChartsDir, "csi-baremetal-deployment"),
 			namespace: f.Namespace.Name,
 		}
-		installArgs = fmt.Sprintf("--set image.tag=%s "+
+		seReadinessTimeout = 3 // Minutes
+		installArgs        = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+
-			"--set driver.log.level=debug", csiVersion)
-		podWait         = 3 * time.Minute
+			"--set driver.log.level=debug "+
+			"--set scheduler.patcher.readinessTimeout=%d", csiVersion, seReadinessTimeout)
+		podWait         = 6 * time.Minute
 		sleepBeforeWait = 10 * time.Second
 	)
 
