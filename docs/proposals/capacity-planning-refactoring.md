@@ -1,4 +1,4 @@
-# Proposal: Refactoring of capacity planing
+# Proposal: Refactoring of capacity planning
 
 Last updated: 09.08.2021
 
