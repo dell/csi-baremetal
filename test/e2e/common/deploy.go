@@ -105,14 +105,16 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 // DeployCSI deploys csi-baremetal-deployment with CmdHelmExecutor
 // After install - waiting all pods ready, checking kubernetes-scheduler restart
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
-// Helm command - "helm install csi-baremetal <CHARTS_DIR>/csi-baremetal-deployment
+// Helm command - helm install csi-baremetal <CHARTS_DIR>/csi-baremetal-deployment
 // 			--set image.tag=<CSI_VERSION>
-//			--set image.pullPolicy=IfNotPresent
+//			--set image.pullPolicy=IfNotPresent - due to kind
 //			--set driver.drivemgr.type=loopbackmgr
-//			--set scheduler.patcher.enable=true
 //			--set scheduler.log.level=debug
 //			--set nodeController.log.level=debug
-//			--set driver.log.level=debug"
+//			--set driver.log.level=debug
+//			--set scheduler.patcher.readinessTimeout=(3) - se readiness probe has a race - kube-scheduler restores for a long time after unpatching
+//															override default value here to force patching repeating
+//															if kube-scheduler is not restarted
 func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		cmdExecutor  = GetExecutor()
@@ -123,13 +125,16 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			path:      path.Join(BMDriverTestContext.ChartsDir, "csi-baremetal-deployment"),
 			namespace: f.Namespace.Name,
 		}
-		installArgs = fmt.Sprintf("--set image.tag=%s "+
+		// CSI Operator repeats patching after <seReadinessTimeout> if extender pod is not ready
+		seReadinessTimeout = 3 // Minutes
+		installArgs        = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
 			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+
-			"--set driver.log.level=debug", csiVersion)
-		podWait         = 3 * time.Minute
+			"--set driver.log.level=debug "+
+			"--set scheduler.patcher.readinessTimeout=%d", csiVersion, seReadinessTimeout)
+		podWait         = 6 * time.Minute
 		sleepBeforeWait = 10 * time.Second
 	)
 
