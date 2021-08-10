@@ -9,8 +9,8 @@ Refactor logic of AC reservation to consider cases for 2 or more LVG PVs
 
 ## Background
 
-Currently, Reservation Controller doesn't consider LVG volumes on the planning phase. 
-In some cases 2 or more LVG PVs can be assigned to different disks.
+Currently, 2 or more LVG PVs can be assigned to different disks on the reservation phase.
+Reservation Controller doesn't consider on the planning phase, that LVG volumes should use one device.
 It leads to the ineffective space usage.
 
 ## Proposal
