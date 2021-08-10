@@ -15,12 +15,24 @@ It leads to the ineffective space usage.
 
 ## Proposal
 
-1. Update information of reserved ACs in ACR (add reserved capacity size).
+1. Map information of reserved ACs in ACR (add reserved capacity size).
 ```go
+// From ACR
+type ReservationRequest struct {
+   CapacityRequest *CapacityRequest
+   Reservations []string
+}
+type CapacityRequest struct {
+   Name string
+   StorageClass string
+   Size int64
+}
+
+// For usage in the planning
+type ReservedACs map[srting]*ReservedCapacity // ACName: {ACSize, ACType}
 type ReservedCapacity struct {
-    ACName string
     Reserved int64
-    isLVG bool
+    StorageClass string
 }
 ```
 
@@ -49,6 +61,9 @@ pvc4 (HDD) (100)
 
 ![Screenshot](images/handle_capacity_request.png)
 
+Notes: 
+1. The scenario above will be used for ACs with one Storage Type. 
+   For example, if we need HDDLVG pvc, firstly we will try to find AC with HDDLVG type.
 
 ## Rationale
 
