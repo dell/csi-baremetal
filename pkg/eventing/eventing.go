@@ -41,6 +41,8 @@ const (
 	DriveStatusOffline        = "DriveStatusOffline"
 	DriveReplacementFailed    = "DriveReplacementFailed"
 	DriveReadyForReplacement  = "DriveReadyForReplacement"
+	DriveReadyForRemoved      = "DriveReadyForRemoved"
+	DriveSuccessfullyRemoved  = "DriveSuccessfullyRemoved"
 	DriveSuccessfullyReplaced = "DriveSuccessfullyReplaced"
 	DriveHasData              = "DriveHasData"
 	DriveClean                = "DriveClean"
