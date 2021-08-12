@@ -15,6 +15,7 @@ It leads to the ineffective space usage.
 
 ## Proposal
 
+### Refactor capacity planning algorithm
 1. Map information of reserved ACs in ACR (add reserved capacity size).
 ```go
 // From ACR
@@ -64,6 +65,8 @@ pvc4 (HDD) (100)
 Notes: 
 1. The scenario above will be used for ACs with one Storage Type. 
    For example, if we need HDDLVG pvc, firstly we will try to find AC with HDDLVG type.
+   
+### Add feature "Consistent LVG volumes reservation"
 
 ## Rationale
 

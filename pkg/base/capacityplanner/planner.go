@@ -19,12 +19,16 @@ package capacityplanner
 import (
 	"context"
 	"fmt"
+	"sort"
+
+	v1 "github.com/dell/csi-baremetal/api/v1"
 
 	"github.com/sirupsen/logrus"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
@@ -73,19 +77,22 @@ type CapacityPlaner interface {
 // CapacityManagerBuilder interface for capacity managers creation
 type CapacityManagerBuilder interface {
 	// GetCapacityManager returns CapacityManager
-	GetCapacityManager(logger *logrus.Entry, capReader CapacityReader) CapacityPlaner
+	GetCapacityManager(logger *logrus.Entry,
+		capReader CapacityReader, resReader ReservationReader) CapacityPlaner
 	// GetReservedCapacityManager returns ReservedCapacityManager
 	GetReservedCapacityManager(logger *logrus.Entry,
 		capReader CapacityReader, resReader ReservationReader) CapacityPlaner
 }
 
 // DefaultCapacityManagerBuilder is a builder for default CapacityManagers
-type DefaultCapacityManagerBuilder struct{}
+type DefaultCapacityManagerBuilder struct {
+	ConsistentLVGReservation bool
+}
 
 // GetCapacityManager returns default implementation of CapacityManager
 func (dcmb *DefaultCapacityManagerBuilder) GetCapacityManager(
-	logger *logrus.Entry, capReader CapacityReader) CapacityPlaner {
-	return NewCapacityManager(logger, capReader)
+	logger *logrus.Entry, capReader CapacityReader, resReader ReservationReader) CapacityPlaner {
+	return NewCapacityManager(logger, capReader, resReader, dcmb.ConsistentLVGReservation)
 }
 
 // GetReservedCapacityManager returns default implementation of ReservedCapacityManager
@@ -95,10 +102,13 @@ func (dcmb *DefaultCapacityManagerBuilder) GetReservedCapacityManager(
 }
 
 // NewCapacityManager return new instance of CapacityManager
-func NewCapacityManager(logger *logrus.Entry, capReader CapacityReader) *CapacityManager {
+func NewCapacityManager(logger *logrus.Entry, capReader CapacityReader,
+	resReader ReservationReader, consistentLVGReservation bool) *CapacityManager {
 	return &CapacityManager{
-		logger:    logger,
-		capReader: capReader,
+		logger:                   logger,
+		capReader:                capReader,
+		resReader:                resReader,
+		consistentLVGReservation: consistentLVGReservation,
 	}
 }
 
@@ -106,20 +116,57 @@ func NewCapacityManager(logger *logrus.Entry, capReader CapacityReader) *Capacit
 type CapacityManager struct {
 	logger    *logrus.Entry
 	capReader CapacityReader
+	resReader ReservationReader
 
 	// nodeID to nodeCapacity
 	nodesCapacity map[string]*nodeCapacity
+
+	//
+	consistentLVGReservation bool
 }
 
 // PlanVolumesPlacing build placing plan for volumes
 func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.PlanVolumesPlacing")
-	err := cm.update(ctx)
+
+	acList, err := cm.capReader.ReadCapacity(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update capacity data: %s", err.Error())
+		logger.Errorf("failed to read AC list: %s", err.Error())
+		return nil, err
 	}
+	acrList, err := cm.resReader.ReadReservations(ctx)
+	if err != nil {
+		logger.Errorf("failed to read ACR list: %s", err.Error())
+		return nil, err
+	}
+
+	if cm.consistentLVGReservation {
+		if cm.isAnotherACRWithLVGReserved(ctx, volumes, acrList) {
+			return nil, baseerr.ErrorAnotherACRReserved
+		}
+	}
+
+	// update node capacity
+	cm.nodesCapacity = map[string]*nodeCapacity{}
+	for _, node := range nodes {
+		cm.nodesCapacity[node] = newNodeCapacity(node, acList, acrList)
+	}
+
 	plan := VolumesPlanMap{}
 
+	// sort capacity requests (LVG first)
+	sort.Slice(volumes, func(i, j int) bool {
+		if util.IsStorageClassLVG(volumes[i].StorageClass) && !util.IsStorageClassLVG(volumes[j].StorageClass) {
+			return true
+		}
+		if !util.IsStorageClassLVG(volumes[i].StorageClass) && util.IsStorageClassLVG(volumes[j].StorageClass) {
+			return false
+		}
+
+		return volumes[i].Size < volumes[j].Size
+	})
+
+	// select ACs on each node for volumes
 	for _, node := range nodes {
 		volToACOnNode := cm.selectCapacityOnNode(ctx, node, volumes)
 		if volToACOnNode == nil {
@@ -160,36 +207,45 @@ func (cm *CapacityManager) selectCapacityOnNode(ctx context.Context, node string
 	return result
 }
 
-func (cm *CapacityManager) update(ctx context.Context) error {
-	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.update")
-	cm.nodesCapacity = map[string]*nodeCapacity{}
-	capacity, err := cm.capReader.ReadCapacity(ctx)
-	if err != nil {
-		logger.Errorf("Failed to read capacity: %s", err.Error())
-		return err
+func (cm *CapacityManager) isAnotherACRWithLVGReserved(ctx context.Context, volumes []*genV1.Volume, acrs []acrcrd.AvailableCapacityReservation) bool {
+	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.isAnotherACRWithLVGReserved")
+
+	// check if current ACR has no LVG volumes
+	hasLVGVolume := false
+	for _, vol := range volumes {
+		if util.IsStorageClassLVG(vol.StorageClass) {
+			hasLVGVolume = true
+			break
+		}
 	}
-	for _, c := range capacity {
-		c := c
-		nodeID := c.Spec.NodeId
-		logger.Tracef("register capacity %s on node %s", c.Name, nodeID)
-		cm.registerNodeCapacity(c.Spec.NodeId, &c)
+	if !hasLVGVolume {
+		return false
 	}
-	return nil
+
+	// find LVG volumes in other ACRs in RESERVED state
+	if cm.consistentLVGReservation {
+		for _, acr := range acrs {
+			if acr.Spec.Status != v1.ReservationConfirmed {
+				continue
+			}
+			for _, resRequest := range acr.Spec.ReservationRequests {
+				if util.IsStorageClassLVG(resRequest.CapacityRequest.StorageClass) {
+					logger.Debugf("ACR %s has LVG volume %s. Should retry reservation proccesing", acr.Name, resRequest.CapacityRequest.Name)
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func (cm *CapacityManager) convertCapacityToMap() NodeCapacityMap {
 	result := NodeCapacityMap{}
 	for nodeID, capData := range cm.nodesCapacity {
-		result[nodeID] = capData.capacity
+		result[nodeID] = capData.acs
 	}
 	return result
-}
-
-func (cm *CapacityManager) registerNodeCapacity(node string, capacity *accrd.AvailableCapacity) {
-	if _, ok := cm.nodesCapacity[node]; !ok {
-		cm.nodesCapacity[node] = &nodeCapacity{capacity: ACMap{}}
-	}
-	cm.nodesCapacity[node].registerAC(capacity)
 }
 
 // NewReservedCapacityManager returns new instance of ReservedCapacityManager

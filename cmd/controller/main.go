@@ -63,7 +63,8 @@ var (
 		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
-	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
+	metricspath              = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
+	consistentLVGReservation = flag.Bool("consistent-lvg-reservation", false, "disable concurrent reservations for cases with LVG Volumes")
 )
 
 func main() {
@@ -174,7 +175,7 @@ func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bo
 
 	if featureEnabled {
 		// controller
-		reservationController := reservation.NewController(client, log)
+		reservationController := reservation.NewController(client, log, *consistentLVGReservation)
 		if err = reservationController.SetupWithManager(mgr); err != nil {
 			return nil, err
 		}
