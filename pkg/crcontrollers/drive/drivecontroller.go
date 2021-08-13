@@ -132,6 +132,11 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	// handle offline/online drive status
+	if err := c.handleDriveStatus(ctx, drive); err != nil {
+		return ignore, err
+	}
+
 	// get drive fields
 	usage := drive.Spec.GetUsage()
 	health := drive.Spec.GetHealth()
@@ -228,6 +233,32 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return update, nil
 	}
 	return ignore, nil
+}
+
+func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Drive) error {
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+	if err != nil {
+		return err
+	}
+
+	switch drive.Spec.Status {
+	case apiV1.DriveStatusOffline:
+		for _, volume := range volumes {
+			if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.OperationalStatusMissing); err != nil {
+				return err
+			}
+		}
+	case apiV1.DriveStatusOnline:
+		// move MISSING volumes to OPERATIVE status
+		for _, volume := range volumes {
+			if volume.Spec.OperationalStatus == apiV1.OperationalStatusMissing {
+				if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.OperationalStatusOperative); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {

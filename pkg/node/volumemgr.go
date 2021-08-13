@@ -952,13 +952,6 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 				vol.Spec.Usage = apiV1.VolumeUsageReleasing
 			}
 		}
-		// update operational volume status by drive status
-		switch drive.Status {
-		case apiV1.DriveStatusOffline:
-			vol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
-		case apiV1.DriveStatusOnline:
-			vol.Spec.OperationalStatus = apiV1.OperationalStatusOperative
-		}
 
 		if err := m.k8sClient.UpdateCR(ctx, vol); err != nil {
 			ll.Errorf("Failed to update volume CR's %s health status: %v", vol.Name, err)
@@ -1042,6 +1035,7 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 	case apiV1.DriveStatusOffline:
 		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
 			reason = eventing.DriveSuccessfullyRemoved
+			statusMsgTemplate = fmt.Sprintf("Drive successfully replaced, %s", drive.GetDriveDescription())
 		} else {
 			eventType = eventing.ErrorType
 			reason = eventing.DriveStatusOffline
