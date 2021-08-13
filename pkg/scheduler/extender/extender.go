@@ -40,6 +40,7 @@ import (
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -106,7 +107,10 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	pod := extenderArgs.Pod
 	requests, err := e.gatherCapacityRequestsByProvisioner(ctxWithVal, pod)
 	if err != nil {
-		extenderRes.Error = err.Error()
+		// not found error is re-triable
+		if err != baseerr.ErrorNotFound {
+			extenderRes.Error = err.Error()
+		}
 		if err := resp.Encode(extenderRes); err != nil {
 			ll.Errorf("Unable to write response %v: %v", extenderRes, err)
 		}
@@ -246,7 +250,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			if err != nil {
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
 				// PVC can be created later. csi-provisioner repeat request if not error.
-				return nil, nil
+				return nil, baseerr.ErrorNotFound
 			}
 			if pvc.Spec.StorageClassName == nil {
 				continue
