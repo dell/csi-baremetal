@@ -156,7 +156,6 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 				"%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, vol.Name)]
 			if !found || status != apiV1.VolumeUsageReleased {
 				allFound = false
-				// Possible print message, not all volume move to releasing
 				break
 			}
 		}
@@ -211,10 +210,6 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 				// send error level alert
 				eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
 				c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, eventMsg)
-			} else {
-				// send info level alert
-				eventMsg := fmt.Sprintf("Drive successfully replaced, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveSuccessfullyRemoved, eventMsg)
 			}
 			toUpdate = true
 		}

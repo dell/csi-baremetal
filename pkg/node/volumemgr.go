@@ -1041,7 +1041,7 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 		reason = eventing.DriveStatusOnline
 	case apiV1.DriveStatusOffline:
 		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
-			reason = eventing.DriveSuccessfullyReplaced
+			reason = eventing.DriveSuccessfullyRemoved
 		} else {
 			eventType = eventing.ErrorType
 			reason = eventing.DriveStatusOffline
