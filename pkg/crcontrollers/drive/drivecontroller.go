@@ -230,32 +230,6 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	return ignore, nil
 }
 
-// func (c *Controller) updateVolumesOpStatusByDriveStatus(ctx context.Context, drive *drivecrd.Drive) error {
-// 	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	switch drive.Spec.Status {
-// 	case apiV1.DriveStatusOffline:
-// 		for _, volume := range volumes {
-// 			if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.OperationalStatusMissing); err != nil {
-// 				return err
-// 			}
-// 		}
-// 	case apiV1.DriveStatusOnline:
-// 		// move MISSING volumes to OPERATIVE status
-// 		for _, volume := range volumes {
-// 			if volume.Spec.OperationalStatus == apiV1.OperationalStatusMissing {
-// 				if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.OperationalStatusOperative); err != nil {
-// 					return err
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
-
 func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 	for _, vol := range volumes {
 		if vol.Spec.CSIStatus != apiV1.Removed {
