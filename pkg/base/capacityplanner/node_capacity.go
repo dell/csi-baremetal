@@ -36,10 +36,13 @@ type reservedACs map[string]*reservedCapacity
 type scToACOrder map[string][]string
 
 type nodeCapacity struct {
-	node        string
-	acs         ACMap
-	acsOrder    scToACOrder
+	node string
+	// ACs for the related node
+	acs ACMap
+	// AC Name: {AC Size, AC Storage Class}
 	reservedACs reservedACs
+	// Storage Class Name: the list of AC names, which can be selected
+	acsOrder scToACOrder
 }
 
 func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.AvailableCapacityReservation) *nodeCapacity {

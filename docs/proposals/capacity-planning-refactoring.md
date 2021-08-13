@@ -9,13 +9,21 @@ Refactor logic of AC reservation to consider cases for 2 or more LVG PVs
 
 ## Background
 
-Currently, 2 or more LVG PVs can be assigned to different disks on the reservation phase.
-Reservation Controller doesn't consider on the planning phase, that LVG volumes should use one device.
-It leads to the ineffective space usage.
+Currently, 2 or more LVG PVs can be assigned to different disks on the reservation phase. It leads to the ineffective space usage.
+
+Causes:
+1. Reservation Controller doesn't consider on the planning phase, that LVG volumes should use one device. 
+   If ACR reserves AC for LVG, other ACR won't be able to use the same drive for LVG.
+
+2. CSI reserves capacity for pvc of one pod on all nodes. After volumes creation, reservation will be released. 
+   ACR controller selects drives with the closest capacity for the first reservation. 
+   But if there are some existed reservation, they will affect each other.
+
+   ![Screenshot](images/ACR_limitations.png)
 
 ## Proposal
 
-### Refactor capacity planning algorithm
+### Refactor the capacity planning algorithm
 1. Map information of reserved ACs in ACR (add reserved capacity size).
 ```go
 // From ACR
@@ -67,6 +75,11 @@ Notes:
    For example, if we need HDDLVG pvc, firstly we will try to find AC with HDDLVG type.
    
 ### Add feature "Consistent LVG volumes reservation"
+
+1. Add the opportunity for reservations with LVG Volumes to wait in Reconcile in the ACR controller until there are other ACRs with LVG Volumes in RESERVED state.
+ACs will be reserved on all nodes only for one LVG Volume. It should make the controller to select the same drive for LVG volumes.
+   
+2. This functional will be optional, disabled by default. The user can use this option by pass parameter in helm chart values.
 
 ## Rationale
 

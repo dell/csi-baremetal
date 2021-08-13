@@ -121,7 +121,7 @@ type CapacityManager struct {
 	// nodeID to nodeCapacity
 	nodesCapacity map[string]*nodeCapacity
 
-	//
+	// keep ACR with LVG REQUESTED until another ACR is RESERVED
 	consistentLVGReservation bool
 }
 
