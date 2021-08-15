@@ -57,7 +57,7 @@ Negotiation between CSI and Operator is optional and will be done though annotat
   - `volumehealth.csi-baremetal/health: good/unknown/suspect/bad` - health of the underlying drive(s) 
   - `volumerelease.csi-baremetal/process: start|pause|stop` - inform to start|pause|stop volume release process
   - `volumerelease.csi-baremetal/release: processing` - system is working on data recovery/graceful IO shutdown
-  - `volumerelease.csi-baremetal/release: completed` - volume is released
+  - `volumerelease.csi-baremetal/release: done` - volume is released
   - `volumerelease.csi-baremetal/release: failed` - system failed to release volume
   - `volumerelease.csi-baremetal/recovery: [0:100]` - percent of recovery progress
   - `volumerelease.csi-baremetal/status: <status description>` - extra information. can be used to provide description for the release process. For example, *release=failed, recovery=50, status="recovery failed by timeout"*
