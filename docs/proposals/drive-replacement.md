@@ -81,7 +81,7 @@ To trigger physical drive replacement user must put the following annotation on 
   - CSI sets drive operational status to `FAILED`
 * When drive operation status is `RELEASED` user can initiate physical drive replacement by setting `driveremove.csi-baremetal/replacement: ready` annotation on drive CR
   - CSI sets drive operational status to `REMOVING`
-  - Operator deletes PV(s)
+  - Operator deletes PVC(s)
   - CSI prepares drive for safe removal and starts LED locate
   - CSI sets drive operational status to `REMOVED` if all operations are passed successfully and `FAILED` otherwise
 * When drive operation status is `REMOVED`
