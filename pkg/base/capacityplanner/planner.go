@@ -151,6 +151,7 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 	for _, node := range nodes {
 		cm.nodesCapacity[node] = newNodeCapacity(node, acList, acrList)
 	}
+	logrus.Debugf("Node_capacity: %+v", cm.nodesCapacity)
 
 	plan := VolumesPlanMap{}
 
@@ -174,6 +175,7 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 		}
 		plan[node] = volToACOnNode
 	}
+	logrus.Debugf("Placing_plan: %+v", plan)
 
 	if len(plan) == 0 {
 		logger.Warning("Required capacity for volumes not found")
