@@ -166,8 +166,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 		if allFound {
 			drive.Spec.Usage = apiV1.DriveUsageReleased
-			eventMsg := fmt.Sprintf("Drive is ready for replacement, %s", drive.GetDriveDescription())
-			c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveReadyForReplacement, eventMsg)
+			eventMsg := fmt.Sprintf("Drive is ready for removal, %s", drive.GetDriveDescription())
+			c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveReadyForRemoval, eventMsg)
 			toUpdate = true
 		}
 
@@ -177,8 +177,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 
-		status, found := drive.Annotations[apiV1.DriveAnnotationReplacement]
-		if !found || status != apiV1.DriveAnnotationReplacementReady {
+		status, found := getDriveAnnotationRemoval(drive.Annotations)
+		if !found || status != apiV1.DriveAnnotationRemovalReady {
 			break
 		}
 		toUpdate = true
@@ -190,10 +190,11 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			return ignore, err
 		}
 		for _, vol := range volumes {
-			value, found := vol.Annotations[apiV1.DriveAnnotationReplacement]
-			if !found || value != apiV1.DriveAnnotationReplacementReady {
+			value, found := getDriveAnnotationRemoval(vol.Annotations)
+			if !found || value != apiV1.DriveAnnotationRemovalReady {
 				// need to update volume annotations
-				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationReplacementReady
+				vol.Annotations[apiV1.DriveAnnotationRemoval] = apiV1.DriveAnnotationRemovalReady
+				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationRemovalReady
 				if err := c.client.UpdateCR(ctx, vol); err != nil {
 					log.Errorf("Failed to update volume %s annotations, error: %v", vol.Name, err)
 					return ignore, err
@@ -237,6 +238,16 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return update, nil
 	}
 	return ignore, nil
+}
+
+// For support deprecated Replacement annotation
+func getDriveAnnotationRemoval(annatations map[string]string) (string, bool) {
+	status, found := annatations[apiV1.DriveAnnotationRemoval]
+	if !found {
+		// Deprecated annotation support
+		status, found = annatations[apiV1.DriveAnnotationRemoval]
+	}
+	return status, found
 }
 
 func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Drive) error {
