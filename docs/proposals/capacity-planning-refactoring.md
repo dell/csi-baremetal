@@ -85,7 +85,8 @@ Performance issues: ISSUE-2, ISSUE-3
 
 ## Rationale
 
-TBD
+Kubernetes-sheduler can be used instead of Kubernetes-scheduler-extender: https://kubernetes.io/blog/2020/12/21/writing-crl-scheduler/.
+It allows implementing additional actions on Reserve/Unreserve phase to avoid capacity reservation on all nodes.
 
 ## Compatibility
 
