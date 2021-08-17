@@ -31,11 +31,11 @@ type Controller struct {
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
-func NewController(client *k8s.KubeClient, log *logrus.Logger, consistentLVGReservation bool) *Controller {
+func NewController(client *k8s.KubeClient, log *logrus.Logger, sequentialLVGReservation bool) *Controller {
 	return &Controller{
 		client:                 client,
 		log:                    log.WithField("component", "ReservationController"),
-		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{ConsistentLVGReservation: consistentLVGReservation},
+		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{SequentialLVGReservation: sequentialLVGReservation},
 	}
 }
 

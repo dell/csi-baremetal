@@ -86,13 +86,13 @@ type CapacityManagerBuilder interface {
 
 // DefaultCapacityManagerBuilder is a builder for default CapacityManagers
 type DefaultCapacityManagerBuilder struct {
-	ConsistentLVGReservation bool
+	SequentialLVGReservation bool
 }
 
 // GetCapacityManager returns default implementation of CapacityManager
 func (dcmb *DefaultCapacityManagerBuilder) GetCapacityManager(
 	logger *logrus.Entry, capReader CapacityReader, resReader ReservationReader) CapacityPlaner {
-	return NewCapacityManager(logger, capReader, resReader, dcmb.ConsistentLVGReservation)
+	return NewCapacityManager(logger, capReader, resReader, dcmb.SequentialLVGReservation)
 }
 
 // GetReservedCapacityManager returns default implementation of ReservedCapacityManager
@@ -103,12 +103,12 @@ func (dcmb *DefaultCapacityManagerBuilder) GetReservedCapacityManager(
 
 // NewCapacityManager return new instance of CapacityManager
 func NewCapacityManager(logger *logrus.Entry, capReader CapacityReader,
-	resReader ReservationReader, consistentLVGReservation bool) *CapacityManager {
+	resReader ReservationReader, sequentialLVGReservation bool) *CapacityManager {
 	return &CapacityManager{
 		logger:                   logger,
 		capReader:                capReader,
 		resReader:                resReader,
-		consistentLVGReservation: consistentLVGReservation,
+		sequentialLVGReservation: sequentialLVGReservation,
 	}
 }
 
@@ -122,7 +122,7 @@ type CapacityManager struct {
 	nodesCapacity map[string]*nodeCapacity
 
 	// keep ACR with LVG REQUESTED until another ACR is RESERVED
-	consistentLVGReservation bool
+	sequentialLVGReservation bool
 }
 
 // PlanVolumesPlacing build placing plan for volumes
@@ -140,7 +140,7 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 		return nil, err
 	}
 
-	if cm.consistentLVGReservation {
+	if cm.sequentialLVGReservation {
 		if cm.isAnotherACRWithLVGReserved(ctx, volumes, acrList) {
 			return nil, baseerr.ErrorAnotherACRReserved
 		}
@@ -225,7 +225,7 @@ func (cm *CapacityManager) isAnotherACRWithLVGReserved(ctx context.Context, volu
 	}
 
 	// find LVG volumes in other ACRs in RESERVED state
-	if cm.consistentLVGReservation {
+	if cm.sequentialLVGReservation {
 		for _, acr := range acrs {
 			if acr.Spec.Status != v1.ReservationConfirmed {
 				continue

@@ -5,19 +5,19 @@ Last updated: 09.08.2021
 
 ## Abstract
 
-Refactor logic of AC reservation to consider cases for 2 or more LVG PVs
+Need to improve disk space usage for LVG based persistent volumes
 
 ## Background
 
 Currently, 2 or more LVG PVs can be assigned to different disks on the reservation phase. It leads to the ineffective space usage.
 
 Causes:
-1. Reservation Controller doesn't consider on the planning phase, that LVG volumes should use one device. 
-   If ACR reserves AC for LVG, other ACR won't be able to use the same drive for LVG.
+1. Reservation Controller doesn't consider on the planning phase, that LVG volumes should use one device.
+   If ACR reserves non-LVG AC for LVG, other ACR won't be able to use the same drive for LVG until reservation is release or AC is converted.
 
-2. CSI reserves capacity for pvc of one pod on all nodes. After volumes creation, reservation will be released. 
-   ACR controller selects drives with the closest capacity for the first reservation. 
-   But if there are some existed reservation, they will affect each other.
+2. CSI reserves capacity for PV on all nodes on the planning phase. 
+   Extra reservation are released after Volume creation, but they affect each other, when controller selects corresponding drive. 
+   Example of this situation is shown on the image below.
 
    ![Screenshot](images/ACR_limitations.png)
 
@@ -74,12 +74,14 @@ Notes:
 1. The scenario above will be used for ACs with one Storage Type. 
    For example, if we need HDDLVG pvc, firstly we will try to find AC with HDDLVG type.
    
-### Add feature "Consistent LVG volumes reservation"
+### Add feature "Minimization of disks number usage for LVG based volumes"
 
 1. Add the opportunity for reservations with LVG Volumes to wait in Reconcile in the ACR controller until there are other ACRs with LVG Volumes in RESERVED state.
 ACs will be reserved on all nodes only for one LVG Volume. It should make the controller to select the same drive for LVG volumes.
    
-2. This functional will be optional, disabled by default. The user can use this option by pass parameter in helm chart values.
+2. This functional will be optional, enabled by default. User can disable this option by pass parameter in helm chart values, if performance impact matters.
+
+Performance issues: ISSUE-2, ISSUE-3
 
 ## Rationale
 
@@ -87,14 +89,12 @@ TBD
 
 ## Compatibility
 
-No compatibility with the previous versions.
-
-## Implementation
-
-TBD
+Need changes in csi-baremetal and csi-baremetal-operator
 
 ## Open issues (if applicable)
 
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
-ISSUE-1 | Inline volumes  | Can we place inline volumes with PVs in LV?  |   |   
+ISSUE-1 | Inline volumes | Can we place inline volumes with PVs in LV?  |   |
+ISSUE-2 | Performance impact | The proposed approach can increase PV provisioning time |   |
+ISSUE-3 | Stacked ACR | If one of the LVG ACRs stacks in RESERVED, other ACRs will wait in REQUESTED |   | 
