@@ -218,7 +218,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 				c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, eventMsg)
 			} else {
 				// send warning level alert (warning for attention), good level closes issue, need only send message
-				eventMsg := fmt.Sprintf("Drive successfully removed from CSI %s, the disk is ready for physical physical removal.", drive.GetDriveDescription())
+				eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
 				c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveReadyForPhysicalRemoval, eventMsg)
 			}
 			toUpdate = true

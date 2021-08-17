@@ -1035,7 +1035,7 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 	case apiV1.DriveStatusOffline:
 		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
 			reason = eventing.DriveSuccessfullyRemoved
-			statusMsgTemplate += "Drive successfully removed."
+			statusMsgTemplate = "Drive successfully removed. " + statusMsgTemplate
 		} else {
 			eventType = eventing.ErrorType
 			reason = eventing.DriveStatusOffline
@@ -1059,7 +1059,7 @@ func (m *VolumeManager) createEventForDriveHealthOverridden(
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reason, messageFmt string,
 	args ...interface{}) {
-	messageFmt += drive.GetDriveDescription()
+	messageFmt += ' ' + drive.GetDriveDescription()
 	m.recorder.Eventf(drive, eventtype, reason, messageFmt, args...)
 }
 
