@@ -215,6 +215,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 				// send error level alert
 				eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
 				c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, eventMsg)
+			} else {
+				// send info level alert
+				eventMsg := fmt.Sprintf("Drive successfully removed from CSI %s, the disk is ready for physical physical removal.", drive.GetDriveDescription())
+				c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveReadyForPhysicalRemoval, eventMsg)
 			}
 			toUpdate = true
 		}
