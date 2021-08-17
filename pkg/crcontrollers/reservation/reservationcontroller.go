@@ -93,8 +93,8 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 
 		requestedNodes := reservationSpec.NodeRequests.Requested
 		placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes, requestedNodes)
-		if err == baseerr.ErrorAnotherACRReserved {
-			log.Warningf("Consistent LVG volumes reservation feature is enabled: %s", err.Error())
+		if err == baseerr.ErrorRejectReservationRequest {
+			log.Warningf("Reservation request rejected due to another ACR in RESERVED state has request based on LVG")
 			return ctrl.Result{Requeue: true}, err
 		}
 		if err != nil {

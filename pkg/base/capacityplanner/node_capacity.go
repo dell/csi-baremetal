@@ -88,13 +88,13 @@ func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.A
 	acsOrder[v1.StorageClassSSDLVG] = append(acsOrder[v1.StorageClassSSDLVG], acsOrder[v1.StorageClassSSD]...)
 	acsOrder[v1.StorageClassNVMeLVG] = append(acsOrder[v1.StorageClassNVMeLVG], acsOrder[v1.StorageClassNVMe]...)
 
-	acMap := ACMap{}
-	for i, ac := range acs {
-		acMap[ac.Name] = &acs[i]
-	}
+	acMap := buildACMap(acs)
 
 	reservedACs := reservedACs{}
 	for _, acr := range acrs {
+		if acr.Spec.Status != v1.ReservationConfirmed {
+			continue
+		}
 		for _, request := range acr.Spec.ReservationRequests {
 			reservedCapacity := &reservedCapacity{
 				Size:         request.CapacityRequest.Size,
@@ -163,4 +163,12 @@ func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCap
 	}
 
 	return nil
+}
+
+func buildACMap(acs []accrd.AvailableCapacity) ACMap {
+	acMap := ACMap{}
+	for i, ac := range acs {
+		acMap[ac.Name] = &acs[i]
+	}
+	return acMap
 }

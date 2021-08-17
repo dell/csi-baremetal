@@ -141,8 +141,8 @@ func (cm *CapacityManager) PlanVolumesPlacing(ctx context.Context, volumes []*ge
 	}
 
 	if cm.sequentialLVGReservation {
-		if cm.isAnotherACRWithLVGReserved(ctx, volumes, acrList) {
-			return nil, baseerr.ErrorAnotherACRReserved
+		if cm.isLVGCapacityReserved(ctx, volumes, acrList) {
+			return nil, baseerr.ErrorRejectReservationRequest
 		}
 	}
 
@@ -209,29 +209,35 @@ func (cm *CapacityManager) selectCapacityOnNode(ctx context.Context, node string
 	return result
 }
 
-func (cm *CapacityManager) isAnotherACRWithLVGReserved(ctx context.Context, volumes []*genV1.Volume, acrs []acrcrd.AvailableCapacityReservation) bool {
-	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.isAnotherACRWithLVGReserved")
+// check for existing ACR in RESERVED state with the same LVG SC
+// need to skip new reservation for LVG requests to avoid usage extra non-LVG AC for LVG
+func (cm *CapacityManager) isLVGCapacityReserved(ctx context.Context, volumes []*genV1.Volume, acrs []acrcrd.AvailableCapacityReservation) bool {
+	logger := util.AddCommonFields(ctx, cm.logger, "CapacityManager.isLVGCapacityReserved")
 
-	// check if current ACR has no LVG volumes
-	hasLVGVolume := false
-	for _, vol := range volumes {
-		if util.IsStorageClassLVG(vol.StorageClass) {
-			hasLVGVolume = true
-			break
-		}
-	}
-	if !hasLVGVolume {
+	if !cm.sequentialLVGReservation {
 		return false
 	}
 
-	// find LVG volumes in other ACRs in RESERVED state
-	if cm.sequentialLVGReservation {
-		for _, acr := range acrs {
-			if acr.Spec.Status != v1.ReservationConfirmed {
-				continue
-			}
-			for _, resRequest := range acr.Spec.ReservationRequests {
-				if util.IsStorageClassLVG(resRequest.CapacityRequest.StorageClass) {
+	var lvgVolumes []*genV1.Volume
+
+	// find capacity requests based on LVG
+	for _, vol := range volumes {
+		if util.IsStorageClassLVG(vol.StorageClass) {
+			lvgVolumes = append(lvgVolumes, vol)
+		}
+	}
+	if len(lvgVolumes) == 0 {
+		return false
+	}
+
+	// check if other ACRs in RESERVED state has requests with the same LVG SC
+	for _, acr := range acrs {
+		if acr.Spec.Status != v1.ReservationConfirmed {
+			continue
+		}
+		for _, resRequest := range acr.Spec.ReservationRequests {
+			for _, vol := range lvgVolumes {
+				if vol.StorageClass == resRequest.CapacityRequest.StorageClass {
 					logger.Debugf("ACR %s has LVG volume %s. Should retry reservation proccesing", acr.Name, resRequest.CapacityRequest.Name)
 					return true
 				}
