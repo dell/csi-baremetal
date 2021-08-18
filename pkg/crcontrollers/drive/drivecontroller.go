@@ -241,11 +241,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 }
 
 // For support deprecated Replacement annotation
-func getDriveAnnotationRemoval(annatations map[string]string) (string, bool) {
-	status, found := annatations[apiV1.DriveAnnotationRemoval]
+func getDriveAnnotationRemoval(annotations map[string]string) (string, bool) {
+	status, found := annotations[apiV1.DriveAnnotationRemoval]
 	if !found {
-		// Deprecated annotation support
-		status, found = annatations[apiV1.DriveAnnotationRemoval]
+		status, found = annotations[apiV1.DriveAnnotationReplacement]
 	}
 	return status, found
 }
