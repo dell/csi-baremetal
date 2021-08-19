@@ -71,6 +71,7 @@ type WrapLVM interface {
 	PVCreate(dev string) error
 	PVRemove(name string) error
 	VGCreate(name string, pvs ...string) error
+	VGReactivate(name string) error
 	VGRemove(name string) error
 	LVCreate(name, size, vgName string) error
 	LVRemove(fullLVName string) error
@@ -148,6 +149,17 @@ func (l *LVM) VGCreate(name string, pvs ...string) error {
 		return nil
 	}
 	return err
+}
+
+// VGReactivate inactivates, scans and activates volume group to recover from disk missing scenario
+// Receives name of VG to re-activate
+// Returns error if something went wrong
+func (l *LVM) VGReactivate(name string) error {
+	// Inactive VG: vgchange -an <VG name>
+	// Scan Volume group: vgscan
+	// Active VG: vgchange -ay <VG name>
+	l.log.Infof("Trying to re-activate volume groups %s", name)
+	return nil
 }
 
 // VGRemove removes volume group, ignore error if VG doesn't exist

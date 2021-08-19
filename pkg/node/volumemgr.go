@@ -698,7 +698,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 
 func (m *VolumeManager) handleDriveUpdates(ctx context.Context, updates *driveUpdates) {
 	for _, updDrive := range updates.Updated {
-		m.handleDriveStatusChange(ctx, &updDrive.CurrentState.Spec)
+		m.handleDriveStatusChange(ctx, updDrive)
 	}
 	m.createEventsForDriveUpdates(updates)
 }
@@ -910,22 +910,31 @@ func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
 // handleDriveStatusChange removes AC that is based on unhealthy drive, returns AC if drive returned to healthy state,
 // mark volumes of the unhealthy drive as unhealthy.
 // Receives golang context and api.Drive that should be handled
-func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.Drive) {
+func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updatedDrive) {
+	cur := drive.CurrentState.Spec
+	prev := drive.PreviousState.Spec
 	ll := m.log.WithFields(logrus.Fields{
 		"method":  "handleDriveStatusChange",
-		"driveID": drive.UUID,
+		"driveID": cur.UUID,
 	})
 
-	ll.Infof("The new drive status from DriveMgr is %s", drive.Health)
+	ll.Infof("The new cur status from DriveMgr is %s", cur.Health)
 
 	// Handle resources without LogicalVolumeGroup
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
-	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, drive.UUID)
+	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, cur.UUID)
 	if lvg != nil {
 		// TODO handle situation when LVG health is changing from Bad/Suspect to Good https://github.com/dell/csi-baremetal/issues/385
-		lvg.Spec.Health = drive.Health
+		lvg.Spec.Health = cur.Health
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
 			ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
+		}
+		// check for missing disk and re-activate volume group if needed
+		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
+			if err := m.lvmOps.VGReactivate(lvg.Name); err != nil {
+				// need to send an event if operation failed
+				ll.Errorf("Failed to re-activate volume group %s: %v", lvg.Name, err)
+			}
 		}
 	} else {
 		errMsg := "Failed get LogicalVolumeGroup CR"
@@ -935,12 +944,12 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		ll.Errorf(errMsg)
 	}
 	// Set disk's health status to volume CR
-	volumes, _ := m.cachedCrHelper.GetVolumesByLocation(ctx, drive.UUID)
+	volumes, _ := m.cachedCrHelper.GetVolumesByLocation(ctx, cur.UUID)
 	for _, vol := range volumes {
-		ll.Infof("Setting updated status %s to volume %s", drive.Health, vol.Name)
+		ll.Infof("Setting updated status %s to volume %s", cur.Health, vol.Name)
 		// save previous health state
 		prevHealthState := vol.Spec.Health
-		vol.Spec.Health = drive.Health
+		vol.Spec.Health = cur.Health
 		// initiate volume release
 		// TODO need to check for specific annotation instead
 		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
@@ -956,7 +965,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive *api.
 		if vol.Spec.Health == apiV1.HealthBad {
 			m.recorder.Eventf(vol, eventing.WarningType, eventing.VolumeBadHealth,
 				"Volume health transitioned from %s to %s. Inherited from %s drive on %s)",
-				prevHealthState, vol.Spec.Health, drive.Health, drive.NodeId)
+				prevHealthState, vol.Spec.Health, cur.Health, cur.NodeId)
 		}
 	}
 	// Handle resources with LogicalVolumeGroup
