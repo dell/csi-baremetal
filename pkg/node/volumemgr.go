@@ -485,7 +485,7 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 					drive.Name, drive.Spec.Usage, err)
 				return ctrl.Result{Requeue: true}, err
 			}
-			m.sendEventForDrive(drive, eventing.ErrorType, eventing.DriveReplacementFailed, deleteVolumeFailedMsg, volume.Name, err)
+			m.sendEventForDrive(drive, eventing.ErrorType, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
 		}
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)

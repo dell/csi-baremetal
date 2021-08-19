@@ -39,7 +39,7 @@ const (
 	DriveHealthUnknown           = "DriveHealthUnknown"
 	DriveStatusOnline            = "DriveStatusOnline"
 	DriveStatusOffline           = "DriveStatusOffline"
-	DriveReplacementFailed       = "DriveReplacementFailed"
+	DriveRemovalFailed           = "DriveRemovalFailed"
 	DriveReadyForRemoval         = "DriveReadyForRemoval"
 	DriveReadyForPhysicalRemoval = "DriveReadyForPhysicalRemoval"
 	DriveSuccessfullyRemoved     = "DriveSuccessfullyRemoved"
