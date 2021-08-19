@@ -441,8 +441,9 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		}
 	}
 
-	// if LogicalVolumeGroup wasn't deleted increase AC size
-	if !isDeleted {
+	// if LogicalVolumeGroup wasn't deleted and health of volume is GOOD increase AC size
+	// We don't increase AC size for unhealthy volume to avoid new allocations on top of unhealthy drive/lvg
+	if !isDeleted && volumeCR.Spec.Health == apiV1.HealthGood {
 		// Increase size of AC using volume size
 		acCR.Spec.Size += volumeCR.Spec.Size
 		if err = vo.k8sClient.UpdateCRWithAttempts(ctx, &acCR, 5); err != nil {

@@ -37,6 +37,7 @@ import (
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
@@ -188,7 +189,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	})
 	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, volumes)
-	assert.Nil(t, err) // PVC can be created later
+	assert.Equal(t, err, baseerr.ErrorNotFound) // PVC can be created later
 
 	// PVC doesn't contain information about size
 	pod.Namespace = testNs
