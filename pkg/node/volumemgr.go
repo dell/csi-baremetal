@@ -924,16 +924,22 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, cur.UUID)
 	if lvg != nil {
+		name := lvg.Name
 		// TODO handle situation when LVG health is changing from Bad/Suspect to Good https://github.com/dell/csi-baremetal/issues/385
 		lvg.Spec.Health = cur.Health
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
-			ll.Errorf("Failed to update lvg CR's %s health status: %v", lvg.Name, err)
+			ll.Errorf("Failed to update lvg CR's %s health status: %v", name, err)
 		}
 		// check for missing disk and re-activate volume group if needed
 		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
-			if err := m.lvmOps.VGReactivate(lvg.Name); err != nil {
-				// need to send an event if operation failed
-				ll.Errorf("Failed to re-activate volume group %s: %v", lvg.Name, err)
+			if ok, err := m.lvmOps.VGScan(name); err != nil {
+				ll.Errorf("Failed to scan volume group %s for IO errors: %v", name, err)
+			} else if ok {
+				// IO errors detected. Need to re-activate volume group
+				if err := m.lvmOps.VGReactivate(name); err != nil {
+					// need to send an event if operation failed
+					ll.Errorf("Failed to re-activate volume group %s: %v", name, err)
+				}
 			}
 		}
 	} else {

@@ -19,6 +19,7 @@ package lvm
 import (
 	"errors"
 	"fmt"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"strings"
 	"testing"
 
@@ -94,6 +95,54 @@ func TestLinuxUtils_VGCreate(t *testing.T) {
 	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
 	err = l.VGCreate(vg, dev1, dev2)
 	assert.Equal(t, expectedErr, err)
+}
+func TestLinuxUtils_VGScan(t *testing.T) {
+	var (
+		e           = &mocks.GoMockExecutor{}
+		l           = NewLVM(e, testLogger)
+		vg          = "test-vg"
+		cmd         = VGScanCmdTmpl
+		ok 			bool
+		err         error
+		expectedErr = errors.New("error")
+	)
+
+	// error not found
+	e.OnCommand(cmd).Return("", "", nil).Times(1)
+	ok, err = l.VGScan(vg)
+	assert.Equal(t, err, errTypes.ErrorNotFound)
+	assert.False(t, ok)
+
+	// error - expected
+	e.OnCommand(cmd).Return("", "", expectedErr).Times(1)
+	ok, err = l.VGScan(vg)
+	assert.False(t, ok)
+	assert.Equal(t, err, expectedErr)
+
+	// IO error detected
+	e.OnCommand(cmd).Return("/dev/" + vg + "/test-lv: Input/output error", "", nil).Times(1)
+	ok, err = l.VGScan(vg)
+	assert.True(t, ok)
+	assert.Nil(t, err)
+
+	// IO error not detected - multiple lines
+	e.OnCommand(cmd).Return(fmt.Sprintf("/dev/%s/test-lv: no errors\n/dev/other-vg/test-lv: Input/output error", vg), "", nil).Times(1)
+	ok, err = l.VGScan(vg)
+	assert.False(t, ok)
+	assert.Nil(t, err)
+
+	// IO error detected - multiple lines
+	e.OnCommand(cmd).Return(fmt.Sprintf("/dev/%s/test-lv: no errors\n/dev/%s/test-lv-2: Input/output error", vg, vg), "", nil).Times(1)
+	ok, err = l.VGScan(vg)
+	assert.True(t, ok)
+	assert.Nil(t, err)
+
+	// error - wrong volume group name
+	incorrectName := "*"
+	e.OnCommand(cmd).Return(incorrectName, "", nil).Times(1)
+	ok, err = l.VGScan(incorrectName)
+	assert.False(t, ok)
+	assert.NotNil(t, err)
 }
 
 func TestLinuxUtils_VGRemove(t *testing.T) {
