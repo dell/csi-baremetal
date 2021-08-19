@@ -934,11 +934,15 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
 			if ok, err := m.lvmOps.VGScan(name); err != nil {
 				ll.Errorf("Failed to scan volume group %s for IO errors: %v", name, err)
+				m.recorder.Eventf(lvg, eventing.ErrorType, eventing.VolumeGroupScanFailed, err.Error())
 			} else if ok {
 				// IO errors detected. Need to re-activate volume group
+				m.recorder.Eventf(lvg, eventing.WarningType, eventing.VolumeGroupReactivateInvolved,
+					"IO errors detected")
 				if err := m.lvmOps.VGReactivate(name); err != nil {
 					// need to send an event if operation failed
 					ll.Errorf("Failed to re-activate volume group %s: %v", name, err)
+					m.recorder.Eventf(lvg, eventing.ErrorType, eventing.VolumeGroupReactivateFailed, err.Error())
 				}
 			}
 		}
