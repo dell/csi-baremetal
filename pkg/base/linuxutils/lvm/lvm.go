@@ -46,6 +46,12 @@ const (
 	PVsListCmdTmpl = lvmPath + "pvdisplay --short"
 	// VGCreateCmdTmpl create VG on provided PVs cmd
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
+	// VGInactivateCmdTmpl inactivates VG
+	VGInactivateCmdTmpl = lvmPath + "vgchange -an %s"
+	// VGActivateCmdTmpl activates VG
+	VGActivateCmdTmpl = lvmPath + "vgchange -ay %s"
+	// VGScanCmdTmpl scans VG
+	VGScanCmdTmpl = lvmPath + "vgscan %s"
 	// VGRemoveCmdTmpl remove VG cmd
 	VGRemoveCmdTmpl = lvmPath + "vgremove --yes %s" // add VG name
 	// AllPVsCmd returns all physical volumes on the system
@@ -158,7 +164,23 @@ func (l *LVM) VGReactivate(name string) error {
 	// Inactive VG: vgchange -an <VG name>
 	// Scan Volume group: vgscan
 	// Active VG: vgchange -ay <VG name>
-	l.log.Infof("Trying to re-activate volume groups %s", name)
+	l.log.Infof("Trying to re-activate volume group %s", name)
+	// inactivate
+	if _, _, err := l.e.RunCmd(fmt.Sprintf(VGInactivateCmdTmpl, name), command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGInactivateCmdTmpl, "")))); err != nil {
+		return err
+	}
+	// scan
+	if _, _, err := l.e.RunCmd(fmt.Sprintf(VGScanCmdTmpl, name), command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGScanCmdTmpl, "")))); err != nil {
+		return err
+	}
+	// activate
+	if _, _, err := l.e.RunCmd(fmt.Sprintf(VGActivateCmdTmpl, name), command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGActivateCmdTmpl, "")))); err != nil {
+		return err
+	}
+
 	return nil
 }
 
