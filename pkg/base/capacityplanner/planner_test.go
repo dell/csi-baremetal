@@ -31,6 +31,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	baseerrors "github.com/dell/csi-baremetal/pkg/base/error"
 )
 
 var (
@@ -93,7 +94,7 @@ func TestCapacityManager(t *testing.T) {
 
 	callPlanVolumesPlacing := func(capRead CapacityReader, resReader ReservationReader, volumes []*genV1.Volume,
 		nodes []string) (*VolumesPlacingPlan, error) {
-		capManager := NewCapacityManager(logger, capRead, resReader, false)
+		capManager := NewCapacityManager(logger, capRead, resReader, true)
 		return capManager.PlanVolumesPlacing(ctx, volumes, nodes)
 	}
 	t.Run("Failed to read capacity", func(t *testing.T) {
@@ -266,6 +267,22 @@ func TestCapacityManager(t *testing.T) {
 		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), getResReaderMock(nil, nil), testVols, []string{testNode1})
 		assert.Nil(t, plan)
 		assert.Nil(t, err)
+	})
+	t.Run("Skip build if other LVG AC reserved", func(t *testing.T) {
+		testVols := []*genV1.Volume{
+			getTestVol("", testSmallSize, apiV1.StorageClassHDDLVG),
+		}
+		testACS := []*accrd.AvailableCapacity{
+			getTestAC(testNode2, testSmallSize, apiV1.StorageClassHDDLVG),
+		}
+		testACRs := []*acrcrd.AvailableCapacityReservation{
+			getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, []*accrd.AvailableCapacity{
+				getTestAC(testNode2, testSmallSize, apiV1.StorageClassHDDLVG),
+			}),
+		}
+		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), getResReaderMock(testACRs, nil), testVols, []string{testNode1})
+		assert.Nil(t, plan)
+		assert.Equal(t, err, baseerrors.ErrorRejectReservationRequest)
 	})
 }
 

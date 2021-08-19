@@ -18,7 +18,6 @@ package capacityplanner
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	v1 "github.com/dell/csi-baremetal/api/v1"
@@ -79,9 +78,10 @@ type CapacityManagerBuilder interface {
 	// GetCapacityManager returns CapacityManager
 	GetCapacityManager(logger *logrus.Entry,
 		capReader CapacityReader, resReader ReservationReader) CapacityPlaner
-	// GetReservedCapacityManager returns ReservedCapacityManager
-	GetReservedCapacityManager(logger *logrus.Entry,
-		capReader CapacityReader, resReader ReservationReader) CapacityPlaner
+	// TODO: Need to refactor, reservations for standalone pvc is not working - https://github.com/dell/csi-baremetal/issues/371
+	/*	// GetReservedCapacityManager returns ReservedCapacityManager
+		GetReservedCapacityManager(logger *logrus.Entry,
+			capReader CapacityReader, resReader ReservationReader) CapacityPlaner*/
 }
 
 // DefaultCapacityManagerBuilder is a builder for default CapacityManagers
@@ -95,11 +95,12 @@ func (dcmb *DefaultCapacityManagerBuilder) GetCapacityManager(
 	return NewCapacityManager(logger, capReader, resReader, dcmb.SequentialLVGReservation)
 }
 
-// GetReservedCapacityManager returns default implementation of ReservedCapacityManager
+// TODO: Need to refactor, reservations for standalone pvc is not working - https://github.com/dell/csi-baremetal/issues/371
+/*// GetReservedCapacityManager returns default implementation of ReservedCapacityManager
 func (dcmb *DefaultCapacityManagerBuilder) GetReservedCapacityManager(
 	logger *logrus.Entry, capReader CapacityReader, resReader ReservationReader) CapacityPlaner {
 	return NewReservedCapacityManager(logger, capReader, resReader)
-}
+}*/
 
 // NewCapacityManager return new instance of CapacityManager
 func NewCapacityManager(logger *logrus.Entry, capReader CapacityReader,
@@ -256,7 +257,8 @@ func (cm *CapacityManager) convertCapacityToMap() NodeCapacityMap {
 	return result
 }
 
-// NewReservedCapacityManager returns new instance of ReservedCapacityManager
+// TODO: Need to refactor, reservations for standalone pvc is not working - https://github.com/dell/csi-baremetal/issues/371
+/*// NewReservedCapacityManager returns new instance of ReservedCapacityManager
 func NewReservedCapacityManager(
 	logger *logrus.Entry, capReader CapacityReader, resReader ReservationReader) *ReservedCapacityManager {
 	return &ReservedCapacityManager{
@@ -357,4 +359,4 @@ func (rcm *ReservedCapacityManager) selectBestACForNodes(ctx context.Context) No
 		selectedCapacityMap[node] = ACMap{acForNode.Name: acForNode}
 	}
 	return selectedCapacityMap
-}
+}*/
