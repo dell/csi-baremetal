@@ -164,25 +164,26 @@ func (l *LVM) VGCreate(name string, pvs ...string) error {
 func (l *LVM) VGScan(name string) (bool, error) {
 	// scan and check for VG errors
 	var (
-		output  string
+		stdout  string
+		stderr  string
 		err     error
 		exp     *regexp.Regexp
 		ioError = "input/output error"
 	)
 	// do the scan
-	if output, _, err = l.e.RunCmd(VGScanCmdTmpl, command.UseMetrics(true),
+	if stdout, stderr, err = l.e.RunCmd(VGScanCmdTmpl, command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(VGScanCmdTmpl))); err != nil {
 		return false, err
 	}
-	// empty output is not expected. It must also contain VG name
-	if output == "" || !strings.Contains(output, name) {
+	// empty stdout is not expected. It must also contain VG name
+	if stdout == "" || !strings.Contains(stdout, name) {
 		return false, errTypes.ErrorNotFound
 	}
 	// find target volume group and check for IO errors
 	if exp, err = regexp.Compile(".*" + name + ".*\n*"); err != nil {
 		return false, err
 	}
-	lines := exp.FindAllString(output, -1)
+	lines := exp.FindAllString(stderr, -1)
 	for _, line := range lines {
 		if strings.Contains(strings.ToLower(line), ioError) {
 			return true, nil

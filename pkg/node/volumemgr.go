@@ -933,7 +933,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		// check for missing disk and re-activate volume group if needed
 		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
 			ll.Infof("Scan volume group %s for IO errors", name)
-			if ok, err := m.lvmOps.VGScan(name); err != nil {
+			if ok, err := m.lvmOps.VGScan(name); err != nil { //nolint:gocritic
 				ll.Errorf("Failed to scan volume group %s for IO errors: %v", name, err)
 				m.recorder.Eventf(lvg, eventing.ErrorType, eventing.VolumeGroupScanFailed, err.Error())
 			} else if ok {
