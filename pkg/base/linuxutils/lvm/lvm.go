@@ -21,6 +21,7 @@ package lvm
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
@@ -46,6 +48,10 @@ const (
 	PVsListCmdTmpl = lvmPath + "pvdisplay --short"
 	// VGCreateCmdTmpl create VG on provided PVs cmd
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
+	// VGScanCmdTmpl searches for all VGs
+	VGScanCmdTmpl = lvmPath + "vgscan"
+	// VGRefreshCmdTmpl reactivates an LV using the latest metadata
+	VGRefreshCmdTmpl = lvmPath + "vgchange --refresh %s"
 	// VGRemoveCmdTmpl remove VG cmd
 	VGRemoveCmdTmpl = lvmPath + "vgremove --yes %s" // add VG name
 	// AllPVsCmd returns all physical volumes on the system
@@ -71,6 +77,8 @@ type WrapLVM interface {
 	PVCreate(dev string) error
 	PVRemove(name string) error
 	VGCreate(name string, pvs ...string) error
+	VGScan(name string) (bool, error)
+	VGReactivate(name string) error
 	VGRemove(name string) error
 	LVCreate(name, size, vgName string) error
 	LVRemove(fullLVName string) error
@@ -148,6 +156,55 @@ func (l *LVM) VGCreate(name string, pvs ...string) error {
 		return nil
 	}
 	return err
+}
+
+// VGScan scans for all VGs and checks for IO errors for specific volume group name
+// Receives name of VG name to scan and check
+// Return boolean (false if no IO errors detected, true otherwise) and error if command failed to execute
+func (l *LVM) VGScan(name string) (bool, error) {
+	// scan and check for VG errors
+	var (
+		stdout  string
+		stderr  string
+		err     error
+		exp     *regexp.Regexp
+		ioError = "input/output error"
+	)
+	// do the scan
+	if stdout, stderr, err = l.e.RunCmd(VGScanCmdTmpl, command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(VGScanCmdTmpl))); err != nil {
+		return false, err
+	}
+	// empty stdout is not expected. It must also contain VG name
+	if stdout == "" || !strings.Contains(stdout, name) {
+		return false, errTypes.ErrorNotFound
+	}
+	// find target volume group and check for IO errors
+	if exp, err = regexp.Compile(".*" + name + ".*\n*"); err != nil {
+		return false, err
+	}
+	lines := exp.FindAllString(stderr, -1)
+	for _, line := range lines {
+		if strings.Contains(strings.ToLower(line), ioError) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// VGReactivate inactivates, scans and activates volume group to recover from disk missing scenario
+// Receives name of VG to re-activate
+// Returns error if something went wrong
+func (l *LVM) VGReactivate(name string) error {
+	l.log.Infof("Trying to re-activate volume group %s", name)
+	// re-activate related LVs
+	if _, _, err := l.e.RunCmd(fmt.Sprintf(VGRefreshCmdTmpl, name), command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGRefreshCmdTmpl, "")))); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // VGRemove removes volume group, ignore error if VG doesn't exist

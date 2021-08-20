@@ -48,4 +48,9 @@ const (
 
 	FakeAttachInvolved = "FakeAttachInvolved"
 	FakeAttachCleared  = "FakeAttachCleared"
+
+	VolumeGroupScanFailed         = "VolumeGroupScanFailed"
+	VolumeGroupScanInvolved       = "VolumeGroupScanInvolved"
+	VolumeGroupReactivateInvolved = "VolumeGroupReactivateInvolved"
+	VolumeGroupReactivateFailed   = "VolumeGroupReactivateFailed"
 )

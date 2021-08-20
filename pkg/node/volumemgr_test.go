@@ -808,16 +808,22 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	drive := drive1
 	drive.UUID = driveUUID
 	drive.Health = apiV1.HealthBad
+	driveCR := &drivecrd.Drive{Spec:drive}
+
+	update := updatedDrive{
+		PreviousState: driveCR,
+		CurrentState:  driveCR,
+	}
 
 	// Check AC deletion
-	vm.handleDriveStatusChange(testCtx, &drive)
+	vm.handleDriveStatusChange(testCtx, update)
 	vol := volCR
 	vol.Spec.Location = driveUUID
 	err = vm.k8sClient.CreateCR(testCtx, testID, &vol)
 	assert.Nil(t, err)
 
 	// Check volume's health change
-	vm.handleDriveStatusChange(testCtx, &drive)
+	vm.handleDriveStatusChange(testCtx, update)
 	rVolume := &vcrd.Volume{}
 	err = vm.k8sClient.ReadCR(testCtx, testID, volCR.Namespace, rVolume)
 	assert.Nil(t, err)
@@ -828,7 +834,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	err = vm.k8sClient.CreateCR(testCtx, testLVGName, &lvg)
 	assert.Nil(t, err)
 	// Check lvg's health change
-	vm.handleDriveStatusChange(testCtx, &drive)
+	vm.handleDriveStatusChange(testCtx, update)
 	updatedLVG := &lvgcrd.LogicalVolumeGroup{}
 	err = vm.k8sClient.ReadCR(testCtx, testLVGName, "", updatedLVG)
 	assert.Nil(t, err)
