@@ -166,8 +166,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 		if allFound {
 			drive.Spec.Usage = apiV1.DriveUsageReleased
-			eventMsg := fmt.Sprintf("Drive is ready for replacement, %s", drive.GetDriveDescription())
-			c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveReadyForReplacement, eventMsg)
+			eventMsg := fmt.Sprintf("Drive is ready for removal, %s", drive.GetDriveDescription())
+			c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveReadyForRemoval, eventMsg)
 			toUpdate = true
 		}
 
@@ -177,8 +177,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 
-		status, found := drive.Annotations[apiV1.DriveAnnotationReplacement]
-		if !found || status != apiV1.DriveAnnotationReplacementReady {
+		status, found := getDriveAnnotationRemoval(drive.Annotations)
+		if !found || status != apiV1.DriveAnnotationRemovalReady {
 			break
 		}
 		toUpdate = true
@@ -190,10 +190,11 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			return ignore, err
 		}
 		for _, vol := range volumes {
-			value, found := vol.Annotations[apiV1.DriveAnnotationReplacement]
-			if !found || value != apiV1.DriveAnnotationReplacementReady {
+			value, found := getDriveAnnotationRemoval(vol.Annotations)
+			if !found || value != apiV1.DriveAnnotationRemovalReady {
 				// need to update volume annotations
-				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationReplacementReady
+				vol.Annotations[apiV1.DriveAnnotationRemoval] = apiV1.DriveAnnotationRemovalReady
+				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationRemovalReady
 				if err := c.client.UpdateCR(ctx, vol); err != nil {
 					log.Errorf("Failed to update volume %s annotations, error: %v", vol.Name, err)
 					return ignore, err
@@ -214,11 +215,11 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 				drive.Spec.Usage = apiV1.DriveUsageFailed
 				// send error level alert
 				eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveReplacementFailed, eventMsg)
+				c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveRemovalFailed, eventMsg)
 			} else {
-				// send info level alert
-				eventMsg := fmt.Sprintf("Drive successfully replaced, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.NormalType, eventing.DriveSuccessfullyReplaced, eventMsg)
+				// send warning level alert (warning for attention), good level closes issue, need only send message
+				eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
+				c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveReadyForPhysicalRemoval, eventMsg)
 			}
 			toUpdate = true
 		}
@@ -237,6 +238,15 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return update, nil
 	}
 	return ignore, nil
+}
+
+// For support deprecated Replacement annotation
+func getDriveAnnotationRemoval(annotations map[string]string) (string, bool) {
+	status, found := annotations[apiV1.DriveAnnotationRemoval]
+	if !found {
+		status, found = annotations[apiV1.DriveAnnotationReplacement]
+	}
+	return status, found
 }
 
 func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Drive) error {
