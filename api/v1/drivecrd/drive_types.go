@@ -40,7 +40,6 @@ import (
 // +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.Slot",description="Drive slot"
 // +kubebuilder:printcolumn:name="USAGE",type="string",JSONPath=".spec.Usage",description="Drive usage status",priority=1
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".spec.Status",description="Drive online/offline status",priority=1
-
 // +kubebuilder:resource:scope=Cluster
 type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
