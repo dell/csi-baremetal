@@ -147,8 +147,6 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	toUpdate := false
 
 	if c.placeStatusRemoved(drive) {
-		eventMsg := fmt.Sprintf("Drive was removed via annotation, %s", drive.GetDriveDescription())
-		c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveRemovedByForce, eventMsg)
 		toUpdate = true
 	}
 
@@ -217,18 +215,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 		if c.checkAllVolsRemoved(volumes) {
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
-			status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
-			if err != nil || status.Status != apiV1.LocateStatusOn {
-				log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
-				drive.Spec.Usage = apiV1.DriveUsageFailed
-				// send error level alert
-				eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveRemovalFailed, eventMsg)
-			} else {
-				// send warning level alert (warning for attention), good level closes issue, need only send message
-				eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveReadyForPhysicalRemoval, eventMsg)
-			}
+			c.locateDriveLED(ctx, log, drive)
 			toUpdate = true
 		}
 	case apiV1.DriveUsageRemoved:
@@ -310,8 +297,28 @@ func (c *Controller) placeStatusRemoved(drive *drivecrd.Drive) bool {
 	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionRemoveAnnotationValue {
 		drive.Spec.Usage = apiV1.DriveUsageRemoved
 		delete(drive.Annotations, driveActionAnnotationKey)
+
+		eventMsg := fmt.Sprintf("Drive was removed via annotation, %s", drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveRemovedByForce, eventMsg)
+
 		return true
 	}
 
 	return false
+}
+
+func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {
+	// try to enable LED
+	status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
+	if err != nil || status.Status != apiV1.LocateStatusOn {
+		log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
+		drive.Spec.Usage = apiV1.DriveUsageFailed
+		// send error level alert
+		eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.ErrorType, eventing.DriveRemovalFailed, eventMsg)
+	} else {
+		// send warning level alert (warning for attention), good level closes issue, need only send message
+		eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveReadyForPhysicalRemoval, eventMsg)
+	}
 }
