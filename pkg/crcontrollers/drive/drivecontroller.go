@@ -40,7 +40,7 @@ const (
 )
 
 const (
-	// Annotations for driveCR to perform restart process
+	// Annotations for driveCR to manipulate Usage
 	driveActionAnnotationKey         = "action"
 	driveActionAddAnnotationValue    = "add"
 	driveActionRemoveAnnotationValue = "remove"
