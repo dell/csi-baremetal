@@ -1016,6 +1016,23 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		assert.True(t, expectEvent(drive1CR, eventing.ErrorType, eventing.DriveStatusOffline))
 		assert.True(t, expectEvent(drive1CR, eventing.WarningType, eventing.DriveHealthUnknown))
 	})
+
+	t.Run("Drive removed", func(t *testing.T) {
+		init()
+		modifiedDrive := drive1CR.DeepCopy()
+		modifiedDrive.Spec.Usage = apiV1.DriveUsageRemoved
+		modifiedDrive.Spec.Status = apiV1.DriveStatusOffline
+		modifiedDrive.Spec.Health = apiV1.HealthUnknown
+
+		upd := &driveUpdates{
+			Updated: []updatedDrive{{
+				PreviousState: drive1CR,
+				CurrentState:  modifiedDrive}},
+		}
+		mgr.createEventsForDriveUpdates(upd)
+		assert.True(t, expectEvent(drive1CR, eventing.NormalType, eventing.DriveSuccessfullyRemoved))
+		assert.True(t, expectEvent(drive1CR, eventing.WarningType, eventing.DriveHealthUnknown))
+	})
 }
 
 func TestVolumeManager_isShouldBeReconciled(t *testing.T) {

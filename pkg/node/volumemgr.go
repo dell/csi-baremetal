@@ -485,7 +485,7 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 					drive.Name, drive.Spec.Usage, err)
 				return ctrl.Result{Requeue: true}, err
 			}
-			m.sendEventForDrive(drive, eventing.ErrorType, eventing.DriveReplacementFailed, deleteVolumeFailedMsg, volume.Name, err)
+			m.sendEventForDrive(drive, eventing.ErrorType, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
 		}
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
@@ -1053,8 +1053,13 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 	case apiV1.DriveStatusOnline:
 		reason = eventing.DriveStatusOnline
 	case apiV1.DriveStatusOffline:
-		eventType = eventing.ErrorType
-		reason = eventing.DriveStatusOffline
+		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
+			reason = eventing.DriveSuccessfullyRemoved
+			statusMsgTemplate = "Drive successfully removed. " + statusMsgTemplate
+		} else {
+			eventType = eventing.ErrorType
+			reason = eventing.DriveStatusOffline
+		}
 	default:
 		return
 	}
@@ -1074,7 +1079,7 @@ func (m *VolumeManager) createEventForDriveHealthOverridden(
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reason, messageFmt string,
 	args ...interface{}) {
-	messageFmt += drive.GetDriveDescription()
+	messageFmt += " " + drive.GetDriveDescription()
 	m.recorder.Eventf(drive, eventtype, reason, messageFmt, args...)
 }
 
