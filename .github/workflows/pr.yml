@@ -102,6 +102,7 @@ jobs:
       run: |
         make install-controller-gen
         make generate-deepcopy
+        make generate-crds
 
     - name: Verify Changed files
       uses: tj-actions/verify-changed-files@v5.5
@@ -110,6 +111,7 @@ jobs:
         files: |
            api/generated/v1/*.go
            api/v1/*/*.go
+           api/generated/crds/*.yaml
            '.(go)$'
            
     - name: Display changed files

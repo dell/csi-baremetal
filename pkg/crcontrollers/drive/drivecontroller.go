@@ -147,6 +147,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	toUpdate := false
 
 	if c.placeStatusRemoved(drive) {
+		eventMsg := fmt.Sprintf("Drive was removed via annotation, %s", drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.WarningType, eventing.DriveRemovedByForce, eventMsg)
 		toUpdate = true
 	}
 
@@ -285,7 +287,7 @@ func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 func (c *Controller) placeStatusInUse(drive *drivecrd.Drive) bool {
 	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionAddAnnotationValue {
 		drive.Spec.Usage = apiV1.DriveUsageInUse
-		delete(drive.Annotations, driveActionAddAnnotationValue)
+		delete(drive.Annotations, driveActionAnnotationKey)
 		return true
 	}
 
@@ -297,7 +299,7 @@ func (c *Controller) placeStatusInUse(drive *drivecrd.Drive) bool {
 func (c *Controller) placeStatusRemoved(drive *drivecrd.Drive) bool {
 	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionRemoveAnnotationValue {
 		drive.Spec.Usage = apiV1.DriveUsageRemoved
-		delete(drive.Annotations, driveActionRemoveAnnotationValue)
+		delete(drive.Annotations, driveActionAnnotationKey)
 		return true
 	}
 

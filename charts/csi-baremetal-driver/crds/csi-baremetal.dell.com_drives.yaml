@@ -33,6 +33,16 @@ spec:
     description: Drive slot
     name: SLOT
     type: string
+  - JSONPath: .spec.Usage
+    description: Drive usage status
+    name: USAGE
+    priority: 1
+    type: string
+  - JSONPath: .spec.Status
+    description: Drive online/offline status
+    name: STATUS
+    priority: 1
+    type: string
   group: csi-baremetal.dell.com
   names:
     kind: Drive
@@ -43,7 +53,6 @@ spec:
   subresources: {}
   validation:
     openAPIV3Schema:
-      description: Drive is the Schema for the drives API kubebuilder:object:generate=false
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
