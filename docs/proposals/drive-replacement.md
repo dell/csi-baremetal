@@ -67,7 +67,13 @@ To trigger physical drive replacement user must put the following annotation on 
 
 *User can trigger drive releasing himself. If user annotates driveCR with `health=<SUSPECT/BAD>`, drive health will be overridden with passed value.*
 
-*DR procedure can be repeated if drive Usage is `FAILED` or `RELEASED`. User should annotate driveCR with `drive=add` and drive-controller will switch Usage value to IN_USE. After restart the annotation will be deleted.* 
+Annotations for drive CR to manipulate Usage:
+1. `action=add`
+- FAILED -> IN_USE (repeat drive replacement procedure)
+- RELEASED -> IN_USE (in RELEASED state user can continue DR with replacement=ready or rollback, if it was started by mistake)
+2. `action=remove`
+- ANY_STATE -> REMOVED (user can finish DR for FAILED disk or force remove GOOD disk)
+
 ### Detailed workflow
 * When drive health changed from `GOOD` to `SUSPECT` or `BAD` CSI will:
   - Set drive operational status to `RELEASING`
