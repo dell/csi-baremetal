@@ -808,7 +808,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	drive := drive1
 	drive.UUID = driveUUID
 	drive.Health = apiV1.HealthBad
-	driveCR := &drivecrd.Drive{Spec:drive}
+	driveCR := &drivecrd.Drive{Spec: drive}
 
 	update := updatedDrive{
 		PreviousState: driveCR,
