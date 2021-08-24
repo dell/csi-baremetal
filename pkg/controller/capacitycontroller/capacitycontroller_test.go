@@ -54,6 +54,7 @@ var (
 		Type:         apiV1.DriveTypeHDD,
 		Size:         int64(1000 * util.GBYTE),
 		Status:       apiV1.DriveStatusOnline,
+		Usage:        apiV1.DriveUsageInUse,
 		NodeId:       node1ID,
 		IsClean:      true,
 	}
