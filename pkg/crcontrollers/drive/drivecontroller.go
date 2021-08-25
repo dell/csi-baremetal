@@ -44,6 +44,9 @@ const (
 	driveActionAnnotationKey         = "action"
 	driveActionAddAnnotationValue    = "add"
 	driveActionRemoveAnnotationValue = "remove"
+	// Deprecated annotations to to perform DR restart process
+	driveRestartReplacementAnnotationKeyDeprecated   = "drive"
+	driveRestartReplacementAnnotationValueDeprecated = "add"
 )
 
 // NewController creates new instance of Controller structure
@@ -146,7 +149,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	// check whether update is required
 	toUpdate := false
 
-	if c.placeStatusRemoved(drive) {
+	if c.checkAndPlaceStatusRemoved(drive) {
 		toUpdate = true
 	}
 
@@ -178,7 +181,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 
 	case apiV1.DriveUsageReleased:
-		if c.placeStatusInUse(drive) {
+		if c.checkAndPlaceStatusInUse(drive) {
 			toUpdate = true
 			break
 		}
@@ -224,7 +227,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			return remove, nil
 		}
 	case apiV1.DriveUsageFailed:
-		if c.placeStatusInUse(drive) {
+		if c.checkAndPlaceStatusInUse(drive) {
 			toUpdate = true
 		}
 	}
@@ -281,10 +284,17 @@ func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 
 // placeStatusInUse places drive.Usage to IN_USE if CR is annotated
 // deletes the annotation to avoid event repeating
-func (c *Controller) placeStatusInUse(drive *drivecrd.Drive) bool {
+func (c *Controller) checkAndPlaceStatusInUse(drive *drivecrd.Drive) bool {
 	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionAddAnnotationValue {
 		drive.Spec.Usage = apiV1.DriveUsageInUse
 		delete(drive.Annotations, driveActionAnnotationKey)
+		return true
+	}
+
+	// check with deprecated annotation
+	if value, ok := drive.GetAnnotations()[driveRestartReplacementAnnotationKeyDeprecated]; ok && value == driveRestartReplacementAnnotationValueDeprecated {
+		drive.Spec.Usage = apiV1.DriveUsageInUse
+		delete(drive.Annotations, driveRestartReplacementAnnotationKeyDeprecated)
 		return true
 	}
 
@@ -293,7 +303,7 @@ func (c *Controller) placeStatusInUse(drive *drivecrd.Drive) bool {
 
 // placeStatusRemoved places drive.Usage to REMOVED if CR is annotated
 // deletes the annotation to avoid event repeating
-func (c *Controller) placeStatusRemoved(drive *drivecrd.Drive) bool {
+func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionRemoveAnnotationValue {
 		drive.Spec.Usage = apiV1.DriveUsageRemoved
 		delete(drive.Annotations, driveActionAnnotationKey)
