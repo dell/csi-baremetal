@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	contextTimeoutSeconds = 60
+	contextTimeoutSeconds   = 60
+	reconcileTimeoutSeconds = 5
 )
 
 // Controller to reconcile aviliablecapacityreservation custom resource
@@ -95,7 +96,7 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 		placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes, requestedNodes)
 		if err == baseerr.ErrorRejectReservationRequest {
 			log.Warningf("Reservation request rejected due to another ACR in RESERVED state has request based on LVG")
-			return ctrl.Result{Requeue: true}, err
+			return ctrl.Result{RequeueAfter: reconcileTimeoutSeconds}, err
 		}
 		if err != nil {
 			log.Errorf("Failed to create placing plan: %s", err.Error())
