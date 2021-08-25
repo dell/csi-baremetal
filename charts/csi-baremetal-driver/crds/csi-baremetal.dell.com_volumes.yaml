@@ -9,29 +9,44 @@ metadata:
   name: volumes.csi-baremetal.dell.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.Health
-    description: Volume health status
-    name: HEALTH
-    type: string
-  - JSONPath: .spec.NodeId
-    description: Volume node location
-    name: NODE
-    type: string
   - JSONPath: .spec.Size
     description: Volume allocated size
     name: SIZE
-    type: string
-  - JSONPath: .spec.Location
-    description: Volume LVG or drive location
-    name: LOCATION
     type: string
   - JSONPath: .spec.StorageClass
     description: Volume storage class
     name: STORAGE CLASS
     type: string
+  - JSONPath: .spec.Health
+    description: Volume health status
+    name: HEALTH
+    type: string
   - JSONPath: .spec.CSIStatus
     description: Volume internal CSI status
-    name: CSI STATUS
+    name: CSI_STATUS
+    type: string
+  - JSONPath: .spec.OperationalStatus
+    description: Volume operational status
+    name: OP_STATUS
+    priority: 1
+    type: string
+  - JSONPath: .spec.Usage
+    description: Volume usage status
+    name: USAGE
+    priority: 1
+    type: string
+  - JSONPath: .spec.Type
+    description: Volume fs type
+    name: TYPE
+    priority: 1
+    type: string
+  - JSONPath: .spec.Location
+    description: Volume LVG or drive location
+    name: LOCATION
+    type: string
+  - JSONPath: .spec.NodeId
+    description: Volume node location
+    name: NODE
     type: string
   group: csi-baremetal.dell.com
   names:
