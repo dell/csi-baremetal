@@ -102,7 +102,7 @@ func TestLinuxUtils_VGScan(t *testing.T) {
 		l           = NewLVM(e, testLogger)
 		vg          = "test-vg"
 		cmd         = VGScanCmdTmpl
-		ok 			bool
+		ok          bool
 		err         error
 		expectedErr = errors.New("error")
 	)
@@ -120,22 +120,22 @@ func TestLinuxUtils_VGScan(t *testing.T) {
 	assert.Equal(t, err, expectedErr)
 
 	// IO error detected
-	e.OnCommand(cmd).Return("Found volume group \"" + vg + "\" using metadata type lvm2",
-		"/dev/" + vg + "/test-lv: Input/output error", nil).Times(1)
+	e.OnCommand(cmd).Return("Found volume group \""+vg+"\" using metadata type lvm2",
+		"/dev/"+vg+"/test-lv: Input/output error", nil).Times(1)
 	ok, err = l.VGScan(vg)
 	assert.True(t, ok)
 	assert.Nil(t, err)
 
 	// IO error not detected - multiple lines
-	e.OnCommand(cmd).Return("Found volume group \"" + vg + "\" using metadata type lvm2",
+	e.OnCommand(cmd).Return("Found volume group \""+vg+"\" using metadata type lvm2",
 		"/dev/%s/test-lv: no errors\n/dev/other-vg/test-lv: Input/output error", nil).Times(1)
 	ok, err = l.VGScan(vg)
 	assert.False(t, ok)
 	assert.Nil(t, err)
 
 	// IO error detected - multiple lines
-	e.OnCommand(cmd).Return("Found volume group \"" + vg + "\" using metadata type lvm2",
-		"/dev/" + vg + "/test-lv: no errors\n/dev/" + vg + "/test-lv-2: Input/output error", nil).Times(1)
+	e.OnCommand(cmd).Return("Found volume group \""+vg+"\" using metadata type lvm2",
+		"/dev/"+vg+"/test-lv: no errors\n/dev/"+vg+"/test-lv-2: Input/output error", nil).Times(1)
 	ok, err = l.VGScan(vg)
 	assert.True(t, ok)
 	assert.Nil(t, err)

@@ -19,9 +19,8 @@ package events
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
-	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -29,32 +28,13 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events/mocks"
 )
 
-func TestOption_YAMLValidation(t *testing.T) {
-	inputRawConfig := `
-overrideRules:
-- reason: DiskFailed
-  labels: 
-     SymptomID: DECKS-1000
-     kahm/enabled: true
-`
-	expectedConfig := Options{LabelsOverride: []LabelsOverride{{
-		Reason: "DiskFailed", Labels: map[string]string{"SymptomID": "DECKS-1000", "kahm/enabled": "true"},
-	}}}
-	cfg := Options{}
-	err := yaml.Unmarshal([]byte(inputRawConfig), &cfg)
-	if !assert.NoError(t, err, "not valid yaml") {
-		t.FailNow()
-	}
-	assert.Equal(t, expectedConfig, cfg)
-}
-
 func TestNew(t *testing.T) {
 	type args struct {
 		component string
 		node      string
 		eventInt  v1core.EventInterface
 		scheme    *runtime.Scheme
-		opt       Options
+		log       *logrus.Logger
 	}
 	tests := []struct {
 		name    string
@@ -68,7 +48,7 @@ func TestNew(t *testing.T) {
 				node:      "abc",
 				eventInt:  new(mocks.EventInterface),
 				scheme:    nil,
-				opt:       Options{},
+				log:       logrus.New(),
 			},
 			wantErr: true,
 		},
@@ -79,14 +59,14 @@ func TestNew(t *testing.T) {
 				node:      "abc",
 				eventInt:  new(mocks.EventInterface),
 				scheme:    runtime.NewScheme(),
-				opt:       Options{},
+				log:       logrus.New(),
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(tt.args.component, tt.args.node, tt.args.eventInt, tt.args.scheme, tt.args.opt)
+			_, err := New(tt.args.component, tt.args.node, tt.args.eventInt, tt.args.scheme, tt.args.log)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -97,9 +77,9 @@ func TestNew(t *testing.T) {
 
 func TestRecorder_Eventf(t *testing.T) {
 	type fields struct {
-		eventRecorder  *mocks.EventRecorder
-		labelsOverride []LabelsOverride
-		Wait           func()
+		eventRecorder      *mocks.EventRecorder
+		reasonSymptomCodes map[string]string
+		Wait               func()
 	}
 	type args struct {
 		object     runtime.Object
@@ -118,9 +98,9 @@ func TestRecorder_Eventf(t *testing.T) {
 			name:       "Simple event",
 			funcCalled: "Eventf",
 			fields: fields{
-				eventRecorder:  new(mocks.EventRecorder),
-				labelsOverride: nil,
-				Wait:           func() {},
+				eventRecorder:      new(mocks.EventRecorder),
+				reasonSymptomCodes: nil,
+				Wait:               func() {},
 			},
 			args: args{
 				object:     &v1.Pod{},
@@ -134,12 +114,9 @@ func TestRecorder_Eventf(t *testing.T) {
 			name:       "Labels check",
 			funcCalled: "LabeledEventf",
 			fields: fields{
-				eventRecorder: new(mocks.EventRecorder),
-				labelsOverride: []LabelsOverride{{
-					Reason: "Stopped",
-					Labels: map[string]string{"label": "key"},
-				}},
-				Wait: func() {},
+				eventRecorder:      new(mocks.EventRecorder),
+				reasonSymptomCodes: map[string]string{"Stopped": "CSI-00"},
+				Wait:               func() {},
 			},
 			args: args{
 				object:     &v1.Pod{},
@@ -155,9 +132,9 @@ func TestRecorder_Eventf(t *testing.T) {
 			//setup mocks
 			tt.fields.eventRecorder.On(tt.funcCalled, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
 			r := &Recorder{
-				eventRecorder:  tt.fields.eventRecorder,
-				labelsOverride: tt.fields.labelsOverride,
-				Wait:           tt.fields.Wait,
+				eventRecorder:      tt.fields.eventRecorder,
+				reasonSymptomCodes: tt.fields.reasonSymptomCodes,
+				Wait:               tt.fields.Wait,
 			}
 			r.Eventf(tt.args.object, tt.args.eventtype, tt.args.reason, tt.args.messageFmt, tt.args.args...)
 			r.Wait()

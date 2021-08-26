@@ -24,7 +24,7 @@ const (
 	CriticalType = "Critical"
 )
 
-// Volume event reason list
+// CSI events reason list
 const (
 	VolumeDiscovered    = "VolumeDiscovered"
 	VolumeBadHealth     = "VolumeBadHealth"
@@ -46,6 +46,7 @@ const (
 	DriveHasData                 = "DriveHasData"
 	DriveClean                   = "DriveClean"
 	DriveHealthOverridden        = "DriveHealthOverridden"
+	DriveRemovedByForce          = "DriveRemovedByForce"
 
 	FakeAttachInvolved = "FakeAttachInvolved"
 	FakeAttachCleared  = "FakeAttachCleared"
@@ -55,3 +56,42 @@ const (
 	VolumeGroupReactivateInvolved = "VolumeGroupReactivateInvolved"
 	VolumeGroupReactivateFailed   = "VolumeGroupReactivateFailed"
 )
+
+// CSI events SymptomCode map
+const (
+	SymptomCodeLabelKey = "SymptomID"
+
+	DriveHealthFailureSymptomCode = "CSI-01"
+	DriveDiscoveredSymptomCode    = "CSI-02"
+	DriveStatusChangedSymptomCode = "CSI-03"
+	DriveHealthGoodSymptomCode    = "CSI-04"
+	FakeAttachSymptomCode         = "CSI-05"
+)
+
+var (
+	reasonSymptomCodes = map[string]string{
+		DriveHealthFailure:           DriveHealthFailureSymptomCode,
+		DriveHealthSuspect:           DriveHealthFailureSymptomCode,
+		DriveReadyForRemoval:         DriveHealthFailureSymptomCode,
+		DriveReadyForPhysicalRemoval: DriveHealthFailureSymptomCode,
+		DriveSuccessfullyRemoved:     DriveHealthFailureSymptomCode,
+		DriveRemovalFailed:           DriveHealthFailureSymptomCode,
+		DriveRemovedByForce:          DriveHealthFailureSymptomCode,
+
+		DriveDiscovered: DriveDiscoveredSymptomCode,
+
+		DriveStatusOffline: DriveStatusChangedSymptomCode,
+		DriveStatusOnline:  DriveStatusChangedSymptomCode,
+
+		DriveHealthGood: DriveHealthGoodSymptomCode,
+
+		FakeAttachInvolved: FakeAttachSymptomCode,
+		FakeAttachCleared:  FakeAttachSymptomCode,
+	}
+)
+
+// GetReasonSymptomCodes returns const map Reason: Symptom Code
+// Function was created to avoid linter issue
+func GetReasonSymptomCodes() map[string]string {
+	return reasonSymptomCodes
+}
