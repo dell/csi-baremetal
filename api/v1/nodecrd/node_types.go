@@ -24,11 +24,11 @@ import (
 
 // +kubebuilder:object:root=true
 
-// +kubebuilder:resource:scope=Cluster
-// +kubebuilder:printcolumn:name="UUID",type="string",JSONPath=".spec.UUID",description="Node Id"
-// +kubebuilder:printcolumn:name="ADDRESSES",type="string",JSONPath=".spec.Addresses",description="Hostname and internal Node ip"
-// +kubebuilder:resource:scope=Cluster,shortName={csibmnode,csibmnodes}
 // Node is the Schema for the Node API
+// +kubebuilder:resource:scope=Cluster,shortName={csibmnode,csibmnodes}
+// +kubebuilder:printcolumn:name="UUID",type="string",JSONPath=".spec.UUID",description="Node Id"
+// +kubebuilder:printcolumn:name="HOSTNAME",type="string",JSONPath=".spec.Addresses.Hostname",description="Node hostname"
+// +kubebuilder:printcolumn:name="NODE_IP",type="string",JSONPath=".spec.Addresses.InternalIP",description="Node ip"
 type Node struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

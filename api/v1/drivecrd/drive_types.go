@@ -30,15 +30,17 @@ import (
 // +kubebuilder:object:root=true
 
 // Drive is the Schema for the drives API
-//kubebuilder:object:generate=false
-// +kubebuilder:resource:scope=Cluster,shortName={ac,acs}
-// +kubebuilder:printcolumn:name="SERIAL NUMBER",type="string",JSONPath=".spec.SerialNumber",description="Drive serial number"
-// +kubebuilder:printcolumn:name="HEALTH",type="string",JSONPath=".spec.Health",description="Drive health status"
-// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.Type",description="Drive type (HDD/LVG/NVME)"
-// +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.NodeId",description="Drive node location"
-// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Drive capacity"
-// +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.Slot",description="Drive slot"
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Drive capacity"
+// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.Type",description="Drive type (HDD/LVG/NVME)"
+// +kubebuilder:printcolumn:name="HEALTH",type="string",JSONPath=".spec.Health",description="Drive health status"
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".spec.Status",description="Drive status online/offline",priority=1
+// +kubebuilder:printcolumn:name="USAGE",type="string",JSONPath=".spec.Usage",description="Drive usage",priority=1
+// +kubebuilder:printcolumn:name="SYSTEM",type="string",JSONPath=".spec.IsSystem",description="Is system disk",priority=1
+// +kubebuilder:printcolumn:name="PATH",type="string",JSONPath=".spec.Path",description="Drive path",priority=1
+// +kubebuilder:printcolumn:name="SERIAL NUMBER",type="string",JSONPath=".spec.SerialNumber",description="Drive serial number"
+// +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.NodeId",description="Drive node location"
+// +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.Slot",description="Drive slot"
 type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

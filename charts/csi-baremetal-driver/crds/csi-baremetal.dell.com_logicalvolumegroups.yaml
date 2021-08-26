@@ -13,10 +13,6 @@ spec:
     description: LVG health status
     name: HEALTH
     type: string
-  - JSONPath: .spec.Node
-    description: LVG node location
-    name: NODE
-    type: string
   - JSONPath: .spec.Size
     description: Size of Logical volume group
     name: SIZE
@@ -24,6 +20,10 @@ spec:
   - JSONPath: .spec.Locations
     description: LVG drives locations list
     name: LOCATIONS
+    type: string
+  - JSONPath: .spec.Node
+    description: LVG node location
+    name: NODE
     type: string
   group: csi-baremetal.dell.com
   names:
