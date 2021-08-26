@@ -148,11 +148,6 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 
 	// check whether update is required
 	toUpdate := false
-
-	if c.checkAndPlaceStatusRemoved(drive) {
-		toUpdate = true
-	}
-
 	switch usage {
 	case apiV1.DriveUsageInUse:
 		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
@@ -229,6 +224,11 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	case apiV1.DriveUsageFailed:
 		if c.checkAndPlaceStatusInUse(drive) {
 			toUpdate = true
+			break
+		}
+		if c.checkAndPlaceStatusRemoved(drive) {
+			toUpdate = true
+			break
 		}
 	}
 

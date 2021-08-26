@@ -72,7 +72,7 @@ Annotations for drive CR to manipulate Usage:
 - FAILED -> IN_USE (repeat drive replacement procedure)
 - RELEASED -> IN_USE (in RELEASED state user can continue DR with replacement=ready or rollback, if it was started by mistake)
 2. `action=remove`
-- ANY_STATE -> REMOVED (user can finish DR for FAILED disk or force remove GOOD disk)
+- FAILED -> REMOVED (user can finish DR for FAILED disk by force)
 
 ### Detailed workflow
 * When drive health changed from `GOOD` to `SUSPECT` or `BAD` CSI will:
