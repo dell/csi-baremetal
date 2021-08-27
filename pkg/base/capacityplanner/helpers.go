@@ -19,10 +19,6 @@ package capacityplanner
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
@@ -30,6 +26,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/metrics/common"
+	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // NewReservationHelper returns new instance of ReservationHelper
@@ -209,7 +207,8 @@ func buildACInACRMap(acrs []acrcrd.AvailableCapacityReservation) map[string]stru
 	return acMap
 }
 
-// choseACFromOldestACR chose AC from oldest ACR
+// TODO reserve resources on requested nodes only - https://github.com/dell/csi-baremetal/issues/370
+/*// choseACFromOldestACR chose AC from oldest ACR
 func choseACFromOldestACR(acMap ACMap, acrMAP ACRMap, acToACRs ACNameToACRNamesMap) (
 	*accrd.AvailableCapacity, *acrcrd.AvailableCapacityReservation) {
 	var (
@@ -255,14 +254,14 @@ func buildNodeCapacityMap(acs []accrd.AvailableCapacity) NodeCapacityMap {
 	return capMap
 }
 
-/*func buildACMap(acs []accrd.AvailableCapacity) ACMap {
+func buildACMap(acs []accrd.AvailableCapacity) ACMap {
 	acMap := ACMap{}
 	for _, ac := range acs {
 		ac := ac
 		acMap[ac.Name] = &ac
 	}
 	return acMap
-}*/
+}
 
 func buildACRMaps(acrs []acrcrd.AvailableCapacityReservation) (ACRMap, ACNameToACRNamesMap) {
 	acrMAP := ACRMap{}
@@ -280,4 +279,4 @@ func buildACRMaps(acrs []acrcrd.AvailableCapacityReservation) (ACRMap, ACNameToA
 		}
 	}
 	return acrMAP, acNameToACRNamesMap
-}
+}*/

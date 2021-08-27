@@ -17,172 +17,158 @@
 package capacityplanner
 
 import (
-	"math"
+	"sort"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
+type reservedCapacity struct {
+	Size         int64
+	StorageClass string
+}
+
+type reservedACs map[string]*reservedCapacity
+
+type scToACOrder map[string][]string
+
 type nodeCapacity struct {
-	// AC cache
-	capacity ACMap
-	// store original versions of modified ACs
-	origAC ACMap
+	node string
+	// ACs for the related node
+	acs ACMap
+	// AC Name: {AC Size, AC Storage Class}
+	reservedACs reservedACs
+	// Storage Class Name: the list of AC names, which can be selected
+	acsOrder scToACOrder
 }
 
-// registerAC register AC in internal cache
-func (nc *nodeCapacity) registerAC(ac *accrd.AvailableCapacity) {
-	nc.capacity[ac.Name] = ac
+func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.AvailableCapacityReservation) *nodeCapacity {
+	// Check for no capacity on node
+	if len(acs) == 0 {
+		return nil
+	}
+
+	// Chose AC only for the related node
+	acs = FilterACList(acs, func(ac accrd.AvailableCapacity) bool {
+		return ac.Spec.NodeId == node
+	})
+
+	// Sort AC to have the persistent order for each reservation
+	sort.Slice(acs, func(i, j int) bool {
+		// By size (the smallest first)
+		if acs[i].Spec.Size < acs[j].Spec.Size {
+			return true
+		}
+		if acs[i].Spec.Size > acs[j].Spec.Size {
+			return false
+		}
+
+		// By name
+		return acs[i].Name < acs[j].Name
+	})
+
+	acsOrder := scToACOrder{}
+	for _, ac := range acs {
+		if acsOrder[ac.Spec.StorageClass] == nil {
+			acsOrder[ac.Spec.StorageClass] = []string{}
+		}
+		acsOrder[ac.Spec.StorageClass] = append(acsOrder[ac.Spec.StorageClass], ac.Name)
+	}
+
+	// ANY SC should select ACs with the order - HDD->SSD->NVMe
+	acsOrder[v1.StorageClassAny] = append(acsOrder[v1.StorageClassAny], acsOrder[v1.StorageClassHDD]...)
+	acsOrder[v1.StorageClassAny] = append(acsOrder[v1.StorageClassAny], acsOrder[v1.StorageClassSSD]...)
+	acsOrder[v1.StorageClassAny] = append(acsOrder[v1.StorageClassAny], acsOrder[v1.StorageClassNVMe]...)
+
+	// LVG SCs should select non-LVG ACs after LVG
+	acsOrder[v1.StorageClassHDDLVG] = append(acsOrder[v1.StorageClassHDDLVG], acsOrder[v1.StorageClassHDD]...)
+	acsOrder[v1.StorageClassSSDLVG] = append(acsOrder[v1.StorageClassSSDLVG], acsOrder[v1.StorageClassSSD]...)
+	acsOrder[v1.StorageClassNVMeLVG] = append(acsOrder[v1.StorageClassNVMeLVG], acsOrder[v1.StorageClassNVMe]...)
+
+	acMap := buildACMap(acs)
+
+	reservedACs := reservedACs{}
+	for _, acr := range acrs {
+		if acr.Spec.Status != v1.ReservationConfirmed {
+			continue
+		}
+		for _, request := range acr.Spec.ReservationRequests {
+			reservedCapacity := &reservedCapacity{
+				Size:         request.CapacityRequest.Size,
+				StorageClass: request.CapacityRequest.StorageClass,
+			}
+			// Add reservation from ACR or update existed one if it repeats more than one time
+			for _, reservation := range request.Reservations {
+				existed, ok := reservedACs[reservation]
+				if !ok {
+					reservedACs[reservation] = reservedCapacity
+				} else {
+					existed.Size += reservedCapacity.Size
+				}
+			}
+		}
+	}
+
+	return &nodeCapacity{
+		node:        node,
+		acs:         acMap,
+		acsOrder:    acsOrder,
+		reservedACs: reservedACs,
+	}
 }
 
-func (nc *nodeCapacity) saveOriginalAC(ac *accrd.AvailableCapacity) {
-	acInCache, ok := nc.capacity[ac.Name]
-	if !ok {
-		return
+func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
+	requiredSize := vol.GetSize()
+	if util.IsStorageClassLVG(vol.StorageClass) {
+		// we should round up volume size, it should be aligned with LVM PE size
+		// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
+		requiredSize = AlignSizeByPE(vol.GetSize())
 	}
-	if nc.origAC == nil {
-		nc.origAC = ACMap{}
-	}
-	// we need to save original AC only once
-	if _, ok := nc.origAC[ac.Name]; !ok {
-		nc.origAC[ac.Name] = acInCache.DeepCopy()
-	}
-}
 
-func (nc *nodeCapacity) getOriginalAC(acName string) *accrd.AvailableCapacity {
-	if ac, ok := nc.origAC[acName]; ok {
-		return ac
+	for _, ac := range nc.acsOrder[vol.StorageClass] {
+		if requiredSize <= nc.acs[ac].Spec.Size {
+			// check if AC is reserved
+			reservation, ok := nc.reservedACs[ac]
+
+			// reserve AC, if it is not found in reservations
+			if !ok {
+				foundAC := nc.acs[ac]
+				nc.reservedACs[foundAC.Name] = &reservedCapacity{
+					Size:         vol.Size,
+					StorageClass: vol.StorageClass,
+				}
+				return foundAC
+			}
+
+			// skip AC, if required SC is non-LVG
+			if !util.IsStorageClassLVG(vol.StorageClass) {
+				continue
+			}
+
+			// skip AC, if AC was reserved for non-LVG
+			if !util.IsStorageClassLVG(reservation.StorageClass) {
+				continue
+			}
+
+			// select AC, if it has enough capacity
+			if reservation.Size+requiredSize <= nc.acs[ac].Spec.Size {
+				foundAC := nc.acs[ac]
+				nc.reservedACs[foundAC.Name].Size += requiredSize
+				return foundAC
+			}
+		}
 	}
-	if ac, ok := nc.capacity[acName]; ok {
-		return ac
-	}
+
 	return nil
 }
 
-// removeAC remove AC from internal cache
-func (nc *nodeCapacity) removeAC(ac *accrd.AvailableCapacity) {
-	delete(nc.capacity, ac.Name)
-}
-
-// selectACForVolume select AC for volume
-// will modify nodeCapacity AC cache
-func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
-	if util.IsStorageClassLVG(vol.StorageClass) {
-		return nc.selectACForLVMVolume(vol)
+func buildACMap(acs []accrd.AvailableCapacity) ACMap {
+	acMap := ACMap{}
+	for i, ac := range acs {
+		acMap[ac.Name] = &acs[i]
 	}
-	return nc.selectACForFullDriveVolume(vol)
-}
-
-// selectACForFullDriveVolume selects AC for ANY SC or for other "full drive" storage classes.
-func (nc *nodeCapacity) selectACForFullDriveVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
-	scToACMap := nc.getStorageClassToACMapping()
-
-	if len(scToACMap[vol.StorageClass]) == 0 &&
-		vol.StorageClass != v1.StorageClassAny {
-		return nil
-	}
-	requiredSize := vol.GetSize()
-	// filter out non relevant storage classes
-	filteredMap := SCToACMap{}
-	if vol.StorageClass == v1.StorageClassAny {
-		for sc, acs := range scToACMap {
-			// for any SC we need to check for non LVG only
-			if !util.IsStorageClassLVG(sc) {
-				// TODO Take into account drive technology for SC ANY https://github.com/dell/csi-baremetal/issues/231
-				// map must be sorted HDD->SSD->NVMe
-				filteredMap[sc] = acs
-			}
-		}
-	} else {
-		filteredMap[vol.StorageClass] = scToACMap[vol.StorageClass]
-	}
-	// try to find free capacity
-	var foundAC *accrd.AvailableCapacity
-	for _, acs := range filteredMap {
-		foundAC = searchACWithClosestSize(acs, requiredSize, nil)
-		if foundAC != nil {
-			break
-		}
-	}
-	// return if available capacity not found
-	if foundAC == nil {
-		return nil
-	}
-	nc.saveOriginalAC(foundAC)
-	// mark AC as used
-	nc.removeAC(foundAC)
-	return nc.getOriginalAC(foundAC.Name)
-}
-
-// selectACForLVMVolume selects AC for Volume with LVM SC
-// first we try to find AC with LVM AC, if not found full drive AC will be converted to LVM AC
-func (nc *nodeCapacity) selectACForLVMVolume(vol *genV1.Volume) *accrd.AvailableCapacity {
-	// extract drive technology - HDD,SSD, etc.
-	subSC := util.GetSubStorageClass(vol.StorageClass)
-
-	scToACMap := nc.getStorageClassToACMapping()
-	if len(scToACMap[vol.StorageClass]) == 0 &&
-		len(scToACMap[subSC]) == 0 {
-		return nil
-	}
-
-	// we should round up volume size, it should be aligned with LVM PE size
-	// TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
-	requiredSize := AlignSizeByPE(vol.GetSize())
-
-	// try to find free capacity with StorageClass from volume creation request
-	foundAC := searchACWithClosestSize(scToACMap[vol.StorageClass], requiredSize, nil)
-
-	// for LVG SC try to reserve AC to create new LVG since no free space found on existing
-	if foundAC == nil {
-		// search AC in sub storage class
-		foundAC = searchACWithClosestSize(scToACMap[subSC], requiredSize, SubtractLVMMetadataSize)
-	}
-	// return if available capacity not found
-	if foundAC == nil {
-		return nil
-	}
-	// we should return unmodified AC, but for planning the next volumes we should do a AC resource modification
-	// here we save original AC for future use
-	nc.saveOriginalAC(foundAC)
-
-	if foundAC.Spec.StorageClass != vol.StorageClass { // sc relates to LVG or sc == ANY
-		foundAC.Spec.StorageClass = vol.StorageClass // e.g. HDD -> HDDLVG
-		foundAC.Spec.Size = SubtractLVMMetadataSize(foundAC.Spec.Size)
-	}
-	foundAC.Spec.Size -= requiredSize
-
-	return nc.getOriginalAC(foundAC.Name)
-}
-
-func (nc *nodeCapacity) getStorageClassToACMapping() SCToACMap {
-	result := SCToACMap{}
-	for _, ac := range nc.capacity {
-		if _, ok := result[ac.Spec.StorageClass]; !ok {
-			result[ac.Spec.StorageClass] = map[string]*accrd.AvailableCapacity{}
-		}
-		result[ac.Spec.StorageClass][ac.Name] = ac
-	}
-	return result
-}
-
-func searchACWithClosestSize(acs ACMap, size int64, sizeRoundFunc func(int64) int64) *accrd.AvailableCapacity {
-	var (
-		maxSize  int64 = math.MaxInt64
-		pickedAC *accrd.AvailableCapacity
-	)
-
-	for _, ac := range acs {
-		acSize := ac.Spec.Size
-		if sizeRoundFunc != nil {
-			acSize = sizeRoundFunc(acSize)
-		}
-		if acSize >= size && acSize < maxSize {
-			pickedAC = ac
-			maxSize = acSize
-		}
-	}
-	return pickedAC
+	return acMap
 }
