@@ -17,6 +17,7 @@ limitations under the License.
 package events
 
 import (
+	"github.com/dell/csi-baremetal/pkg/eventing"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -76,15 +77,17 @@ func TestNew(t *testing.T) {
 }
 
 func TestRecorder_Eventf(t *testing.T) {
+	var (
+		eventManager = &eventing.EventManager{}
+	)
 	type fields struct {
-		eventRecorder      *mocks.EventRecorder
-		reasonSymptomCodes map[string]string
-		Wait               func()
+		eventRecorder *mocks.EventRecorder
+		eventManager  *eventing.EventManager
+		Wait          func()
 	}
 	type args struct {
 		object     runtime.Object
-		eventtype  string
-		reason     string
+		event      *eventing.EventDescription
 		messageFmt string
 		args       []interface{}
 	}
@@ -98,14 +101,13 @@ func TestRecorder_Eventf(t *testing.T) {
 			name:       "Simple event",
 			funcCalled: "Eventf",
 			fields: fields{
-				eventRecorder:      new(mocks.EventRecorder),
-				reasonSymptomCodes: nil,
-				Wait:               func() {},
+				eventRecorder: new(mocks.EventRecorder),
+				eventManager:  eventManager,
+				Wait:          func() {},
 			},
 			args: args{
 				object:     &v1.Pod{},
-				eventtype:  "Normal",
-				reason:     "Stopped",
+				event:      eventManager.GenerateFake(),
 				messageFmt: "This is the event %v",
 				args:       []interface{}{1},
 			},
@@ -114,14 +116,13 @@ func TestRecorder_Eventf(t *testing.T) {
 			name:       "Labels check",
 			funcCalled: "LabeledEventf",
 			fields: fields{
-				eventRecorder:      new(mocks.EventRecorder),
-				reasonSymptomCodes: map[string]string{"Stopped": "CSI-00"},
-				Wait:               func() {},
+				eventRecorder: new(mocks.EventRecorder),
+				eventManager:  eventManager,
+				Wait:          func() {},
 			},
 			args: args{
 				object:     &v1.Pod{},
-				eventtype:  "Normal",
-				reason:     "Stopped",
+				event:      eventManager.GenerateFakeWithLabel(),
 				messageFmt: "This is the event %v",
 				args:       []interface{}{1},
 			},
@@ -132,11 +133,11 @@ func TestRecorder_Eventf(t *testing.T) {
 			//setup mocks
 			tt.fields.eventRecorder.On(tt.funcCalled, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
 			r := &Recorder{
-				eventRecorder:      tt.fields.eventRecorder,
-				reasonSymptomCodes: tt.fields.reasonSymptomCodes,
-				Wait:               tt.fields.Wait,
+				eventRecorder: tt.fields.eventRecorder,
+				eventManager:  tt.fields.eventManager,
+				Wait:          tt.fields.Wait,
 			}
-			r.Eventf(tt.args.object, tt.args.eventtype, tt.args.reason, tt.args.messageFmt, tt.args.args...)
+			r.Eventf(tt.args.object, tt.args.event, tt.args.messageFmt, tt.args.args...)
 			r.Wait()
 
 			tt.fields.eventRecorder.AssertExpectations(t)

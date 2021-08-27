@@ -17,6 +17,7 @@ limitations under the License.
 package events_test
 
 import (
+	"github.com/dell/csi-baremetal/pkg/eventing"
 	"log"
 
 	"github.com/sirupsen/logrus"
@@ -46,6 +47,7 @@ func Example() {
 	}
 
 	logr := logrus.New()
+	eventManager := &eventing.EventManager{}
 
 	eventRecorder, err := events.New("baremetal-csi-node", "434aa7b1-8b8a-4ae8-92f9-1cc7e09a9030", eventInter, scheme, logr)
 	if err != nil {
@@ -57,5 +59,5 @@ func Example() {
 
 	// Send event
 	drive := new(drivecrd.Drive)
-	eventRecorder.Eventf(drive, "Critical", "DriveIsDead", "drive &s is dead", drive.GetName())
+	eventRecorder.Eventf(drive, eventManager.GenerateFake(), "DriveIsDead", "drive &s is dead", drive.GetName())
 }

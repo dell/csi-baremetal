@@ -67,6 +67,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		k8sSC         *storagev1.StorageClass
 		driverCleanup func()
 		ns            string
+		eventManager  = &eventing.EventManager{}
 		f             = framework.NewDefaultFramework("health")
 	)
 
@@ -198,7 +199,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		// check events for volume
 		eventsWaitTimeout := time.Second * 30
 		checkExpectedEventsExistWithRetry(f, &targetVolume, []string{
-			eventing.VolumeBadHealth,
+			eventManager.GetReason(eventing.VolumeBadHealth),
 		}, eventsWaitTimeout)
 	})
 
@@ -268,16 +269,16 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		// check events
 		eventsWaitTimeout := time.Second * 30
 		checkExpectedEventsExistWithRetry(f, &driveUnderTest1, []string{
-			eventing.DriveDiscovered,
-			eventing.DriveHealthGood,
-			eventing.DriveHealthFailure,
-			eventing.DriveHealthGood,
+			eventManager.GetReason(eventing.DriveDiscovered),
+			eventManager.GetReason(eventing.DriveHealthGood),
+			eventManager.GetReason(eventing.DriveHealthFailure),
+			eventManager.GetReason(eventing.DriveHealthGood),
 		}, eventsWaitTimeout)
 		checkExpectedEventsExistWithRetry(f, &driveUnderTest2, []string{
-			eventing.DriveDiscovered,
-			eventing.DriveHealthGood,
-			eventing.DriveStatusOffline,
-			eventing.DriveStatusOnline,
+			eventManager.GetReason(eventing.DriveDiscovered),
+			eventManager.GetReason(eventing.DriveHealthGood),
+			eventManager.GetReason(eventing.DriveStatusOffline),
+			eventManager.GetReason(eventing.DriveStatusOnline),
 		}, eventsWaitTimeout)
 	})
 }

@@ -36,8 +36,8 @@ type EventRecorder interface {
 
 // Recorder will serve us as wrapper around EventRecorder
 type Recorder struct {
-	eventRecorder      EventRecorder
-	reasonSymptomCodes map[string]string
+	eventRecorder EventRecorder
+	eventManager  *eventing.EventManager
 	// Wait is blocking wait operation until all events are processed
 	Wait func()
 }
@@ -58,22 +58,18 @@ type EventInterface interface {
 // 'message' is intended to be human readable.
 //
 // The resulting event will be created in the same namespace as the reference object.
-func (r *Recorder) Eventf(object runtime.Object, eventType, reason, messageFmt string, args ...interface{}) {
-	labels := r.prepareLabel(reason)
+func (r *Recorder) Eventf(object runtime.Object, event *eventing.EventDescription, messageFmt string, args ...interface{}) {
+	var (
+		reason   = r.eventManager.GetReason(event)
+		severity = r.eventManager.GetSeverity(event)
+		labels   = r.eventManager.GetLabels(event)
+	)
+
 	if labels != nil {
-		r.eventRecorder.LabeledEventf(object, labels, eventType, reason, messageFmt, args...)
+		r.eventRecorder.LabeledEventf(object, labels, severity, reason, messageFmt, args...)
 	} else {
-		r.eventRecorder.Eventf(object, eventType, reason, messageFmt, args...)
+		r.eventRecorder.Eventf(object, severity, reason, messageFmt, args...)
 	}
-}
-
-func (r *Recorder) prepareLabel(reason string) map[string]string {
-	value, ok := r.reasonSymptomCodes[reason]
-	if ok {
-		return map[string]string{eventing.SymptomCodeLabelKey: value}
-	}
-
-	return nil
 }
 
 // New makes Recorder for a simple usage
@@ -89,8 +85,8 @@ func New(component, node string, eventInt v1core.EventInterface, scheme *runtime
 	// use simple local Recorder for now
 	eventRecorder := simple.New(&v1core.EventSinkImpl{Interface: eventInt}, scheme, v1.EventSource{Component: component, Host: node}, lg)
 	return &Recorder{
-		eventRecorder:      eventRecorder,
-		reasonSymptomCodes: eventing.GetReasonSymptomCodes(),
-		Wait:               eventRecorder.Wait,
+		eventRecorder: eventRecorder,
+		eventManager:  &eventing.EventManager{},
+		Wait:          eventRecorder.Wait,
 	}, nil
 }
