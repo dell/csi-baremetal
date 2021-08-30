@@ -20,7 +20,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -32,7 +31,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -68,7 +66,6 @@ var (
 	csiEndpoint      = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 	nodeName         = flag.String("nodename", "", "node identification by k8s")
 	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
-	eventConfigPath  = flag.String("eventConfigPath", "/etc/config/alerts.yaml", "path for the events config file")
 	useACRs          = flag.Bool("extender", false,
 		"Whether node svc should read AvailableCapacityReservation CR during NodePublish request for ephemeral volumes or not")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
@@ -132,7 +129,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
-	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeID, logger)
+	eventRecorder, err := prepareEventRecorder(nodeID, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
@@ -262,7 +259,7 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 }
 
 // prepareEventRecorder helper which makes all the work to get EventRecorder
-func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*events.Recorder, error) {
+func prepareEventRecorder(nodeUID string, logger *logrus.Logger) (*events.Recorder, error) {
 	// clientset needed to send events
 	k8SClientset, err := k8s.GetK8SClientset()
 	if err != nil {
@@ -276,26 +273,8 @@ func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*e
 	if err != nil {
 		return nil, fmt.Errorf("fail to prepare kubernetes scheme, error: %s", err)
 	}
-	// Setup Option
-	// It's used for label overriding and logging events
 
-	var opt events.Options
-
-	// Optional will be used when
-	alertFile, err := ioutil.ReadFile(configfile)
-	if err != nil {
-		logger.Infof("fail to open events config file. error: %s. Will proceed without overriding.", err)
-	}
-
-	err = yaml.Unmarshal(alertFile, &opt)
-	if err != nil {
-		return nil, fmt.Errorf("fail to unmarshal config file, error: %s", err)
-	}
-
-	opt.Logger = logger.WithField("componentName", "Events")
-	//
-
-	eventRecorder, err := events.New(componentName, nodeUID, eventInter, scheme, opt)
+	eventRecorder, err := events.New(componentName, nodeUID, eventInter, scheme, logger)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create events recorder, error: %s", err)
 	}

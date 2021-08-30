@@ -19,10 +19,12 @@ package events
 import (
 	"errors"
 
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/dell/csi-baremetal/pkg/eventing"
 	simple "github.com/dell/csi-baremetal/pkg/events/recorder"
 )
 
@@ -32,23 +34,10 @@ type EventRecorder interface {
 	LabeledEventf(object runtime.Object, labels map[string]string, eventtype, reason, messageFmt string, args ...interface{})
 }
 
-// LabelsOverride is used in Options structure and represent yaml structure
-type LabelsOverride struct {
-	Reason string            `yaml:"reason"`
-	Labels map[string]string `yaml:"labels"`
-}
-
-// Options is optional configuration for replacing labels
-// you can unmarshal information from simple yaml file
-type Options struct {
-	LabelsOverride []LabelsOverride `yaml:"overrideRules"`
-	Logger         simple.Logger
-}
-
 // Recorder will serve us as wrapper around EventRecorder
 type Recorder struct {
-	eventRecorder  EventRecorder
-	labelsOverride []LabelsOverride
+	eventRecorder EventRecorder
+	eventManager  *eventing.EventManager
 	// Wait is blocking wait operation until all events are processed
 	Wait func()
 }
@@ -65,39 +54,39 @@ type EventInterface interface {
 // should be in UpperCamelCase format (starting with a capital letter). "reason" will be used
 // to automate handling of events, so imagine people writing switch statements to handle them.
 // You want to make that easy. Plus you can add labels based on reason and use for alerting.
+// Edit pkg/eventing/eventing.go file to map reason with the related Symptom Code
 // 'message' is intended to be human readable.
 //
 // The resulting event will be created in the same namespace as the reference object.
-func (r *Recorder) Eventf(object runtime.Object, eventType, reason, messageFmt string, args ...interface{}) {
-	if r.labelsOverride != nil {
-		for _, value := range r.labelsOverride {
-			if value.Reason == reason {
-				r.eventRecorder.LabeledEventf(object, value.Labels, eventType, reason, messageFmt, args...)
-				return
-			}
-		}
+func (r *Recorder) Eventf(object runtime.Object, event *eventing.EventDescription, messageFmt string, args ...interface{}) {
+	var (
+		reason   = r.eventManager.GetReason(event)
+		severity = r.eventManager.GetSeverity(event)
+		labels   = r.eventManager.GetLabels(event)
+	)
+
+	if labels != nil {
+		r.eventRecorder.LabeledEventf(object, labels, severity, reason, messageFmt, args...)
+	} else {
+		r.eventRecorder.Eventf(object, severity, reason, messageFmt, args...)
 	}
-	r.eventRecorder.Eventf(object, eventType, reason, messageFmt, args...)
 }
 
 // New makes Recorder for a simple usage
 // implementation for v1core.EventInterface can be easily found in kubernetes.Clientset.CoreV1().Events("yourNameSpace")
 // schema must know about object you will send events about, if use use something built-in try runtime.New
-func New(component, node string, eventInt v1core.EventInterface, scheme *runtime.Scheme, opt Options) (*Recorder, error) {
+func New(component, node string, eventInt v1core.EventInterface, scheme *runtime.Scheme, logger *logrus.Logger) (*Recorder, error) {
+	lg := logger.WithField("componentName", "Events")
+
 	if scheme == nil {
 		return nil, errors.New("schema is required")
-	}
-
-	lg := opt.Logger
-	if opt.Logger == nil {
-		lg = &simple.NoOpLogger{}
 	}
 
 	// use simple local Recorder for now
 	eventRecorder := simple.New(&v1core.EventSinkImpl{Interface: eventInt}, scheme, v1.EventSource{Component: component, Host: node}, lg)
 	return &Recorder{
-		eventRecorder:  eventRecorder,
-		labelsOverride: opt.LabelsOverride,
-		Wait:           eventRecorder.Wait,
+		eventRecorder: eventRecorder,
+		eventManager:  &eventing.EventManager{},
+		Wait:          eventRecorder.Wait,
 	}, nil
 }

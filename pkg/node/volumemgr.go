@@ -75,7 +75,7 @@ const (
 
 // eventRecorder interface for sending events
 type eventRecorder interface {
-	Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{})
+	Eventf(object runtime.Object, event *eventing.EventDescription, messageFmt string, args ...interface{})
 }
 
 // VolumeManager is the struct to perform volume operations on node side with real storage devices
@@ -485,7 +485,7 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 					drive.Name, drive.Spec.Usage, err)
 				return ctrl.Result{Requeue: true}, err
 			}
-			m.sendEventForDrive(drive, eventing.ErrorType, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
+			m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
 		}
 	} else {
 		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
@@ -764,14 +764,14 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 		if discoverResult.HasData {
 			if drive.Spec.IsClean {
 				ll.Info(discoverResult.Message)
-				m.sendEventForDrive(&drive, eventing.NormalType, eventing.DriveHasData, discoverResult.Message)
+				m.sendEventForDrive(&drive, eventing.DriveHasData, discoverResult.Message)
 				m.changeDriveIsCleanField(&drive, false)
 			}
 			continue
 		}
 		ll.Info(discoverResult.Message)
 		if !drive.Spec.IsClean {
-			m.sendEventForDrive(&drive, eventing.NormalType, eventing.DriveClean, discoverResult.Message)
+			m.sendEventForDrive(&drive, eventing.DriveClean, discoverResult.Message)
 			m.changeDriveIsCleanField(&drive, true)
 		}
 	}
@@ -933,19 +933,19 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		// check for missing disk and re-activate volume group if needed
 		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
 			ll.Infof("Scan volume group %s for IO errors", name)
-			m.recorder.Eventf(lvg, eventing.NormalType, eventing.VolumeGroupScanInvolved, "Check for IO errors")
+			m.recorder.Eventf(lvg, eventing.VolumeGroupScanInvolved, "Check for IO errors")
 			if ok, err := m.lvmOps.VGScan(name); err != nil { //nolint:gocritic
 				ll.Errorf("Failed to scan volume group %s for IO errors: %v", name, err)
-				m.recorder.Eventf(lvg, eventing.ErrorType, eventing.VolumeGroupScanFailed, err.Error())
+				m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
 			} else if ok {
 				// IO errors detected. Need to re-activate volume group
 				ll.Errorf("IO errors detected for volume group %s", name)
-				m.recorder.Eventf(lvg, eventing.WarningType, eventing.VolumeGroupReactivateInvolved,
+				m.recorder.Eventf(lvg, eventing.VolumeGroupReactivateInvolved,
 					"IO errors detected")
 				if err := m.lvmOps.VGReactivate(name); err != nil {
 					// need to send an event if operation failed
 					ll.Errorf("Failed to re-activate volume group %s: %v", name, err)
-					m.recorder.Eventf(lvg, eventing.ErrorType, eventing.VolumeGroupReactivateFailed, err.Error())
+					m.recorder.Eventf(lvg, eventing.VolumeGroupReactivateFailed, err.Error())
 				}
 			} else {
 				ll.Infof("No IO errors detected for volume group %s", name)
@@ -978,7 +978,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		}
 
 		if vol.Spec.Health == apiV1.HealthBad {
-			m.recorder.Eventf(vol, eventing.WarningType, eventing.VolumeBadHealth,
+			m.recorder.Eventf(vol, eventing.VolumeBadHealth,
 				"Volume health transitioned from %s to %s. Inherited from %s drive on %s)",
 				prevHealthState, vol.Spec.Health, cur.Health, cur.NodeId)
 		}
@@ -999,7 +999,7 @@ func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
 // createEventsForDriveUpdates create required events for drive state change
 func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 	for _, createdDrive := range updates.Created {
-		m.sendEventForDrive(createdDrive, eventing.NormalType, eventing.DriveDiscovered,
+		m.sendEventForDrive(createdDrive, eventing.DriveDiscovered,
 			"New drive discovered SN: %s, Node: %s.",
 			createdDrive.Spec.SerialNumber, createdDrive.Spec.NodeId)
 		m.createEventForDriveHealthChange(
@@ -1024,46 +1024,41 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 func (m *VolumeManager) createEventForDriveHealthChange(
 	drive *drivecrd.Drive, prevHealth, currentHealth string) {
 	healthMsgTemplate := "Drive health is: %s, previous state: %s."
-	eventType := eventing.WarningType
-	var reason string
+	var event *eventing.EventDescription
 	switch currentHealth {
 	case apiV1.HealthGood:
-		eventType = eventing.NormalType
-		reason = eventing.DriveHealthGood
+		event = eventing.DriveHealthGood
 	case apiV1.HealthBad:
-		eventType = eventing.ErrorType
-		reason = eventing.DriveHealthFailure
+		event = eventing.DriveHealthFailure
 	case apiV1.HealthSuspect:
-		reason = eventing.DriveHealthSuspect
+		event = eventing.DriveHealthSuspect
 	case apiV1.HealthUnknown:
-		reason = eventing.DriveHealthUnknown
+		event = eventing.DriveHealthUnknown
 	default:
 		return
 	}
-	m.sendEventForDrive(drive, eventType, reason,
+	m.sendEventForDrive(drive, event,
 		healthMsgTemplate, currentHealth, prevHealth)
 }
 
 func (m *VolumeManager) createEventForDriveStatusChange(
 	drive *drivecrd.Drive, prevStatus, currentStatus string) {
 	statusMsgTemplate := "Drive status is: %s, previous status: %s."
-	eventType := eventing.NormalType
-	var reason string
+	var event *eventing.EventDescription
 	switch currentStatus {
 	case apiV1.DriveStatusOnline:
-		reason = eventing.DriveStatusOnline
+		event = eventing.DriveStatusOnline
 	case apiV1.DriveStatusOffline:
 		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
-			reason = eventing.DriveSuccessfullyRemoved
+			event = eventing.DriveSuccessfullyRemoved
 			statusMsgTemplate = "Drive successfully removed. " + statusMsgTemplate
 		} else {
-			eventType = eventing.ErrorType
-			reason = eventing.DriveStatusOffline
+			event = eventing.DriveStatusOffline
 		}
 	default:
 		return
 	}
-	m.sendEventForDrive(drive, eventType, reason,
+	m.sendEventForDrive(drive, event,
 		statusMsgTemplate, currentStatus, prevStatus)
 }
 
@@ -1071,16 +1066,15 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 func (m *VolumeManager) createEventForDriveHealthOverridden(
 	drive *drivecrd.Drive, realHealth, overriddenHealth string) {
 	msgTemplate := "Drive health is overridden with: %s, real state: %s."
-	eventType := eventing.WarningType
-	reason := eventing.DriveHealthOverridden
-	m.sendEventForDrive(drive, eventType, reason,
+	event := eventing.DriveHealthOverridden
+	m.sendEventForDrive(drive, event,
 		msgTemplate, overriddenHealth, realHealth)
 }
 
-func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, eventtype, reason, messageFmt string,
-	args ...interface{}) {
+func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, event *eventing.EventDescription,
+	messageFmt string, args ...interface{}) {
 	messageFmt += " " + drive.GetDriveDescription()
-	m.recorder.Eventf(drive, eventtype, reason, messageFmt, args...)
+	m.recorder.Eventf(drive, event, messageFmt, args...)
 }
 
 // isDriveSystem check whether drive is system

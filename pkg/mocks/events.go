@@ -20,12 +20,13 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/dell/csi-baremetal/pkg/eventing"
 )
 
 type eventRecorderCalls struct {
 	Object     runtime.Object
-	Eventtype  string
-	Reason     string
+	Event      *eventing.EventDescription
 	MessageFmt string
 	Args       []interface{}
 }
@@ -37,11 +38,10 @@ type NoOpRecorder struct {
 }
 
 // Eventf do nothing
-func (n *NoOpRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (n *NoOpRecorder) Eventf(object runtime.Object, event *eventing.EventDescription, messageFmt string, args ...interface{}) {
 	c := eventRecorderCalls{
 		Object:     object,
-		Eventtype:  eventtype,
-		Reason:     reason,
+		Event:      event,
 		MessageFmt: messageFmt,
 		Args:       args,
 	}
