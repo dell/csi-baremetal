@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -808,7 +809,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	drive := drive1
 	drive.UUID = driveUUID
 	drive.Health = apiV1.HealthBad
-	driveCR := &drivecrd.Drive{Spec:drive}
+	driveCR := &drivecrd.Drive{Spec: drive}
 
 	update := updatedDrive{
 		PreviousState: driveCR,
@@ -961,7 +962,7 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		mgr = &VolumeManager{recorder: rec}
 	}
 
-	expectEvent := func(drive *drivecrd.Drive, eventtype, reason string) bool {
+	expectEvent := func(drive *drivecrd.Drive, event *eventing.EventDescription) bool {
 		for _, c := range rec.Calls {
 			driveObj, ok := c.Object.(*drivecrd.Drive)
 			if !ok {
@@ -970,7 +971,7 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 			if driveObj.Name != drive.Name {
 				continue
 			}
-			if c.Eventtype == eventtype && c.Reason == reason {
+			if reflect.DeepEqual(c.Event, event) {
 				return true
 			}
 		}
@@ -986,10 +987,10 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		assert.NotEmpty(t, rec.Calls)
 		msgDiscovered := "DriveDiscovered event should exist for drive"
 		msgHealth := "DriveHealthGood event should exist for drive"
-		assert.True(t, expectEvent(drive1CR, eventing.NormalType, eventing.DriveDiscovered), msgDiscovered)
-		assert.True(t, expectEvent(drive2CR, eventing.NormalType, eventing.DriveDiscovered), msgDiscovered)
-		assert.True(t, expectEvent(drive1CR, eventing.NormalType, eventing.DriveHealthGood), msgHealth)
-		assert.True(t, expectEvent(drive2CR, eventing.NormalType, eventing.DriveHealthGood), msgHealth)
+		assert.True(t, expectEvent(drive1CR, eventing.DriveDiscovered), msgDiscovered)
+		assert.True(t, expectEvent(drive2CR, eventing.DriveDiscovered), msgDiscovered)
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthGood), msgHealth)
+		assert.True(t, expectEvent(drive2CR, eventing.DriveHealthGood), msgHealth)
 	})
 
 	t.Run("No changes", func(t *testing.T) {
@@ -1013,8 +1014,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 				CurrentState:  modifiedDrive}},
 		}
 		mgr.createEventsForDriveUpdates(upd)
-		assert.True(t, expectEvent(drive1CR, eventing.ErrorType, eventing.DriveStatusOffline))
-		assert.True(t, expectEvent(drive1CR, eventing.WarningType, eventing.DriveHealthUnknown))
+		assert.True(t, expectEvent(drive1CR, eventing.DriveStatusOffline))
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthUnknown))
 	})
 
 	t.Run("Drive removed", func(t *testing.T) {
@@ -1030,8 +1031,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 				CurrentState:  modifiedDrive}},
 		}
 		mgr.createEventsForDriveUpdates(upd)
-		assert.True(t, expectEvent(drive1CR, eventing.NormalType, eventing.DriveSuccessfullyRemoved))
-		assert.True(t, expectEvent(drive1CR, eventing.WarningType, eventing.DriveHealthUnknown))
+		assert.True(t, expectEvent(drive1CR, eventing.DriveSuccessfullyRemoved))
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthUnknown))
 	})
 }
 

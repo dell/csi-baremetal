@@ -69,7 +69,7 @@ const (
 	DriveAnnotationRemovalReady       = "ready"
 	DriveAnnotationVolumeStatusPrefix = "status"
 	// Deprecated annotations
-	DriveAnnotationReplacement        = "replacement"
+	DriveAnnotationReplacement = "replacement"
 
 	// Volume operational status
 	OperationalStatusOperative   = "OPERATIVE"
