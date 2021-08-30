@@ -98,15 +98,15 @@ Installation process
 
     - Vanilla Kubernetes
         
-    ```helm install csi-baremetal charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr```
+    ```helm install csi-baremetal charts/csi-baremetal-deployment --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr```
 
     - OpenShift
 
-    ```helm install csi-baremetal charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr --set platform=openshift```
+    ```helm install csi-baremetal charts/csi-baremetal-deployment --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr --set platform=openshift```
 
     - RKE
 
-   ```helm install csi-baremetal charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr --set platform=rke```
+   ```helm install csi-baremetal charts/csi-baremetal-deployment --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr --set platform=rke```
     
 4. Check default storage classes available
 
