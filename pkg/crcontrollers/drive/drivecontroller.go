@@ -40,9 +40,13 @@ const (
 )
 
 const (
-	// Annotations for driveCR to perform restart process
-	driveRestartReplacementAnnotationKey   = "drive"
-	driveRestartReplacementAnnotationValue = "add"
+	// Annotations for driveCR to manipulate Usage
+	driveActionAnnotationKey         = "action"
+	driveActionAddAnnotationValue    = "add"
+	driveActionRemoveAnnotationValue = "remove"
+	// Deprecated annotations to to perform DR restart process
+	driveRestartReplacementAnnotationKeyDeprecated   = "drive"
+	driveRestartReplacementAnnotationValueDeprecated = "add"
 )
 
 // NewController creates new instance of Controller structure
@@ -172,7 +176,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 
 	case apiV1.DriveUsageReleased:
-		if c.restartReplacement(drive) {
+		if c.checkAndPlaceStatusInUse(drive) {
 			toUpdate = true
 			break
 		}
@@ -209,18 +213,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 		if c.checkAllVolsRemoved(volumes) {
 			drive.Spec.Usage = apiV1.DriveUsageRemoved
-			status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
-			if err != nil || status.Status != apiV1.LocateStatusOn {
-				log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
-				drive.Spec.Usage = apiV1.DriveUsageFailed
-				// send error level alert
-				eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
-			} else {
-				// send warning level alert (warning for attention), good level closes issue, need only send message
-				eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
-				c.eventRecorder.Eventf(drive, eventing.DriveReadyForPhysicalRemoval, eventMsg)
-			}
+			c.locateDriveLED(ctx, log, drive)
 			toUpdate = true
 		}
 	case apiV1.DriveUsageRemoved:
@@ -229,8 +222,13 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			return remove, nil
 		}
 	case apiV1.DriveUsageFailed:
-		if c.restartReplacement(drive) {
+		if c.checkAndPlaceStatusInUse(drive) {
 			toUpdate = true
+			break
+		}
+		if c.checkAndPlaceStatusRemoved(drive) {
+			toUpdate = true
+			break
 		}
 	}
 
@@ -284,14 +282,53 @@ func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 	return true
 }
 
-// restartReplacement restores drive.Usage to IN_USE if CR is annotated
+// placeStatusInUse places drive.Usage to IN_USE if CR is annotated
 // deletes the annotation to avoid event repeating
-func (c *Controller) restartReplacement(drive *drivecrd.Drive) bool {
-	if value, ok := drive.GetAnnotations()[driveRestartReplacementAnnotationKey]; ok && value == driveRestartReplacementAnnotationValue {
+func (c *Controller) checkAndPlaceStatusInUse(drive *drivecrd.Drive) bool {
+	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionAddAnnotationValue {
 		drive.Spec.Usage = apiV1.DriveUsageInUse
-		delete(drive.Annotations, driveRestartReplacementAnnotationKey)
+		delete(drive.Annotations, driveActionAnnotationKey)
+		return true
+	}
+
+	// check with deprecated annotation
+	if value, ok := drive.GetAnnotations()[driveRestartReplacementAnnotationKeyDeprecated]; ok && value == driveRestartReplacementAnnotationValueDeprecated {
+		drive.Spec.Usage = apiV1.DriveUsageInUse
+		delete(drive.Annotations, driveRestartReplacementAnnotationKeyDeprecated)
 		return true
 	}
 
 	return false
+}
+
+// placeStatusRemoved places drive.Usage to REMOVED if CR is annotated
+// deletes the annotation to avoid event repeating
+func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
+	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionRemoveAnnotationValue {
+		drive.Spec.Usage = apiV1.DriveUsageRemoved
+		delete(drive.Annotations, driveActionAnnotationKey)
+
+		eventMsg := fmt.Sprintf("Drive was removed via annotation, %s", drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.DriveRemovedByForce, eventMsg)
+
+		return true
+	}
+
+	return false
+}
+
+func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {
+	// try to enable LED
+	status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
+	if err != nil || status.Status != apiV1.LocateStatusOn {
+		log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
+		drive.Spec.Usage = apiV1.DriveUsageFailed
+		// send error level alert
+		eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
+	} else {
+		// send warning level alert (warning for attention), good level closes issue, need only send message
+		eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
+		c.eventRecorder.Eventf(drive, eventing.DriveReadyForPhysicalRemoval, eventMsg)
+	}
 }
