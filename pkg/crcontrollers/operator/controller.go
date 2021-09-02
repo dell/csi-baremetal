@@ -420,7 +420,7 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 	// check for annotations
 	val, ok := k8sNode.GetAnnotations()[bmc.annotationKey]
 	if bmc.externalAnnotation && !ok {
-		ll.Errorf("external annotaion %s is not accesible on node %s", bmc.annotationKey, k8sNode)
+		ll.Errorf("external annotation %s is not accessible on node %s", bmc.annotationKey, k8sNode)
 	}
 	if !bmc.externalAnnotation && ok {
 		if val == nodeUUID {
@@ -433,7 +433,7 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 		}
 	}
 	if !bmc.externalAnnotation && !ok {
-		ll.Errorf("annotaion %s is not accesible on node %s", bmc.annotationKey, k8sNode)
+		ll.Errorf("annotation %s is not accessible on node %s", bmc.annotationKey, k8sNode)
 		if k8sNode.ObjectMeta.Annotations == nil {
 			k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
 		}

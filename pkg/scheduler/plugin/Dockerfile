@@ -1,4 +1,4 @@
-FROM    ubuntu:20.04
+FROM    alpine:3.14
 
 LABEL   description="Bare-metal CSI Scheduler"
 
