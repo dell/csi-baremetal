@@ -9,8 +9,11 @@ Add CSI Deployment Validation webhook in csi-baremetal Operator
 
 ## Background
 
-Need to check that there is only one csi-baremetal instance on the cluster. 
-In additional webhook helps to verify csi-deployment manifest before installing. 
+CSI Operator should control CSI Deployment CR create/update/delete operations.
+It can be used for multiple purposes. Examples
+- to reject creation of the second csi-baremetal instance
+- to check upgrade version matrix
+- to verify csi-deployment manifest before installing
 
 ## Proposal
 
@@ -37,7 +40,7 @@ The algorithm:
 4. Get signed certificate from CSR
 5. Certificate can be placed in secret to not update it if pod failed
 
-Certificates can be rounded in Operator. 
+Certificates can be rotated in Operator. 
 After cert-duration will be ended Operator should recreate CSR, patch ValidatingWebhookConfiguration and restart server.
 
 #### Cert-manager
@@ -46,14 +49,8 @@ The algorithm:
 1. Create Issuer and Certificate cert-manager resources
 2. Get signed certificate from the generated secret
 
-Certificates will be rounded automatically by cert-manager.
+Certificates will be rotated automatically by cert-manager.
 Operator should check Secret, patch ValidatingWebhookConfiguration and restart server.
-
-## Rationale
-
-#### Alternative approach
-
-Make CSI Deployment cluster scoped and don't create any new resources from different CSIs
 
 ## Compatibility
 
