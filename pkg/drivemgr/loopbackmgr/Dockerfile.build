@@ -1,1 +1,4 @@
-FROM    ubuntu:20.04
+FROM    ubuntu:21.04
+
+RUN     apt update --no-install-recommends -y -q
+
