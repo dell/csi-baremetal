@@ -377,8 +377,9 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 		}
 		if k8sError.IsNotFound(err) {
 			k8sNodeNotFound = true
+		} else {
+			k8sNodes = []coreV1.Node{*k8sNode}
 		}
-		k8sNodes = []coreV1.Node{*k8sNode}
 	}
 
 	if !k8sNodeFromCache {
@@ -388,6 +389,21 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 			return ctrl.Result{Requeue: true}, err
 		}
 		k8sNodes = k8sNodeCRs.Items
+	}
+
+	matchedNodes := make([]string, 0)
+	for i := range k8sNodes {
+		matchedAddresses := bmc.matchedAddressesCount(bmNode, &k8sNodes[i])
+		if matchedAddresses == len(bmNode.Spec.Addresses) {
+			k8sNode = &k8sNodes[i]
+			matchedNodes = append(matchedNodes, k8sNode.Name)
+			continue
+		}
+		if matchedAddresses > 0 {
+			ll.Errorf("There is k8s node %s that partially match Node CR %s. Node.Spec: %v, k8s node addresses: %v",
+				k8sNodes[i].Name, bmNode.Name, bmNode.Spec, k8sNodes[i].Status.Addresses)
+			return ctrl.Result{}, nil
+		}
 	}
 
 	if !bmNode.GetDeletionTimestamp().IsZero() {
@@ -415,21 +431,6 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 	if k8sNodeNotFound {
 		ll.Errorf("K8sNode %s is not found", k8sNodeName)
 		return ctrl.Result{Requeue: true}, errors.New("k8sNode is not found")
-	}
-
-	matchedNodes := make([]string, 0)
-	for i := range k8sNodes {
-		matchedAddresses := bmc.matchedAddressesCount(bmNode, &k8sNodes[i])
-		if matchedAddresses == len(bmNode.Spec.Addresses) {
-			k8sNode = &k8sNodes[i]
-			matchedNodes = append(matchedNodes, k8sNode.Name)
-			continue
-		}
-		if matchedAddresses > 0 {
-			ll.Errorf("There is k8s node %s that partially match Node CR %s. Node.Spec: %v, k8s node addresses: %v",
-				k8sNodes[i].Name, bmNode.Name, bmNode.Spec, k8sNodes[i].Status.Addresses)
-			return ctrl.Result{}, nil
-		}
 	}
 
 	if len(matchedNodes) == 1 {
