@@ -48,6 +48,13 @@ const (
 	csibmNodeFinalizer = "dell.emc.csi/csibmnode-cleanup"
 )
 
+// label to check node removing state
+// must be synced with https://github.com/dell/csi-baremetal-operator/blob/d08f85d75d43e3de459f0cfb90db377c37369d5e/pkg/noderemoval/controller.go#L39
+const (
+	nodeRemovalTaintKey   = "node.dell.com/drain"
+	nodeRemovalTaintValue = "drain"
+)
+
 // Controller is a controller for Node CR
 type Controller struct {
 	k8sClient    *k8s.KubeClient
@@ -76,6 +83,8 @@ type label struct {
 type nodesMapping struct {
 	k8sToBMNode map[string]string // k8s node name to Node CR name
 	bmToK8sNode map[string]string // Node CR name to k8s node name
+
+	cacheMu sync.RWMutex
 }
 
 func (nc *nodesMapping) getK8sNodeName(bmNodeName string) (string, bool) {
@@ -89,8 +98,17 @@ func (nc *nodesMapping) getCSIBMNodeName(k8sNodeName string) (string, bool) {
 }
 
 func (nc *nodesMapping) put(k8sNodeName, bmNodeName string) {
+	nc.cacheMu.Lock()
 	nc.k8sToBMNode[k8sNodeName] = bmNodeName
 	nc.bmToK8sNode[bmNodeName] = k8sNodeName
+	nc.cacheMu.Unlock()
+}
+
+func (nc *nodesMapping) remove(k8sNodeName, bmNodeName string) {
+	nc.cacheMu.Lock()
+	delete(nc.bmToK8sNode, bmNodeName)
+	delete(nc.k8sToBMNode, k8sNodeName)
+	nc.cacheMu.Unlock()
 }
 
 // NewController returns instance of Controller
@@ -346,13 +364,19 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 		k8sNode          = &coreV1.Node{}
 		k8sNodes         []coreV1.Node
 		k8sNodeFromCache bool
+		k8sNodeNotFound  = false
+		k8sNodeName      string
 	)
 
 	// get corresponding k8s node name from cache
-	if k8sNodeName, k8sNodeFromCache := bmc.cache.getK8sNodeName(bmNode.Name); k8sNodeFromCache {
-		if err := bmc.k8sClient.ReadCR(context.Background(), k8sNodeName, "", k8sNode); err != nil {
+	if k8sNodeName, k8sNodeFromCache = bmc.cache.getK8sNodeName(bmNode.Name); k8sNodeFromCache {
+		err := bmc.k8sClient.ReadCR(context.Background(), k8sNodeName, "", k8sNode)
+		if err != nil && !k8sError.IsNotFound(err) {
 			ll.Errorf("Unable to read k8s node %s: %v", k8sNodeName, err)
 			return ctrl.Result{Requeue: true}, err
+		}
+		if k8sError.IsNotFound(err) {
+			k8sNodeNotFound = true
 		}
 		k8sNodes = []coreV1.Node{*k8sNode}
 	}
@@ -364,6 +388,33 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 			return ctrl.Result{Requeue: true}, err
 		}
 		k8sNodes = k8sNodeCRs.Items
+	}
+
+	if !bmNode.GetDeletionTimestamp().IsZero() {
+		if bmc.checkNodeRemovalState(bmNode) && k8sNodeNotFound {
+			ll.Infof("Node %s should be removed, clean it from cache", k8sNodeName)
+			bmc.cleanNodeFromCache(bmNode.Name, k8sNodeName)
+		} else {
+			bmc.disableForNode(k8sNode.Name)
+			if err := bmc.removeLabelsAndAnnotation(k8sNode); err != nil {
+				ll.Errorf("Unable to remove annotations or labels from node %s: %v", k8sNode.Name, err)
+				bmc.enableForNode(k8sNode.Name)
+				return ctrl.Result{Requeue: true}, err
+			}
+		}
+
+		ll.Infof("Annotations and labels from node %s was removed. Removing finalizer from %s.", k8sNode.Name, bmNode.Name)
+		bmNode.Finalizers = nil
+		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
+		if err != nil {
+			ll.Errorf("Unable to update Node %s: %v", bmNode.Name, err)
+		}
+		return ctrl.Result{}, err
+	}
+
+	if k8sNodeNotFound {
+		ll.Errorf("K8sNode %s is not found", k8sNodeName)
+		return ctrl.Result{Requeue: true}, errors.New("K8sNode is not found")
 	}
 
 	matchedNodes := make([]string, 0)
@@ -379,23 +430,6 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 				k8sNodes[i].Name, bmNode.Name, bmNode.Spec, k8sNodes[i].Status.Addresses)
 			return ctrl.Result{}, nil
 		}
-	}
-
-	if !bmNode.GetDeletionTimestamp().IsZero() {
-		bmc.disableForNode(k8sNode.Name)
-		if err := bmc.removeLabelsAndAnnotation(k8sNode); err != nil {
-			ll.Errorf("Unable to remove annotations or labels from node %s: %v", k8sNode.Name, err)
-			bmc.enableForNode(k8sNode.Name)
-			return ctrl.Result{Requeue: true}, err
-		}
-
-		ll.Infof("Annotations and labels from node %s was removed. Removing finalizer from %s.", k8sNode.Name, bmNode.Name)
-		bmNode.Finalizers = nil
-		err := bmc.k8sClient.UpdateCR(context.Background(), bmNode)
-		if err != nil {
-			ll.Errorf("Unable to update Node %s: %v", bmNode.Name, err)
-		}
-		return ctrl.Result{}, err
 	}
 
 	if len(matchedNodes) == 1 {
@@ -511,4 +545,21 @@ func (bmc *Controller) constructNodeID(k8sNode *coreV1.Node) string {
 	}
 
 	return uuid.New().String()
+}
+
+// checkNodeRemovalState returns true if csibmnode has label that k8s should be removed
+func (bmc *Controller) checkNodeRemovalState(bmNodeCR *nodecrd.Node) bool {
+	if value, ok := bmNodeCR.GetLabels()[nodeRemovalTaintKey]; ok && value == nodeRemovalTaintValue {
+		return true
+	}
+
+	return false
+}
+
+func (bmc *Controller) cleanNodeFromCache(bmNodeCRName, k8sNodeName string) {
+	bmc.enabledMu.Lock()
+	delete(bmc.enabledForNode, k8sNodeName)
+	bmc.enabledMu.Unlock()
+
+	bmc.cache.remove(k8sNodeName, bmNodeCRName)
 }
