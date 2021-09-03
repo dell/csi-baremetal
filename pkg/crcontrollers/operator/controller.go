@@ -414,7 +414,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 
 	if k8sNodeNotFound {
 		ll.Errorf("K8sNode %s is not found", k8sNodeName)
-		return ctrl.Result{Requeue: true}, errors.New("K8sNode is not found")
+		return ctrl.Result{Requeue: true}, errors.New("k8sNode is not found")
 	}
 
 	matchedNodes := make([]string, 0)
