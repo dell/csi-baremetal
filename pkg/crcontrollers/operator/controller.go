@@ -462,18 +462,8 @@ func (bmc *Controller) removeLabelsAndAnnotation(k8sNode *coreV1.Node) error {
 		}
 	}
 
-	// check labels
-	labels := k8sNode.GetLabels()
-	// external csi-provisioner label
-	// TODO https://github.com/dell/csi-baremetal/issues/319 Rework after operator implementation
-	if _, ok := labels[common.NodeIDTopologyLabelKey]; ok {
-		delete(labels, common.NodeIDTopologyLabelKey)
-		toUpdate = true
-	}
-
 	if toUpdate {
 		k8sNode.Annotations = annotations
-		k8sNode.Labels = labels
 		return bmc.k8sClient.UpdateCR(context.Background(), k8sNode)
 	}
 
