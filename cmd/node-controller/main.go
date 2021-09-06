@@ -29,7 +29,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/node"
 )
 
 var (
@@ -66,7 +66,7 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
 
-	nodeCtrl, err := operator.NewController(*nodeSelector, *useExternalAnnotation, *nodeIDAnnotation, kubeClient, logger)
+	nodeCtrl, err := node.NewController(*nodeSelector, *useExternalAnnotation, *nodeIDAnnotation, kubeClient, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
