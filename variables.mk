@@ -45,7 +45,7 @@ EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
 NODE_CONTROLLER  := ${NODE_CONTROLLER_PKG}-${CONTROLLER}
 PLUGIN           := plugin
-OPERATOR		 := operator
+OPERATOR         := operator
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr
