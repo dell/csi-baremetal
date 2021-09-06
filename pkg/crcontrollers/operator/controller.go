@@ -48,13 +48,6 @@ const (
 	csibmNodeFinalizer = "dell.emc.csi/csibmnode-cleanup"
 )
 
-// label to check node removing state
-// must be synced with https://github.com/dell/csi-baremetal-operator/blob/d08f85d75d43e3de459f0cfb90db377c37369d5e/pkg/noderemoval/controller.go#L39
-const (
-	nodeRemovalTaintKey   = "node.dell.com/drain"
-	nodeRemovalTaintValue = "drain"
-)
-
 // Controller is a controller for Node CR
 type Controller struct {
 	k8sClient    *k8s.KubeClient
@@ -407,7 +400,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 	}
 
 	if !bmNode.GetDeletionTimestamp().IsZero() {
-		if bmc.checkNodeRemovalState(bmNode) && k8sNodeNotFound {
+		if k8sNodeNotFound {
 			ll.Infof("Node %s should be removed, clean it from cache", k8sNodeName)
 			bmc.cleanNodeFromCache(bmNode.Name, k8sNodeName)
 		} else {
@@ -546,15 +539,6 @@ func (bmc *Controller) constructNodeID(k8sNode *coreV1.Node) string {
 	}
 
 	return uuid.New().String()
-}
-
-// checkNodeRemovalState returns true if csibmnode has label that k8s should be removed
-func (bmc *Controller) checkNodeRemovalState(bmNodeCR *nodecrd.Node) bool {
-	if value, ok := bmNodeCR.GetLabels()[nodeRemovalTaintKey]; ok && value == nodeRemovalTaintValue {
-		return true
-	}
-
-	return false
 }
 
 func (bmc *Controller) cleanNodeFromCache(bmNodeCRName, k8sNodeName string) {
