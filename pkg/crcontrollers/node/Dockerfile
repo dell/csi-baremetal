@@ -2,6 +2,6 @@ FROM    alpine:3.14
 
 LABEL   description="Baremetal CSI Operator"
 
-ADD     operator  csi-operator
+ADD     controller  node-controller
 
-ENTRYPOINT ["/csi-operator"]
+ENTRYPOINT ["/node-controller"]

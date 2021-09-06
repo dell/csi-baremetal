@@ -49,7 +49,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"

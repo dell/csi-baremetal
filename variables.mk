@@ -34,6 +34,7 @@ SCHEDULING_PKG := scheduling
 SCHEDULER_EXTENDER_PKG := extender
 SCHEDULER_EXTENDER_PATCHER_PKG := scheduler/patcher
 CR_CONTROLLERS := crcontrollers
+NODE_CONTROLLER_PKG := node
 
 ### components
 NODE             := node
@@ -42,7 +43,7 @@ CONTROLLER       := controller
 SCHEDULER        := scheduler
 EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
-OPERATOR      	 := operator
+NODE_CONTROLLER  := ${NODE_CONTROLLER_PKG}-${CONTROLLER}
 PLUGIN           := plugin
 
 BASE_DRIVE_MGR     := basemgr
