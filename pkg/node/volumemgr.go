@@ -369,6 +369,10 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 		m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
 	}
 	if drive != nil {
+		if driveStatus == apiV1.DriveUsageFailed {
+			eventMsg := fmt.Sprintf("Failed to release volume(s), %s", drive.GetDriveDescription())
+			m.recorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
+		}
 		drive.Spec.Usage = driveStatus
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
