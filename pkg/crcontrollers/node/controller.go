@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package operator
+package node
 
 import (
 	"context"
@@ -38,7 +38,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 const (
