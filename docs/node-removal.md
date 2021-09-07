@@ -8,24 +8,59 @@ Need to determine actions for CSI for node removing process
 
 ## Proposal
 
+### Automated
+
+#### User actions
+
+- CSI - components on CSI side including CSI Operator
+- Operator - application controller (or other service, which watch resources)
+
+Removal procedure:
+1. Taint a node with:
+- `node.dell.com/drain=drain:NoSchedule`
+2. Wait until Operator replaced PVs and destroyed pods
+3. Delete a node from kubernetes cluster
+4. CSI deletes all corresponding CR resources automatically (including Csibmnode)
+
+After removal the node can't be restored as in [replacement](https://github.com/dell/csi-baremetal/blob/master/docs/proposals/node-replacement.md)!
+
+#### Implementation
+
+Set label:
+1. CSI Operator must watch Nodes on taint changing events
+2. Label the Csibmnode with `node.dell.com/drain=drain` if the Node has taint `node.dell.com/drain=drain:NoSchedule`
+
+Unset label:
+1. CSI Operator must watch Nodes on taint changing events
+2. Check, if the Csibmnode has `node.dell.com/drain=drain` label and the Node with the same ID has no `node.dell.com/drain=drain:NoSchedule` taint
+3. Delete `node.dell.com/drain=drain` label
+
+Removal:
+1. CSI Operator must watch Nodes on deleting events
+2. Start removal procedure, if if the Csibmnode has `node.dell.com/drain=drain` label and the Node with the same ID has been deleted from kubernetes cluster
+3. Delete drives, ACs
+4. Patch and delete Volumes, Lvgs, Csibmnode
+
+### Manual
+
 If user aims to delete node from cluster, he/she must perform following steps for CSI.  
 
-### Node is healthy
+#### Node is healthy
 
-#### After node drain
+After node drain:
 1) Determine removing Node UUID 
 2) Delete PVCs used by Pods, which were run on deleted node
 
-### Node is unhealthy
+#### Node is unhealthy
 
-#### Before node deletion: 
+Before node deletion:
 1) Determine removing Node UUID 
 
-#### After node deletion: 
+After node deletion:
 1) Delete PVCs used by Pods, which were run on deleted node
 
-### Common actions
-#### After node deletion: 
+#### User actions
+After node deletion:
 1) Patch according Volumes custom resources with empty finalizer  
 ```
 kubectl get volume | grep <node_id> | awk '{print $1}' | xargs kubectl patch volume --type merge -p '{"metadata":{"finalizers":null}}'
@@ -69,4 +104,7 @@ There is no problem with compatibility
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
 ISSUE-1 | Should we mark drives as OFFLINE instead of removing  |  | Open  |   
-ISSUE-2 | Should we marked volumes as INOPERATIVE instead of removing?  |  | Open  |   
+ISSUE-2 | Should we marked volumes as INOPERATIVE instead of removing?  |  | Open  |
+ISSUE-3 | Should we do node removal procedure in node-controller? | Node-controller reconciles Csibmnodes and nodes already | Open |
+ISSUE-4 | Should we delete related PVs and PVCs? |  | Open  |
+ISSUE-5 | We don't provide any procedure to remove a node without deleting it from cluster |  | Open |
