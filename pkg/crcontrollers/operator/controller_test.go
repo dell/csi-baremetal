@@ -427,6 +427,34 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		_, ok = nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
 		assert.False(t, ok)
 	})
+
+	t.Run("Delete bmnode related with removed k8snode", func(t *testing.T) {
+		var (
+			c           = setup(t)
+			k8sNodeName = "k8s-node"
+			bmNode      = testCSIBMNode1.DeepCopy()
+		)
+
+		c.cache.put(k8sNodeName, bmNode.Name)
+		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
+		bmNode.Finalizers = []string{"csibm-finalizer"}
+
+		createObjects(t, c.k8sClient, bmNode)
+		res, err := c.reconcileForCSIBMNode(bmNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		bmNodesList := &nodecrd.NodeList{}
+		assert.Nil(t, c.k8sClient.ReadList(testCtx, bmNodesList))
+		assert.Equal(t, 1, len(bmNodesList.Items))
+
+		bmNode = &bmNodesList.Items[0]
+		assert.Nil(t, bmNode.GetFinalizers())
+		_, ok := c.cache.bmToK8sNode[bmNode.Name]
+		assert.False(t, ok)
+		_, ok = c.cache.k8sToBMNode[k8sNodeName]
+		assert.False(t, ok)
+	})
 }
 
 func Test_checkAnnotationAndLabels(t *testing.T) {
