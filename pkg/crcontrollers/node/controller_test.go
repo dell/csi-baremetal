@@ -1,4 +1,4 @@
-package operator
+package node
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 var (

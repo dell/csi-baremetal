@@ -9,13 +9,18 @@ metadata:
   name: logicalvolumegroups.csi-baremetal.dell.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.Health
-    description: LVG health status
-    name: HEALTH
-    type: string
   - JSONPath: .spec.Size
     description: Size of Logical volume group
     name: SIZE
+    type: string
+  - JSONPath: .spec.Health
+    description: LVG health
+    name: HEALTH
+    type: string
+  - JSONPath: .spec.Status
+    description: LVG status
+    name: Status
+    priority: 1
     type: string
   - JSONPath: .spec.Locations
     description: LVG drives locations list
@@ -24,6 +29,11 @@ spec:
   - JSONPath: .spec.Node
     description: LVG node location
     name: NODE
+    type: string
+  - JSONPath: .spec.VolumeRefs
+    description: Volume references
+    name: VOLUMES
+    priority: 1
     type: string
   group: csi-baremetal.dell.com
   names:
