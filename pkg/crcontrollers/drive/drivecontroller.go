@@ -348,6 +348,8 @@ func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDr
 		if drive.Name == curDrive.Name {
 			continue
 		}
+		log.Infof("DRIVE - " + drive.Name)
+		log.Infof("DRIVE - " + drive.Spec.GetUsage())
 		if drive.Spec.GetUsage() == apiV1.DriveUsageRemoved {
 			log.Infof("Drive %s is still in REMOVED. Decline node locate stop request.", drive.Name)
 			return nil
