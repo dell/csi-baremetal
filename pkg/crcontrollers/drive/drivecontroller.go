@@ -219,6 +219,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 	case apiV1.DriveUsageRemoved:
 		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
+			// try to stop node LED
+			if err := c.locateNodeLED(ctx, log, drive); err != nil {
+				return ignore, err
+			}
 			return remove, nil
 		}
 	case apiV1.DriveUsageFailed:
@@ -331,4 +335,30 @@ func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, driv
 		eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
 		c.eventRecorder.Eventf(drive, eventing.DriveReadyForPhysicalRemoval, eventMsg)
 	}
+}
+
+func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
+	driveList := &drivecrd.DriveList{}
+	if err := c.client.ReadList(ctx, driveList); err != nil {
+		log.Errorf("Unable to read Drive List")
+		return err
+	}
+
+	for _, drive := range driveList.Items {
+		if drive.Name == curDrive.Name {
+			continue
+		}
+		if drive.Spec.GetUsage() == apiV1.DriveUsageRemoved {
+			log.Infof("Drive %s is still in REMOVED. Decline node locate stop request.", drive.Name)
+			return nil
+		}
+	}
+
+	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStop})
+	if err != nil {
+		log.Errorf("Failed to disable node locate: %s", err.Error())
+		return err
+	}
+
+	return nil
 }
