@@ -129,6 +129,12 @@ func (mgr *IDRACManager) Locate(serialNumber string, action int32) (int32, error
 	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
 }
 
+// LocateNode implements LocateNode method of DriveManager interface
+func (mgr *IDRACManager) LocateNode(action int32) error {
+	// not implemented
+	return status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
+}
+
 // getControllerURLs returns slice of all controllers url in Storage
 func (mgr *IDRACManager) getControllerURLs() []string {
 	endpoint := fmt.Sprintf("https://%s%s", mgr.ip, storageURL)
