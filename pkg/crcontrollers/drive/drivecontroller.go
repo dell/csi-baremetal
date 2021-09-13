@@ -339,7 +339,7 @@ func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, driv
 
 func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
 	driveList := &drivecrd.DriveList{}
-	if err := c.client.ReadList(ctx, &drivecrd.Drive{}); err != nil {
+	if err := c.client.ReadList(ctx, driveList); err != nil {
 		log.Errorf("Unable to read Drive List")
 		return err
 	}
@@ -348,8 +348,6 @@ func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDr
 		if drive.Name == curDrive.Name {
 			continue
 		}
-		log.Infof("DRIVE - " + drive.Name)
-		log.Infof("DRIVE - " + drive.Spec.GetUsage())
 		if drive.Spec.GetUsage() == apiV1.DriveUsageRemoved {
 			log.Infof("Drive %s is still in REMOVED. Decline node locate stop request.", drive.Name)
 			return nil
