@@ -83,5 +83,5 @@ func (svc *DriveServiceServerImpl) LocateNode(ctx context.Context, req *api.Node
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return nil, nil
+	return new(api.Empty), nil
 }
