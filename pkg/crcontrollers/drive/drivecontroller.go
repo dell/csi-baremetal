@@ -356,7 +356,7 @@ func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDr
 
 	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStop})
 	if err != nil {
-		log.Errorf("Failed to disable node locate")
+		log.Errorf("Failed to disable node locate: %s", err.Error())
 		return err
 	}
 
