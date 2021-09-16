@@ -56,6 +56,8 @@ const (
 
 	// AppLabelKey matches CSI CRs with csi-baremetal app
 	AppLabelKey = "app.kubernetes.io/name"
+	// AppLabelShortKey matches CSI CRs with csi-baremetal app
+	AppLabelShortKey = "app"
 	// AppLabelValue matches CSI CRs with csi-baremetal app
 	AppLabelValue = "csi-baremetal"
 )
@@ -449,7 +451,10 @@ func PrepareScheme() (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-// constructAppMap creates the map contains app label
+// constructAppMap creates the map contains app labels
 func constructAppMap() map[string]string {
-	return map[string]string{AppLabelKey: AppLabelValue}
+	return map[string]string{
+		AppLabelKey:      AppLabelValue,
+		AppLabelShortKey: AppLabelValue,
+	}
 }
