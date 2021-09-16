@@ -81,7 +81,7 @@ func InitKubeCache(logger *logrus.Logger, stopCH <-chan struct{}, objects ...run
 		return nil, err
 	}
 	for _, obj := range objects {
-		_, err := k8sCache.GetInformer(obj)
+		_, err := k8sCache.GetInformer(context.TODO(), obj)
 		if err != nil {
 			logger.Errorf("fail to get cache informer for CR, error: %v", err)
 			return nil, err
