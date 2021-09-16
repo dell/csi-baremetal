@@ -23,14 +23,12 @@ require (
 	k8s.io/api v1.18.19
 	k8s.io/apimachinery v0.22.1
 	k8s.io/client-go v1.18.19
-	k8s.io/kubernetes v1.18.19
 	k8s.io/kube-scheduler v0.18.19
 	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
 	sigs.k8s.io/controller-runtime v0.6.0
 )
 
 replace (
-	github.com/coreos/etcd v3.3.17+incompatible => github.com/coreos/etcd v3.3.4+incompatible
 	k8s.io/api => k8s.io/api v0.18.19
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.19
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.19
@@ -55,5 +53,4 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.18.19
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.18.19
 	k8s.io/sample-controller => k8s.io/sample-controller v0.18.19
-	google.golang.org/grpc => google.golang.org/grpc v1.23.1
 )
