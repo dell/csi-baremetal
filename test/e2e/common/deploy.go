@@ -129,6 +129,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		seReadinessTimeout = 3 // Minutes
 		installArgs        = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
+			"--set scheduler.patcher.enable=true "+
 			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+

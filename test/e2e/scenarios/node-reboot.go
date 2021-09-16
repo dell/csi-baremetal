@@ -120,10 +120,10 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 			framework.Failf("Node %s still NotReady", containerToStop)
 		}
 
-		// wait until pod become ready
-		podReadyErr := e2epod.WaitForPodsReady(f.ClientSet, ns, pod.Name, 2)
-		framework.ExpectNoError(podReadyErr)
-		e2elog.Logf("Pod %s became ready again", pod.Name)
+		// wait 5 minutes until all pods become ready
+		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 0, 0, 5*time.Minute, nil)
+		framework.ExpectNoError(err)
+		e2elog.Logf("All pods are ready after node restart")
 
 		// check that pod consume same pvc
 		var boundAgain = false
