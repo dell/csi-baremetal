@@ -1,6 +1,6 @@
 module github.com/dell/csi-baremetal
 
-go 1.16
+go 1.15
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.3
