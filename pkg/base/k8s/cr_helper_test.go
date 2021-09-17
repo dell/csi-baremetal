@@ -67,11 +67,13 @@ func TestCRHelper_GetVolumeByLocation(t *testing.T) {
 
 	// lvm
 	ch = setup()
-	expectedV.Spec.Location = testLVGCR.Name
-	expectedV.Spec.LocationType = v1.LocationTypeLVM
-	err = ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
+	testVolume := testVolumeCR.DeepCopy()
+	testVolume.Spec.Location = testLVGCR.Name
+	testVolume.Spec.LocationType = v1.LocationTypeLVM
+	err = ch.k8sClient.CreateCR(testCtx, testVolume.Name, testVolume)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, testLVGCR.Name, &testLVGCR)
+	testLVGCR1 := testLVGCR.DeepCopy()
+	err = ch.k8sClient.CreateCR(testCtx, testLVGCR.Name, testLVGCR1)
 	assert.Nil(t, err)
 	currentVols, _ = ch.GetVolumesByLocation(ctx, testDriveLocation1)
 	assert.NotEmpty(t, currentVols)
@@ -113,13 +115,15 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 	expectedV := testVolumeCR.DeepCopy()
 	expectedV.Spec.Location = testLVGCR.Name
 	expectedV.Spec.LocationType = v1.LocationTypeLVM
-	expectedLVG := testLVGCR.DeepCopy()
-	expectedLVG.Spec.Locations = []string{testDriveCR.Name}
 	err := ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
 	assert.Nil(t, err)
+	// test LVG
+	expectedLVG := testLVGCR.DeepCopy()
+	expectedLVG.Spec.Locations = []string{testDriveCR.Name}
 	err = ch.k8sClient.CreateCR(testCtx, expectedLVG.Name, expectedLVG)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	testDriveCR1 := testDriveCR.DeepCopy()
+	err = ch.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR1)
 	assert.Nil(t, err)
 	drive, err := ch.GetDriveCRByVolume(expectedV)
 	assert.NotNil(t, drive)
@@ -216,7 +220,7 @@ func TestCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
 // test Volume operational status update
 func TestCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 	mock := setup()
-	err := mock.k8sClient.CreateCR(testCtx, testVolume.Name, &testVolume)
+	err := mock.k8sClient.CreateCR(testCtx, testVolume.Name, testVolume.DeepCopy())
 	assert.Nil(t, err)
 
 	err = mock.UpdateVolumesOpStatusOnNode(testVolume.Spec.NodeId, v1.OperationalStatusMissing)
