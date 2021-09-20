@@ -170,7 +170,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 		if allFound {
 			drive.Spec.Usage = apiV1.DriveUsageReleased
-			eventMsg := fmt.Sprintf("Drive is ready for removal, %s", drive.GetDriveDescription())
+			eventMsg := fmt.Sprintf("Drive is ready for user to follow documented replacement procedure. %s", drive.GetDriveDescription())
 			c.eventRecorder.Eventf(drive, eventing.DriveReadyForRemoval, eventMsg)
 			toUpdate = true
 		}
