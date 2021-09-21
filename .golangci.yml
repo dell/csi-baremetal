@@ -39,7 +39,6 @@ linters:
     - gosimple
     - govet
     - ineffassign
-    - interfacer
     - lll
     - megacheck
     - misspell
