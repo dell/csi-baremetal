@@ -46,8 +46,9 @@ type nodeCapacity struct {
 	acsOrder scToACOrder
 }
 
+// String is pretty print function for nodeCapacity
 func (nc *nodeCapacity) String() string {
-	return fmt.Sprintf("acs: %+v", nc.acsOrder)
+	return fmt.Sprintf("ACs: %+v", nc.acsOrder)
 }
 
 func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.AvailableCapacityReservation) *nodeCapacity {
