@@ -17,6 +17,7 @@
 package capacityplanner
 
 import (
+	"fmt"
 	"sort"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
@@ -43,6 +44,10 @@ type nodeCapacity struct {
 	reservedACs reservedACs
 	// Storage Class Name: the list of AC names, which can be selected
 	acsOrder scToACOrder
+}
+
+func (nc *nodeCapacity) String() string {
+	return fmt.Sprintf("acs: %+v", nc.acsOrder)
 }
 
 func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.AvailableCapacityReservation) *nodeCapacity {
