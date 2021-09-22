@@ -342,17 +342,13 @@ var _ = Describe("Working with CRD", func() {
 			err := k8sclient.CreateCR(testCtx, testACName, acCR)
 			Expect(err).To(BeNil())
 
+			// update
 			newSize := int64(1024 * 105)
 			acCR.Spec.Size = newSize
 
 			err = k8sclient.UpdateCR(testCtx, acCR)
 			Expect(err).To(BeNil())
 			Expect(acCR.Spec.Size).To(Equal(newSize))
-
-			acCopy := acCR.DeepCopy()
-			err = k8sclient.Update(testCtx, acCR)
-			Expect(err).To(BeNil())
-			Expect(acCR.Spec).To(Equal(acCopy.Spec))
 		})
 
 		It("Should Drive update successfully", func() {
@@ -360,16 +356,14 @@ var _ = Describe("Working with CRD", func() {
 			err := k8sclient.CreateCR(testCtx, testUUID, driveCR)
 			Expect(err).To(BeNil())
 
-			driveCR.Spec.Health = apiV1.HealthBad
-
-			err = k8sclient.UpdateCR(testCtx, driveCR)
+			driveCRUpdate := &drivecrd.Drive{}
+			err = k8sclient.ReadCR(testCtx, driveCR.Name, "", driveCRUpdate)
 			Expect(err).To(BeNil())
-			Expect(driveCR.Spec.Health).To(Equal(apiV1.HealthBad))
+			driveCRUpdate.Spec.Health = apiV1.HealthBad
 
-			driveCopy := driveCR.DeepCopy()
-			err = k8sclient.Update(testCtx, driveCR)
+			err = k8sclient.UpdateCR(testCtx, driveCRUpdate)
 			Expect(err).To(BeNil())
-			Expect(driveCR.Spec).To(Equal(driveCopy.Spec))
+			Expect(driveCRUpdate.Spec.Health).To(Equal(apiV1.HealthBad))
 		})
 	})
 
