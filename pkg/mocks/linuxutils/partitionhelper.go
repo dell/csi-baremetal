@@ -33,8 +33,8 @@ func (m *MockWrapPartition) DeviceHasPartitionTable(device string) (bool, error)
 }
 
 // DeviceHasPartitions is a mock implementations
-func (m *MockWrapPartition) DeviceHasPartitions(device, serialNumber string) (bool, error) {
-	args := m.Mock.Called(device, serialNumber)
+func (m *MockWrapPartition) DeviceHasPartitions(device string) (bool, error) {
+	args := m.Mock.Called(device)
 
 	return args.Bool(0), args.Error(1)
 }

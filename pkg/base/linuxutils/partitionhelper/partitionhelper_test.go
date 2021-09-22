@@ -252,7 +252,7 @@ func TestLinuxUtils_DeviceHasPartitions(t *testing.T) {
 		}}
 		mockLsblk.On("GetBlockDevices", device).
 			Return([]lsblk.BlockDevice{blkDev1}, nil).Times(1)
-		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
+		hasPart, err := p.DeviceHasPartitions(device)
 		assert.Nil(t, err)
 		assert.True(t, hasPart)
 	})
@@ -261,7 +261,7 @@ func TestLinuxUtils_DeviceHasPartitions(t *testing.T) {
 		blkDev1 := lsblk.BlockDevice{Serial: serialNumber}
 		mockLsblk.On("GetBlockDevices", device).
 			Return([]lsblk.BlockDevice{blkDev1}, nil).Times(1)
-		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
+		hasPart, err := p.DeviceHasPartitions(device)
 		assert.Nil(t, err)
 		assert.False(t, hasPart)
 	})
@@ -269,22 +269,14 @@ func TestLinuxUtils_DeviceHasPartitions(t *testing.T) {
 	t.Run("Command failed", func(t *testing.T) {
 		mockLsblk.On("GetBlockDevices", device).
 			Return(nil, errors.New("error")).Times(1)
-		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
+		hasPart, err := p.DeviceHasPartitions(device)
 		assert.NotNil(t, err)
 		assert.False(t, hasPart)
 	})
 	t.Run("Bad output", func(t *testing.T) {
 		mockLsblk.On("GetBlockDevices", device).
 			Return(nil, nil).Times(1)
-		hasPart, err := p.DeviceHasPartitions(device, serialNumber)
-		assert.NotNil(t, err)
-		assert.False(t, hasPart)
-	})
-	t.Run("Different serial numbers", func(t *testing.T) {
-		blkDev1 := lsblk.BlockDevice{Serial: serialNumber}
-		mockLsblk.On("GetBlockDevices", device).
-			Return([]lsblk.BlockDevice{blkDev1}, nil).Times(1)
-		hasPart, err := p.DeviceHasPartitions(device, "test2")
+		hasPart, err := p.DeviceHasPartitions(device)
 		assert.NotNil(t, err)
 		assert.False(t, hasPart)
 	})
