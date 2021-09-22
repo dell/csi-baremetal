@@ -24,8 +24,7 @@ BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 ### third-party components version
 CSI_PROVISIONER_TAG := v1.6.0
 CSI_RESIZER_TAG     := v1.1.0
-CSI_REGISTRAR_TAG   := v1.0.1-gke.0
-CSI_ATTACHER_TAG    := v1.0.1
+CSI_REGISTRAR_TAG   := v1.3.0
 LIVENESS_PROBE_TAG  := v2.1.0
 BUSYBOX_TAG         := 1.29
 
@@ -55,7 +54,6 @@ DRIVE_MANAGER_TYPE := ${BASE_DRIVE_MGR}
 CSI_PROVISIONER := csi-provisioner
 CSI_REGISTRAR   := csi-node-driver-registrar
 CSI_RESIZER     := csi-resizer
-CSI_ATTACHER    := csi-attacher
 LIVENESS_PROBE  := livenessprobe
 BUSYBOX         := busybox
 

@@ -67,7 +67,6 @@ kind-pull-images: kind-pull-sidecar-images
 kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	docker pull ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	docker pull ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	docker pull ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker pull ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
@@ -77,7 +76,6 @@ kind-pull-sidecar-images:
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	docker tag ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG} ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	docker tag ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG} ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	docker tag ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG} ${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker tag ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker tag ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG} ${BUSYBOX}:${BUSYBOX_TAG}
@@ -95,7 +93,6 @@ kind-tag-images:
 kind-load-images:
 	$(KIND) load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	$(KIND) load docker-image ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	$(KIND) load docker-image ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	$(KIND) load docker-image ${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	$(KIND) load docker-image ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	$(KIND) load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
