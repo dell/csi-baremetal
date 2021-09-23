@@ -170,3 +170,84 @@ func TestFSOperationsImpl_MountWithCheck_Fail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, unmountErr, err)
 }
+
+func TestFSOperationsImpl_CreateFSIfNotExist_NoFS(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		fsType = "xfs"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	wrapFS.On("GetFSType", path).Return("", nil).Once()
+	wrapFS.On("CreateFS", fs.FileSystem(fsType), path).Return(nil).Once()
+
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	assert.Nil(t, err)
+}
+
+func TestFSOperationsImpl_CreateFSIfNotExist_FSExists(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		fsType = "xfs"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	wrapFS.On("GetFSType", path).Return(fsType, nil).Once()
+
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	assert.Nil(t, err)
+}
+
+func TestFSOperationsImpl_CreateFSIfNotExist_OtherFS(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		fsType = "xfs"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	wrapFS.On("GetFSType", path).Return("other_FS", nil).Once()
+
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	assert.NotNil(t, err)
+}
+
+func TestFSOperationsImpl_CreateFSIfNotExist_CheckError(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		fsType = "xfs"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	wrapFS.On("GetFSType", path).Return("", errors.New("some_error")).Once()
+
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	assert.NotNil(t, err)
+}
+func TestFSOperationsImpl_CreateFSIfNotExist_CreateError(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		fsType = "xfs"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	wrapFS.On("GetFSType", path).Return("", nil).Once()
+	wrapFS.On("CreateFS", fs.FileSystem(fsType), path).Return(errors.New("some_error")).Once()
+
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	assert.NotNil(t, err)
+}
