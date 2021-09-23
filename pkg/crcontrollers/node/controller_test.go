@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	testNS     = "default"
+	testNS     = ""
 	testCtx    = context.Background()
 	testLogger = logrus.New()
 
@@ -33,7 +33,6 @@ var (
 		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "csibmnode-1",
-			Namespace: testNS,
 		},
 		Spec: api.Node{
 			UUID: "ffff-aaaa-bbbb",
@@ -68,7 +67,6 @@ var (
 	testNode1     = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-1",
-			Namespace:   testNS,
 			Annotations: map[string]string{},
 			Labels:      map[string]string{}},
 		Status: coreV1.NodeStatus{
@@ -78,7 +76,6 @@ var (
 	testNode2 = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-2",
-			Namespace:   testNS,
 			Annotations: map[string]string{},
 			Labels:      map[string]string{}},
 		Status: coreV1.NodeStatus{
@@ -155,7 +152,7 @@ func TestReconcile(t *testing.T) {
 
 		createObjects(t, c.k8sClient, bmNode, node)
 
-		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: node.Name, Namespace: testNS}})
+		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: node.Name}})
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
