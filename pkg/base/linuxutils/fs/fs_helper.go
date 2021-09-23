@@ -78,7 +78,8 @@ type WrapFS interface {
 	RmDir(src string) error
 	CreateFS(fsType FileSystem, device string) error
 	WipeFS(device string) error
-	GetFSType(device string) (FileSystem, error)
+	// GetFSType(device string) (FileSystem, error)
+
 	// Mount operations
 	IsMounted(src string) (bool, error)
 	FindMountPoint(target string) (string, error)

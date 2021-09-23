@@ -29,13 +29,14 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lvm"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	uw "github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 // LVMProvisioner is a implementation of Provisioner interface
 // Work with volumes based on Volume Groups
 type LVMProvisioner struct {
 	lvmOps   lvm.WrapLVM
-	fsOps    fs.WrapFS
+	fsOps    uw.FSOperations
 	crHelper *k8s.CRHelper
 	log      *logrus.Entry
 }
@@ -44,7 +45,7 @@ type LVMProvisioner struct {
 func NewLVMProvisioner(e command.CmdExecutor, k *k8s.KubeClient, log *logrus.Logger) *LVMProvisioner {
 	return &LVMProvisioner{
 		lvmOps:   lvm.NewLVM(e, log),
-		fsOps:    fs.NewFSImpl(e),
+		fsOps:    uw.NewFSOperationsImpl(e, log),
 		crHelper: k8s.NewCRHelper(k, log),
 		log:      log.WithField("component", "LVMProvisioner"),
 	}
@@ -85,7 +86,7 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
 	if vol.Mode == apiV1.ModeRAW {
 		return nil
 	}
-	return l.fsOps.CreateFS(fs.FileSystem(vol.Type), deviceFile)
+	return l.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), deviceFile)
 }
 
 // ReleaseVolume search volume group based on vol attributes, remove Logical Volume

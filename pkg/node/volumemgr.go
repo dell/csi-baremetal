@@ -457,6 +457,13 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 	}
 
 	volume.Spec.CSIStatus = newStatus
+
+	if volume.Spec.CSIStatus == apiV1.Created {
+		var updateErr error
+		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
+		return ctrl.Result{Requeue: true}, updateErr
+	}
+
 	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); updateErr != nil {
 		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
 		return ctrl.Result{Requeue: true}, updateErr
@@ -965,6 +972,11 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 	// Set disk's health status to volume CR
 	volumes, _ := m.cachedCrHelper.GetVolumesByLocation(ctx, cur.UUID)
 	for _, vol := range volumes {
+		// skip if health is not changed
+		if vol.Spec.Health == cur.Health {
+			ll.Infof("Volume %s status is already %s", vol.Name, cur.Health)
+			continue
+		}
 		ll.Infof("Setting updated status %s to volume %s", cur.Health, vol.Name)
 		// save previous health state
 		prevHealthState := vol.Spec.Health
