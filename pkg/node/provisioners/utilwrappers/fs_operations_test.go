@@ -235,6 +235,7 @@ func TestFSOperationsImpl_CreateFSIfNotExist_CheckError(t *testing.T) {
 	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
 	assert.NotNil(t, err)
 }
+
 func TestFSOperationsImpl_CreateFSIfNotExist_CreateError(t *testing.T) {
 	var (
 		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
