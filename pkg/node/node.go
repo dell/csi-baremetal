@@ -238,10 +238,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
-		//if err := s.k8sClient.UpdateCR(ctx, volumeCR); err == nil {
-		ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
-		resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
-		//}
+		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err == nil {
+			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
+			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
+		}
 	}
 
 	return resp, errToReturn

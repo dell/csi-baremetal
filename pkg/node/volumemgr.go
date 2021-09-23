@@ -457,13 +457,6 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 	}
 
 	volume.Spec.CSIStatus = newStatus
-
-	if volume.Spec.CSIStatus == apiV1.Created {
-		var updateErr error
-		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
-		return ctrl.Result{Requeue: true}, updateErr
-	}
-
 	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); updateErr != nil {
 		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
 		return ctrl.Result{Requeue: true}, updateErr

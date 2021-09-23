@@ -54,10 +54,8 @@ const (
 	RmDirCmdTmpl = "rm -rf %s"
 	// WipeFSCmdTmpl cmd for wiping FS on device
 	WipeFSCmdTmpl = wipefs + "-af %s" //
-	// DetectFSCmdTmpl cmd for detecting FS on device
+	// DetectFSCmdTmpl cmd for detecting FS on device GetFSTypeCmdTmpl
 	DetectFSCmdTmpl = "lsblk %s --output FSTYPE --noheadings"
-	// GetFSTypeCmdTmpl cmd for retrieving FS type
-	GetFSTypeCmdTmpl = wipefs + "%s --output TYPE --noheadings"
 	// MountInfoFile "/proc/mounts" path
 	MountInfoFile = "/proc/self/mountinfo"
 	// FindMntCmdTmpl find source device for target mount path cmd
@@ -78,14 +76,12 @@ type WrapFS interface {
 	RmDir(src string) error
 	CreateFS(fsType FileSystem, device string) error
 	WipeFS(device string) error
-	// GetFSType(device string) (FileSystem, error)
-
+	DeviceFs(device string) (string, error)
 	// Mount operations
 	IsMounted(src string) (bool, error)
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
-	DeviceFs(device string) (string, error)
 }
 
 // WrapFSImpl is a WrapFS implementer
@@ -222,25 +218,6 @@ func (h *WrapFSImpl) WipeFS(device string) error {
 		return fmt.Errorf("failed to wipe file system on %s: %v", device, err)
 	}
 	return nil
-}
-
-// GetFSType returns FS type on the device or error
-func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
-	/*
-		Example of output:
-			~# wipefs /dev/mvg/lv1 --output TYPE --noheadings
-			   ext4
-	*/
-	cmd := fmt.Sprintf(GetFSTypeCmdTmpl, device)
-
-	stdout, _, err := h.e.RunCmd(cmd,
-		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(GetFSTypeCmdTmpl, ""))))
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve FS type for device %s: %v", device, err)
-	}
-
-	return FileSystem(strings.TrimSpace(stdout)), nil
 }
 
 // IsMounted checks if the path is presented in /proc/self/mountinfo
