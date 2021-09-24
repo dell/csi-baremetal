@@ -688,7 +688,11 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toUpdate := d
 			// TODO: which operational status should be in case when there is drive CR that doesn't have corresponding drive from drivemgr response
 			toUpdate.Spec.Status = apiV1.DriveStatusOffline
-			toUpdate.Spec.Health = apiV1.HealthUnknown
+			if value, ok := d.GetAnnotations()[driveHealthOverrideAnnotation]; ok {
+				m.overrideDriveHealth(&d.Spec, value, d.Name)
+			} else {
+				toUpdate.Spec.Health = apiV1.HealthUnknown
+			}
 			if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 				ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
 				updates.AddNotChanged(previousState)
