@@ -43,7 +43,9 @@ kubectl taint node <node name> drain=planned-downtine:NoSchedule-
 
 ## Proposal
 
-[A precise statement of the proposed change.]
+* Who handle reject annotations?
+* What can be reasons for reject? 
+* Is it enought kill pods for enter to MM?
 
 ## Rationale
 
