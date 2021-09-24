@@ -35,6 +35,8 @@ type FSOperations interface {
 	MountFakeTmpfs(volumeID, dst string) error
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
+	// CreateFSIfNotExist checks FS and creates one if not exist
+	CreateFSIfNotExist(fsType fs.FileSystem, device string) error
 	fs.WrapFS
 }
 
@@ -156,7 +158,9 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 		CMD example:
 			mount -t tmpfs -o size=1M,ro <volumeID> <dst>
 	*/
-	ll := fsOp.log.WithFields(logrus.Fields{"method": "FakeAttach"})
+	ll := fsOp.log.WithFields(logrus.Fields{
+		"method": "MountFakeTmpfs",
+	})
 
 	ll.Warningf("Simulate attachment")
 	_, err := os.Stat(dst)
@@ -171,4 +175,42 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 	}
 
 	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,ro")
+}
+
+// CreateFSIfNotExist checks FS and creates one if not exist
+/*
+	CMD example:
+		lsblk <device> --output FSTYPE --noheadings
+		# Check output
+
+		mkfs.<fsType> <device>
+*/
+func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device string) error {
+	ll := fsOp.log.WithFields(logrus.Fields{
+		"method": "CreateFSIfNotExist",
+	})
+
+	// check FS
+	existingFS, err := fsOp.GetFSType(device)
+	if err != nil {
+		ll.Errorf("Unable to check FS type on %s: %v", device, err)
+		return err
+	}
+	if fs.FileSystem(existingFS) == fsType {
+		ll.Warnf("FS on %s with type %s is already exist, skip creating", device, fs.FileSystem(existingFS))
+		return nil
+	}
+	if existingFS != "" {
+		ll.Errorf("device %s is not empty. Existing FS - %s", device, fsType)
+		return fmt.Errorf("device %s is not empty. Existing FS - %s", device, fsType)
+	}
+
+	// create FS
+	err = fsOp.CreateFS(fsType, device)
+	if err != nil {
+		ll.Errorf("Unable to create FS type %s on %s: %v", fsType, device, err)
+		return err
+	}
+
+	return nil
 }

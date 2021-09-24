@@ -188,28 +188,6 @@ func TestWipeFS(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestGetFSType(t *testing.T) {
-	var (
-		e          = &mocks.GoMockExecutor{}
-		fh         = NewFSImpl(e)
-		device     = "/dev/sda"
-		cmd        = fmt.Sprintf(GetFSTypeCmdTmpl, device)
-		expectedFS = "xfs"
-		currentFS  FileSystem
-		err        error
-	)
-
-	e.OnCommand(cmd).Return(expectedFS, "", nil).Times(1)
-	currentFS, err = fh.GetFSType(device)
-	assert.Nil(t, err)
-	assert.Equal(t, FileSystem(expectedFS), currentFS)
-
-	// cmd failed
-	e.OnCommand(cmd).Return("", "", testError).Times(1)
-	_, err = fh.GetFSType(device)
-	assert.NotNil(t, err)
-}
-
 func TestMount(t *testing.T) {
 	var (
 		e   = &mocks.GoMockExecutor{}
@@ -249,26 +227,26 @@ func TestUnmount(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Test_DeviceHasFs(t *testing.T) {
+func Test_GetFSType(t *testing.T) {
 	var (
 		e    = &mocks.GoMockExecutor{}
 		fh   = NewFSImpl(e)
 		path = "/dev/sda"
-		cmd  = fmt.Sprintf(DetectFSCmdTmpl, path)
+		cmd  = fmt.Sprintf(GetFSTypeCmdTmpl, path)
 	)
 
 	e.OnCommand(cmd).Return("", "", nil).Times(1)
-	hasData, err := fh.DeviceFs(path)
+	hasData, err := fh.GetFSType(path)
 	assert.Nil(t, err)
 	assert.Equal(t, "", hasData)
 
 	e.OnCommand(cmd).Return("xfs", "", testError).Times(1)
-	hasData, err = fh.DeviceFs(path)
+	hasData, err = fh.GetFSType(path)
 	assert.NotNil(t, err)
 	assert.Equal(t, "", hasData)
 
 	e.OnCommand(cmd).Return("xfs", "", nil).Times(1)
-	hasData, err = fh.DeviceFs(path)
+	hasData, err = fh.GetFSType(path)
 	assert.Nil(t, err)
 	assert.Equal(t, "xfs", hasData)
 }

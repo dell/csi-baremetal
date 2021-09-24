@@ -22,7 +22,7 @@ func Test_DiscoverData(t *testing.T) {
 			lvm          = mocklu.MockWrapLVM{}
 			discoverData = NewDataDiscover(&fs, &part, &lvm)
 		)
-		fs.On("DeviceFs", device).Return("xfs", nil).Times(1)
+		fs.On("GetFSType", device).Return("xfs", nil).Times(1)
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
 		assert.Nil(t, err)
 		assert.True(t, discoverResult.HasData)
@@ -34,7 +34,7 @@ func Test_DiscoverData(t *testing.T) {
 			lvm          = mocklu.MockWrapLVM{}
 			discoverData = NewDataDiscover(&fs, &part, &lvm)
 		)
-		fs.On("DeviceFs", device).Return(" ", nil).Times(1)
+		fs.On("GetFSType", device).Return(" ", nil).Times(1)
 		part.On("DeviceHasPartitionTable", device).Return(true, nil).Times(1)
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
 		assert.Nil(t, err)
@@ -47,7 +47,7 @@ func Test_DiscoverData(t *testing.T) {
 			lvm          = mocklu.MockWrapLVM{}
 			discoverData = NewDataDiscover(&fs, &part, &lvm)
 		)
-		fs.On("DeviceFs", device).Return("", nil).Times(1)
+		fs.On("GetFSType", device).Return("", nil).Times(1)
 		part.On("DeviceHasPartitionTable", device).Return(false, nil).Times(1)
 		part.On("DeviceHasPartitions", device).Return(true, nil).Times(1)
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
@@ -62,7 +62,7 @@ func Test_DiscoverData(t *testing.T) {
 			lvm          = mocklu.MockWrapLVM{}
 			discoverData = NewDataDiscover(&fs, &part, &lvm)
 		)
-		fs.On("DeviceFs", device).Return("", nil).Times(1)
+		fs.On("GetFSType", device).Return("", nil).Times(1)
 		part.On("DeviceHasPartitionTable", device).Return(false, nil).Times(1)
 		part.On("DeviceHasPartitions", device).Return(false, nil).Times(1)
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
@@ -77,7 +77,7 @@ func Test_DiscoverData(t *testing.T) {
 			lvm          = mocklu.MockWrapLVM{}
 			discoverData = NewDataDiscover(&fs, &part, &lvm)
 		)
-		fs.On("DeviceFs", device).Return("", errors.New("error")).Times(1)
+		fs.On("GetFSType", device).Return("", errors.New("error")).Times(1)
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
 		assert.NotNil(t, err)
 		assert.Nil(t, discoverResult)
@@ -89,7 +89,7 @@ func Test_DiscoverData(t *testing.T) {
 			lvm          = mocklu.MockWrapLVM{}
 			discoverData = NewDataDiscover(&fs, &part, &lvm)
 		)
-		fs.On("DeviceFs", device).Return("", nil).Times(1)
+		fs.On("GetFSType", device).Return("", nil).Times(1)
 		part.On("DeviceHasPartitionTable", device).Return(false, errors.New("error")).Times(1)
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
 		assert.NotNil(t, err)
@@ -102,7 +102,7 @@ func Test_DiscoverData(t *testing.T) {
 			lvm          = mocklu.MockWrapLVM{}
 			discoverData = NewDataDiscover(&fs, &part, &lvm)
 		)
-		fs.On("DeviceFs", device).Return("", nil).Times(1)
+		fs.On("GetFSType", device).Return("", nil).Times(1)
 		part.On("DeviceHasPartitionTable", device).Return(false, nil).Times(1)
 		part.On("DeviceHasPartitions", device).Return(false, errors.New("error")).Times(1)
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
