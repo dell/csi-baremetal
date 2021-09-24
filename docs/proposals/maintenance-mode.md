@@ -46,8 +46,14 @@ kubectl taint node <node name> drain=planned-downtine:NoSchedule-
 * What are prechecks needed to start MM?
   * Is node already in MM
 * What can be reasons for reject? 
-* Is it enought kill pods for enter to MM?
+* Is it enought kill pods for enter to MM? 
 * Who handle reject annotations?
+
+* Events:
+  * Enter TMM
+  * Reject TMM
+  * Exit TMM  
+
 
 ## Rationale
 
