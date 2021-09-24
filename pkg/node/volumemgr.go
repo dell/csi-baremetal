@@ -693,6 +693,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			} else {
 				toUpdate.Spec.Health = apiV1.HealthUnknown
 			}
+			ll.Infof("Failed to update drive CR %+v", toUpdate)
 			if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 				ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
 				updates.AddNotChanged(previousState)
