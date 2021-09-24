@@ -139,7 +139,7 @@ func (h *WrapFSImpl) MkDir(src string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, "")))); err != nil {
-		return fmt.Errorf("failed to create dir %s: %v", src, err)
+		return fmt.Errorf("failed to create dir %s: %w", src, err)
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func (h *WrapFSImpl) RmDir(src string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(RmDirCmdTmpl, "")))); err != nil {
-		return fmt.Errorf("failed to delete path %s: %v", src, err)
+		return fmt.Errorf("failed to delete path %s: %w", src, err)
 	}
 	return nil
 }
@@ -201,7 +201,7 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, "", "")))); err != nil {
-		return fmt.Errorf("failed to create file system on %s: %v", device, err)
+		return fmt.Errorf("failed to create file system on %s: %w", device, err)
 	}
 	return nil
 }
@@ -215,7 +215,7 @@ func (h *WrapFSImpl) WipeFS(device string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(WipeFSCmdTmpl, "")))); err != nil {
-		return fmt.Errorf("failed to wipe file system on %s: %v", device, err)
+		return fmt.Errorf("failed to wipe file system on %s: %w", device, err)
 	}
 	return nil
 }
@@ -229,7 +229,7 @@ func (h *WrapFSImpl) IsMounted(path string) (bool, error) {
 
 	procMounts, err := util.ConsistentRead(MountInfoFile, 5, time.Millisecond)
 	if err != nil || len(procMounts) == 0 {
-		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %v", path, err)
+		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %w", path, err)
 	}
 
 	// parse /proc/mounts content and search path entry
@@ -306,7 +306,7 @@ func (h *WrapFSImpl) GetFSType(device string) (string, error) {
 	if stdout, _, err = h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(fmt.Sprintf(GetFSTypeCmdTmpl, ""))); err != nil {
-		return "", fmt.Errorf("failed to detect file system on %s: %v", device, err)
+		return "", fmt.Errorf("failed to detect file system on %s: %w", device, err)
 	}
 	return strings.TrimSpace(stdout), err
 }

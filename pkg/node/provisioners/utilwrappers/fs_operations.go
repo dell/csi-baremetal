@@ -193,7 +193,7 @@ func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device st
 	// check FS
 	existingFS, err := fsOp.GetFSType(device)
 	if err != nil {
-		ll.Errorf("Unable to check FS type on %s: %s", device, err)
+		ll.Errorf("Unable to check FS type on %s: %v", device, err)
 		return err
 	}
 	if fs.FileSystem(existingFS) == fsType {
@@ -208,7 +208,7 @@ func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device st
 	// create FS
 	err = fsOp.CreateFS(fsType, device)
 	if err != nil {
-		ll.Errorf("Unable to create FS type %s on %s: %s", fsType, device, err)
+		ll.Errorf("Unable to create FS type %s on %s: %v", fsType, device, err)
 		return err
 	}
 

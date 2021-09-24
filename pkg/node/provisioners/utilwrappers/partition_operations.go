@@ -112,7 +112,7 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 			ll.Infof("Partition has already prepared.")
 			p.Name = d.SearchPartName(p.Device, p.PartUUID)
 			if p.Name == "" {
-				return nil, fmt.Errorf("unable to determine partition name after it being created: %v", err)
+				return nil, fmt.Errorf("unable to determine partition name after it being created: %w", err)
 			}
 			return &p, nil
 		}
