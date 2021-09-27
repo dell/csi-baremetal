@@ -63,7 +63,7 @@ func TestDriveProvisioner_PrepareVolume_Success(t *testing.T) {
 		err                           error
 	)
 
-	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	var (
@@ -108,7 +108,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to read drive CR with name")
 
 	// add drive CR
-	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	// SearchDrivePath failed
@@ -147,7 +147,7 @@ func TestDriveProvisioner_ReleaseVolume_Success(t *testing.T) {
 		err                           error
 	)
 
-	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	var (
@@ -198,7 +198,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	assert.Error(t, err)
 	assert.EqualError(t, err, "unable to find drive by vol location")
 
-	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	// SearchDrivePath failed
@@ -262,7 +262,7 @@ func TestDriveProvisioner_GetVolumePath_Success(t *testing.T) {
 		err                      error
 	)
 
-	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	var (
@@ -294,7 +294,7 @@ func TestDriveProvisioner_GetVolumePath_Fail(t *testing.T) {
 	assert.Equal(t, "", fullPath)
 	assert.Contains(t, err.Error(), "unable to find drive by location")
 
-	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	// SearchDrivePath
