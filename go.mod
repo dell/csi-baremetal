@@ -27,6 +27,8 @@ require (
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.7.0
+	// ./bin/mockery --dir=/usr/share/go/pkg/mod/k8s.io/client-go\@v0.18.19/kubernetes/typed/core/v1/ --name=EventInterface
+	github.com/vektra/mockery/v2 v2.9.4 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
 	google.golang.org/grpc v1.26.0
