@@ -474,33 +474,47 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 		"volumeID": volume.Name,
 	})
 
-	var (
-		err       error
-		newStatus string
-	)
-	if err = m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
-		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
-		newStatus = apiV1.Failed
-		drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
-		if drive != nil {
-			drive.Spec.Usage = apiV1.DriveUsageFailed
-			if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
-				ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
-					drive.Name, drive.Spec.Usage, err)
-				return ctrl.Result{Requeue: true}, err
-			}
-			m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
-		}
-	} else {
-		ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
-		newStatus = apiV1.Removed
+	newStatus, err := m.performVolumeRemoving(ctx, volume)
+	if err != nil {
+		return ctrl.Result{Requeue: true}, err
 	}
+
 	volume.Spec.CSIStatus = newStatus
 	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
 		return ctrl.Result{Requeue: true}, updateErr
 	}
 	return ctrl.Result{}, err
+}
+
+func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volumecrd.Volume) (string, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method":   "performVolumeRemoving",
+		"volumeID": volume.Name,
+	})
+
+	if volume.Spec.GetOperationalStatus() == apiV1.OperationalStatusMissing {
+		ll.Warnf("Volume - %s is MISSING. Unable to perform deletion. Set status to Removed", volume.Spec.Id)
+		return apiV1.Removed, nil
+	}
+
+	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
+		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
+		drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
+		if drive != nil {
+			drive.Spec.Usage = apiV1.DriveUsageFailed
+			if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
+				ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
+					drive.Name, drive.Spec.Usage, err)
+				return "", err
+			}
+			m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
+		}
+		return apiV1.Failed, nil
+	}
+
+	ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
+	return apiV1.Removed, nil
 }
 
 // SetupWithManager registers VolumeManager to ControllerManager
@@ -1024,13 +1038,14 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
 		}
-		if _, ok := updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation]; ok {
-			m.createEventForDriveHealthOverridden(
-				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
-		}
 		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health {
-			m.createEventForDriveHealthChange(
-				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
+			if _, ok := updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation]; ok {
+				m.createEventForDriveHealthOverridden(
+					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
+			} else {
+				m.createEventForDriveHealthChange(
+					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
+			}
 		}
 	}
 }
