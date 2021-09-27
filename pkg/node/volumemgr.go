@@ -475,7 +475,7 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	})
 
 	newStatus, err := m.performVolumeRemoving(ctx, volume)
-	if err != nil {
+	if err != nil && newStatus == "" {
 		return ctrl.Result{Requeue: true}, err
 	}
 
@@ -510,7 +510,7 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 			}
 			m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
 		}
-		return apiV1.Failed, nil
+		return apiV1.Failed, err
 	}
 
 	ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
