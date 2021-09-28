@@ -17,6 +17,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -55,24 +56,28 @@ func labeledDeployTestSuite() {
 
 	ginkgo.It("CSI should use label on nodes", func() {
 		defer cleanNodeLabels(f.ClientSet)
+		// todo add context with the timeout
+		//ctx, cancel := context.WithTimeout(context.Background(), ContextTimeout)
+		//defer cancel()
+		ctx := context.TODO()
 
 		nodes := getWorkerNodes(f.ClientSet)
 		nodes[0].Labels[label] = tag
-		_, err := f.ClientSet.CoreV1().Nodes().Update(&nodes[0])
+		_, err := f.ClientSet.CoreV1().Nodes().Update(ctx, &nodes[0], metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 
 		driverCleanup, err := common.DeployCSIComponents(f, installArgs)
 		defer driverCleanup()
 		framework.ExpectNoError(err)
 
-		np, err := common.GetNodePodsNames(f)
+		np, err := common.GetNodePodsNames(ctx, f)
 		framework.ExpectNoError(err)
 		Expect(len(np)).To(Equal(1))
 
 		nodes = getWorkerNodes(f.ClientSet)
 		for _, node := range nodes {
 			node.Labels[label] = tag
-			_, err := f.ClientSet.CoreV1().Nodes().Update(&node)
+			_, err := f.ClientSet.CoreV1().Nodes().Update(ctx, &node, metav1.UpdateOptions{})
 			framework.ExpectNoError(err)
 		}
 
@@ -81,7 +86,7 @@ func labeledDeployTestSuite() {
 		// if new pods aren't created in time, WaitForPodsRunningReady will be skipped
 		deadline := time.Now().Add(2 * time.Minute)
 		for {
-			np, err = common.GetNodePodsNames(f)
+			np, err = common.GetNodePodsNames(ctx, f)
 			framework.ExpectNoError(err)
 			if len(np) == len(nodes) {
 				break
@@ -101,7 +106,7 @@ func labeledDeployTestSuite() {
 func getWorkerNodes(c clientset.Interface) []corev1.Node {
 	var workerNodes []corev1.Node
 
-	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		ginkgo.Fail(err.Error())
 	}
@@ -120,7 +125,7 @@ func cleanNodeLabels(c clientset.Interface) {
 	for _, node := range nodes {
 		if _, ok := node.Labels[label]; ok {
 			delete(node.Labels, label)
-			if _, err := c.CoreV1().Nodes().Update(&node); err != nil {
+			if _, err := c.CoreV1().Nodes().Update(context.TODO(), &node, metav1.UpdateOptions{}); err != nil {
 				e2elog.Logf("Error updating node: %s", err)
 			}
 		}

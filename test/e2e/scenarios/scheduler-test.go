@@ -17,6 +17,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -30,6 +31,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
+	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -83,14 +85,14 @@ func schedulingTest(driver *baremetalDriver) {
 		if lmConf != nil {
 			lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
 			framework.ExpectNoError(err)
-			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(lmConfigMap)
+			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(context.TODO(), lmConfigMap, metav1.CreateOptions{})
 		}
 
 		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		for _, scName := range availableSC {
 			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)
-			sc, err = f.ClientSet.StorageV1().StorageClasses().Create(sc)
+			sc, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), sc, metav1.CreateOptions{})
 			framework.ExpectNoError(err)
 			storageClasses[scName] = sc
 		}
@@ -100,7 +102,7 @@ func schedulingTest(driver *baremetalDriver) {
 		e2elog.Logf("Starting cleanup for test SchedulingTests")
 		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
 
-		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(cmName, &metav1.DeleteOptions{})
+		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
 		if err != nil {
 			e2elog.Logf("Configmap %s deletion failed: %v", cmName, err)
 		}
@@ -111,8 +113,9 @@ func schedulingTest(driver *baremetalDriver) {
 		for _, scKey := range podSCList {
 			sc := storageClasses[scKey]
 			pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(
-				constructPVC(ns, driver.GetClaimSize(),
-					sc.Name, pvcName+"-"+uuid.New().String()))
+				context.TODO(),
+				constructPVC(ns, driver.GetClaimSize(), sc.Name, pvcName+"-"+uuid.New().String()),
+				metav1.CreateOptions{})
 			framework.ExpectNoError(err)
 			podPVCs = append(podPVCs, pvc)
 		}
@@ -263,13 +266,11 @@ func schedulingTest(driver *baremetalDriver) {
 
 		err := hostsNeedToHaveEqualNumberVolumes(volumes, 1)
 		framework.ExpectNoError(err)
-
 	})
-
 }
 
 func getVolumesByNodes(f *framework.Framework) map[string][]string {
-	volumesUnstructuredList, err := f.DynamicClient.Resource(common.VolumeGVR).List(metav1.ListOptions{})
+	volumesUnstructuredList, err := f.DynamicClient.Resource(common.VolumeGVR).List(context.TODO(), metav1.ListOptions{})
 	framework.ExpectNoError(err)
 	volumes := make(map[string][]string)
 	for _, targetVolume := range volumesUnstructuredList.Items {
@@ -285,8 +286,8 @@ func getVolumesByNodes(f *framework.Framework) map[string][]string {
 		volumes[nodeNameOfVolume] = []string{volId}
 	}
 	return volumes
-
 }
+
 func hostsNeedToHaveEqualNumberVolumes(volumes map[string][]string, count int) error {
 	problemHosts := make([]string, 0)
 	for host, volumes := range volumes {
@@ -298,8 +299,8 @@ func hostsNeedToHaveEqualNumberVolumes(volumes map[string][]string, count int) e
 		return nil
 	}
 	return fmt.Errorf("hosts %v don't have expected number of volumes", problemHosts)
-
 }
+
 func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevice) *common.LoopBackManagerConfigNode {
 	drivesCount := len(drives)
 	return &common.LoopBackManagerConfigNode{
@@ -312,7 +313,7 @@ func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevic
 func getSchedulableNodesNamesOrSkipTest(client clientset.Interface, minNodeCount int) []string {
 	result, err := getSchedulableNodesNames(client, minNodeCount)
 	if err != nil {
-		framework.Skipf("test's prerequisites not met: %s", err.Error())
+		e2eskipper.Skipf("test's prerequisites not met: %s", err.Error())
 	}
 	return result
 }
@@ -321,7 +322,7 @@ func getSchedulableNodesNamesOrSkipTest(client clientset.Interface, minNodeCount
 // will return error if schedulable nodes count < minNodeCount
 // minNodeCount == 0 mean no limit
 func getSchedulableNodesNames(client clientset.Interface, minNodeCount int) ([]string, error) {
-	nodes, err := e2enode.GetReadySchedulableNodesOrDie(client)
+	nodes, err := e2enode.GetReadySchedulableNodes(client)
 	framework.ExpectNoError(err)
 	var nodeNames []string
 	for _, item := range nodes.Items {

@@ -17,6 +17,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
@@ -37,7 +39,7 @@ import (
 var stsName = "stress-test-sts"
 
 // DefineStressTestSuite defines custom csi-baremetal stress test
-func DefineStressTestSuite(driver testsuites.TestDriver) {
+func DefineStressTestSuite(driver *baremetalDriver) {
 	ginkgo.Context("Baremetal-csi stress test", func() {
 		// Test scenario:
 		// Create StatefulSet with replicas count which is equal to kind node count
@@ -47,7 +49,7 @@ func DefineStressTestSuite(driver testsuites.TestDriver) {
 }
 
 // driveStressTest test checks behavior of driver under horizontal scale load (increase amount of nodes)
-func driveStressTest(driver testsuites.TestDriver) {
+func driveStressTest(driver *baremetalDriver) {
 	var (
 		k8sSC            *storagev1.StorageClass
 		driverCleanup    func()
@@ -65,19 +67,21 @@ func driveStressTest(driver testsuites.TestDriver) {
 
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 
-		amountOfCSINodes = len(framework.GetReadySchedulableNodesOrDie(f.ClientSet).Items)
+		nodes, err := e2enode.GetReadySchedulableNodes(f.ClientSet)
+		framework.ExpectNoError(err)
+		amountOfCSINodes = len(nodes.Items)
 
-		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
+		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
 	cleanup := func() {
 		e2elog.Logf("Starting cleanup for test StressTest")
 
-		ssPods, err := f.PodClientNS(ns).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("sts=%s", stsName)})
+		ssPods, err := f.PodClientNS(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: fmt.Sprintf("sts=%s", stsName)})
 
-		err = f.ClientSet.AppsV1().StatefulSets(ns).Delete(stsName, &metav1.DeleteOptions{})
+		err = f.ClientSet.AppsV1().StatefulSets(ns).Delete(context.TODO(), stsName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
 		var wg sync.WaitGroup
@@ -96,7 +100,7 @@ func driveStressTest(driver testsuites.TestDriver) {
 
 		wg.Wait()
 
-		pvcList, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).List(metav1.ListOptions{})
+		pvcList, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).List(context.TODO(), metav1.ListOptions{})
 		framework.ExpectNoError(err)
 		pvcPointersList := make([]*corev1.PersistentVolumeClaim, len(pvcList.Items))
 		for i, _ := range pvcList.Items {
@@ -111,11 +115,11 @@ func driveStressTest(driver testsuites.TestDriver) {
 		defer cleanup()
 
 		ss := CreateStressTestStatefulSet(ns, int32(amountOfCSINodes), 3, k8sSC.Name,
-			driver.(testsuites.DynamicPVTestDriver).GetClaimSize())
-		ss, err := f.ClientSet.AppsV1().StatefulSets(ns).Create(ss)
+			driver.GetClaimSize())
+		ss, err := f.ClientSet.AppsV1().StatefulSets(ns).Create(context.TODO(), ss, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = framework.WaitForStatefulSetReplicasReady(ss.Name, ns, f.ClientSet, 20*time.Second, 10*time.Minute)
+		err = common.WaitForStatefulSetReplicasReady(context.TODO(), ss.Name, ns, f.ClientSet, 20*time.Second, 10*time.Minute)
 		framework.ExpectNoError(err)
 	})
 }
