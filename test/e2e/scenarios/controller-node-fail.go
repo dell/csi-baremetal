@@ -69,7 +69,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 
-		// TODO make context with timeout
+		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
 		//ctx, cancel = context.WithTimeout(context.Background(), ContextTimeout)
 		ctx = context.Background()
 		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")

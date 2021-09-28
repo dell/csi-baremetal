@@ -56,7 +56,7 @@ func labeledDeployTestSuite() {
 
 	ginkgo.It("CSI should use label on nodes", func() {
 		defer cleanNodeLabels(f.ClientSet)
-		// todo add context with the timeout
+		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
 		//ctx, cancel := context.WithTimeout(context.Background(), ContextTimeout)
 		//defer cancel()
 		ctx := context.TODO()
