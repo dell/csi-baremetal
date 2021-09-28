@@ -39,7 +39,7 @@ var (
 
 	testPart1 = Partition{
 		Device:    testDevice1,
-		Name:      "",
+		Name:      "some_name",
 		Num:       DefaultPartitionNumber,
 		TableType: partitionhelper.PartitionGPT,
 		Label:     DefaultPartitionLabel,
@@ -71,6 +71,10 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 		Return(true, nil).Once()
 	mockPH.On("GetPartitionUUID", testPart1.Device, testPart1.Num).
 		Return(testPart1.PartUUID, nil).Once()
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return(nil).Once()
+	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
+		Return(testPart1.Name, nil).Once()
 
 	currentPPtr, err = partOps.PreparePartition(testPart1)
 	assert.Nil(t, err)

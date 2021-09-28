@@ -38,7 +38,7 @@ import (
 func setupTestDriveProvisioner() (dp *DriveProvisioner,
 	mockLsblk *mocklu.MockWrapLsblk,
 	mockPH *mockProv.MockPartitionOps,
-	mockFS *mocklu.MockWrapFS) {
+	mockFS *mockProv.MockFsOpts) {
 	fakeK8s, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	if err != nil {
 		panic(err)
@@ -48,7 +48,7 @@ func setupTestDriveProvisioner() (dp *DriveProvisioner,
 	dp = NewDriveProvisioner(&command.Executor{}, fakeK8s, logger)
 	mockLsblk = &mocklu.MockWrapLsblk{}
 	mockPH = &mockProv.MockPartitionOps{}
-	mockFS = &mocklu.MockWrapFS{}
+	mockFS = &mockProv.MockFsOpts{}
 
 	dp.listBlk = mockLsblk
 	dp.partOps = mockPH
@@ -89,7 +89,7 @@ func TestDriveProvisioner_PrepareVolume_Success(t *testing.T) {
 		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
 		Return(device, nil)
 	mockPH.On("PreparePartition", part).Return(&expectedPart, nil)
-	mockFS.On("CreateFS", fs.FileSystem(testVolume2.Type), expectedPart.GetFullPath()).
+	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), expectedPart.GetFullPath()).
 		Return(nil)
 
 	err = dp.PrepareVolume(testVolume2)
@@ -134,7 +134,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	// CreateFS failed
 	mockPH.On("PreparePartition", mock.Anything).
 		Return(&uw.Partition{}, nil).Once()
-	mockFS.On("CreateFS", fs.FileSystem(testVolume2.Type), mock.Anything).Return(errTest)
+	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), mock.Anything).Return(errTest)
 
 	err = dp.PrepareVolume(testVolume2)
 	assert.Error(t, err)

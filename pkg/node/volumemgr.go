@@ -914,6 +914,7 @@ func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
 // handleDriveStatusChange removes AC that is based on unhealthy drive, returns AC if drive returned to healthy state,
 // mark volumes of the unhealthy drive as unhealthy.
 // Receives golang context and api.Drive that should be handled
+// TODO the method is called every rime after drive go to OFFLINE - https://github.com/dell/csi-baremetal/issues/550
 func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updatedDrive) {
 	cur := drive.CurrentState.Spec
 	prev := drive.PreviousState.Spec
@@ -965,6 +966,11 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 	// Set disk's health status to volume CR
 	volumes, _ := m.cachedCrHelper.GetVolumesByLocation(ctx, cur.UUID)
 	for _, vol := range volumes {
+		// skip if health is not changed
+		if vol.Spec.Health == cur.Health {
+			ll.Infof("Volume %s status is already %s", vol.Name, cur.Health)
+			continue
+		}
 		ll.Infof("Setting updated status %s to volume %s", cur.Health, vol.Name)
 		// save previous health state
 		prevHealthState := vol.Spec.Health
