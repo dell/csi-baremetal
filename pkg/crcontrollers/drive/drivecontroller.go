@@ -218,7 +218,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
 			// try to stop node LED
-			if err := c.locateNodeLED(ctx, log, drive, apiV1.LocateStop); err != nil {
+			if err := c.stopLocateNodeLED(ctx, log, drive); err != nil {
 				return ignore, err
 			}
 			return remove, nil
@@ -330,8 +330,10 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 			c.locateDriveLED(ctx, log, drive)
 		} else {
 			// We can not set locate for missing disks, try to locate Node instead
-			locateErr := c.locateNodeLED(ctx, log, drive, apiV1.LocateStart)
+			log.Infof("Try to locate node LED %s", drive.Spec.NodeId)
+			_, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStart})
 			if locateErr != nil {
+				log.Errorf("Failed to start node locate: %s", err.Error())
 				return ignore, err
 			}
 		}
@@ -357,7 +359,7 @@ func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, driv
 	}
 }
 
-func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive, action int32) error {
+func (c *Controller) stopLocateNodeLED(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
 	driveList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, driveList); err != nil {
 		log.Errorf("Unable to read Drive List")
@@ -374,7 +376,7 @@ func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDr
 		}
 	}
 
-	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: action})
+	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStop})
 	if err != nil {
 		log.Errorf("Failed to disable node locate: %s", err.Error())
 		return err
