@@ -733,6 +733,17 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	assert.Len(t, updates.Updated, 1)
 	assert.Len(t, updates.NotChanged, 1)
 
+	drives = driveMgrRespDrives[1:]
+	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
+	driveCRs[0].Annotations = map[string]string{"health": "bad"}
+	vm.k8sClient.UpdateCR(testCtx, &driveCRs[0])
+	updates, err = vm.updateDrivesCRs(testCtx, drives)
+	assert.Nil(t, err)
+	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthBad)
+	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Status, apiV1.DriveStatusOffline)
+	assert.Len(t, updates.Updated, 1)
+	assert.Len(t, updates.NotChanged, 1)
+
 	vm = prepareSuccessVolumeManager(t)
 	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
 	assert.Nil(t, err)
@@ -1040,6 +1051,22 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		mgr.createEventsForDriveUpdates(upd)
 		assert.True(t, expectEvent(drive1CR, eventing.DriveStatusOffline))
 		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthUnknown))
+	})
+
+	t.Run("Drive health overriden", func(t *testing.T) {
+		init()
+		modifiedDrive := drive1CR.DeepCopy()
+		modifiedDrive.Annotations = map[string]string{"health": "bad"}
+		modifiedDrive.Spec.Health = apiV1.HealthBad
+
+		upd := &driveUpdates{
+			Updated: []updatedDrive{{
+				PreviousState: drive1CR,
+				CurrentState:  modifiedDrive}},
+		}
+		mgr.createEventsForDriveUpdates(upd)
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthOverridden))
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthFailure))
 	})
 
 	t.Run("Drive removed", func(t *testing.T) {

@@ -1042,10 +1042,9 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			if _, ok := updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation]; ok {
 				m.createEventForDriveHealthOverridden(
 					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
-			} else {
-				m.createEventForDriveHealthChange(
-					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
 			}
+			m.createEventForDriveHealthChange(
+				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
 		}
 	}
 }
