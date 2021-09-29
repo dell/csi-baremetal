@@ -17,6 +17,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"context"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -49,7 +50,7 @@ var (
 )
 
 // DefineDriveHealthChangeTestSuite defines custom csi-baremetal e2e tests
-func DefineDriveHealthChangeTestSuite(driver testsuites.TestDriver) {
+func DefineDriveHealthChangeTestSuite(driver *baremetalDriver) {
 	ginkgo.Context("Baremetal-csi drive health change tests", func() {
 		// It consists of two steps.
 		// 1) Set random drive to Failed state and see that amount of ACs reduced by 1.
@@ -60,7 +61,7 @@ func DefineDriveHealthChangeTestSuite(driver testsuites.TestDriver) {
 }
 
 // driveHealthChangeTest test checks behavior of driver when drives change health from GOOD to BAD
-func driveHealthChangeTest(driver testsuites.TestDriver) {
+func driveHealthChangeTest(driver *baremetalDriver) {
 	var (
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim
@@ -80,8 +81,8 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 
-		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
+		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
@@ -155,8 +156,9 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 
 		defer cleanup()
 		// Create test pvc on the cluster
-		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
-			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, pvcName))
+		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
+				constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
+				metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// Create test pod that consumes the pvc
@@ -167,7 +169,7 @@ func driveHealthChangeTest(driver testsuites.TestDriver) {
 		testPODs = append(testPODs, pod)
 
 		// Get Volume CRs and save variables to identify on which drive the pod's Volume based on
-		volumesUnstructuredList, _ := f.DynamicClient.Resource(common.VolumeGVR).List(metav1.ListOptions{})
+		volumesUnstructuredList, _ := f.DynamicClient.Resource(common.VolumeGVR).List(context.TODO(), metav1.ListOptions{})
 		targetVolume := volumesUnstructuredList.Items[0]
 		location, _, err := unstructured.NestedString(targetVolume.Object, "spec", "Location")
 		framework.ExpectNoError(err)
@@ -311,7 +313,7 @@ func constructPVC(ns string, claimSize string, storageClass string, pvcName stri
 // Receives k8s test framework and node uid
 // Returns node name or error if something went wrong
 func findNodeNameByUID(f *framework.Framework, nodeUID string) (string, error) {
-	nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeList, err := f.ClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -331,9 +333,9 @@ func applyLMConfig(f *framework.Framework, lmConf *common.LoopBackManagerConfig)
 	ns := f.Namespace.Name
 	lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
 	framework.ExpectNoError(err)
-	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(lmConfigMap)
+	_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(context.TODO(), lmConfigMap, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(err) {
-		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(lmConfigMap)
+		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Update(context.TODO(), lmConfigMap, metav1.UpdateOptions{})
 	}
 	framework.ExpectNoError(err)
 }
@@ -356,7 +358,7 @@ func getUObjList(f *framework.Framework, resource schema.GroupVersionResource) *
 	if resource == common.VolumeGVR {
 		namespace = f.Namespace.Name
 	}
-	drivesU, err := f.DynamicClient.Resource(resource).Namespace(namespace).List(metav1.ListOptions{})
+	drivesU, err := f.DynamicClient.Resource(resource).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
 	framework.ExpectNoError(err)
 	return drivesU
 }
@@ -366,7 +368,7 @@ func getUObj(f *framework.Framework, resource schema.GroupVersionResource, name 
 	if resource == common.VolumeGVR {
 		namespace = f.Namespace.Name
 	}
-	driveU, err := f.DynamicClient.Resource(resource).Namespace(namespace).Get(name, metav1.GetOptions{})
+	driveU, err := f.DynamicClient.Resource(resource).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false

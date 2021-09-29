@@ -267,9 +267,7 @@ func init() {
 	proto.RegisterType((*Empty)(nil), "v1api.Empty")
 }
 
-func init() {
-	proto.RegisterFile("drivemgrsvc.proto", fileDescriptor_65bf77650f5c7dcf)
-}
+func init() { proto.RegisterFile("drivemgrsvc.proto", fileDescriptor_65bf77650f5c7dcf) }
 
 var fileDescriptor_65bf77650f5c7dcf = []byte{
 	// 306 bytes of a gzipped FileDescriptorProto
@@ -297,11 +295,11 @@ var fileDescriptor_65bf77650f5c7dcf = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConnInterface
+var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+const _ = grpc.SupportPackageIsVersion4
 
 // DriveServiceClient is the client API for DriveService service.
 //
@@ -313,10 +311,10 @@ type DriveServiceClient interface {
 }
 
 type driveServiceClient struct {
-	cc grpc.ClientConnInterface
+	cc *grpc.ClientConn
 }
 
-func NewDriveServiceClient(cc grpc.ClientConnInterface) DriveServiceClient {
+func NewDriveServiceClient(cc *grpc.ClientConn) DriveServiceClient {
 	return &driveServiceClient{cc}
 }
 

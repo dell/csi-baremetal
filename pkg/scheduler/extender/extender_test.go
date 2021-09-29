@@ -143,7 +143,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 		},
 	})
 	// create PVCs and SC
-	applyObjs(t, e.k8sClient, &testPVC1, &testPVC2, &testSC1)
+	applyObjs(t, e.k8sClient, testPVC1.DeepCopy(), testPVC2.DeepCopy(), testSC1.DeepCopy())
 
 	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
@@ -168,7 +168,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 		VolumeSource: coreV1.VolumeSource{CSI: &badCSIVolumeSrc},
 	})
 	// create SC
-	applyObjs(t, e.k8sClient, &testSC1)
+	applyObjs(t, e.k8sClient, testSC1.DeepCopy())
 
 	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
@@ -440,7 +440,7 @@ func TestExtender_filterSuccess(t *testing.T) {
 func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 	e := setup(t)
 	// create 2 storage classes
-	applyObjs(t, e.k8sClient, &testSC1, &testSC2)
+	applyObjs(t, e.k8sClient, testSC1.DeepCopy(), testSC2.DeepCopy())
 
 	m, err := e.scNameStorageTypeMapping(testCtx)
 	assert.Nil(t, err)
@@ -538,14 +538,14 @@ func Test_nodePrioritize(t *testing.T) {
 	tests := []struct {
 		name  string
 		args  args
-		want  map[string]int
-		want1 int
+		want  map[string]int64
+		want1 int64
 	}{{
 		name: "Zero volumes",
 		args: args{
 			nodeMapping: map[string][]volcrd.Volume{"node1": nil, "node2": nil},
 		},
-		want:  map[string]int{"node1": 0, "node2": 0},
+		want:  map[string]int64{"node1": 0, "node2": 0},
 		want1: 0,
 	},
 		{
@@ -553,7 +553,7 @@ func Test_nodePrioritize(t *testing.T) {
 			args: args{
 				nodeMapping: map[string][]volcrd.Volume{"node1": {volcrd.Volume{}}, "node2": {volcrd.Volume{}}},
 			},
-			want:  map[string]int{"node1": 0, "node2": 0},
+			want:  map[string]int64{"node1": 0, "node2": 0},
 			want1: 1,
 		},
 		{
@@ -561,7 +561,7 @@ func Test_nodePrioritize(t *testing.T) {
 			args: args{
 				nodeMapping: map[string][]volcrd.Volume{"node1": {volcrd.Volume{}, volcrd.Volume{}}, "node2": {volcrd.Volume{}}},
 			},
-			want:  map[string]int{"node1": 0, "node2": 1},
+			want:  map[string]int64{"node1": 0, "node2": 1},
 			want1: 2,
 		},
 		{
@@ -569,7 +569,7 @@ func Test_nodePrioritize(t *testing.T) {
 			args: args{
 				nodeMapping: map[string][]volcrd.Volume{"node1": {volcrd.Volume{}, volcrd.Volume{}}, "node2": {volcrd.Volume{}, volcrd.Volume{}}, "node3": {volcrd.Volume{}}},
 			},
-			want:  map[string]int{"node1": 0, "node2": 0, "node3": 1},
+			want:  map[string]int64{"node1": 0, "node2": 0, "node3": 1},
 			want1: 2,
 		},
 	}
