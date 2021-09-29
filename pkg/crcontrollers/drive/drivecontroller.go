@@ -324,23 +324,21 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 	if err != nil {
 		return ignore, err
 	}
-	if c.checkAllVolsRemoved(volumes) {
-		drive.Spec.Usage = apiV1.DriveUsageRemoved
-		if drive.Spec.Status == apiV1.DriveStatusOnline {
-			c.locateDriveLED(ctx, log, drive)
-		} else {
-			// We can not set locate for missing disks, try to locate Node instead
-			log.Infof("Try to locate node LED %s", drive.Spec.NodeId)
-			_, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStart})
-			if locateErr != nil {
-				log.Errorf("Failed to start node locate: %s", err.Error())
-				return ignore, err
-			}
-		}
-		return update, nil
+	if !c.checkAllVolsRemoved(volumes) {
+		return ignore, nil
 	}
-
-	return ignore, nil
+	drive.Spec.Usage = apiV1.DriveUsageRemoved
+	if drive.Spec.Status == apiV1.DriveStatusOnline {
+		c.locateDriveLED(ctx, log, drive)
+	} else {
+		// We can not set locate for missing disks, try to locate Node instead
+		log.Infof("Try to locate node LED %s", drive.Spec.NodeId)
+		if _, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStart}); locateErr != nil {
+			log.Errorf("Failed to start node locate: %s", err.Error())
+			return ignore, err
+		}
+	}
+	return update, nil
 }
 
 func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {

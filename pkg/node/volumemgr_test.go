@@ -315,60 +315,68 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		err    error
 	)
 
-	// happy path
-	vm = prepareSuccessVolumeManager(t)
-	testVol := volCR.DeepCopy()
-	testVol.Spec.CSIStatus = apiV1.Removing
-	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
-	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	t.Run("happy path", func(t *testing.T) {
+		vm = prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err = vm.handleRemovingStatus(testCtx, testVol)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.Nil(t, err)
+		assert.Equal(t, res, ctrl.Result{})
+		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
+		assert.Nil(t, err)
+		assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
+	})
 
-	// failed to update
-	vm = prepareSuccessVolumeManager(t)
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	t.Run("failed to update", func(t *testing.T) {
+		testVol := volCR.DeepCopy()
+		vm = prepareSuccessVolumeManager(t)
+		pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err = vm.handleRemovingStatus(testCtx, testVol)
-	assert.NotNil(t, err)
-	assert.True(t, res.Requeue)
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.NotNil(t, err)
+		assert.True(t, res.Requeue)
+	})
 
 	// ReleaseVolume failed
-	testVol = volCR.DeepCopy()
-	testVol.Spec.CSIStatus = apiV1.Removing
-	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
-	pMock = &mockProv.MockProvisioner{}
-	pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	t.Run("failed to update", func(t *testing.T) {
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		pMock := &mockProv.MockProvisioner{}
+		pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err = vm.handleRemovingStatus(testCtx, testVol)
-	assert.NotNil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, res, ctrl.Result{})
+		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
+		assert.Nil(t, err)
+		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+	})
 
-	// Volume missing
-	vm = prepareSuccessVolumeManager(t)
+	t.Run("failed to update", func(t *testing.T) {
+		// Volume missing
+		vm = prepareSuccessVolumeManager(t)
 
-	testVol = volCR.DeepCopy()
-	testVol.Spec.CSIStatus = apiV1.Removing
-	testVol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
-	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
-	pMock = &mockProv.MockProvisioner{}
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		testVol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		pMock := &mockProv.MockProvisioner{}
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err = vm.handleRemovingStatus(testCtx, testVol)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.Nil(t, err)
+		assert.Equal(t, res, ctrl.Result{})
+		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
+		assert.Nil(t, err)
+		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+	})
 }
 
 func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
