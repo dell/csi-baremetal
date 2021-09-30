@@ -143,7 +143,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      testLVGName,
+			Name: testLVGName,
 		},
 		Spec: api.LogicalVolumeGroup{
 			Name:       testLVGName,
@@ -342,8 +342,7 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		assert.True(t, res.Requeue)
 	})
 
-	// ReleaseVolume failed
-	t.Run("failed to update", func(t *testing.T) {
+	t.Run("ReleaseVolume failed", func(t *testing.T) {
 		testVol := volCR.DeepCopy()
 		testVol.Spec.CSIStatus = apiV1.Removing
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
@@ -359,9 +358,8 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
 	})
 
-t.Run("failed to update", func(t *testing.T) {
-	// Volume missing
-	vm = prepareSuccessVolumeManager(t)
+	t.Run("Volume missing", func(t *testing.T) {
+		vm = prepareSuccessVolumeManager(t)
 		testVol := volCR.DeepCopy()
 		testVol.Spec.CSIStatus = apiV1.Removing
 		testVol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
@@ -1092,7 +1090,7 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 	var (
 		vm  *VolumeManager = prepareSuccessVolumeManager(t)
-		vol *vcrd.Volume = testVolumeCR1.DeepCopy()
+		vol *vcrd.Volume   = testVolumeCR1.DeepCopy()
 	)
 
 	vol.Spec.NodeId = vm.nodeID
