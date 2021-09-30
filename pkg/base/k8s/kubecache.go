@@ -81,7 +81,8 @@ func InitKubeCache(logger *logrus.Logger, stopCH <-chan struct{}, objects ...run
 		return nil, err
 	}
 	for _, obj := range objects {
-		_, err := k8sCache.GetInformer(obj)
+		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
+		_, err := k8sCache.GetInformer(context.TODO(), obj)
 		if err != nil {
 			logger.Errorf("fail to get cache informer for CR, error: %v", err)
 			return nil, err

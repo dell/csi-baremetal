@@ -17,6 +17,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -73,17 +74,17 @@ func differentSCTypesTest(driver *baremetalDriver) {
 			driverType = driveTypeHDD
 		}
 
-		nodes, err := e2enode.GetReadySchedulableNodesOrDie(f.ClientSet)
+		nodes, err := e2enode.GetReadySchedulableNodes(f.ClientSet)
 		framework.ExpectNoError(err)
 
 		configMap := constructLoopbackConfigWithDriveType(ns, nodes.Items, driverType)
-		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
+		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(context.TODO(), configMap, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		k8sSC = driver.GetStorageClassWithStorageType(perTestConf, scType)
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
@@ -91,7 +92,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		e2elog.Logf("Starting cleanup for test DifferentScTest")
 		common.CleanupAfterCustomTest(f, driverCleanup, pods, pvcs)
 
-		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(cmName, &metav1.DeleteOptions{})
+		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
 		if err != nil {
 			e2elog.Logf("Configmap %s deletion failed: %v", cmName, err)
 		}
@@ -175,7 +176,7 @@ func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName
 		pvcName+"-"+uuid.New().String())
 	blockMode := corev1.PersistentVolumeBlock
 	pvc.Spec.VolumeMode = &blockMode
-	pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(pvc)
+	pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(), pvc, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 	return pvc
 }
@@ -186,7 +187,10 @@ func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName
 func createPVCs(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) []*corev1.PersistentVolumeClaim {
 	var pvcs []*corev1.PersistentVolumeClaim
 	for i := 0; i < numberOfPVC; i++ {
-		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(constructPVC(ns, size, scName, pvcName+"-"+strconv.Itoa(i)))
+		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(
+			context.TODO(),
+			constructPVC(ns, size, scName, pvcName+"-"+strconv.Itoa(i)),
+			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 		pvcs = append(pvcs, pvc)
 	}

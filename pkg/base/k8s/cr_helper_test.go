@@ -67,11 +67,13 @@ func TestCRHelper_GetVolumeByLocation(t *testing.T) {
 
 	// lvm
 	ch = setup()
-	expectedV.Spec.Location = testLVGCR.Name
-	expectedV.Spec.LocationType = v1.LocationTypeLVM
-	err = ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
+	testVolume := testVolumeCR.DeepCopy()
+	testVolume.Spec.Location = testLVGCR.Name
+	testVolume.Spec.LocationType = v1.LocationTypeLVM
+	err = ch.k8sClient.CreateCR(testCtx, testVolume.Name, testVolume)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, testLVGCR.Name, &testLVGCR)
+	testLVGCR1 := testLVGCR.DeepCopy()
+	err = ch.k8sClient.CreateCR(testCtx, testLVGCR.Name, testLVGCR1)
 	assert.Nil(t, err)
 	currentVols, _ = ch.GetVolumesByLocation(ctx, testDriveLocation1)
 	assert.NotEmpty(t, currentVols)
@@ -96,8 +98,8 @@ func TestCRHelper_GetVolumeByID(t *testing.T) {
 
 func TestCRHelper_GetDriveCRByUUID(t *testing.T) {
 	ch := setup()
-	expectedD := testDriveCR
-	err := ch.k8sClient.CreateCR(testCtx, expectedD.Name, &expectedD)
+	expectedD := testDriveCR.DeepCopy()
+	err := ch.k8sClient.CreateCR(testCtx, expectedD.Name, expectedD)
 	assert.Nil(t, err)
 
 	currentD := ch.GetDriveCRByUUID(expectedD.Spec.UUID)
@@ -113,13 +115,15 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 	expectedV := testVolumeCR.DeepCopy()
 	expectedV.Spec.Location = testLVGCR.Name
 	expectedV.Spec.LocationType = v1.LocationTypeLVM
-	expectedLVG := testLVGCR.DeepCopy()
-	expectedLVG.Spec.Locations = []string{testDriveCR.Name}
 	err := ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
 	assert.Nil(t, err)
+	// test LVG
+	expectedLVG := testLVGCR.DeepCopy()
+	expectedLVG.Spec.Locations = []string{testDriveCR.Name}
 	err = ch.k8sClient.CreateCR(testCtx, expectedLVG.Name, expectedLVG)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	testDriveCR1 := testDriveCR.DeepCopy()
+	err = ch.k8sClient.CreateCR(testCtx, testDriveCR1.Name, testDriveCR1)
 	assert.Nil(t, err)
 	drive, err := ch.GetDriveCRByVolume(expectedV)
 	assert.NotNil(t, drive)
@@ -152,14 +156,14 @@ func TestCRHelper_GetVolumeCRs(t *testing.T) {
 
 func TestCRHelper_GetDriveCRs(t *testing.T) {
 	ch := setup()
-	d1 := testDriveCR
-	d2 := testDriveCR
+	d1 := testDriveCR.DeepCopy()
+	d2 := testDriveCR.DeepCopy()
 	d2.Name = "anotherName"
 	d2.Spec.NodeId = "anotherNode"
 
-	err := ch.k8sClient.CreateCR(testCtx, d1.Name, &d1)
+	err := ch.k8sClient.CreateCR(testCtx, d1.Name, d1)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, d2.Name, &d2)
+	err = ch.k8sClient.CreateCR(testCtx, d2.Name, d2)
 	assert.Nil(t, err)
 
 	// node as empty string - expected all drives
@@ -193,30 +197,32 @@ func TestCRHelper_GetVGNameByLVGCRName(t *testing.T) {
 // test AC deletion
 func TestCRHelper_DeleteACsByNodeID(t *testing.T) {
 	mock := setup()
-	err := mock.k8sClient.CreateCR(testCtx, testACCR.Name, &testACCR)
+	testACCRCopy := testACCR.DeepCopy()
+	err := mock.k8sClient.CreateCR(testCtx, testACCR.Name, testACCRCopy)
 	assert.Nil(t, err)
 
-	err = mock.DeleteACsByNodeID(testACCR.Spec.NodeId)
+	err = mock.DeleteACsByNodeID(testACCRCopy.Spec.NodeId)
 	assert.Nil(t, err)
 }
 
 // test Drive status update
 func TestCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
 	mock := setup()
-	err := mock.k8sClient.CreateCR(testCtx, testDriveCR.Name, &testDriveCR)
+	testDriveCRCopy := testDriveCR.DeepCopy()
+	err := mock.k8sClient.CreateCR(testCtx, testDriveCRCopy.Name, testDriveCRCopy)
 	assert.Nil(t, err)
 
-	err = mock.UpdateDrivesStatusOnNode(testDriveCR.Spec.NodeId, v1.DriveStatusOffline)
+	err = mock.UpdateDrivesStatusOnNode(testDriveCRCopy.Spec.NodeId, v1.DriveStatusOffline)
 	assert.Nil(t, err)
 
-	drive := mock.GetDriveCRByUUID(testDriveCR.Name)
+	drive := mock.GetDriveCRByUUID(testDriveCRCopy.Name)
 	assert.Equal(t, drive.Spec.Status, v1.DriveStatusOffline)
 }
 
 // test Volume operational status update
 func TestCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 	mock := setup()
-	err := mock.k8sClient.CreateCR(testCtx, testVolume.Name, &testVolume)
+	err := mock.k8sClient.CreateCR(testCtx, testVolume.Name, testVolume.DeepCopy())
 	assert.Nil(t, err)
 
 	err = mock.UpdateVolumesOpStatusOnNode(testVolume.Spec.NodeId, v1.OperationalStatusMissing)
