@@ -190,8 +190,9 @@ func main() {
 	for {
 		logger.Info("Waiting for node service to become ready ...")
 		// never returns error
-
 		resp, _ := csiNodeService.Check(ctx, req)
+		// disk info might be outdated (for example, block device names change on node reboot)
+		// need to wait for drive info to be updated before starting accepting CSI calls
 		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
 			logger.Info("Node service is ready to handle requests")
 			break
