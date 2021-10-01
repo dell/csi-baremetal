@@ -650,6 +650,8 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 
 // Check does the health check and changes the status of the server based on drives cache size
 func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	// parameters aren't used
+	_, _ = ctx, req
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "Check",
 	})

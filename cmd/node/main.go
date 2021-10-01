@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -25,18 +26,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -53,6 +51,10 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -181,6 +183,24 @@ func main() {
 	}()
 	go Discovering(csiNodeService, logger)
 
+	// check here for volume manager readiness
+	// input parameters are ignored by Check() function - pass empty context and health check request
+	ctx := context.Background()
+	req := &grpc_health_v1.HealthCheckRequest{}
+	for {
+		logger.Info("Waiting for node service to become ready ...")
+		// never returns error
+
+		resp, _ := csiNodeService.Check(ctx, req)
+		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
+			logger.Info("Node service is ready to handle requests")
+			break
+		} else {
+			logger.Info("Not ready yet. Sleeping ...")
+			time.Sleep(5 * time.Second)
+		}
+	}
+
 	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("fail to serve: %v", err)
@@ -192,6 +212,7 @@ func main() {
 // Discovering performs Discover method of the Node each 30 seconds
 func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	var err error
+	// set initial delay
 	discoveringWaitTime := 10 * time.Second
 	checker := c.GetLivenessHelper()
 	for {

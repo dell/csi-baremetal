@@ -234,6 +234,7 @@ func (d *DriveProvisioner) GetVolumePath(vol api.Volume) (string, error) {
 
 	partNum := d.partOps.SearchPartName(device, volumeUUID)
 	if partNum == "" {
+		// on device disconnect or node reboot device name might change and we need to re-sync drive info
 		return "", fmt.Errorf("unable to find part name for device %s by uuid %s", device, volumeUUID)
 	}
 	return device + partNum, nil
