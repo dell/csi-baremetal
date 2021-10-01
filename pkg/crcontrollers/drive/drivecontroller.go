@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,6 +17,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/events"
@@ -387,11 +387,11 @@ func (c *Controller) stopLocateNodeLED(ctx context.Context, log *logrus.Entry, c
 
 func (c *Controller) removeRelatedAC(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
 	ac, err := c.crHelper.GetACByLocation(curDrive.GetName())
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil && err != errTypes.ErrorNotFound {
 		log.Errorf("Failed to get AC for Drive %s: %s", curDrive.GetName(), err.Error())
 		return err
 	}
-	if k8serrors.IsNotFound(err) {
+	if err == errTypes.ErrorNotFound {
 		log.Warnf("AC for Drive %s is not found", curDrive.GetName())
 		return nil
 	}
