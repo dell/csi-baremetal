@@ -143,7 +143,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      testLVGName,
+			Name: testLVGName,
 		},
 		Spec: api.LogicalVolumeGroup{
 			Name:       testLVGName,
@@ -315,44 +315,65 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		err    error
 	)
 
-	// happy path
-	vm = prepareSuccessVolumeManager(t)
-	testVol := volCR.DeepCopy()
-	testVol.Spec.CSIStatus = apiV1.Removing
-	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
-	pMock := mockProv.GetMockProvisionerSuccess("/some/path")
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	t.Run("happy path", func(t *testing.T) {
+		vm = prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err = vm.handleRemovingStatus(testCtx, testVol)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.Nil(t, err)
+		assert.Equal(t, res, ctrl.Result{})
+		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
+		assert.Nil(t, err)
+		assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
+	})
 
-	// failed to update
-	vm = prepareSuccessVolumeManager(t)
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	t.Run("failed to update", func(t *testing.T) {
+		testVol := volCR.DeepCopy()
+		vm = prepareSuccessVolumeManager(t)
+		pMock := mockProv.GetMockProvisionerSuccess("/some/path")
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err = vm.handleRemovingStatus(testCtx, testVol)
-	assert.NotNil(t, err)
-	assert.True(t, res.Requeue)
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.NotNil(t, err)
+		assert.True(t, res.Requeue)
+	})
 
-	// ReleaseVolume failed
-	testVol = volCR.DeepCopy()
-	testVol.Spec.CSIStatus = apiV1.Removing
-	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
-	pMock = &mockProv.MockProvisioner{}
-	pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
-	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+	t.Run("ReleaseVolume failed", func(t *testing.T) {
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		pMock := &mockProv.MockProvisioner{}
+		pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
-	res, err = vm.handleRemovingStatus(testCtx, testVol)
-	assert.NotNil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
-	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, res, ctrl.Result{})
+		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
+		assert.Nil(t, err)
+		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+	})
 
+	t.Run("Volume missing", func(t *testing.T) {
+		vm = prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		testVol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		pMock := &mockProv.MockProvisioner{}
+		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
+
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.Nil(t, err)
+		assert.Equal(t, res, ctrl.Result{})
+		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
+		assert.Nil(t, err)
+		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+	})
 }
 
 func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
@@ -711,6 +732,17 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	assert.Len(t, updates.Updated, 1)
 	assert.Len(t, updates.NotChanged, 1)
 
+	drives = driveMgrRespDrives[1:]
+	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
+	driveCRs[0].Annotations = map[string]string{"health": "bad"}
+	vm.k8sClient.UpdateCR(testCtx, &driveCRs[0])
+	updates, err = vm.updateDrivesCRs(testCtx, drives)
+	assert.Nil(t, err)
+	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthBad)
+	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Status, apiV1.DriveStatusOffline)
+	assert.Len(t, updates.Updated, 1)
+	assert.Len(t, updates.NotChanged, 1)
+
 	vm = prepareSuccessVolumeManager(t)
 	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
 	assert.Nil(t, err)
@@ -1021,6 +1053,22 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthUnknown))
 	})
 
+	t.Run("Drive health overriden", func(t *testing.T) {
+		init()
+		modifiedDrive := drive1CR.DeepCopy()
+		modifiedDrive.Annotations = map[string]string{"health": "bad"}
+		modifiedDrive.Spec.Health = apiV1.HealthBad
+
+		upd := &driveUpdates{
+			Updated: []updatedDrive{{
+				PreviousState: drive1CR,
+				CurrentState:  modifiedDrive}},
+		}
+		mgr.createEventsForDriveUpdates(upd)
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthOverridden))
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthFailure))
+	})
+
 	t.Run("Drive removed", func(t *testing.T) {
 		init()
 		modifiedDrive := drive1CR.DeepCopy()
@@ -1042,7 +1090,7 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 	var (
 		vm  *VolumeManager = prepareSuccessVolumeManager(t)
-		vol *vcrd.Volume = testVolumeCR1.DeepCopy()
+		vol *vcrd.Volume   = testVolumeCR1.DeepCopy()
 	)
 
 	vol.Spec.NodeId = vm.nodeID

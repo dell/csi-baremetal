@@ -207,20 +207,18 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		}
 		fallthrough
 	case apiV1.DriveUsageRemoving:
-		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
+		status, err := c.handleDriveUsageRemoving(ctx, log, drive)
 		if err != nil {
-			return ignore, err
+			return status, err
 		}
-		if c.checkAllVolsRemoved(volumes) {
-			drive.Spec.Usage = apiV1.DriveUsageRemoved
-			c.locateDriveLED(ctx, log, drive)
+		if status == update {
 			toUpdate = true
 		}
 	case apiV1.DriveUsageRemoved:
 		if drive.Spec.Status == apiV1.DriveStatusOffline {
 			// drive was removed from the system. need to clean corresponding custom resource
 			// try to stop node LED
-			if err := c.locateNodeLED(ctx, log, drive); err != nil {
+			if err := c.stopLocateNodeLED(ctx, log, drive); err != nil {
 				return ignore, err
 			}
 			return remove, nil
@@ -321,11 +319,33 @@ func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 	return false
 }
 
+func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+	if err != nil {
+		return ignore, err
+	}
+	if !c.checkAllVolsRemoved(volumes) {
+		return ignore, nil
+	}
+	drive.Spec.Usage = apiV1.DriveUsageRemoved
+	if drive.Spec.Status == apiV1.DriveStatusOnline {
+		c.locateDriveLED(ctx, log, drive)
+	} else {
+		// We can not set locate for missing disks, try to locate Node instead
+		log.Infof("Try to locate node LED %s", drive.Spec.NodeId)
+		if _, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStart}); locateErr != nil {
+			log.Errorf("Failed to start node locate: %s", err.Error())
+			return ignore, err
+		}
+	}
+	return update, nil
+}
+
 func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {
 	// try to enable LED
 	status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
 	if err != nil || status.Status != apiV1.LocateStatusOn {
-		log.Errorf("Failed to locate LED of drive %s, err %v", drive.Spec.SerialNumber, err)
+		log.Errorf("Failed to locate LED of drive %s, LED status - %d, err %v", drive.Spec.SerialNumber, status.Status, err)
 		drive.Spec.Usage = apiV1.DriveUsageFailed
 		// send error level alert
 		eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
@@ -337,7 +357,7 @@ func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, driv
 	}
 }
 
-func (c *Controller) locateNodeLED(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
+func (c *Controller) stopLocateNodeLED(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
 	driveList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, driveList); err != nil {
 		log.Errorf("Unable to read Drive List")
