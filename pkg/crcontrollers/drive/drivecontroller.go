@@ -17,6 +17,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/events"
@@ -205,24 +206,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 				}
 			}
 		}
-		fallthrough
 	case apiV1.DriveUsageRemoving:
-		status, err := c.handleDriveUsageRemoving(ctx, log, drive)
-		if err != nil {
-			return status, err
-		}
-		if status == update {
-			toUpdate = true
-		}
+		return c.handleDriveUsageRemoving(ctx, log, drive)
 	case apiV1.DriveUsageRemoved:
-		if drive.Spec.Status == apiV1.DriveStatusOffline {
-			// drive was removed from the system. need to clean corresponding custom resource
-			// try to stop node LED
-			if err := c.stopLocateNodeLED(ctx, log, drive); err != nil {
-				return ignore, err
-			}
-			return remove, nil
-		}
+		return c.handleDriveUsageRemoved(ctx, log, drive)
 	case apiV1.DriveUsageFailed:
 		if c.checkAndPlaceStatusInUse(drive) {
 			toUpdate = true
@@ -341,11 +328,26 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 	return update, nil
 }
 
+func (c *Controller) handleDriveUsageRemoved(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	if drive.Spec.Status != apiV1.DriveStatusOffline {
+		return ignore, nil
+	}
+	// drive was removed from the system. need to clean corresponding custom resource
+	// try to stop node LED
+	if err := c.stopLocateNodeLED(ctx, log, drive); err != nil {
+		return ignore, err
+	}
+	if err := c.removeRelatedAC(ctx, log, drive); err != nil {
+		return ignore, err
+	}
+	return remove, nil
+}
+
 func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {
 	// try to enable LED
 	status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
 	if err != nil || status.Status != apiV1.LocateStatusOn {
-		log.Errorf("Failed to locate LED of drive %s, LED status - %d, err %v", drive.Spec.SerialNumber, status.Status, err)
+		log.Errorf("Failed to locate LED of drive %s, LED status - %+v, err %v", drive.Spec.SerialNumber, status, err)
 		drive.Spec.Usage = apiV1.DriveUsageFailed
 		// send error level alert
 		eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
@@ -377,6 +379,25 @@ func (c *Controller) stopLocateNodeLED(ctx context.Context, log *logrus.Entry, c
 	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStop})
 	if err != nil {
 		log.Errorf("Failed to disable node locate: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) removeRelatedAC(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
+	ac, err := c.crHelper.GetACByLocation(curDrive.GetName())
+	if err != nil && err != errTypes.ErrorNotFound {
+		log.Errorf("Failed to get AC for Drive %s: %s", curDrive.GetName(), err.Error())
+		return err
+	}
+	if err == errTypes.ErrorNotFound {
+		log.Warnf("AC for Drive %s is not found", curDrive.GetName())
+		return nil
+	}
+
+	if err = c.client.DeleteCR(ctx, ac); err != nil {
+		log.Errorf("Failed to delete AC %s related to drive %s: %s", ac.GetName(), curDrive.GetName(), err.Error())
 		return err
 	}
 
