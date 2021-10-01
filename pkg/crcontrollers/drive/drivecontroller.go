@@ -206,27 +206,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 				}
 			}
 		}
-		fallthrough
 	case apiV1.DriveUsageRemoving:
-		status, err := c.handleDriveUsageRemoving(ctx, log, drive)
-		if err != nil {
-			return status, err
-		}
-		if status == update {
-			toUpdate = true
-		}
+		return c.handleDriveUsageRemoving(ctx, log, drive)
 	case apiV1.DriveUsageRemoved:
-		if drive.Spec.Status == apiV1.DriveStatusOffline {
-			// drive was removed from the system. need to clean corresponding custom resource
-			// try to stop node LED
-			if err := c.stopLocateNodeLED(ctx, log, drive); err != nil {
-				return ignore, err
-			}
-			if err := c.removeRelatedAC(ctx, log, drive); err != nil {
-				return ignore, err
-			}
-			return remove, nil
-		}
+		return c.handleDriveUsageRemoved(ctx, log, drive)
 	case apiV1.DriveUsageFailed:
 		if c.checkAndPlaceStatusInUse(drive) {
 			toUpdate = true
@@ -343,6 +326,21 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 		}
 	}
 	return update, nil
+}
+
+func (c *Controller) handleDriveUsageRemoved(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	if drive.Spec.Status != apiV1.DriveStatusOffline {
+		return ignore, nil
+	}
+	// drive was removed from the system. need to clean corresponding custom resource
+	// try to stop node LED
+	if err := c.stopLocateNodeLED(ctx, log, drive); err != nil {
+		return ignore, err
+	}
+	if err := c.removeRelatedAC(ctx, log, drive); err != nil {
+		return ignore, err
+	}
+	return remove, nil
 }
 
 func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {
