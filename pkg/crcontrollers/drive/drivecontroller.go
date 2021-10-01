@@ -3,6 +3,7 @@ package drive
 import (
 	"context"
 	"fmt"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -221,6 +222,9 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			if err := c.stopLocateNodeLED(ctx, log, drive); err != nil {
 				return ignore, err
 			}
+			if err := c.removeRelatedAC(ctx, log, drive); err != nil {
+				return ignore, err
+			}
 			return remove, nil
 		}
 	case apiV1.DriveUsageFailed:
@@ -377,6 +381,25 @@ func (c *Controller) stopLocateNodeLED(ctx context.Context, log *logrus.Entry, c
 	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStop})
 	if err != nil {
 		log.Errorf("Failed to disable node locate: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) removeRelatedAC(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
+	ac, err := c.crHelper.GetACByLocation(curDrive.GetName())
+	if err != nil && !k8serrors.IsNotFound(err) {
+		log.Errorf("Failed to get AC for Drive %s: %s", curDrive.GetName(), err.Error())
+		return err
+	}
+	if k8serrors.IsNotFound(err) {
+		log.Warnf("AC for Drive %s is not found", curDrive.GetName())
+		return nil
+	}
+
+	if err = c.client.DeleteCR(ctx, ac); err != nil {
+		log.Errorf("Failed to delete AC %s related to drive %s: %s", ac.GetName(), curDrive.GetName(), err.Error())
 		return err
 	}
 
