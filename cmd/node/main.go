@@ -105,6 +105,22 @@ func main() {
 
 	stopCH := ctrl.SetupSignalHandler()
 
+	k8SClient, err := k8s.GetK8SClient()
+	if err != nil {
+		logger.Fatalf("fail to create kubernetes client, error: %v", err)
+	}
+	// we need tp obtain node ID first before proceeding with the futher initialization
+	var nodeID string
+	for {
+		logger.Info("Obtaining node ID...")
+		if nodeID, err = annotations.GetNodeIDByName(k8SClient, *nodeName, *nodeIDAnnotation, featureConf); err == nil {
+			logger.Info("Node ID is %s", nodeID)
+			break
+		}
+		logger.Warningf("Unable to get node ID due to %w, sleeping and retry...", err)
+		time.Sleep(5 * time.Second)
+	}
+
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
 	if err != nil {
@@ -115,22 +131,12 @@ func main() {
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, enableMetrics, logger)
 
-	k8SClient, err := k8s.GetK8SClient()
-	if err != nil {
-		logger.Fatalf("fail to create kubernetes client, error: %v", err)
-	}
-	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
-
 	kubeCache, err := k8s.InitKubeCache(logger, stopCH,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
 	if err != nil {
 		logger.Fatalf("fail to start kubeCache, error: %v", err)
 	}
 
-	nodeID, err := annotations.GetNodeIDByName(k8SClient, *nodeName, *nodeIDAnnotation, featureConf)
-	if err != nil {
-		logger.Fatalf("fail to get id of k8s Node object: %v", err)
-	}
 	eventRecorder, err := prepareEventRecorder(nodeID, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
@@ -139,6 +145,7 @@ func main() {
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
+	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
 		clientToDriveMgr, nodeID, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
