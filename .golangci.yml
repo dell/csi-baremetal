@@ -7,7 +7,7 @@ linters-settings:
     line-length: 190
   funlen:
     lines: 180
-    statements: 80 # must be 70. ISSUE-431. Need to refactor handleDriveUpdate
+    statements: 70
   gocognit:
     min-complexity: 60
   golint:
