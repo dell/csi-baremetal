@@ -58,7 +58,10 @@ import (
 )
 
 const (
-	componentName = "csi-baremetal-node"
+	componentName      = "csi-baremetal-node"
+	// on loaded system drive manager might response with the delay
+	numberOfRetries  = 20
+	delayBeforeRetry = 5
 )
 
 var (
@@ -187,7 +190,8 @@ func main() {
 	// input parameters are ignored by Check() function - pass empty context and health check request
 	ctx := context.Background()
 	req := &grpc_health_v1.HealthCheckRequest{}
-	for {
+	isVolumeMgrReady := false
+	for i := 0; i < numberOfRetries; i++ {
 		logger.Info("Waiting for node service to become ready ...")
 		// never returns error
 		resp, _ := csiNodeService.Check(ctx, req)
@@ -195,11 +199,16 @@ func main() {
 		// need to wait for drive info to be updated before starting accepting CSI calls
 		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
 			logger.Info("Node service is ready to handle requests")
+			isVolumeMgrReady = true
 			break
 		} else {
-			logger.Info("Not ready yet. Sleeping ...")
-			time.Sleep(5 * time.Second)
+			logger.Info("Not ready yet. Sleeping %s seconds...", delayBeforeRetry)
+			time.Sleep(delayBeforeRetry * time.Second)
 		}
+	}
+	// exit if not ready
+	if !isVolumeMgrReady {
+		logger.Fatalf("Number of retries %s exceeded. Exiting...", numberOfRetries)
 	}
 
 	logger.Info("Starting handle CSI calls ...")
