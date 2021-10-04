@@ -186,6 +186,18 @@ func main() {
 	}()
 	go Discovering(csiNodeService, logger)
 
+	// wait for readiness
+	waitForVolumeManagerReadiness(csiNodeService, logger)
+
+	logger.Info("Starting handle CSI calls ...")
+	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
+		logger.Fatalf("fail to serve: %v", err)
+	}
+
+	logger.Info("Got SIGTERM signal")
+}
+
+func waitForVolumeManagerReadiness(c *node.CSINodeService, logger *logrus.Logger) {
 	// check here for volume manager readiness
 	// input parameters are ignored by Check() function - pass empty context and health check request
 	ctx := context.Background()
@@ -194,7 +206,7 @@ func main() {
 	for i := 0; i < numberOfRetries; i++ {
 		logger.Info("Waiting for node service to become ready ...")
 		// never returns error
-		resp, _ := csiNodeService.Check(ctx, req)
+		resp, _ := c.Check(ctx, req)
 		// disk info might be outdated (for example, block device names change on node reboot)
 		// need to wait for drive info to be updated before starting accepting CSI calls
 		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
@@ -210,13 +222,6 @@ func main() {
 	if !isVolumeMgrReady {
 		logger.Fatalf("Number of retries %d exceeded. Exiting...", numberOfRetries)
 	}
-
-	logger.Info("Starting handle CSI calls ...")
-	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
-		logger.Fatalf("fail to serve: %v", err)
-	}
-
-	logger.Info("Got SIGTERM signal")
 }
 
 // Discovering performs Discover method of the Node each 30 seconds
