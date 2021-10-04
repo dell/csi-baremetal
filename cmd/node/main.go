@@ -58,7 +58,7 @@ import (
 )
 
 const (
-	componentName      = "csi-baremetal-node"
+	componentName = "csi-baremetal-node"
 	// on loaded system drive manager might response with the delay
 	numberOfRetries  = 20
 	delayBeforeRetry = 5
@@ -202,13 +202,13 @@ func main() {
 			isVolumeMgrReady = true
 			break
 		} else {
-			logger.Info("Not ready yet. Sleeping %s seconds...", delayBeforeRetry)
+			logger.Info("Not ready yet. Sleeping ...")
 			time.Sleep(delayBeforeRetry * time.Second)
 		}
 	}
 	// exit if not ready
 	if !isVolumeMgrReady {
-		logger.Fatalf("Number of retries %s exceeded. Exiting...", numberOfRetries)
+		logger.Fatalf("Number of retries %d exceeded. Exiting...", numberOfRetries)
 	}
 
 	logger.Info("Starting handle CSI calls ...")
