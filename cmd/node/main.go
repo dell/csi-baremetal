@@ -32,6 +32,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -59,6 +60,9 @@ import (
 
 const (
 	componentName = "csi-baremetal-node"
+	// on loaded system drive manager might response with the delay
+	numberOfRetries  = 20
+	delayBeforeRetry = 5
 )
 
 var (
@@ -109,17 +113,8 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	// we need tp obtain node ID first before proceeding with the futher initialization
-	var nodeID string
-	for {
-		logger.Info("Obtaining node ID...")
-		if nodeID, err = annotations.GetNodeIDByName(k8SClient, *nodeName, *nodeIDAnnotation, featureConf); err == nil {
-			logger.Info("Node ID is %s", nodeID)
-			break
-		}
-		logger.Warningf("Unable to get node ID due to %w, sleeping and retry...", err)
-		time.Sleep(5 * time.Second)
-	}
+	// we need to obtain node ID first before proceeding with the initialization
+	nodeID := waitForNodeIDReadiness(k8SClient, featureConf, logger)
 
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
@@ -190,24 +185,8 @@ func main() {
 	}()
 	go Discovering(csiNodeService, logger)
 
-	// check here for volume manager readiness
-	// input parameters are ignored by Check() function - pass empty context and health check request
-	ctx := context.Background()
-	req := &grpc_health_v1.HealthCheckRequest{}
-	for {
-		logger.Info("Waiting for node service to become ready ...")
-		// never returns error
-		resp, _ := csiNodeService.Check(ctx, req)
-		// disk info might be outdated (for example, block device names change on node reboot)
-		// need to wait for drive info to be updated before starting accepting CSI calls
-		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
-			logger.Info("Node service is ready to handle requests")
-			break
-		} else {
-			logger.Info("Not ready yet. Sleeping ...")
-			time.Sleep(5 * time.Second)
-		}
-	}
+	// wait for readiness
+	waitForVolumeManagerReadiness(csiNodeService, logger)
 
 	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
@@ -215,6 +194,45 @@ func main() {
 	}
 
 	logger.Info("Got SIGTERM signal")
+}
+
+func waitForNodeIDReadiness(client k8sClient.Client, featureConf featureconfig.FeatureChecker, logger *logrus.Logger) string {
+	for i := 0; i < numberOfRetries; i++ {
+		logger.Info("Obtaining node ID...")
+		if nodeID, err := annotations.GetNodeIDByName(client, *nodeName, *nodeIDAnnotation, featureConf); err == nil {
+			logger.Info("Node ID is %s", nodeID)
+			return nodeID
+		} else {
+			logger.Warningf("Unable to get node ID due to %w, sleep and retry...", err)
+			time.Sleep(delayBeforeRetry * time.Second)
+		}
+	}
+	logger.Fatalf("Number of retries %d exceeded. Exiting...", numberOfRetries)
+	// todo return is redundant here
+	return ""
+}
+
+func waitForVolumeManagerReadiness(c *node.CSINodeService, logger *logrus.Logger) {
+	// check here for volume manager readiness
+	// input parameters are ignored by Check() function - pass empty context and health check request
+	ctx := context.Background()
+	req := &grpc_health_v1.HealthCheckRequest{}
+	for i := 0; i < numberOfRetries; i++ {
+		logger.Info("Waiting for node service to become ready ...")
+		// never returns error
+		resp, _ := c.Check(ctx, req)
+		// disk info might be outdated (for example, block device names change on node reboot)
+		// need to wait for drive info to be updated before starting accepting CSI calls
+		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
+			logger.Info("Node service is ready to handle requests")
+			return
+		} else {
+			logger.Info("Not ready yet. Sleeping ...")
+			time.Sleep(delayBeforeRetry * time.Second)
+		}
+	}
+	// exit if not ready
+	logger.Fatalf("Number of retries %d exceeded. Exiting...", numberOfRetries)
 }
 
 // Discovering performs Discover method of the Node each 30 seconds
