@@ -114,7 +114,10 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 	// we need to obtain node ID first before proceeding with the initialization
-	nodeID := waitForNodeIDReadiness(k8SClient, featureConf, logger)
+	nodeID, err := obtainNodeIDWithRetries(k8SClient, featureConf, logger)
+	if err != nil {
+		logger.Fatalf("Unable to obtain node ID: %v", err)
+	}
 
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
@@ -196,20 +199,23 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func waitForNodeIDReadiness(client k8sClient.Client, featureConf featureconfig.FeatureChecker, logger *logrus.Logger) string {
+func obtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.FeatureChecker,
+	logger *logrus.Logger) (string, error) {
+	var (
+		err    error
+		nodeID string
+	)
 	for i := 0; i < numberOfRetries; i++ {
 		logger.Info("Obtaining node ID...")
-		if nodeID, err := annotations.GetNodeIDByName(client, *nodeName, *nodeIDAnnotation, featureConf); err == nil {
-			logger.Info("Node ID is %s", nodeID)
-			return nodeID
-		} else {
-			logger.Warningf("Unable to get node ID due to %w, sleep and retry...", err)
-			time.Sleep(delayBeforeRetry * time.Second)
+		if nodeID, err = annotations.GetNodeIDByName(client, *nodeName, *nodeIDAnnotation, featureConf); err == nil {
+			logger.Infof("Node ID is %s", nodeID)
+			return nodeID, nil
 		}
+		logger.Warningf("Unable to get node ID due to %v, sleep and retry...", err)
+		time.Sleep(delayBeforeRetry * time.Second)
 	}
-	logger.Fatalf("Number of retries %d exceeded. Exiting...", numberOfRetries)
-	// todo return is redundant here
-	return ""
+	// return empty node ID and error
+	return "", fmt.Errorf("number of retries %d exceeded", numberOfRetries)
 }
 
 func waitForVolumeManagerReadiness(c *node.CSINodeService, logger *logrus.Logger) {
@@ -226,10 +232,9 @@ func waitForVolumeManagerReadiness(c *node.CSINodeService, logger *logrus.Logger
 		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
 			logger.Info("Node service is ready to handle requests")
 			return
-		} else {
-			logger.Info("Not ready yet. Sleeping ...")
-			time.Sleep(delayBeforeRetry * time.Second)
 		}
+		logger.Infof("Not ready yet. Sleep %d seconds and retry ...", delayBeforeRetry)
+		time.Sleep(delayBeforeRetry * time.Second)
 	}
 	// exit if not ready
 	logger.Fatalf("Number of retries %d exceeded. Exiting...", numberOfRetries)
