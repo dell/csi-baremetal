@@ -200,11 +200,8 @@ func main() {
 }
 
 func obtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.FeatureChecker,
-	logger *logrus.Logger) (string, error) {
-	var (
-		err    error
-		nodeID string
-	)
+	logger *logrus.Logger) (nodeID string, err error) {
+	// try to obtain node ID
 	for i := 0; i < numberOfRetries; i++ {
 		logger.Info("Obtaining node ID...")
 		if nodeID, err = annotations.GetNodeIDByName(client, *nodeName, *nodeIDAnnotation, featureConf); err == nil {
