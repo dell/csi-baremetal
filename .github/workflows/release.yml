@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Binary
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Github Release create, update, and upload assets
+        uses: meeDamian/github-release@v2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          name: Release ${{ github.ref }}
+          prerelease: true
+          files: path/to/binary # Necessary to have binary file downloaded at this stage
+        if: startsWith(github.ref, 'refs/tags/')
