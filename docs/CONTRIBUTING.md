@@ -96,9 +96,10 @@ You have to commit the changes to go.mod, go.sum and before submitting the pull 
 ### Preparing Build Environment
 
 #### Requirements
-- go 1.16
-- lvm2 packet installed on host machine
-- kubectl/helm
+- go v1.16
+- lvm2 packet installed on host machine (v2.03)
+- kubectl v1.22.1
+- helm v3.6.0
 
 #### Build
 
