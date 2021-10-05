@@ -17,7 +17,9 @@ limitations under the License.
 package scenarios
 
 import (
+	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -33,13 +35,13 @@ import (
 )
 
 // DefineNodeRebootTestSuite defines custom csi-baremetal node reboot test
-func DefineNodeRebootTestSuite(driver testsuites.TestDriver) {
+func DefineNodeRebootTestSuite(driver *baremetalDriver) {
 	ginkgo.Context("Baremetal-csi node reboot test", func() {
 		defineNodeRebootTest(driver)
 	})
 }
 
-func defineNodeRebootTest(driver testsuites.TestDriver) {
+func defineNodeRebootTest(driver *baremetalDriver) {
 	var (
 		pod             *corev1.Pod
 		pvc             *corev1.PersistentVolumeClaim
@@ -60,8 +62,8 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 		ns = f.Namespace.Name
 
 		perTestConf, driverCleanup = driver.PrepareTest(f)
-		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(k8sSC)
+		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
@@ -82,8 +84,9 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 
 		var err error
 		// create pvc
-		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).
-			Create(constructPVC(ns, driver.(testsuites.DynamicPVTestDriver).GetClaimSize(), k8sSC.Name, pvcName))
+		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
+			constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
+			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// create pod with pvc
@@ -120,10 +123,10 @@ func defineNodeRebootTest(driver testsuites.TestDriver) {
 			framework.Failf("Node %s still NotReady", containerToStop)
 		}
 
-		// wait until pod become ready
-		podReadyErr := e2epod.WaitForPodsReady(f.ClientSet, ns, pod.Name, 2)
-		framework.ExpectNoError(podReadyErr)
-		e2elog.Logf("Pod %s became ready again", pod.Name)
+		// wait 5 minutes until all pods become ready
+		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 0, 0, 5*time.Minute, nil)
+		framework.ExpectNoError(err)
+		e2elog.Logf("All pods are ready after node restart")
 
 		// check that pod consume same pvc
 		var boundAgain = false

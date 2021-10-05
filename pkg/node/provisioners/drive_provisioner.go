@@ -48,7 +48,7 @@ const (
 type DriveProvisioner struct {
 	listBlk lsblk.WrapLsblk
 	// fsOps uses for operations with file systems
-	fsOps fs.WrapFS
+	fsOps uw.FSOperations
 	// partOps uses for operations with partitions
 	partOps uw.PartitionOperations
 
@@ -65,7 +65,7 @@ func NewDriveProvisioner(
 	log *logrus.Logger) *DriveProvisioner {
 	return &DriveProvisioner{
 		listBlk:   lsblk.NewLSBLK(log),
-		fsOps:     fs.NewFSImpl(e),
+		fsOps:     uw.NewFSOperationsImpl(e, log),
 		partOps:   uw.NewPartitionOperationsImpl(e, log),
 		k8sClient: k,
 		crHelper:  k8s.NewCRHelper(k, log),
@@ -119,10 +119,9 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 		ll.Errorf("Unable to prepare partition: %v", err)
 		return fmt.Errorf("unable to prepare partition for volume %v", vol)
 	}
-	ll.Infof("Partition was created successfully %v", partPtr)
+	ll.Infof("Partition was created successfully %+v", partPtr)
 
-	// create FS
-	return d.fsOps.CreateFS(fs.FileSystem(vol.Type), partPtr.GetFullPath())
+	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath())
 }
 
 // ReleaseVolume remove FS and partition based on vol attributes.
@@ -235,6 +234,7 @@ func (d *DriveProvisioner) GetVolumePath(vol api.Volume) (string, error) {
 
 	partNum := d.partOps.SearchPartName(device, volumeUUID)
 	if partNum == "" {
+		// on device disconnect or node reboot device name might change and we need to re-sync drive info
 		return "", fmt.Errorf("unable to find part name for device %s by uuid %s", device, volumeUUID)
 	}
 	return device + partNum, nil

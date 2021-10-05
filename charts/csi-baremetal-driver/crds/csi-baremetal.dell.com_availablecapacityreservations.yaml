@@ -17,6 +17,16 @@ spec:
     description: Status of AvailableCapacityReservation
     name: STATUS
     type: string
+  - JSONPath: .spec.NodeRequests.Requested
+    description: List of requested nodes
+    name: REQUESTED NODES
+    priority: 1
+    type: string
+  - JSONPath: .spec.NodeRequests.Reserved
+    description: List of reserved nodes
+    name: RESERVED NODES
+    priority: 1
+    type: string
   group: csi-baremetal.dell.com
   names:
     kind: AvailableCapacityReservation

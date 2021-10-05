@@ -9,7 +9,7 @@ image-controller \
 image-extender \
 image-extender-patcher \
 image-scheduler \
-image-operator
+image-node-controller
 
 base-images: base-image-drivemgr base-image-node base-image-controller
 
@@ -19,18 +19,19 @@ base-image-drivemgr:
 	${BASE_IMAGE_DRIVEMGR_ARGS_${shell echo $(DRIVE_MANAGER_TYPE) | tr '[a-z]' '[A-Z]'}}
 
 download-grpc-health-probe:
+	mkdir -p build
 	if [ ! -s build/health_probe ]; then curl -L ${HEALTH_PROBE_BIN_URL} -o build/health_probe; fi
 	chmod +x build/health_probe
 
 # NOTE: Output directory for binary file should be in Docker context.
 # So we can't use csi-baremetal/build to build the image.
-base-image-node: download-grpc-health-probe
+base-image-node:
 	cp ./pkg/${NODE}/Dockerfile* ./build/${NODE}/
 	cp ./build/${HEALTH_PROBE} ./build/${NODE}/
 	docker build --network host --file ./build/${NODE}/Dockerfile.build --tag ${NODE}:base ./build/${NODE}
 	docker build --network host --file ./build/${NODE}/Dockerfile-kernel-5.4.build --tag ${NODE}:base-kernel-5.4 ./build/${NODE}
 
-base-image-controller: download-grpc-health-probe
+base-image-controller:
 	cp ./pkg/${CONTROLLER}/Dockerfile.build ./build/${CONTROLLER}/
 	cp ./build/${HEALTH_PROBE} ./build/${CONTROLLER}/
 	docker build --network host --file ./build/${CONTROLLER}/Dockerfile.build --tag ${CONTROLLER}:base ./build/${CONTROLLER}
@@ -50,6 +51,7 @@ image-controller: base-image-controller
 
 image-extender:
 	cp ./pkg/${SCHEDULER}/${EXTENDER}/Dockerfile ./build/${SCHEDULING_PKG}/${EXTENDER}/
+	cp ./build/${HEALTH_PROBE} ./build/${SCHEDULING_PKG}/${EXTENDER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
 
 image-extender-patcher:
@@ -59,11 +61,10 @@ image-scheduler:
 	cp ./pkg/${SCHEDULER}/${PLUGIN}/Dockerfile ./build/${SCHEDULING_PKG}/${SCHEDULER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ./build/${SCHEDULING_PKG}/${SCHEDULER}
 
-image-operator:
-	cp -r ./${DRIVER_CHART_PATH} ./build/${CR_CONTROLLERS}/${OPERATOR}/
-	cp ./pkg/${CR_CONTROLLERS}/${OPERATOR}/Dockerfile ./build/${CR_CONTROLLERS}/${OPERATOR}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} \
-	./build/${CR_CONTROLLERS}/${OPERATOR}
+image-node-controller:
+	cp ./pkg/${CR_CONTROLLERS}/${NODE_CONTROLLER_PKG}/Dockerfile ./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}/
+	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG} \
+	./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}
 
 ###################
 ### Push images ###
@@ -74,7 +75,7 @@ push-controller \
 push-extender \
 push-extender-patcher \
 push-scheduler \
-push-operator
+push-node-controller
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -95,8 +96,8 @@ push-extender-patcher:
 push-scheduler:
 	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
-push-operator:
-	docker push ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}
+push-node-controller:
+	docker push ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 ####################
 ### Clean images ###
@@ -107,7 +108,7 @@ clean-image-drivemgr \
 clean-image-extender \
 clean-image-extender-patcher \
 clean-image-scheduler \
-clean-image-operator
+clean-image-node-controller
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
@@ -128,5 +129,5 @@ clean-image-extender-patcher:
 clean-image-scheduler:
 	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
-clean-image-operator:
-	docker rmi ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}
+clean-image-node-controller:
+	docker rmi ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}

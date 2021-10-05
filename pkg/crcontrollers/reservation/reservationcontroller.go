@@ -12,6 +12,7 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	metrics "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
@@ -30,11 +31,11 @@ type Controller struct {
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
-func NewController(client *k8s.KubeClient, log *logrus.Logger) *Controller {
+func NewController(client *k8s.KubeClient, log *logrus.Logger, sequentialLVGReservation bool) *Controller {
 	return &Controller{
 		client:                 client,
 		log:                    log.WithField("component", "ReservationController"),
-		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{SequentialLVGReservation: sequentialLVGReservation},
 	}
 }
 
@@ -86,14 +87,18 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 		}
 
 		// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
-		acReader := capacityplanner.NewACReader(c.client, c.log, true)
-		acrReader := capacityplanner.NewACRReader(c.client, c.log, true)
-		reservedCapReader := capacityplanner.NewUnreservedACReader(c.log, acReader, acrReader)
-		capManager := c.capacityManagerBuilder.GetCapacityManager(c.log, reservedCapReader)
+		acReader := capacityplanner.NewACReader(c.client, log, true)
+		acrReader := capacityplanner.NewACRReader(c.client, log, true)
+		capManager := c.capacityManagerBuilder.GetCapacityManager(log, acReader, acrReader)
 
 		requestedNodes := reservationSpec.NodeRequests.Requested
 		placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes, requestedNodes)
+		if err == baseerr.ErrorRejectReservationRequest {
+			log.Warningf("Reservation request rejected due to another ACR in RESERVED state has request based on LVG")
+			return ctrl.Result{Requeue: true}, err
+		}
 		if err != nil {
+			log.Errorf("Failed to create placing plan: %s", err.Error())
 			return ctrl.Result{Requeue: true}, err
 		}
 
@@ -105,26 +110,28 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 					continue
 				}
 				matchedNodes = append(matchedNodes, id)
-				c.log.Infof("Matched node Id: %s", id)
+				log.Infof("Matched node Id: %s", id)
 			}
 		}
 
 		if len(matchedNodes) != 0 {
 			reservationHelper := capacityplanner.NewReservationHelper(c.log, c.client, acReader)
 			if err = reservationHelper.UpdateReservation(ctx, placingPlan, matchedNodes, reservation); err != nil {
-				c.log.Errorf("Failed to update reservation: %s", err.Error())
+				log.Errorf("Failed to update reservation: %s", err.Error())
 				return ctrl.Result{Requeue: true}, err
 			}
 		} else {
 			// reject reservation
 			reservation.Spec.Status = v1.ReservationRejected
 			if err := c.client.UpdateCR(ctx, reservation); err != nil {
-				c.log.Errorf("Unable to reject reservation %s: %v", reservation.Name, err)
+				log.Errorf("Unable to reject reservation %s: %v", reservation.Name, err)
 				return ctrl.Result{Requeue: true}, err
 			}
 		}
+		log.Infof("CR obtained")
 		return ctrl.Result{}, nil
 	default:
+		log.Infof("CR is not in %s state", v1.ReservationRequested)
 		return ctrl.Result{}, nil
 	}
 }

@@ -13,9 +13,13 @@ spec:
     description: Node Id
     name: UUID
     type: string
-  - JSONPath: .spec.Addresses
-    description: Hostname and internal Node ip
-    name: ADDRESSES
+  - JSONPath: .spec.Addresses.Hostname
+    description: Node hostname
+    name: HOSTNAME
+    type: string
+  - JSONPath: .spec.Addresses.InternalIP
+    description: Node ip
+    name: NODE_IP
     type: string
   group: csi-baremetal.dell.com
   names:

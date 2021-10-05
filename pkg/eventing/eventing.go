@@ -16,7 +16,10 @@ limitations under the License.
 
 package eventing
 
-// Event types
+// EventSeverityType type of severity for CSI events
+type EventSeverityType string
+
+// CSI events severity types
 const (
 	NormalType   = "Normal"
 	WarningType  = "Warning"
@@ -24,28 +27,170 @@ const (
 	CriticalType = "Critical"
 )
 
-// Volume event reason list
+// EventSymptomCode type of symptom codes for CSI events
+type EventSymptomCode string
+
+// CSI events symptom codes
 const (
-	VolumeDiscovered    = "VolumeDiscovered"
-	VolumeBadHealth     = "VolumeBadHealth"
-	VolumeUnknownHealth = "VolumeUnknownHealth"
-	VolumeGoodHealth    = "VolumeGoodHealth"
-	VolumeSuspectHealth = "VolumeSuspectHealth"
+	DriveHealthFailureSymptomCode = "01"
+	DriveDiscoveredSymptomCode    = "02"
+	DriveStatusChangedSymptomCode = "03"
+	DriveHealthGoodSymptomCode    = "04"
+	FakeAttachSymptomCode         = "05"
 
-	DriveDiscovered           = "DriveDiscovered"
-	DriveHealthSuspect        = "DriveHealthSuspect"
-	DriveHealthFailure        = "DriveHealthFailure"
-	DriveHealthGood           = "DriveHealthGood"
-	DriveHealthUnknown        = "DriveHealthUnknown"
-	DriveStatusOnline         = "DriveStatusOnline"
-	DriveStatusOffline        = "DriveStatusOffline"
-	DriveReplacementFailed    = "DriveReplacementFailed"
-	DriveReadyForReplacement  = "DriveReadyForReplacement"
-	DriveSuccessfullyReplaced = "DriveSuccessfullyReplaced"
-	DriveHasData              = "DriveHasData"
-	DriveClean                = "DriveClean"
-	DriveHealthOverridden     = "DriveHealthOverridden"
+	NoneSymptomCode = "NONE"
 
-	FakeAttachInvolved = "FakeAttachInvolved"
-	FakeAttachCleared  = "FakeAttachCleared"
+	SymptomCodeLabelKey = "SymptomID"
+	SymptomCodePrefix   = "CSI"
+)
+
+// EventReason type of reasons for CSI events
+type EventReason string
+
+// EventDescription contains info to record CSI event
+type EventDescription struct {
+	reason      EventReason
+	severity    EventSeverityType
+	symptomCode EventSymptomCode
+}
+
+// List of all CSI events with description
+var (
+	DriveHealthFailure = &EventDescription{
+		reason:      "DriveHealthFailure",
+		severity:    ErrorType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
+	DriveHealthSuspect = &EventDescription{
+		reason:      "DriveHealthSuspect",
+		severity:    WarningType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
+	DriveReadyForRemoval = &EventDescription{
+		reason:      "DriveReadyForRemoval",
+		severity:    WarningType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
+	DriveReadyForPhysicalRemoval = &EventDescription{
+		reason:      "DriveReadyForPhysicalRemoval",
+		severity:    WarningType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
+	DriveSuccessfullyRemoved = &EventDescription{
+		reason:      "DriveSuccessfullyRemoved",
+		severity:    NormalType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
+	DriveRemovalFailed = &EventDescription{
+		reason:      "DriveRemovalFailed",
+		severity:    ErrorType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
+	DriveRemovedByForce = &EventDescription{
+		reason:      "DriveRemovedByForce",
+		severity:    WarningType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
+
+	DriveDiscovered = &EventDescription{
+		reason:      "DriveDiscovered",
+		severity:    NormalType,
+		symptomCode: DriveDiscoveredSymptomCode,
+	}
+
+	DriveStatusOffline = &EventDescription{
+		reason:      "DriveStatusOffline",
+		severity:    ErrorType,
+		symptomCode: DriveStatusChangedSymptomCode,
+	}
+	DriveStatusOnline = &EventDescription{
+		reason:      "DriveStatusOnline",
+		severity:    NormalType,
+		symptomCode: DriveStatusChangedSymptomCode,
+	}
+
+	DriveHealthGood = &EventDescription{
+		reason:      "DriveHealthGood",
+		severity:    NormalType,
+		symptomCode: DriveHealthGoodSymptomCode,
+	}
+
+	FakeAttachInvolved = &EventDescription{
+		reason:      "FakeAttachInvolved",
+		severity:    ErrorType,
+		symptomCode: FakeAttachSymptomCode,
+	}
+	FakeAttachCleared = &EventDescription{
+		reason:      "FakeAttachCleared",
+		severity:    NormalType,
+		symptomCode: FakeAttachSymptomCode,
+	}
+
+	VolumeDiscovered = &EventDescription{
+		reason:      "VolumeDiscovered",
+		severity:    NormalType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeBadHealth = &EventDescription{
+		reason:      "VolumeBadHealth",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeUnknownHealth = &EventDescription{
+		reason:      "VolumeUnknownHealth",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeGoodHealth = &EventDescription{
+		reason:      "VolumeGoodHealth",
+		severity:    NormalType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeSuspectHealth = &EventDescription{
+		reason:      "VolumeSuspectHealth",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
+
+	DriveHealthUnknown = &EventDescription{
+		reason:      "DriveHealthUnknown",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
+	DriveHasData = &EventDescription{
+		reason:      "DriveHasData",
+		severity:    NormalType,
+		symptomCode: NoneSymptomCode,
+	}
+	DriveClean = &EventDescription{
+		reason:      "DriveClean",
+		severity:    NormalType,
+		symptomCode: NoneSymptomCode,
+	}
+	DriveHealthOverridden = &EventDescription{
+		reason:      "DriveHealthOverridden",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
+
+	VolumeGroupScanFailed = &EventDescription{
+		reason:      "VolumeGroupScanFailed",
+		severity:    ErrorType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeGroupScanInvolved = &EventDescription{
+		reason:      "VolumeGroupScanInvolved",
+		severity:    NormalType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeGroupReactivateInvolved = &EventDescription{
+		reason:      "VolumeGroupReactivateInvolved",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeGroupReactivateFailed = &EventDescription{
+		reason:      "VolumeGroupReactivateFailed",
+		severity:    ErrorType,
+		symptomCode: NoneSymptomCode,
+	}
 )

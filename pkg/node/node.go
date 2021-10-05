@@ -45,7 +45,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 )
 
@@ -226,13 +226,13 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
 			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
 			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
-			s.VolumeManager.recorder.Eventf(volumeCR, eventing.ErrorType, eventing.FakeAttachInvolved,
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachInvolved,
 				"Fake-attach involved for volume with ID %s", volumeID)
 		}
 	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
 		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
 		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
-		s.VolumeManager.recorder.Eventf(volumeCR, eventing.NormalType, eventing.FakeAttachCleared,
+		s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachCleared,
 			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
@@ -650,6 +650,8 @@ func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 
 // Check does the health check and changes the status of the server based on drives cache size
 func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	// parameters aren't used
+	_, _ = ctx, req
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "Check",
 	})

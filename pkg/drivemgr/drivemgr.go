@@ -21,9 +21,11 @@ import api "github.com/dell/csi-baremetal/api/generated/v1"
 
 // DriveManager is the interface for managers that provide information about drives on a node
 type DriveManager interface {
-	// get list of drives
+	// GetDrivesList gets list of drives
 	GetDrivesList() ([]*api.Drive, error)
-	// manipulate of drive's led state, receive drive serial number and type of action
+	// Locate manipulates of drive's led state, receive drive serial number and type of action
 	// returns current led status or error
 	Locate(serialNumber string, action int32) (currentStatus int32, err error)
+	// LocateNode manipulates of node's led state, which should be synced with drive's led
+	LocateNode(action int32) error
 }

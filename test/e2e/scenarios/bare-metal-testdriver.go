@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
+	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
@@ -39,8 +40,9 @@ type baremetalDriver struct {
 }
 
 var (
-	BaremetalDriver = InitBaremetalDriver
-	cmName          = "loopback-config"
+	BaremetalDriver           = InitBaremetalDriver
+	cmName                    = "loopback-config"
+	PersistentVolumeClaimSize = "100Mi"
 )
 
 func initBaremetalDriver(name string) *baremetalDriver {
@@ -81,12 +83,12 @@ func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 // SkipUnsupportedTest is implementation of TestDriver interface method
 func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
 	if pattern.VolType == testpatterns.InlineVolume || pattern.VolType == testpatterns.PreprovisionedPV {
-		framework.Skipf("Baremetal Driver does not support InlineVolume and PreprovisionedPV -- skipping")
+		e2eskipper.Skipf("Baremetal Driver does not support InlineVolume and PreprovisionedPV -- skipping")
 	}
 }
 
 // PrepareCSI deploys CSI and enables logging for containers
-func PrepareCSI(d *baremetalDriver, f *framework.Framework,  deployConfig bool) (*testsuites.PerTestConfig, func()) {
+func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (*testsuites.PerTestConfig, func()) {
 	ginkgo.By("Deploying CSI Baremetal")
 
 	installArgs := ""

@@ -18,27 +18,23 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"gopkg.in/yaml.v2"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -51,14 +47,21 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 const (
 	componentName = "csi-baremetal-node"
+	// on loaded system drive manager might response with the delay
+	numberOfRetries  = 20
+	delayBeforeRetry = 5
 )
 
 var (
@@ -68,7 +71,6 @@ var (
 	csiEndpoint      = flag.String("csiendpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 	nodeName         = flag.String("nodename", "", "node identification by k8s")
 	logPath          = flag.String("logpath", "", "Log path for Node Volume Manager service")
-	eventConfigPath  = flag.String("eventConfigPath", "/etc/config/alerts.yaml", "path for the events config file")
 	useACRs          = flag.Bool("extender", false,
 		"Whether node svc should read AvailableCapacityReservation CR during NodePublish request for ephemeral volumes or not")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
@@ -132,7 +134,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to get id of k8s Node object: %v", err)
 	}
-	eventRecorder, err := prepareEventRecorder(*eventConfigPath, nodeID, logger)
+	eventRecorder, err := prepareEventRecorder(nodeID, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
@@ -184,6 +186,9 @@ func main() {
 	}()
 	go Discovering(csiNodeService, logger)
 
+	// wait for readiness
+	waitForVolumeManagerReadiness(csiNodeService, logger)
+
 	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
 		logger.Fatalf("fail to serve: %v", err)
@@ -192,9 +197,37 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
+func waitForVolumeManagerReadiness(c *node.CSINodeService, logger *logrus.Logger) {
+	// check here for volume manager readiness
+	// input parameters are ignored by Check() function - pass empty context and health check request
+	ctx := context.Background()
+	req := &grpc_health_v1.HealthCheckRequest{}
+	isVolumeMgrReady := false
+	for i := 0; i < numberOfRetries; i++ {
+		logger.Info("Waiting for node service to become ready ...")
+		// never returns error
+		resp, _ := c.Check(ctx, req)
+		// disk info might be outdated (for example, block device names change on node reboot)
+		// need to wait for drive info to be updated before starting accepting CSI calls
+		if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
+			logger.Info("Node service is ready to handle requests")
+			isVolumeMgrReady = true
+			break
+		} else {
+			logger.Info("Not ready yet. Sleeping ...")
+			time.Sleep(delayBeforeRetry * time.Second)
+		}
+	}
+	// exit if not ready
+	if !isVolumeMgrReady {
+		logger.Fatalf("Number of retries %d exceeded. Exiting...", numberOfRetries)
+	}
+}
+
 // Discovering performs Discover method of the Node each 30 seconds
 func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	var err error
+	// set initial delay
 	discoveringWaitTime := 10 * time.Second
 	checker := c.GetLivenessHelper()
 	for {
@@ -262,7 +295,7 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 }
 
 // prepareEventRecorder helper which makes all the work to get EventRecorder
-func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*events.Recorder, error) {
+func prepareEventRecorder(nodeUID string, logger *logrus.Logger) (*events.Recorder, error) {
 	// clientset needed to send events
 	k8SClientset, err := k8s.GetK8SClientset()
 	if err != nil {
@@ -276,26 +309,8 @@ func prepareEventRecorder(configfile, nodeUID string, logger *logrus.Logger) (*e
 	if err != nil {
 		return nil, fmt.Errorf("fail to prepare kubernetes scheme, error: %s", err)
 	}
-	// Setup Option
-	// It's used for label overriding and logging events
 
-	var opt events.Options
-
-	// Optional will be used when
-	alertFile, err := ioutil.ReadFile(configfile)
-	if err != nil {
-		logger.Infof("fail to open events config file. error: %s. Will proceed without overriding.", err)
-	}
-
-	err = yaml.Unmarshal(alertFile, &opt)
-	if err != nil {
-		return nil, fmt.Errorf("fail to unmarshal config file, error: %s", err)
-	}
-
-	opt.Logger = logger.WithField("componentName", "Events")
-	//
-
-	eventRecorder, err := events.New(componentName, nodeUID, eventInter, scheme, opt)
+	eventRecorder, err := events.New(componentName, nodeUID, eventInter, scheme, logger)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create events recorder, error: %s", err)
 	}

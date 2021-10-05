@@ -42,7 +42,7 @@ type WrapPartition interface {
 	SyncPartitionTable(device string) error
 	GetPartitionNameByUUID(device, partUUID string) (string, error)
 	DeviceHasPartitionTable(device string) (bool, error)
-	DeviceHasPartitions(device, serialNumber string) (bool, error)
+	DeviceHasPartitions(device string) (bool, error)
 }
 
 const (
@@ -355,9 +355,9 @@ func (p *WrapPartitionImpl) DeviceHasPartitionTable(device string) (bool, error)
 }
 
 // DeviceHasPartitions calls lsblk and determine if device has partitions (children)
-// Receive device path and serial number
+// Receive device path
 // Return true if device has partitions, false in opposite, error if something went wrong
-func (p *WrapPartitionImpl) DeviceHasPartitions(device, serialNumber string) (bool, error) {
+func (p *WrapPartitionImpl) DeviceHasPartitions(device string) (bool, error) {
 	blockDevices, err := p.lsblkUtil.GetBlockDevices(device)
 	if len(blockDevices) != 1 {
 		return false, fmt.Errorf("wrong output of lsblk for %s, block devices: %v", device, blockDevices)
@@ -367,13 +367,8 @@ func (p *WrapPartitionImpl) DeviceHasPartitions(device, serialNumber string) (bo
 		return false, err
 	}
 
-	bdev := blockDevices[0]
-
-	if !strings.EqualFold(bdev.Serial, serialNumber) {
-		return false, fmt.Errorf("serial numbers for block device %s don't match: %s != %s", bdev.Name, bdev.Serial,
-			serialNumber)
-	}
-	if len(bdev.Children) > 0 {
+	// check number of partitions
+	if len(blockDevices[0].Children) > 0 {
 		return true, nil
 	}
 

@@ -775,9 +775,7 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "v1api.Node.AddressesEntry")
 }
 
-func init() {
-	proto.RegisterFile("types.proto", fileDescriptor_d938547f84707355)
-}
+func init() { proto.RegisterFile("types.proto", fileDescriptor_d938547f84707355) }
 
 var fileDescriptor_d938547f84707355 = []byte{
 	// 792 bytes of a gzipped FileDescriptorProto

@@ -51,7 +51,7 @@ func (w *WrapDataDiscoverImpl) DiscoverData(device, serialNumber string) (*types
 		err        error
 	)
 
-	if fileSystem, err = w.fsHelper.DeviceFs(device); err != nil {
+	if fileSystem, err = w.fsHelper.GetFSType(device); err != nil {
 		return nil, err
 	}
 	if fileSystem != "" {
@@ -71,7 +71,7 @@ func (w *WrapDataDiscoverImpl) DiscoverData(device, serialNumber string) (*types
 		}, nil
 	}
 
-	if hasData, err = w.partHelper.DeviceHasPartitions(device, serialNumber); err != nil {
+	if hasData, err = w.partHelper.DeviceHasPartitions(device); err != nil {
 		return nil, err
 	}
 	if hasData {

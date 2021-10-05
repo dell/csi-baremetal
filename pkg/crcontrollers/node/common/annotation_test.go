@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	testNS     = "default"
+	testNS     = ""
 	testCtx    = context.Background()
 	testLogger = logrus.New()
 

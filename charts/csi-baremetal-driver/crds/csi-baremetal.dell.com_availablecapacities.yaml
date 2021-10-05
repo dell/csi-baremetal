@@ -9,6 +9,14 @@ metadata:
   name: availablecapacities.csi-baremetal.dell.com
 spec:
   additionalPrinterColumns:
+  - JSONPath: .spec.Size
+    description: Size of AvailableCapacity
+    name: SIZE
+    type: string
+  - JSONPath: .spec.storageClass
+    description: StorageClass of AvailableCapacity
+    name: STORAGE CLASS
+    type: string
   - JSONPath: .spec.Location
     description: Drive/LVG UUID used by AvailableCapacity
     name: LOCATION
@@ -16,14 +24,6 @@ spec:
   - JSONPath: .spec.NodeId
     description: Node id of Available Capacity
     name: NODE
-    type: string
-  - JSONPath: .spec.storageClass
-    description: StorageClass of AvailableCapacity
-    name: STORAGE CLASS
-    type: string
-  - JSONPath: .spec.Size
-    description: Size of AvailableCapacity
-    name: SIZE
     type: string
   group: csi-baremetal.dell.com
   names:
