@@ -98,8 +98,8 @@ You have to commit the changes to go.mod, go.sum and before submitting the pull 
 #### Requirements
 - go v1.16
 - lvm2 packet installed on host machine (v2.03)
-- kubectl v1.22.1
-- helm v3.6.0
+- kubectl v1.16+
+- helm v3
 
 #### Build
 
