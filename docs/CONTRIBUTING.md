@@ -95,60 +95,126 @@ You have to commit the changes to go.mod, go.sum and before submitting the pull 
 
 ### Preparing Build Environment
 
-#### Local build
-Setup all required dependencies:
+#### Requirements
+- go v1.16
+- lvm2 packet installed on host machine
+- kubectl v1.16+
+- helm v3
+
+#### Build
+
+##### Set Variables
+
 ```
+export REGISTRY=<your_docker_hub>
+export CSI_BAREMETAL_DIR=<full_path_to_csi_baremetal_src>
+export CSI_BAREMETAL_OPERATOR_DIR=<full_path_to_csi_baremetal_operator_src>
+```
+
+##### Build csi-baremetal
+
+```
+cd ${CSI_BAREMETAL_DIR}
+export CSI_VERSION=`make version`
+
+# Get dependencies
+make dependency
+
+# Compile proto files
 make install-compile-proto
+
+# Generate CRD
 make install-controller-gen
 make generate-deepcopy
-make dependency
-export DRIVE_MANAGER_TYPE=loopbackmgr
-```
-Build binaries:
-```
-make build
-```
-Build docker images:
-```
-export REGISTRY="myregistry.com"
-make images
-```
-Run Unit tests:
-```
+
+# Run unit tests
 make test
+
+# Run sanity tests
+make test-sanity
+
+# Run linting
+make lint
+
+# Clean previous artefacts
+make clean
+
+# Build binary
+make build
+make DRIVE_MANAGER_TYPE=loopbackmgr build-drivemgr
+
+# Build docker images
+make download-grpc-health-probe
+make images REGISTRY=${REGISTRY}
+make DRIVE_MANAGER_TYPE=loopbackmgr image-drivemgr REGISTRY=${REGISTRY}
 ```
-| Action                | Command       | Comment                                                              |
-|-----------------------|---------------|----------------------------------------------------------------------|
-| clean build artifacts | `make clean`  | [`build/_output/baremetal_csi`](./build/_output/baremetal_csi/) directory with all artifacts will be removed |
-| build plugin binary   | `make build`  | artifacts can be found in the [`build/_output/baremetal_csi`](./build/_output/baremetal_csi/) directory.     |
-| build plugin image    | `make images`  | |
-| run linter            | `make lint`  | results will be printed to your terminal|
 
+##### Build csi-baremetal-operator
 
-
-##### Running Baremetal CSI E2E tests locally
-
-* Install `lvm2` package on your machine
-* Create kind (version >= v0.7.0) cluster with the specified config. *Note that kind workers must be run with host IPC*
 ```
-kind create cluster --config  test/kind/kind.yaml
-```
-* KIND can't pull images from remote repository, to load images to local docker repository on nodes:
-```
-export CSI_VERSION=`make version`
-export REGISTRY="asdrepo.isus.emc.com:9042"
+cd ${CSI_BAREMETAL_OPERATOR_DIR}
+export CSI_OPERATOR_VERSION=`make version`
 
-make kind-pull-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
+# Run unit tests
+make test
+
+# Run linting
+make lint
+
+# Build docker image
+make docker-build REGISTRY=${REGISTRY}
+```
+
+##### Prepare kind cluster
+
+```
+cd ${CSI_BAREMETAL_DIR}
+
+# Build custom kind binary
+make kind-build
+
+# Create kind cluster
+make kind-create-cluster
+
+# Check cluster
+kubectl cluster-info --context kind-kind
+
+# If you use another path for kubeconfig or don't set KUBECONFIG env
+kind get kubeconfig > <path_to_kubeconfig>
+
+# Prepare sidecars 
+# If you have sidecar images pushed into your registary
+make kind-pull-sidecar-images
+# If you have no ones
+make deps-docker-pull
+make deps-docker-tag
+
+# Retag CSI images and load them to kind
 make kind-tag-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
 make kind-load-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
+make load-operator-image OPERATOR_VERSION=${CSI_OPERATOR_VERSION} REGISTRY=${REGISTRY}
 ```
-* E2E tests need yaml files with csi-baremetal resources (plugin, controller, rbac). To create yaml files use helm command:
+
+##### Install on kind
+
 ```
-helm template charts/csi-baremetal-driver \
-    --output-dir /tmp --set image.tag=${CSI_VERSION} \
-    --set env.test=true --set drivemgr.type=loopbackmgr \
-    --set drivemgr.deployConfig=true \
+cd ${CSI_BAREMETAL_OPERATOR_DIR}
+
+# Install Operator
+helm install csi-baremetal-operator ./charts/csi-baremetal-operator/ \
+    --set image.tag=${CSI_OPERATOR_VERSION} \
     --set image.pullPolicy=IfNotPresent
+
+#Install Deployment
+helm install csi-baremetal ./charts/csi-baremetal-deployment/ \
+    --set image.tag=${CSI_VERSION} \
+    --set image.pullPolicy=IfNotPresent \
+    --set scheduler.patcher.enable=true \
+    --set driver.drivemgr.type=loopbackmgr \
+    --set driver.drivemgr.deployConfig=true \
+    --set driver.log.level=debug \
+    --set scheduler.log.level=debug \
+    --set nodeController.log.level=debug
 ```
 
 You can configure Loopback DriveManager's devices through ConfigMap. The default one is in charts.
@@ -185,18 +251,24 @@ then the new drive won't be appended without increasing of `driveCount`. If you 
 DriveManager will add missing devices from default or specified drives. If you decrease `driveCount` in runtime then nothing
 will happen because it's not known which of devices should be deleted (some of them can hold volumes/LVG). To fail
 specified drive you can set `removed` field as true (See the example above). This drive will be shown as `Offline`.
- 
-* Set kubernetes context to kind:
+
+##### Validation
+
 ```
-kubectl config set-context "kind-kind"
+# Install test app
+cd ${CSI_BAREMETAL_DIR}
+kubectl apply -f test/app/nginx.yaml
+
+# Check all pods are Running and Ready
+kubectl get pods
+
+# And all PVCs are Bound
+kubectl get pvc
 ```
-* Run e2e tests:
-```
-go run cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=<kubeconfig path>
-```
-* Delete KIND cluster:
-```
-kind delete cluster
-```
+
+## Perform E2E
+
+TODO - add information about CI after https://github.com/dell/csi-baremetal/issues/562
+
 ## Contacts
 If you have any questions, please, open [GitHub issue](https://github.com/dell/csi-baremetal/issues/new) in this repository with the ***question*** label.

@@ -144,3 +144,30 @@ kind-create-cluster:
 
 kind-delete-cluster:
 	$(KIND) delete cluster
+
+deps-docker-pull:
+	docker pull k8s.gcr.io/sig-storage/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	docker pull quay.io/k8scsi/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker pull k8s.gcr.io/sig-storage/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker pull k8s.gcr.io/sig-storage/${CSI_RESIZER}:${CSI_RESIZER_TAG}
+	docker pull ${BUSYBOX}:${BUSYBOX_TAG}
+	docker pull nginx:1.14-alpine
+	docker pull centos:latest
+
+deps-docker-tag:
+	docker tag k8s.gcr.io/sig-storage/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	docker tag quay.io/k8scsi/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG} ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker tag k8s.gcr.io/sig-storage/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker tag k8s.gcr.io/sig-storage/${CSI_RESIZER}:${CSI_RESIZER_TAG} ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
+	docker tag ${BUSYBOX}:${BUSYBOX_TAG} ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
+	docker tag nginx:1.14-alpine ${REGISTRY}/library/nginx:1.14-alpine
+	docker tag centos:latest ${REGISTRY}/library/centos:latest
+
+deps-docker-push:
+	docker push ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
+	docker push ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker push ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
+	docker push ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
+	docker push ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
+	docker push ${REGISTRY}/library/nginx:1.14-alpine
+	docker push ${REGISTRY}/library/centos:latest
