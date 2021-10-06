@@ -1,4 +1,4 @@
-name: Release
+name: Release Charts
 
 on: 
   workflow_dispatch:
@@ -6,44 +6,48 @@ on:
       csi_operator_version:
         description: 'Last released CSI Operator version'
         required: true
+      release_tag:
+        description: 'Current release tag'
+        required: true
 
-env:
-  builds_url: http://asdrepo.isus.emc.com/artifactory/atlantic-helm-build
-  release_version: ${{ inputs.csi_operator_version }}
-  
 jobs:
   build:
     name: Release
     runs-on: ubuntu-latest
-    steps:      
-      - name: Download Binary
-        uses: wei/wget@v1
-        with:
-         args: ${{ env.builds_url }}/csi-operator/${{ env.release_version }}/csi-baremetal-deployment-${{ env.release_version }}.tgz
-
+    steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: Release ${{ github.ref }}
-          prerelease: true
-          files: ./csi-baremetal-deployment-${{ env.release_version }}.tgz
-        if: startsWith(github.ref, 'refs/tags/')
 
       - name: Configure Git
         run: |
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      
+      - name: Make version
+        id: vars
+        run: |
+          echo "::set-output name=version::$(make version)"
+          echo "::set-output name=commit_hash::$(git rev-parse --short HEAD)"
 
+      - name: Create asset
+        run: |
+          PACKAGE_NAME=csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
+          DIR=/tmp/csi-baremetal-deployment-${{ steps.vars.outputs.version }}
+          cp -r ./charts $DIR
+          tar -czvf /tmp/$PACKAGE_NAME $DIR
+
+      - name: Tag release
+        run: |
+          TAG_NAME=${{ github.event.inputs.release_tag }}
+          git tag -a $TAG_NAME ${{ steps.vars.outputs.commit_hash }} -m "release $TAG_NAME"
+          git push origin $TAG_NAME
+      
       - name: Install Helm
         uses: azure/setup-helm@v1
         with:
           version: v3.4.0
 
-      - name: Run chart-releaser
+      - name: Update helm repository
         uses: helm/chart-releaser-action@v1.2.1
         env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"          
