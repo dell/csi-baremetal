@@ -51,3 +51,13 @@ jobs:
         uses: helm/chart-releaser-action@v1.2.1
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"          
+
+      - name: Update release 
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.CSI_WF_TOKEN }}
+          tag_name: ${{ github.event.inputs.release_tag }}
+          prerelease: true
+          repository: misanthropicat/csi-baremetal-operator
+          files: /tmp/csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
+  
