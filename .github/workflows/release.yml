@@ -60,4 +60,3 @@ jobs:
           prerelease: true
           repository: misanthropicat/csi-baremetal-operator
           files: /tmp/csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
-  
