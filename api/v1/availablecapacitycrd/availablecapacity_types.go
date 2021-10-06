@@ -23,12 +23,13 @@ import (
 )
 
 // +kubebuilder:object:root=true
+
+// AvailableCapacity is the Schema for the availablecapacities API
 // +kubebuilder:resource:scope=Cluster,shortName={ac,acs}
+// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Size of AvailableCapacity"
+// +kubebuilder:printcolumn:name="STORAGE CLASS",type="string",JSONPath=".spec.storageClass",description="StorageClass of AvailableCapacity"
 // +kubebuilder:printcolumn:name="LOCATION",type="string",JSONPath=".spec.Location",description="Drive/LVG UUID used by AvailableCapacity"
 // +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.NodeId",description="Node id of Available Capacity"
-// +kubebuilder:printcolumn:name="STORAGE CLASS",type="string",JSONPath=".spec.storageClass",description="StorageClass of AvailableCapacity"
-// +kubebuilder:printcolumn:name="SIZE",type="string",JSONPath=".spec.Size",description="Size of AvailableCapacity"
-// AvailableCapacity is the Schema for the availablecapacities API
 type AvailableCapacity struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

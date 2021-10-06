@@ -1,4 +1,4 @@
-package operator
+package node
 
 import (
 	"context"
@@ -18,11 +18,11 @@ import (
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 var (
-	testNS     = "default"
+	testNS     = ""
 	testCtx    = context.Background()
 	testLogger = logrus.New()
 
@@ -33,7 +33,6 @@ var (
 		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "csibmnode-1",
-			Namespace: testNS,
 		},
 		Spec: api.Node{
 			UUID: "ffff-aaaa-bbbb",
@@ -68,7 +67,6 @@ var (
 	testNode1     = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-1",
-			Namespace:   testNS,
 			Annotations: map[string]string{},
 			Labels:      map[string]string{}},
 		Status: coreV1.NodeStatus{
@@ -78,7 +76,6 @@ var (
 	testNode2 = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-2",
-			Namespace:   testNS,
 			Annotations: map[string]string{},
 			Labels:      map[string]string{}},
 		Status: coreV1.NodeStatus{
@@ -155,7 +152,7 @@ func TestReconcile(t *testing.T) {
 
 		createObjects(t, c.k8sClient, bmNode, node)
 
-		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: node.Name, Namespace: testNS}})
+		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: node.Name}})
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -425,6 +422,34 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.False(t, ok)
 		assert.Nil(t, c.k8sClient.ReadCR(testCtx, k8sNode2.Name, "", nodeObj))
 		_, ok = nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
+		assert.False(t, ok)
+	})
+
+	t.Run("Delete bmnode related with removed k8snode", func(t *testing.T) {
+		var (
+			c           = setup(t)
+			k8sNodeName = "k8s-node"
+			bmNode      = testCSIBMNode1.DeepCopy()
+		)
+
+		c.cache.put(k8sNodeName, bmNode.Name)
+		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
+		bmNode.Finalizers = []string{"csibm-finalizer"}
+
+		createObjects(t, c.k8sClient, bmNode)
+		res, err := c.reconcileForCSIBMNode(bmNode)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		bmNodesList := &nodecrd.NodeList{}
+		assert.Nil(t, c.k8sClient.ReadList(testCtx, bmNodesList))
+		assert.Equal(t, 1, len(bmNodesList.Items))
+
+		bmNode = &bmNodesList.Items[0]
+		assert.Nil(t, bmNode.GetFinalizers())
+		_, ok := c.cache.bmToK8sNode[bmNode.Name]
+		assert.False(t, ok)
+		_, ok = c.cache.k8sToBMNode[k8sNodeName]
 		assert.False(t, ok)
 	})
 }

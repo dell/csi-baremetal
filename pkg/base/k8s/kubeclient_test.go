@@ -190,7 +190,7 @@ var _ = Describe("pods listing", func() {
 		kubeClient, err = GetFakeKubeClient(testNs, testLogger)
 		Expect(err).To(BeNil())
 		// create test PODs
-		createPods(kubeClient, testReadyPod1, testUnreadyPod2, testPod3)
+		createPods(kubeClient, testReadyPod1.DeepCopy(), testUnreadyPod2.DeepCopy(), testPod3.DeepCopy())
 	})
 
 	AfterEach(func() {
@@ -267,7 +267,7 @@ var _ = Describe("Working with CRD", func() {
 
 	Context("Create and read CRDs (volume, AC and drive)", func() {
 		It("Should create and read Volume CR", func() {
-			err := k8sclient.CreateCR(testCtx, testID, &testVolume)
+			err := k8sclient.CreateCR(testCtx, testID, testVolume.DeepCopy())
 			Expect(err).To(BeNil())
 			rVolume := &vcrd.Volume{}
 			err = k8sclient.ReadCR(testCtx, testID, "", rVolume)
@@ -276,7 +276,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should create and read Available Capacity CR", func() {
-			err := k8sclient.CreateCR(testCtx, testACName, &testACCR)
+			err := k8sclient.CreateCR(testCtx, testACName, testACCR.DeepCopy())
 			Expect(err).To(BeNil())
 			rAC := &accrd.AvailableCapacity{}
 			err = k8sclient.ReadCR(testCtx, testACName, "", rAC)
@@ -285,7 +285,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should create and read drive CR", func() {
-			err := k8sclient.CreateCR(testCtx, testUUID, &testDriveCR)
+			err := k8sclient.CreateCR(testCtx, testUUID, testDriveCR.DeepCopy())
 			Expect(err).To(BeNil())
 			rdrive := &drivecrd.Drive{}
 			err = k8sclient.ReadCR(testCtx, testUUID, "", rdrive)
@@ -294,9 +294,9 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Create CR should be idempotent", func() {
-			err := k8sclient.CreateCR(testCtx, testACName, &testACCR)
+			err := k8sclient.CreateCR(testCtx, testACName, testACCR.DeepCopy())
 			Expect(err).To(BeNil())
-			err = k8sclient.CreateCR(testCtx, testACName, &testACCR)
+			err = k8sclient.CreateCR(testCtx, testACName, testACCR.DeepCopy())
 			Expect(err).To(BeNil())
 			rAC := &accrd.AvailableCapacity{}
 			err = k8sclient.ReadCR(testCtx, testACName, "", rAC)
@@ -305,7 +305,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should read volumes CR List", func() {
-			err := k8sclient.CreateCR(context.Background(), testACName, &testVolume)
+			err := k8sclient.CreateCR(context.Background(), testACName, testVolume.DeepCopy())
 			Expect(err).To(BeNil())
 
 			vList := &vcrd.VolumeList{}
@@ -316,7 +316,7 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should read drive CR List", func() {
-			err := k8sclient.CreateCR(testCtx, testACName, &testDriveCR)
+			err := k8sclient.CreateCR(testCtx, testACName, testDriveCR.DeepCopy())
 			Expect(err).To(BeNil())
 
 			dList := &drivecrd.DriveList{}
@@ -338,44 +338,38 @@ var _ = Describe("Working with CRD", func() {
 
 	Context("Update CR instance", func() {
 		It("Should Available Capacity update successfully", func() {
-			acCR := testACCR
-			err := k8sclient.CreateCR(testCtx, testACName, &acCR)
+			acCR := testACCR.DeepCopy()
+			err := k8sclient.CreateCR(testCtx, testACName, acCR)
 			Expect(err).To(BeNil())
 
+			// update
 			newSize := int64(1024 * 105)
 			acCR.Spec.Size = newSize
 
-			err = k8sclient.UpdateCR(testCtx, &acCR)
+			err = k8sclient.UpdateCR(testCtx, acCR)
 			Expect(err).To(BeNil())
 			Expect(acCR.Spec.Size).To(Equal(newSize))
-
-			acCopy := acCR.DeepCopy()
-			err = k8sclient.Update(testCtx, &acCR)
-			Expect(err).To(BeNil())
-			Expect(acCR.Spec).To(Equal(acCopy.Spec))
 		})
 
 		It("Should Drive update successfully", func() {
-			driveCR := testDriveCR
-			err := k8sclient.CreateCR(testCtx, testUUID, &driveCR)
+			driveCR := testDriveCR.DeepCopy()
+			err := k8sclient.CreateCR(testCtx, testUUID, driveCR)
 			Expect(err).To(BeNil())
 
-			driveCR.Spec.Health = apiV1.HealthBad
-
-			err = k8sclient.UpdateCR(testCtx, &driveCR)
+			driveCRUpdate := &drivecrd.Drive{}
+			err = k8sclient.ReadCR(testCtx, driveCR.Name, "", driveCRUpdate)
 			Expect(err).To(BeNil())
-			Expect(driveCR.Spec.Health).To(Equal(apiV1.HealthBad))
+			driveCRUpdate.Spec.Health = apiV1.HealthBad
 
-			driveCopy := driveCR.DeepCopy()
-			err = k8sclient.Update(testCtx, &driveCR)
+			err = k8sclient.UpdateCR(testCtx, driveCRUpdate)
 			Expect(err).To(BeNil())
-			Expect(driveCR.Spec).To(Equal(driveCopy.Spec))
+			Expect(driveCRUpdate.Spec.Health).To(Equal(apiV1.HealthBad))
 		})
 	})
 
 	Context("Delete CR", func() {
 		It("AC should be deleted", func() {
-			err := k8sclient.CreateCR(testCtx, testUUID, &testACCR)
+			err := k8sclient.CreateCR(testCtx, testUUID, testACCR.DeepCopy())
 			Expect(err).To(BeNil())
 			acList := accrd.AvailableCapacityList{}
 
@@ -391,7 +385,7 @@ var _ = Describe("Working with CRD", func() {
 			Expect(len(acList.Items)).To(Equal(0))
 		})
 		It("Drive should be deleted", func() {
-			err := k8sclient.CreateCR(testCtx, testUUID, &testDriveCR)
+			err := k8sclient.CreateCR(testCtx, testUUID, testDriveCR.DeepCopy())
 			Expect(err).To(BeNil())
 			driveList := drivecrd.DriveList{}
 
@@ -410,14 +404,14 @@ var _ = Describe("Working with CRD", func() {
 	})
 	Context("GetSystemDriveUUIDs", func() {
 		It("Success", func() {
-			err := k8sclient.CreateCR(testCtx, testUUID, &testDriveCR)
+			err := k8sclient.CreateCR(testCtx, testUUID, testDriveCR.DeepCopy())
 			Expect(err).To(BeNil())
 
 			driveUUID := k8sclient.GetSystemDriveUUIDs()
 			Expect(err).To(BeNil())
 			Expect(driveUUID).To(Equal([]string{}))
 
-			err = k8sclient.CreateCR(testCtx, testUUID2, &testDriveCR2)
+			err = k8sclient.CreateCR(testCtx, testUUID2, testDriveCR2.DeepCopy())
 			Expect(err).To(BeNil())
 
 			driveUUID = k8sclient.GetSystemDriveUUIDs()

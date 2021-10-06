@@ -534,6 +534,12 @@ func (mgr *LoopBackManager) Locate(serialNumber string, action int32) (int32, er
 	return -1, status.Error(codes.InvalidArgument, "Wrong arguments for Locate methods")
 }
 
+// LocateNode implements LocateNode method of DriveManager interface
+func (mgr *LoopBackManager) LocateNode(action int32) error {
+	// not implemented
+	return nil
+}
+
 // GetBackFileToLoopMap return mapping between backing file and loopback devices
 // Multiple loopback devices can be created from on backing file.
 func (mgr *LoopBackManager) GetBackFileToLoopMap() (map[string][]string, error) {

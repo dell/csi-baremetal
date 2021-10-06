@@ -1,0 +1,7 @@
+# file is used to notify teams or individuals about
+# changes to directories or files of interest.
+#
+# See https://help.github.com/articles/about-codeowners/
+# for more info about the CODEOWNERS file.
+
+* @dell/csi-baremetal

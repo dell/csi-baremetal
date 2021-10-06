@@ -233,10 +233,12 @@ func (n *ServicesStateMonitor) getPodToNodeList() (map[string]stateComponents, e
 		}
 
 		if podNode == nil {
-			// nolint
-			log.Fatalf("Unable to find node for pod %s", pod.Name)
+			// k8snode is removed, pod should be killed
+			// it's not need to check it state
+			log.Warningf("Unable to find node for pod %s", pod.Name)
+			continue
 		}
-		// nolint - doesn't detect Exit() in Fatalf
+
 		nodeID := string(podNode.GetUID())
 		stateComponentsMap[nodeID] = stateComponents{podNode, pod}
 	}

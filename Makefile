@@ -41,7 +41,7 @@ build-scheduler:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER} ./cmd/${SCHEDULING_PKG}/${SCHEDULER}/main.go
 
 build-node-controller:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${OPERATOR}/${OPERATOR} ./cmd/${OPERATOR}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}/${CONTROLLER} ./cmd/${NODE_CONTROLLER}/main.go
 
 ### Clean artifacts
 clean-all: clean clean-images
@@ -81,7 +81,7 @@ install-protoc:
 	unzip protoc-3.11.0-linux-x86_64.zip -d proto_3.11.0/ && \
 	sudo mv proto_3.11.0/bin/protoc /usr/bin/protoc && \
 	protoc --version; rm -rf proto_3.11.0; rm protoc-*
-	go get -u github.com/golang/protobuf/protoc-gen-go@v1.3.5
+	go get -u github.com/golang/protobuf/protoc-gen-go@v1.3.2
 
 install-compile-proto: install-protoc compile-proto
 

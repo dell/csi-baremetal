@@ -17,11 +17,10 @@ limitations under the License.
 package events_test
 
 import (
-	"io/ioutil"
+	"github.com/dell/csi-baremetal/pkg/eventing"
 	"log"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -46,27 +45,11 @@ func Example() {
 		log.Fatalf("fail to prepare kubernetes scheme, error: %s", err)
 		return
 	}
-	// Setup Option
-	// It's used for label overriding and logging events
-
-	var opt events.Options
-
-	// Optional
-	alertFile, err := ioutil.ReadFile("/etc/config/alerts.yaml")
-	if err != nil {
-		log.Fatalf("fail to open config file, error: %s", err)
-	}
-
-	err = yaml.Unmarshal(alertFile, &opt)
-	if err != nil {
-		log.Fatalf("fail to unmarshal config file, error: %s", err)
-	}
 
 	logr := logrus.New()
-	opt.Logger = logr.WithField("component", "Events")
-	//
+	eventManager := &eventing.EventManager{}
 
-	eventRecorder, err := events.New("baremetal-csi-node", "434aa7b1-8b8a-4ae8-92f9-1cc7e09a9030", eventInter, scheme, opt)
+	eventRecorder, err := events.New("baremetal-csi-node", "434aa7b1-8b8a-4ae8-92f9-1cc7e09a9030", eventInter, scheme, logr)
 	if err != nil {
 		log.Fatalf("fail to create events recorder, error: %s", err)
 		return
@@ -76,5 +59,5 @@ func Example() {
 
 	// Send event
 	drive := new(drivecrd.Drive)
-	eventRecorder.Eventf(drive, "Critical", "DriveIsDead", "drive &s is dead", drive.GetName())
+	eventRecorder.Eventf(drive, eventManager.GenerateFake(), "DriveIsDead", "drive &s is dead", drive.GetName())
 }

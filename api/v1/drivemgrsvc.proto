@@ -22,7 +22,14 @@ message DriveLocateResponse {
     int32 status = 1;
 }
 
+message NodeLocateRequest {
+    int32  action = 1;
+}
+
+message Empty {}
+
 service DriveService {
     rpc GetDrivesList(DrivesRequest) returns (DrivesResponse){};
     rpc Locate(DriveLocateRequest) returns (DriveLocateResponse){};
+    rpc LocateNode(NodeLocateRequest) returns (Empty){};
 }

@@ -24,10 +24,12 @@ import (
 
 // +kubebuilder:object:root=true
 
+// AvailableCapacityReservation is the Schema for the availablecapacitiereservations API
 // +kubebuilder:resource:scope=Cluster,shortName={acr,acrs}
 // +kubebuilder:printcolumn:name="NAMESPACE",type="string",JSONPath=".spec.Namespace",description="Pod namespace"
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".spec.Status",description="Status of AvailableCapacityReservation"
-// AvailableCapacityReservation is the Schema for the availablecapacitiereservations API
+// +kubebuilder:printcolumn:name="REQUESTED NODES",type="string",JSONPath=".spec.NodeRequests.Requested",description="List of requested nodes",priority=1
+// +kubebuilder:printcolumn:name="RESERVED NODES",type="string",JSONPath=".spec.NodeRequests.Reserved",description="List of reserved nodes",priority=1
 type AvailableCapacityReservation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

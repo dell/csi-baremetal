@@ -9,25 +9,45 @@ metadata:
   name: drives.csi-baremetal.dell.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.SerialNumber
-    description: Drive serial number
-    name: SERIAL NUMBER
-    type: string
-  - JSONPath: .spec.Health
-    description: Drive health status
-    name: HEALTH
+  - JSONPath: .spec.Size
+    description: Drive capacity
+    name: SIZE
     type: string
   - JSONPath: .spec.Type
     description: Drive type (HDD/LVG/NVME)
     name: TYPE
     type: string
+  - JSONPath: .spec.Health
+    description: Drive health status
+    name: HEALTH
+    type: string
+  - JSONPath: .spec.Status
+    description: Drive status online/offline
+    name: STATUS
+    priority: 1
+    type: string
+  - JSONPath: .spec.Usage
+    description: Drive usage
+    name: USAGE
+    priority: 1
+    type: string
+  - JSONPath: .spec.IsSystem
+    description: Is system disk
+    name: SYSTEM
+    priority: 1
+    type: string
+  - JSONPath: .spec.Path
+    description: Drive path
+    name: PATH
+    priority: 1
+    type: string
+  - JSONPath: .spec.SerialNumber
+    description: Drive serial number
+    name: SERIAL NUMBER
+    type: string
   - JSONPath: .spec.NodeId
     description: Drive node location
     name: NODE
-    type: string
-  - JSONPath: .spec.Size
-    description: Drive capacity
-    name: SIZE
     type: string
   - JSONPath: .spec.Slot
     description: Drive slot
@@ -43,7 +63,7 @@ spec:
   subresources: {}
   validation:
     openAPIV3Schema:
-      description: Drive is the Schema for the drives API kubebuilder:object:generate=false
+      description: Drive is the Schema for the drives API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

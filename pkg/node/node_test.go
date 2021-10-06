@@ -40,7 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
@@ -154,9 +154,11 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		})
 		It("Should fail, because Volume has failed status", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			vol1 := testVolumeCR1
+			vol1 := &vcrd.Volume{}
+			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+			Expect(err).To(BeNil())
 			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
+			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodePublishVolume(testCtx, req)
@@ -215,9 +217,9 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		})
 		It("Should stage, volume CR with VolumeReady status", func() {
 			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
-			vol1 := testVolumeCR1
+			vol1 := testVolumeCR1.DeepCopy()
 			vol1.Spec.CSIStatus = apiV1.VolumeReady
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, vol1)
 
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
@@ -298,9 +300,9 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		})
 		It("Should fail with Mount error, volume CR has VolumeReady status", func() {
 			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
-			vol1 := testVolumeCR1
+			vol1 := testVolumeCR1.DeepCopy()
 			vol1.Spec.CSIStatus = apiV1.VolumeReady
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
+			err := node.k8sClient.UpdateCR(testCtx, vol1)
 
 			partitionPath := "/partition/path/for/volume1"
 			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
@@ -465,9 +467,11 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 
 		It("Should failed, because Volume has failed status", func() {
 			req := getNodeUnstageRequest(testV1ID, targetPath)
-			vol1 := testVolumeCR1
+			vol1 := &vcrd.Volume{}
+			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+			Expect(err).To(BeNil())
 			vol1.Spec.CSIStatus = apiV1.Failed
-			err := node.k8sClient.UpdateCR(testCtx, &vol1)
+			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
@@ -632,12 +636,14 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 			Expect(err).To(BeNil())
 
 			var (
-				createdVolCR = testVolumeCR1
+				createdVolCR = &vcrd.Volume{}
 				srcPath      = "/some/path"
 			)
 
+			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id,"", createdVolCR)
+			Expect(err).To(BeNil())
 			createdVolCR.Spec.CSIStatus = apiV1.Created
-			err = node.k8sClient.UpdateCR(testCtx, &createdVolCR)
+			err = node.k8sClient.UpdateCR(testCtx, createdVolCR)
 			Expect(err).To(BeNil())
 
 			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
@@ -685,9 +691,11 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 
 	It("Should stage unhealthy volume with fake-attach annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
-		vol1 := testVolumeCR1
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
 		vol1.Spec.CSIStatus = apiV1.Created
-		err := node.k8sClient.UpdateCR(testCtx, &vol1)
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
 		pvcName := "pvcName"
@@ -718,7 +726,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		Expect(resp).NotTo(BeNil())
 		Expect(err).To(BeNil())
 
-		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", &vol1)
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
 		Expect(err).To(BeNil())
 		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
@@ -727,9 +735,11 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 		req.VolumeContext[util.PodNameKey] = testPodName
 
-		vol1 := testVolumeCR1
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
 		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
-		err := node.k8sClient.UpdateCR(testCtx, &vol1)
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
 		fsOps.On("MountFakeTmpfs",
@@ -748,9 +758,11 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 	})
 	It("Should stage healthy volume with fake-attach annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
-		vol1 := testVolumeCR1
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
 		vol1.Spec.CSIStatus = apiV1.Created
-		err := node.k8sClient.UpdateCR(testCtx, &vol1)
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
 		pvcName := "pvcName"
@@ -781,7 +793,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		Expect(resp).NotTo(BeNil())
 		Expect(err).To(BeNil())
 
-		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", &vol1)
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
 		Expect(err).To(BeNil())
 		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		_, ok := vol1.Annotations[fakeAttachVolumeAnnotation]
@@ -790,9 +802,11 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 	It("Should unstage volume with fake-attach annotation", func() {
 		req := getNodeUnstageRequest(testV1ID, stagePath)
 
-		vol1 := testVolumeCR1
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
 		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
-		err := node.k8sClient.UpdateCR(testCtx, &vol1)
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
 		resp, err := node.NodeUnstageVolume(testCtx, req)
@@ -852,14 +866,14 @@ func newNodeService() *CSINodeService {
 	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)
 	driveCR2 := node.k8sClient.ConstructDriveCR(disk2.UUID, disk2)
 	addDriveCRs(node.k8sClient, driveCR1, driveCR2)
-	addVolumeCRs(node.k8sClient, testVolumeCR1, testVolumeCR2, testVolumeCR3)
+	addVolumeCRs(node.k8sClient, testVolumeCR1.DeepCopy(), testVolumeCR2.DeepCopy(), testVolumeCR3.DeepCopy())
 
 	return node
 }
 
-func addVolumeCRs(k8sClient *k8s.KubeClient, volumes ...vcrd.Volume) {
+func addVolumeCRs(k8sClient *k8s.KubeClient, volumes ...*vcrd.Volume) {
 	for _, v := range volumes {
-		if err := k8sClient.CreateCR(context.Background(), v.Name, &v); err != nil {
+		if err := k8sClient.CreateCR(context.Background(), v.Name, v); err != nil {
 			panic(err)
 		}
 	}

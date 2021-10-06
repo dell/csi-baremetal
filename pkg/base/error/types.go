@@ -7,4 +7,6 @@ var (
 	ErrorNotFound       = errors.New("not found")
 	ErrorEmptyParameter = errors.New("empty parameter")
 	ErrorFailedParsing  = errors.New("failed to parse")
+
+	ErrorRejectReservationRequest = errors.New("reject reservation request")
 )

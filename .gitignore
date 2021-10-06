@@ -10,6 +10,9 @@ build/
 # tests results
 coverage.out
 coverage.html
+ci.log
+test/e2e/report.xml
+test/kind/kind
 # vscode
 .vscode
 # python 

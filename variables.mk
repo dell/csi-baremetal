@@ -9,7 +9,7 @@ EXTENDER_CHART_PATH		:= charts/csi-baremetal-scheduler-extender
 
 ### version
 MAJOR            := 0
-MINOR            := 3
+MINOR            := 5
 PATCH            := 0
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
@@ -24,8 +24,7 @@ BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 ### third-party components version
 CSI_PROVISIONER_TAG := v1.6.0
 CSI_RESIZER_TAG     := v1.1.0
-CSI_REGISTRAR_TAG   := v1.0.1-gke.0
-CSI_ATTACHER_TAG    := v1.0.1
+CSI_REGISTRAR_TAG   := v1.3.0
 LIVENESS_PROBE_TAG  := v2.1.0
 BUSYBOX_TAG         := 1.29
 
@@ -34,6 +33,7 @@ SCHEDULING_PKG := scheduling
 SCHEDULER_EXTENDER_PKG := extender
 SCHEDULER_EXTENDER_PATCHER_PKG := scheduler/patcher
 CR_CONTROLLERS := crcontrollers
+NODE_CONTROLLER_PKG := node
 
 ### components
 NODE             := node
@@ -42,8 +42,9 @@ CONTROLLER       := controller
 SCHEDULER        := scheduler
 EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
-OPERATOR      	 := operator
+NODE_CONTROLLER  := ${NODE_CONTROLLER_PKG}-${CONTROLLER}
 PLUGIN           := plugin
+OPERATOR         := operator
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr
@@ -53,7 +54,6 @@ DRIVE_MANAGER_TYPE := ${BASE_DRIVE_MGR}
 CSI_PROVISIONER := csi-provisioner
 CSI_REGISTRAR   := csi-node-driver-registrar
 CSI_RESIZER     := csi-resizer
-CSI_ATTACHER    := csi-attacher
 LIVENESS_PROBE  := livenessprobe
 BUSYBOX         := busybox
 

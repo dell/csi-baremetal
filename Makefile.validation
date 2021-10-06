@@ -62,12 +62,11 @@ kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
-	docker pull ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG}
+	docker pull ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	docker pull ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	docker pull ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	docker pull ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker pull ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
@@ -77,7 +76,6 @@ kind-pull-sidecar-images:
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	docker tag ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG} ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	docker tag ${REGISTRY}/${CSI_ATTACHER}:${CSI_ATTACHER_TAG} ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	docker tag ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG} ${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker tag ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker tag ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG} ${BUSYBOX}:${BUSYBOX_TAG}
@@ -90,12 +88,11 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ${PROJECT}-${SCHEDULER}:${TAG}
-	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${TAG} ${PROJECT}-${OPERATOR}:${TAG}
+	docker tag ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG} ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-load-images:
 	$(KIND) load docker-image ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
 	$(KIND) load docker-image ${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
-	$(KIND) load docker-image ${CSI_ATTACHER}:${CSI_ATTACHER_TAG}
 	$(KIND) load docker-image ${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	$(KIND) load docker-image ${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	$(KIND) load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
@@ -108,7 +105,7 @@ kind-load-images:
 	$(KIND) load docker-image ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
-	$(KIND) load docker-image ${PROJECT}-${OPERATOR}:${TAG}
+	$(KIND) load docker-image ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-build:
 	# Get kind sources

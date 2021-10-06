@@ -10,10 +10,10 @@ Bare-metal CSI Driver is a [CSI spec](https://github.com/container-storage-inter
 
 Supported environments
 ----------------------
-- **Kubernetes**: 1.18
+- **Kubernetes**: 1.18, 1.19, 1.20
 - **OpenShift**: 4.6
 - **Node OS**:
-  - Ubuntu 18.04 LTS
+  - Ubuntu 18.04 / 20.04 LTS
   - Red Hat Enterprise Linux 7.7 / CoreOS 4.6   
   - CentOS Linux 7.9 / 
 - **Helm**: 3.0
@@ -60,7 +60,7 @@ Installation process
 
     - *protoc version 3* & *protoc-gen-go 1.3.5*
 
-        - To install execute `make install-protoc`
+        - To install execute `make install-compile-proto`
 
     - *controller-gen 0.2.2*
 
@@ -78,7 +78,7 @@ Installation process
     
     2.1 Build binaries
     
-    ```make generate-api build```
+    ```make generate-deepcopy build```
     
     2.2 Build images
         
@@ -87,28 +87,26 @@ Installation process
     2.3 Push images to your registry server
         
     ```REGISTRY=<your-registry.com> make push```
-    
-3. Deploy CSI Driver
 
-    3.1 Deploy CSI Node Operator
-    
+3. Build CSI Operator (https://github.com/dell/csi-baremetal-operator)
+
+4. Deploy CSI Operator (use charts from csi-baremetal-operator repo)
+
     ```helm install csi-baremetal-operator charts/csi-baremetal-operator --set global.registry=<your-registry.com> --set image.tag=<tag>```
-    
-    3.2 Deploy CSI Driver
-    
-    ```helm install csi-baremetal-driver charts/csi-baremetal-driver --set global.registry=<your-registry.com> --set image.tag=<tag>```
-    
-    3.3 Deploy Kubernetes scheduler extender
+
+4. Deploy CSI Driver (use charts from csi-baremetal-operator repo)
 
     - Vanilla Kubernetes
         
-    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag>```
+    ```helm install csi-baremetal charts/csi-baremetal-deployment --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr```
 
     - OpenShift
 
-    ```helm install csi-baremetal-scheduler-extender charts/csi-baremetal-scheduler-extender --set registry=<your-registry.com> --set image.tag=<tag> --set patcher.enable=false```
+    ```helm install csi-baremetal charts/csi-baremetal-deployment --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr --set platform=openshift```
 
-    ```chmod +x pkg/scheduler/patcher/openshift_patcher.sh && pkg/scheduler/patcher/openshift_patcher.sh --install```
+    - RKE
+
+   ```helm install csi-baremetal charts/csi-baremetal-deployment --set registry=<your-registry.com> --set image.tag=<tag> --set driver.drivemgr.type=halmgr --set platform=rke```
     
 4. Check default storage classes available
 
