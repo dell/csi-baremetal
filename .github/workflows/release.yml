@@ -27,7 +27,6 @@ jobs:
         id: vars
         run: |
           echo "::set-output name=version::$(make version)"
-          echo "::set-output name=commit_hash::$(git rev-parse --short HEAD)"
 
       - name: Create asset
         run: |
@@ -39,7 +38,7 @@ jobs:
       - name: Tag release
         run: |
           TAG_NAME=${{ github.event.inputs.release_tag }}
-          git tag -a $TAG_NAME ${{ steps.vars.outputs.commit_hash }} -m "release $TAG_NAME"
+          git tag -a $TAG_NAME ${{ github.sha }} -m "release $TAG_NAME"
           git push origin $TAG_NAME
       
       - name: Install Helm
