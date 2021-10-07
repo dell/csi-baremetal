@@ -1,0 +1,67 @@
+name: Release Charts
+
+on: 
+  workflow_dispatch:
+    inputs:
+      csi_operator_version:
+        description: 'Last released CSI Operator version'
+        required: true
+      release_tag:
+        description: 'Current release tag'
+        required: true
+
+jobs:
+  build:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      
+      - name: Make version
+        id: vars
+        run: |
+          echo "::set-output name=version::$(make version)"
+
+      - name: Create asset
+        run: |
+          PACKAGE_NAME=csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
+          DIR=./csi-baremetal-deployment-${{ steps.vars.outputs.version }}
+          cp -r ./charts $DIR
+          tar -czvf ./$PACKAGE_NAME $DIR
+
+      - name: Upload asset
+        uses: actions/upload-artifact@v2
+        with:
+          name: csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
+          path: ./csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
+
+      - name: Tag release
+        run: |
+          TAG_NAME=${{ github.event.inputs.release_tag }}
+          git tag -a $TAG_NAME ${{ github.sha }} -m "release $TAG_NAME"
+          git push origin $TAG_NAME
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.4.0
+
+      - name: Update helm repository
+        uses: helm/chart-releaser-action@v1.2.1
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"          
+
+      - name: Update release 
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.CSI_WF_TOKEN }}
+          tag_name: ${{ github.event.inputs.release_tag }}
+          prerelease: true
+          repository: dell/csi-baremetal-operator
+          files: ./csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
