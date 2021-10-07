@@ -34,12 +34,13 @@ jobs:
           DIR=./csi-baremetal-deployment-${{ steps.vars.outputs.version }}
           cp -r ./charts $DIR
           tar -czvf ./$PACKAGE_NAME $DIR
+          echo "::set-output name=archive_name::$PACKAGE_NAME"
 
       - name: Upload asset
         uses: actions/upload-artifact@v2
         with:
-          name: csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
-          path: ./csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
+          name: ${{ steps.asset.outputs.archive_name }}
+          path: ./${{ steps.asset.outputs.archive_name }}
 
       - name: Tag release
         run: |
@@ -64,4 +65,4 @@ jobs:
           tag_name: ${{ github.event.inputs.release_tag }}
           prerelease: true
           repository: dell/csi-baremetal-operator
-          files: ./csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
+          files: ./${{ steps.asset.outputs.archive_name }}
