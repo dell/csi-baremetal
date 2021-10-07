@@ -12,4 +12,4 @@ _Describe your changes_
 - [ ] All comments are resolved
 
 ## Testing
-_Link to custom CI build_
+_Provide test details_
