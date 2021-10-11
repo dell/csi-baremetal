@@ -7,10 +7,11 @@ require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.3
 	github.com/container-storage-interface/spec v1.2.0
 	github.com/coreos/rkt v1.30.0
+	github.com/dell/csi-baremetal-operator v0.4.0-beta // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-kit/log v0.1.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jpillora/backoff v1.0.0 // indirect
@@ -19,11 +20,10 @@ require (
 	github.com/kubernetes-csi/csi-test/v3 v3.1.0
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.0
+	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/gomega v1.10.2
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.5.1
-	github.com/prometheus/common v0.10.0 // indirect
+	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.7.0
@@ -31,7 +31,7 @@ require (
 	github.com/vektra/mockery/v2 v2.9.4 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
-	google.golang.org/grpc v1.26.0
+	google.golang.org/grpc v1.27.0
 	google.golang.org/protobuf v1.26.0-rc.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -41,7 +41,7 @@ require (
 	k8s.io/kube-scheduler v0.18.19
 	k8s.io/kubernetes v1.18.19
 	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
-	sigs.k8s.io/controller-runtime v0.6.0
+	sigs.k8s.io/controller-runtime v0.7.2
 )
 
 replace (
