@@ -42,30 +42,6 @@ Installation process
 
 Installation process is documented in [Bare-metal CSI Operator](https://github.com/dell/csi-baremetal-operator)
 
-Usage
-------
-
-* Storage classes
-
-    * Use storage class without `lvg` postfix if you need to provision PV bypassing LVM. Size of the resulting PV will
-    be equal to the size of underlying physical drive.
-
-    * Use storage class with `lvg` postfix if you need to provision PVC based on the logical volume. Size of the
-    resulting PV will be equal to the size of PVC.
-
-* To obtain information about:
-
-    * Node IDs assigned by CSI - `kubectl get nodes.csi-baremetal.dell.com`
-
-    * Local Drives discovered by CSI - `kubectl get drives.csi-baremetal.dell.com`
-
-    * Capacity available for allocation - `kubectl get  availablecapacities.csi-baremetal.dell.com`
-
-    * Provisioned logical volume groups - `kubectl get logicalvolumegroups.csi-baremetal.dell.com`
-
-    * Provisioned volumes - `kubectl get volumes.csi-baremetal.dell.com`
- 
-
 Contribution
 ------
 Please refer [Contribution Guideline](https://github.com/dell/csi-baremetal/blob/master/docs/CONTRIBUTING.md) fo details
