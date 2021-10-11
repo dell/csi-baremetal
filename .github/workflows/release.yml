@@ -1,14 +1,12 @@
 name: Release Charts
 
-on: 
-  workflow_dispatch:
-    inputs:
-      csi_operator_version:
-        description: 'Last released CSI Operator version'
-        required: true
-      release_tag:
-        description: 'Current release tag'
-        required: true
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - master
+      - release*
 
 jobs:
   build:
@@ -17,6 +15,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Create issue
+        id: create_issue
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.CSI_WF_TOKEN }}
+        with:
+          filename: .github/release_template.md
+          assignees: CSI Baremetal
+        if: startsWith(github.ref, 'refs/tags/')
 
       - name: Configure Git
         run: |
@@ -27,24 +35,11 @@ jobs:
         id: vars
         run: |
           echo "::set-output name=version::$(make version)"
-
-      - name: Create asset
-        run: |
-          PACKAGE_NAME=csi-baremetal-deployment-${{ github.event.inputs.csi_operator_version }}.tgz
-          DIR=./csi-baremetal-deployment-${{ steps.vars.outputs.version }}
-          cp -r ./charts $DIR
-          tar -czvf ./$PACKAGE_NAME $DIR
-          echo "::set-output name=archive_name::$PACKAGE_NAME"
-
-      - name: Upload asset
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ steps.asset.outputs.archive_name }}
-          path: ./${{ steps.asset.outputs.archive_name }}
+          echo "::set-output name=release_tag::${GITHUB_REF/refs\/tags\//}"
 
       - name: Tag release
         run: |
-          TAG_NAME=${{ github.event.inputs.release_tag }}
+          TAG_NAME=${{ steps.vars.outputs.release_tag }}
           git tag -a $TAG_NAME ${{ github.sha }} -m "release $TAG_NAME"
           git push origin $TAG_NAME
       
@@ -58,11 +53,11 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"          
 
-      - name: Update release 
-        uses: softprops/action-gh-release@v1
+      - name: Trigger release workflow in csi-baremetal-operator repo
+        uses: benc-uk/workflow-dispatch@v1
         with:
+          workflow: Release Charts
+          repo: dell/csi-baremetal-operator
           token: ${{ secrets.CSI_WF_TOKEN }}
-          tag_name: ${{ github.event.inputs.release_tag }}
-          prerelease: true
-          repository: dell/csi-baremetal-operator
-          files: ./${{ steps.asset.outputs.archive_name }}
+          inputs: '{ "issue_number": "${{ steps.create_issue.outputs.number }}" }'
+        if: startsWith(github.ref, 'refs/tags/')
