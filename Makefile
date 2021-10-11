@@ -109,6 +109,5 @@ generate-crds:
 	$(CONTROLLER_GEN_BIN) $(CRD_OPTIONS) paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 	$(CONTROLLER_GEN_BIN) $(CRD_OPTIONS) paths=api/v1/lvgcrd/logicalvolumegroup_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 	$(CONTROLLER_GEN_BIN) $(CRD_OPTIONS) paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
-	$(CONTROLLER_GEN_BIN) $(CRD_OPTIONS) paths=$(CSI_OPERATOR_PATH)/api/v1/deployment_types.go paths=$(CSI_OPERATOR_PATH)/api/v1/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 
 generate-api: compile-proto generate-crds generate-deepcopy

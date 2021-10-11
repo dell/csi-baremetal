@@ -7,7 +7,6 @@ require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.3
 	github.com/container-storage-interface/spec v1.2.0
 	github.com/coreos/rkt v1.30.0
-	github.com/dell/csi-baremetal-operator v0.4.0-beta // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-kit/log v0.1.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
@@ -46,7 +45,6 @@ require (
 )
 
 replace (
-	k8s.io/api => k8s.io/api v0.18.19
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.19
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.19
 	k8s.io/apiserver => k8s.io/apiserver v0.18.19

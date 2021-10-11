@@ -2,10 +2,10 @@
 PROJECT          := csi-baremetal
 
 ### file paths
-# DRIVER_CHART_PATH		:= charts/csi-baremetal-driver
-# OPERATOR_CHART_PATH		:= charts/csi-baremetal-operator
-# SCHEDULER_CHART_PATH	:= charts/csi-baremetal-scheduler
-# EXTENDER_CHART_PATH		:= charts/csi-baremetal-scheduler-extender
+DRIVER_CHART_PATH		:= charts/csi-baremetal-driver
+OPERATOR_CHART_PATH		:= charts/csi-baremetal-operator
+SCHEDULER_CHART_PATH	:= charts/csi-baremetal-scheduler
+EXTENDER_CHART_PATH		:= charts/csi-baremetal-scheduler-extender
 
 ### common path
 CSI_OPERATOR_PATH=../csi-baremetal-operator
