@@ -1,13 +1,14 @@
 ---
-title: Release {{ event }}
-name: Release {{ issue }}
+title: Release issue
+name: CSI release
 about: Used by release workflows
 ---
 
 ## Issue title
 
-Release {{ payload }}
+Issue {{ payload.repository.full_name }}/{{ payload.issue.number }}
+Release {{ payload.ref }}
 
 ## Issue statement
 
-Release CSI version <version>
+Release CSI version {{ payload.ref }}

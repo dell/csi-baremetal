@@ -59,5 +59,8 @@ jobs:
           workflow: Release Charts
           repo: dell/csi-baremetal-operator
           token: ${{ secrets.CSI_WF_TOKEN }}
-          inputs: '{ "issue_number": "${{ steps.create_issue.outputs.number }}" }'
+          inputs: |
+            '{ "issue_number": "${{ steps.create_issue.outputs.number }}", 
+               "csi_version": "${{ steps.vars.outputs.version }}",
+               "release_tag": "${{ steps.vars.outputs.release_tag }}" }'
         if: startsWith(github.ref, 'refs/tags/')
