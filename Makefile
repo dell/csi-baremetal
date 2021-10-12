@@ -87,6 +87,7 @@ install-compile-proto: install-protoc compile-proto
 
 install-controller-gen:
 	# Build controller-gen from go.mod
+	${GO_ENV_VARS} go mod download sigs.k8s.io/controller-tools
 	${GO_ENV_VARS} go build -mod='' -o ./bin/ sigs.k8s.io/controller-tools/cmd/controller-gen
 
 compile-proto:

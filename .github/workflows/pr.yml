@@ -100,7 +100,6 @@ jobs:
 
     - name: Generate CRD
       run: |
-        go mod download sigs.k8s.io/controller-tools
         make install-controller-gen
         make generate-deepcopy
 
