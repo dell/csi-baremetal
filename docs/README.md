@@ -62,7 +62,7 @@ Installation process
 
         - To install execute `make install-compile-proto`
 
-    - *controller-gen 0.2.2*
+    - *controller-gen 0.5.0*
 
         - To install execute `make install-controller-gen`
         
