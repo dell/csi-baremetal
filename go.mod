@@ -7,24 +7,29 @@ require (
 	github.com/container-storage-interface/spec v1.2.0
 	github.com/coreos/rkt v1.30.0
 	github.com/fsnotify/fsnotify v1.4.9
-	github.com/golang/protobuf v1.5.2
-	github.com/google/uuid v1.1.2
+	github.com/golang/protobuf v1.4.2
+	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/kubernetes-csi/csi-test/v3 v3.1.0
-	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.14.0
+	github.com/nxadm/tail v1.4.8 // indirect
+	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/gomega v1.10.2
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.5.1
+	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.7.0
+	github.com/ugorji/go v1.1.4 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
-	google.golang.org/grpc v1.38.0
+	google.golang.org/grpc v1.26.0
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v1.18.19
-	k8s.io/apimachinery v0.22.2
+	k8s.io/apimachinery v0.22.1
 	k8s.io/client-go v1.18.19
 	k8s.io/kube-scheduler v0.18.19
 	k8s.io/kubernetes v1.18.19
