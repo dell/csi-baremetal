@@ -7,6 +7,12 @@ OPERATOR_CHART_PATH		:= charts/csi-baremetal-operator
 SCHEDULER_CHART_PATH	:= charts/csi-baremetal-scheduler
 EXTENDER_CHART_PATH		:= charts/csi-baremetal-scheduler-extender
 
+### common path
+CSI_OPERATOR_PATH=../csi-baremetal-operator
+CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
+CONTROLLER_GEN_BIN=./bin/controller-gen
+CRD_OPTIONS ?= "crd:trivialVersions=true"
+
 ### version
 MAJOR            := 0
 MINOR            := 5
