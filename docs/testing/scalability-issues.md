@@ -107,3 +107,6 @@ New requests are rejected
 ```
 Oct 13 08:24:39.219 [ERRO] [CSIControllerService] [CreateVolume] [pvc-019cf3ee-7dfb-4212-bade-74d927452772] Failed to create volume: corresponding volume CR pvc-019cf3ee-7dfb-4212-bade-74d927452772 has failed status
 ```
+
+#### Suggestions
+1. Make CreateVolume repeatable 
