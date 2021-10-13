@@ -51,7 +51,7 @@ jobs:
       - name: Update helm repository
         uses: helm/chart-releaser-action@v1.2.1
         env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"          
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Trigger release workflow in csi-baremetal-operator repo
         uses: benc-uk/workflow-dispatch@v1
