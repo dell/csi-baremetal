@@ -4,7 +4,7 @@ LABEL   description="Bare-metal CSI Scheduler"
 
 ADD     scheduler  scheduler 
 
-RUN groupadd -r csiuser && useradd -r -g csiuser csiuser
+RUN addgroup -S csiuser && adduser -S csiuser -G csiuser
 USER csiuser
 
 ENTRYPOINT ["/scheduler"]

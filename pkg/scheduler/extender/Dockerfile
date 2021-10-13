@@ -6,7 +6,7 @@ ADD     extender  extender
 
 ADD     health_probe    health_probe
 
-RUN groupadd -r csiuser && useradd -r -g csiuser csiuser
+RUN addgroup -S csiuser && adduser -S csiuser -G csiuser
 USER csiuser
 
 ENTRYPOINT ["/extender"]
