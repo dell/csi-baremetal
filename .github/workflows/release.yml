@@ -1,12 +1,9 @@
 name: Release Charts
 
 on:
-  push:
-    tags:
-      - v*
-    branches:
-      - master
-      - release*
+  release:
+    types:
+      - created
 
 jobs:
   build:
@@ -23,7 +20,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CSI_WF_TOKEN }}
         with:
           filename: .github/release_template.md
-          assignees: CSI Baremetal
+          assignees: dell/csi-baremetal
         if: startsWith(github.ref, 'refs/tags/')
 
       - name: Configure Git
@@ -31,18 +28,21 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
       
-      - name: Make version
+      - name: Set variables
         id: vars
         run: |
           echo "::set-output name=version::$(make version)"
           echo "::set-output name=release_tag::${GITHUB_REF/refs\/tags\//}"
+          echo "::set-output name=sha::${GITHUB_SHA::7}"
+          echo "::set-output name=target_branch::${{ github.event.release.target_commitish }}"
 
-      - name: Tag release
+      - name: Retag release with annotation
         run: |
           TAG_NAME=${{ steps.vars.outputs.release_tag }}
-          git tag -a $TAG_NAME ${{ github.sha }} -m "release $TAG_NAME"
+          git push origin :$TAG_NAME
+          git tag -a -f $TAG_NAME ${{ steps.vars.outputs.sha }} -m "release $TAG_NAME: issue ${{ steps.create_issue.outputs.number }}"
           git push origin $TAG_NAME
-      
+
       - name: Install Helm
         uses: azure/setup-helm@v1
         with:
@@ -59,8 +59,9 @@ jobs:
           workflow: Release Charts
           repo: dell/csi-baremetal-operator
           token: ${{ secrets.CSI_WF_TOKEN }}
+          ref: ${{ steps.vars.outputs.target_branch }}
           inputs: |
-            '{ "issue_number": "${{ steps.create_issue.outputs.number }}", 
-               "csi_version": "${{ steps.vars.outputs.version }}",
-               "release_tag": "${{ steps.vars.outputs.release_tag }}" }'
+            { "issue_number": "${{ steps.create_issue.outputs.number }}",
+              "csi_version": "${{ steps.vars.outputs.version }}",
+              "release_tag": "${{ steps.vars.outputs.release_tag }}" }
         if: startsWith(github.ref, 'refs/tags/')
