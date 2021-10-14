@@ -6,7 +6,4 @@ ADD     node  node
 
 EXPOSE  9999
 
-RUN groupadd -r csiuser && useradd -r -g csiuser csiuser
-USER csiuser
-
 ENTRYPOINT ["/node"]
