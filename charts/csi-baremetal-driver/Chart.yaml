@@ -1,5 +1,0 @@
-apiVersion: v2
-appVersion: 0.5.0
-description: Bare-metal CSI driver
-name: csi-baremetal-driver
-version: 0.5.0
