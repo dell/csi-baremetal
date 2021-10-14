@@ -56,6 +56,7 @@ var (
 	testLogger = logrus.New()
 	testID     = "someID"
 	testNs     = "default"
+	testApp    = "app"
 
 	testCtx       = context.Background()
 	testNode1Name = "node1"
@@ -221,6 +222,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(vol.Labels[k8s.AppLabelKey], testApp)
 		})
 		It("Volume CR has already exists", func() {
 			uuid := "uuid-1234"
@@ -297,7 +299,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err       error
 			)
 			// create volume crd to delete
-			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
+			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testApp, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeID, testNs)
