@@ -27,7 +27,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -203,6 +205,12 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		locationType = apiV1.LocationTypeDrive
 	}
 
+	appLabel, err := vo.getVolumeAppLabel(ctx, reservationName, podNamespace)
+	if err != nil {
+		log.Errorf("Unable to get related PVC, error: %v", err)
+		return nil, status.Errorf(codes.Internal, "unable to get related PVC")
+	}
+
 	// create volume CR
 	apiVolume := api.Volume{
 		Id:                v.Id,
@@ -219,7 +227,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		Mode:              v.Mode,
 		Type:              v.Type,
 	}
-	volumeCR := vo.k8sClient.ConstructVolumeCR(v.Id, podNamespace, apiVolume)
+	volumeCR := vo.k8sClient.ConstructVolumeCR(v.Id, podNamespace, appLabel, apiVolume)
 
 	if err = vo.k8sClient.CreateCR(ctx, v.Id, volumeCR); err != nil {
 		log.Errorf("Unable to create CR, error: %v", err)
@@ -661,4 +669,22 @@ func (vo *VolumeOperationsImpl) fillCache() {
 	for _, volume := range volList.Items {
 		vo.cache.Set(volume.Name, volume.Namespace)
 	}
+}
+
+// getVolumeAppLabel returns App name related with PVC
+func (vo *VolumeOperationsImpl) getVolumeAppLabel(ctx context.Context, pvcName, pvcNamespace string) (string, error) {
+	ll := vo.log.WithFields(logrus.Fields{
+		"method": "getVolumeAppLabel",
+	})
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := vo.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      pvcName,
+		Namespace: pvcNamespace,
+	}, pvc); err != nil {
+		ll.Errorf("Failed to get PVC %s in namespace %s, error %v", pvcName, pvcNamespace, err)
+		return "", err
+	}
+
+	return pvc.GetLabels()[k8s.AppLabelKey], nil
 }
