@@ -36,13 +36,6 @@ jobs:
           echo "::set-output name=sha::${GITHUB_SHA::7}"
           echo "::set-output name=target_branch::${{ github.event.release.target_commitish }}"
 
-      - name: Retag release with annotation
-        run: |
-          TAG_NAME=${{ steps.vars.outputs.release_tag }}
-          git push origin :$TAG_NAME
-          git tag -a -f $TAG_NAME ${{ steps.vars.outputs.sha }} -m "release $TAG_NAME: issue ${{ steps.create_issue.outputs.number }}"
-          git push origin $TAG_NAME
-
       - name: Install Helm
         uses: azure/setup-helm@v1
         with:
