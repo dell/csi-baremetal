@@ -33,14 +33,28 @@ Features
 - Support of additional Linux distributions/versions
 
 Related repositories
---------
+--------------------
 - [Bare-metal CSI Operator](https://github.com/dell/csi-baremetal-operator) - Kubernetes Operator to deploy and manage CSI
 - [Bare-metal CSI Scheduling](https://github.com/dell/csi-baremetal-scheduling) - Kubernetes Scheduler and Scheduler Extender to guarantee correct pod placement
 
 Installation process
----------------------
+--------------------
 
 Installation process is documented in [Bare-metal CSI Operator](https://github.com/dell/csi-baremetal-operator)
+
+High level architecture
+-----------------------
+
+Bare-metal CSI driver consists from the following components:
+- Operator - responsible for CSI deployment and lifecycle (upgrade, node add/remove, etc.)
+- Scheduler extender - handles `filter` and `score` requests coming from scheduler, requests capacity reservation from Controller service
+- Scheduler patcher - automates scheduler configuration patching, optional component
+- Controller service - handles Create/Delete/Expand Volume requests
+- Node service - handles Volume Stage/Unstage, Publish/Unpublish requests
+- Drive manager - discovers locally attach disks (drives)
+- Node controller - maintains persistent node IDs
+
+![Screenshot](images/csi_architecture.png)
 
 Contribution
 ------
