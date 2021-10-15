@@ -456,9 +456,12 @@ func constructDefaultAppMap() map[string]string {
 	return constructCustomAppMap(AppLabelValue)
 }
 
-func constructCustomAppMap(appName string) map[string]string {
-	return map[string]string{
-		AppLabelKey:      appName,
-		AppLabelShortKey: appName,
+func constructCustomAppMap(appName string) (labels map[string]string) {
+	if appName != "" {
+		labels = map[string]string{
+			AppLabelKey:      appName,
+			AppLabelShortKey: appName,
+		}
 	}
+	return
 }
