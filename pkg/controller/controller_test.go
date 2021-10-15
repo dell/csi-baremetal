@@ -172,7 +172,6 @@ var (
 	}
 )
 
-// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
 func TestCSIControllerService(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CSIControllerService testing suite")
