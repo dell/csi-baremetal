@@ -3,7 +3,7 @@ name: e2e
 on:
   push:
   pull_request:
-    branches: [ master ]
+    branches: [ master, e2e-testing ]
 env:
   REGISTRY: 220dfe2ceb39/baremetal-registry
 jobs:
