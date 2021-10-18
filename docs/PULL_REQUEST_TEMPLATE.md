@@ -1,5 +1,5 @@
 ## Purpose
-### Issue #<!--- insert your issue number here -->
+### Resolves #<!--- insert your issue number here -->
 
 _Describe your changes_
 
