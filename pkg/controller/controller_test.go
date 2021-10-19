@@ -19,18 +19,15 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 	"strings"
+	"testing"
 	"time"
 
-	"github.com/dell/csi-baremetal/pkg/mocks"
-	"github.com/stretchr/testify/mock"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -40,15 +37,19 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 
@@ -56,6 +57,8 @@ var (
 	testLogger = logrus.New()
 	testID     = "someID"
 	testNs     = "default"
+	testApp    = "app"
+	testPod    = "pod"
 
 	testCtx       = context.Background()
 	testNode1Name = "node1"
@@ -85,18 +88,64 @@ var (
 
 	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation1))
 	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: testAC1Name,
+		},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024,
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     testDriveLocation1,
-			NodeId:       testNode1Name},
+			NodeId:       testNode1Name,
+		},
+	}
+	testPVC1Name = testAC1Name + "-PVC"
+	testPVC1     = v1.PersistentVolumeClaim{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:      testPVC1Name,
+			Namespace: testNs,
+			Labels: map[string]string{
+				k8s.AppLabelKey: testApp,
+			},
+		},
+	}
+	testACR1Name = testAC1Name + "-reservation"
+	testACR1     = acrcrd.AvailableCapacityReservation{
+		TypeMeta: k8smetav1.TypeMeta{
+			Kind:       "AvailableCapacityReservation",
+			APIVersion: apiV1.APIV1Version,
+		},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: testAC1Name,
+		},
+		Spec: api.AvailableCapacityReservation{
+			Namespace: testNs,
+			Status:    apiV1.ReservationConfirmed,
+			NodeRequests: &api.NodeRequests{
+				Requested: []string{testNode1Name},
+				Reserved:  []string{testNode1Name},
+			},
+			ReservationRequests: []*api.ReservationRequest{
+				&api.ReservationRequest{
+					CapacityRequest: &api.CapacityRequest{
+						Name:         testPVC1Name,
+						Size:         1024 * 1024 * 1024,
+						StorageClass: apiV1.StorageClassHDD,
+					},
+					Reservations: []string{testAC1Name},
+				},
+			},
+		},
 	}
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation2))
 	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
+		TypeMeta: k8smetav1.TypeMeta{
+			Kind:       "AvailableCapacity",
+			APIVersion: apiV1.APIV1Version,
+		},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:      testAC2Name,
+			Namespace: testNs,
+		},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 1024,
 			StorageClass: apiV1.StorageClassHDD,
@@ -106,8 +155,14 @@ var (
 	}
 	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDriveLocation4))
 	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNs},
+		TypeMeta: k8smetav1.TypeMeta{
+			Kind:       "AvailableCapacity",
+			APIVersion: apiV1.APIV1Version,
+		},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:      testAC3Name,
+			Namespace: testNs,
+		},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
 			StorageClass: apiV1.StorageClassHDDLVG,
@@ -117,11 +172,10 @@ var (
 	}
 )
 
-// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
-/*func TestCSIControllerService(t *testing.T) {
+func TestCSIControllerService(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CSIControllerService testing suite")
-}*/
+}
 
 var _ = Describe("CSIControllerService CreateVolume", func() {
 	var controller *CSIControllerService
@@ -145,20 +199,38 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Volume capabilities missing in request"))
 		})
-		It("There is no suitable Available Capacity (on all nodes)", func() {
-			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "")
+		It("Reservation not found", func() {
+			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "", "testClaim")
 
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(status.Code(err)).To(Equal(codes.ResourceExhausted))
+			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			Expect(err.Error()).To(ContainSubstring("Reservation testClaim not found"))
+		})
+		It("Available Capacity not found", func() {
+			err := controller.k8sclient.Create(testCtx, testPVC1.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
+			Expect(err).To(BeNil())
+
+			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "", testPVC1Name)
+
+			resp, err := controller.CreateVolume(context.Background(), req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("not found"))
 		})
 		It("Status Failed was set in Volume CR", func() {
-			err := testutils.AddAC(controller.k8sclient, &testAC1, &testAC2)
+			err := testutils.AddAC(controller.k8sclient, testAC1.DeepCopy(), testAC2.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.Create(testCtx, testPVC1.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
 			Expect(err).To(BeNil())
 			var (
 				capacity = int64(1024 * 53)
-				req      = getCreateVolumeRequest("req1", capacity, testNode1Name)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name)
 				vol      = &vcrd.Volume{}
 			)
 
@@ -176,7 +248,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			uuid := "uuid-1234"
 			capacity := int64(1024 * 42)
 
-			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
+			req := getCreateVolumeRequest(uuid, capacity, testNode4Name, testPVC1Name)
 
 			err := controller.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -204,11 +276,15 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 	Context("Success scenarios", func() {
 		It("Volume is created successfully", func() {
-			err := testutils.AddAC(controller.k8sclient, &testAC1, &testAC2)
+			err := testutils.AddAC(controller.k8sclient, testAC1.DeepCopy(), testAC2.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.Create(testCtx, testPVC1.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
 			Expect(err).To(BeNil())
 			var (
 				capacity = int64(1024 * 53)
-				req      = getCreateVolumeRequest("req1", capacity, testNode1Name)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name)
 				vol      = &vcrd.Volume{}
 			)
 
@@ -221,12 +297,13 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
 		})
 		It("Volume CR has already exists", func() {
 			uuid := "uuid-1234"
 			capacity := int64(1024 * 42)
 
-			req := getCreateVolumeRequest(uuid, capacity, testNode4Name)
+			req := getCreateVolumeRequest(uuid, capacity, testNode4Name, testPVC1Name)
 			err := controller.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
@@ -297,7 +374,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err       error
 			)
 			// create volume crd to delete
-			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
+			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testApp, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeID, testNs)
@@ -419,11 +496,6 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.ReadList(testCtx, &vList)
 			Expect(err).To(BeNil())
 			Expect(len(vList.Items)).To(Equal(0))
-			// check that AC size was increased on capacity
-			acList := accrd.AvailableCapacityList{}
-			err = controller.k8sclient.ReadList(context.Background(), &acList)
-			Expect(err).To(BeNil())
-			Expect(len(acList.Items)).To(Equal(0)) // expect that LogicalVolumeGroup AC was removed
 		})
 		It("Volume is deleted successful, LogicalVolumeGroup AC recreated", func() {
 			removeAllCrds(controller.k8sclient) // remove CRs that was created in BeforeEach()
@@ -493,6 +565,9 @@ var _ = Describe("CSIControllerService health check", func() {
 		//To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
 		err := svc.k8sclient.Create(testCtx,
 			&v1.Node{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: testNode2Name,
+				},
 				Status: v1.NodeStatus{
 					Conditions: []v1.NodeCondition{{Type: v1.NodeReady, Status: v1.ConditionTrue}},
 					Addresses: []v1.NodeAddress{
@@ -526,6 +601,9 @@ var _ = Describe("CSIControllerService health check", func() {
 		//To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
 		err := svc.k8sclient.Create(testCtx,
 			&v1.Node{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: testNode2Name,
+				},
 				Status: v1.NodeStatus{
 					Addresses: []v1.NodeAddress{
 						{Type: v1.NodeHostName, Address: testNode1Name},
@@ -607,7 +685,7 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 				err       error
 				capacity  = int64(1024)
 			)
-			err = controller.k8sclient.CreateCR(testCtx, testAC1Name, &testAC1)
+			err = controller.k8sclient.CreateCR(testCtx, testAC1Name, testAC1.DeepCopy())
 			Expect(err).To(BeNil())
 			// create volume crd to delete
 			err = controller.k8sclient.ReadCR(testCtx, uuid, testNs, volumeCrd)
@@ -707,7 +785,7 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 				capacity  = int64(1024)
 			)
 			fillCache(controller, uuid, testNs)
-			err = controller.k8sclient.CreateCR(testCtx, testAC1Name, &testAC1)
+			err = controller.k8sclient.CreateCR(testCtx, testAC1Name, testAC1.DeepCopy())
 			Expect(err).To(BeNil())
 			err = controller.k8sclient.ReadCR(testCtx, uuid, testNs, volumeCrd)
 			Expect(err).To(BeNil())
@@ -745,7 +823,7 @@ func fillCache(controller *CSIControllerService, volumeID, namespace string) {
 }
 
 // return CreateVolumeRequest based on provided parameters
-func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.CreateVolumeRequest {
+func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimName string) *csi.CreateVolumeRequest {
 	req := &csi.CreateVolumeRequest{
 		Name:          name,
 		CapacityRange: &csi.CapacityRange{RequiredBytes: cap},
@@ -762,7 +840,10 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string) *csi.C
 				},
 			},
 		},
-		Parameters: map[string]string{util.ClaimNamespaceKey: testNs},
+		Parameters: map[string]string{
+			util.ClaimNamespaceKey: testNs,
+			util.ClaimNameKey:      claimName,
+		},
 	}
 
 	if preferredNode != "" {

@@ -146,7 +146,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
-	ll.Infof("Processing request: %v", req)
+	ll.Infof("Processing request: %+v", req)
 
 	if req.GetName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
