@@ -5,7 +5,9 @@ on:
   pull_request:
     branches: [ master, e2e-testing ]
 env:
-  REGISTRY: 220dfe2ceb39/baremetal-registry
+  REGISTRY: ${{ secrets.REGISTRY}}
+  go_version: '1.16.8'
+  golangci_version: '1.37.0'
 jobs:
   e2e:
     runs-on: ubuntu-20.04
@@ -19,18 +21,20 @@ jobs:
         cd ../
         git clone https://github.com/dell/csi-baremetal-operator.git 
 
-    - name: LVL2 install
+    - name: Set environment variables
       run: |
-        sudo apt-get update
-        sudo apt-get install -y lvm2
+        echo "CSI_BAREMETAL_DIR=$RUNNER_WORKSPACE/csi-baremetal/" >> $GITHUB_ENV
+        echo "CSI_BAREMETAL_OPERATOR_DIR=$RUNNER_WORKSPACE/csi-baremetal-operator/" >> $GITHUB_ENV
 
-    - name: install go
-      run: |
-        sudo snap install go --classic 
-        echo 'export GOPATH=$HOME/Go' >> $HOME/.bashrc
-        source $HOME/.bashrc
+    - name: LVM2 install
+      run: sudo apt-get install -y lvm2
 
-    - name: install helm
+    - name: Prepare Golang 
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{env.go_version}}
+
+    - name: Install helm
       run: |
         curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
         sudo apt-get install apt-transport-https --yes
@@ -51,23 +55,24 @@ jobs:
         sudo mv ./kubectl /usr/local/bin/kubectl
         kubectl version --client 
 
+    - name: add CSI_VERSION
+      run: |
+        cd ${{env.CSI_BAREMETAL_DIR}}
+        echo "CSI_VERSION=`make version`" >> $GITHUB_ENV
+
+    - name: Get dependencies
+      run: make dependency
+
     - name: Compile proto files
       run: |
-        echo 'export PATH=$PATH:$GOPATH/bin' >> $HOME/.bashrc
-        source $HOME/.bashrc
         sudo apt install protobuf-compiler
         sudo apt install golang-goprotobuf-dev
-        make install-protoc
-        go get -u github.com/golang/protobuf/protoc-gen-go@v1.3.2
-        echo 'export PATH=$PATH:$(realpath protoc-gen-go)' >> $HOME/.bashrc
-        source $HOME/.bashrc
-        make compile-proto
+        make install-compile-proto
 
     - name: Generate CRD
-      run: make install-controller-gen 
-          
-    - name: Deepcopy      
-      run:  make generate-deepcopy
+      run: |
+        make install-controller-gen 
+        make generate-deepcopy
 
     - name: Build binary
       run: |
@@ -84,23 +89,25 @@ jobs:
     
     - name: docker-build operators 
       run: |
-        cd /home/runner/work/csi-baremetal/csi-baremetal-operator/
+        cd ${{env.CSI_BAREMETAL_OPERATOR_DIR}}
+        echo "CSI_OPERATOR_VERSION=`make version`" >> $GITHUB_ENV
         make docker-build REGISTRY=${{ env.REGISTRY }}
 
     - name: Kind preparation
       run: |
-        cd /home/runner/work/csi-baremetal/csi-baremetal/
+        cd ${{env.CSI_BAREMETAL_DIR}}
         make kind-build
         make kind-create-cluster
         kubectl cluster-info --context kind-kind
         kubectl get pods -o wide --all-namespaces 
         echo "current-context:" $(kubectl config current-context)
         echo "environment-kubeconfig:" ${KUBECONFIG}
+        sudo sysctl net/netfilter/nf_conntrack_max=131072 
       
-    - name: Sleep for 300 seconds
+    - name: Sleep for 60 seconds
       uses: jakejarvis/wait-action@master
       with:
-        time: '300s' 
+        time: '60s' 
 
     - name: Check pods
       run: |
@@ -115,18 +122,9 @@ jobs:
     - name: Retag CSI images and load them to kind
       run: |
         docker images 
-        export CSI_VERSION=`make version`
-        cd /home/runner/work/csi-baremetal/csi-baremetal-operator/ 
-        export CSI_OPERATOR_VERSION=`make version`
-        cd /home/runner/work/csi-baremetal/csi-baremetal/
         make kind-tag-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
         make kind-load-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
         make load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
           
     - name: Make test
-      run: |
-        export CSI_VERSION=`make version`
-        cd /home/runner/work/csi-baremetal/csi-baremetal-operator/ 
-        export CSI_OPERATOR_VERSION=`make version`
-        cd /home/runner/work/csi-baremetal/csi-baremetal/  
-        make test-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=/home/runner/work/csi-baremetal/csi-baremetal/charts
+      run: make test-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=/home/runner/work/csi-baremetal/csi-baremetal/charts
