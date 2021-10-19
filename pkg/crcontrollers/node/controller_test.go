@@ -32,7 +32,7 @@ var (
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:      "csibmnode-1",
+			Name: "csibmnode-1",
 		},
 		Spec: api.Node{
 			UUID: "ffff-aaaa-bbbb",

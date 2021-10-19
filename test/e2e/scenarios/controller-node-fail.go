@@ -53,11 +53,11 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 		k8sSC         *storagev1.StorageClass
 		executor      = common.GetExecutor()
 		driverCleanup func()
-		ctx			  context.Context
+		ctx           context.Context
 		//cancel		  func()
-		nodeName      string
-		ns            string
-		f             = framework.NewDefaultFramework("controller-node-fail")
+		nodeName string
+		ns       string
+		f        = framework.NewDefaultFramework("controller-node-fail")
 	)
 
 	init := func() {

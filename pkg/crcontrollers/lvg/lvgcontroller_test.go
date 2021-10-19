@@ -85,7 +85,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      drive1UUID,
+			Name: drive1UUID,
 		},
 		Spec: apiDrive1,
 	}
@@ -96,7 +96,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      drive2UUID,
+			Name: drive2UUID,
 		},
 		Spec: apiDrive2,
 	}
@@ -107,7 +107,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      lvg1Name,
+			Name: lvg1Name,
 		},
 		Spec: api.LogicalVolumeGroup{
 			Name:      lvg1Name,
@@ -125,7 +125,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      acCR1Name,
+			Name: acCR1Name,
 		},
 		Spec: api.AvailableCapacity{
 			Location:     lvg1Name,
@@ -245,10 +245,9 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 	var (
 		lvgToDell = lvgCR1.DeepCopy()
-		c   = setup(t, node1ID, lvgToDell)
-		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+		c         = setup(t, node1ID, lvgToDell)
+		req       = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
-
 
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
@@ -272,8 +271,8 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 func TestReconcile_DeletionFailed(t *testing.T) {
 	var (
 		lvgToDell = lvgCR1.DeepCopy()
-		e   = &mocks.GoMockExecutor{}
-		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+		e         = &mocks.GoMockExecutor{}
+		req       = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
 
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}

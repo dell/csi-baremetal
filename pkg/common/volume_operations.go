@@ -158,6 +158,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		isFound           = false
 		ac                = &accrd.AvailableCapacity{}
 		volumeReservation = podReservation.Spec.ReservationRequests[volumeReservationNum]
+		appLabel          string
 	)
 	// scheduler extender reserves capacity on different nodes during filter stage since 'reserve' API is not available
 	// need to find capacity on requested node
@@ -205,10 +206,12 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		locationType = apiV1.LocationTypeDrive
 	}
 
-	appLabel, err := vo.getVolumeAppLabel(ctx, reservationName, podNamespace)
-	if err != nil {
-		log.Errorf("Unable to get related PVC, error: %v", err)
-		return nil, status.Errorf(codes.Internal, "unable to get related PVC")
+	if !v.Ephemeral {
+		appLabel, err = vo.getVolumeAppLabel(ctx, reservationName, podNamespace)
+		if err != nil {
+			log.Errorf("Unable to get related PVC, error: %v", err)
+			return nil, status.Errorf(codes.Internal, "unable to get related PVC")
+		}
 	}
 
 	// create volume CR

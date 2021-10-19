@@ -640,7 +640,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 				srcPath      = "/some/path"
 			)
 
-			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id,"", createdVolCR)
+			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", createdVolCR)
 			Expect(err).To(BeNil())
 			createdVolCR.Spec.CSIStatus = apiV1.Created
 			err = node.k8sClient.UpdateCR(testCtx, createdVolCR)
