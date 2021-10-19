@@ -49,8 +49,13 @@ test-sanity:
 #	should fail when requesting to create a volume with already existing name and different capacity|\
 #	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
-load-operator-image:
+load-operator-image: pull-operator-image \
+kind-tag-load-operator-image
+
+pull-operator-image:
 	docker pull ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
+
+kind-tag-load-operator-image:	
 	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION} ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
 	$(KIND) load docker-image ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
 

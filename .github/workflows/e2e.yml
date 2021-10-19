@@ -124,7 +124,7 @@ jobs:
         docker images 
         make kind-tag-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
         make kind-load-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
-        make load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
+        make kind-tag-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
           
     - name: Make test
       run: make test-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=/home/runner/work/csi-baremetal/csi-baremetal/charts
