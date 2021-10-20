@@ -75,7 +75,7 @@ func (r *Recorder) Eventf(object runtime.Object, event *eventing.EventDescriptio
 // New makes Recorder for a simple usage
 // implementation for v1core.EventInterface can be easily found in kubernetes.Clientset.CoreV1().Events("yourNameSpace")
 // schema must know about object you will send events about, if use use something built-in try runtime.New
-func New(component, node string, eventInt v1core.EventInterface, scheme *runtime.Scheme, logger *logrus.Logger) (*Recorder, error) {
+func New(component, nodeName string, eventInt v1core.EventInterface, scheme *runtime.Scheme, logger *logrus.Logger) (*Recorder, error) {
 	lg := logger.WithField("componentName", "Events")
 
 	if scheme == nil {
@@ -83,7 +83,7 @@ func New(component, node string, eventInt v1core.EventInterface, scheme *runtime
 	}
 
 	// use simple local Recorder for now
-	eventRecorder := simple.New(&v1core.EventSinkImpl{Interface: eventInt}, scheme, v1.EventSource{Component: component, Host: node}, lg)
+	eventRecorder := simple.New(&v1core.EventSinkImpl{Interface: eventInt}, scheme, v1.EventSource{Component: component, Host: nodeName}, lg)
 	return &Recorder{
 		eventRecorder: eventRecorder,
 		eventManager:  &eventing.EventManager{},
