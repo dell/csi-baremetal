@@ -1106,7 +1106,7 @@ func (m *VolumeManager) createEventForDriveHealthOverridden(
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, event *eventing.EventDescription,
 	messageFmt string, args ...interface{}) {
-	messageFmt += " " + drive.GetDriveDescription()
+	messageFmt += " " + drive.GetDriveDescription() + fmt.Sprintf(", NodeName='%s'", m.nodeID)
 	m.recorder.Eventf(drive, event, messageFmt, args...)
 }
 
