@@ -145,7 +145,7 @@ func main() {
 
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
+		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,

@@ -58,6 +58,7 @@ var (
 	version            = "test"
 	testNs             = "default"
 	nodeId             = "localhost"
+	nodeName           = "node-name"
 
 	testDrives = []*api.Drive{
 		{
@@ -189,10 +190,10 @@ func prepareNodeMock(kubeClient *k8s.KubeClient, log *logrus.Logger) *node.CSINo
 	e := mocks.NewMockExecutor(map[string]mocks.CmdOut{fmt.Sprintf(lsblk.CmdTmpl, ""): {Stdout: mocks.LsblkTwoDevicesStr}})
 	e.SetSuccessIfNotFound(true)
 
-	nodeService := node.NewCSINodeService(nil, nodeId, log, kubeClient, kubeClient,
+	nodeService := node.NewCSINodeService(nil, nodeId, nodeName, log, kubeClient, kubeClient,
 		new(mocks.NoOpRecorder), featureconfig.NewFeatureConfig())
 
-	nodeService.VolumeManager = *node.NewVolumeManager(c, e, log, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeId)
+	nodeService.VolumeManager = *node.NewVolumeManager(c, e, log, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeId, nodeName)
 
 	listBlk := mocklu.GetMockWrapLsblk("/some/path")
 	nodeService.VolumeManager.SetListBlk(listBlk)

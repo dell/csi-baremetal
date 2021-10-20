@@ -200,7 +200,7 @@ func getTestDrive(id, sn string) *api.Drive {
 func TestVolumeManager_NewVolumeManager(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	assert.NotNil(t, vm)
 	assert.Nil(t, vm.driveMgrClient)
 	assert.NotNil(t, vm.fsOps)
@@ -217,7 +217,7 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	newVolume := volCR.DeepCopy()
 	newVolume.Spec.CSIStatus = apiV1.Creating
 	err = vm.k8sClient.CreateCR(testCtx, newVolume.Name, newVolume)
@@ -251,7 +251,7 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 func TestReconcile_SuccessNotFound(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: "not-found-that-name"}}
 	res, err := vm.Reconcile(req)
@@ -406,7 +406,7 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	newVolumeCR := volCR.DeepCopy()
 	newVolumeCR.Spec.CSIStatus = apiV1.Removed
 	err = vm.k8sClient.CreateCR(testCtx, newVolumeCR.Name, newVolumeCR)
@@ -577,7 +577,7 @@ func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
 
 func TestNewVolumeManager_SetProvisioners(t *testing.T) {
 	vm := NewVolumeManager(nil, mocks.EmptyExecutorSuccess{},
-		logrus.New(), nil, nil, new(mocks.NoOpRecorder), nodeID)
+		logrus.New(), nil, nil, new(mocks.NoOpRecorder), nodeID, nodeName)
 	newProv := &mockProv.MockProvisioner{}
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: newProv})
 	assert.Equal(t, newProv, vm.provisioners[p.DriveBasedVolumeType])
@@ -603,7 +603,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
 		// expect: updateDrivesCRs failed
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{},
-			nil, testLogger, kubeClient, kubeClient, nil, nodeID)
+			nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
 		mockK8sClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(testErr).Once()
 
 		err = vm.Discover()
@@ -614,7 +614,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	t.Run("discoverDataOnDrives failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
-		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID)
+		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
 		discoverData := &mocklu.MockWrapDataDiscover{}
 		discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(false, testErr).Once()
 		vm.dataDiscover = discoverData
@@ -787,7 +787,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
 	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	var (
 		res *driveUpdates
@@ -816,7 +816,7 @@ func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 func TestVolumeManager_updatesDrivesCRs_Override(t *testing.T) {
 	client, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, client, client, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(nil, nil, testLogger, client, client, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	testDriveCR1 := testDriveCR.DeepCopy()
 	testDriveCR1.Annotations = map[string]string{driveHealthOverrideAnnotation: apiV1.HealthSuspect}
@@ -1296,7 +1296,7 @@ func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
 
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
-	vm := NewVolumeManager(c, e, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(c, e, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	vm.discoverSystemLVG = false
 	return vm
 }
@@ -1337,7 +1337,7 @@ func TestVolumeManager_isDriveSystem(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	listBlk := &mocklu.MockWrapLsblk{}
-	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID)
+	vm := NewVolumeManager(hwMgrClient, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	listBlk.On("GetBlockDevices", drive2.Path).Return([]lsblk.BlockDevice{bdev1}, nil).Once()
 	vm.listBlk = listBlk
 	isSystem, err := vm.isDriveSystem("/dev/sdb")
