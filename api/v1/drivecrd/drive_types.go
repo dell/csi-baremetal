@@ -41,6 +41,7 @@ import (
 // +kubebuilder:printcolumn:name="SERIAL NUMBER",type="string",JSONPath=".spec.SerialNumber",description="Drive serial number"
 // +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.NodeId",description="Drive node location"
 // +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.Slot",description="Drive slot"
+// +kubebuilder:printcolumn:name="FIRMWARE",type="string",JSONPath=".spec.Firmware",description="Drive firmware"
 type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
