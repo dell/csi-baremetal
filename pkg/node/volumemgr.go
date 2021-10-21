@@ -994,11 +994,15 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		prevHealthState := vol.Spec.Health
 		vol.Spec.Health = cur.Health
 		// initiate volume release
+		ll.Debugf("Status %s for volume %s", vol.Spec.Health, vol.Name)
 		// TODO need to check for specific annotation instead
 		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
 			if vol.Spec.Usage == apiV1.VolumeUsageInUse {
 				vol.Spec.Usage = apiV1.VolumeUsageReleasing
 			}
+		} else if vol.Spec.Health == apiV1.HealthGood {
+			// Case when a drive health has flipped from non-Good to Good
+			vol.Spec.Usage = apiV1.VolumeUsageInUse
 		}
 
 		if err := m.k8sClient.UpdateCR(ctx, vol); err != nil {
