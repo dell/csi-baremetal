@@ -38,6 +38,7 @@ All contributions come through pull requests. To submit a proposed change, we re
     - "Documentation" - for PRs with something that require documentation update
 8. Make sure that unit and e2e tests are passed
 9. A maintainer of the project will be assigned, and you can expect a review within a few days
+10. Merge commit title with "[ISSUE-ID] <short description>"
 
 #### Use draft PRs for early feedback
 

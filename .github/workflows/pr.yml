@@ -50,9 +50,6 @@ jobs:
     - name: Lint code
       run: GOGC=300 make lint
       
-    - name: Lint charts
-      run: make lint-charts
-      
     - name: Run Tests
       run: CI=false make test
     

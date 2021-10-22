@@ -35,7 +35,7 @@ To perform replacement of failed drive negotiation between CSI, Operator and Use
   - Triggers physical drive replacement process since drive might not be available yet when recovery of data is completed (to avoid data unavailability for applications with multiple persistence volumes per each replica)
 ## Design Details
 ### Drive health detection
-Drive health is detected by drive manager and stored in the health field of [Drives CRD](https://github.com/dell/csi-baremetal/blob/master/charts/csi-baremetal-driver/crds/csi-baremetal.dell.com_drives.yaml): 
+Drive health is detected by drive manager and stored in the health field of [Drives CRD](https://github.com/dell/csi-baremetal-operator/blob/master/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_drives.yaml): 
 - `GOOD` - drive is healthy. Application can safely use it.
 - `SUSPECT` - drive might not be healthy. Replacement is recommended.
 - `BAD` - drive is not healthy. Replacement is required.
