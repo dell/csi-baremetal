@@ -85,11 +85,15 @@ func (in *Drive) Equals(drive *api.Drive) bool {
 
 func (in *Drive) GetDriveDescription() string {
 	spec := in.Spec
-	description := fmt.Sprintf("Drive Details: SN='%s', Model='%s %s', Slot='%s', Type='%s', Size='%d', NodeId='%s'",
+	description := fmt.Sprintf("Drive Details: SN='%s', Model='%s %s', Type='%s', Size='%d', NodeId='%s'",
 		spec.SerialNumber, spec.VID, spec.PID, spec.Slot, spec.Type, spec.Size, spec.NodeId)
 	// add firmware info only if detected
 	if spec.Firmware != "" {
 		description += fmt.Sprintf(", Firmware='%s'", spec.Firmware)
+	}
+	// add Slot info only if detected
+	if spec.Slot != "" {
+		description += fmt.Sprintf(", Slot='%s'", spec.Slot)
 	}
 	return description
 }
