@@ -85,6 +85,7 @@ const (
 // Returns an instance of CSINodeService
 func NewCSINodeService(client api.DriveServiceClient,
 	nodeID string,
+	nodeName string,
 	logger *logrus.Logger,
 	k8sClient *k8s.KubeClient,
 	k8sCache k8s.CRReader,
@@ -92,7 +93,7 @@ func NewCSINodeService(client api.DriveServiceClient,
 	featureConf featureconfig.FeatureChecker) *CSINodeService {
 	e := command.NewExecutor(logger)
 	s := &CSINodeService{
-		VolumeManager:  *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID),
+		VolumeManager:  *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID, nodeName),
 		svc:            common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),

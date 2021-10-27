@@ -108,6 +108,8 @@ type VolumeManager struct {
 
 	// kubernetes node ID
 	nodeID string
+	// kubernetes node name
+	nodeName string
 	// used for discoverLVGOnSystemDisk method to determine if we need to discover LogicalVolumeGroup in Discover method, default true
 	// set false when there is no LogicalVolumeGroup on system disk or system disk is not SSD
 	discoverSystemLVG bool
@@ -177,7 +179,9 @@ func NewVolumeManager(
 	logger *logrus.Logger,
 	k8sClient *k8s.KubeClient,
 	k8sCache k8s.CRReader,
-	recorder eventRecorder, nodeID string) *VolumeManager {
+	recorder eventRecorder,
+	nodeID string,
+	nodeName string) *VolumeManager {
 	driveMgrDuration := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "discovery_duration_seconds",
 		Help:    "duration of the discovery method for the drive manager",
@@ -214,6 +218,7 @@ func NewVolumeManager(
 		listBlk:                lsblk.NewLSBLK(logger),
 		partOps:                partImpl,
 		nodeID:                 nodeID,
+		nodeName:               nodeName,
 		log:                    logger.WithField("component", "VolumeManager"),
 		recorder:               recorder,
 		discoverSystemLVG:      true,
@@ -1101,7 +1106,7 @@ func (m *VolumeManager) createEventForDriveHealthOverridden(
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, event *eventing.EventDescription,
 	messageFmt string, args ...interface{}) {
-	messageFmt += " " + drive.GetDriveDescription()
+	messageFmt += " " + drive.GetDriveDescription() + fmt.Sprintf(", NodeName='%s'", m.nodeName)
 	m.recorder.Eventf(drive, event, messageFmt, args...)
 }
 
