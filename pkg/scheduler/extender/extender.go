@@ -262,7 +262,11 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				continue
 			}
 
-			// It is not need to check Volume CR here, same functional exists in CSI Operator.
+			// We need to check related Volume CR here, but it's no option to receive the right one (PVC
+			// has PV name only when it's in Bound. It may leads to possible races, when ACR is removed in
+			// CreateVolume request, but recreated if it filter request repeats due to some reasons.
+			// Workaround is realized in CSI Operator ACRValidator. It checks all ACR and removed ones for
+			// Running pods.
 
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
 				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
