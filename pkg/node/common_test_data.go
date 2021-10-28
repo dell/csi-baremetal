@@ -47,6 +47,7 @@ var (
 	testLVGName = "lvg-cr-1"
 	driveUUID   = "drive-uuid"
 	nodeID      = "fake-node"
+	nodeName    = "fake-node-name"
 	targetPath  = "/tmp/targetPath"
 	stagePath   = "/tmp/stagePath"
 	testPodName = "pod-1"
