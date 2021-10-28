@@ -252,6 +252,9 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				// PVC can be created later. csi-provisioner repeat request if not error.
 				return nil, baseerr.ErrorNotFound
 			}
+
+			ll.Debugf("PVC details: %s", pvc.String())
+
 			if pvc.Spec.StorageClassName == nil {
 				continue
 			}
