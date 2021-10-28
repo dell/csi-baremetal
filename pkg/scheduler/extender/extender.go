@@ -265,16 +265,11 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				continue
 			}
 
-			var volume volcrd.Volume
-			if err = e.k8sCache.ReadCR(ctx, pvc.Spec.VolumeName, pod.Namespace, &volume); err != nil && !k8serrors.IsNotFound(err) {
-				ll.Errorf("Unable to read Volume %s in NS %s: %v. ", pvc.Spec.VolumeName, pod.Namespace, err)
-				return nil, err
-			}
-
-			if err == nil {
-				ll.Infof("Found volume %v for PVC %s", volume, pvc.Name)
-				continue
-			}
+			// We need to check related Volume CR here, but it's no option to receive the right one (PVC
+			// has PV name only when it's in Bound. It may leads to possible races, when ACR is removed in
+			// CreateVolume request, but recreated if it filter request repeats due to some reasons.
+			// Workaround is realized in CSI Operator ACRValidator. It checks all ACR and removed ones for
+			// Running pods.
 
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
 				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
