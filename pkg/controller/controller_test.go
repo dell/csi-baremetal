@@ -200,7 +200,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err.Error()).To(ContainSubstring("Volume capabilities missing in request"))
 		})
 		It("Reservation not found", func() {
-			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "", "testClaim")
+			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "", "testClaim", false, false)
 
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
@@ -214,7 +214,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
 			Expect(err).To(BeNil())
 
-			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "", testPVC1Name)
+			req := getCreateVolumeRequest("req1", 1024*1024*1024*1024, "", testPVC1Name, false, false)
 
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(resp).To(BeNil())
@@ -230,7 +230,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(BeNil())
 			var (
 				capacity = int64(1024 * 53)
-				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, false, false)
 				vol      = &vcrd.Volume{}
 			)
 
@@ -248,7 +248,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			uuid := "uuid-1234"
 			capacity := int64(1024 * 42)
 
-			req := getCreateVolumeRequest(uuid, capacity, testNode4Name, testPVC1Name)
+			req := getCreateVolumeRequest(uuid, capacity, testNode4Name, testPVC1Name, false, false)
 
 			err := controller.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -284,7 +284,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(BeNil())
 			var (
 				capacity = int64(1024 * 53)
-				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, false, false)
 				vol      = &vcrd.Volume{}
 			)
 
@@ -297,13 +297,64 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
 			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeFS))
+			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
+		})
+		It("Volume is created successfully (Block)", func() {
+			err := testutils.AddAC(controller.k8sclient, testAC1.DeepCopy(), testAC2.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.Create(testCtx, testPVC1.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
+			Expect(err).To(BeNil())
+			var (
+				capacity = int64(1024 * 53)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, true, false)
+				vol      = &vcrd.Volume{}
+			)
+
+			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", testNs, apiV1.Created)
+
+			resp, err := controller.CreateVolume(context.Background(), req)
+			Expect(err).To(BeNil())
+			Expect(resp).ToNot(BeNil())
+
+			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
+			Expect(err).To(BeNil())
+			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeRAW))
+			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
+		})
+		It("Volume is created successfully (Block, Part)", func() {
+			err := testutils.AddAC(controller.k8sclient, testAC1.DeepCopy(), testAC2.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.Create(testCtx, testPVC1.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
+			Expect(err).To(BeNil())
+			var (
+				capacity = int64(1024 * 53)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, true, true)
+				vol      = &vcrd.Volume{}
+			)
+
+			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", testNs, apiV1.Created)
+
+			resp, err := controller.CreateVolume(context.Background(), req)
+			Expect(err).To(BeNil())
+			Expect(resp).ToNot(BeNil())
+
+			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
+			Expect(err).To(BeNil())
+			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeRAWPART))
 			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
 		})
 		It("Volume CR has already exists", func() {
 			uuid := "uuid-1234"
 			capacity := int64(1024 * 42)
 
-			req := getCreateVolumeRequest(uuid, capacity, testNode4Name, testPVC1Name)
+			req := getCreateVolumeRequest(uuid, capacity, testNode4Name, testPVC1Name, false, false)
 			err := controller.k8sclient.CreateCR(context.Background(), req.GetName(), &vcrd.Volume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:              uuid,
@@ -823,27 +874,41 @@ func fillCache(controller *CSIControllerService, volumeID, namespace string) {
 }
 
 // return CreateVolumeRequest based on provided parameters
-func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimName string) *csi.CreateVolumeRequest {
+func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimName string, needBlock, needPart bool) *csi.CreateVolumeRequest {
+	parameters := map[string]string{
+		util.ClaimNamespaceKey: testNs,
+		util.ClaimNameKey:      claimName,
+	}
+	if needPart {
+		parameters[rawPartModeKey] = rawPartModeValue
+	}
+
 	req := &csi.CreateVolumeRequest{
 		Name:          name,
 		CapacityRange: &csi.CapacityRange{RequiredBytes: cap},
 		VolumeCapabilities: []*csi.VolumeCapability{
 			{
-				AccessType: &csi.VolumeCapability_Mount{
-					Mount: &csi.VolumeCapability_MountVolume{
-						FsType:     string(fs.XFS),
-						MountFlags: nil,
-					},
-				},
 				AccessMode: &csi.VolumeCapability_AccessMode{
 					Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
 				},
 			},
 		},
-		Parameters: map[string]string{
-			util.ClaimNamespaceKey: testNs,
-			util.ClaimNameKey:      claimName,
-		},
+		Parameters: parameters,
+	}
+
+	if !needBlock {
+		accessType := &csi.VolumeCapability_Mount{
+			Mount: &csi.VolumeCapability_MountVolume{
+				FsType:     string(fs.XFS),
+				MountFlags: nil,
+			},
+		}
+		req.VolumeCapabilities[0].AccessType = accessType
+	} else {
+		accessType := &csi.VolumeCapability_Block{
+			Block: &csi.VolumeCapability_BlockVolume{},
+		}
+		req.VolumeCapabilities[0].AccessType = accessType
 	}
 
 	if preferredNode != "" {
