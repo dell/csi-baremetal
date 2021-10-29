@@ -96,8 +96,9 @@ const (
 	VolumePreviousCapacity = "expansion/previous-capacity"
 	// TODO Mount status?
 	// Volume mode
-	ModeRAW = "RAW"
-	ModeFS  = "FS"
+	ModeRAW     = "RAW"
+	ModeRAWPART = "RAW_PART"
+	ModeFS      = "FS"
 
 	//LVG annotations
 	LVGFreeSpaceAnnotation = "lvg/free-space"

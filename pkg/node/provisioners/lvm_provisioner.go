@@ -83,7 +83,7 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
 
 	deviceFile := fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
 	ll.Debugf("Creating FS on %s", deviceFile)
-	if vol.Mode == apiV1.ModeRAW {
+	if vol.Mode == apiV1.ModeRAW || vol.Mode == apiV1.ModeRAWPART {
 		return nil
 	}
 	return l.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), deviceFile)

@@ -121,6 +121,10 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 	}
 	ll.Infof("Partition was created successfully %+v", partPtr)
 
+	if vol.Mode == apiV1.ModeRAWPART {
+		return nil
+	}
+
 	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath())
 }
 

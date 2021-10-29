@@ -46,6 +46,11 @@ import (
 // NodeID is the type for node hostname
 type NodeID string
 
+const (
+	rawPartModeKey   = "rawType"
+	rawPartModeValue = "part"
+)
+
 // CSIControllerService is the implementation of ControllerServer interface from GO CSI specification
 type CSIControllerService struct {
 	k8sclient *k8s.KubeClient
@@ -177,6 +182,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
 		fsType = strings.ToLower(accessType.Mount.FsType) // ext4 by default (from request)
 		mode = apiV1.ModeFS
+	} else if isNeedRawPart(req.GetParameters()) {
+		mode = apiV1.ModeRAWPART
 	} else {
 		mode = apiV1.ModeRAW
 	}
@@ -439,4 +446,11 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		CapacityBytes:         requiredBytes,
 		NodeExpansionRequired: false,
 	}, nil
+}
+
+func isNeedRawPart(params map[string]string) bool {
+	if value, ok := params[rawPartModeKey]; ok && value == rawPartModeValue {
+		return true
+	}
+	return false
 }
