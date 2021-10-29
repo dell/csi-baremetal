@@ -179,14 +179,23 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
 
-	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
-		fsType = strings.ToLower(accessType.Mount.FsType) // ext4 by default (from request)
-		mode = apiV1.ModeFS
-	} else if isNeedRawPart(req.GetParameters()) {
-		mode = apiV1.ModeRAWPART
-	} else {
-		mode = apiV1.ModeRAW
+	accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount)
+	switch {
+	case ok:
+		{
+			fsType = strings.ToLower(accessType.Mount.FsType) // ext4 by default (from request)
+			mode = apiV1.ModeFS
+		}
+	case isNeedRawPart(req.GetParameters()):
+		{
+			mode = apiV1.ModeRAWPART
+		}
+	default:
+		{
+			mode = apiV1.ModeRAW
+		}
 	}
+
 	c.reqMu.Lock()
 	vol, err = c.svc.CreateVolume(ctxValue, api.Volume{
 		Id:           req.Name,
