@@ -128,9 +128,9 @@ const (
 	LocateStop   = int32(1)
 	LocateStatus = int32(2)
 
-	LocateStatusOff = int32(0)
-	LocateStatusOn  = int32(1)
-	LocateStatusNa  = int32(2)
+	LocateStatusOff          = int32(0)
+	LocateStatusOn           = int32(1)
+	LocateStatusNotAvailable = int32(2)
 
 	DockerImageKernelVersion = "5.4"
 )
