@@ -4,11 +4,14 @@ on:
     types: [created]
 
 jobs:
-  job01:
-    if: contains(github.event.comment.html_url, '/pull/')    # check if the comments come from pull request, exclude those from issue.
+  pr_commented:
+    name: PR comment
+    if: ${{ github.event.issue.pull_request }}
     runs-on: [ubuntu-latest]
     steps:
+      - run: |
+          echo "Comment on PR #${{ github.event.issue.number }}"
       - name: say hello
-        if: contains(github.event.comment.body, '/support')   # check the comment if it contains the keywords
+        if: contains(github.event.comment.body, '/support')
         run: |
-          echo say hello (github.event.comment)
+          echo say hello
