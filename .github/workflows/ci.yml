@@ -14,7 +14,7 @@ jobs:
         if: ${{ startsWith(github.event.comment.body, '/ci') }}
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
-      - run: |
+        run: |
           echo "flag=true" >> $GITHUB_ENV
           echo "Operator branch:" ${COMMENT_BODY%/n*}
       - uses: actions-ecosystem/action-create-comment@v1
