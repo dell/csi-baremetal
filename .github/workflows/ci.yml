@@ -10,8 +10,15 @@ jobs:
     runs-on: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v2
+      - name: Set Parameters
+        if: ${{ startsWith(github.event.comment.body, '/ci') }}
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+      - run: |
+          echo "flag=true" >> $GITHUB_ENV
+          echo "Operator branch:" ${COMMENT_BODY%/n*}
       - uses: actions-ecosystem/action-create-comment@v1
-        if: ${{ startsWith(github.event.comment.body, '/hello') }}
+        if: env.flag
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           body: |
