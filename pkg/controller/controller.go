@@ -197,7 +197,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		mode = apiV1.ModeFS
 	}
 
-	// The additional raw mode, perform if VolumeCapability_Block and SC has specific parameter
+	// The additional raw mode, perform only if VolumeCapability_Block (the if block above skipped) and SC has specific parameter
 	if mode == apiV1.ModeRAW && isNeedRawPart(req.GetParameters()) {
 		mode = apiV1.ModeRAWPART
 	}
