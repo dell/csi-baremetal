@@ -19,6 +19,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -178,6 +179,12 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		vol      *api.Volume
 		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
+
+	if len(req.GetVolumeCapabilities()) == 0 {
+		err = fmt.Errorf("volume capabilities is empty: %+v", req.GetVolumeCapabilities())
+		ll.Errorf("Failed to create volume: %v", err)
+		return nil, err
+	}
 
 	accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount)
 	switch {
