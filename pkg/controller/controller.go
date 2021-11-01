@@ -186,15 +186,18 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, err
 	}
 
+	// Map Volume type from request
+	// VolumeCapability_Mount -> ModeFS
+	// VolumeCapability_Block -> ModeRAW
 	mode = apiV1.ModeRAW
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
-		// If VolumeCapability casts to VolumeCapability_Mount, we should perform ModeType FS
-		// The second option is VolumeCapability_Block, in this case mode should be RAW
 		// ext4 by default (from request)
 		fsType = strings.ToLower(accessType.Mount.FsType)
 		mode = apiV1.ModeFS
-	} else if isNeedRawPart(req.GetParameters()) {
-		// The additional raw mode, perform if VolumeCapability_Block and SC has specific parameter
+	}
+
+	// The additional raw mode, perform if VolumeCapability_Block and SC has specific parameter
+	if mode == apiV1.ModeRAW && isNeedRawPart(req.GetParameters()) {
 		mode = apiV1.ModeRAWPART
 	}
 
