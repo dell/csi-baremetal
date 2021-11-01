@@ -186,21 +186,15 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, err
 	}
 
-	accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount)
-	switch {
-	case ok:
-		{
-			fsType = strings.ToLower(accessType.Mount.FsType) // ext4 by default (from request)
-			mode = apiV1.ModeFS
-		}
-	case isNeedRawPart(req.GetParameters()):
-		{
-			mode = apiV1.ModeRAWPART
-		}
-	default:
-		{
-			mode = apiV1.ModeRAW
-		}
+	mode = apiV1.ModeRAW
+	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
+		// Comments goes here
+		// ext4 by default (from request)
+		fsType = strings.ToLower(accessType.Mount.FsType)
+		mode = apiV1.ModeFS
+	} else if isNeedRawPart(req.GetParameters()) {
+		// Comments goes here
+		mode = apiV1.ModeRAWPART
 	}
 
 	c.reqMu.Lock()
