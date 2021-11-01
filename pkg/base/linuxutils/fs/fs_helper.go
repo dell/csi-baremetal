@@ -54,10 +54,8 @@ const (
 	RmDirCmdTmpl = "rm -rf %s"
 	// WipeFSCmdTmpl cmd for wiping FS on device
 	WipeFSCmdTmpl = wipefs + "-af %s" //
-	// DetectFSCmdTmpl cmd for detecting FS on device
-	DetectFSCmdTmpl = "lsblk %s --output FSTYPE --noheadings"
-	// GetFSTypeCmdTmpl cmd for retrieving FS type
-	GetFSTypeCmdTmpl = wipefs + "%s --output TYPE --noheadings"
+	// GetFSTypeCmdTmpl cmd for detecting FS on device
+	GetFSTypeCmdTmpl = "lsblk %s --output FSTYPE --noheadings"
 	// MountInfoFile "/proc/mounts" path
 	MountInfoFile = "/proc/self/mountinfo"
 	// FindMntCmdTmpl find source device for target mount path cmd
@@ -78,13 +76,12 @@ type WrapFS interface {
 	RmDir(src string) error
 	CreateFS(fsType FileSystem, device string) error
 	WipeFS(device string) error
-	GetFSType(device string) (FileSystem, error)
+	GetFSType(device string) (string, error)
 	// Mount operations
 	IsMounted(src string) (bool, error)
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
-	DeviceFs(device string) (string, error)
 }
 
 // WrapFSImpl is a WrapFS implementer
@@ -142,7 +139,7 @@ func (h *WrapFSImpl) MkDir(src string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkDirCmdTmpl, "")))); err != nil {
-		return fmt.Errorf("failed to create dir %s: %v", src, err)
+		return fmt.Errorf("failed to create dir %s: %w", src, err)
 	}
 	return nil
 }
@@ -182,7 +179,7 @@ func (h *WrapFSImpl) RmDir(src string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(RmDirCmdTmpl, "")))); err != nil {
-		return fmt.Errorf("failed to delete path %s: %v", src, err)
+		return fmt.Errorf("failed to delete path %s: %w", src, err)
 	}
 	return nil
 }
@@ -204,7 +201,7 @@ func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, "", "")))); err != nil {
-		return fmt.Errorf("failed to create file system on %s: %v", device, err)
+		return fmt.Errorf("failed to create file system on %s: %w", device, err)
 	}
 	return nil
 }
@@ -218,28 +215,9 @@ func (h *WrapFSImpl) WipeFS(device string) error {
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(WipeFSCmdTmpl, "")))); err != nil {
-		return fmt.Errorf("failed to wipe file system on %s: %v", device, err)
+		return fmt.Errorf("failed to wipe file system on %s: %w", device, err)
 	}
 	return nil
-}
-
-// GetFSType returns FS type on the device or error
-func (h *WrapFSImpl) GetFSType(device string) (FileSystem, error) {
-	/*
-		Example of output:
-			~# wipefs /dev/mvg/lv1 --output TYPE --noheadings
-			   ext4
-	*/
-	cmd := fmt.Sprintf(GetFSTypeCmdTmpl, device)
-
-	stdout, _, err := h.e.RunCmd(cmd,
-		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(GetFSTypeCmdTmpl, ""))))
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve FS type for device %s: %v", device, err)
-	}
-
-	return FileSystem(strings.TrimSpace(stdout)), nil
 }
 
 // IsMounted checks if the path is presented in /proc/self/mountinfo
@@ -251,7 +229,7 @@ func (h *WrapFSImpl) IsMounted(path string) (bool, error) {
 
 	procMounts, err := util.ConsistentRead(MountInfoFile, 5, time.Millisecond)
 	if err != nil || len(procMounts) == 0 {
-		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %v", path, err)
+		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %w", path, err)
 	}
 
 	// parse /proc/mounts content and search path entry
@@ -316,19 +294,19 @@ func (h *WrapFSImpl) Unmount(path string) error {
 	return err
 }
 
-// DeviceFs detect FS from the provided device using lsblk --output FSTYPE
+// GetFSType detect FS from the provided device using lsblk --output FSTYPE
 // Receives file path of the device as a string
 // Returns error if something went wrong
-func (h *WrapFSImpl) DeviceFs(device string) (string, error) {
+func (h *WrapFSImpl) GetFSType(device string) (string, error) {
 	var (
-		cmd    = fmt.Sprintf(DetectFSCmdTmpl, device)
+		cmd    = fmt.Sprintf(GetFSTypeCmdTmpl, device)
 		stdout string
 		err    error
 	)
 	if stdout, _, err = h.e.RunCmd(cmd,
 		command.UseMetrics(true),
-		command.CmdName(fmt.Sprintf(DetectFSCmdTmpl, ""))); err != nil {
-		return "", fmt.Errorf("failed to detect file system on %s: %v", device, err)
+		command.CmdName(fmt.Sprintf(GetFSTypeCmdTmpl, ""))); err != nil {
+		return "", fmt.Errorf("failed to detect file system on %s: %w", device, err)
 	}
 	return strings.TrimSpace(stdout), err
 }

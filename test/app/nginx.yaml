@@ -4,15 +4,17 @@ metadata:
   name: web
 spec:
   serviceName: "nginx"
-  replicas: 3
+  replicas: 4
   podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: nginx
+      app.kubernetes.io/name: nginx
   template:
     metadata:
       labels:
         app: nginx
+        app.kubernetes.io/name: nginx
     spec:
       affinity:
         podAntiAffinity:

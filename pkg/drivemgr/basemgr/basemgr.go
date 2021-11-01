@@ -63,6 +63,12 @@ func (mgr *BaseManager) Locate(serialNumber string, action int32) (int32, error)
 	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in BaseManager")
 }
 
+// LocateNode implements LocateNode method of DriveManager interface
+func (mgr *BaseManager) LocateNode(action int32) error {
+	// not implemented
+	return status.Error(codes.Unimplemented, "method Locate not implemented in BaseManager")
+}
+
 // New is a constructor BaseManager
 func New(exec command.CmdExecutor, logger *logrus.Logger) *BaseManager {
 	return &BaseManager{

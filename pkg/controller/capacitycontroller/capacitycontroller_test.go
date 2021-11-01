@@ -54,6 +54,7 @@ var (
 		Type:         apiV1.DriveTypeHDD,
 		Size:         int64(1000 * util.GBYTE),
 		Status:       apiV1.DriveStatusOnline,
+		Usage:        apiV1.DriveUsageInUse,
 		NodeId:       node1ID,
 		IsClean:      true,
 	}
@@ -64,8 +65,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      drive1UUID,
-			Namespace: ns,
+			Name: drive1UUID,
 		},
 		Spec: apiDrive1,
 	}
@@ -76,8 +76,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      lvg1Name,
-			Namespace: ns,
+			Name: lvg1Name,
 		},
 		Spec: api.LogicalVolumeGroup{
 			Name:      lvg1Name,
@@ -139,8 +138,8 @@ func TestController_ReconcileDrive(t *testing.T) {
 		assert.Nil(t, err)
 		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		err = kubeClient.Create(tCtx, &testDrive)
+		testDrive := drive1CR.DeepCopy()
+		err = kubeClient.Create(tCtx, testDrive)
 		assert.Nil(t, err)
 		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
 		assert.Nil(t, err)
@@ -289,16 +288,17 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Nil(t, err)
 		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
-		testDrive := drive1CR
+		testDrive := drive1CR.DeepCopy()
 		testDrive.Spec.IsSystem = true
-		err = kubeClient.Create(tCtx, &testDrive)
+		err = kubeClient.Create(tCtx, testDrive)
 		assert.Nil(t, err)
-		testLVG := lvgCR1
+		testLVG := lvgCR1.DeepCopy()
 		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: "error"}
-		err = kubeClient.Create(tCtx, &testLVG)
+		err = kubeClient.Create(tCtx, testLVG)
 		assert.Nil(t, err)
 		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "invalid syntax")
 	})
 	t.Run("LVG is bad, AC is not present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)

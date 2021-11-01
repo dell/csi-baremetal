@@ -40,7 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller/node"
-	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 // NodeID is the type for node hostname
@@ -146,7 +146,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
-	ll.Infof("Processing request: %v", req)
+	ll.Infof("Processing request: %+v", req)
 
 	if req.GetName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
@@ -192,6 +192,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	c.reqMu.Unlock()
 
 	if err != nil {
+		ll.Errorf("Failed to create volume: %v", err)
 		return nil, err
 	}
 

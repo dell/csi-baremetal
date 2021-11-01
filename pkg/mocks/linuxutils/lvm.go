@@ -53,6 +53,20 @@ func (m *MockWrapLVM) VGCreate(name string, pvs ...string) error {
 	return args.Error(0)
 }
 
+// VGScan is a mock implementation
+func (m *MockWrapLVM) VGScan(name string) (bool, error) {
+	args := m.Mock.Called(name)
+
+	return args.Bool(0), args.Error(0)
+}
+
+// VGReactivate is a mock implementation
+func (m *MockWrapLVM) VGReactivate(name string) error {
+	args := m.Mock.Called(name)
+
+	return args.Error(0)
+}
+
 // VGRemove is a mock implementations
 func (m *MockWrapLVM) VGRemove(name string) error {
 	args := m.Mock.Called(name)

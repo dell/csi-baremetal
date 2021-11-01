@@ -53,6 +53,13 @@ const (
 
 	// TickerStep is the time between attempts to interact with Volume CR
 	TickerStep = 500 * time.Millisecond
+
+	// AppLabelKey matches CSI CRs with csi-baremetal app
+	AppLabelKey = "app.kubernetes.io/name"
+	// AppLabelShortKey matches CSI CRs with csi-baremetal app
+	AppLabelShortKey = "app"
+	// AppLabelValue matches CSI CRs with csi-baremetal app
+	AppLabelValue = "csi-baremetal"
 )
 
 // KubeClient is the extension of k8s client which supports CSI custom recources
@@ -176,7 +183,8 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiAC,
 	}
@@ -192,7 +200,8 @@ func (k *KubeClient) ConstructACRCR(name string, apiACR api.AvailableCapacityRes
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiACR,
 	}
@@ -208,7 +217,8 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiLVG,
 	}
@@ -217,7 +227,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 // ConstructVolumeCR constructs Volume custom resource from api.Volume struct
 // Receives a name for k8s ObjectMeta and an instance of api.Volume struct
 // Returns an instance of Volume CR struct
-func (k *KubeClient) ConstructVolumeCR(name string, namespace string, apiVolume api.Volume) *volumecrd.Volume {
+func (k *KubeClient) ConstructVolumeCR(name, namespace, appName string, apiVolume api.Volume) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.VolumeKind,
@@ -226,6 +236,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, namespace string, apiVolume 
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    constructCustomAppMap(appName),
 		},
 		Spec: apiVolume,
 	}
@@ -241,7 +252,8 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiDrive,
 	}
@@ -257,7 +269,8 @@ func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.Node) *nodecr
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: csiNode,
 	}
@@ -436,4 +449,19 @@ func PrepareScheme() (*runtime.Scheme, error) {
 	}
 
 	return scheme, nil
+}
+
+// constructAppMap creates the map contains app labels
+func constructDefaultAppMap() map[string]string {
+	return constructCustomAppMap(AppLabelValue)
+}
+
+func constructCustomAppMap(appName string) (labels map[string]string) {
+	if appName != "" {
+		labels = map[string]string{
+			AppLabelKey:      appName,
+			AppLabelShortKey: appName,
+		}
+	}
+	return
 }

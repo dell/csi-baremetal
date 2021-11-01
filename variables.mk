@@ -1,16 +1,16 @@
 # project name
 PROJECT          := csi-baremetal
 
-### file paths
-DRIVER_CHART_PATH		:= charts/csi-baremetal-driver
-OPERATOR_CHART_PATH		:= charts/csi-baremetal-operator
-SCHEDULER_CHART_PATH	:= charts/csi-baremetal-scheduler
-EXTENDER_CHART_PATH		:= charts/csi-baremetal-scheduler-extender
+### common path
+CSI_OPERATOR_PATH=../csi-baremetal-operator
+CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
+CONTROLLER_GEN_BIN=./bin/controller-gen
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 ### version
-MAJOR            := 0
-MINOR            := 2
-PATCH            := 2
+MAJOR            := 1
+MINOR            := 0
+PATCH            := 0
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
 BUILD_REL_B      := $(shell git rev-parse --short HEAD)
@@ -24,8 +24,7 @@ BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 ### third-party components version
 CSI_PROVISIONER_TAG := v1.6.0
 CSI_RESIZER_TAG     := v1.1.0
-CSI_REGISTRAR_TAG   := v1.0.1-gke.0
-CSI_ATTACHER_TAG    := v1.0.1
+CSI_REGISTRAR_TAG   := v1.3.0
 LIVENESS_PROBE_TAG  := v2.1.0
 BUSYBOX_TAG         := 1.29
 
@@ -34,6 +33,7 @@ SCHEDULING_PKG := scheduling
 SCHEDULER_EXTENDER_PKG := extender
 SCHEDULER_EXTENDER_PATCHER_PKG := scheduler/patcher
 CR_CONTROLLERS := crcontrollers
+NODE_CONTROLLER_PKG := node
 
 ### components
 NODE             := node
@@ -42,8 +42,9 @@ CONTROLLER       := controller
 SCHEDULER        := scheduler
 EXTENDER         := extender
 EXTENDER_PATCHER := scheduler-patcher
-OPERATOR      	 := operator
+NODE_CONTROLLER  := ${NODE_CONTROLLER_PKG}-${CONTROLLER}
 PLUGIN           := plugin
+OPERATOR         := operator
 
 BASE_DRIVE_MGR     := basemgr
 LOOPBACK_DRIVE_MGR := loopbackmgr
@@ -53,7 +54,6 @@ DRIVE_MANAGER_TYPE := ${BASE_DRIVE_MGR}
 CSI_PROVISIONER := csi-provisioner
 CSI_REGISTRAR   := csi-node-driver-registrar
 CSI_RESIZER     := csi-resizer
-CSI_ATTACHER    := csi-attacher
 LIVENESS_PROBE  := livenessprobe
 BUSYBOX         := busybox
 
@@ -70,6 +70,11 @@ GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
 ### Ingest information to the binary at the compile time
 METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
 LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
+
+### Kind
+KIND_DIR := test/kind
+KIND     := ${KIND_DIR}/kind
+KIND_VER := 0.8.1
 
 # override some of variables, optional file
 -include variables.override.mk

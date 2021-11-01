@@ -32,7 +32,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
+	schedulerapi "k8s.io/kube-scheduler/extender/v1"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
@@ -40,10 +40,11 @@ import (
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/operator/common"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -106,7 +107,10 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	pod := extenderArgs.Pod
 	requests, err := e.gatherCapacityRequestsByProvisioner(ctxWithVal, pod)
 	if err != nil {
-		extenderRes.Error = err.Error()
+		// not found error is re-triable
+		if err != baseerr.ErrorNotFound {
+			extenderRes.Error = err.Error()
+		}
 		if err := resp.Encode(extenderRes); err != nil {
 			ll.Errorf("Unable to write response %v: %v", extenderRes, err)
 		}
@@ -226,6 +230,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 
 	requests := make([]*genV1.CapacityRequest, 0)
 	for _, v := range pod.Spec.Volumes {
+		ll.Debugf("Volume details: %s", v.String())
 		// check whether volume Ephemeral or not
 		if v.CSI != nil {
 			if v.CSI.Driver == e.provisioner {
@@ -244,8 +249,12 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			err := e.k8sCache.ReadCR(ctx, v.PersistentVolumeClaim.ClaimName, pod.Namespace, pvc)
 			if err != nil {
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
-				return nil, err
+				// PVC can be created later. csi-provisioner repeat request if not error.
+				return nil, baseerr.ErrorNotFound
 			}
+
+			ll.Debugf("PVC details: %s", pvc.String())
+
 			if pvc.Spec.StorageClassName == nil {
 				continue
 			}
@@ -256,16 +265,11 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				continue
 			}
 
-			var volume volcrd.Volume
-			if err = e.k8sCache.ReadCR(ctx, pvc.Spec.VolumeName, pod.Namespace, &volume); err != nil && !k8serrors.IsNotFound(err) {
-				ll.Errorf("Unable to read Volume %s in NS %s: %v. ", pvc.Spec.VolumeName, pod.Namespace, err)
-				return nil, err
-			}
-
-			if err == nil {
-				ll.Infof("Found volume %v for PVC %s", volume, pvc.Name)
-				continue
-			}
+			// We need to check related Volume CR here, but it's no option to receive the right one (PVC
+			// has PV name only when it's in Bound. It may leads to possible races, when ACR is removed in
+			// CreateVolume request, but recreated if it filter request repeats due to some reasons.
+			// Workaround is realized in CSI Operator ACRValidator. It checks all ACR and removed ones for
+			// Running pods.
 
 			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
 				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
@@ -535,17 +539,17 @@ func nodeVolumeCountMapping(vollist *volcrd.VolumeList) map[string][]volcrd.Volu
 }
 
 // nodePrioritize will set priority for nodes and also return the maximum priority
-func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int, int) {
-	var maxCount int
+func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int64, int64) {
+	var maxCount int64
 	for _, volumes := range nodeMapping {
-		volCount := len(volumes)
+		volCount := int64(len(volumes))
 		if maxCount < volCount {
 			maxCount = volCount
 		}
 	}
-	nrank := make(map[string]int, len(nodeMapping))
+	nrank := make(map[string]int64, len(nodeMapping))
 	for node, volumes := range nodeMapping {
-		nrank[node] = maxCount - len(volumes)
+		nrank[node] = maxCount - int64(len(volumes))
 	}
 	return nrank, maxCount
 }

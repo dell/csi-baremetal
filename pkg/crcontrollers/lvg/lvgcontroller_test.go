@@ -85,8 +85,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      drive1UUID,
-			Namespace: ns,
+			Name: drive1UUID,
 		},
 		Spec: apiDrive1,
 	}
@@ -97,8 +96,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      drive2UUID,
-			Namespace: ns,
+			Name: drive2UUID,
 		},
 		Spec: apiDrive2,
 	}
@@ -109,8 +107,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      lvg1Name,
-			Namespace: ns,
+			Name: lvg1Name,
 		},
 		Spec: api.LogicalVolumeGroup{
 			Name:      lvg1Name,
@@ -128,8 +125,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      acCR1Name,
-			Namespace: ns,
+			Name: acCR1Name,
 		},
 		Spec: api.AvailableCapacity{
 			Location:     lvg1Name,
@@ -174,7 +170,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	var (
 		lvmOps  = &mocklu.MockWrapLVM{}
 		listBlk = &mocklu.MockWrapLsblk{}
-		fLVG    = lvgCR1
+		fLVG    = lvgCR1.DeepCopy()
 		lvg     = &lvgcrd.LogicalVolumeGroup{}
 	)
 
@@ -207,7 +203,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 }
 
 func TestReconcile_LVGHealthBad(t *testing.T) {
-	var fLVG = lvgCR1
+	var fLVG = lvgCR1.DeepCopy()
 	fLVG.Spec.Status = apiV1.Created
 	fLVG.Spec.Health = apiV1.HealthBad
 	fLVG.Finalizers = []string{lvgFinalizer}
@@ -232,10 +228,10 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 
 	c.lvmOps = lvm.NewLVM(e, testLogger)
 
-	lvgToDell := lvgCR1
+	lvgToDell := lvgCR1.DeepCopy()
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
-	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
+	err := c.k8sClient.UpdateCR(tCtx, lvgToDell)
 
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("", "", nil)
 	e.OnCommand(fmt.Sprintf(lvm.VGRemoveCmdTmpl, lvgCR1.Name)).Return("", "", nil)
@@ -248,14 +244,14 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 
 func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 	var (
-		c   = setup(t, node1ID, lvgCR1)
-		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+		lvgToDell = lvgCR1.DeepCopy()
+		c         = setup(t, node1ID, lvgToDell)
+		req       = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
 
-	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
-	err := c.k8sClient.UpdateCR(tCtx, &lvgToDell)
+	err := c.k8sClient.UpdateCR(tCtx, lvgToDell)
 	assert.Nil(t, err)
 
 	err = c.k8sClient.CreateCR(tCtx, testVolumeCR1.Name, &testVolumeCR1)
@@ -274,11 +270,11 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 
 func TestReconcile_DeletionFailed(t *testing.T) {
 	var (
-		e   = &mocks.GoMockExecutor{}
-		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
+		lvgToDell = lvgCR1.DeepCopy()
+		e         = &mocks.GoMockExecutor{}
+		req       = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
 
-	lvgToDell := lvgCR1
 	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
 	c := setup(t, node1ID, lvgToDell)
@@ -296,7 +292,7 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 func TestReconcile_FailedNoPVs(t *testing.T) {
 	// expect that no one PVs were created
 	var (
-		fLVG = lvgCR1
+		fLVG = lvgCR1.DeepCopy()
 		e    = &mocks.GoMockExecutor{}
 		// SearchDrivePath failed for /dev/sdb
 		lsblkResp = `{
@@ -328,7 +324,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 
 func TestReconcile_FailedVGCreate(t *testing.T) {
 	var (
-		fLVG        = lvgCR1
+		fLVG        = lvgCR1.DeepCopy()
 		e           = &mocks.GoMockExecutor{}
 		expectedErr = errors.New("vgcreate failed")
 	)
@@ -403,33 +399,33 @@ func Test_increaseACSize(t *testing.T) {
 	c := setup(t, node1ID)
 
 	// add AC CR that point in LVGCR1
-	testLVG := lvgCR1
-	err := c.k8sClient.CreateCR(tCtx, testLVG.Name, &testLVG)
+	testLVG := lvgCR1.DeepCopy()
+	err := c.k8sClient.CreateCR(tCtx, testLVG.Name, testLVG)
 	assert.Nil(t, err)
 
-	assert.Nil(t, c.setNewVGSize(&testLVG, int64(1)))
+	assert.Nil(t, c.setNewVGSize(testLVG, int64(1)))
 
 	uLVG := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, testLVG.Name, "", uLVG)
-	assert.Nil(t, c.setNewVGSize(&testLVG, int64(1)))
+	assert.Nil(t, c.setNewVGSize(testLVG, int64(1)))
 	assert.NotNil(t, testLVG.Annotations)
 	_, ok := testLVG.Annotations[apiV1.LVGFreeSpaceAnnotation]
 	assert.True(t, ok)
 }
 
 // setup creates drive CRs and LogicalVolumeGroup CRs and returns Controller instance
-func setup(t *testing.T, node string, lvgs ...lvgcrd.LogicalVolumeGroup) *Controller {
+func setup(t *testing.T, node string, lvgs ...*lvgcrd.LogicalVolumeGroup) *Controller {
 	k8sClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)
 	// create Drive CRs
-	err = k8sClient.CreateCR(tCtx, drive1CR.Name, &drive1CR)
+	err = k8sClient.CreateCR(tCtx, drive1CR.Name, drive1CR.DeepCopy())
 	assert.Nil(t, err)
-	err = k8sClient.CreateCR(tCtx, drive2CR.Name, &drive2CR)
+	err = k8sClient.CreateCR(tCtx, drive2CR.Name, drive2CR.DeepCopy())
 	assert.Nil(t, err)
 	// create LogicalVolumeGroup CRs
 	for _, lvg := range lvgs {
 		lvg := lvg
-		assert.Nil(t, k8sClient.CreateCR(tCtx, lvg.Name, &lvg))
+		assert.Nil(t, k8sClient.CreateCR(tCtx, lvg.Name, lvg))
 	}
 
 	return NewController(k8sClient, node, testLogger)
@@ -437,9 +433,9 @@ func setup(t *testing.T, node string, lvgs ...lvgcrd.LogicalVolumeGroup) *Contro
 
 func TestController_appendFinalizer(t *testing.T) {
 	t.Run("VolumeRefs is empty, should be appended", func(t *testing.T) {
-		lvg := lvgCR1
+		lvg := lvgCR1.DeepCopy()
 		c := setup(t, node1ID, lvg)
-		res, err := c.appendFinalizer(&lvg)
+		res, err := c.appendFinalizer(lvg)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -450,10 +446,10 @@ func TestController_appendFinalizer(t *testing.T) {
 	})
 
 	t.Run("There is volume with pvc prefix, should be appended", func(t *testing.T) {
-		lvg := lvgCR1
+		lvg := lvgCR1.DeepCopy()
 		lvg.Spec.VolumeRefs = []string{"pvc-aaaa-bbbb-cccc"}
 		c := setup(t, node1ID, lvg)
-		res, err := c.appendFinalizer(&lvg)
+		res, err := c.appendFinalizer(lvg)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -464,10 +460,10 @@ func TestController_appendFinalizer(t *testing.T) {
 	})
 
 	t.Run("There is volume but without pvc prefix, shouldn't be appended", func(t *testing.T) {
-		lvg := lvgCR1
+		lvg := lvgCR1.DeepCopy()
 		lvg.Spec.VolumeRefs = []string{"aaaa-bbbb-cccc"}
 		c := setup(t, node1ID, lvg)
-		res, err := c.appendFinalizer(&lvg)
+		res, err := c.appendFinalizer(lvg)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -477,10 +473,10 @@ func TestController_appendFinalizer(t *testing.T) {
 	})
 
 	t.Run("Update LogicalVolumeGroup failed", func(t *testing.T) {
-		lvg := lvgCR1
+		lvg := lvgCR1.DeepCopy()
 
 		c := setup(t, node1ID)
-		res, err := c.appendFinalizer(&lvg)
+		res, err := c.appendFinalizer(lvg)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 	})
@@ -488,21 +484,21 @@ func TestController_appendFinalizer(t *testing.T) {
 
 func TestController_removeFinalizer(t *testing.T) {
 	t.Run("There is no finalizer", func(t *testing.T) {
-		lvg := lvgCR1
+		lvg := lvgCR1.DeepCopy()
 		lvg.Finalizers = nil
 		c := setup(t, node1ID, lvg)
 
-		res, err := c.removeFinalizer(&lvg)
+		res, err := c.removeFinalizer(lvg)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 	})
 
 	t.Run("Remove finalizer successfully", func(t *testing.T) {
-		lvg := lvgCR1
+		lvg := lvgCR1.DeepCopy()
 		lvg.Finalizers = []string{lvgFinalizer}
 
 		c := setup(t, node1ID, lvg)
-		res, err := c.removeFinalizer(&lvg)
+		res, err := c.removeFinalizer(lvg)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 	})
@@ -510,10 +506,10 @@ func TestController_removeFinalizer(t *testing.T) {
 	t.Run("Update LogicalVolumeGroup CR failed", func(t *testing.T) {
 		c := setup(t, node1ID)
 
-		lvg := lvgCR1
+		lvg := lvgCR1.DeepCopy()
 		lvg.Finalizers = []string{lvgFinalizer}
 
-		res, err := c.removeFinalizer(&lvg)
+		res, err := c.removeFinalizer(lvg)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 	})

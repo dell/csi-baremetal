@@ -17,7 +17,7 @@ limitations under the License.
 package common
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -103,17 +103,19 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 	return cleanup, nil
 }
 
-// DeployCSIWithArgs deploys csi-baremetal-deployment with CmdHelmExecutor
+// DeployCSI deploys csi-baremetal-deployment with CmdHelmExecutor
 // After install - waiting all pods ready, checking kubernetes-scheduler restart
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
-// Helm command - "helm install csi-baremetal <CHARTS_DIR>/csi-baremetal-deployment
+// Helm command - helm install csi-baremetal <CHARTS_DIR>/csi-baremetal-deployment
 // 			--set image.tag=<CSI_VERSION>
-//			--set image.pullPolicy=IfNotPresent
+//			--set image.pullPolicy=IfNotPresent - due to kind
 //			--set driver.drivemgr.type=loopbackmgr
-//			--set scheduler.patcher.enable=true
 //			--set scheduler.log.level=debug
 //			--set nodeController.log.level=debug
-//			--set driver.log.level=debug"
+//			--set driver.log.level=debug
+//			--set scheduler.patcher.readinessTimeout=(3) - se readiness probe has a race - kube-scheduler restores for a long time after unpatching
+//															override default value here to force patching repeating
+//															if kube-scheduler is not restarted
 func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		cmdExecutor  = GetExecutor()
@@ -124,67 +126,56 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 			path:      path.Join(BMDriverTestContext.ChartsDir, "csi-baremetal-deployment"),
 			namespace: f.Namespace.Name,
 		}
-		installArgs = fmt.Sprintf("--set image.tag=%s "+
+		// CSI Operator repeats patching after <seReadinessTimeout> if extender pod is not ready
+		seReadinessTimeout = 3 // Minutes
+		installArgs        = fmt.Sprintf("--set image.tag=%s "+
 			"--set image.pullPolicy=IfNotPresent "+
-			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set scheduler.patcher.enable=true "+
+			"--set driver.drivemgr.type=loopbackmgr "+
 			"--set scheduler.log.level=debug "+
 			"--set nodeController.log.level=debug "+
-			"--set driver.log.level=debug", csiVersion)
-		podWait         = 3 * time.Minute
+			"--set driver.log.level=debug "+
+			"--set scheduler.patcher.readinessTimeout=%d", csiVersion, seReadinessTimeout)
+		podWait         = 6 * time.Minute
 		sleepBeforeWait = 10 * time.Second
-		schedulerRC     = newSchedulerRestartChecker(f.ClientSet)
-		isRestarted     = false
-		err             error
 	)
 
 	if additionalInstallArgs != "" {
 		installArgs += " " + additionalInstallArgs
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+
 	cleanup := func() {
+		defer cancel()
 		if BMDriverTestContext.CompleteUninstall {
-			CleanupLoopbackDevices(f)
+			CleanupLoopbackDevices(ctx, f)
 			// delete resources with finalizers and wait until node- and lvgcontroller reconcile requests
-			removeCRs(f, CsibmnodeGVR, LVGGVR)
+			removeCRs(ctx, f, CsibmnodeGVR, LVGGVR)
 			deadline := time.Now().Add(30 * time.Second)
 			for {
 				time.Sleep(2 * time.Second)
-				if !isCRInstancesExists(f, CsibmnodeGVR) && !isCRInstancesExists(f, LVGGVR) {
+				if !isCRInstancesExists(ctx, f, CsibmnodeGVR) && !isCRInstancesExists(ctx, f, LVGGVR) {
 					break
 				}
 				if time.Now().After(deadline) {
 					e2elog.Logf("Some csibmnodes or lvgs have not been deleted yet")
-					printCRs(f, CsibmnodeGVR, LVGGVR)
+					printCRs(ctx, f, CsibmnodeGVR, LVGGVR)
 					break
 				}
 			}
-		}
-
-		if err := schedulerRC.ReadInitialState(); err != nil {
-			e2elog.Logf("SchedulerRestartChecker is not initialized. Err: %s", err)
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
 			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
-		if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
-			e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-		} else {
-			e2elog.Logf("Scheduler restarted after CSI deletion: %t", isRestarted)
-		}
-
 		if BMDriverTestContext.CompleteUninstall {
 			// delete resources without finalizers
-			removeCRs(f, ACGVR, ACRGVR, DriveGVR)
+			removeCRs(ctx, f, ACGVR, ACRGVR, DriveGVR)
 		}
 
-		printCRs(f, VolumeGVR, CsibmnodeGVR, ACGVR, ACRGVR, LVGGVR, DriveGVR)
-	}
-
-	if err := schedulerRC.ReadInitialState(); err != nil {
-		e2elog.Logf("SchedulerRestartChecker is not initialized. Err: %s", err)
+		printCRs(ctx, f, VolumeGVR, CsibmnodeGVR, ACGVR, ACRGVR, LVGGVR, DriveGVR)
 	}
 
 	if err := helmExecutor.InstallRelease(&chart, installArgs); err != nil {
@@ -199,27 +190,16 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		return nil, err
 	}
 
-	if isRestarted, err = schedulerRC.WaitForRestart(); err != nil {
-		e2elog.Logf("SchedulerRestartChecker has been failed while waiting. Err: %s", err)
-	}
-
-	if isRestarted {
-		e2elog.Logf("Scheduler is restarted")
-	} else {
-		cleanup()
-		return nil, errors.New("scheduler is not restarted")
-	}
-
 	// print info about all custom resources into log messages
-	printCRs(f, CsibmnodeGVR, DriveGVR, ACGVR)
+	printCRs(ctx, f, CsibmnodeGVR, DriveGVR, ACGVR)
 
 	return cleanup, nil
 }
 
 // CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
 // Returns error if it's failed to get node pods
-func CleanupLoopbackDevices(f *framework.Framework) error {
-	pods, err := GetNodePodsNames(f)
+func CleanupLoopbackDevices(ctx context.Context, f *framework.Framework) error {
+	pods, err := GetNodePodsNames(ctx, f)
 	if err != nil {
 		return err
 	}
@@ -232,8 +212,8 @@ func CleanupLoopbackDevices(f *framework.Framework) error {
 // GetNodePodsNames tries to get slice of node pods names
 // Receives framework.Framewor
 // Returns slice of pods name, error if it's failed to get node pods
-func GetNodePodsNames(f *framework.Framework) ([]string, error) {
-	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+func GetNodePodsNames(ctx context.Context, f *framework.Framework) ([]string, error) {
+	pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -250,9 +230,9 @@ func GetNodePodsNames(f *framework.Framework) ([]string, error) {
 }
 
 // printCRs prints all CRs that were passed by type into logs using e2elog
-func printCRs(f *framework.Framework, GVRs ...schema.GroupVersionResource) {
+func printCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.GroupVersionResource) {
 	for _, gvr := range GVRs {
-		recources, err := f.DynamicClient.Resource(gvr).Namespace("").List(metav1.ListOptions{})
+		recources, err := f.DynamicClient.Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			e2elog.Logf("Failed to get CR list %s: %s", gvr.String(), err.Error())
 		}
@@ -270,18 +250,18 @@ func printCRList(list []unstructured.Unstructured) {
 }
 
 // removeCRs removes all CRs that were passed by type
-func removeCRs(f *framework.Framework, GVRs ...schema.GroupVersionResource) {
+func removeCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.GroupVersionResource) {
 	for _, gvr := range GVRs {
-		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(
-			&metav1.DeleteOptions{}, metav1.ListOptions{})
+		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(ctx,
+			metav1.DeleteOptions{}, metav1.ListOptions{})
 		if err != nil {
 			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
 		}
 	}
 }
 
-func isCRInstancesExists(f *framework.Framework, GVR schema.GroupVersionResource) bool {
-	recources, err := f.DynamicClient.Resource(GVR).Namespace("").List(metav1.ListOptions{})
+func isCRInstancesExists(ctx context.Context, f *framework.Framework, GVR schema.GroupVersionResource) bool {
+	recources, err := f.DynamicClient.Resource(GVR).Namespace("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return true
 	}

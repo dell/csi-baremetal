@@ -1,5 +1,0 @@
-apiVersion: v2
-appVersion: 0.2.2
-description: Bare-metal CSI Operator
-name: csi-baremetal-operator
-version: 0.2.2

@@ -110,6 +110,10 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 		}
 		if currUUID == p.PartUUID {
 			ll.Infof("Partition has already prepared.")
+			p.Name = d.SearchPartName(p.Device, p.PartUUID)
+			if p.Name == "" {
+				return nil, fmt.Errorf("unable to determine partition name after it being created: %w", err)
+			}
 			return &p, nil
 		}
 		return nil, fmt.Errorf("partition %v has already exist but have another UUID - %s", p, currUUID)

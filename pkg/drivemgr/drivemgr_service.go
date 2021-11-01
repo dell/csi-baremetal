@@ -76,3 +76,12 @@ func (svc *DriveServiceServerImpl) Locate(ctx context.Context, in *api.DriveLoca
 
 	return &api.DriveLocateResponse{Status: currentStatus}, nil
 }
+
+// LocateNode invokes DriveManager's LocateNode method for manipulation node's LED state
+func (svc *DriveServiceServerImpl) LocateNode(ctx context.Context, req *api.NodeLocateRequest) (*api.Empty, error) {
+	err := svc.mgr.LocateNode(req.GetAction())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return new(api.Empty), nil
+}
