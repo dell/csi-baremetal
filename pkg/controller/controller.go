@@ -189,6 +189,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	// Map Volume type from request
 	// VolumeCapability_Mount -> ModeFS
 	// VolumeCapability_Block -> ModeRAW
+	// AccessType is pointer, so we need to cast it to get struct fields
 	mode = apiV1.ModeRAW
 	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
 		// ext4 by default (from request)
