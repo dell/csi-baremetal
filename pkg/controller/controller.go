@@ -181,7 +181,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	)
 
 	if len(req.GetVolumeCapabilities()) == 0 {
-		err = fmt.Errorf("volume capabilities is empty: %+v", req.GetVolumeCapabilities())
+		err = fmt.Errorf("volume capabilities are empty: %+v", req.GetVolumeCapabilities())
 		ll.Errorf("Failed to create volume: %v", err)
 		return nil, err
 	}
