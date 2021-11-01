@@ -60,6 +60,22 @@ var (
 		Type:         "xfs",
 	}
 
+	testVolume1Raw = api.Volume{
+		Id:           testV1ID,
+		NodeId:       testNodeID,
+		Location:     testAPILVG.Name,
+		StorageClass: apiV1.StorageClassHDD,
+		Mode:         apiV1.ModeRAW,
+	}
+
+	testVolume1RawPart = api.Volume{
+		Id:           testV1ID,
+		NodeId:       testNodeID,
+		Location:     testAPILVG.Name,
+		StorageClass: apiV1.StorageClassHDD,
+		Mode:         apiV1.ModeRAWPART,
+	}
+
 	// Volume CR that points on Drive CR
 	testAPIDrive = api.Drive{
 		UUID:         "drive1-uuid",
@@ -83,5 +99,21 @@ var (
 		Location:     testDriveCR.Name,
 		StorageClass: apiV1.StorageClassHDD,
 		Type:         "xfs",
+	}
+
+	testVolume2Raw = api.Volume{ // points on testDriveCR
+		Id:           testV2ID,
+		NodeId:       testNodeID,
+		Location:     testDriveCR.Name,
+		StorageClass: apiV1.StorageClassHDD,
+		Mode:         apiV1.ModeRAW,
+	}
+
+	testVolume2RawPart = api.Volume{ // points on testDriveCR
+		Id:           testV2ID,
+		NodeId:       testNodeID,
+		Location:     testDriveCR.Name,
+		StorageClass: apiV1.StorageClassHDD,
+		Mode:         apiV1.ModeRAWPART,
 	}
 )
