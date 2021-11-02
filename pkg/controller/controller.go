@@ -48,8 +48,8 @@ import (
 type NodeID string
 
 const (
-	rawPartModeKey   = "rawType"
-	rawPartModeValue = "part"
+	rawPartModeKey   = "isPartitioned"
+	rawPartModeValue = "true"
 )
 
 // CSIControllerService is the implementation of ControllerServer interface from GO CSI specification

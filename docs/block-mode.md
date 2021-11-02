@@ -49,7 +49,7 @@ sdd                                                                             
 
 If it is necessary, CSI Baremetal can create partition for drive and set partition as volume device.
 
-1. Create new storage class and add `rawType=part` parameter
+1. Create new storage class and add `isPartitioned=true` parameter
 
 ```
 apiVersion: storage.k8s.io/v1
@@ -59,7 +59,7 @@ metadata:
 parameters:
   fsType: xfs
   storageType: ANY
-  rawType: part
+  isPartitioned: true
 provisioner: csi-baremetal
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
