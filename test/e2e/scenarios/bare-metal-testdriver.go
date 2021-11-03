@@ -56,6 +56,7 @@ func initBaremetalDriver(name string) *baremetalDriver {
 				testsuites.CapMultiPODs:        true,
 				testsuites.CapFsGroup:          true,
 				testsuites.CapSingleNodeVolume: true,
+				testsuites.CapBlock:            true,
 			},
 			SupportedFsType: sets.NewString(
 				"", // Default fsType
