@@ -47,9 +47,10 @@ import (
 // NodeID is the type for node hostname
 type NodeID string
 
+// Parameter key&value to set partitioned mode for block volumes
 const (
-	rawPartModeKey   = "isPartitioned"
-	rawPartModeValue = "true"
+	RawPartModeKey   = "isPartitioned"
+	RawPartModeValue = "true"
 )
 
 // CSIControllerService is the implementation of ControllerServer interface from GO CSI specification
@@ -464,7 +465,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 }
 
 func isNeedForRawPart(params map[string]string) bool {
-	if value, ok := params[rawPartModeKey]; ok && value == rawPartModeValue {
+	if value, ok := params[RawPartModeKey]; ok && value == RawPartModeValue {
 		return true
 	}
 	return false
