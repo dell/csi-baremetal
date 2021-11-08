@@ -40,7 +40,7 @@ var CSITestSuites = []func() testsuites.TestSuite{
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	var (
-		curDriver = BaremetalDriver()
+		curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
 	)
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
