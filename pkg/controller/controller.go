@@ -198,7 +198,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	}
 
 	// The additional raw mode, perform only if VolumeCapability_Block (the if block above skipped) and SC has specific parameter
-	if mode == apiV1.ModeRAW && isNeedRawPart(req.GetParameters()) {
+	if mode == apiV1.ModeRAW && isNeedForRawPart(req.GetParameters()) {
 		mode = apiV1.ModeRAWPART
 	}
 
@@ -463,7 +463,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 	}, nil
 }
 
-func isNeedRawPart(params map[string]string) bool {
+func isNeedForRawPart(params map[string]string) bool {
 	if value, ok := params[rawPartModeKey]; ok && value == rawPartModeValue {
 		return true
 	}
