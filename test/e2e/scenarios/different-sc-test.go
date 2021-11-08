@@ -31,8 +31,12 @@ import (
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 
-	"github.com/dell/csi-baremetal/pkg/controller"
 	"github.com/dell/csi-baremetal/test/e2e/common"
+)
+
+const (
+	RawPartModeKey   = "isPartitioned"
+	RawPartModeValue = "true"
 )
 
 // DefineDifferentSCTestSuite defines different SCs tests
@@ -265,5 +269,5 @@ func constructLoopbackConfigWithDriveType(namespace string, nodes []corev1.Node,
 }
 
 func addRawBlockPartitionedParameter(sc *storagev1.StorageClass) {
-	sc.Parameters[controller.RawPartModeKey] = controller.RawPartModeValue
+	sc.Parameters[RawPartModeKey] = RawPartModeValue
 }
