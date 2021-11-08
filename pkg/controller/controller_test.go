@@ -880,7 +880,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimN
 		util.ClaimNameKey:      claimName,
 	}
 	if needPart {
-		parameters[rawPartModeKey] = rawPartModeValue
+		parameters[RawPartModeKey] = RawPartModeValue
 	}
 
 	req := &csi.CreateVolumeRequest{
