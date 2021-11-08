@@ -23,6 +23,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"github.com/dell/csi-baremetal/test/e2e/common"
 	"github.com/onsi/ginkgo"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
@@ -44,12 +45,14 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
-		DefineDriveHealthChangeTestSuite(curDriver)
-		DefineControllerNodeFailTestSuite(curDriver)
-		DefineNodeRebootTestSuite(curDriver)
-		DefineStressTestSuite(curDriver)
-		DefineDifferentSCTestSuite(curDriver)
-		DefineSchedulerTestSuite(curDriver)
-		DefineLabeledDeployTestSuite()
+		if common.BMDriverTestContext.NeedAllTests {
+			DefineDriveHealthChangeTestSuite(curDriver)
+			DefineControllerNodeFailTestSuite(curDriver)
+			DefineNodeRebootTestSuite(curDriver)
+			DefineStressTestSuite(curDriver)
+			DefineDifferentSCTestSuite(curDriver)
+			DefineSchedulerTestSuite(curDriver)
+			DefineLabeledDeployTestSuite()
+		}
 	})
 })

@@ -35,12 +35,11 @@ import (
 )
 
 type baremetalDriver struct {
-	driverInfo testsuites.DriverInfo
-	scManifest map[string]string
+	driverInfo   testsuites.DriverInfo
+	needAllTests bool
 }
 
 var (
-	BaremetalDriver           = InitBaremetalDriver
 	cmName                    = "loopback-config"
 	PersistentVolumeClaimSize = "100Mi"
 )
@@ -56,6 +55,7 @@ func initBaremetalDriver(name string) *baremetalDriver {
 				testsuites.CapMultiPODs:        true,
 				testsuites.CapFsGroup:          true,
 				testsuites.CapSingleNodeVolume: true,
+				testsuites.CapBlock:            true,
 			},
 			SupportedFsType: sets.NewString(
 				"", // Default fsType
@@ -64,11 +64,32 @@ func initBaremetalDriver(name string) *baremetalDriver {
 				"ext3",
 			),
 		},
+		needAllTests: true,
 	}
 }
 
-func InitBaremetalDriver() *baremetalDriver {
-	return initBaremetalDriver("csi-baremetal")
+func initBaremetalDriverShortSuite(name string) *baremetalDriver {
+	return &baremetalDriver{
+		driverInfo: testsuites.DriverInfo{
+			Name:        name,
+			MaxFileSize: testpatterns.FileSizeSmall,
+			Capabilities: map[testsuites.Capability]bool{
+				testsuites.CapPersistence:      true,
+				testsuites.CapExec:             true,
+				testsuites.CapMultiPODs:        true,
+				testsuites.CapFsGroup:          true,
+				testsuites.CapSingleNodeVolume: true,
+			},
+		},
+		needAllTests: false,
+	}
+}
+
+func InitBaremetalDriver(needAllTests bool) *baremetalDriver {
+	if needAllTests {
+		return initBaremetalDriver("csi-baremetal")
+	}
+	return initBaremetalDriverShortSuite("csi-baremetal")
 }
 
 var _ testsuites.TestDriver = &baremetalDriver{}
@@ -82,8 +103,11 @@ func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 
 // SkipUnsupportedTest is implementation of TestDriver interface method
 func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
-	if pattern.VolType == testpatterns.InlineVolume || pattern.VolType == testpatterns.PreprovisionedPV {
-		e2eskipper.Skipf("Baremetal Driver does not support InlineVolume and PreprovisionedPV -- skipping")
+	if !d.needAllTests && pattern.VolType == testpatterns.InlineVolume {
+		e2eskipper.Skipf("InlineVolume skips due to short CI suite -- skipping")
+	}
+	if pattern.VolType == testpatterns.PreprovisionedPV {
+		e2eskipper.Skipf("Baremetal Driver does not support PreprovisionedPV -- skipping")
 	}
 }
 

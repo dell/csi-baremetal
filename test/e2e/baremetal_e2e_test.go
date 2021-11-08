@@ -42,6 +42,8 @@ func registerCustomFlags(flags *flag.FlagSet) {
 		"/tmp/charts", "Path to folder with helm charts")
 	flags.BoolVar(&common.BMDriverTestContext.CompleteUninstall, "completeUninstall",
 		true, "Uninstall pvc, volumes, lvgs, csibmnodes")
+	flags.BoolVar(&common.BMDriverTestContext.NeedAllTests, "allTests",
+		false, "Execute all existing e2e tests")
 }
 
 func init() {
