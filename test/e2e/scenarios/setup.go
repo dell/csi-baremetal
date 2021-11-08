@@ -23,10 +23,12 @@ limitations under the License.
 package scenarios
 
 import (
-	"github.com/dell/csi-baremetal/test/e2e/common"
 	"github.com/onsi/ginkgo"
+	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
+
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 var CSITestSuites = []func() testsuites.TestSuite{
@@ -45,14 +47,16 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
-		if common.BMDriverTestContext.NeedAllTests {
-			DefineDriveHealthChangeTestSuite(curDriver)
-			DefineControllerNodeFailTestSuite(curDriver)
-			DefineNodeRebootTestSuite(curDriver)
-			DefineStressTestSuite(curDriver)
-			DefineDifferentSCTestSuite(curDriver)
-			DefineSchedulerTestSuite(curDriver)
-			DefineLabeledDeployTestSuite()
-		}
+		DefineDriveHealthChangeTestSuite(curDriver)
+		DefineControllerNodeFailTestSuite(curDriver)
+		DefineNodeRebootTestSuite(curDriver)
+		DefineStressTestSuite(curDriver)
+		DefineDifferentSCTestSuite(curDriver)
+		DefineSchedulerTestSuite(curDriver)
+		DefineLabeledDeployTestSuite()
 	})
 })
+
+func skipIfNotAllTests() {
+	e2eskipper.Skipf("Short CI suite -- skipping")
+}

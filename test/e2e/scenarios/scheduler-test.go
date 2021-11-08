@@ -60,6 +60,10 @@ var (
 
 // schedulingTest test custom extender for scheduler
 func schedulingTest(driver *baremetalDriver) {
+	ginkgo.BeforeEach(func() {
+		skipIfNotAllTests()
+	})
+
 	var (
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim

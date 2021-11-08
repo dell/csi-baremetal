@@ -47,6 +47,10 @@ func DefineControllerNodeFailTestSuite(driver testsuites.TestDriver) {
 }
 
 func controllerNodeFailTest(driver testsuites.TestDriver) {
+	ginkgo.BeforeEach(func() {
+		skipIfNotAllTests()
+	})
+
 	var (
 		pod           *corev1.Pod
 		pvc           *corev1.PersistentVolumeClaim
