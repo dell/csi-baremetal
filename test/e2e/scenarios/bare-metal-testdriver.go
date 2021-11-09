@@ -106,9 +106,13 @@ func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 
 // SkipUnsupportedTest is implementation of TestDriver interface method
 func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
-	if !d.needAllTests && pattern.VolType == testpatterns.InlineVolume {
-		e2eskipper.Skipf("InlineVolume skips due to short CI suite -- skipping")
+	if !d.needAllTests {
+		// skip only for short suite
+		if pattern.VolType == testpatterns.InlineVolume {
+			e2eskipper.Skipf("InlineVolume skips due to short CI suite -- skipping")
+		}
 	}
+
 	if pattern.VolType == testpatterns.PreprovisionedPV {
 		e2eskipper.Skipf("Baremetal Driver does not support PreprovisionedPV -- skipping")
 	}
