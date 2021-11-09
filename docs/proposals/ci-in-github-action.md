@@ -9,7 +9,7 @@ Description of triggers and user actions to run CSI Baremetal CI.
 ## Background
 
 We need to create Github Action to perform CSI Baremetal CI tests, 
-because running tests in the developers' environments requires much hardware resources and time.
+because running tests in the developer's environment requires much hardware resources and time.
 It is also making simpler to validate Pull Requests from fork-repositories.
 
 ## Proposal
