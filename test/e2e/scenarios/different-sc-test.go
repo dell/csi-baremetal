@@ -34,6 +34,11 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
+const (
+	RawPartModeKey   = "isPartitioned"
+	RawPartModeValue = "true"
+)
+
 // DefineDifferentSCTestSuite defines different SCs tests
 func DefineDifferentSCTestSuite(driver *baremetalDriver) {
 	ginkgo.Context("Baremetal-csi driver different SCs tests", func() {
@@ -45,6 +50,10 @@ func DefineDifferentSCTestSuite(driver *baremetalDriver) {
 		differentSCTypesTest(driver)
 	})
 }
+
+const (
+	needPartitioned = "needPartitioned"
+)
 
 // differentSCTypesTest test work of different SCs of CSI driver
 func differentSCTypesTest(driver *baremetalDriver) {
@@ -58,11 +67,20 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		ns            string
 	)
 
-	init := func(scType string) {
+	init := func(scType string, args ...string) {
 		var (
 			perTestConf *testsuites.PerTestConfig
 			driverType  string
+			// Allows to create SC with parameter for partitioned block mode
+			isNeedBlockPartitioned = false
 		)
+
+		// Check extra args for CSI installation
+		for _, arg := range args {
+			if arg == needPartitioned {
+				isNeedBlockPartitioned = true
+			}
+		}
 
 		ns = f.Namespace.Name
 		pods = make([]*corev1.Pod, 0)
@@ -84,6 +102,9 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		k8sSC = driver.GetStorageClassWithStorageType(perTestConf, scType)
+		if isNeedBlockPartitioned {
+			addRawBlockPartitionedParameter(k8sSC)
+		}
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
@@ -166,6 +187,18 @@ func differentSCTypesTest(driver *baremetalDriver) {
 			pods = append(pods, testPod)
 		}
 	})
+
+	ginkgo.It("should create Pod with partitioned raw block volume HDD", func() {
+		scType := "HDD"
+		init(scType, needPartitioned)
+		defer cleanup()
+		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
+			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
+		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		if testPod != nil {
+			pods = append(pods, testPod)
+		}
+	})
 }
 
 func createBlockPVC(f *framework.Framework, numberOfPVC int, size string, scName string, ns string) *corev1.PersistentVolumeClaim {
@@ -233,4 +266,8 @@ func constructLoopbackConfigWithDriveType(namespace string, nodes []corev1.Node,
 		},
 	}
 	return &cm
+}
+
+func addRawBlockPartitionedParameter(sc *storagev1.StorageClass) {
+	sc.Parameters[RawPartModeKey] = RawPartModeValue
 }

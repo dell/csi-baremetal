@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: "nginx"
+  replicas: 3
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: nginx
+      app.kubernetes.io/name: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        app.kubernetes.io/name: nginx
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - nginx
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: nginx
+        image: k8s.gcr.io/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+        volumeDevices:
+        - name: www
+          devicePath: /usr/share/nginx/html
+        - name: data
+          devicePath: /usr/share/nginx/data
+        - name: logs
+          devicePath: /usr/share/nginx/logs
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      storageClassName: csi-baremetal-sc-hddlvg
+      accessModes: [ "ReadWriteOnce" ]
+      volumeMode: Block
+      resources:
+        requests:
+          storage: 20Mi
+  - metadata:
+      name: data
+    spec:
+      storageClassName: csi-baremetal-sc-hddlvg
+      accessModes: [ "ReadWriteOnce" ]
+      volumeMode: Block
+      resources:
+        requests:
+          storage: 20Mi
+  - metadata:
+      name: logs
+    spec:
+      storageClassName: csi-baremetal-sc-hddlvg
+      accessModes: [ "ReadWriteOnce" ]
+      volumeMode: Block
+      resources:
+        requests:
+          storage: 20Mi

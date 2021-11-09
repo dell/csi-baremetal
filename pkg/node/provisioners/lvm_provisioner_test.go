@@ -65,6 +65,26 @@ func TestLVMProvisioner_PrepareVolume_Success(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestLVMProvisioner_PrepareVolume_Block_Success(t *testing.T) {
+	setupTestLVMProvisioner()
+
+	lvmOps.On("LVCreate", testVolume1.Id, mock.Anything, testVolume1.Location).
+		Return(nil).Times(1)
+
+	err := lp.PrepareVolume(testVolume1Raw)
+	assert.Nil(t, err)
+}
+
+func TestLVMProvisioner_PrepareVolume_Block_RawPart_Success(t *testing.T) {
+	setupTestLVMProvisioner()
+
+	lvmOps.On("LVCreate", testVolume1.Id, mock.Anything, testVolume1.Location).
+		Return(nil).Times(1)
+
+	err := lp.PrepareVolume(testVolume1RawPart)
+	assert.Nil(t, err)
+}
+
 func TestLVMProvisioner_PrepareVolume_Fail(t *testing.T) {
 	setupTestLVMProvisioner()
 	var err error
