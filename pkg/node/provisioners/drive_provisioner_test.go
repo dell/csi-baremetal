@@ -96,6 +96,64 @@ func TestDriveProvisioner_PrepareVolume_Success(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestDriveProvisioner_PrepareVolume_Block_Success(t *testing.T) {
+	var (
+		dp, mockLsblk, _, _ = setupTestDriveProvisioner()
+		err                 error
+	)
+
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
+	assert.Nil(t, err)
+
+	var (
+		device = "/some/device"
+	)
+
+	mockLsblk.On("SearchDrivePath",
+		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
+		Return(device, nil)
+
+	err = dp.PrepareVolume(testVolume2Raw)
+	assert.Nil(t, err)
+}
+
+func TestDriveProvisioner_PrepareVolume_Blockrawpart_Success(t *testing.T) {
+	var (
+		dp, mockLsblk, mockPH, _ = setupTestDriveProvisioner()
+		err                      error
+	)
+
+	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
+	assert.Nil(t, err)
+
+	var (
+		device = "/some/device"
+		part   = uw.Partition{
+			Device:    device,
+			TableType: partitionhelper.PartitionGPT,
+			Label:     DefaultPartitionLabel,
+			Num:       DefaultPartitionNumber,
+			PartUUID:  testVolume2RawPart.Id,
+		}
+		expectedPart = uw.Partition{
+			Device:    device,
+			TableType: partitionhelper.PartitionGPT,
+			Label:     DefaultPartitionLabel,
+			Num:       DefaultPartitionNumber,
+			PartUUID:  testVolume2RawPart.Id,
+			Name:      "p1n1",
+		}
+	)
+
+	mockLsblk.On("SearchDrivePath",
+		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
+		Return(device, nil)
+	mockPH.On("PreparePartition", part).Return(&expectedPart, nil)
+
+	err = dp.PrepareVolume(testVolume2RawPart)
+	assert.Nil(t, err)
+}
+
 func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	var (
 		dp, mockLsblk, mockPH, mockFS = setupTestDriveProvisioner()
