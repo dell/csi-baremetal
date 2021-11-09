@@ -9,7 +9,7 @@ Description of triggers and user actions to run CSI Baremetal CI.
 ## Background
 
 We need to create Github Action to perform CSI Baremetal CI tests, 
-because running tests locally requires much hardware resources and developers' time.
+because running tests in the developers' environments requires much hardware resources and time.
 It is also making simpler to validate Pull Requests from fork-repositories.
 
 ## Proposal
@@ -74,3 +74,4 @@ ID | Name | Descriptions | Status | Comments
 ISSUE-1 | Script for CI  | We need to have script for CI testing  |   |
 ISSUE-2 | Parsing CI results  | It is better to have a human readable report with info about number of passed/failed/skipped tests  |   |
 ISSUE-3 | Should we have separate repo for e2e tests?  |   |   |   
+ISSUE-4 | Github-hosted runners time constraints | We need to understand, how much CI runs can we perform in month due to Github Actions time limitations. What will happen if we break constraints?
