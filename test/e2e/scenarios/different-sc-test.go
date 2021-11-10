@@ -57,9 +57,7 @@ const (
 
 // differentSCTypesTest test work of different SCs of CSI driver
 func differentSCTypesTest(driver *baremetalDriver) {
-	ginkgo.BeforeEach(func() {
-		skipIfNotAllTests()
-	})
+	ginkgo.BeforeEach(skipIfNotAllTests)
 
 	var (
 		testPod       *corev1.Pod

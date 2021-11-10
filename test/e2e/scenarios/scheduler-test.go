@@ -60,9 +60,7 @@ var (
 
 // schedulingTest test custom extender for scheduler
 func schedulingTest(driver *baremetalDriver) {
-	ginkgo.BeforeEach(func() {
-		skipIfNotAllTests()
-	})
+	ginkgo.BeforeEach(skipIfNotAllTests)
 
 	var (
 		testPODs      []*corev1.Pod

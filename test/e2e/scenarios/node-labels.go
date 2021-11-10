@@ -47,9 +47,7 @@ func DefineLabeledDeployTestSuite() {
 }
 
 func labeledDeployTestSuite() {
-	ginkgo.BeforeEach(func() {
-		skipIfNotAllTests()
-	})
+	ginkgo.BeforeEach(skipIfNotAllTests)
 
 	var (
 		f                  = framework.NewDefaultFramework("node-label")

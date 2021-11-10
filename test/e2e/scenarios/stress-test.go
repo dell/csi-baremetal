@@ -50,9 +50,7 @@ func DefineStressTestSuite(driver *baremetalDriver) {
 
 // driveStressTest test checks behavior of driver under horizontal scale load (increase amount of nodes)
 func driveStressTest(driver *baremetalDriver) {
-	ginkgo.BeforeEach(func() {
-		skipIfNotAllTests()
-	})
+	ginkgo.BeforeEach(skipIfNotAllTests)
 
 	var (
 		k8sSC            *storagev1.StorageClass

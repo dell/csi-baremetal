@@ -81,7 +81,7 @@ func initBaremetalDriverShortSuite(name string) *baremetalDriver {
 				testsuites.CapSingleNodeVolume: true,
 			},
 			SupportedFsType: sets.NewString(
-				"xfs",
+				"",
 			),
 		},
 		needAllTests: false,
