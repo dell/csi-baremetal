@@ -12,7 +12,7 @@ A clear and concise description of what the bug is.
 
 **Environment (please complete the following information):**
  - Hardware: [e.g. Dell PowerEdge]
- - OS: [e.g. Ubuntu]
+ - OS: [e.g. Ubuntu, run `printf "$(uname -srm)\n$(cat /etc/os-release)\n"`]
  - Version: [e.g. 1.0.0]
 
 **To Reproduce**
