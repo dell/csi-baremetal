@@ -58,5 +58,7 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 })
 
 func skipIfNotAllTests() {
-	e2eskipper.Skipf("Short CI suite -- skipping")
+	if !common.BMDriverTestContext.NeedAllTests {
+		e2eskipper.Skipf("Short CI suite -- skipping")
+	}
 }
