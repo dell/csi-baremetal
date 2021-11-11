@@ -62,6 +62,8 @@ func DefineDriveHealthChangeTestSuite(driver *baremetalDriver) {
 
 // driveHealthChangeTest test checks behavior of driver when drives change health from GOOD to BAD
 func driveHealthChangeTest(driver *baremetalDriver) {
+	ginkgo.BeforeEach(skipIfNotAllTests)
+
 	var (
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim

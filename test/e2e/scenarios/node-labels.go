@@ -47,6 +47,8 @@ func DefineLabeledDeployTestSuite() {
 }
 
 func labeledDeployTestSuite() {
+	ginkgo.BeforeEach(skipIfNotAllTests)
+
 	var (
 		f                  = framework.NewDefaultFramework("node-label")
 		setNodeSelectorArg = fmt.Sprintf(" --set nodeSelector.key=%s --set nodeSelector.value=%s", label, tag)

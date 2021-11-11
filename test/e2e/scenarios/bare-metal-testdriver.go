@@ -35,41 +35,41 @@ import (
 )
 
 type baremetalDriver struct {
-	driverInfo testsuites.DriverInfo
-	scManifest map[string]string
+	driverInfo   testsuites.DriverInfo
+	needAllTests bool
 }
 
 var (
-	BaremetalDriver           = InitBaremetalDriver
 	cmName                    = "loopback-config"
 	PersistentVolumeClaimSize = "100Mi"
 )
 
-func initBaremetalDriver(name string) *baremetalDriver {
-	return &baremetalDriver{
-		driverInfo: testsuites.DriverInfo{
-			Name:        name,
-			MaxFileSize: testpatterns.FileSizeSmall,
-			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence:      true,
-				testsuites.CapExec:             true,
-				testsuites.CapMultiPODs:        true,
-				testsuites.CapFsGroup:          true,
-				testsuites.CapSingleNodeVolume: true,
-				testsuites.CapBlock:            true,
-			},
-			SupportedFsType: sets.NewString(
-				"", // Default fsType
-				"xfs",
-				"ext4",
-				"ext3",
-			),
+func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
+	return testsuites.DriverInfo{
+		Name:        name,
+		MaxFileSize: testpatterns.FileSizeSmall,
+		Capabilities: map[testsuites.Capability]bool{
+			testsuites.CapPersistence:      true,
+			testsuites.CapExec:             true,
+			testsuites.CapMultiPODs:        true,
+			testsuites.CapFsGroup:          true,
+			testsuites.CapSingleNodeVolume: true,
+			testsuites.CapBlock:            true,
 		},
+		SupportedFsType: sets.NewString(
+			"", // Default fsType
+			"xfs",
+			"ext4",
+			"ext3",
+		),
 	}
 }
 
-func InitBaremetalDriver() *baremetalDriver {
-	return initBaremetalDriver("csi-baremetal")
+func InitBaremetalDriver(needAllTests bool) *baremetalDriver {
+	return &baremetalDriver{
+		driverInfo:   initBaremetalDriverInfo("csi-baremetal"),
+		needAllTests: needAllTests,
+	}
 }
 
 var _ testsuites.TestDriver = &baremetalDriver{}
@@ -83,8 +83,21 @@ func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 
 // SkipUnsupportedTest is implementation of TestDriver interface method
 func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
-	if pattern.VolType == testpatterns.InlineVolume || pattern.VolType == testpatterns.PreprovisionedPV {
-		e2eskipper.Skipf("Baremetal Driver does not support InlineVolume and PreprovisionedPV -- skipping")
+	if !d.needAllTests {
+		// Block volume tests takes much time (20+ minutes). They should be skipped in short CI suite
+		if pattern.VolMode == corev1.PersistentVolumeBlock {
+			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
+		}
+
+		// We have volume and exec pvc test for default fs (equals to xfs) in short CI
+		// Not need to perform them for other filesystems
+		if pattern.FsType == "xfs" || pattern.FsType == "ext4" || pattern.FsType == "ext3" {
+			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
+		}
+	}
+
+	if pattern.VolType == testpatterns.PreprovisionedPV {
+		e2eskipper.Skipf("Baremetal Driver does not support PreprovisionedPV -- skipping")
 	}
 }
 
