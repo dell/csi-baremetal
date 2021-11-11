@@ -84,10 +84,13 @@ func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 // SkipUnsupportedTest is implementation of TestDriver interface method
 func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
 	if !d.needAllTests {
+		// Block volume tests takes much time (20+ minutes). They should be skipped in short CI suite
 		if pattern.VolMode == corev1.PersistentVolumeBlock {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
 
+		// We have volume and exec pvc test for default fs (equals to xfs) in short CI
+		// Not need to perform them for other filesystems
 		if pattern.FsType == "xfs" || pattern.FsType == "ext4" || pattern.FsType == "ext3" {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
