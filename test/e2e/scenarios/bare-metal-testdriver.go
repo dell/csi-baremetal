@@ -44,55 +44,32 @@ var (
 	PersistentVolumeClaimSize = "100Mi"
 )
 
-func initBaremetalDriver(name string) *baremetalDriver {
-	return &baremetalDriver{
-		driverInfo: testsuites.DriverInfo{
-			Name:        name,
-			MaxFileSize: testpatterns.FileSizeSmall,
-			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence:      true,
-				testsuites.CapExec:             true,
-				testsuites.CapMultiPODs:        true,
-				testsuites.CapFsGroup:          true,
-				testsuites.CapSingleNodeVolume: true,
-				testsuites.CapBlock:            true,
-			},
-			SupportedFsType: sets.NewString(
-				"", // Default fsType
-				"xfs",
-				"ext4",
-				"ext3",
-			),
+func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
+	return testsuites.DriverInfo{
+		Name:        name,
+		MaxFileSize: testpatterns.FileSizeSmall,
+		Capabilities: map[testsuites.Capability]bool{
+			testsuites.CapPersistence:      true,
+			testsuites.CapExec:             true,
+			testsuites.CapMultiPODs:        true,
+			testsuites.CapFsGroup:          true,
+			testsuites.CapSingleNodeVolume: true,
+			testsuites.CapBlock:            true,
 		},
-		needAllTests: true,
-	}
-}
-
-func initBaremetalDriverShortSuite(name string) *baremetalDriver {
-	return &baremetalDriver{
-		driverInfo: testsuites.DriverInfo{
-			Name:        name,
-			MaxFileSize: testpatterns.FileSizeSmall,
-			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence:      true,
-				testsuites.CapExec:             true,
-				testsuites.CapMultiPODs:        true,
-				testsuites.CapFsGroup:          true,
-				testsuites.CapSingleNodeVolume: true,
-			},
-			SupportedFsType: sets.NewString(
-				"",
-			),
-		},
-		needAllTests: false,
+		SupportedFsType: sets.NewString(
+			"", // Default fsType
+			"xfs",
+			"ext4",
+			"ext3",
+		),
 	}
 }
 
 func InitBaremetalDriver(needAllTests bool) *baremetalDriver {
-	if needAllTests {
-		return initBaremetalDriver("csi-baremetal")
+	return &baremetalDriver{
+		driverInfo:   initBaremetalDriverInfo("csi-baremetal"),
+		needAllTests: needAllTests,
 	}
-	return initBaremetalDriverShortSuite("csi-baremetal")
 }
 
 var _ testsuites.TestDriver = &baremetalDriver{}
@@ -107,9 +84,12 @@ func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 // SkipUnsupportedTest is implementation of TestDriver interface method
 func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
 	if !d.needAllTests {
-		// skip only for short suite
-		if pattern.VolType == testpatterns.InlineVolume {
-			e2eskipper.Skipf("InlineVolume skips due to short CI suite -- skipping")
+		if pattern.VolMode == corev1.PersistentVolumeBlock {
+			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
+		}
+
+		if pattern.FsType == "xfs" || pattern.FsType == "ext4" || pattern.FsType == "ext3" {
+			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
 	}
 
