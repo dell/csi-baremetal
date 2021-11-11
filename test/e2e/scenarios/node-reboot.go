@@ -42,6 +42,8 @@ func DefineNodeRebootTestSuite(driver *baremetalDriver) {
 }
 
 func defineNodeRebootTest(driver *baremetalDriver) {
+	ginkgo.BeforeEach(skipIfNotAllTests)
+
 	var (
 		pod             *corev1.Pod
 		pvc             *corev1.PersistentVolumeClaim
