@@ -135,7 +135,7 @@ func main() {
 		logger.Fatalf("fail to start kubeCache, error: %v", err)
 	}
 
-	eventRecorder, err := prepareEventRecorder(nodeID, logger)
+	eventRecorder, err := prepareEventRecorder(*nodeName, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
@@ -145,7 +145,7 @@ func main() {
 
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
 	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
+		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
@@ -308,7 +308,7 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 }
 
 // prepareEventRecorder helper which makes all the work to get EventRecorder
-func prepareEventRecorder(nodeUID string, logger *logrus.Logger) (*events.Recorder, error) {
+func prepareEventRecorder(nodeName string, logger *logrus.Logger) (*events.Recorder, error) {
 	// clientset needed to send events
 	k8SClientset, err := k8s.GetK8SClientset()
 	if err != nil {
@@ -323,7 +323,7 @@ func prepareEventRecorder(nodeUID string, logger *logrus.Logger) (*events.Record
 		return nil, fmt.Errorf("fail to prepare kubernetes scheme, error: %s", err)
 	}
 
-	eventRecorder, err := events.New(componentName, nodeUID, eventInter, scheme, logger)
+	eventRecorder, err := events.New(componentName, nodeName, eventInter, scheme, logger)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create events recorder, error: %s", err)
 	}

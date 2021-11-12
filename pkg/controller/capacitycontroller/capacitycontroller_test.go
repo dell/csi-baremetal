@@ -65,7 +65,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      drive1UUID,
+			Name: drive1UUID,
 		},
 		Spec: apiDrive1,
 	}
@@ -76,7 +76,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      lvg1Name,
+			Name: lvg1Name,
 		},
 		Spec: api.LogicalVolumeGroup{
 			Name:      lvg1Name,

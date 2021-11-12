@@ -20,6 +20,7 @@ package common
 type BMDriverTestContextType struct {
 	ChartsDir         string
 	CompleteUninstall bool
+	NeedAllTests      bool
 }
 
 var BMDriverTestContext BMDriverTestContextType

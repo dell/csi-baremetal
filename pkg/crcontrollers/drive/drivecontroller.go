@@ -346,7 +346,7 @@ func (c *Controller) handleDriveUsageRemoved(ctx context.Context, log *logrus.En
 func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {
 	// try to enable LED
 	status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
-	if err != nil || status.Status != apiV1.LocateStatusOn {
+	if err != nil || (status.Status != apiV1.LocateStatusOn && status.Status != apiV1.LocateStatusNotAvailable) {
 		log.Errorf("Failed to locate LED of drive %s, LED status - %+v, err %v", drive.Spec.SerialNumber, status, err)
 		drive.Spec.Usage = apiV1.DriveUsageFailed
 		// send error level alert

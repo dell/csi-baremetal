@@ -24,8 +24,11 @@ package scenarios
 
 import (
 	"github.com/onsi/ginkgo"
+	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
+
+	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 var CSITestSuites = []func() testsuites.TestSuite{
@@ -39,7 +42,7 @@ var CSITestSuites = []func() testsuites.TestSuite{
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	var (
-		curDriver = BaremetalDriver()
+		curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
 	)
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
@@ -53,3 +56,9 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 		DefineLabeledDeployTestSuite()
 	})
 })
+
+func skipIfNotAllTests() {
+	if !common.BMDriverTestContext.NeedAllTests {
+		e2eskipper.Skipf("Short CI suite -- skipping")
+	}
+}

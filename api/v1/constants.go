@@ -96,8 +96,9 @@ const (
 	VolumePreviousCapacity = "expansion/previous-capacity"
 	// TODO Mount status?
 	// Volume mode
-	ModeRAW = "RAW"
-	ModeFS  = "FS"
+	ModeRAW     = "RAW"
+	ModeRAWPART = "RAW_PART"
+	ModeFS      = "FS"
 
 	//LVG annotations
 	LVGFreeSpaceAnnotation = "lvg/free-space"
@@ -128,8 +129,9 @@ const (
 	LocateStop   = int32(1)
 	LocateStatus = int32(2)
 
-	LocateStatusOn  = int32(1)
-	LocateStatusOff = int32(0)
+	LocateStatusOff          = int32(0)
+	LocateStatusOn           = int32(1)
+	LocateStatusNotAvailable = int32(2)
 
 	DockerImageKernelVersion = "5.4"
 )

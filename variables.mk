@@ -1,12 +1,6 @@
 # project name
 PROJECT          := csi-baremetal
 
-### file paths
-DRIVER_CHART_PATH		:= charts/csi-baremetal-driver
-OPERATOR_CHART_PATH		:= charts/csi-baremetal-operator
-SCHEDULER_CHART_PATH	:= charts/csi-baremetal-scheduler
-EXTENDER_CHART_PATH		:= charts/csi-baremetal-scheduler-extender
-
 ### common path
 CSI_OPERATOR_PATH=../csi-baremetal-operator
 CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
@@ -14,8 +8,8 @@ CONTROLLER_GEN_BIN=./bin/controller-gen
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 ### version
-MAJOR            := 0
-MINOR            := 5
+MAJOR            := 1
+MINOR            := 1
 PATCH            := 0
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)

@@ -184,7 +184,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:   name,
-			Labels: constructAppMap(),
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiAC,
 	}
@@ -201,7 +201,7 @@ func (k *KubeClient) ConstructACRCR(name string, apiACR api.AvailableCapacityRes
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:   name,
-			Labels: constructAppMap(),
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiACR,
 	}
@@ -218,7 +218,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:   name,
-			Labels: constructAppMap(),
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiLVG,
 	}
@@ -227,7 +227,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 // ConstructVolumeCR constructs Volume custom resource from api.Volume struct
 // Receives a name for k8s ObjectMeta and an instance of api.Volume struct
 // Returns an instance of Volume CR struct
-func (k *KubeClient) ConstructVolumeCR(name string, namespace string, apiVolume api.Volume) *volumecrd.Volume {
+func (k *KubeClient) ConstructVolumeCR(name, namespace, appName string, apiVolume api.Volume) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.VolumeKind,
@@ -236,7 +236,7 @@ func (k *KubeClient) ConstructVolumeCR(name string, namespace string, apiVolume 
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    constructAppMap(),
+			Labels:    constructCustomAppMap(appName),
 		},
 		Spec: apiVolume,
 	}
@@ -253,7 +253,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:   name,
-			Labels: constructAppMap(),
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiDrive,
 	}
@@ -270,7 +270,7 @@ func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.Node) *nodecr
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:   name,
-			Labels: constructAppMap(),
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: csiNode,
 	}
@@ -452,9 +452,16 @@ func PrepareScheme() (*runtime.Scheme, error) {
 }
 
 // constructAppMap creates the map contains app labels
-func constructAppMap() map[string]string {
-	return map[string]string{
-		AppLabelKey:      AppLabelValue,
-		AppLabelShortKey: AppLabelValue,
+func constructDefaultAppMap() map[string]string {
+	return constructCustomAppMap(AppLabelValue)
+}
+
+func constructCustomAppMap(appName string) (labels map[string]string) {
+	if appName != "" {
+		labels = map[string]string{
+			AppLabelKey:      appName,
+			AppLabelShortKey: appName,
+		}
 	}
+	return
 }

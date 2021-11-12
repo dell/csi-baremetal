@@ -144,7 +144,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		installArgs += " " + additionalInstallArgs
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 
 	cleanup := func() {
 		defer cancel()

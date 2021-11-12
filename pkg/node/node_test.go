@@ -640,7 +640,7 @@ var _ = Describe("CSINodeService InlineVolumes", func() {
 				srcPath      = "/some/path"
 			)
 
-			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id,"", createdVolCR)
+			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", createdVolCR)
 			Expect(err).To(BeNil())
 			createdVolCR.Spec.CSIStatus = apiV1.Created
 			err = node.k8sClient.UpdateCR(testCtx, createdVolCR)
@@ -860,7 +860,7 @@ func newNodeService() *CSINodeService {
 	if err != nil {
 		panic(err)
 	}
-	node := NewCSINodeService(client, nodeID, testLogger, kubeClient, kubeClient,
+	node := NewCSINodeService(client, nodeID, nodeName, testLogger, kubeClient, kubeClient,
 		new(mocks.NoOpRecorder), featureconfig.NewFeatureConfig())
 
 	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)

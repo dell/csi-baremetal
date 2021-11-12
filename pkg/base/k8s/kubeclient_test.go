@@ -44,6 +44,7 @@ const (
 	testID             = "someID"
 	testNode1Name      = "node1"
 	testDriveLocation1 = "drive"
+	testApp            = "app"
 )
 
 var (
@@ -441,6 +442,7 @@ var _ = Describe("Constructor methods", func() {
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testACCR.ObjectMeta.Name))
 			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testACCR.ObjectMeta.Namespace))
 			Expect(constructedCR.Spec).To(Equal(testACCR.Spec))
+			Expect(constructedCR.Labels).To(Equal(constructDefaultAppMap()))
 		})
 	})
 	Context("ConstructDriveCR", func() {
@@ -451,16 +453,18 @@ var _ = Describe("Constructor methods", func() {
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testDriveCR.ObjectMeta.Name))
 			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testDriveCR.ObjectMeta.Namespace))
 			Expect(constructedCR.Spec).To(Equal(testDriveCR.Spec))
+			Expect(constructedCR.Labels).To(Equal(constructDefaultAppMap()))
 		})
 	})
 	Context("ConstructVolumeCR", func() {
 		It("Should return right Volume CR", func() {
-			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testNs, testApiVolume)
+			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testNs, testApp, testApiVolume)
 			Expect(constructedCR.TypeMeta.Kind).To(Equal(testVolumeCR.TypeMeta.Kind))
 			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testVolumeCR.TypeMeta.APIVersion))
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testVolumeCR.ObjectMeta.Name))
 			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testVolumeCR.ObjectMeta.Namespace))
 			Expect(constructedCR.Spec).To(Equal(testVolumeCR.Spec))
+			Expect(constructedCR.Labels).To(Equal(constructCustomAppMap(testApp)))
 		})
 	})
 	Context("ConstructLVGCR", func() {
@@ -471,6 +475,7 @@ var _ = Describe("Constructor methods", func() {
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testLVGCR.ObjectMeta.Name))
 			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testLVGCR.ObjectMeta.Namespace))
 			Expect(constructedCR.Spec).To(Equal(testLVGCR.Spec))
+			Expect(constructedCR.Labels).To(Equal(constructDefaultAppMap()))
 		})
 	})
 })

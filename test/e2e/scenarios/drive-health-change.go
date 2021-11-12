@@ -62,6 +62,8 @@ func DefineDriveHealthChangeTestSuite(driver *baremetalDriver) {
 
 // driveHealthChangeTest test checks behavior of driver when drives change health from GOOD to BAD
 func driveHealthChangeTest(driver *baremetalDriver) {
+	ginkgo.BeforeEach(skipIfNotAllTests)
+
 	var (
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim
@@ -157,8 +159,8 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		defer cleanup()
 		// Create test pvc on the cluster
 		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
-				constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
-				metav1.CreateOptions{})
+			constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
+			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// Create test pod that consumes the pvc

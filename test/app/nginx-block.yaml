@@ -4,7 +4,7 @@ metadata:
   name: web
 spec:
   serviceName: "nginx"
-  replicas: 4
+  replicas: 3
   podManagementPolicy: Parallel
   selector:
     matchLabels:
@@ -32,19 +32,20 @@ spec:
         ports:
         - containerPort: 80
           name: web
-        volumeMounts:
+        volumeDevices:
         - name: www
-          mountPath: /usr/share/nginx/html
+          devicePath: /usr/share/nginx/html
         - name: data
-          mountPath: /usr/share/nginx/data
+          devicePath: /usr/share/nginx/data
         - name: logs
-          mountPath: /usr/share/nginx/logs
+          devicePath: /usr/share/nginx/logs
   volumeClaimTemplates:
   - metadata:
       name: www
     spec:
       storageClassName: csi-baremetal-sc
       accessModes: [ "ReadWriteOnce" ]
+      volumeMode: Block
       resources:
         requests:
           storage: 60Mi
@@ -53,6 +54,7 @@ spec:
     spec:
       storageClassName: csi-baremetal-sc
       accessModes: [ "ReadWriteOnce" ]
+      volumeMode: Block
       resources:
         requests:
           storage: 60Mi
@@ -61,6 +63,7 @@ spec:
     spec:
       storageClassName: csi-baremetal-sc
       accessModes: [ "ReadWriteOnce" ]
+      volumeMode: Block
       resources:
         requests:
           storage: 60Mi

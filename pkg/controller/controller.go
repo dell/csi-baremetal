@@ -19,6 +19,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -45,6 +46,12 @@ import (
 
 // NodeID is the type for node hostname
 type NodeID string
+
+// Parameter key&value to set partitioned mode for block volumes
+const (
+	RawPartModeKey   = "isPartitioned"
+	RawPartModeValue = "true"
+)
 
 // CSIControllerService is the implementation of ControllerServer interface from GO CSI specification
 type CSIControllerService struct {
@@ -146,7 +153,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
-	ll.Infof("Processing request: %v", req)
+	ll.Infof("Processing request: %+v", req)
 
 	if req.GetName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume name missing in request")
@@ -174,12 +181,28 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
 
-	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
-		fsType = strings.ToLower(accessType.Mount.FsType) // ext4 by default (from request)
-		mode = apiV1.ModeFS
-	} else {
-		mode = apiV1.ModeRAW
+	if len(req.GetVolumeCapabilities()) == 0 {
+		err = fmt.Errorf("volume capabilities are empty: %+v", req.GetVolumeCapabilities())
+		ll.Errorf("Failed to create volume: %v", err)
+		return nil, err
 	}
+
+	// Map Volume type from request
+	// VolumeCapability_Mount -> ModeFS
+	// VolumeCapability_Block -> ModeRAW
+	// AccessType is pointer, so we need to cast it to get struct fields
+	mode = apiV1.ModeRAW
+	if accessType, ok := req.GetVolumeCapabilities()[0].AccessType.(*csi.VolumeCapability_Mount); ok {
+		// ext4 by default (from request)
+		fsType = strings.ToLower(accessType.Mount.FsType)
+		mode = apiV1.ModeFS
+	}
+
+	// The additional raw mode, perform only if VolumeCapability_Block (the if block above skipped) and SC has specific parameter
+	if mode == apiV1.ModeRAW && isNeedForRawPart(req.GetParameters()) {
+		mode = apiV1.ModeRAWPART
+	}
+
 	c.reqMu.Lock()
 	vol, err = c.svc.CreateVolume(ctxValue, api.Volume{
 		Id:           req.Name,
@@ -439,4 +462,11 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		CapacityBytes:         requiredBytes,
 		NodeExpansionRequired: false,
 	}, nil
+}
+
+func isNeedForRawPart(params map[string]string) bool {
+	if value, ok := params[RawPartModeKey]; ok && value == RawPartModeValue {
+		return true
+	}
+	return false
 }
