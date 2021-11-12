@@ -2,8 +2,7 @@ name: e2e
 
 on:
   push:
-  pull_request:
-    branches: [ master, e2e-testing ]
+    branches: [ master ]
 env:
   REGISTRY: ${{ secrets.REGISTRY}}
   go_version: '1.16.8'
@@ -16,15 +15,16 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
       
-    - name: add operators dir
-      run: |
-        cd ../
-        git clone https://github.com/dell/csi-baremetal-operator.git 
+    - name: Add csi-baremetal-operator
+      uses: actions/checkout@v2
+      with:
+        repository: dell/csi-baremetal-operator 
+        path: ./csi-baremetal-operator 
 
     - name: Set environment variables
       run: |
         echo "CSI_BAREMETAL_DIR=$RUNNER_WORKSPACE/csi-baremetal/" >> $GITHUB_ENV
-        echo "CSI_BAREMETAL_OPERATOR_DIR=$RUNNER_WORKSPACE/csi-baremetal-operator/" >> $GITHUB_ENV
+        echo "CSI_BAREMETAL_OPERATOR_DIR=$RUNNER_WORKSPACE/csi-baremetal/csi-baremetal-operator/" >> $GITHUB_ENV
 
     - name: LVM2 install
       run: sudo apt-get install -y lvm2
@@ -35,25 +35,10 @@ jobs:
         go-version: ${{env.go_version}}
 
     - name: Install helm
-      run: |
-        curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
-        sudo apt-get install apt-transport-https --yes
-        echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-        sudo apt-get update
-        sudo apt-get install helm
-
-    - name: CUSTOM KIND
-      run: |
-        wget -O kind https://github.com/painhardcore/builder/releases/download/0.0.1-alpha/kind_v0.8.1
-        sudo chmod +x kind
-        sudo mv kind /usr/bin
+      uses: azure/setup-helm@v1
           
     - name: Kubectl install
-      run: |
-        curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
-        chmod +x ./kubectl
-        sudo mv ./kubectl /usr/local/bin/kubectl
-        kubectl version --client 
+      uses: azure/setup-kubectl@v1 
 
     - name: add CSI_VERSION
       run: |
@@ -96,23 +81,20 @@ jobs:
     - name: Kind preparation
       run: |
         cd ${{env.CSI_BAREMETAL_DIR}}
-        make kind-build
-        make kind-create-cluster
+        make kind-build KIND_VER=0.11.1
+        make kind-create-cluster-v19
         kubectl cluster-info --context kind-kind
         kubectl get pods -o wide --all-namespaces 
         echo "current-context:" $(kubectl config current-context)
         echo "environment-kubeconfig:" ${KUBECONFIG}
-        sudo sysctl net/netfilter/nf_conntrack_max=131072 
       
-    - name: Sleep for 60 seconds
-      uses: jakejarvis/wait-action@master
-      with:
-        time: '60s' 
-
     - name: Check pods
-      run: |
-        kubectl cluster-info --context kind-kind
-        kubectl get pods -o wide --all-namespaces 
+      uses: nick-invision/retry@v2
+      with:
+        timeout_seconds: 5
+        max_attempts: 10
+        retry_on: error
+        command: kubectl get pods -o wide --all-namespaces | grep -v STATUS | grep -v Running && exit 1 || exit 0
 
     - name: Sidecars preparing
       run: |
@@ -127,4 +109,16 @@ jobs:
         make kind-tag-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
           
     - name: Make test
-      run: make test-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}charts
+      run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}charts
+
+    - name: Upload report to artifacts
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: report.xml
+        path: test/e2e/report.xml
+    
+    - name: Upload log to artifacts
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: log.txt
+        path: log.txt

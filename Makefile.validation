@@ -145,6 +145,9 @@ kind-install: kind-build
 kind-create-cluster:
 	$(KIND) create cluster --config $(KIND_DIR)/kind.yaml --image kindest/node:v1.18.2
 
+kind-create-cluster-v19:
+	$(KIND) create cluster --config $(KIND_DIR)/small-kind.yaml --image kindest/node:v1.19.11
+
 kind-delete-cluster:
 	$(KIND) delete cluster
 
