@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
+	"k8s.io/kubernetes/test/e2e/framework/volume"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 )
@@ -46,8 +47,9 @@ var (
 func initBaremetalDriver(name string) *baremetalDriver {
 	return &baremetalDriver{
 		driverInfo: testsuites.DriverInfo{
-			Name:        name,
-			MaxFileSize: testpatterns.FileSizeSmall,
+			Name:               name,
+			SupportedSizeRange: volume.SizeRange{Min: "100Mi"},
+			MaxFileSize:        testpatterns.FileSizeSmall,
 			Capabilities: map[testsuites.Capability]bool{
 				testsuites.CapPersistence:         true,
 				testsuites.CapExec:                true,
@@ -170,7 +172,7 @@ func (d *baremetalDriver) GetStorageClassWithStorageType(config *testsuites.PerT
 
 // GetClaimSize is implementation of DynamicPVTestDriver interface method
 func (d *baremetalDriver) GetClaimSize() string {
-	return "100Mi"
+	return "50Mi"
 }
 
 // GetVolume is implementation of EphemeralTestDriver interface method
