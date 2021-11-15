@@ -48,7 +48,7 @@ func initBaremetalDriver(name string) *baremetalDriver {
 	return &baremetalDriver{
 		driverInfo: testsuites.DriverInfo{
 			Name:               name,
-			SupportedSizeRange: volume.SizeRange{Min: "100Mi"},
+			SupportedSizeRange: volume.SizeRange{Min: "10Mi", Max: "3Gi"},
 			MaxFileSize:        testpatterns.FileSizeSmall,
 			Capabilities: map[testsuites.Capability]bool{
 				testsuites.CapPersistence:         true,
