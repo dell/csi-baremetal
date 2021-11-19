@@ -112,7 +112,7 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 		installArgs += "--set driver.drivemgr.deployConfig=true"
 	}
 	if f.BaseName == "volume-expand" {
-		installArgs += "--set drive.drivemgr.sizeOfLoopDevices=3Gi --set drive.drivemgr.amountOfLoopDevices=1"
+		installArgs += " --set drive.drivemgr.sizeOfLoopDevices=3Gi --set drive.drivemgr.amountOfLoopDevices=1"
 	}
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
