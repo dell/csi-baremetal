@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dell/csi-baremetal/test/e2e/common"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -30,8 +31,6 @@ import (
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
-
-	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 type baremetalDriver struct {
@@ -44,24 +43,26 @@ var (
 	PersistentVolumeClaimSize = "100Mi"
 )
 
-func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
-	return testsuites.DriverInfo{
-		Name:        name,
-		MaxFileSize: testpatterns.FileSizeSmall,
-		Capabilities: map[testsuites.Capability]bool{
-			testsuites.CapPersistence:      true,
-			testsuites.CapExec:             true,
-			testsuites.CapMultiPODs:        true,
-			testsuites.CapFsGroup:          true,
-			testsuites.CapSingleNodeVolume: true,
-			testsuites.CapBlock:            true,
+func initBaremetalDriver(name string) *baremetalDriver {
+	return &baremetalDriver{
+		driverInfo: testsuites.DriverInfo{
+			Name:        name,
+			MaxFileSize: testpatterns.FileSizeSmall,
+			Capabilities: map[testsuites.Capability]bool{
+				testsuites.CapPersistence:         true,
+				testsuites.CapExec:                true,
+				testsuites.CapMultiPODs:           true,
+				testsuites.CapFsGroup:             true,
+				testsuites.CapSingleNodeVolume:    true,
+				testsuites.CapControllerExpansion: true,
+			},
+			SupportedFsType: sets.NewString(
+				"", // Default fsType
+				"xfs",
+				"ext4",
+				"ext3",
+			),
 		},
-		SupportedFsType: sets.NewString(
-			"", // Default fsType
-			"xfs",
-			"ext4",
-			"ext3",
-		),
 	}
 }
 
