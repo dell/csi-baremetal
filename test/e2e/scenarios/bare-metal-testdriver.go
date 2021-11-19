@@ -44,27 +44,25 @@ var (
 	PersistentVolumeClaimSize = "100Mi"
 )
 
-func initBaremetalDriver(name string) *baremetalDriver {
-	return &baremetalDriver{
-		driverInfo: testsuites.DriverInfo{
-			Name:               name,
-			SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: "3Gi"},
-			MaxFileSize:        testpatterns.FileSizeSmall,
-			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence:         true,
-				testsuites.CapExec:                true,
-				testsuites.CapMultiPODs:           true,
-				testsuites.CapFsGroup:             true,
-				testsuites.CapSingleNodeVolume:    true,
-				testsuites.CapControllerExpansion: true,
-			},
-			SupportedFsType: sets.NewString(
-				"", // Default fsType
-				"xfs",
-				"ext4",
-				"ext3",
-			),
+func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
+	return testsuites.DriverInfo{
+		Name:               name,
+		SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: "3Gi"},
+		MaxFileSize:        testpatterns.FileSizeSmall,
+		Capabilities: map[testsuites.Capability]bool{
+			testsuites.CapPersistence:         true,
+			testsuites.CapExec:                true,
+			testsuites.CapMultiPODs:           true,
+			testsuites.CapFsGroup:             true,
+			testsuites.CapSingleNodeVolume:    true,
+			testsuites.CapControllerExpansion: true,
 		},
+		SupportedFsType: sets.NewString(
+			"", // Default fsType
+			"xfs",
+			"ext4",
+			"ext3",
+		),
 	}
 }
 
