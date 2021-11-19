@@ -36,12 +36,12 @@ import (
 )
 
 var CSITestSuites = []func() testsuites.TestSuite{
-	testsuites.InitVolumesTestSuite,
-	testsuites.InitVolumeIOTestSuite,
-	testsuites.InitEphemeralTestSuite,
-	testsuites.InitProvisioningTestSuite,
-	testsuites.InitMultiVolumeTestSuite,
-	testsuites.InitVolumeModeTestSuite,
+	// testsuites.InitVolumesTestSuite,
+	// testsuites.InitVolumeIOTestSuite,
+	// testsuites.InitEphemeralTestSuite,
+	// testsuites.InitProvisioningTestSuite,
+	// testsuites.InitMultiVolumeTestSuite,
+	// testsuites.InitVolumeModeTestSuite,
 	testsuites.InitVolumeExpandTestSuite,
 }
 
@@ -50,13 +50,13 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
-		DefineDriveHealthChangeTestSuite(curDriver)
-		DefineControllerNodeFailTestSuite(curDriver)
-		DefineNodeRebootTestSuite(curDriver)
-		DefineStressTestSuite(curDriver)
-		DefineDifferentSCTestSuite(curDriver)
-		DefineSchedulerTestSuite(curDriver)
-		DefineLabeledDeployTestSuite()
+		// DefineDriveHealthChangeTestSuite(curDriver)
+		// DefineControllerNodeFailTestSuite(curDriver)
+		// DefineNodeRebootTestSuite(curDriver)
+		// DefineStressTestSuite(curDriver)
+		// DefineDifferentSCTestSuite(curDriver)
+		// DefineSchedulerTestSuite(curDriver)
+		// DefineLabeledDeployTestSuite()
 	})
 })
 
