@@ -20,6 +20,7 @@ import (
 	"flag"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -44,6 +45,8 @@ func registerCustomFlags(flags *flag.FlagSet) {
 		true, "Uninstall pvc, volumes, lvgs, csibmnodes")
 	flags.BoolVar(&common.BMDriverTestContext.NeedAllTests, "all-tests",
 		false, "Execute all existing e2e tests")
+	flags.DurationVar(&common.BMDriverTestContext.Timeout, "short-ci-timeout",
+		60*time.Minute, "Timeout for test suite. Available only if not all-tests")
 }
 
 func init() {
