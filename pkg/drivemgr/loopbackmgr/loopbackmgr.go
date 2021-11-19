@@ -43,7 +43,7 @@ const (
 	defaultVID             = "Test"
 	defaultPID             = "Loopback"
 	// 1Mi is for the metadata
-	defaultSize      = "3Gi"
+	defaultSize      = "101Mi"
 	defaultHealth    = apiV1.HealthGood
 	defaultDriveType = apiV1.DriveTypeHDD
 

@@ -48,7 +48,7 @@ func initBaremetalDriver(name string) *baremetalDriver {
 	return &baremetalDriver{
 		driverInfo: testsuites.DriverInfo{
 			Name:               name,
-			SupportedSizeRange: volume.SizeRange{Min: "10Mi", Max: "3Gi"},
+			SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: "3Gi"},
 			MaxFileSize:        testpatterns.FileSizeSmall,
 			Capabilities: map[testsuites.Capability]bool{
 				testsuites.CapPersistence:         true,
@@ -112,6 +112,9 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 	if deployConfig {
 		installArgs += "--set driver.drivemgr.deployConfig=true"
 	}
+	if f.BaseName == "volume-expand" {
+		installArgs += "--set drive.drivemgr.sizeOfLoopDevices=3Gi"
+	}
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
 
@@ -144,12 +147,16 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 	default:
 		scFsType = fsType
 	}
+	storageType := "HDD"
+	if config.Framework.BaseName == "volume-expand" {
+		storageType = "HDDLVG"
+	}
 	ns := config.Framework.Namespace.Name
 	provisioner := d.driverInfo.Name
 	suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
 	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
-		"storageType": "HDDLVG",
+		"storageType": storageType,
 		"fsType":      scFsType,
 	}
 
@@ -172,7 +179,7 @@ func (d *baremetalDriver) GetStorageClassWithStorageType(config *testsuites.PerT
 
 // GetClaimSize is implementation of DynamicPVTestDriver interface method
 func (d *baremetalDriver) GetClaimSize() string {
-	return "50Mi"
+	return "100Mi"
 }
 
 // GetVolume is implementation of EphemeralTestDriver interface method
