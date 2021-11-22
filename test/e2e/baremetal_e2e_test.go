@@ -18,12 +18,13 @@ package main
 
 import (
 	"flag"
+	"os"
+	"testing"
+
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/test/e2e/framework"
-	"os"
-	"testing"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
 	_ "github.com/dell/csi-baremetal/test/e2e/scenarios"
