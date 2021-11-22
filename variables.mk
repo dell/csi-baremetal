@@ -75,6 +75,9 @@ LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_
 KIND_DIR := test/kind
 KIND     := ${KIND_DIR}/kind
 KIND_VER := 0.8.1
+KIND_CONFIG := kind.yaml
+KIND_IMAGE_VERSION := v1.18.2
+KIND_WAIT := 0s 
 
 # override some of variables, optional file
 -include variables.override.mk

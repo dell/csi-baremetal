@@ -1,17 +1,33 @@
 name: e2e
 
-on: [push]
+on:
+  issue_comment:
+    types: [created]
+
 env:
   REGISTRY: 'ghcr.io/dell/csi-baremetal'
   go_version: '1.16.8'
   golangci_version: '1.37.0'
   helm_version: '3.7.1'
   kubectl_version: 'v1.22.2'
+  kind_config: 'small-kind.yaml'
+  kind_image: 'v1.19.11'
+  kind_wait: '30s'
 jobs:
   e2e:
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
     runs-on: ubuntu-20.04
-    if: "contains(github.event.head_commit.message, '[e2e]')"
     steps:
+    - name: Get operator branch 
+      uses: actions/github-script@v5
+      id: set-branch
+      with:
+        result-encoding: string
+        script: |
+          var branch = `${{ github.event.comment.body }}`.split(String.fromCharCode(0x0A))[1]
+          var key = `operator_branch=`
+          return branch.search(key) !== -1 ? branch.split(key)[1] : ``
+
     - name: Check out code
       uses: actions/checkout@v2
       
@@ -19,7 +35,16 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: dell/csi-baremetal-operator 
+        ref: '${{steps.set-branch.outputs.result}}'
         path: ./csi-baremetal-operator 
+
+    - name: Send start message
+      uses: actions-ecosystem/action-create-comment@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          @${{ github.actor }} start CI. 
+          Parameters: operator_branch='${{steps.set-branch.outputs.result}}'
 
     - name: Set environment variables
       run: |
@@ -80,20 +105,12 @@ jobs:
       run: |
         cd ${{env.CSI_BAREMETAL_DIR}}
         make kind-build KIND_VER=0.11.1
-        make kind-create-cluster-v19
+        make kind-create-cluster KIND_CONFIG=${{env.kind_config}} KIND_IMAGE_VERSION=${{env.kind_image}} KIND_WAIT=${{env.kind_wait}}
         kubectl cluster-info --context kind-kind
         kubectl get pods -o wide --all-namespaces 
         echo "current-context:" $(kubectl config current-context)
         echo "environment-kubeconfig:" ${KUBECONFIG}
       
-    - name: Check pods
-      uses: nick-invision/retry@v2
-      with:
-        timeout_seconds: 5
-        max_attempts: 10
-        retry_on: error
-        command: kubectl get pods -o wide --all-namespaces | grep -v STATUS | grep -v Running && exit 1 || exit 0
-
     - name: Sidecars preparing
       run: |
         make deps-docker-pull
@@ -104,8 +121,9 @@ jobs:
         docker images 
         make kind-tag-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
         make kind-load-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
-        make kind-tag-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
-          
+        make kind-tag-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
+        make kind-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION 
+
     - name: Make test
       run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}charts
 
@@ -120,3 +138,29 @@ jobs:
       with:
         name: log.txt
         path: log.txt
+
+  fail:
+    needs: e2e
+    if: always() && needs.e2e.result == 'failure' 
+    runs-on: ubuntu-20.04
+    steps:
+    - name: answer
+      uses: actions-ecosystem/action-create-comment@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          @${{ github.actor }}, CI tests failed
+
+  success: 
+    needs: e2e
+    if: always() && needs.e2e.result == 'success'
+    runs-on: ubuntu-20.04
+    steps:
+    - name: answer
+      uses: actions-ecosystem/action-create-comment@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          @${{ github.actor }}, CI tests passed 
+
+            
