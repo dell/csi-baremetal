@@ -18,14 +18,12 @@ package main
 
 import (
 	"flag"
-	"os"
-	"testing"
-	"time"
-
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/test/e2e/framework"
+	"os"
+	"testing"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
 	_ "github.com/dell/csi-baremetal/test/e2e/scenarios"
@@ -46,7 +44,7 @@ func registerCustomFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&common.BMDriverTestContext.NeedAllTests, "all-tests",
 		false, "Execute all existing e2e tests")
 	flags.DurationVar(&common.BMDriverTestContext.Timeout, "short-ci-timeout",
-		60*time.Minute, "Timeout for test suite. Available only if not all-tests")
+		0, "Timeout for test suite. Available only if not all-tests")
 }
 
 func init() {

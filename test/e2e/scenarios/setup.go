@@ -23,6 +23,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -45,7 +46,7 @@ var (
 	}
 
 	curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
-	timeout   = time.After(common.BMDriverTestContext.Timeout)
+	startTime = time.Now()
 )
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
@@ -76,9 +77,12 @@ func failTestIfTimeout() {
 	if common.BMDriverTestContext.Timeout == 0 {
 		e2elog.Logf("Timeout is not set")
 	}
-	select {
-	case <-timeout:
-		ginkgo.Fail("Timeout passed")
-	default:
+
+	endTime := startTime.Add(common.BMDriverTestContext.Timeout)
+	isTimeoutPassed := time.Now().After(endTime)
+
+	if isTimeoutPassed {
+		massage := fmt.Sprintf("Timeout %v passed", &common.BMDriverTestContext.Timeout)
+		ginkgo.Fail(massage)
 	}
 }
