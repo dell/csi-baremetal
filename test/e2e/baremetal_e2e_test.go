@@ -44,7 +44,7 @@ func registerCustomFlags(flags *flag.FlagSet) {
 		true, "Uninstall pvc, volumes, lvgs, csibmnodes")
 	flags.BoolVar(&common.BMDriverTestContext.NeedAllTests, "all-tests",
 		false, "Execute all existing e2e tests")
-	flags.DurationVar(&common.BMDriverTestContext.Timeout, "short-ci-timeout",
+	flags.DurationVar(&common.BMDriverTestContext.Timeout, "timeout-short-ci",
 		0, "Timeout for test suite. Available only if not all-tests")
 }
 
