@@ -77,6 +77,7 @@ KIND     := ${KIND_DIR}/kind
 KIND_VER := 0.8.1
 
 ### ci vars
+# timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)
 SHORT_CI_TIMEOUT := 60m
 
 # override some of variables, optional file
