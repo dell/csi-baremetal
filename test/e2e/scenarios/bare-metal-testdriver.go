@@ -127,8 +127,8 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 	return testConf, func() {
 		// wait until ephemeral volume will be deleted
 		if testConf.Framework.BaseName == volumeExpandTag {
-			cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
-			err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Delete(context.TODO(), cm.Name, metav1.DeleteOptions{})
+			cm := d.constructDefaultLoopbackConfig(testConf.Framework.Namespace.Name)
+			err := f.ClientSet.CoreV1().ConfigMaps(testConf.Framework.Namespace.Name).Delete(context.TODO(), cm.Name, metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
 		}
 		time.Sleep(time.Second * 20)
