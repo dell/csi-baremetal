@@ -73,9 +73,11 @@ func skipIfNotAllTests() {
 func failTestIfTimeout() {
 	if common.BMDriverTestContext.NeedAllTests {
 		e2elog.Logf("Skip timeout due to all tests suite")
+		return
 	}
 	if common.BMDriverTestContext.Timeout == 0 {
 		e2elog.Logf("Timeout is not set")
+		return
 	}
 
 	endTime := startTime.Add(common.BMDriverTestContext.Timeout)
