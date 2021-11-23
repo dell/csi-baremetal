@@ -77,7 +77,7 @@ KIND     := ${KIND_DIR}/kind
 KIND_VER := 0.8.1
 
 ### ci vars
-SHORT_CI_TIMEOUT := 10m
+SHORT_CI_TIMEOUT := 60m
 
 # override some of variables, optional file
 -include variables.override.mk
