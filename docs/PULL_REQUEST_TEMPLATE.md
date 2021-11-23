@@ -5,6 +5,7 @@ _Describe your changes_
 
 ## PR checklist
 - [ ] Add link to the issue
+- [ ] Choose Project
 - [ ] Choose PR label
 - [ ] New unit tests added
 - [ ] Modified code has meaningful comments
