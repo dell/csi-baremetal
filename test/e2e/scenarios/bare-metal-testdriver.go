@@ -126,6 +126,11 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 
 	return testConf, func() {
 		// wait until ephemeral volume will be deleted
+		if testConf.Framework.BaseName == volumeExpandTag {
+			cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
+			err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Delete(context.TODO(), cm.Name, metav1.DeleteOptions{})
+			framework.ExpectNoError(err)
+		}
 		time.Sleep(time.Second * 20)
 		ginkgo.By("Uninstalling CSI Baremetal")
 		cleanup()
@@ -153,7 +158,7 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 		scFsType = fsType
 	}
 	storageType := "HDD"
-	if config.Framework.BaseName == "volume-expand" {
+	if config.Framework.BaseName == volumeExpandTag {
 		storageType = "HDDLVG"
 	}
 	ns := config.Framework.Namespace.Name
