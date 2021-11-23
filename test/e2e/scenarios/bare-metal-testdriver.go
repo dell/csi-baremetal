@@ -17,6 +17,7 @@ limitations under the License.
 package scenarios
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -40,6 +41,7 @@ type baremetalDriver struct {
 }
 
 var (
+	volumeExpandTag           = "volume-expand"
 	cmName                    = "loopback-config"
 	PersistentVolumeClaimSize = "100Mi"
 )
@@ -108,11 +110,10 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 	ginkgo.By("Deploying CSI Baremetal")
 
 	installArgs := ""
-	if deployConfig {
+	if deployConfig && f.BaseName != volumeExpandTag {
 		installArgs += "--set driver.drivemgr.deployConfig=true"
-	}
-	if f.BaseName == "volume-expand" {
-		installArgs += " --set drive.drivemgr.sizeOfLoopDevices=3Gi"
+	} else {
+		installArgs += "--set driver.drivemgr.deployConfig=false"
 	}
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
@@ -133,6 +134,11 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 
 // PrepareTest is implementation of TestDriver interface method
 func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+	if f.BaseName == volumeExpandTag {
+		cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
+		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.TODO(), cm, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+	}
 	return PrepareCSI(d, f, true)
 }
 
@@ -205,6 +211,7 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 		},
 		Data: map[string]string{
 			"config.yaml": "\n" +
+				"defaultDriveSize: 3Gi\n" +
 				"defaultDrivePerNodeCount: 3\n" +
 				"nodes:\n",
 		},
