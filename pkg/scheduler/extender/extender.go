@@ -228,14 +228,16 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 		return nil, err
 	}
 
+	ll.Debugf("SC map: %+v", scs)
+
 	requests := make([]*genV1.CapacityRequest, 0)
 	for _, v := range pod.Spec.Volumes {
-		ll.Debugf("Volume details: %s", v.String())
+		ll.Debugf("Volume %s details: %+v", v.Name, v)
 		// check whether volume Ephemeral or not
 		if v.CSI != nil {
 			if v.CSI.Driver == e.provisioner {
 				// TODO we shouldn't request reservation for inline volumes which already provisioned
-				request, err := e.createCapacityRequest(pod.Name, v)
+				request, err := e.createCapacityRequest(ctx, pod.Name, v)
 				if err != nil {
 					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
 				}
@@ -253,15 +255,19 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				return nil, baseerr.ErrorNotFound
 			}
 
-			ll.Debugf("PVC details: %s", pvc.String())
+			ll.Debugf("PVC %s status: %+v", pvc.Name, pvc.Status)
+			ll.Debugf("PVC %s spec: %+v", pvc.Name, pvc.Spec)
 
 			if pvc.Spec.StorageClassName == nil {
+				ll.Infof("PVC %s skipped due to empty StorageClass", pvc.Name)
 				continue
 			}
-			if _, ok := scs[*pvc.Spec.StorageClassName]; !ok {
+			if pvc.Status.Phase == coreV1.ClaimBound {
+				ll.Infof("PVC %s is Bound", pvc.Name)
 				continue
 			}
-			if pvc.Status.Phase == coreV1.ClaimBound || pvc.Status.Phase == coreV1.ClaimLost {
+			if pvc.Status.Phase == coreV1.ClaimLost {
+				ll.Infof("PVC %s is Lost", pvc.Name)
 				continue
 			}
 
@@ -283,6 +289,8 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
 				})
+			} else {
+				ll.Infof("PVC %s skipped due to storage class is not provisioned", pvc.Name)
 			}
 		}
 	}
@@ -290,7 +298,13 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 }
 
 // createCapacityRequest constructs genV1.CapacityRequest based on coreV1.Volume.Name and fields from coreV1.Volume.CSI
-func (e *Extender) createCapacityRequest(podName string, volume coreV1.Volume) (request *genV1.CapacityRequest, err error) {
+func (e *Extender) createCapacityRequest(ctx context.Context, podName string, volume coreV1.Volume) (request *genV1.CapacityRequest, err error) {
+	ll := e.logger.WithFields(logrus.Fields{
+		"sessionUUID": ctx.Value(base.RequestUUID),
+		"method":      "gatherCapacityRequestsByProvisioner",
+		"pod":         podName,
+	})
+
 	// if some parameters aren't parsed for some reason
 	// empty volume will be returned in order count that volume
 	requestName := podName + "-" + volume.Name
@@ -313,6 +327,8 @@ func (e *Extender) createCapacityRequest(podName string, volume coreV1.Volume) (
 		return request, fmt.Errorf("unable to convert string %s to bytes: %v", sizeStr, err)
 	}
 	request.Size = size
+
+	ll.Debugf("Request %s with %s SC and %d size created", request.Name, request.StorageClass, request.Size)
 
 	return request, nil
 }
