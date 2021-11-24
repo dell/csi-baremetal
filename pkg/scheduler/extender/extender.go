@@ -255,12 +255,10 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				return nil, baseerr.ErrorNotFound
 			}
 
-			ll.Debugf("PVC %s status: %+v", pvc.Name, pvc.Status)
-			ll.Debugf("PVC %s spec: %+v", pvc.Name, pvc.Spec)
-			ll.Debugf("PVC %s SC: %s", pvc.Name, *pvc.Spec.StorageClassName)
+			ll.Debugf("PVC %s status: %+v\nspec: %+v\nSC: %s", pvc.Name, pvc.Status, pvc.Spec, *pvc.Spec.StorageClassName)
 
 			if pvc.Spec.StorageClassName == nil {
-				ll.Infof("PVC %s skipped due to empty StorageClass", pvc.Name)
+				ll.Warningf("PVC %s skipped due to empty StorageClass", pvc.Name)
 				continue
 			}
 			if pvc.Status.Phase == coreV1.ClaimBound {
@@ -268,7 +266,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				continue
 			}
 			if pvc.Status.Phase == coreV1.ClaimLost {
-				ll.Infof("PVC %s is Lost", pvc.Name)
+				ll.Warningf("PVC %s is Lost", pvc.Name)
 				continue
 			}
 
