@@ -102,6 +102,10 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	ll = ll.WithFields(logrus.Fields{
+		"pod": extenderArgs.Pod.Name,
+	})
+
 	ll.Info("Filtering")
 	ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
 	pod := extenderArgs.Pod
@@ -255,12 +259,13 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				return nil, baseerr.ErrorNotFound
 			}
 
-			ll.Debugf("PVC %s status: %+v\nspec: %+v\nSC: %s", pvc.Name, pvc.Status, pvc.Spec, *pvc.Spec.StorageClassName)
-
 			if pvc.Spec.StorageClassName == nil {
 				ll.Warningf("PVC %s skipped due to empty StorageClass", pvc.Name)
 				continue
 			}
+
+			ll.Debugf("PVC %s status: %+v spec: %+v SC: %s", pvc.Name, pvc.Status, pvc.Spec, *pvc.Spec.StorageClassName)
+
 			if pvc.Status.Phase == coreV1.ClaimBound {
 				ll.Infof("PVC %s is Bound", pvc.Name)
 				continue
