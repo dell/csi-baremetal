@@ -23,7 +23,11 @@ limitations under the License.
 package scenarios
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/onsi/ginkgo"
+	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
@@ -31,19 +35,22 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
-var CSITestSuites = []func() testsuites.TestSuite{
-	testsuites.InitVolumesTestSuite,
-	testsuites.InitVolumeIOTestSuite,
-	testsuites.InitEphemeralTestSuite,
-	testsuites.InitProvisioningTestSuite,
-	testsuites.InitMultiVolumeTestSuite,
-	testsuites.InitVolumeModeTestSuite,
-}
+var (
+	CSITestSuites = []func() testsuites.TestSuite{
+		testsuites.InitVolumesTestSuite,
+		testsuites.InitVolumeIOTestSuite,
+		testsuites.InitEphemeralTestSuite,
+		testsuites.InitProvisioningTestSuite,
+		testsuites.InitMultiVolumeTestSuite,
+		testsuites.InitVolumeModeTestSuite,
+	}
+
+	curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
+	startTime = time.Now()
+)
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
-	var (
-		curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
-	)
+	ginkgo.AfterEach(failTestIfTimeout)
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
@@ -60,5 +67,24 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 func skipIfNotAllTests() {
 	if !common.BMDriverTestContext.NeedAllTests {
 		e2eskipper.Skipf("Short CI suite -- skipping")
+	}
+}
+
+func failTestIfTimeout() {
+	if common.BMDriverTestContext.NeedAllTests {
+		e2elog.Logf("Skip timeout due to all tests suite")
+		return
+	}
+	if common.BMDriverTestContext.Timeout == 0 {
+		e2elog.Logf("Timeout is not set")
+		return
+	}
+
+	endTime := startTime.Add(common.BMDriverTestContext.Timeout)
+	isTimeoutPassed := time.Now().After(endTime)
+
+	if isTimeoutPassed {
+		massage := fmt.Sprintf("Timeout %v passed", &common.BMDriverTestContext.Timeout)
+		ginkgo.Fail(massage)
 	}
 }

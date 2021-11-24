@@ -16,11 +16,14 @@ limitations under the License.
 
 package common
 
+import "time"
+
 // BMDriverTestContextType stores custom testing context
 type BMDriverTestContextType struct {
 	ChartsDir         string
 	CompleteUninstall bool
 	NeedAllTests      bool
+	Timeout           time.Duration
 }
 
 var BMDriverTestContext BMDriverTestContextType
