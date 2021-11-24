@@ -257,6 +257,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 
 			ll.Debugf("PVC %s status: %+v", pvc.Name, pvc.Status)
 			ll.Debugf("PVC %s spec: %+v", pvc.Name, pvc.Spec)
+			ll.Debugf("PVC %s SC: %s", pvc.Name, *pvc.Spec.StorageClassName)
 
 			if pvc.Spec.StorageClassName == nil {
 				ll.Infof("PVC %s skipped due to empty StorageClass", pvc.Name)
