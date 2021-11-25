@@ -213,6 +213,7 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
 			Namespace: namespace,
+			Labels:    map[string]string{"app": "csi-baremetal-node"},
 		},
 		Data: map[string]string{
 			"config.yaml": "\n" +
