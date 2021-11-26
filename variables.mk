@@ -79,5 +79,9 @@ KIND_CONFIG := kind.yaml
 KIND_IMAGE_VERSION := v1.18.2
 KIND_WAIT := 0s 
 
+### ci vars
+# timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)
+SHORT_CI_TIMEOUT := 60m
+
 # override some of variables, optional file
 -include variables.override.mk
