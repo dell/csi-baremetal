@@ -77,7 +77,7 @@ KIND     := ${KIND_DIR}/kind
 KIND_VER := 0.8.1
 KIND_CONFIG := kind.yaml
 KIND_IMAGE_VERSION := v1.18.2
-KIND_WAIT := 0s 
+KIND_WAIT := 30s 
 
 ### ci vars
 # timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)

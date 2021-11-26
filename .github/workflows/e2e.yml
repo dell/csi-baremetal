@@ -26,25 +26,54 @@ jobs:
         script: |
           var branch = `${{ github.event.comment.body }}`.split(String.fromCharCode(0x0A))[1]
           var key = `operator_branch=`
-          return branch.search(key) !== -1 ? branch.split(key)[1] : ``
+          if (branch){
+            if (branch.search(key) !== -1){
+              return branch.split(key)[1]
+            }else {
+              return 'keyword'
+            }
+          }
+          return ''
 
     - name: Check out code
       uses: actions/checkout@v2
       
     - name: Add csi-baremetal-operator
+      id: checkout_branch
       uses: actions/checkout@v2
       with:
         repository: dell/csi-baremetal-operator 
         ref: '${{steps.set-branch.outputs.result}}'
         path: ./csi-baremetal-operator 
+      continue-on-error: true 
+    
+    - name: Create answer body
+      uses: actions/github-script@v5
+      id: set-answer
+      with:
+        result-encoding: string
+        script: |
+          var body = "Start CI"
+          if ('${{steps.checkout_branch.outcome}}' === 'failure'){
+            if ('${{steps.set-branch.outputs.result}}' !== 'keyword'){
+              body = 'Branch doesnt exist'
+            }else{
+              body = 'Keyword error'
+            }
+          }
+          return body
 
-    - name: Send start message
+    - name: Send message
       uses: actions-ecosystem/action-create-comment@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         body: |
-          @${{ github.actor }} start CI. 
+          @${{ github.actor }} ${{steps.set-answer.outputs.result}}.
           Parameters: operator_branch='${{steps.set-branch.outputs.result}}'
+
+    - name: Check on failures
+      if: steps.checkout_branch.outcome != 'success'
+      run: exit 1
 
     - name: Set environment variables
       run: |
@@ -77,15 +106,14 @@ jobs:
     - name: Get dependencies
       run: make dependency
 
-    - name: Generate CRD
-      run: |
-        make install-controller-gen 
-        make generate-deepcopy
+    #TODO: Generate CRD - #618
 
     - name: Build binary
       run: |
         make build
         make DRIVE_MANAGER_TYPE=loopbackmgr build-drivemgr
+
+    #TODO: Install and compile proto - #613
 
     - name: Download health-probe
       run: make download-grpc-health-probe
@@ -139,28 +167,32 @@ jobs:
         name: log.txt
         path: log.txt
 
-  fail:
+  result_job:
     needs: e2e
-    if: always() && needs.e2e.result == 'failure' 
+    if: always() 
     runs-on: ubuntu-20.04
     steps:
-    - name: answer
-      uses: actions-ecosystem/action-create-comment@v1
+    - name: Create answer body 
+      uses: actions/github-script@v5
+      id: set-answer
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        body: |
-          @${{ github.actor }}, CI tests failed
+        result-encoding: string
+        script: |
+          var body
+          if ('${{needs.e2e.result}}' === 'failure' ){
+            body = 'CI tests failed'
+          }else if ('${{needs.e2e.result}}' === 'success'){
+            body = 'CI tests passed'
+          }else{
+            body = 'CI tests canceled'
+          }
+          return body
 
-  success: 
-    needs: e2e
-    if: always() && needs.e2e.result == 'success'
-    runs-on: ubuntu-20.04
-    steps:
     - name: answer
       uses: actions-ecosystem/action-create-comment@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         body: |
-          @${{ github.actor }}, CI tests passed 
+          @${{ github.actor }}, ${{steps.set-answer.outputs.result}}
 
             
