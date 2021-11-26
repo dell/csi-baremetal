@@ -100,6 +100,10 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 		}
 	}
 
+	if pattern.VolMode == corev1.PersistentVolumeBlock {
+		e2eskipper.Skipf("Should skip tests in volume type block -- skipping")
+	}
+
 	if pattern.VolType == testpatterns.PreprovisionedPV {
 		e2eskipper.Skipf("Baremetal Driver does not support PreprovisionedPV -- skipping")
 	}
