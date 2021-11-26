@@ -57,7 +57,7 @@ func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 			testsuites.CapMultiPODs:           true,
 			testsuites.CapFsGroup:             true,
 			testsuites.CapSingleNodeVolume:    true,
-			testsuites.CapBlock:               false,
+			testsuites.CapBlock:               true,
 			testsuites.CapControllerExpansion: true,
 		},
 		SupportedFsType: sets.NewString(
@@ -98,6 +98,10 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 		if pattern.FsType == "xfs" || pattern.FsType == "ext4" || pattern.FsType == "ext3" {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
+	}
+
+	if pattern.AllowExpansion && pattern.VolMode == corev1.PersistentVolumeBlock {
+		e2eskipper.Skipf("Baremetal Driver does not support block volume mode - skipping")
 	}
 
 	if pattern.VolType == testpatterns.PreprovisionedPV {
