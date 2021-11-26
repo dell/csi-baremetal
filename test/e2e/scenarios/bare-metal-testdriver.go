@@ -49,7 +49,7 @@ var (
 func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 	return testsuites.DriverInfo{
 		Name:               name,
-		SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: "2Gi"},
+		SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: "3Gi"},
 		MaxFileSize:        testpatterns.FileSizeSmall,
 		Capabilities: map[testsuites.Capability]bool{
 			testsuites.CapPersistence:         true,
@@ -217,7 +217,7 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 		},
 		Data: map[string]string{
 			"config.yaml": "\n" +
-				"defaultDriveSize: 2Gi\n" +
+				"defaultDriveSize: 3Gi\n" +
 				"defaultDrivePerNodeCount: 1\n" +
 				"nodes:\n",
 		},
