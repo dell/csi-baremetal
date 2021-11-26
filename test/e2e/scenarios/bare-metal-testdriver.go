@@ -43,13 +43,18 @@ type baremetalDriver struct {
 var (
 	volumeExpandTag           = "volume-expand"
 	cmName                    = "loopback-config"
-	PersistentVolumeClaimSize = "100Mi"
+	persistentVolumeClaimSize = "100Mi"
+	xfsFs                     = "xfs"
+	ext4Fs                    = "ext4"
+	ext3Fs                    = "ext3"
+	hddStorageType            = "HDD"
+	maxDriveSize              = "3Gi"
 )
 
 func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 	return testsuites.DriverInfo{
 		Name:               name,
-		SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: "3Gi"},
+		SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: maxDriveSize},
 		MaxFileSize:        testpatterns.FileSizeSmall,
 		Capabilities: map[testsuites.Capability]bool{
 			testsuites.CapPersistence:         true,
@@ -62,9 +67,9 @@ func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 		},
 		SupportedFsType: sets.NewString(
 			"", // Default fsType
-			"xfs",
-			"ext4",
-			"ext3",
+			xfsFs,
+			ext4Fs,
+			ext3Fs,
 		),
 	}
 }
@@ -95,7 +100,7 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 
 		// We have volume and exec pvc test for default fs (equals to xfs) in short CI
 		// Not need to perform them for other filesystems
-		if pattern.FsType == "xfs" || pattern.FsType == "ext4" || pattern.FsType == "ext3" {
+		if pattern.FsType == xfsFs || pattern.FsType == ext4Fs || pattern.FsType == ext3Fs {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
 	}
@@ -156,12 +161,12 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 	fsType string) *storagev1.StorageClass {
 	var scFsType string
 	switch strings.ToLower(fsType) {
-	case "", "xfs":
-		scFsType = "xfs"
+	case "", xfsFs:
+		scFsType = xfsFs
 	default:
 		scFsType = fsType
 	}
-	storageType := "HDD"
+	storageType := hddStorageType
 	if config.Framework.BaseName == volumeExpandTag {
 		storageType = "HDDLVG"
 	}
@@ -186,14 +191,14 @@ func (d *baremetalDriver) GetStorageClassWithStorageType(config *testsuites.PerT
 	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
 		"storageType": storageType,
-		"fsType":      "xfs",
+		"fsType":      xfsFs,
 	}
 	return testsuites.GetStorageClass(provisioner, scParams, &delayedBinding, ns, suffix)
 }
 
 // GetClaimSize is implementation of DynamicPVTestDriver interface method
 func (d *baremetalDriver) GetClaimSize() string {
-	return "100Mi"
+	return persistentVolumeClaimSize
 }
 
 // GetVolume is implementation of EphemeralTestDriver interface method
@@ -201,7 +206,7 @@ func (d *baremetalDriver) GetVolume(config *testsuites.PerTestConfig,
 	volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
 	attributes = make(map[string]string)
 	attributes["size"] = d.GetClaimSize()
-	attributes["storageType"] = "HDD"
+	attributes["storageType"] = hddStorageType
 	return attributes, false, false
 }
 
@@ -221,7 +226,7 @@ func (d *baremetalDriver) constructDefaultLoopbackConfig(namespace string) *core
 		},
 		Data: map[string]string{
 			"config.yaml": "\n" +
-				"defaultDriveSize: 3Gi\n" +
+				fmt.Sprintf("defaultDriveSize: %s\n", maxDriveSize) +
 				"defaultDrivePerNodeCount: 1\n" +
 				"nodes:\n",
 		},

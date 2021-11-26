@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*test package includes baremetal test storage class definition for e2e tests
+/*
+  test package includes baremetal test storage class definition for e2e tests
   and definition of e2e test suites with ginkgo library
   main file for e2e tests is in cmd/tests directory
   we can run defined test suites with following command:
@@ -35,13 +36,14 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
+// CSITestSuites is a community tests
 var CSITestSuites = []func() testsuites.TestSuite{
-	// testsuites.InitVolumesTestSuite,
-	// testsuites.InitVolumeIOTestSuite,
-	// testsuites.InitEphemeralTestSuite,
-	// testsuites.InitProvisioningTestSuite,
-	// testsuites.InitMultiVolumeTestSuite,
-	// testsuites.InitVolumeModeTestSuite,
+	testsuites.InitVolumesTestSuite,
+	testsuites.InitVolumeIOTestSuite,
+	testsuites.InitEphemeralTestSuite,
+	testsuites.InitProvisioningTestSuite,
+	testsuites.InitMultiVolumeTestSuite,
+	testsuites.InitVolumeModeTestSuite,
 	testsuites.InitVolumeExpandTestSuite,
 }
 
@@ -50,13 +52,13 @@ var _ = utils.SIGDescribe("CSI Volumes", func() {
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
-		// DefineDriveHealthChangeTestSuite(curDriver)
-		// DefineControllerNodeFailTestSuite(curDriver)
-		// DefineNodeRebootTestSuite(curDriver)
-		// DefineStressTestSuite(curDriver)
-		// DefineDifferentSCTestSuite(curDriver)
-		// DefineSchedulerTestSuite(curDriver)
-		// DefineLabeledDeployTestSuite()
+		DefineDriveHealthChangeTestSuite(curDriver)
+		DefineControllerNodeFailTestSuite(curDriver)
+		DefineNodeRebootTestSuite(curDriver)
+		DefineStressTestSuite(curDriver)
+		DefineDifferentSCTestSuite(curDriver)
+		DefineSchedulerTestSuite(curDriver)
+		DefineLabeledDeployTestSuite()
 	})
 })
 
