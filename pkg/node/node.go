@@ -418,7 +418,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		}
 	} else {
 		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
-		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock); err != nil {
+		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock, "noatime"); err != nil {
 			ll.Errorf("Unable to mount volume: %v", err)
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error %s", err.Error())

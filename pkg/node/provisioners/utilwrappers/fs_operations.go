@@ -30,7 +30,7 @@ import (
 type FSOperations interface {
 	// PrepareAndPerformMount composite methods which is prepare source and destination directories
 	// and performs mount operation from src to dst
-	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error
+	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error
 	// MountFakeTmpfs does attach of a temporary folder on failure
 	MountFakeTmpfs(volumeID, dst string) error
 	// UnmountWithCheck unmount operation
@@ -58,7 +58,7 @@ func NewFSOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *FSOperation
 // create (if isn't exist) dst folder on node and perform mount from src to dst
 // if bindMount set to true - mount operation will contain "--bind" option
 // if error occurs and dst has created during current method call then dst will be removed
-func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error {
+func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error {
 	ll := fsOp.log.WithFields(logrus.Fields{
 		"method": "PrepareAndPerformMount",
 	})
@@ -98,6 +98,13 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 	if bindMount {
 		opts = fs.BindOption
 	}
+	if len(mountOptions) > 0 {
+		opts += " " + "-o"
+		for _, opt := range mountOptions {
+			opts += " " + opt
+		}
+	}
+
 	if err := fsOp.Mount(src, dst, opts); err != nil {
 		if wasCreated {
 			_ = fsOp.RmDir(dst)
