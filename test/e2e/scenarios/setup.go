@@ -1,12 +1,9 @@
 /*
 Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
    http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,8 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-  test package includes baremetal test storage class definition for e2e tests
+/*test package includes baremetal test storage class definition for e2e tests
   and definition of e2e test suites with ginkgo library
   main file for e2e tests is in cmd/tests directory
   we can run defined test suites with following command:
@@ -36,16 +32,19 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
-// CSITestSuites is a community tests
-var CSITestSuites = []func() testsuites.TestSuite{
-	testsuites.InitVolumesTestSuite,
-	testsuites.InitVolumeIOTestSuite,
-	testsuites.InitEphemeralTestSuite,
-	testsuites.InitProvisioningTestSuite,
-	testsuites.InitMultiVolumeTestSuite,
-	testsuites.InitVolumeModeTestSuite,
-	// testsuites.InitVolumeExpandTestSuite,
-}
+var (
+	CSITestSuites = []func() testsuites.TestSuite{
+		testsuites.InitVolumesTestSuite,
+		testsuites.InitVolumeIOTestSuite,
+		testsuites.InitEphemeralTestSuite,
+		testsuites.InitProvisioningTestSuite,
+		testsuites.InitMultiVolumeTestSuite,
+		testsuites.InitVolumeModeTestSuite,
+	}
+
+	curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
+	startTime = time.Now()
+)
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	ginkgo.AfterEach(failTestIfTimeout)
