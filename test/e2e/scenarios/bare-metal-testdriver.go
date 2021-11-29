@@ -119,11 +119,15 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 	ginkgo.By("Deploying CSI Baremetal")
 
 	installArgs := ""
-	if deployConfig && f.BaseName != volumeExpandTag {
+	if deployConfig {
 		installArgs += "--set driver.drivemgr.deployConfig=true"
-	} else {
-		installArgs += "--set driver.drivemgr.deployConfig=false"
 	}
+	// if deployConfig && f.BaseName != volumeExpandTag {
+	// 	installArgs += "--set driver.drivemgr.deployConfig=true"
+	// }
+	// if deployConfig && f.BaseName == volumeExpandTag {
+	// 	installArgs += "--set driver.drivemgr.deployConfig=false"
+	// }
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
 
