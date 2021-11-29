@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	coreV1 "k8s.io/api/core/v1"
@@ -46,7 +47,8 @@ import (
 // todo review all tests. some might not be relevant
 var (
 	testLogger = logrus.New()
-	testCtx    = context.Background()
+	testUUID   = uuid.New().String()
+	testCtx    = context.WithValue(context.Background(), base.RequestUUID, testUUID)
 
 	testNs          = "default"
 	testProvisioner = "baremetal-csi"
