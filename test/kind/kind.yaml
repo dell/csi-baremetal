@@ -1,6 +1,6 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-# 1 control plane node and 2 workers
+# 1 control plane node and 6 workers
 nodes:
 # the control plane node config
 - role: control-plane
@@ -15,3 +15,53 @@ nodes:
     containerPath: /run/lvm
   - hostPath: /run/lock
     containerPath: /run/lock
+- role: worker
+  extraMounts:
+    - hostPath: /dev
+      containerPath: /dev
+    - hostPath: /run/udev
+      containerPath: /run/udev
+    - hostPath: /run/lvm
+      containerPath: /run/lvm
+    - hostPath: /run/lock
+      containerPath: /run/lock
+- role: worker
+  extraMounts:
+    - hostPath: /dev
+      containerPath: /dev
+    - hostPath: /run/udev
+      containerPath: /run/udev
+    - hostPath: /run/lvm
+      containerPath: /run/lvm
+    - hostPath: /run/lock
+      containerPath: /run/lock
+- role: worker
+  extraMounts:
+    - hostPath: /dev
+      containerPath: /dev
+    - hostPath: /run/udev
+      containerPath: /run/udev
+    - hostPath: /run/lvm
+      containerPath: /run/lvm
+    - hostPath: /run/lock
+      containerPath: /run/lock
+- role: worker
+  extraMounts:
+    - hostPath: /dev
+      containerPath: /dev
+    - hostPath: /run/udev
+      containerPath: /run/udev
+    - hostPath: /run/lvm
+      containerPath: /run/lvm
+    - hostPath: /run/lock
+      containerPath: /run/lock
+- role: worker
+  extraMounts:
+    - hostPath: /dev
+      containerPath: /dev
+    - hostPath: /run/udev
+      containerPath: /run/udev
+    - hostPath: /run/lvm
+      containerPath: /run/lvm
+    - hostPath: /run/lock
+      containerPath: /run/lock
