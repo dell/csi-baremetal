@@ -44,7 +44,7 @@ var CSITestSuites = []func() testsuites.TestSuite{
 	testsuites.InitProvisioningTestSuite,
 	testsuites.InitMultiVolumeTestSuite,
 	testsuites.InitVolumeModeTestSuite,
-	testsuites.InitVolumeExpandTestSuite,
+	// testsuites.InitVolumeExpandTestSuite,
 }
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
