@@ -136,6 +136,7 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 		time.Sleep(time.Second * 20)
 		ginkgo.By("Uninstalling CSI Baremetal")
 		cleanup()
+		// This condition delete custom config for loopbackmanager after every suite
 		if testConf.Framework.BaseName == volumeExpandTag {
 			cm := d.constructDefaultLoopbackConfig(testConf.Framework.Namespace.Name)
 			err := testConf.Framework.ClientSet.CoreV1().ConfigMaps(testConf.Framework.Namespace.Name).Delete(context.TODO(), cm.Name, metav1.DeleteOptions{})
@@ -147,6 +148,7 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 // PrepareTest is implementation of TestDriver interface method
 func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
 	deployConfig := true
+	// This condition create custom config for loopbackmanager
 	if f.BaseName == volumeExpandTag {
 		cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
 		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.TODO(), cm, metav1.CreateOptions{})
