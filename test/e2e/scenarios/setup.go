@@ -40,6 +40,7 @@ var (
 		testsuites.InitProvisioningTestSuite,
 		testsuites.InitMultiVolumeTestSuite,
 		testsuites.InitVolumeModeTestSuite,
+		testsuites.InitVolumeExpandTestSuite,
 	}
 
 	curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)

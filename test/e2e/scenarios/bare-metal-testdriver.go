@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
+	"k8s.io/kubernetes/test/e2e/framework/volume"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 )
@@ -52,9 +53,9 @@ var (
 
 func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 	return testsuites.DriverInfo{
-		Name: name,
-		// SupportedSizeRange: volume.SizeRange{Min: persistentVolumeClaimSize, Max: maxDriveSize},
-		MaxFileSize: testpatterns.FileSizeSmall,
+		Name:               name,
+		SupportedSizeRange: volume.SizeRange{Min: persistentVolumeClaimSize, Max: maxDriveSize},
+		MaxFileSize:        testpatterns.FileSizeSmall,
 		Capabilities: map[testsuites.Capability]bool{
 			testsuites.CapPersistence:         true,
 			testsuites.CapExec:                true,
@@ -121,12 +122,6 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 	if deployConfig {
 		installArgs += "--set driver.drivemgr.deployConfig=true"
 	}
-	// if deployConfig && f.BaseName != volumeExpandTag {
-	// 	installArgs += "--set driver.drivemgr.deployConfig=true"
-	// }
-	// if deployConfig && f.BaseName == volumeExpandTag {
-	// 	installArgs += "--set driver.drivemgr.deployConfig=false"
-	// }
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
 
@@ -151,12 +146,14 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 
 // PrepareTest is implementation of TestDriver interface method
 func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+	deployConfig := true
 	if f.BaseName == volumeExpandTag {
 		cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
 		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.TODO(), cm, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
+		deployConfig = false
 	}
-	return PrepareCSI(d, f, true)
+	return PrepareCSI(d, f, deployConfig)
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method
