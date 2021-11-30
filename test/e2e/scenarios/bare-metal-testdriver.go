@@ -54,7 +54,7 @@ var (
 func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 	return testsuites.DriverInfo{
 		Name:               name,
-		SupportedSizeRange: volume.SizeRange{Min: "1Gi", Max: maxDriveSize},
+		SupportedSizeRange: volume.SizeRange{Min: persistentVolumeClaimSize, Max: maxDriveSize},
 		MaxFileSize:        testpatterns.FileSizeSmall,
 		Capabilities: map[testsuites.Capability]bool{
 			testsuites.CapPersistence:         true,
