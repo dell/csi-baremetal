@@ -103,6 +103,11 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 		if pattern.FsType == xfsFs || pattern.FsType == ext4Fs || pattern.FsType == ext3Fs {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
+
+		// Skip volume expand test in short CI suite
+		if pattern.AllowExpansion {
+			e2eskipper.Skipf("Should skip tests in short CI suite - skipping")
+		}
 	}
 
 	if pattern.AllowExpansion && pattern.VolMode == corev1.PersistentVolumeBlock {
