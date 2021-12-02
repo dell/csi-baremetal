@@ -155,6 +155,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 	deployConfig := true
 	// This condition create custom config for loopbackmanager
 	if f.BaseName == volumeExpandTag {
+		testsuites.StartPodLogs(f)
 		cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
 		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.TODO(), cm, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
