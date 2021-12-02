@@ -474,7 +474,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(err).To(BeNil())
 			var (
 				capacity = int64(1024 * 53)
-				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, false, false, "someOpt")
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, false, false, "someOpt1", "someOpt2")
 			)
 
 			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", testNs, apiV1.Created)
