@@ -98,15 +98,14 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
 
+		if pattern.AllowExpansion && pattern.VolMode == corev1.PersistentVolumeFilesystem {
+			e2eskipper.Skipf("Should skip tests in short CI suite - skipping")
+		}
+
 		// We have volume and exec pvc test for default fs (equals to xfs) in short CI
 		// Not need to perform them for other filesystems
 		if pattern.FsType == xfsFs || pattern.FsType == ext4Fs || pattern.FsType == ext3Fs {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
-		}
-
-		// Skip volume expand test in short CI suite
-		if pattern.AllowExpansion {
-			e2eskipper.Skipf("Should skip tests in short CI suite - skipping")
 		}
 	}
 
