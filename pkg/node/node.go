@@ -45,6 +45,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	"github.com/dell/csi-baremetal/pkg/controller"
+	"github.com/dell/csi-baremetal/pkg/controller/mountoptions"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 )
@@ -354,9 +355,14 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 	var (
-		inline bool
-		err    error
+		inline       bool
+		err          error
+		mountOptions []string
 	)
+
+	if accessType, ok := req.GetVolumeCapability().AccessType.(*csi.VolumeCapability_Mount); ok {
+		mountOptions = mountoptions.FilterWithType(mountoptions.PublishCmdOpt, accessType.Mount.GetMountFlags())
+	}
 
 	if req.GetVolumeContext() != nil {
 		val, ok := req.GetVolumeContext()[EphemeralKey]
@@ -418,7 +424,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		}
 	} else {
 		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
-		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock, "noatime"); err != nil {
+		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock, mountOptions...); err != nil {
 			ll.Errorf("Unable to mount volume: %v", err)
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: mount error %s", err.Error())

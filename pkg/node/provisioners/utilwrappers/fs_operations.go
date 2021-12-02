@@ -98,12 +98,7 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 	if bindMount {
 		opts = fs.BindOption
 	}
-	if len(mountOptions) > 0 {
-		opts += " " + "-o"
-		for _, opt := range mountOptions {
-			opts += " " + opt
-		}
-	}
+	addMountOptions(mountOptions, &opts)
 
 	if err := fsOp.Mount(src, dst, opts); err != nil {
 		if wasCreated {
@@ -220,4 +215,21 @@ func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device st
 	}
 
 	return nil
+}
+
+// Add options to mount command
+// Example: <mount> -o option1,option2 ...
+func addMountOptions(mountOptions []string, opts *string) {
+	if len(mountOptions) > 0 {
+		if len(*opts) > 0 {
+			*opts += " "
+		}
+		*opts += fs.MountOptionsFlag + " "
+		for i, opt := range mountOptions {
+			*opts += opt
+			if i != len(mountOptions)-1 {
+				*opts += ","
+			}
+		}
+	}
 }

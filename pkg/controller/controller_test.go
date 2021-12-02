@@ -375,6 +375,31 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(resp.Volume.VolumeId).To(Equal(uuid))
 			Expect(resp.Volume.CapacityBytes).To(Equal(int64(1024 * 60)))
 		})
+		It("Volume is created with supported option", func() {
+			err := testutils.AddAC(controller.k8sclient, testAC1.DeepCopy(), testAC2.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.Create(testCtx, testPVC1.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
+			Expect(err).To(BeNil())
+			var (
+				capacity = int64(1024 * 53)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, false, false, "noatime")
+				vol      = &vcrd.Volume{}
+			)
+
+			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", testNs, apiV1.Created)
+
+			resp, err := controller.CreateVolume(context.Background(), req)
+			Expect(err).To(BeNil())
+			Expect(resp).ToNot(BeNil())
+
+			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
+			Expect(err).To(BeNil())
+			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeFS))
+			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
+		})
 	})
 })
 
@@ -439,6 +464,24 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.ReadCR(context.Background(), volumeID, testNs, volumeCrd)
 			Expect(err).To(BeNil())
 			Expect(volumeCrd.Spec.CSIStatus).To(Equal(apiV1.Failed))
+		})
+		It("Volume is created with unsupported option", func() {
+			err := testutils.AddAC(controller.k8sclient, testAC1.DeepCopy(), testAC2.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.Create(testCtx, testPVC1.DeepCopy())
+			Expect(err).To(BeNil())
+			err = controller.k8sclient.CreateCR(testCtx, testACR1.Name, testACR1.DeepCopy())
+			Expect(err).To(BeNil())
+			var (
+				capacity = int64(1024 * 53)
+				req      = getCreateVolumeRequest("req1", capacity, testNode1Name, testPVC1Name, false, false, "someOpt")
+			)
+
+			go testutils.VolumeReconcileImitation(controller.k8sclient, "req1", testNs, apiV1.Created)
+
+			resp, err := controller.CreateVolume(context.Background(), req)
+			Expect(err).ToNot(BeNil())
+			Expect(resp).To(BeNil())
 		})
 	})
 
@@ -874,7 +917,7 @@ func fillCache(controller *CSIControllerService, volumeID, namespace string) {
 }
 
 // return CreateVolumeRequest based on provided parameters
-func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimName string, needBlock, needPart bool) *csi.CreateVolumeRequest {
+func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimName string, needBlock, needPart bool, mountFlags ...string) *csi.CreateVolumeRequest {
 	parameters := map[string]string{
 		util.ClaimNamespaceKey: testNs,
 		util.ClaimNameKey:      claimName,
@@ -900,7 +943,7 @@ func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimN
 		accessType := &csi.VolumeCapability_Mount{
 			Mount: &csi.VolumeCapability_MountVolume{
 				FsType:     string(fs.XFS),
-				MountFlags: nil,
+				MountFlags: mountFlags,
 			},
 		}
 		req.VolumeCapabilities[0].AccessType = accessType
