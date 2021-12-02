@@ -110,7 +110,7 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 	}
 
 	if pattern.AllowExpansion && pattern.VolMode == corev1.PersistentVolumeBlock {
-		e2eskipper.Skipf("Baremetal Driver does not support block volume mode - skipping")
+		e2eskipper.Skipf("Baremetal Driver does not support block volume mode with volume expansion - skipping")
 	}
 
 	if pattern.VolType == testpatterns.PreprovisionedPV {
