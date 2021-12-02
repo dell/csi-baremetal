@@ -2,4 +2,6 @@ FROM    ubuntu:18.04
 
 ADD     health_probe    health_probe
 
+# Get rid of https://ubuntu.com/security/CVE-2019-18276 
+# TODO Refer issue #629
 RUN     apt update --no-install-recommends -y -q; apt install --no-install-recommends -y -q util-linux parted xfsprogs lvm2 gdisk strace udev net-tools
