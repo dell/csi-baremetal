@@ -17,7 +17,7 @@ env:
   kind_wait: '30s'
 jobs:
   e2e:
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+    if: github.event.issue.pull_request == false || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci'))
     runs-on: ubuntu-20.04
     steps:
     - name: Get operator branch 
