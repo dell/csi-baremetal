@@ -34,7 +34,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Success(t *testing.T) {
 		wrapFS     = &mocklu.MockWrapFS{}
 		dst        = "~/some/unusual/name"
 		src        = "/tmp"
-		bindOption = []string{""} // for bind == false
+		bindOption = []string{"", ""} // for bind == false
 		err        error
 	)
 	fsOps.WrapFS = wrapFS
@@ -53,7 +53,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Success(t *testing.T) {
 
 	// dst folder is exist and isn't a mount point, also use bind = true
 	wrapFS.On("IsMounted", dst).Return(false, nil).Once()
-	wrapFS.On("Mount", src, dst, []string{fs.BindOption}).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, []string{fs.BindOption, ""}).Return(nil).Once()
 
 	err = fsOps.PrepareAndPerformMount(src, dst, true, true)
 	wrapFS.AssertCalled(t, "IsMounted", dst)
@@ -65,7 +65,7 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 		wrapFS      = &mocklu.MockWrapFS{}
 		dst         = "~/some/unusual/name"
 		src         = "/tmp"
-		bindOption  = []string{""} // for bind == false
+		bindOption  = []string{"", ""} // for bind == false and empty mount opts
 		expectedErr = errors.New("error")
 		err         error
 	)
@@ -110,6 +110,53 @@ func TestFSOperationsImpl_PrepareAndPerformMount_Fail(t *testing.T) {
 	assert.Error(t, err)
 	wrapFS.AssertCalled(t, "IsMounted", dst)
 	wrapFS.AssertNotCalled(t, "RmDir", dst)
+}
+
+func TestFSOperationsImpl_PrepareAndPerformMount_Success_WithMountOptions(t *testing.T) {
+	var (
+		fsOps         = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS        = &mocklu.MockWrapFS{}
+		dst           = "~/some/unusual/name"
+		src           = "/tmp"
+		mountOptions1 = []string{"noatime"}
+		mountOptions2 = []string{"noatime", "nodev"}
+		cmdOptions1   = []string{"", "-o noatime"}             // bind == false && 1 mountOpt
+		cmdOptions2   = []string{"", "-o noatime,nodev"}       // bind == false && 2 mountOpt
+		cmdOptions3   = []string{"--bind", "-o noatime,nodev"} // bind == true && 2 mountOpt
+		cmdOptions4   = []string{"--bind", ""}                 // bind == true && 0 mountOpt
+		cmdOptions5   = []string{"", ""}                       // bind == false && 0 mountOpt
+		err           error
+	)
+
+	fsOps.WrapFS = wrapFS
+	wrapFS.On("MkDir", dst).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, cmdOptions1).Return(nil).Once()
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true, mountOptions1...)
+	assert.Nil(t, err)
+
+	fsOps.WrapFS = wrapFS
+	wrapFS.On("MkDir", dst).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, cmdOptions2).Return(nil).Once()
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true, mountOptions2...)
+	assert.Nil(t, err)
+
+	fsOps.WrapFS = wrapFS
+	wrapFS.On("MkDir", dst).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, cmdOptions3).Return(nil).Once()
+	err = fsOps.PrepareAndPerformMount(src, dst, true, true, mountOptions2...)
+	assert.Nil(t, err)
+
+	fsOps.WrapFS = wrapFS
+	wrapFS.On("MkDir", dst).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, cmdOptions4).Return(nil).Once()
+	err = fsOps.PrepareAndPerformMount(src, dst, true, true)
+	assert.Nil(t, err)
+
+	fsOps.WrapFS = wrapFS
+	wrapFS.On("MkDir", dst).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, cmdOptions5).Return(nil).Once()
+	err = fsOps.PrepareAndPerformMount(src, dst, false, true)
+	assert.Nil(t, err)
 }
 
 func TestFSOperationsImpl_MountWithCheck_Success(t *testing.T) {
