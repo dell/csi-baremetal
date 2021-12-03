@@ -1,6 +1,8 @@
 name: e2e
 
 on:
+  push:
+    branches: [ master ]
   issue_comment:
     types: [created]
 
@@ -195,4 +197,3 @@ jobs:
         body: |
           @${{ github.actor }}, ${{steps.set-answer.outputs.result}}
 
-            
