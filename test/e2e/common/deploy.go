@@ -19,18 +19,20 @@ package common
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/onsi/ginkgo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	"k8s.io/kubernetes/test/e2e/framework/podlogs"
 )
 
 const (
@@ -38,12 +40,47 @@ const (
 	csiVersionEnv      = "CSI_VERSION"
 )
 
+func collectPodLogs(f *framework.Framework) func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	cs := f.ClientSet
+	ns := f.Namespace
+
+	testName := ginkgo.CurrentGinkgoTestDescription().FullTestText
+	podLogFiles, err := os.OpenFile(fmt.Sprintf("reports/%v_pods.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	eventsLogs, err := os.OpenFile(fmt.Sprintf("reports/%v_events.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+
+	to := podlogs.LogOutput{
+		StatusWriter:  podLogFiles,
+		LogWriter:     podLogFiles,
+		LogPathPrefix: "test/e2e/reports/",
+	}
+
+	if err := podlogs.CopyAllLogs(ctx, cs, ns.Name, to); err != nil {
+		e2elog.Logf("Cant copy all pod logs: %s", err)
+	}
+	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs); err != nil {
+		e2elog.Logf("Cant copy all pod events: %s", err)
+	}
+
+	return func() {
+		_ = podLogFiles.Close()
+		_ = eventsLogs.Close()
+		cancel()
+	}
+}
+
 // DeployCSIComponents deploys csi-baremetal-operator and csi-baremetal-deployment with CmdHelmExecutor
 // and start print containers logs from framework namespace
 // returns cleanup function and error if failed
 // See DeployOperator and DeployCSI descriptions for more details
 func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (func(), error) {
-	cancelLogging := testsuites.StartPodLogs(f)
+	cancelLogging := collectPodLogs(f)
 
 	cleanupOperator, err := DeployOperator(f)
 	if err != nil {
