@@ -66,6 +66,8 @@ const (
 	UnmountCmdTmpl = "umount %s"
 	// BindOption option for mount operation
 	BindOption = "--bind"
+	// MountOptionsFlag flag to set mount options
+	MountOptionsFlag = "-o"
 )
 
 // WrapFS is an interface that encapsulates operation with file systems
