@@ -40,19 +40,17 @@ const (
 	csiVersionEnv      = "CSI_VERSION"
 )
 
+// Create folder for every tests and save container logs and events
 func collectPodLogs(f *framework.Framework) func() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cs := f.ClientSet
 	ns := f.Namespace
 
 	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
-	// podLogFiles, err := os.OpenFile(fmt.Sprintf("reports/%v_pods.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	// if err != nil {
-	// 	log.Fatalf("error opening file: %v", err)
-	// }
-	dirname := "reports/" + testName + "/"
-	_ = os.MkdirAll(dirname, os.ModePerm)
-
+	dirname := fmt.Sprintf("reports/%v/", testName)
+	if err := os.MkdirAll(dirname, os.ModePerm); err != nil {
+		log.Fatalf("error creating folders: %v", err)
+	}
 	to := podlogs.LogOutput{
 		LogPathPrefix: dirname,
 	}
@@ -60,14 +58,12 @@ func collectPodLogs(f *framework.Framework) func() {
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
-
 	if err := podlogs.CopyAllLogs(ctx, cs, ns.Name, to); err != nil {
 		e2elog.Logf("Cant copy all pod logs: %s", err)
 	}
 	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs); err != nil {
 		e2elog.Logf("Cant copy all pod events: %s", err)
 	}
-
 	return func() {
 		_ = eventsLogs.Close()
 		cancel()
@@ -80,7 +76,6 @@ func collectPodLogs(f *framework.Framework) func() {
 // See DeployOperator and DeployCSI descriptions for more details
 func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	cancelLogging := collectPodLogs(f)
-	// _ = testsuites.StartPodLogs(f)
 	cleanupOperator, err := DeployOperator(f)
 	if err != nil {
 		cancelLogging()
