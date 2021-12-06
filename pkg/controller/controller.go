@@ -40,6 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
+	"github.com/dell/csi-baremetal/pkg/controller/mountoptions"
 	"github.com/dell/csi-baremetal/pkg/controller/node"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
@@ -196,6 +197,13 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		// ext4 by default (from request)
 		fsType = strings.ToLower(accessType.Mount.FsType)
 		mode = apiV1.ModeFS
+
+		// check mountFlags
+		if !mountoptions.IsOptionsSupported(accessType.Mount.GetMountFlags()) {
+			err = fmt.Errorf("mountOptions are not supported: %+v", accessType.Mount.GetMountFlags())
+			ll.Errorf("Failed to create volume: %v", err)
+			return nil, err
+		}
 	}
 
 	// The additional raw mode, perform only if VolumeCapability_Block (the if block above skipped) and SC has specific parameter
