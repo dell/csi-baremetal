@@ -81,7 +81,7 @@ func collectPodLogs(f *framework.Framework) func() {
 // See DeployOperator and DeployCSI descriptions for more details
 func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	cancelLogging := collectPodLogs(f)
-
+	// _ = testsuites.StartPodLogs(f)
 	cleanupOperator, err := DeployOperator(f)
 	if err != nil {
 		cancelLogging()
