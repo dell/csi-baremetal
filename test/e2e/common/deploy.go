@@ -45,20 +45,20 @@ func collectPodLogs(f *framework.Framework) func() {
 	cs := f.ClientSet
 	ns := f.Namespace
 
-	testName := ginkgo.CurrentGinkgoTestDescription().FullTestText
-	podLogFiles, err := os.OpenFile(fmt.Sprintf("reports/%v_pods.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	eventsLogs, err := os.OpenFile(fmt.Sprintf("reports/%v_events.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
+	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
+	// podLogFiles, err := os.OpenFile(fmt.Sprintf("reports/%v_pods.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	// if err != nil {
+	// 	log.Fatalf("error opening file: %v", err)
+	// }
+	dirname := "test/e2e/reports/" + testName
+	_ = os.MkdirAll(dirname, os.ModePerm)
 
 	to := podlogs.LogOutput{
-		StatusWriter:  podLogFiles,
-		LogWriter:     podLogFiles,
-		LogPathPrefix: "test/e2e/reports/",
+		LogPathPrefix: dirname,
+	}
+	eventsLogs, err := os.OpenFile(fmt.Sprintf("reports/%v/events.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
 	}
 
 	if err := podlogs.CopyAllLogs(ctx, cs, ns.Name, to); err != nil {
@@ -69,7 +69,6 @@ func collectPodLogs(f *framework.Framework) func() {
 	}
 
 	return func() {
-		_ = podLogFiles.Close()
 		_ = eventsLogs.Close()
 		cancel()
 	}
