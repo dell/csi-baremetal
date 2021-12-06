@@ -50,7 +50,7 @@ func collectPodLogs(f *framework.Framework) func() {
 	// if err != nil {
 	// 	log.Fatalf("error opening file: %v", err)
 	// }
-	dirname := "test/e2e/reports/" + testName
+	dirname := "reports/" + testName + "/"
 	_ = os.MkdirAll(dirname, os.ModePerm)
 
 	to := podlogs.LogOutput{
