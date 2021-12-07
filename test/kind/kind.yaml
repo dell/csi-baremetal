@@ -35,3 +35,33 @@ nodes:
         containerPath: /run/lvm
       - hostPath: /run/lock
         containerPath: /run/lock
+  - role: worker
+    extraMounts:
+      - hostPath: /dev
+        containerPath: /dev
+      - hostPath: /run/udev
+        containerPath: /run/udev
+      - hostPath: /run/lvm
+        containerPath: /run/lvm
+      - hostPath: /run/lock
+        containerPath: /run/lock
+  - role: worker
+    extraMounts:
+      - hostPath: /dev
+        containerPath: /dev
+      - hostPath: /run/udev
+        containerPath: /run/udev
+      - hostPath: /run/lvm
+        containerPath: /run/lvm
+      - hostPath: /run/lock
+        containerPath: /run/lock
+  - role: worker
+    extraMounts:
+      - hostPath: /dev
+        containerPath: /dev
+      - hostPath: /run/udev
+        containerPath: /run/udev
+      - hostPath: /run/lvm
+        containerPath: /run/lvm
+      - hostPath: /run/lock
+        containerPath: /run/lock
