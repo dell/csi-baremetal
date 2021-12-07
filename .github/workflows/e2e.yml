@@ -67,6 +67,7 @@ jobs:
           return body
 
     - name: Send message
+      if: github.event.issue.pull_request
       uses: actions-ecosystem/action-create-comment@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
