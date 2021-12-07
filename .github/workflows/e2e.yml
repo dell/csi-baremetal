@@ -1,0 +1,199 @@
+name: e2e
+
+on:
+  push:
+    branches: [ master ]
+  issue_comment:
+    types: [created]
+
+env:
+  REGISTRY: 'ghcr.io/dell/csi-baremetal'
+  go_version: '1.16.8'
+  golangci_version: '1.37.0'
+  helm_version: '3.7.1'
+  kubectl_version: 'v1.22.2'
+  kind_config: 'small-kind.yaml'
+  kind_image: 'v1.19.11'
+  kind_wait: '30s'
+jobs:
+  e2e:
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Get operator branch 
+      uses: actions/github-script@v5
+      id: set-branch
+      with:
+        result-encoding: string
+        script: |
+          var branch = `${{ github.event.comment.body }}`.split(String.fromCharCode(0x0A))[1]
+          var key = `operator_branch=`
+          if (branch){
+            if (branch.search(key) !== -1){
+              return branch.split(key)[1]
+            }else {
+              return 'keyword'
+            }
+          }
+          return ''
+
+    - name: Check out code
+      uses: actions/checkout@v2
+      
+    - name: Add csi-baremetal-operator
+      id: checkout_branch
+      uses: actions/checkout@v2
+      with:
+        repository: dell/csi-baremetal-operator 
+        ref: '${{steps.set-branch.outputs.result}}'
+        path: ./csi-baremetal-operator 
+      continue-on-error: true 
+    
+    - name: Create answer body
+      uses: actions/github-script@v5
+      id: set-answer
+      with:
+        result-encoding: string
+        script: |
+          var body = "Start CI"
+          if ('${{steps.checkout_branch.outcome}}' === 'failure'){
+            if ('${{steps.set-branch.outputs.result}}' !== 'keyword'){
+              body = 'Branch doesnt exist'
+            }else{
+              body = 'Keyword error'
+            }
+          }
+          return body
+
+    - name: Send message
+      uses: actions-ecosystem/action-create-comment@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          @${{ github.actor }} ${{steps.set-answer.outputs.result}}.
+          Parameters: operator_branch='${{steps.set-branch.outputs.result}}'
+
+    - name: Check on failures
+      if: steps.checkout_branch.outcome != 'success'
+      run: exit 1
+
+    - name: Set environment variables
+      run: |
+        echo "CSI_BAREMETAL_DIR=$RUNNER_WORKSPACE/csi-baremetal/" >> $GITHUB_ENV
+        echo "CSI_BAREMETAL_OPERATOR_DIR=$RUNNER_WORKSPACE/csi-baremetal/csi-baremetal-operator/" >> $GITHUB_ENV
+
+    - name: LVM2 install
+      run: sudo apt-get install -y lvm2
+
+    - name: Prepare Golang 
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{env.go_version}}
+
+    - name: Install helm
+      uses: azure/setup-helm@v1
+      with:
+        version: ${{env.helm_version}}
+          
+    - name: Kubectl install
+      uses: azure/setup-kubectl@v1
+      with:
+        version: ${{env.kubectl_version}} 
+
+    - name: add CSI_VERSION
+      run: |
+        cd ${{env.CSI_BAREMETAL_DIR}}
+        echo "CSI_VERSION=`make version`" >> $GITHUB_ENV
+
+    - name: Get dependencies
+      run: make dependency
+
+    #TODO: Generate CRD - #618
+
+    - name: Build binary
+      run: |
+        make build
+        make DRIVE_MANAGER_TYPE=loopbackmgr build-drivemgr
+
+    #TODO: Install and compile proto - #613
+
+    - name: Download health-probe
+      run: make download-grpc-health-probe
+
+    - name: Build docker images
+      run: |
+        make images REGISTRY=${{ env.REGISTRY }}
+        make DRIVE_MANAGER_TYPE=loopbackmgr image-drivemgr REGISTRY=${{ env.REGISTRY }}
+    
+    - name: docker-build operators 
+      run: |
+        cd ${{env.CSI_BAREMETAL_OPERATOR_DIR}}
+        echo "CSI_OPERATOR_VERSION=`make version`" >> $GITHUB_ENV
+        make docker-build REGISTRY=${{ env.REGISTRY }}
+
+    - name: Kind preparation
+      run: |
+        cd ${{env.CSI_BAREMETAL_DIR}}
+        make kind-build KIND_VER=0.11.1
+        make kind-create-cluster KIND_CONFIG=${{env.kind_config}} KIND_IMAGE_VERSION=${{env.kind_image}} KIND_WAIT=${{env.kind_wait}}
+        kubectl cluster-info --context kind-kind
+        kubectl get pods -o wide --all-namespaces 
+        echo "current-context:" $(kubectl config current-context)
+        echo "environment-kubeconfig:" ${KUBECONFIG}
+      
+    - name: Sidecars preparing
+      run: |
+        make deps-docker-pull
+        make deps-docker-tag
+
+    - name: Retag CSI images and load them to kind
+      run: |
+        docker images 
+        make kind-tag-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
+        make kind-load-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
+        make kind-tag-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
+        make kind-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION 
+
+    - name: Make test
+      run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}charts
+
+    - name: Upload report to artifacts
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: report.xml
+        path: test/e2e/report.xml
+    
+    - name: Upload log to artifacts
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: log.txt
+        path: log.txt
+
+  result_job:
+    needs: e2e
+    if: always() 
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Create answer body 
+      uses: actions/github-script@v5
+      id: set-answer
+      with:
+        result-encoding: string
+        script: |
+          var body
+          if ('${{needs.e2e.result}}' === 'failure' ){
+            body = 'CI tests failed'
+          }else if ('${{needs.e2e.result}}' === 'success'){
+            body = 'CI tests passed'
+          }else{
+            body = 'CI tests canceled'
+          }
+          return body
+
+    - name: answer
+      uses: actions-ecosystem/action-create-comment@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          @${{ github.actor }}, ${{steps.set-answer.outputs.result}}
+

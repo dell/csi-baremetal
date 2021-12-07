@@ -30,7 +30,7 @@ import (
 type FSOperations interface {
 	// PrepareAndPerformMount composite methods which is prepare source and destination directories
 	// and performs mount operation from src to dst
-	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error
+	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error
 	// MountFakeTmpfs does attach of a temporary folder on failure
 	MountFakeTmpfs(volumeID, dst string) error
 	// UnmountWithCheck unmount operation
@@ -58,7 +58,7 @@ func NewFSOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *FSOperation
 // create (if isn't exist) dst folder on node and perform mount from src to dst
 // if bindMount set to true - mount operation will contain "--bind" option
 // if error occurs and dst has created during current method call then dst will be removed
-func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool) error {
+func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error {
 	ll := fsOp.log.WithFields(logrus.Fields{
 		"method": "PrepareAndPerformMount",
 	})
@@ -94,11 +94,13 @@ func (fsOp *FSOperationsImpl) PrepareAndPerformMount(src, dst string, bindMount,
 		}
 	}
 
-	var opts string
+	var bindOpt string
 	if bindMount {
-		opts = fs.BindOption
+		bindOpt = fs.BindOption
 	}
-	if err := fsOp.Mount(src, dst, opts); err != nil {
+
+	strMountOptions := addMountOptions(mountOptions)
+	if err := fsOp.Mount(src, dst, bindOpt, strMountOptions); err != nil {
 		if wasCreated {
 			_ = fsOp.RmDir(dst)
 		}
@@ -213,4 +215,20 @@ func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device st
 	}
 
 	return nil
+}
+
+// Add options to mount command
+// Example: <mount> -o option1,option2 ...
+func addMountOptions(mountOptions []string) (opts string) {
+	if len(mountOptions) > 0 {
+		opts += fs.MountOptionsFlag + " "
+		for i, opt := range mountOptions {
+			opts += opt
+			if i != len(mountOptions)-1 {
+				opts += ","
+			}
+		}
+	}
+
+	return
 }

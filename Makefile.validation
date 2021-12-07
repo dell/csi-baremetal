@@ -47,9 +47,17 @@ test-sanity:
 #	should fail when requesting to create a volume with already existing name and different capacity|\
 #	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
-load-operator-image:
+load-operator-image: pull-operator-image \
+kind-tag-operator-image \
+kind-load-operator-image 
+
+pull-operator-image:
 	docker pull ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
+
+kind-tag-operator-image:	
 	docker tag ${REGISTRY}/${PROJECT}-${OPERATOR}:${OPERATOR_VERSION} ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
+
+kind-load-operator-image:
 	$(KIND) load docker-image ${PROJECT}-${OPERATOR}:${OPERATOR_VERSION}
 
 kind-pull-images: kind-pull-sidecar-images
@@ -138,7 +146,7 @@ kind-install: kind-build
 	kind version
 
 kind-create-cluster:
-	$(KIND) create cluster --config $(KIND_DIR)/kind.yaml --image kindest/node:v1.18.2
+	$(KIND) create cluster --config $(KIND_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
 
 kind-delete-cluster:
 	$(KIND) delete cluster
