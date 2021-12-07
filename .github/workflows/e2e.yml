@@ -17,7 +17,8 @@ env:
   kind_wait: '30s'
 jobs:
   e2e:
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+    # we need to start validation on master push or on /ci comment in PR only
+    if: github.event.issue.pull_request == false || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci'))
     runs-on: ubuntu-20.04
     steps:
     - name: Get operator branch 
@@ -171,7 +172,8 @@ jobs:
 
   result_job:
     needs: e2e
-    if: always() 
+    # answer must be posted on PR with /ci comment only
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
     runs-on: ubuntu-20.04
     steps:
     - name: Create answer body 
