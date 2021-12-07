@@ -46,5 +46,5 @@ WBT is supported only for 4.10 kernel version and above. Link - https://cateee.n
 
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
-ISSUE-1 | Should enable WBT disabling by default for specific kernel version? | We could describe kernel version map, where it is enable  |   |  Kernel version map is not clarify
-ISSUE-1 | Is it correct to switch WBT settings on Stage/UnStage | Other candidates - CreateVolume/DeleteVolume, Publish/UnPublish |   | 
+ISSUE-1 | Should we enable WBT disabling by default for specific kernel version? | We could describe the kernel version map, where it is necessary  |   |  The kernel version map is not clarified
+ISSUE-1 | Is it correct to switch WBT settings on Stage/UnStage? | Other candidates - CreateVolume/DeleteVolume, Publish/UnPublish |   | 
