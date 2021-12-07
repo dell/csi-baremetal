@@ -407,8 +407,9 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 	Context("NodeUnStage() success", func() {
 		It("Should unstage volume", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
-			fsOps.On("UnmountWithCheck",
-				path.Join(req.GetStagingTargetPath(), stagingFileName)).Return(nil)
+			targetPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			fsOps.On("UnmountWithCheck", targetPath).Return(nil)
+			fsOps.On("RmDir", targetPath).Return(nil)
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -486,8 +487,10 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
 			secondUnstageErr := make(chan error)
 			// UnmountWithCheck should only once respond with no error
+			targetPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			fsOps.On("RmDir", targetPath).Return(nil)
 			fsOps.On("UnmountWithCheck",
-				path.Join(req.GetStagingTargetPath(), stagingFileName)).Return(nil).Run(func(_ mock.Arguments) {
+				targetPath).Return(nil).Run(func(_ mock.Arguments) {
 				go func() {
 					_, err := node.NodeUnstageVolume(testCtx, req)
 					secondUnstageErr <- err
