@@ -74,10 +74,11 @@ func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 	}
 }
 
-func InitBaremetalDriver(needAllTests bool) *baremetalDriver {
+// InitBaremetalDriver initialize driver with short-ci flag
+func initBaremetalDriver(needAllTests *bool) *baremetalDriver {
 	return &baremetalDriver{
 		driverInfo:   initBaremetalDriverInfo("csi-baremetal"),
-		needAllTests: needAllTests,
+		needAllTests: *needAllTests,
 	}
 }
 

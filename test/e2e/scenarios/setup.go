@@ -43,7 +43,7 @@ var (
 		testsuites.InitVolumeExpandTestSuite,
 	}
 
-	curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
+	curDriver = initBaremetalDriver(&common.BMDriverTestContext.NeedAllTests)
 	startTime = time.Now()
 )
 
