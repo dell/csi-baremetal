@@ -59,7 +59,7 @@ func Test(t *testing.T) {
 	flag.Parse()
 	framework.AfterReadingAllFlags(&framework.TestContext)
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	junitReporter := reporters.NewJUnitReporter("report.xml")
+	junitReporter := reporters.NewJUnitReporter("reports/report.xml")
 	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "CSI Suite", []ginkgo.Reporter{junitReporter})
 }
 
