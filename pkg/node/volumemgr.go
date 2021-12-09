@@ -19,6 +19,8 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/wbt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -102,6 +104,9 @@ type VolumeManager struct {
 	lvmOps lvm.WrapLVM
 	// uses for running lsblk util
 	listBlk lsblk.WrapLsblk
+	// uses for disable/enable WBT
+	wbtOps wbt.WrapWbt
+	wbtConfig *wbt.WbtConfig
 
 	// uses for searching suitable Available Capacity
 	acProvider common.AvailableCapacityOperations
@@ -201,6 +206,7 @@ func NewVolumeManager(
 	partImpl := ph.NewWrapPartitionImpl(executor, logger)
 	lvm := lvm.NewLVM(executor, logger)
 	fsOps := utilwrappers.NewFSOperationsImpl(executor, logger)
+	wbtOps := wbt.NewWBT(executor)
 
 	vm := &VolumeManager{
 		k8sClient:      k8sClient,
@@ -217,6 +223,7 @@ func NewVolumeManager(
 		lvmOps:                 lvm,
 		listBlk:                lsblk.NewLSBLK(logger),
 		partOps:                partImpl,
+		wbtOps:                 wbtOps,
 		nodeID:                 nodeID,
 		nodeName:               nodeName,
 		log:                    logger.WithField("component", "VolumeManager"),
@@ -1224,5 +1231,74 @@ func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, 
 	} else {
 		m.log.Errorf("Drive %s has health annotation, but value %s is not %s/%s/%s/%s. Health is not overridden.",
 			driveCRName, overriddenHealth, apiV1.HealthGood, apiV1.HealthSuspect, apiV1.HealthBad, apiV1.HealthUnknown)
+	}
+}
+
+func (m *VolumeManager) disableWBT(vol *volumecrd.Volume) error {
+	drive, err := m.crHelper.GetDriveCRByVolume(vol)
+	if err != nil{
+		return err
+	}
+
+	splitedPath := regexp.MustCompile(`[A-Za-z0-9]+`).FindAllString(drive.Spec.Path, -1)
+	if len(splitedPath) != 2 {
+		return fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)
+	}
+	if splitedPath[0] != "dev" {
+		return fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)
+	}
+
+	isWBTEnabled, err := m.wbtOps.IsEnabled(splitedPath[1])
+	if err != nil{
+		return err
+	}
+
+	if !isWBTEnabled {
+		return nil
+	}
+
+	err = m.wbtOps.Disable(splitedPath[1])
+	if err != nil{
+		return err
+	}
+
+	return nil
+}
+
+func (m *VolumeManager) enableWBT(vol *volumecrd.Volume) error {
+	drive, err := m.crHelper.GetDriveCRByVolume(vol)
+	if err != nil{
+		return err
+	}
+
+	splitedPath := regexp.MustCompile(`[A-Za-z0-9]+`).FindAllString(drive.Spec.Path, -1)
+	if len(splitedPath) != 2 {
+		return fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)
+	}
+	if splitedPath[0] != "dev" {
+		return fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)
+	}
+
+	isWBTEnabled, err := m.wbtOps.IsEnabled(splitedPath[1])
+	if err != nil{
+		return err
+	}
+
+	if isWBTEnabled {
+		return nil
+	}
+
+	err = m.wbtOps.Enable(splitedPath[1])
+	if err != nil{
+		return err
+	}
+
+	return nil
+}
+
+func (m *VolumeManager) SetWbtConfig(conf *wbt.WbtConfig) {
+	if !reflect.DeepEqual(&m.wbtConfig, conf) {
+		m.log.Infof("Wbt config changed: %+v", &conf)
+			m.wbtConfig = conf
 	}
 }

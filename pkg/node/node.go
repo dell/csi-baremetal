@@ -168,6 +168,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
+	if req.GetVolumeContext() == nil {
+		return nil, status.Error(codes.InvalidArgument, "Volume Context missing in request")
+	}
 
 	volumeID := req.GetVolumeId()
 	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
@@ -236,6 +239,15 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
 		s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachCleared,
 			"Fake-attach cleared for volume with ID %s", volumeID)
+	}
+
+	if newStatus == apiV1.VolumeReady {
+		if err := s.VolumeManager.disableWBT(volumeCR); err != nil {
+			ll.Errorf("Unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
+			return nil, fmt.Errorf("unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
+		} else {
+			volumeCR.Annotations["WBTDisabled"] = "true"
+		}
 	}
 
 	if currStatus != apiV1.VolumeReady {
@@ -309,6 +321,15 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
 			volumeCR.Spec.CSIStatus = apiV1.Failed
 			resp = nil
+		}
+	}
+
+	if val, ok := volumeCR.Annotations["WBTDisabled"]; ok && val == "true" {
+		if err := s.VolumeManager.enableWBT(volumeCR); err != nil {
+			ll.Errorf("Unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
+			resp, errToReturn = nil, fmt.Errorf("unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
+		} else {
+			delete(volumeCR.Annotations, "WBTDisabled")
 		}
 	}
 
