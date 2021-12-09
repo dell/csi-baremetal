@@ -159,11 +159,17 @@ jobs:
     - name: Make test
       run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}/charts
 
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
+      with:
+        files: test/e2e/reports/report.xml
+
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: report.xml
-        path: test/e2e/report.xml
+        name: e2e_artifacts
+        path: test/e2e/reports/**/*.log
     
     - name: Upload log to artifacts
       uses: actions/upload-artifact@v2.2.1
