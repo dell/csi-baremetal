@@ -36,8 +36,7 @@ import (
 )
 
 type baremetalDriver struct {
-	driverInfo   testsuites.DriverInfo
-	needAllTests bool
+	driverInfo testsuites.DriverInfo
 }
 
 var (
@@ -75,10 +74,9 @@ func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
 }
 
 // InitBaremetalDriver initialize driver with short-ci flag
-func initBaremetalDriver(needAllTests *bool) *baremetalDriver {
+func initBaremetalDriver() *baremetalDriver {
 	return &baremetalDriver{
-		driverInfo:   initBaremetalDriverInfo("csi-baremetal"),
-		needAllTests: *needAllTests,
+		driverInfo: initBaremetalDriverInfo("csi-baremetal"),
 	}
 }
 
@@ -93,7 +91,7 @@ func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
 
 // SkipUnsupportedTest is implementation of TestDriver interface method
 func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
-	if !d.needAllTests {
+	if !common.BMDriverTestContext.NeedAllTests {
 		// Block volume tests takes much time (20+ minutes). They should be skipped in short CI suite
 		if pattern.VolMode == corev1.PersistentVolumeBlock {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
