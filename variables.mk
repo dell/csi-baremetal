@@ -76,7 +76,7 @@ KIND_DIR := test/kind
 KIND     := ${KIND_DIR}/kind
 KIND_VER := 0.8.1
 KIND_CONFIG := kind.yaml
-KIND_IMAGE_VERSION := v1.18.2
+KIND_IMAGE_VERSION := v1.19.11
 KIND_WAIT := 30s 
 
 ### ci vars
