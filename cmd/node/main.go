@@ -21,8 +21,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/linuxutils/wbt"
-	corev1 "k8s.io/api/core/v1"
 	"net"
 	"net/http"
 	"strconv"
@@ -30,6 +28,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -54,6 +53,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
+	"github.com/dell/csi-baremetal/pkg/node/wbt"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -144,7 +144,7 @@ func main() {
 
 	wbtWatcher, err := prepareWbtWatcher(k8SClient, *nodeName, logger)
 	if err != nil {
-		logger.Fatalf("fail to prepare wbt wacther: %v", err)
+		logger.Fatalf("fail to prepare wbt watcher: %v", err)
 	}
 
 	// Wait till all events are sent/handled
@@ -198,6 +198,7 @@ func main() {
 	// wait for readiness
 	waitForVolumeManagerReadiness(csiNodeService, logger)
 
+	// start to updating Wbt Config
 	wbtWatcher.StartWatch(csiNodeService)
 
 	logger.Info("Starting handle CSI calls ...")

@@ -55,6 +55,9 @@ const (
 
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
+
+	wbtChangedVolumeAnnotation = "wbt-changed"
+	wbtChangedVolumeKey        = "yes"
 )
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
@@ -168,9 +171,6 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Stage Path missing in request")
 	}
-	if req.GetVolumeContext() == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume Context missing in request")
-	}
 
 	volumeID := req.GetVolumeId()
 	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
@@ -241,12 +241,13 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
-	if newStatus == apiV1.VolumeReady {
-		if err := s.VolumeManager.disableWBT(volumeCR); err != nil {
-			ll.Errorf("Unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
-			return nil, fmt.Errorf("unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
+	if newStatus == apiV1.VolumeReady && s.VolumeManager.checkWbtChangingEnable(volumeCR) {
+		if err := s.VolumeManager.setWbtValue(volumeCR); err != nil {
+			ll.Errorf("Unable to set custom WBT value for volume %s: %v", volumeCR.Name, err)
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
+				"Unable to set custom WBT value for volume %s", volumeCR.Name)
 		} else {
-			volumeCR.Annotations["WBTDisabled"] = "true"
+			volumeCR.Annotations[wbtChangedVolumeAnnotation] = wbtChangedVolumeKey
 		}
 	}
 
@@ -324,12 +325,12 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		}
 	}
 
-	if val, ok := volumeCR.Annotations["WBTDisabled"]; ok && val == "true" {
-		if err := s.VolumeManager.enableWBT(volumeCR); err != nil {
-			ll.Errorf("Unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
-			resp, errToReturn = nil, fmt.Errorf("unable to disable WBT for drive %s: %v", volumeCR.Spec.Location, err)
-		} else {
-			delete(volumeCR.Annotations, "WBTDisabled")
+	if val, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]; ok && val == wbtChangedVolumeKey {
+		delete(volumeCR.Annotations, wbtChangedVolumeAnnotation)
+		if err := s.VolumeManager.restoreWbtValue(volumeCR); err != nil {
+			ll.Errorf("Unable to restore WBT value for volume %s: %v", volumeCR.Name, err)
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
+				"Unable to restore WBT value for volume %s", volumeCR.Name)
 		}
 	}
 

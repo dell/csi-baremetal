@@ -5,51 +5,42 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/dell/csi-baremetal/pkg/node"
+	"github.com/dell/csi-baremetal/pkg/node/wbt/common"
 )
 
-type WbtConfig struct {
-	Enable        bool   `yaml:"enable"`
-	Value         uint32 `yaml:"wbt_lat_usec_value"`
-	VolumeOptions struct {
-		Modes        []string `yaml:"modes"`
-		StorageTypes []string `yaml:"storage_types"`
-	} `yaml:"acceptable_volume_options"`
-}
-
-type AcceptableKernelsConfig struct {
-	KernelVersions []string `yaml:"node_kernel_versions"`
-}
-
 const (
-	confPath = "/config.yaml"
-	kernelsPath = "/acceptable_kernels.yaml"
+	confPath    = "/etc/wbt_config/config.yaml"
+	kernelsPath = "/etc/wbt_config/acceptable_kernels.yaml"
 
 	watchTimeout = 60 * time.Second
 )
 
+// ConfWatcher is watcher to update WBT changing configuration in VolumeManager
 type ConfWatcher struct {
 	log               *logrus.Entry
 	nodeKernelVersion string
 }
 
+// NewConfWatcher create new WBT Config Watcher with node kernel version
 func NewConfWatcher(log *logrus.Entry, nodeKernelVersion string) *ConfWatcher {
 	return &ConfWatcher{
 		log:               log,
 		nodeKernelVersion: nodeKernelVersion,
-
 	}
 }
 
+// StartWatch tries to read Config for WBT changing from ConfigMap
+// Set conf in VolumeManager if success
 func (w *ConfWatcher) StartWatch(cns *node.CSINodeService) {
 	go func() {
 		for {
 			wbtConf, err := w.readConfig()
 			if err != nil {
 				w.log.Errorf("unable to read WBT config: %+v", err)
-				cns.SetWbtConfig(&WbtConfig{Enable: false})
+				cns.SetWbtConfig(&common.WbtConfig{Enable: false})
 			} else {
 				cns.SetWbtConfig(wbtConf)
 			}
@@ -58,8 +49,8 @@ func (w *ConfWatcher) StartWatch(cns *node.CSINodeService) {
 	}()
 }
 
-func (w *ConfWatcher) readConfig() (*WbtConfig, error) {
-	kernels := &AcceptableKernelsConfig{}
+func (w *ConfWatcher) readConfig() (*common.WbtConfig, error) {
+	kernels := &common.AcceptableKernelsConfig{}
 	kernelsFile, err := ioutil.ReadFile(kernelsPath)
 	if err != nil {
 		return nil, err
@@ -69,7 +60,7 @@ func (w *ConfWatcher) readConfig() (*WbtConfig, error) {
 		return nil, err
 	}
 
-	conf := &WbtConfig{}
+	conf := &common.WbtConfig{}
 	confFile, err := ioutil.ReadFile(confPath)
 	if err != nil {
 		return nil, err
@@ -92,4 +83,3 @@ func (w *ConfWatcher) readConfig() (*WbtConfig, error) {
 
 	return conf, nil
 }
-
