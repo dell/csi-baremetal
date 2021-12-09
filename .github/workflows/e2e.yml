@@ -92,6 +92,7 @@ jobs:
       with:
         go-version: ${{env.go_version}}
 
+
     - name: Install helm
       uses: azure/setup-helm@v1
       with:
