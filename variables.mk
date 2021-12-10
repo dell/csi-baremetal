@@ -22,7 +22,7 @@ TAG              := ${FULL_VERSION}
 BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 
 ### third-party components version
-CSI_PROVISIONER_TAG := v1.6.0
+CSI_PROVISIONER_TAG := v3.0.0
 CSI_RESIZER_TAG     := v1.1.0
 CSI_REGISTRAR_TAG   := v1.3.0
 LIVENESS_PROBE_TAG  := v2.1.0
@@ -76,7 +76,7 @@ KIND_DIR := test/kind
 KIND     := ${KIND_DIR}/kind
 KIND_VER := 0.11.1
 KIND_CONFIG := kind.yaml
-KIND_IMAGE_VERSION := v1.18.2
+KIND_IMAGE_VERSION := v1.19.11
 KIND_WAIT := 30s 
 
 ### ci vars
