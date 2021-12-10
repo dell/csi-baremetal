@@ -1305,6 +1305,7 @@ func (m *VolumeManager) findDeviceName(vol *volumecrd.Volume) (string, error) {
 		return "", err
 	}
 
+	// expected device path - /dev/<device>
 	splitedPath := regexp.MustCompile(`[A-Za-z0-9]+`).FindAllString(drive.Spec.Path, -1)
 	if len(splitedPath) != 2 {
 		return "", fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)

@@ -33,7 +33,7 @@ const (
 	restoreWbtValueCmd = "echo -1 > " + wbtValuePath
 	// disableWBTCmdImpl is a CMD to check current WBT value
 	setWbtValueCmd = "echo %d > " + wbtValuePath
-	//
+	// exec cmd via sh
 	defaultShellCmd = "sh"
 	shellCmdOption  = "-c"
 
