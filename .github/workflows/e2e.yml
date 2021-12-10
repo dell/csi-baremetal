@@ -13,11 +13,11 @@ env:
   helm_version: '3.7.1'
   kubectl_version: 'v1.22.2'
   kind_config: 'small-kind.yaml'
-  kind_image: 'v1.19.11'
   kind_wait: '30s'
 jobs:
   e2e:
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+    # we need to start validation on master push or on /ci comment in PR only
+    if: github.event.issue.pull_request == false || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci'))
     runs-on: ubuntu-20.04
     steps:
     - name: Get operator branch 
@@ -66,6 +66,8 @@ jobs:
           return body
 
     - name: Send message
+      # don't send on push to master
+      if: github.event.issue.pull_request
       uses: actions-ecosystem/action-create-comment@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -80,7 +82,7 @@ jobs:
     - name: Set environment variables
       run: |
         echo "CSI_BAREMETAL_DIR=$RUNNER_WORKSPACE/csi-baremetal/" >> $GITHUB_ENV
-        echo "CSI_BAREMETAL_OPERATOR_DIR=$RUNNER_WORKSPACE/csi-baremetal/csi-baremetal-operator/" >> $GITHUB_ENV
+        echo "CSI_BAREMETAL_OPERATOR_DIR=$RUNNER_WORKSPACE/csi-baremetal/csi-baremetal-operator" >> $GITHUB_ENV
 
     - name: LVM2 install
       run: sudo apt-get install -y lvm2
@@ -135,7 +137,7 @@ jobs:
       run: |
         cd ${{env.CSI_BAREMETAL_DIR}}
         make kind-build KIND_VER=0.11.1
-        make kind-create-cluster KIND_CONFIG=${{env.kind_config}} KIND_IMAGE_VERSION=${{env.kind_image}} KIND_WAIT=${{env.kind_wait}}
+        make kind-create-cluster KIND_CONFIG=${{env.kind_config}} KIND_WAIT=${{env.kind_wait}}
         kubectl cluster-info --context kind-kind
         kubectl get pods -o wide --all-namespaces 
         echo "current-context:" $(kubectl config current-context)
@@ -155,7 +157,7 @@ jobs:
         make kind-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION 
 
     - name: Make test
-      run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}charts
+      run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}/charts
 
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
@@ -171,7 +173,8 @@ jobs:
 
   result_job:
     needs: e2e
-    if: always() 
+    # answer must be posted on PR with /ci comment only
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
     runs-on: ubuntu-20.04
     steps:
     - name: Create answer body 
