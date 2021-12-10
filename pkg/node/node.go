@@ -319,7 +319,13 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	)
 
 	if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
-		if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
+		targetPath := getStagingPath(ll, req.GetStagingTargetPath())
+		errToReturn = s.fsOps.UnmountWithCheck(targetPath)
+		if errToReturn == nil {
+			errToReturn = s.fsOps.RmDir(targetPath)
+		}
+
+		if errToReturn != nil {
 			volumeCR.Spec.CSIStatus = apiV1.Failed
 			resp = nil
 		}
