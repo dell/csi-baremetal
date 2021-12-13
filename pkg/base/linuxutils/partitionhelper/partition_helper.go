@@ -56,19 +56,23 @@ const (
 	sgdisk = "sgdisk "
 	// fdiks is a name of system util
 	fdisk = "fdisk "
+	// blockdev is a name of system util
+	blockdev = "blockdev "
 
 	// PartprobeDeviceCmdTmpl check that device has partition cmd
 	PartprobeDeviceCmdTmpl = partprobe + "-d -s %s"
 	// PartprobeCmdTmpl check device has partition with partprobe cmd
 	PartprobeCmdTmpl = partprobe + "%s"
+	// BlockdevCmdTmpl synchronize the partition table
+	BlockdevCmdTmpl = blockdev + "--rereadpt -v %s"
 
 	// CreatePartitionTableCmdTmpl create partition table on provided device of provided type cmd template
 	// fill device and partition table type
 	CreatePartitionTableCmdTmpl = parted + "-s %s mklabel %s"
 	// CreatePartitionCmdTmpl create partition on provided device cmd template, fill device and partition label
-	CreatePartitionCmdTmpl = parted + "-s %s mkpart --align optimal %s 0%% 100%%"
+	CreatePartitionCmdTmpl = sgdisk + "-a1 -n 1:34:0 -c 1:%s %s"
 	// DeletePartitionCmdTmpl delete partition from provided device cmd template, fill device and partition number
-	DeletePartitionCmdTmpl = parted + "-s %s rm %s"
+	DeletePartitionCmdTmpl = sgdisk + "-d %s %s"
 
 	// DetectPartitionTableCmdTmpl is used to print information, which contain partition table
 	DetectPartitionTableCmdTmpl = fdisk + "--list %s"
@@ -176,7 +180,7 @@ func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error)
 // Receives device path to create a partition
 // Returns error if something went wrong
 func (p *WrapPartitionImpl) CreatePartition(device, label string) error {
-	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, device, label)
+	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, label, device)
 
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd,
@@ -195,7 +199,7 @@ func (p *WrapPartitionImpl) CreatePartition(device, label string) error {
 // Receives device path and it's partition which should be deleted
 // Returns error if something went wrong
 func (p *WrapPartitionImpl) DeletePartition(device, partNum string) error {
-	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, device, partNum)
+	cmd := fmt.Sprintf(DeletePartitionCmdTmpl, partNum, device)
 
 	p.opMutex.Lock()
 	_, stderr, err := p.e.RunCmd(cmd,
@@ -268,7 +272,7 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 // Receives device path to sync with partprobe, device could be an empty string (sync for all devices in the system)
 // Returns error if something went wrong
 func (p *WrapPartitionImpl) SyncPartitionTable(device string) error {
-	cmd := fmt.Sprintf(PartprobeCmdTmpl, device)
+	cmd := fmt.Sprintf(BlockdevCmdTmpl, device)
 
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd,
