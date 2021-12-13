@@ -1304,6 +1304,9 @@ func (m *VolumeManager) findDeviceName(vol *volumecrd.Volume) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if drive == nil {
+		return "", fmt.Errorf("drive %s is not found", vol.Spec.Location)
+	}
 
 	// expected device path - /dev/<device>
 	splitedPath := regexp.MustCompile(`[A-Za-z0-9]+`).FindAllString(drive.Spec.Path, -1)

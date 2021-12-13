@@ -51,6 +51,7 @@ import (
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
+	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 )
 
 // TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
@@ -1280,6 +1281,314 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 		err = vm.k8sClient.ReadCR(testCtx, testDriveCR.Name, "", newDrive)
 		assert.Nil(t, err)
 		assert.Equal(t, true, newDrive.Spec.IsClean)
+	})
+}
+
+func TestVolumeManager_WbtConfiguration(t *testing.T) {
+	// setWbtValue UT
+	t.Run("setWbtValue: success", func(t *testing.T) {
+		var (
+			testVol          = volCR.DeepCopy()
+			testDrive        = testDriveCR.DeepCopy()
+			wbtValue  uint32 = 0
+			mockWbt          = &mocklu.MockWrapWbt{}
+			device           = "sda" //testDrive.Spec.Path = "/dev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+		vm.wbtConfig = &wbtcommon.WbtConfig{Value: wbtValue}
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("SetValue", device, wbtValue).Return(nil)
+
+		err = vm.setWbtValue(testVol)
+		assert.Nil(t, err)
+	})
+	t.Run("setWbtValue: findDeviceName failed", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = "/dev"
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		err = vm.setWbtValue(testVol)
+		assert.NotNil(t, err)
+	})
+	t.Run("setWbtValue: wbtOps.SetValue failed", func(t *testing.T) {
+		var (
+			testVol          = volCR.DeepCopy()
+			testDrive        = testDriveCR.DeepCopy()
+			wbtValue  uint32 = 0
+			mockWbt          = &mocklu.MockWrapWbt{}
+			device           = "sda" //testDrive.Spec.Path = "/dev/sda"
+			mockErr          = fmt.Errorf("some error")
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+		vm.wbtConfig = &wbtcommon.WbtConfig{Value: wbtValue}
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("SetValue", device, wbtValue).Return(mockErr)
+
+		err = vm.setWbtValue(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, mockErr, err)
+	})
+
+	// restoreWbtValue UT
+	t.Run("restoreWbtValue: success", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+			mockWbt   = &mocklu.MockWrapWbt{}
+			device    = "sda" //testDrive.Spec.Path = "/dev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("RestoreDefault", device).Return(nil)
+
+		err = vm.restoreWbtValue(testVol)
+		assert.Nil(t, err)
+	})
+	t.Run("restoreWbtValue: findDeviceName failed", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = "/dev"
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		err = vm.restoreWbtValue(testVol)
+		assert.NotNil(t, err)
+	})
+	t.Run("restoreWbtValue: wbtOps.RestoreDefault failed", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+			mockWbt   = &mocklu.MockWrapWbt{}
+			device    = "sda" //testDrive.Spec.Path = "/dev/sda"
+			mockErr   = fmt.Errorf("some error")
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("RestoreDefault", device).Return(mockErr)
+
+		err = vm.restoreWbtValue(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, mockErr, err)
+	})
+
+	// checkWbtChangingEnable
+	t.Run("checkWbtChangingEnable: success", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			volumeSC   = apiV1.StorageClassHDD
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:        []string{volumeMode},
+					StorageTypes: []string{volumeSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		result := vm.checkWbtChangingEnable(testVol)
+		assert.True(t, result)
+	})
+	t.Run("checkWbtChangingEnable: wbtConf is nil", func(t *testing.T) {
+		var (
+			testVol = volCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = nil
+
+		result := vm.checkWbtChangingEnable(testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: wbt disabled", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			volumeSC   = apiV1.StorageClassHDD
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: false,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:        []string{volumeMode},
+					StorageTypes: []string{volumeSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		result := vm.checkWbtChangingEnable(testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: success", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			wrongMode = apiV1.ModeRAW
+			volumeSC  = apiV1.StorageClassHDD
+			wbtConf   = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:        []string{wrongMode},
+					StorageTypes: []string{volumeSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		result := vm.checkWbtChangingEnable(testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: success", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			wrongSC    = apiV1.StorageClassHDDLVG
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:        []string{volumeMode},
+					StorageTypes: []string{wrongSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		result := vm.checkWbtChangingEnable(testVol)
+		assert.False(t, result)
+	})
+
+	// findDeviceName
+	t.Run("findDeviceName: success", func(t *testing.T) {
+		var (
+			testVol        = volCR.DeepCopy()
+			testDrive      = testDriveCR.DeepCopy()
+			expectedDevice = "sda" //testDrive.Spec.Path = "/dev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedDevice, device)
+	})
+	t.Run("findDeviceName: GetDriveCRByVolume failed", func(t *testing.T) {
+		var (
+			testVol = volCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testVol.Spec.LocationType = apiV1.LocationTypeLVM
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+	t.Run("findDeviceName: GetDriveCRByVolume failed", func(t *testing.T) {
+		var (
+			testVol = volCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+	t.Run("findDeviceName: regexp failed", func(t *testing.T) {
+		var (
+			testVol     = volCR.DeepCopy()
+			testDrive   = testDriveCR.DeepCopy()
+			wrongDevice = "/dev/"
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = wrongDevice
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+	t.Run("findDeviceName: regexp failed", func(t *testing.T) {
+		var (
+			testVol     = volCR.DeepCopy()
+			testDrive   = testDriveCR.DeepCopy()
+			wrongDevice = "/nodev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = wrongDevice
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+
+	// SetWbtConfig UT
+	t.Run("SetWbtConfig: success", func(t *testing.T) {
+		var (
+			volumeMode = apiV1.ModeFS
+			volumeSC   = apiV1.StorageClassHDD
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:        []string{volumeMode},
+					StorageTypes: []string{volumeSC},
+				},
+			}
+		)
+
+		// nil
+		vm := prepareSuccessVolumeManager(t)
+		vm.SetWbtConfig(wbtConf)
+		assert.Equal(t, wbtConf, vm.wbtConfig)
+
+		// changed
+		changedWbtConf := &wbtcommon.WbtConfig{
+			Enable: true,
+			VolumeOptions: wbtcommon.VolumeOptions{
+				Modes:        []string{volumeMode},
+				StorageTypes: []string{volumeSC},
+			},
+		}
+		vm.SetWbtConfig(changedWbtConf)
+		assert.Equal(t, changedWbtConf, vm.wbtConfig)
 	})
 }
 
