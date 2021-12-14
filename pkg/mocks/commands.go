@@ -79,7 +79,7 @@ var DiskCommands = map[string]CmdOut{
 		Err:    nil,
 	},
 	"parted -s /dev/sdb rm 1": EmptyOutFail,
-	"sgdisk -a1 -n 1:34:0 -c 1:CSI /dev/sde": {
+	"sgdisk -a1 -n 1:34:0 -c 1:CSI -u 1:64be631b-62a5-11e9-a756-00505680d67f /dev/sde": {
 		Stdout: `Creating new GPT entries.
 Setting name!
 partNum is 0
