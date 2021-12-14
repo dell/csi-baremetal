@@ -204,4 +204,9 @@ var (
 		severity:    WarningType,
 		symptomCode: NoneSymptomCode,
 	}
+	WBTConfigMapUpdateFailed = &EventDescription{
+		reason:      "WBTConfigMapUpdateFailed",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
 )

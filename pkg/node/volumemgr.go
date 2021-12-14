@@ -1191,13 +1191,13 @@ func (m *VolumeManager) changeDriveIsCleanField(drive *drivecrd.Drive, clean boo
 	}
 }
 
-func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
+func (m *VolumeManager) getPVCForVolume(volumeID string) (*corev1.PersistentVolumeClaim, error) {
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeID)
 
 	pv := &corev1.PersistentVolume{}
 	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: volumeID}, pv); err != nil {
 		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
-		return false
+		return nil, err
 	}
 
 	pvcName := pv.Spec.ClaimRef.Name
@@ -1206,10 +1206,19 @@ func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: pvcName, Namespace: pvcNamespace}, pvc); err != nil {
 		m.log.Errorf("Failed to get Persistent Volume Claim %s in namespace %s: %v", pvcName, pvcNamespace, err)
-		return false
+		return nil, err
 	}
 
 	m.log.Debugf("PVC %s/%s was found for PV with ID - %s", pvc.Namespace, pvc.Name, pv.Name)
+	return pvc, nil
+}
+
+func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
+	pvc, err := m.getPVCForVolume(volumeID)
+	if err != nil {
+		m.log.Errorf("Failed to get Persistent Volume Claim for Volume %s: %+v", volumeID, err)
+		return false
+	}
 
 	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
 		return true
@@ -1263,7 +1272,7 @@ func (m *VolumeManager) restoreWbtValue(vol *volumecrd.Volume) error {
 	return nil
 }
 
-func (m *VolumeManager) checkWbtChangingEnable(vol *volumecrd.Volume) bool {
+func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
 	if m.wbtConfig == nil {
 		return false
 	}
@@ -1284,15 +1293,23 @@ func (m *VolumeManager) checkWbtChangingEnable(vol *volumecrd.Volume) bool {
 		return false
 	}
 
+	volumeID := vol.Name
+	pv := &corev1.PersistentVolume{}
+	if err := m.k8sClient.Get(ctx, k8sCl.ObjectKey{Name: volumeID}, pv); err != nil {
+		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
+		return false
+	}
+	volSC := pv.Spec.StorageClassName
+
 	isSCAcceptable := false
-	for _, sc := range m.wbtConfig.VolumeOptions.StorageTypes {
-		if sc == vol.Spec.StorageClass {
+	for _, sc := range m.wbtConfig.VolumeOptions.StorageClasses {
+		if sc == volSC {
 			isSCAcceptable = true
 			break
 		}
 	}
 	if !isSCAcceptable {
-		m.log.Infof("Skip wbt value changing: volume %s has sc %s, acceptable: %v", vol.Name, vol.Spec.StorageClass, m.wbtConfig.VolumeOptions.StorageTypes)
+		m.log.Infof("Skip wbt value changing: volume %s has sc %s, acceptable: %v", vol.Name, vol.Spec.StorageClass, m.wbtConfig.VolumeOptions.StorageClasses)
 		return false
 	}
 

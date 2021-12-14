@@ -241,7 +241,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
-	if newStatus == apiV1.VolumeReady && s.VolumeManager.checkWbtChangingEnable(volumeCR) {
+	if newStatus == apiV1.VolumeReady && s.VolumeManager.checkWbtChangingEnable(ctx, volumeCR) {
 		if err := s.VolumeManager.setWbtValue(volumeCR); err != nil {
 			ll.Errorf("Unable to set custom WBT value for volume %s: %v", volumeCR.Name, err)
 			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,

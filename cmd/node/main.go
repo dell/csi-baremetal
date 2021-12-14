@@ -142,7 +142,7 @@ func main() {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
 
-	wbtWatcher, err := prepareWbtWatcher(k8SClient, *nodeName, logger)
+	wbtWatcher, err := prepareWbtWatcher(k8SClient, eventRecorder, *nodeName, logger)
 	if err != nil {
 		logger.Fatalf("fail to prepare wbt watcher: %v", err)
 	}
@@ -340,9 +340,9 @@ func prepareEventRecorder(nodeName string, logger *logrus.Logger) (*events.Recor
 	return eventRecorder, nil
 }
 
-func prepareWbtWatcher(k8SClient k8sClient.Client, nodeName string, logger *logrus.Logger) (*wbt.ConfWatcher, error) {
+func prepareWbtWatcher(client k8sClient.Client, eventsRecorder *events.Recorder, nodeName string, logger *logrus.Logger) (*wbt.ConfWatcher, error) {
 	k8sNode := &corev1.Node{}
-	err := k8SClient.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, k8sNode)
+	err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, k8sNode)
 	if err != nil {
 		return nil, err
 	}
@@ -350,5 +350,5 @@ func prepareWbtWatcher(k8SClient k8sClient.Client, nodeName string, logger *logr
 	nodeKernel := k8sNode.Status.NodeInfo.KernelVersion
 	ll := logger.WithField("componentName", "WbtWatcher")
 
-	return wbt.NewConfWatcher(ll, nodeKernel), nil
+	return wbt.NewConfWatcher(client, eventsRecorder, ll, nodeKernel), nil
 }
