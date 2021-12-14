@@ -35,7 +35,7 @@ type WrapPartition interface {
 	IsPartitionExists(device, partNum string) (exists bool, err error)
 	GetPartitionTableType(device string) (ptType string, err error)
 	CreatePartitionTable(device, partTableType string) (err error)
-	CreatePartition(device, label string) (err error)
+	CreatePartition(device, label, partUUID string, setUUID bool) (err error)
 	DeletePartition(device, partNum string) (err error)
 	SetPartitionUUID(device, partNum, partUUID string) error
 	GetPartitionUUID(device, partNum string) (string, error)
@@ -70,7 +70,8 @@ const (
 	// fill device and partition table type
 	CreatePartitionTableCmdTmpl = parted + "-s %s mklabel %s"
 	// CreatePartitionCmdTmpl create partition on provided device cmd template, fill device and partition label
-	CreatePartitionCmdTmpl = sgdisk + "-a1 -n 1:34:0 -c 1:%s %s"
+	CreatePartitionCmdTmpl         = sgdisk + "-a1 -n 1:34:0 -c 1:%s %s"
+	CreatePartitionCmdWithUUIDTmpl = sgdisk + "-a1 -n 1:34:0 -c 1:%s -u 1:%s %s"
 	// DeletePartitionCmdTmpl delete partition from provided device cmd template, fill device and partition number
 	DeletePartitionCmdTmpl = sgdisk + "-d %s %s"
 
@@ -179,8 +180,14 @@ func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error)
 // CreatePartition creates partition with name partName on a device
 // Receives device path to create a partition
 // Returns error if something went wrong
-func (p *WrapPartitionImpl) CreatePartition(device, label string) error {
-	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, label, device)
+func (p *WrapPartitionImpl) CreatePartition(device, label, partUUID string, setUUID bool) error {
+	var cmd string
+	switch setUUID {
+	case true:
+		cmd = fmt.Sprintf(CreatePartitionCmdWithUUIDTmpl, label, partUUID, device)
+	default:
+		cmd = fmt.Sprintf(CreatePartitionCmdTmpl, label, device)
+	}
 
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd,
