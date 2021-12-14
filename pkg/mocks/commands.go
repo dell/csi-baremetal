@@ -57,9 +57,9 @@ var DiskCommands = map[string]CmdOut{
 		Stderr: "",
 		Err:    errors.New("unable to check partition existence for /dev/sdd"),
 	},
-	"partprobe -d -s /dev/sde": EmptyOutSuccess,
+	"partprobe -d -s /dev/sde":        EmptyOutSuccess,
 	"blockdev --rereadpt -v /dev/sde": EmptyOutSuccess,
-	"partprobe /dev/sda":       EmptyOutSuccess,
+	"partprobe /dev/sda":              EmptyOutSuccess,
 	"partprobe -d -s /dev/sdqwe": {
 		Stdout: "",
 		Stderr: "",
@@ -72,13 +72,13 @@ var DiskCommands = map[string]CmdOut{
 		Stderr: "",
 		Err:    errors.New("unable to create partition table"),
 	},
-	"parted -s /dev/sdc mklabel gpt":                        EmptyOutSuccess,
+	"parted -s /dev/sdc mklabel gpt": EmptyOutSuccess,
 	"sgdisk -d 1 /dev/sda": {
 		Stdout: "The operation has completed successfully.",
 		Stderr: "",
 		Err:    nil,
 	},
-	"parted -s /dev/sdb rm 1":                               EmptyOutFail,
+	"parted -s /dev/sdb rm 1": EmptyOutFail,
 	"sgdisk -a1 -n 1:34:0 -c 1:CSI /dev/sde": {
 		Stdout: `Creating new GPT entries.
 Setting name!
