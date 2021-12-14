@@ -46,7 +46,7 @@ data:
 #### Node Part
 
 - Node Stage ->
- 1. Check WBT ConfigMap
+ 1. Check WBT configuration
  2. Scan current value (`cat /sys/block/<drive>/queue/wbt_lat_usec`)
  3. Set passed one, if it's not equal (`echo <value> > /sys/block/<drive>/queue/wbt_lat_usec`)
  4. Add `wbt-changed=yes` annotation on Volume
@@ -54,7 +54,7 @@ data:
 
 - Node UnStage ->
 1. Check `wbt-changed=yes` annotation on Volume
-2. Restore default (`echo "-1" > /sys/block/<drive>/queue/wbt_lat_usec`)
+2. Restore default (`echo "-1" > /sys/block/<drive>/queue/wbt_lat_usec`) (It was performed even if unmount/removeDir errors)
 3. Delete annotation
 4. Send `WBTValueRestoreFailed` Event if error
 
@@ -71,4 +71,4 @@ WBT is supported only for 4.10 kernel version and above. Link - https://cateee.n
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
 ISSUE-1 | Should we enable WBT disabling by default for specific kernel version? | We could describe the kernel version map, where it is necessary  |   |  The kernel version map is not clarified
-ISSUE-2 | Is it correct to switch WBT settings on Stage/UnStage? | Other candidates - CreateVolume/DeleteVolume, Publish/UnPublish |   | 
+ISSUE-2 | Is it correct to switch WBT settings on Stage/UnStage? | Other candidates - CreateVolume/DeleteVolume, Publish/UnPublish | RESOLVED  | In Create/DeleteVolume case settings won't be persisted on node reboot. When volume is shared across the pods you will have to manipulate WBT multiple times on PublishVolume

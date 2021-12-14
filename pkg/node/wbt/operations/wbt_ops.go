@@ -25,6 +25,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
+// TODO - remove cat and echo usage (https://github.com/dell/csi-baremetal/issues/653)
 const (
 	wbtValuePath = "/sys/block/%s/queue/wbt_lat_usec"
 	// isWBTEnabledCmdImpl is a CMD to check current WBT value
