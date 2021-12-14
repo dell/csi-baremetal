@@ -842,17 +842,18 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 				Return(nil)
 
 			var (
-				volumeMode = ""
-				volumeSC   = "csi-baremetal-sc-hdd"
-				wbtConf    = &wbtcommon.WbtConfig{
+				volumeMode        = ""
+				volumeSC          = "csi-baremetal-sc-hdd"
+				wbtValue   uint32 = 0
+				wbtConf           = &wbtcommon.WbtConfig{
 					Enable: true,
+					Value:  wbtValue,
 					VolumeOptions: wbtcommon.VolumeOptions{
 						Modes:          []string{volumeMode},
 						StorageClasses: []string{volumeSC},
 					},
 				}
-				wbtValue uint32 = 0
-				device          = "sda" //testDrive.Spec.Path = "/dev/sda"
+				device = "sda" //testDrive.Spec.Path = "/dev/sda"
 			)
 			node.SetWbtConfig(wbtConf)
 			wbtOps.On("SetValue", device, wbtValue).Return(nil)
