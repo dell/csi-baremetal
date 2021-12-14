@@ -1309,7 +1309,7 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 		}
 	}
 	if !isSCAcceptable {
-		m.log.Infof("Skip wbt value changing: volume %s has sc %s, acceptable: %v", vol.Name, vol.Spec.StorageClass, m.wbtConfig.VolumeOptions.StorageClasses)
+		m.log.Infof("Skip wbt value changing: volume %s has sc %s, acceptable: %v", vol.Name, volSC, m.wbtConfig.VolumeOptions.StorageClasses)
 		return false
 	}
 
