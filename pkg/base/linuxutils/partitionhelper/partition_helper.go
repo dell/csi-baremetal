@@ -71,6 +71,7 @@ const (
 	CreatePartitionTableCmdTmpl = parted + "-s %s mklabel %s"
 	// CreatePartitionCmdTmpl create partition on provided device cmd template, fill device and partition label
 	CreatePartitionCmdTmpl         = sgdisk + "-a1 -n 1:34:0 -c 1:%s %s"
+	// CreatePartitionCmdWithUUIDTmpl create partition on provided device with uuid cmd template, fill device and partition label
 	CreatePartitionCmdWithUUIDTmpl = sgdisk + "-a1 -n 1:34:0 -c 1:%s -u 1:%s %s"
 	// DeletePartitionCmdTmpl delete partition from provided device cmd template, fill device and partition number
 	DeletePartitionCmdTmpl = sgdisk + "-d %s %s"
@@ -318,6 +319,7 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 
 	// try to find partition name
 	for _, id := range blockdevices[0].Children {
+		fmt.Println("id", id)
 		// ignore cases
 		if strings.EqualFold(partUUID, id.PartUUID) {
 			// partition name not detected
