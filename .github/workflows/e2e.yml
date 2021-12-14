@@ -136,7 +136,7 @@ jobs:
     - name: Kind preparation
       run: |
         cd ${{env.CSI_BAREMETAL_DIR}}
-        make kind-build KIND_VER=0.11.1
+        make kind-build
         make kind-create-cluster KIND_CONFIG=${{env.kind_config}} KIND_WAIT=${{env.kind_wait}}
         kubectl cluster-info --context kind-kind
         kubectl get pods -o wide --all-namespaces 
