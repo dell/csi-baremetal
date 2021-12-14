@@ -193,4 +193,20 @@ var (
 		severity:    ErrorType,
 		symptomCode: NoneSymptomCode,
 	}
+
+	WBTValueSetFailed = &EventDescription{
+		reason:      "WBTValueSetFailed",
+		severity:    ErrorType,
+		symptomCode: NoneSymptomCode,
+	}
+	WBTValueRestoreFailed = &EventDescription{
+		reason:      "WBTValueRestoreFailed",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
+	WBTConfigMapUpdateFailed = &EventDescription{
+		reason:      "WBTConfigMapUpdateFailed",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
 )
