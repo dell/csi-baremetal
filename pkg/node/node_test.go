@@ -846,12 +846,12 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 
 			var (
 				volumeMode = ""
-				volumeSC   = apiV1.StorageClassHDD
+				volumeSC   = "csi-baremetal-sc-hdd"
 				wbtConf    = &wbtcommon.WbtConfig{
 					Enable: true,
 					VolumeOptions: wbtcommon.VolumeOptions{
-						Modes:        []string{volumeMode},
-						StorageTypes: []string{volumeSC},
+						Modes:          []string{volumeMode},
+						StorageClasses: []string{volumeSC},
 					},
 				}
 				wbtValue uint32 = 0
@@ -859,6 +859,12 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			)
 			node.SetWbtConfig(wbtConf)
 			wbtOps.On("SetValue", device, wbtValue).Return(nil)
+
+			pv := &corev1.PersistentVolume{}
+			pv.Name = testVolume2.Id
+			pv.Spec.StorageClassName = volumeSC
+			err := node.k8sClient.Create(testCtx, pv)
+			Expect(err).To(BeNil())
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -881,12 +887,12 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 
 			var (
 				volumeMode = ""
-				volumeSC   = apiV1.StorageClassHDD
+				volumeSC   = "csi-baremetal-sc-hdd"
 				wbtConf    = &wbtcommon.WbtConfig{
 					Enable: true,
 					VolumeOptions: wbtcommon.VolumeOptions{
-						Modes:        []string{volumeMode},
-						StorageTypes: []string{volumeSC},
+						Modes:          []string{volumeMode},
+						StorageClasses: []string{volumeSC},
 					},
 				}
 				wbtValue uint32 = 0
@@ -895,6 +901,12 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			)
 			node.SetWbtConfig(wbtConf)
 			wbtOps.On("SetValue", device, wbtValue).Return(someErr)
+
+			pv := &corev1.PersistentVolume{}
+			pv.Name = testVolume2.Id
+			pv.Spec.StorageClassName = volumeSC
+			err := node.k8sClient.Create(testCtx, pv)
+			Expect(err).To(BeNil())
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())

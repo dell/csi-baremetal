@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"sync"
 	"testing"
@@ -1404,19 +1405,25 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		var (
 			testVol    = volCR.DeepCopy()
 			volumeMode = apiV1.ModeFS
-			volumeSC   = apiV1.StorageClassHDD
+			volumeSC   = "csi-baremetal-sc-hdd"
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:        []string{volumeMode},
-					StorageTypes: []string{volumeSC},
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{volumeSC},
 				},
 			}
 		)
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = wbtConf
 
-		result := vm.checkWbtChangingEnable(testVol)
+		pv := &corev1.PersistentVolume{}
+		pv.Name = testVol.Name
+		pv.Spec.StorageClassName = volumeSC
+		err := vm.k8sClient.Create(testCtx, pv)
+		assert.Nil(t, err)
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
 		assert.True(t, result)
 	})
 	t.Run("checkWbtChangingEnable: wbtConf is nil", func(t *testing.T) {
@@ -1426,64 +1433,97 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = nil
 
-		result := vm.checkWbtChangingEnable(testVol)
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
 	t.Run("checkWbtChangingEnable: wbt disabled", func(t *testing.T) {
 		var (
 			testVol    = volCR.DeepCopy()
 			volumeMode = apiV1.ModeFS
-			volumeSC   = apiV1.StorageClassHDD
+			volumeSC   = "csi-baremetal-sc-hdd"
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: false,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:        []string{volumeMode},
-					StorageTypes: []string{volumeSC},
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{volumeSC},
 				},
 			}
 		)
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = wbtConf
 
-		result := vm.checkWbtChangingEnable(testVol)
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
-	t.Run("checkWbtChangingEnable: success", func(t *testing.T) {
+	t.Run("checkWbtChangingEnable: wrong Mode", func(t *testing.T) {
 		var (
 			testVol   = volCR.DeepCopy()
 			wrongMode = apiV1.ModeRAW
-			volumeSC  = apiV1.StorageClassHDD
+			volumeSC  = "csi-baremetal-sc-hdd"
 			wbtConf   = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:        []string{wrongMode},
-					StorageTypes: []string{volumeSC},
+					Modes:          []string{wrongMode},
+					StorageClasses: []string{volumeSC},
 				},
 			}
 		)
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = wbtConf
 
-		result := vm.checkWbtChangingEnable(testVol)
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
-	t.Run("checkWbtChangingEnable: success", func(t *testing.T) {
+	t.Run("checkWbtChangingEnable: wrong SC", func(t *testing.T) {
 		var (
 			testVol    = volCR.DeepCopy()
 			volumeMode = apiV1.ModeFS
-			wrongSC    = apiV1.StorageClassHDDLVG
+			volumeSC   = "csi-baremetal-sc-hdd"
+			wrongSC    = "csi-baremetal-sc-hddlvg"
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:        []string{volumeMode},
-					StorageTypes: []string{wrongSC},
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{wrongSC},
 				},
 			}
 		)
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = wbtConf
 
-		result := vm.checkWbtChangingEnable(testVol)
+		pv := &corev1.PersistentVolume{}
+		pv.Name = testVol.Name
+		pv.Spec.StorageClassName = volumeSC
+		err := vm.k8sClient.Create(testCtx, pv)
+		assert.Nil(t, err)
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: PV not found", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			volumeSC   = "csi-baremetal-sc-hdd"
+			wrongSC    = "csi-baremetal-sc-hddlvg"
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{wrongSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		pv := &corev1.PersistentVolume{}
+		pv.Name = "some_name"
+		pv.Spec.StorageClassName = volumeSC
+		err := vm.k8sClient.Create(testCtx, pv)
+		assert.Nil(t, err)
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
 
@@ -1568,8 +1608,8 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:        []string{volumeMode},
-					StorageTypes: []string{volumeSC},
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{volumeSC},
 				},
 			}
 		)
@@ -1583,8 +1623,8 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		changedWbtConf := &wbtcommon.WbtConfig{
 			Enable: true,
 			VolumeOptions: wbtcommon.VolumeOptions{
-				Modes:        []string{volumeMode},
-				StorageTypes: []string{volumeSC},
+				Modes:          []string{volumeMode},
+				StorageClasses: []string{volumeSC},
 			},
 		}
 		vm.SetWbtConfig(changedWbtConf)

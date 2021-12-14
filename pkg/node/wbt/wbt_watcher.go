@@ -2,7 +2,6 @@ package wbt
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -114,5 +113,5 @@ func (w *ConfWatcher) sendErrorConfigmapEvent() {
 	}
 
 	w.eventsRecorder.Eventf(pod, eventing.WBTConfigMapUpdateFailed,
-		fmt.Sprintf("Failed to get info from Node ConfigMap"))
+		"Failed to get info from Node ConfigMap")
 }
