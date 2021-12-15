@@ -74,13 +74,6 @@ func (m *MockWrapPartition) DeletePartition(device, partNum string) (err error) 
 	return args.Error(0)
 }
 
-// SetPartitionUUID is a mock implementations
-func (m *MockWrapPartition) SetPartitionUUID(device, partNum, partUUID string) error {
-	args := m.Mock.Called(device, partNum, partUUID)
-
-	return args.Error(0)
-}
-
 // GetPartitionUUID is a mock implementations
 func (m *MockWrapPartition) GetPartitionUUID(device, partNum string) (string, error) {
 	args := m.Mock.Called(device, partNum)

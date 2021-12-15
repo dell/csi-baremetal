@@ -5,4 +5,14 @@ ADD     health_probe    health_probe
 # Remove bash packet to get rid of related CVEs
 RUN     apt update --no-install-recommends -y -q; apt remove --no-install-recommends -y --allow-remove-essential -q bash; apt install --no-install-recommends -y -q util-linux parted xfsprogs lvm2 gdisk strace udev net-tools
 
-
+# Don't rely on udevd, it isn't available in some combinations of host/guest kernels.
+# So lvcreate/lvremove commands hangs on it.
+# Here we are:
+# 1. Turning off synchronization with udev;
+# 2. Turning off udev rules, so libdevmapper is directly responsible for creating files and links
+# 3. Turning off udev database usage, so interact with /dev directly
+RUN sed -i \
+        -e 's/udev_sync = 1/udev_sync = 0/' \
+        -e 's/udev_rules = 1/udev_rules = 0/' \
+        -e 's/obtain_device_list_from_udev = 1/obtain_device_list_from_udev = 0/' \
+        /etc/lvm/lvm.conf

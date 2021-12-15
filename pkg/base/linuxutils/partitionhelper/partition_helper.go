@@ -37,7 +37,6 @@ type WrapPartition interface {
 	CreatePartitionTable(device, partTableType string) (err error)
 	CreatePartition(device, label, partUUID string, setUUID bool) (err error)
 	DeletePartition(device, partNum string) (err error)
-	SetPartitionUUID(device, partNum, partUUID string) error
 	GetPartitionUUID(device, partNum string) (string, error)
 	SyncPartitionTable(device string) error
 	GetPartitionNameByUUID(device, partUUID string) (string, error)
@@ -59,8 +58,6 @@ const (
 
 	// PartprobeDeviceCmdTmpl check that device has partition cmd
 	PartprobeDeviceCmdTmpl = partprobe + "-d -s %s"
-	// PartprobeCmdTmpl check device has partition with partprobe cmd
-	PartprobeCmdTmpl = partprobe + "%s"
 	// BlockdevCmdTmpl synchronize the partition table
 	BlockdevCmdTmpl = blockdev + "--rereadpt -v %s"
 
@@ -77,8 +74,6 @@ const (
 	// DetectPartitionTableCmdTmpl is used to print information, which contain partition table
 	DetectPartitionTableCmdTmpl = fdisk + "--list %s"
 
-	// SetPartitionUUIDCmdTmpl command for set GUID of the partition, fill device, part number and part UUID
-	SetPartitionUUIDCmdTmpl = sgdisk + "%s --partition-guid=%s:%s"
 	// GetPartitionUUIDCmdTmpl command for read GUID of the first partition, fill device and part number
 	GetPartitionUUIDCmdTmpl = sgdisk + "%s --info=%s"
 )
@@ -221,21 +216,6 @@ func (p *WrapPartitionImpl) DeletePartition(device, partNum string) error {
 	return nil
 }
 
-// SetPartitionUUID writes partUUID as GUID for the partition partNum of a provided device
-// Receives device path and partUUID as strings
-// Returns error if something went wrong
-func (p *WrapPartitionImpl) SetPartitionUUID(device, partNum, partUUID string) error {
-	cmd := fmt.Sprintf(SetPartitionUUIDCmdTmpl, device, partNum, partUUID)
-
-	if _, _, err := p.e.RunCmd(cmd,
-		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(SetPartitionUUIDCmdTmpl, "", "", "")))); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // GetPartitionUUID reads partition unique GUID from the partition partNum of a provided device
 // Receives device path from which to read
 // Returns unique GUID as a string or error if something went wrong
@@ -283,7 +263,7 @@ func (p *WrapPartitionImpl) SyncPartitionTable(device string) error {
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(PartprobeCmdTmpl, ""))))
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
 	p.opMutex.Unlock()
 
 	if err != nil {

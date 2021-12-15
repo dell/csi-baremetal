@@ -79,15 +79,13 @@ The operation has completed successfully`,
 		Stderr: "",
 		Err:    nil,
 	},
-	"sgdisk /dev/sda --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
-		Stdout: "The operation has completed successfully.",
+	"sgdisk -a1 -n 1:0:0 -c 1:CSI /dev/sde": {
+		Stdout: `Creating new GPT entries.
+Setting name!
+partNum is 0
+The operation has completed successfully`,
 		Stderr: "",
 		Err:    nil,
-	},
-	"sgdisk /dev/sdb --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
-		Stdout: "The operation has completed successfully.",
-		Stderr: "",
-		Err:    Err,
 	},
 	"sgdisk /dev/sda --info=1": {
 		Stdout: `Partition GUID code: 0FC63DAF-8483-4772-8E79-3D69D8477DE4 (Linux filesystem)
