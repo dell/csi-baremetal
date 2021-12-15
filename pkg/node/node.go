@@ -54,6 +54,9 @@ const (
 
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
+
+	wbtChangedVolumeAnnotation = "wbt-changed"
+	wbtChangedVolumeKey        = "yes"
 )
 
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
@@ -237,6 +240,16 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
+	if newStatus == apiV1.VolumeReady && s.VolumeManager.checkWbtChangingEnable(ctx, volumeCR) {
+		if err := s.VolumeManager.setWbtValue(volumeCR); err != nil {
+			ll.Errorf("Unable to set custom WBT value for volume %s: %v", volumeCR.Name, err)
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
+				"Unable to set custom WBT value for volume %s", volumeCR.Name)
+		} else {
+			volumeCR.Annotations[wbtChangedVolumeAnnotation] = wbtChangedVolumeKey
+		}
+	}
+
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
@@ -308,6 +321,15 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		if errToReturn = s.fsOps.UnmountWithCheck(getStagingPath(ll, req.GetStagingTargetPath())); errToReturn != nil {
 			volumeCR.Spec.CSIStatus = apiV1.Failed
 			resp = nil
+		}
+	}
+
+	if val, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]; ok && val == wbtChangedVolumeKey {
+		delete(volumeCR.Annotations, wbtChangedVolumeAnnotation)
+		if err := s.VolumeManager.restoreWbtValue(volumeCR); err != nil {
+			ll.Errorf("Unable to restore WBT value for volume %s: %v", volumeCR.Name, err)
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
+				"Unable to restore WBT value for volume %s", volumeCR.Name)
 		}
 	}
 
