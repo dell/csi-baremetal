@@ -164,14 +164,17 @@ jobs:
       with:
         files: test/e2e/reports/report.xml
 
-    - name: Tar files
-      run: tar -cvf reports.tar test/e2e/reports/
+    - name: Archive artifacts
+      uses: papeloto/action-zip@v1
+      with:
+        files: test/e2e/reports/
+        dest: reports.zip
 
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
         name: e2e_artifacts
-        path: reports.tar
+        path: reports.zip
 
   result_job:
     needs: e2e
