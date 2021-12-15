@@ -48,8 +48,6 @@ type WrapPartition interface {
 const (
 	// PartitionGPT is the const for GPT partition table
 	PartitionGPT = "gpt"
-	// parted is a name of system util
-	parted = "parted "
 	// partprobe is a name of system util
 	partprobe = "partprobe "
 	// sgdisk is a name of system util
