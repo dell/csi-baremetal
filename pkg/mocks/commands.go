@@ -59,26 +59,18 @@ var DiskCommands = map[string]CmdOut{
 	},
 	"partprobe -d -s /dev/sde":        EmptyOutSuccess,
 	"blockdev --rereadpt -v /dev/sde": EmptyOutSuccess,
-	"partprobe /dev/sda":              EmptyOutSuccess,
 	"partprobe -d -s /dev/sdqwe": {
 		Stdout: "",
 		Stderr: "",
 		Err:    errors.New("unable to get partition table"),
 	},
-	"partprobe":                      EmptyOutSuccess,
-	"parted -s /dev/sda mklabel gpt": EmptyOutSuccess,
-	"parted -s /dev/sdd mklabel gpt": {
-		Stdout: "",
-		Stderr: "",
-		Err:    errors.New("unable to create partition table"),
-	},
-	"parted -s /dev/sdc mklabel gpt": EmptyOutSuccess,
+	"sgdisk /dev/sda -o": EmptyOutSuccess,
+	"sgdisk /dev/sdc -o": EmptyOutSuccess,
 	"sgdisk -d 1 /dev/sda": {
 		Stdout: "The operation has completed successfully.",
 		Stderr: "",
 		Err:    nil,
 	},
-	"parted -s /dev/sdb rm 1": EmptyOutFail,
 	"sgdisk -a1 -n 1:0:0 -c 1:CSI -u 1:64be631b-62a5-11e9-a756-00505680d67f /dev/sde": {
 		Stdout: `Creating new GPT entries.
 Setting name!
@@ -87,7 +79,6 @@ The operation has completed successfully`,
 		Stderr: "",
 		Err:    nil,
 	},
-	"parted -s /dev/sdf mkpart --align optimal CSI 0% 100%": EmptyOutFail,
 	"sgdisk /dev/sda --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
 		Stdout: "The operation has completed successfully.",
 		Stderr: "",
