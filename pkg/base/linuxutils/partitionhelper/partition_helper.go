@@ -68,7 +68,7 @@ const (
 
 	// CreatePartitionTableCmdTmpl create partition table on provided device of provided type cmd template
 	// fill device and partition table type
-	CreatePartitionTableCmdTmpl = parted + "-s %s mklabel %s"
+	CreatePartitionTableCmdTmpl = sgdisk + "%s -o"
 	// CreatePartitionCmdTmpl create partition on provided device cmd template, fill device and partition label
 	CreatePartitionCmdTmpl = sgdisk + "-a1 -n 1:0:0 -c 1:%s %s"
 	// CreatePartitionCmdWithUUIDTmpl create partition on provided device with uuid cmd template, fill device and partition label
@@ -144,10 +144,10 @@ func (p *WrapPartitionImpl) CreatePartitionTable(device, partTableType string) e
 			device, partTableType)
 	}
 
-	cmd := fmt.Sprintf(CreatePartitionTableCmdTmpl, device, partTableType)
+	cmd := fmt.Sprintf(CreatePartitionTableCmdTmpl, device)
 	_, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(CreatePartitionTableCmdTmpl, "", ""))))
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(CreatePartitionTableCmdTmpl, ""))))
 
 	if err != nil {
 		return fmt.Errorf("unable to create partition table for device %s", device)

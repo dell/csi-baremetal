@@ -119,6 +119,11 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 		return nil, fmt.Errorf("partition %v has already exist but have another UUID - %s", p, currUUID)
 	}
 
+	// create partition table
+	if err = d.CreatePartitionTable(p.Device, p.TableType); err != nil {
+		return nil, fmt.Errorf("unable to create partition table: %v", err)
+	}
+
 	// create partition
 	if err = d.CreatePartition(p.Device, p.Label, p.PartUUID, !p.Ephemeral); err != nil {
 		return nil, fmt.Errorf("unable to create partition: %v", err)
