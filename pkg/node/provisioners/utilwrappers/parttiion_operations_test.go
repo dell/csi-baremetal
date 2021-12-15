@@ -85,6 +85,8 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	var partName = "p1"
 	mockPH.On("IsPartitionExists", testPart1.Device, testPart1.Num).
 		Return(false, nil).Twice()
+	mockPH.On("CreatePartitionTable", testPart1.Device, testPart1.TableType).
+		Return(nil).Twice()
 	mockPH.On("CreatePartition", testPart1.Device, testPart1.Label, testPart1.PartUUID, !testPart1.Ephemeral).
 		Return(nil).Twice()
 	// if volume Ephemeral
@@ -162,6 +164,19 @@ func TestDriveProvisioner_PreparePartition_Failed(t *testing.T) {
 	// all next scenarios rely that partition isn't exist
 	mockPH.On("IsPartitionExists", mock.Anything, mock.Anything).
 		Return(false, nil)
+
+	// CreatePartitionTable failed
+	mockPH.On("CreatePartitionTable", testPart1.Device, testPart1.TableType).
+		Return(expectedErr).Once()
+
+	currentPPtr, err = partOps.PreparePartition(testPart1)
+	assert.Nil(t, currentPPtr)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unable to create partition table")
+
+	// all next scenarios rely that CreatePartitionTable passes
+	mockPH.On("CreatePartitionTable", mock.Anything, mock.Anything).
+		Return(nil)
 
 	// CreatePartition failed
 	mockPH.On("CreatePartition", testPart1.Device, testPart1.Label, testPart1.PartUUID, !testPart1.Ephemeral).
