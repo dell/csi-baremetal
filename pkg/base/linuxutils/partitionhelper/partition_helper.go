@@ -175,12 +175,9 @@ func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error)
 // Receives device path to create a partition
 // Returns error if something went wrong
 func (p *WrapPartitionImpl) CreatePartition(device, label, partUUID string, setUUID bool) error {
-	var cmd string
-	switch setUUID {
-	case true:
+	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, label, device)
+	if setUUID {
 		cmd = fmt.Sprintf(CreatePartitionCmdWithUUIDTmpl, label, partUUID, device)
-	default:
-		cmd = fmt.Sprintf(CreatePartitionCmdTmpl, label, device)
 	}
 
 	p.opMutex.Lock()
