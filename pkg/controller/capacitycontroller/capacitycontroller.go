@@ -238,7 +238,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 				capacity := &api.AvailableCapacity{
 					Size:         size,
 					Location:     lvg.Name,
-					StorageClass: util.ConvertDriveTypeToStorageClass(apiV1.StorageClassSystemLVG),
+					StorageClass: apiV1.StorageClassSystemLVG,
 					NodeId:       lvg.Spec.Node,
 				}
 				ac = d.client.ConstructACCR(name, *capacity)
