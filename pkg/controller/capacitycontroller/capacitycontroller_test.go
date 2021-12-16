@@ -282,6 +282,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(acList.Items))
 		assert.Equal(t, int64(util.GBYTE), acList.Items[0].Spec.Size)
+		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
 	})
 	t.Run("LVG is good, Annotation is present, wrong annotation value", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
@@ -340,32 +341,6 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testDrive := drive1CR
 		testDrive.Spec.IsSystem = true
 		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		testLVG := lvgCR1
-		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: strconv.FormatInt(int64(util.GBYTE), 10)}
-		err = kubeClient.Create(tCtx, &testLVG)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 1, len(acList.Items))
-		assert.Equal(t, int64(util.GBYTE), acList.Items[0].Spec.Size)
-		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
-	})
-	t.Run("LVG is good, AC is present for drive", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		testDrive.Spec.IsSystem = true
-		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		testAC := acCR.DeepCopy()
-		testAC.Spec.Location = testDrive.Name
-		err = kubeClient.Create(tCtx, testAC)
 		assert.Nil(t, err)
 		testLVG := lvgCR1
 		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: strconv.FormatInt(int64(util.GBYTE), 10)}
