@@ -3,7 +3,4 @@ FROM    ubuntu:21.04
 ADD     health_probe    health_probe
 
 # On Ubuntu 21.04 fdisk is not installed by defaul
-# Remove bash packet to get rid of related CVEs
-RUN     apt update --no-install-recommends -y -q; apt remove --no-install-recommends -y --allow-remove-essential -q bash; apt install --no-install-recommends -y -q util-linux parted xfsprogs lvm2 fdisk gdisk strace udev net-tools
-
-
+RUN     apt update --no-install-recommends -y -q; apt install --no-install-recommends -y -q util-linux parted xfsprogs lvm2 fdisk gdisk strace udev net-tools
