@@ -4,7 +4,7 @@ metadata:
   name: web
 spec:
   serviceName: "nginx"
-  replicas: 4
+  replicas: 3
   podManagementPolicy: Parallel
   selector:
     matchLabels:

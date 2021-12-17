@@ -35,33 +35,29 @@ import (
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
-var (
-	CSITestSuites = []func() testsuites.TestSuite{
-		testsuites.InitVolumesTestSuite,
-		testsuites.InitVolumeIOTestSuite,
-		testsuites.InitEphemeralTestSuite,
-		testsuites.InitProvisioningTestSuite,
-		testsuites.InitMultiVolumeTestSuite,
-		testsuites.InitVolumeModeTestSuite,
-	}
-
-	curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
-	startTime = time.Now()
-)
+var CSITestSuites = []func() testsuites.TestSuite{
+	// testsuites.InitVolumesTestSuite,
+	// testsuites.InitVolumeIOTestSuite,
+	// testsuites.InitEphemeralTestSuite,
+	// testsuites.InitProvisioningTestSuite,
+	// testsuites.InitMultiVolumeTestSuite,
+	// testsuites.InitVolumeModeTestSuite,
+	testsuites.InitVolumeExpandTestSuite,
+}
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	ginkgo.AfterEach(failTestIfTimeout)
 
 	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
 		testsuites.DefineTestSuite(curDriver, CSITestSuites)
-		DefineDriveHealthChangeTestSuite(curDriver)
-		DefineControllerNodeFailTestSuite(curDriver)
-		DefineNodeRebootTestSuite(curDriver)
-		DefineStressTestSuite(curDriver)
-		DefineDifferentSCTestSuite(curDriver)
-		DefineSchedulerTestSuite(curDriver)
-		DefineVolumeExpansionTests(curDriver)
-		DefineLabeledDeployTestSuite()
+		// DefineVolumeExpansionTests(curDriver)
+		// DefineDriveHealthChangeTestSuite(curDriver)
+		// DefineControllerNodeFailTestSuite(curDriver)
+		// DefineNodeRebootTestSuite(curDriver)
+		// DefineStressTestSuite(curDriver)
+		// DefineDifferentSCTestSuite(curDriver)
+		// DefineSchedulerTestSuite(curDriver)
+		// DefineLabeledDeployTestSuite()
 	})
 })
 

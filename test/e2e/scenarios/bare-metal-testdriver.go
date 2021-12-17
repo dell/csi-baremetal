@@ -147,7 +147,7 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 	suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
 	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
-		"storageType": "HDD",
+		"storageType": "HDDLVG",
 		"fsType":      scFsType,
 	}
 
