@@ -65,4 +65,3 @@ nodes:
         containerPath: /run/lvm
       - hostPath: /run/lock
         containerPath: /run/lock
-
