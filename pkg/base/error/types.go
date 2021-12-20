@@ -9,6 +9,4 @@ var (
 	ErrorFailedParsing  = errors.New("failed to parse")
 
 	ErrorRejectReservationRequest = errors.New("reject reservation request")
-
-	ErrorACForDriveIsNotCreated = errors.New("ac for drive is not created")
 )
