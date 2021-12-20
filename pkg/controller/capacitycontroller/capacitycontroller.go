@@ -239,15 +239,16 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 			if err == errTypes.ErrorNotFound {
 				ll.Infof("LVG - %s. Wait AC for Drive %s creation", location, driveUUID)
 				return errTypes.ErrorACForDriveIsNotCreated
-			} else {
-				ll.Infof("Replacing AC %s location from drive %s with lvg %s", ac.Name, ac.Spec.Location, location)
-				ac.Spec.Size = size
-				ac.Spec.Location = location
-				ac.Spec.StorageClass = apiV1.StorageClassSystemLVG
-				if err := d.client.UpdateCR(context.Background(), ac); err != nil {
-					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
-				}
 			}
+
+			ll.Infof("Replacing AC %s location from drive %s with lvg %s", ac.Name, ac.Spec.Location, location)
+			ac.Spec.Size = size
+			ac.Spec.Location = location
+			ac.Spec.StorageClass = apiV1.StorageClassSystemLVG
+			if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+				return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
+			}
+
 			ll.Infof("Created AC %+v for lvg %s", ac, location)
 			return nil
 		}
