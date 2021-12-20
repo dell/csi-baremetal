@@ -116,7 +116,11 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 		}
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, d.createOrUpdateLVGCapacity(lvg, size)
+	err = d.createOrUpdateLVGCapacity(lvg, size)
+	if err == errTypes.ErrorACForDriveIsNotCreated {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, err
 }
 
 // reconcileDrive preforms logic for drive reconciliation
@@ -233,18 +237,8 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 				return err
 			}
 			if err == errTypes.ErrorNotFound {
-				ll.Infof("Creating SYSLVG AC for lvg %s", location)
-				name := uuid.New().String()
-				capacity := &api.AvailableCapacity{
-					Size:         size,
-					Location:     lvg.Name,
-					StorageClass: apiV1.StorageClassSystemLVG,
-					NodeId:       lvg.Spec.Node,
-				}
-				ac = d.client.ConstructACCR(name, *capacity)
-				if err := d.client.CreateCR(context.Background(), name, ac); err != nil {
-					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
-				}
+				ll.Infof("LVG - %s. Wait AC for Drive %s creation", location, driveUUID)
+				return errTypes.ErrorACForDriveIsNotCreated
 			} else {
 				ll.Infof("Replacing AC %s location from drive %s with lvg %s", ac.Name, ac.Spec.Location, location)
 				ac.Spec.Size = size
