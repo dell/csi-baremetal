@@ -97,9 +97,10 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 		}
 	}
 
-	/*if pattern.VolType == testpatterns.PreprovisionedPV {
-		e2eskipper.Skipf("Baremetal Driver does not support PreprovisionedPV -- skipping")
-	}*/
+	// TODO https://github.com/dell/csi-baremetal/issues/666 - add test coverage
+	if pattern.VolType == testpatterns.PreprovisionedPV {
+		e2eskipper.Skipf("Baremetal Driver does not have PreprovisionedPV test suite implemented yet -- skipping")
+	}
 }
 
 // PrepareCSI deploys CSI and enables logging for containers
@@ -192,7 +193,7 @@ func (d *baremetalDriver) CreateVolume(config *testsuites.PerTestConfig, volumeT
 	panic("implement me")
 }
 
-// CreateVolume is implementation of GetPersistentVolumeSource interface method
+// GetPersistentVolumeSource is implementation of PreprovisionedPVTestDriver interface method
 func (d *baremetalDriver) GetPersistentVolumeSource(readOnly bool, fsType string, testVolume testsuites.TestVolume) (*corev1.PersistentVolumeSource, *corev1.VolumeNodeAffinity) {
 	panic("implement me")
 }
