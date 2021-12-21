@@ -147,7 +147,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 
 		// check if CSI controller keep handle requests
 		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
-			constructPVC(ns, PersistentVolumeClaimSize, k8sSC.Name, pvcName),
+			constructPVC(ns, persistentVolumeClaimSize, k8sSC.Name, pvcName),
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
