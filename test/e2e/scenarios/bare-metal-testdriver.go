@@ -83,6 +83,7 @@ func initBaremetalDriver() *baremetalDriver {
 var _ testsuites.TestDriver = &baremetalDriver{}
 var _ testsuites.DynamicPVTestDriver = &baremetalDriver{}
 var _ testsuites.EphemeralTestDriver = &baremetalDriver{}
+var _ testsuites.PreprovisionedPVTestDriver = &baremetalDriver{}
 
 // GetDriverInfo is implementation of TestDriver interface method
 func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
@@ -113,8 +114,9 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 		e2eskipper.Skipf("Baremetal Driver does not support block volume mode with volume expansion - skipping")
 	}
 
+	// TODO https://github.com/dell/csi-baremetal/issues/666 - add test coverage
 	if pattern.VolType == testpatterns.PreprovisionedPV {
-		e2eskipper.Skipf("Baremetal Driver does not support PreprovisionedPV -- skipping")
+		e2eskipper.Skipf("Baremetal Driver does not have PreprovisionedPV test suite implemented yet -- skipping")
 	}
 }
 
@@ -220,6 +222,16 @@ func (d *baremetalDriver) GetVolume(config *testsuites.PerTestConfig,
 // GetCSIDriverName is implementation of EphemeralTestDriver interface method
 func (d *baremetalDriver) GetCSIDriverName(config *testsuites.PerTestConfig) string {
 	return d.GetDriverInfo().Name
+}
+
+// CreateVolume is implementation of PreprovisionedPVTestDriver interface method
+func (d *baremetalDriver) CreateVolume(config *testsuites.PerTestConfig, volumeType testpatterns.TestVolType) testsuites.TestVolume {
+	panic("implement me")
+}
+
+// GetPersistentVolumeSource is implementation of PreprovisionedPVTestDriver interface method
+func (d *baremetalDriver) GetPersistentVolumeSource(readOnly bool, fsType string, testVolume testsuites.TestVolume) (*corev1.PersistentVolumeSource, *corev1.VolumeNodeAffinity) {
+	panic("implement me")
 }
 
 // constructDefaultLoopbackConfig constructs default ConfigMap for LoopBackManager
