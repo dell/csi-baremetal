@@ -2,19 +2,24 @@
 
 Last updated: 9-Dec-2021 
 
-
 ## Abstract
 
-CSI must be able to work with pre-provisioned volumes.
+Bare-metal CSI supports pre-provisioned volumes.
 
 ## Background
 
-Pre-provisioned volumes are volumes whuch we created manually by administrator. 
+Pre-provisioned volumes are volumes which were created manually by administrator. 
 
-## Proposal
+## Workflow
 
 1. Choose the drive which you plan to use
-2. Make sure that it has available capacity fits to your volume
+```
+kubectl get drives
+```
+2. Make sure that it has available capacity of required size
+```
+kubectl get ac
+```
 3. Generate volume UUID
 ```
 uuidgen
@@ -94,28 +99,3 @@ spec:
   volumeName: pvc-<UUID>
 ```
 8. Use PVC for your application
-
-## Rationale
-
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
-
-## Compatibility
-
-[A discussion of the change with regard to the compatibility with previous product and Kubernetes versions.]
-
-## Implementation
-
-[A description of the steps in the implementation, who will do them, and when.]
-
-## Assumptions (if applicable)
-
-ID | Name | Descriptions | Comments
----| -----| -------------| --------
-ASSUM-1 |   |   |
-
-
-## Open issues (if applicable)
-
-ID | Name | Descriptions | Status | Comments
----| -----| -------------| ------ | --------
-ISSUE-1 |   |   |   |   
