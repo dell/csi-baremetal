@@ -136,7 +136,7 @@ jobs:
     - name: Kind preparation
       run: |
         cd ${{env.CSI_BAREMETAL_DIR}}
-        make kind-build KIND_VER=0.11.1
+        make kind-build
         make kind-create-cluster KIND_CONFIG=${{env.kind_config}} KIND_WAIT=${{env.kind_wait}}
         kubectl cluster-info --context kind-kind
         kubectl get pods -o wide --all-namespaces 
@@ -159,17 +159,22 @@ jobs:
     - name: Make test
       run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}/charts
 
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        files: test/e2e/reports/report.xml
+
+    - name: Archive artifacts
+      uses: papeloto/action-zip@v1
+      with:
+        files: test/e2e/reports/
+        dest: reports.zip
+
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: report.xml
-        path: test/e2e/report.xml
-    
-    - name: Upload log to artifacts
-      uses: actions/upload-artifact@v2.2.1
-      with:
-        name: log.txt
-        path: log.txt
+        name: e2e_artifacts
+        path: reports.zip
 
   result_job:
     needs: e2e
