@@ -71,7 +71,7 @@ var DiskCommands = map[string]CmdOut{
 		Stderr: "",
 		Err:    nil,
 	},
-	"sgdisk -a1 -n 1:0:0 -c 1:CSI -u 1:64be631b-62a5-11e9-a756-00505680d67f /dev/sde": {
+	"sgdisk -n 1:0:0 -c 1:CSI -u 1:64be631b-62a5-11e9-a756-00505680d67f /dev/sde": {
 		Stdout: `Creating new GPT entries.
 Setting name!
 partNum is 0
@@ -79,7 +79,7 @@ The operation has completed successfully`,
 		Stderr: "",
 		Err:    nil,
 	},
-	"sgdisk -a1 -n 1:0:0 -c 1:CSI /dev/sde": {
+	"sgdisk -n 1:0:0 -c 1:CSI /dev/sde": {
 		Stdout: `Creating new GPT entries.
 Setting name!
 partNum is 0
