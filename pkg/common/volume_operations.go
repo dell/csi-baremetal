@@ -637,8 +637,9 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 	drivesUUIDs := vo.k8sClient.GetSystemDriveUUIDs()
 	// if only one volume remains - remove AC first and LogicalVolumeGroup then
 	if len(lvg.Spec.VolumeRefs) == 1 && !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
-		if err := vo.k8sClient.DeleteCR(context.Background(), ac); err != nil {
-			log.Errorf("Unable to delete AC %s: %v", ac.Name, err)
+		ac.Spec.Size = 0
+		if err := vo.k8sClient.UpdateCR(context.Background(), ac); err != nil {
+			log.Errorf("Unable to update AC %s size: %v", ac.Name, err)
 			return false, err
 		}
 		return true, vo.k8sClient.DeleteCR(context.Background(), lvg)
