@@ -25,9 +25,13 @@ jobs:
       id: set-branch
       with:
         result-encoding: string
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          KEY: "operator_branch="
         script: |
-          var branch = `${{ github.event.comment.body }}`.split(String.fromCharCode(0x0A))[1]
-          var key = `operator_branch=`
+          const { COMMENT_BODY, KEY } = process.env
+          var branch_line = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
+          var key = `${KEY}`
           if (branch){
             if (branch.search(key) !== -1){
               return branch.split(key)[1]
