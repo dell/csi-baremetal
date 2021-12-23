@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
   issue_comment:
-    types: [created]
+    types: [ created ]
 
 env:
   REGISTRY: 'ghcr.io/dell/csi-baremetal'
@@ -36,9 +36,27 @@ jobs:
             }
           }
           return ''
+    - name: Get PR SHA
+      # Since the issue comment event runs against the main branch
+      # we need to figure out a way to checkout the correct revision 
+      # if we want to work with the changes from a pull request.
+      id: sha
+      uses: actions/github-script@v4
+      with:
+        result-encoding: string
+        script: |
+          const { owner, repo, number } = context.issue;
+          const pr = await github.pulls.get({
+            owner,
+            repo,
+            pull_number: number,
+          });
+          return pr.data.head.sha          
 
     - name: Check out code
       uses: actions/checkout@v2
+      with:
+        ref: '${{ steps.sha.outputs.result }}'
       
     - name: Add csi-baremetal-operator
       id: checkout_branch
@@ -164,13 +182,16 @@ jobs:
       with:
         files: test/e2e/reports/report.xml
 
-    - name: Archive artifacts
-      uses: papeloto/action-zip@v1
-      with:
-        files: test/e2e/reports/
-        dest: reports.zip
+    - name: Zip artifacts
+      run: zip reports.zip ./test/e2e/reports/* -r
 
     - name: Upload report to artifacts
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: e2e_artifacts
+        path: log.txt
+    
+    - name: Upload log to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
         name: e2e_artifacts
