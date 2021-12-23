@@ -1,9 +1,6 @@
 name: e2e
 
 on:
-  pull_request:
-    branches:
-      - master
   push:
     branches: [ master ]
   issue_comment:
