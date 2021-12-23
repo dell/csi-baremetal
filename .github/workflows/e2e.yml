@@ -43,7 +43,7 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
       with:
-        ref: github.event.pull_request.head.sha
+        ref: '${{ github.event.pull_request.head.sha }}'
       
     - name: Add csi-baremetal-operator
       id: checkout_branch
