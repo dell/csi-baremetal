@@ -151,6 +151,8 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 		// If ac is exists, update its size to drive size
 		if ac.Spec.Size != size {
 			ac.Spec.Size = size
+			// if size does not match, then probably AC was used for lvg
+			ac.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(drive.GetType())
 			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
 				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
 				return ctrl.Result{}, err
