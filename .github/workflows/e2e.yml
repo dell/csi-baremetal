@@ -183,6 +183,7 @@ jobs:
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
       with:
         files: test/e2e/reports/report.xml
 
