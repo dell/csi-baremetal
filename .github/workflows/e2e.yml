@@ -23,11 +23,11 @@ jobs:
     - name: Get operator branch 
       uses: actions/github-script@v5
       id: set-branch
+      env:
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        KEY: "operator_branch="
       with:
         result-encoding: string
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          KEY: "operator_branch="
         script: |
           const { COMMENT_BODY, KEY } = process.env
           var branch_line = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
