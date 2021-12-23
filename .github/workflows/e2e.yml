@@ -164,6 +164,9 @@ jobs:
       with:
         files: test/e2e/reports/report.xml
 
+    - name: Tar files
+      run: tar -cvf reports.tar test/e2e/reports/
+
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
