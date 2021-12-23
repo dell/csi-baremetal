@@ -7,7 +7,7 @@ on:
   push:
     branches: [ master ]
   issue_comment:
-    types: [created]
+    types: [ created ]
 
 env:
   REGISTRY: 'ghcr.io/dell/csi-baremetal'
@@ -40,6 +40,9 @@ jobs:
           }
           return ''
     - name: Get PR SHA
+      # Since the issue comment event runs against the main branch
+      # we need to figure out a way to checkout the correct revision 
+      # if we want to work with the changes from a pull request.
       id: sha
       uses: actions/github-script@v4
       with:
