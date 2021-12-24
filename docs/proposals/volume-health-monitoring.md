@@ -46,7 +46,7 @@ Basically we should support the following enhancements:
 Kubernetes volume health monitoring feature was first introduced in Kubernetes 1.19, but there was an External Health Monitor Agent that monitors volume health from the node side. 
 In the Kubernetes 1.21 release, the node side volume health monitoring logic was moved to Kubelet to avoid duplicate CSI RPC calls.
 So, the Kubernetes minimum version for supporting this feature becomes 1.19 instead of 1.18 as it is currently.
-Also, it is alpha feature currently - come changes can be make, so we should support the corresponding compatibility. 
+Also, it is alpha feature currently - certain changes can be make, so we should support the corresponding compatibility. 
 
 ## Implementation
 
