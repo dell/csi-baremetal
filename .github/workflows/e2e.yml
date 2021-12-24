@@ -30,7 +30,7 @@ jobs:
         result-encoding: string
         script: |
           const { COMMENT_BODY, KEY } = process.env
-          var branch_line = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
+          var branch = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
           var key = `${KEY}`
           if (branch){
             if (branch.search(key) !== -1){
@@ -44,6 +44,7 @@ jobs:
       # Since the issue comment event runs against the main branch
       # we need to figure out a way to checkout the correct revision 
       # if we want to work with the changes from a pull request.
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
       id: sha
       uses: actions/github-script@v4
       with:
@@ -57,10 +58,17 @@ jobs:
           });
           return pr.data.head.sha          
 
+    # Set ref if triggered from comment
     - name: Check out code
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
       uses: actions/checkout@v2
       with:
         ref: '${{ steps.sha.outputs.result }}'
+
+    # Set ref if event is merge to master
+    - name: Check out code
+      if: github.event.issue.pull_request == false
+      uses: actions/checkout@v2
       
     - name: Add csi-baremetal-operator
       id: checkout_branch
