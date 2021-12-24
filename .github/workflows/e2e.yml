@@ -30,7 +30,7 @@ jobs:
         result-encoding: string
         script: |
           const { COMMENT_BODY, KEY } = process.env
-          var branch_line = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
+          var branch = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
           var key = `${KEY}`
           if (branch){
             if (branch.search(key) !== -1){
