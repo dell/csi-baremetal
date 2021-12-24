@@ -141,6 +141,8 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 	})
 	driveUUID := drive.GetUUID()
 	size := drive.GetSize()
+    sc := util.ConvertDriveTypeToStorageClass(drive.GetType()
+
 	// if drive is not clean, size is 0
 	if !drive.GetIsClean() {
 		size = 0
@@ -148,11 +150,19 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
-		// If ac is exists, update its size to drive size
+		// If ac is exists, update to drive if need
+		needUpdate = false
 		if ac.Spec.Size != size {
 			ac.Spec.Size = size
-			// if size does not match, then probably AC was used for lvg
-			ac.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(drive.GetType())
+			needUpdate = true
+		}
+		// if AC was used for lvg sc can be different
+        if ac.Spec.StorageClass != sc {
+        	ac.Spec.StorageClass = sc
+        	needUpdate = true
+        }
+
+        if needUpdate {
 			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
 				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
 				return ctrl.Result{}, err
