@@ -117,7 +117,6 @@ _External Monitoring Controller integration_
       ```go
       type ListVolumesResponse_Entry struct {
          Volume *Volume
-         Status *ListVolumesResponse_VolumeStatus
       }
       ```
       ```go
@@ -126,13 +125,54 @@ _External Monitoring Controller integration_
          VolumeId string
       }
       ```
-      ```go
-      type ListVolumesResponse_VolumeStatus struct {
-         PublishedNodeIds []string
-      }
-      ```
    4. The overall algorithm will look like this:
       1. List volumes with income ```StartingToken``` and in range of ```MaxEntries```.
       2. For each found volume - output it's id and size, also output it's published node_id and next token for paginate.
+2. ```ControllerGetVolume``` controller RPC: ```ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error)```
+   1. For supporting ```ControllerGetVolume``` we should add ```GET_VOLUME``` and ```VOLUME_CONDITION``` capabilities for supporting get
+   2. While supporting ```ControllerGetVolume``` we should support get volume information by it's id:
+      ```go
+      type ControllerGetVolumeRequest struct {
+          // The ID of the volume to fetch current volume information for.
+          volumeId string
+      }
+      ```
+   3. In response, we should support volume information as well as its status:
+      ```go
+      type ControllerGetVolumeResponse struct {
+          Volume Volume
+          Status VolumeStatus
+      }
+      ```
+      ```go
+      type VolumeStatus struct {
+          // A list of all the `node_id` of nodes that this volume is controller published on.
+          PublishedNodeIds []string
+          // Information about the current condition of the volume.
+          VolumeCondition VolumeCondition
+      }
+      ```
+      ```go
+      type VolumeCondition struct {
+          // Normal volumes are available for use and operating optimally.
+          // An abnormal volume does not meet these criteria.
+          Abnormal bool
+
+          // The message describing the condition of the volume.
+          Message string
+      }
+      ```
+   4. The overall algorithm will look like this:
+       1. Get volume with income id. If not found - return error: ```NotFound```
+       2. Check volume Health, CSIStatus and Usage parameters:
+          1. If Health != GOOD - set abnormal value to true with corresponding message.
+          2. If CSIStatus == FAILED - set abnormal value to true with corresponding message.
+          3. If Usage == FAILED - set abnormal value to true with corresponding message.
+3. Deploy external health monitor controller will be deployed as a sidecar together with the CSI controller driver, 
+   similar to how the external-provisioner sidecar is deployed: see https://github.com/kubernetes-csi/external-health-monitor#csi-external-health-monitor-controller-sidecar-command-line-options.
+4. Set enable-node-watcher of external health monitor controller sidecar command line's option to true for enabling node-watcher. 
+   Node-watcher evaluates volume health condition by checking node status periodically. 
+
+
 
 ##### Considerations
