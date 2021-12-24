@@ -180,7 +180,7 @@ _External Monitoring Controller integration_
    3. In the case that a node goes down, the controller will report an event for all PVCs on that node. 
    4. The external monitoring controller reports node down events on the PVCs.
 
-_Kubelet integration_
+_Kubelet integration_ \
 Node Volume Health checks if a volume is still mounted and usable. To check whether a volume is usable, we should check 
 if filesystem is corrupted, whether there are bad blocks, etc. in this RPC.
 
