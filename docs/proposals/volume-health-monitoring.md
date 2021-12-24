@@ -171,8 +171,94 @@ _External Monitoring Controller integration_
 3. Deploy external health monitor controller will be deployed as a sidecar together with the CSI controller driver, 
    similar to how the external-provisioner sidecar is deployed: see https://github.com/kubernetes-csi/external-health-monitor#csi-external-health-monitor-controller-sidecar-command-line-options.
 4. Set enable-node-watcher of external health monitor controller sidecar command line's option to true for enabling node-watcher. 
-   Node-watcher evaluates volume health condition by checking node status periodically. 
+   Node-watcher evaluates volume health condition by checking node status periodically. \
+   Node down event workflow:
+   1. External monitoring controller will check if node is marked as unresponsive by the node controller.
+   2. The external monitoring controller will track which pods are using which PVCs and what nodes they got scheduled to. 
+   3. In the case that a node goes down, the controller will report an event for all PVCs on that node. 
+   4. The external monitoring controller reports node down events on the PVCs.
 
+_Kubelet integration_
+Node Volume Health checks if a volume is still mounted and usable. To check whether a volume is usable, we should check 
+if filesystem is corrupted, whether there are bad blocks, etc. in this RPC.
 
+```NodeGetVolumeStats``` Node RPC: ```NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error)```
+1. For supporting ```NodeGetVolumeStats``` we should add ```GET_VOLUME_STATS``` and ```VOLUME_CONDITION``` capabilities for supporting volume stats
+2. While supporting ```NodeGetVolumeStats``` we should support get volume information by it's id:
+   ```go
+   type NodeGetVolumeStatsRequest struct {
+       VolumeId string 
 
+       // It can be any valid path where volume was previously
+       // staged or published.
+       // It MUST be an absolute path in the root filesystem of
+       // the process serving this request.
+       VolumePath string
+
+      // The path where the volume is staged, if the plugin has the
+      // STAGE_UNSTAGE_VOLUME capability, otherwise empty.
+      // If not empty, it MUST be an absolute path in the root
+      // filesystem of the process serving this request.
+       StagingTargetPath string
+   }
+   ```
+3. In response, we should support volume information as well as its status:
+   ```go
+   type NodeGetVolumeStatsResponse struct {
+      Usage []*VolumeUsage
+      // Information about the current condition of the volume.
+      VolumeCondition VolumeCondition 
+   }
+   ```
+   ```go
+   type VolumeUsage struct {
+       // The available capacity in specified Unit.
+       Available int64
+       // The total capacity in specified Unit.
+       Total int64
+       // The used capacity in specified Unit.
+       Used int64
+       // Units by which values are measured. This field is REQUIRED. 
+       Unit VolumeUsage_Unit
+   }
+   type VolumeUsage_Unit int32
+   const (
+       VolumeUsage_UNKNOWN VolumeUsage_Unit = 0
+       VolumeUsage_BYTES   VolumeUsage_Unit = 1
+       VolumeUsage_INODES  VolumeUsage_Unit = 2
+   )
+   ```
+   ```go
+   type VolumeCondition struct {
+       // Normal volumes are available for use and operating optimally.
+       // An abnormal volume does not meet these criteria.
+       Abnormal bool
+
+       // The message describing the condition of the volume.
+       Message string
+   }
+   ```
+   4. The overall algorithm will look like this:
+      1. Get volume with income id. If not found - return error: ```NotFound```. 
+      2. Check volume Health, CSIStatus and Usage parameters:
+          1. If Health != GOOD - set abnormal value to true with corresponding message.
+          2. If CSIStatus == FAILED - set abnormal value to true with corresponding message.
+          3. If Usage == FAILED - set abnormal value to true with corresponding message.
+      3. Check staging target path (StagingTargetPath) is mounted (if it is not empty). If mount no found - set abnormal value to true with corresponding message. 
+      4. Check if target path (VolumePath) is mounted. If mount no found - set abnormal value to true with corresponding message.
+      5. Check if volume path (VolumePath) is accessible just by reading dir:
+         ```go
+         _, err = ioutil.ReadDir(volumePath)
+         if err != nil {
+             ...
+         }
+         ```
+         If check was failed - set abnormal value to true with corresponding message.
+      6. Check whether fs resides at volume path (VolumePath) is corrupted via ```fsck``` or ```xfs_repair``` commands (depends on fs type).
+         Commands must be executed in readonly mode (e.g. ```xfs_repair -nfv```).
+         **Note:** because they will be executed in read only mode on mounted fs, there can be deviations in results.
+         So, we should handle this situations, e.g. by making several runs of the command and setting the abnormal value to true only if 
+         all the results of this runs show that fs is corrupted.
+      7. Get volume metrics for mounted volume path (VolumePath) with ```Info(volumePath)``` function from ```"k8s.io/kubernetes/pkg/volume/util/fs"``` package.
+         After obtaining these metrics - fill ```Usage``` field with them and return abnormal value to false.
 ##### Considerations
