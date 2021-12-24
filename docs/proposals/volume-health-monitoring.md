@@ -97,6 +97,8 @@ As it was already stated we should support the following features:
 * Support ```GetVolume``` controller RPC, which is called by external monitoring controller to check health condition of a particular volume if it is supported and ListVolumes is not supported.
 * Support ```NodeGetVolumeStats``` RPC, which is called by kubelet for any PV that is mounted to check if volume is mounted and usable, e.g., filesystem corruption, bad blocks, etc.
 
+Also, for support Kubernetes volume health monitor mechanism at Baremetal CSI we need to update version of github.com/container-storage-interface/spec to the latest: v1.5.0
+
 _External Monitoring Controller integration_
 1. ```ListVolumes``` controller RPC: ```ListVolumes(context.Context, *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error)```
    1. For supporting ```ListVolumes``` we should add ```LIST_VOLUMES``` and ```VOLUME_CONDITION``` capabilities for supporting list
@@ -261,4 +263,4 @@ if filesystem is corrupted, whether there are bad blocks, etc. in this RPC.
          all the results of this runs show that fs is corrupted.
       7. Get volume metrics for mounted volume path (VolumePath) with ```Info(volumePath)``` function from ```"k8s.io/kubernetes/pkg/volume/util/fs"``` package.
          After obtaining these metrics - fill ```Usage``` field with them and return abnormal value to false.
-##### Considerations
+
