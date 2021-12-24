@@ -92,6 +92,47 @@ Basically we should support the following enhancements:
 
 #### Implementation details
 
+As it was already stated we should support the following features:
+* Support ```ListVolumes``` controller RPC, which is called by external monitoring controller to find out existing volumes if supported by the CSI driver.
+* Support ```GetVolume``` controller RPC, which is called by external monitoring controller to check health condition of a particular volume if it is supported and ListVolumes is not supported.
+* Support ```NodeGetVolumeStats``` RPC, which is called by kubelet for any PV that is mounted to check if volume is mounted and usable, e.g., filesystem corruption, bad blocks, etc.
 
+_External Monitoring Controller integration_
+1. ```ListVolumes``` controller RPC: ```ListVolumes(context.Context, *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error)```
+   1. For supporting ```ListVolumes``` we should add ```LIST_VOLUMES``` and ```VOLUME_CONDITION``` capabilities for supporting list
+   2. While supporting ```ListVolumes``` we should support pagination over incoming tokens:
+      ```
+      type ListVolumesRequest struct {
+         MaxEntries    int32
+         StartingToken string
+      }
+      ```
+   3. In response, we should support list of volumes: id and capacity with volume conditions:
+      ```go
+      type ListVolumesResponse struct {
+         Entries   []*ListVolumesResponse_Entry
+         NextToken string
+      }
+      ```
+      ```go
+      type ListVolumesResponse_Entry struct {
+         Volume *Volume
+         Status *ListVolumesResponse_VolumeStatus
+      }
+      ```
+      ```go
+      type Volume struct {
+         CapacityBytes int64
+         VolumeId string
+      }
+      ```
+      ```go
+      type ListVolumesResponse_VolumeStatus struct {
+         PublishedNodeIds []string
+      }
+      ```
+   4. The overall algorithm will look like this:
+      1. List volumes with income ```StartingToken``` and in range of ```MaxEntries```.
+      2. For each found volume - output it's id and size, also output it's published node_id and next token for paginate.
 
 ##### Considerations
