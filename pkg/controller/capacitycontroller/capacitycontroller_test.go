@@ -189,6 +189,42 @@ func TestController_ReconcileDrive(t *testing.T) {
 			},
 		},
 		{
+			testCaseName: "Drive is unknown, AC is not present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthUnknown,
+				driveACIsPresent: false,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList: accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: acSpec,
+						},
+					},
+				},
+			},
+		},
+		{
+			testCaseName: "Drive is unknown, AC is present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthGood,
+				driveACIsPresent: true,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList:         accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: acSpec,
+						},
+					},
+				},
+			},
+		},
+		{
 			testCaseName: "Drive is bad, AC is not present",
 			inputData: inputData{
 				driveHealth:      apiV1.HealthBad,
