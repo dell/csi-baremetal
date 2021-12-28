@@ -127,7 +127,9 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 		usage  = drive.Spec.GetUsage()
 	)
 	switch {
-	case health != apiV1.HealthGood || status != apiV1.DriveStatusOnline || usage != apiV1.DriveUsageInUse:
+	case (health != apiV1.HealthGood && health != apiV1.HealthUnknown) ||
+		status != apiV1.DriveStatusOnline ||
+		usage != apiV1.DriveUsageInUse:
 		return d.handleInaccessibleDrive(ctx, drive.Spec)
 	default:
 		return d.createOrUpdateCapacity(ctx, drive.Spec)
