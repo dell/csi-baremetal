@@ -141,7 +141,6 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 	})
 	driveUUID := drive.GetUUID()
 	size := drive.GetSize()
-
 	// if drive is not clean, size is 0
 	if !drive.GetIsClean() {
 		size = 0
@@ -149,7 +148,7 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
-		// If ac is exists, update size to drive if need
+		// If ac is exists, update its size to drive size
 		if ac.Spec.Size != size {
 			ac.Spec.Size = size
 			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
