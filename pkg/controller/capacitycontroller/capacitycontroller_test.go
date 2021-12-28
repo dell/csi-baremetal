@@ -279,6 +279,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 
 			// creating test objects
 			testDrive := drive1CR.DeepCopy()
+			testDrive.Spec.Health = testData.inputData.driveHealth
 			testDrive.Spec.IsClean = testData.inputData.driveIsClean
 			err = kubeClient.Create(tCtx, testDrive)
 			assert.Nil(t, err)
