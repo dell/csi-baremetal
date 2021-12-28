@@ -127,123 +127,218 @@ var (
 	}
 )
 
+/* Complementary structures for table tests */
+// inputData represents input parameters for drive reconciliation
+type inputData struct {
+	driveHealth      string
+	driveACIsPresent bool
+	driveIsClean     bool
+}
+
+// expectedResult represents expected results for drive reconciliation
+type expectedResult struct {
+	reconcileError error
+	acList         accrd.AvailableCapacityList
+}
+
 func Test_NewLVGController(t *testing.T) {
 	c := NewCapacityController(nil, nil, testLogger)
 	assert.NotNil(t, c)
 }
 
 func TestController_ReconcileDrive(t *testing.T) {
-	t.Run("Drive is good, AC is not present", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR.DeepCopy()
-		err = kubeClient.Create(tCtx, testDrive)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 1, len(acList.Items))
-		assert.Equal(t, acSpec, acList.Items[0].Spec)
-	})
+	for _, testData := range []struct {
+		testCaseName   string
+		inputData      inputData
+		expectedResult expectedResult
+	}{
+		{
+			testCaseName: "Drive is good, AC is not present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthGood,
+				driveACIsPresent: false,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList: accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: acSpec,
+						},
+					},
+				},
+			},
+		},
+		{
+			testCaseName: "Drive is good, AC is present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthGood,
+				driveACIsPresent: true,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList:         accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: acSpec,
+						},
+					},
+				},
+			},
+		},
+		{
+			testCaseName: "Drive is unknown, AC is not present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthUnknown,
+				driveACIsPresent: false,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList: accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: acSpec,
+						},
+					},
+				},
+			},
+		},
+		{
+			testCaseName: "Drive is unknown, AC is present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthGood,
+				driveACIsPresent: true,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList:         accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: acSpec,
+						},
+					},
+				},
+			},
+		},
+		{
+			testCaseName: "Drive is bad, AC is not present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthBad,
+				driveACIsPresent: false,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList:         accrd.AvailableCapacityList{},
+			},
+		},
+		{
+			testCaseName: "Drive is bad, AC is present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthBad,
+				driveACIsPresent: true,
+				driveIsClean:     true,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList: accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: api.AvailableCapacity{
+								Location:     drive1UUID,
+								NodeId:       apiDrive1.NodeId,
+								StorageClass: apiDrive1.Type,
+								Size:         0,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			testCaseName: "Drive is good and not clean, AC is present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthGood,
+				driveACIsPresent: true,
+				driveIsClean:     false,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList: accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: api.AvailableCapacity{
+								Location:     drive1UUID,
+								NodeId:       apiDrive1.NodeId,
+								StorageClass: apiDrive1.Type,
+								Size:         0,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			testCaseName: "Drive is good and not clean, AC is not present",
+			inputData: inputData{
+				driveHealth:      apiV1.HealthGood,
+				driveACIsPresent: false,
+				driveIsClean:     false,
+			},
+			expectedResult: expectedResult{
+				reconcileError: nil,
+				acList: accrd.AvailableCapacityList{
+					Items: []accrd.AvailableCapacity{
+						{
+							Spec: api.AvailableCapacity{
+								Location:     drive1UUID,
+								NodeId:       apiDrive1.NodeId,
+								StorageClass: apiDrive1.Type,
+								Size:         0,
+							},
+						},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(testData.testCaseName, func(t *testing.T) {
+			// preparing fake kubeClient and capacity controller
+			kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+			assert.Nil(t, err)
+			controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+			assert.NotNil(t, controller)
 
-	t.Run("Drive is good, AC is present", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		testAC := acCR
-		err = kubeClient.Create(tCtx, &testAC)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 1, len(acList.Items))
-		assert.Equal(t, acSpec, acList.Items[0].Spec)
-	})
+			// creating test objects
+			testDrive := drive1CR.DeepCopy()
+			testDrive.Spec.Health = testData.inputData.driveHealth
+			testDrive.Spec.IsClean = testData.inputData.driveIsClean
+			err = kubeClient.Create(tCtx, testDrive)
+			assert.Nil(t, err)
+			if testData.inputData.driveACIsPresent {
+				testAC := acCR
+				err = kubeClient.Create(tCtx, &testAC)
+				assert.Nil(t, err)
+			}
 
-	t.Run("Drive is bad, AC is not present", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		testDrive.Spec.Health = apiV1.HealthBad
-		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(acList.Items))
-	})
+			// reconciling controller
+			_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
+			assert.ErrorIs(t, testData.expectedResult.reconcileError, err)
 
-	t.Run("Drive is bad, AC is present", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		testDrive.Spec.Health = apiV1.HealthBad
-		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		testAC := acCR
-		err = kubeClient.Create(tCtx, &testAC)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 1, len(acList.Items))
-		assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
-	})
-	t.Run("Drive is good and not clean, AC is present", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		testDrive.Spec.IsClean = false
-		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		testAC := acCR
-		err = kubeClient.Create(tCtx, &testAC)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 1, len(acList.Items))
-		assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
-	})
-	t.Run("Drive is good and not clean, AC is not present", func(t *testing.T) {
-		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
-		assert.Nil(t, err)
-		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
-		assert.NotNil(t, controller)
-		testDrive := drive1CR
-		testDrive.Spec.IsClean = false
-		err = kubeClient.Create(tCtx, &testDrive)
-		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
-		assert.Nil(t, err)
-		acList := &accrd.AvailableCapacityList{}
-		err = kubeClient.ReadList(tCtx, acList)
-		assert.Nil(t, err)
-		assert.Equal(t, 1, len(acList.Items))
-		assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
-	})
+			// checking capacity results
+			acList := &accrd.AvailableCapacityList{}
+			err = kubeClient.ReadList(tCtx, acList)
+			assert.Nil(t, err)
+			assert.Equal(t, len(testData.expectedResult.acList.Items), len(acList.Items))
+			for i := 0; i < len(acList.Items); i++ {
+				assert.Equal(t, testData.expectedResult.acList.Items[i].Spec, acList.Items[i].Spec)
+			}
+		})
+	}
 }
 
 func TestController_ReconcileLVG(t *testing.T) {
@@ -282,6 +377,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(acList.Items))
 		assert.Equal(t, int64(util.GBYTE), acList.Items[0].Spec.Size)
+		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
 	})
 	t.Run("LVG is good, Annotation is present, wrong annotation value", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
@@ -332,7 +428,28 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Equal(t, 1, len(acList.Items))
 		assert.Equal(t, int64(0), acList.Items[0].Spec.Size)
 	})
-
+	t.Run("LVG is good, AC is not present", func(t *testing.T) {
+		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+		assert.Nil(t, err)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+		assert.NotNil(t, controller)
+		testDrive := drive1CR
+		testDrive.Spec.IsSystem = true
+		err = kubeClient.Create(tCtx, &testDrive)
+		assert.Nil(t, err)
+		testLVG := lvgCR1
+		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: strconv.FormatInt(int64(util.GBYTE), 10)}
+		err = kubeClient.Create(tCtx, &testLVG)
+		assert.Nil(t, err)
+		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
+		assert.Nil(t, err)
+		acList := &accrd.AvailableCapacityList{}
+		err = kubeClient.ReadList(tCtx, acList)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(acList.Items))
+		assert.Equal(t, int64(util.GBYTE), acList.Items[0].Spec.Size)
+		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
+	})
 }
 func TestController_ReconcileResourcesNotFound(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)

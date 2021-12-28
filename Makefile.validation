@@ -140,7 +140,7 @@ kind-install: kind-build
 	rm -f /usr/bin/kind
 
 	# Copy executive file
-	mv $(KIND) /usr/bin
+	cp $(KIND) /usr/bin
 
 	# Check
 	kind version

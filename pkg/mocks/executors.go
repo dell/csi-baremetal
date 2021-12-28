@@ -183,7 +183,7 @@ func (g *GoMockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeo
 
 // RunCmd simulates execution of a command with OnCommand where user can set what the method should return
 func (g *GoMockExecutor) RunCmd(cmd interface{}, opts ...command.Options) (string, string, error) {
-	args := g.Mock.Called(cmd.(string))
+	args := g.Mock.Called(cmd)
 	return args.String(0), args.String(1), args.Error(2)
 }
 

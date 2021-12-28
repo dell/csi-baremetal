@@ -127,7 +127,9 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 		usage  = drive.Spec.GetUsage()
 	)
 	switch {
-	case health != apiV1.HealthGood || status != apiV1.DriveStatusOnline || usage != apiV1.DriveUsageInUse:
+	case (health != apiV1.HealthGood && health != apiV1.HealthUnknown) ||
+		status != apiV1.DriveStatusOnline ||
+		usage != apiV1.DriveUsageInUse:
 		return d.handleInaccessibleDrive(ctx, drive.Spec)
 	default:
 		return d.createOrUpdateCapacity(ctx, drive.Spec)
@@ -233,11 +235,12 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 				return err
 			}
 			if err == errTypes.ErrorNotFound {
+				ll.Infof("Creating SYSLVG AC for lvg %s", location)
 				name := uuid.New().String()
 				capacity := &api.AvailableCapacity{
 					Size:         size,
 					Location:     lvg.Name,
-					StorageClass: util.ConvertDriveTypeToStorageClass(apiV1.StorageClassSystemLVG),
+					StorageClass: apiV1.StorageClassSystemLVG,
 					NodeId:       lvg.Spec.Node,
 				}
 				ac = d.client.ConstructACCR(name, *capacity)
@@ -245,6 +248,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 				}
 			} else {
+				ll.Infof("Replacing AC %s location from drive %s with lvg %s", ac.Name, ac.Spec.Location, location)
 				ac.Spec.Size = size
 				ac.Spec.Location = location
 				ac.Spec.StorageClass = apiV1.StorageClassSystemLVG
@@ -252,7 +256,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 				}
 			}
-			ll.Infof("Created AC %v for lvg %s", ac, location)
+			ll.Infof("Created AC %+v for lvg %s", ac, location)
 			return nil
 		}
 		ll.Infof("There is no available space on %s", location)

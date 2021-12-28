@@ -19,6 +19,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,6 +59,8 @@ import (
 	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
+	wbtconf "github.com/dell/csi-baremetal/pkg/node/wbt/common"
+	wbtops "github.com/dell/csi-baremetal/pkg/node/wbt/operations"
 )
 
 const (
@@ -102,6 +105,9 @@ type VolumeManager struct {
 	lvmOps lvm.WrapLVM
 	// uses for running lsblk util
 	listBlk lsblk.WrapLsblk
+	// uses for disable/enable WBT
+	wbtOps    wbtops.WrapWbt
+	wbtConfig *wbtconf.WbtConfig
 
 	// uses for searching suitable Available Capacity
 	acProvider common.AvailableCapacityOperations
@@ -201,6 +207,7 @@ func NewVolumeManager(
 	partImpl := ph.NewWrapPartitionImpl(executor, logger)
 	lvm := lvm.NewLVM(executor, logger)
 	fsOps := utilwrappers.NewFSOperationsImpl(executor, logger)
+	wbtOps := wbtops.NewWbt(executor)
 
 	vm := &VolumeManager{
 		k8sClient:      k8sClient,
@@ -217,6 +224,7 @@ func NewVolumeManager(
 		lvmOps:                 lvm,
 		listBlk:                lsblk.NewLSBLK(logger),
 		partOps:                partImpl,
+		wbtOps:                 wbtOps,
 		nodeID:                 nodeID,
 		nodeName:               nodeName,
 		log:                    logger.WithField("component", "VolumeManager"),
@@ -1183,13 +1191,13 @@ func (m *VolumeManager) changeDriveIsCleanField(drive *drivecrd.Drive, clean boo
 	}
 }
 
-func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
+func (m *VolumeManager) getPVCForVolume(volumeID string) (*corev1.PersistentVolumeClaim, error) {
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeID)
 
 	pv := &corev1.PersistentVolume{}
 	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: volumeID}, pv); err != nil {
 		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
-		return false
+		return nil, err
 	}
 
 	pvcName := pv.Spec.ClaimRef.Name
@@ -1198,10 +1206,19 @@ func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := m.k8sClient.Get(ctxWithID, k8sCl.ObjectKey{Name: pvcName, Namespace: pvcNamespace}, pvc); err != nil {
 		m.log.Errorf("Failed to get Persistent Volume Claim %s in namespace %s: %v", pvcName, pvcNamespace, err)
-		return false
+		return nil, err
 	}
 
 	m.log.Debugf("PVC %s/%s was found for PV with ID - %s", pvc.Namespace, pvc.Name, pv.Name)
+	return pvc, nil
+}
+
+func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
+	pvc, err := m.getPVCForVolume(volumeID)
+	if err != nil {
+		m.log.Errorf("Failed to get Persistent Volume Claim for Volume %s: %+v", volumeID, err)
+		return false
+	}
 
 	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
 		return true
@@ -1224,5 +1241,106 @@ func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, 
 	} else {
 		m.log.Errorf("Drive %s has health annotation, but value %s is not %s/%s/%s/%s. Health is not overridden.",
 			driveCRName, overriddenHealth, apiV1.HealthGood, apiV1.HealthSuspect, apiV1.HealthBad, apiV1.HealthUnknown)
+	}
+}
+
+func (m *VolumeManager) setWbtValue(vol *volumecrd.Volume) error {
+	device, err := m.findDeviceName(vol)
+	if err != nil {
+		return err
+	}
+
+	err = m.wbtOps.SetValue(device, m.wbtConfig.Value)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *VolumeManager) restoreWbtValue(vol *volumecrd.Volume) error {
+	device, err := m.findDeviceName(vol)
+	if err != nil {
+		return err
+	}
+
+	err = m.wbtOps.RestoreDefault(device)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
+	if m.wbtConfig == nil {
+		return false
+	}
+
+	if !m.wbtConfig.Enable {
+		return false
+	}
+
+	isModeAcceptable := false
+	for _, mode := range m.wbtConfig.VolumeOptions.Modes {
+		if mode == vol.Spec.Mode {
+			isModeAcceptable = true
+			break
+		}
+	}
+	if !isModeAcceptable {
+		m.log.Infof("Skip wbt value changing: volume %s has mode %s, acceptable: %v", vol.Name, vol.Spec.Mode, m.wbtConfig.VolumeOptions.Modes)
+		return false
+	}
+
+	volumeID := vol.Name
+	pv := &corev1.PersistentVolume{}
+	if err := m.k8sClient.Get(ctx, k8sCl.ObjectKey{Name: volumeID}, pv); err != nil {
+		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
+		return false
+	}
+	volSC := pv.Spec.StorageClassName
+
+	isSCAcceptable := false
+	for _, sc := range m.wbtConfig.VolumeOptions.StorageClasses {
+		if sc == volSC {
+			isSCAcceptable = true
+			break
+		}
+	}
+	if !isSCAcceptable {
+		m.log.Infof("Skip wbt value changing: volume %s has sc %s, acceptable: %v", vol.Name, volSC, m.wbtConfig.VolumeOptions.StorageClasses)
+		return false
+	}
+
+	return true
+}
+
+func (m *VolumeManager) findDeviceName(vol *volumecrd.Volume) (string, error) {
+	drive, err := m.crHelper.GetDriveCRByVolume(vol)
+	if err != nil {
+		return "", err
+	}
+	if drive == nil {
+		return "", fmt.Errorf("drive %s is not found", vol.Spec.Location)
+	}
+
+	// expected device path - /dev/<device>
+	splitedPath := regexp.MustCompile(`[A-Za-z0-9]+`).FindAllString(drive.Spec.Path, -1)
+	if len(splitedPath) != 2 {
+		return "", fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)
+	}
+	if splitedPath[0] != "dev" {
+		return "", fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)
+	}
+
+	return splitedPath[1], nil
+}
+
+// SetWbtConfig changes Wbt Config for vlmgr instance
+func (m *VolumeManager) SetWbtConfig(conf *wbtconf.WbtConfig) {
+	if m.wbtConfig == nil || !reflect.DeepEqual(*m.wbtConfig, *conf) {
+		m.log.Infof("Wbt config changed: %+v", *conf)
+		m.wbtConfig = conf
 	}
 }
