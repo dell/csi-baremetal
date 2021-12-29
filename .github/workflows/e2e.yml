@@ -29,8 +29,9 @@ jobs:
       with:
         result-encoding: string
         script: |
-          var branch = `${{ github.event.comment.body }}`.split(String.fromCharCode(0x0A))[1]
-          var key = `operator_branch=`
+          const { COMMENT_BODY, KEY } = process.env
+          var branch = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
+          var key = `${KEY}`
           if (branch){
             if (branch.search(key) !== -1){
               return branch.split(key)[1]
