@@ -23,6 +23,9 @@ jobs:
     - name: Get operator branch 
       uses: actions/github-script@v5
       id: set-branch
+      env:
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        KEY: "operator_branch="
       with:
         result-encoding: string
         script: |
