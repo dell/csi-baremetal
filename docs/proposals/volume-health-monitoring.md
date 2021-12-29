@@ -166,10 +166,11 @@ _External Monitoring Controller integration_
       ```
    4. The overall algorithm will look like this:
        1. Get volume with income id. If not found - return error: ```NotFound```
-       2. Check volume Health, CSIStatus and Usage parameters:
+       2. Check volume Health, CSIStatus, OperationalStatus and Usage parameters:
           1. If Health != GOOD - set abnormal value to true with corresponding message.
           2. If CSIStatus == FAILED - set abnormal value to true with corresponding message.
-          3. If Usage == FAILED - set abnormal value to true with corresponding message.
+          3. If OperationalStatus == MISSING - set abnormal value to true with corresponding message.
+          4. If Usage == FAILED - set abnormal value to true with corresponding message.
 3. Deploy external health monitor controller will be deployed as a sidecar together with the CSI controller driver, 
    similar to how the external-provisioner sidecar is deployed: see https://github.com/kubernetes-csi/external-health-monitor#csi-external-health-monitor-controller-sidecar-command-line-options.
 4. Set enable-node-watcher of external health monitor controller sidecar command line's option to true for enabling node-watcher. 
@@ -242,10 +243,11 @@ if filesystem is corrupted, whether there are bad blocks, etc. in this RPC.
    ```
    4. The overall algorithm will look like this:
       1. Get volume with income id. If not found - return error: ```NotFound```. 
-      2. Check volume Health, CSIStatus and Usage parameters:
+      2. Check volume Health, CSIStatus, OperationalStatus and Usage parameters:
           1. If Health != GOOD - set abnormal value to true with corresponding message.
           2. If CSIStatus == FAILED - set abnormal value to true with corresponding message.
-          3. If Usage == FAILED - set abnormal value to true with corresponding message.
+          3. If OperationalStatus == MISSING - set abnormal value to true with corresponding message.
+          4. If Usage == FAILED - set abnormal value to true with corresponding message.
       3. Check staging target path (StagingTargetPath) is mounted (if it is not empty). If mount no found - set abnormal value to true with corresponding message. 
       4. Check if target path (VolumePath) is mounted. If mount no found - set abnormal value to true with corresponding message.
       5. Check if volume path (VolumePath) is accessible just by reading dir:
@@ -256,11 +258,11 @@ if filesystem is corrupted, whether there are bad blocks, etc. in this RPC.
          }
          ```
          If check was failed - set abnormal value to true with corresponding message.
-      6. Check whether fs resides at volume path (VolumePath) is corrupted via ```fsck``` or ```xfs_repair``` commands (depends on fs type).
+      6. If Volume mode == FS, then check whether fs resides at volume path (VolumePath) is corrupted via ```fsck``` or ```xfs_repair``` commands (depends on fs type).
          Commands must be executed in readonly mode (e.g. ```xfs_repair -nfv```).
          **Note:** because they will be executed in read only mode on mounted fs, there can be deviations in results.
          So, we should handle this situations, e.g. by making several runs of the command and setting the abnormal value to true only if 
          all the results of this runs show that fs is corrupted.
-      7. Get volume metrics for mounted volume path (VolumePath) with ```Info(volumePath)``` function from ```"k8s.io/kubernetes/pkg/volume/util/fs"``` package.
+      7. If Volume mode == FS, then get volume metrics for mounted volume path (VolumePath) with ```Info(volumePath)``` function from ```"k8s.io/kubernetes/pkg/volume/util/fs"``` package.
+         If Volume mode == RAW/RAW_PART, then just get volume size in bytes.
          After obtaining these metrics - fill ```Usage``` field with them and return abnormal value to false.
-
