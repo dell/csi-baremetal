@@ -757,12 +757,12 @@ func (m *VolumeManager) isDriveInLVG(d api.Drive) bool {
 	return false
 }
 
-// discoverVolumeCRs matches system block devices with driveCRs
+// discoverDataOnDrives matches system block devices with driveCRs
 // searches drives in driveCRs that are not have volume and if there are some partitions on them - try to read
 // partition uuid and create volume CR object
 func (m *VolumeManager) discoverDataOnDrives() error {
 	ll := m.log.WithFields(logrus.Fields{
-		"method": "discoverVolumeCRs",
+		"method": "discoverDataOnDrives",
 	})
 
 	driveCRs, err := m.cachedCrHelper.GetDriveCRs(m.nodeID)
@@ -802,12 +802,12 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 				m.sendEventForDrive(&drive, eventing.DriveHasData, discoverResult.Message)
 				m.changeDriveIsCleanField(&drive, false)
 			}
-			continue
-		}
-		ll.Info(discoverResult.Message)
-		if !drive.Spec.IsClean {
-			m.sendEventForDrive(&drive, eventing.DriveClean, discoverResult.Message)
-			m.changeDriveIsCleanField(&drive, true)
+		} else {
+			if !drive.Spec.IsClean {
+				ll.Info(discoverResult.Message)
+				m.sendEventForDrive(&drive, eventing.DriveClean, discoverResult.Message)
+				m.changeDriveIsCleanField(&drive, true)
+			}
 		}
 	}
 	return nil
