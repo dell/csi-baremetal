@@ -1,0 +1,628 @@
+#!/bin/bash -x
+
+# at start check dependencies on the host
+readonly DEPS=( bash uuidgen whoami id docker groups mkdir tail awk printf sort touch sed mv ) 
+all_deps_installed=true
+for prog in ${DEPS[@]}; do
+    if ! which $prog &>/dev/null; then
+        echo "ERROR: '$prog' program is not installed on host machine" 1>&2
+        all_deps_installed=false
+    fi
+done
+if ! $all_deps_installed; then
+    exit 1
+fi
+
+# Definitions of variables which can be categorized as "naming and versioning".
+readonly NAME='devkit'
+readonly CONT="$NAME-$(uuidgen)"
+# docker version on host
+readonly DOCKER_CLIENT_VERSION="$(docker version --format '{{.Client.Version}}' 2> /dev/null)"
+TAG=    # unknown here; will be calculated during startup
+
+# The following ids will be passed to devkit container as environment variables
+# and bash interactive session will be executed on behalf of user with these uid and gid,
+# which will resolve a problem with "unremovable" artifacts after build.
+# Entrypoint will be executed on behalf of root user in order to have rights for
+# package installations.
+readonly USER_NAME="${DEVKIT_USER_NAME:-`whoami`}"
+readonly USER_HOME=`eval echo "~$USER_NAME"`
+readonly EFFECTIVE_UID="$(id -u $USER_NAME)"
+readonly EFFECTIVE_GID="$(id -g $USER_NAME)"
+
+# known dns servers
+readonly DNS_SERVER_LIST=( \
+                           "10.254.66.23" \
+                           "10.73.241.44" \
+                           "168.159.216.74" \
+                         )
+
+# this array is used in docker volumes initialization code
+readonly DOCKER_VOLUME_DIR_SECTIONS=( \
+                                      WORKSPACE \
+                                      CACHE_GRADLE \
+                                      CACHE_VAR_LIB_DOCKER \
+                                      CACHE_DOCKER \
+                                      CACHE_CONFIG \
+                                      CACHE_PKI \
+                                      CACHE_PKS \
+                                      CACHE_KUBE \
+                                      CACHE_GO \
+                                      SSH \
+                                      SOFTWARE \
+                                      XSOCK \
+                                      INTELLIJ_IDEA \
+                                      CACHE_INTELLIJ_IDEA \
+                                      CACHE_JAVA \
+                                      CLION \
+                                      CACHE_CLION \
+                                      KIND_KERNEL_MODULE \
+                                      KIND_SRC \
+                                      DEVICES \
+                                      UDEV \
+                                      LVM \
+                                      LOCK \
+                                    )
+readonly DOCKER_VOLUME_FILE_SECTIONS=( \
+                                       XAUTH \
+                                       BASH_HISTORY \
+                                       GIT_CONF \
+                                       BASH_RC \
+                                       BASH_ALIASES \
+                                       DBUS \
+                                     )
+DOCKER_VOLUME_OPTS=    # unknown here; will be initialized later
+
+# configurable docker options other then volumes
+DOCKER_OPTS=       # unknown here; will be initialized later
+
+# below are user-configurable parameters
+
+
+# workspace configuration
+readonly DEVKIT_WORKSPACE_HOST_DIR_PATH="${DEVKIT_WORKSPACE_HOST_DIR_PATH:-$HOME/Workspace}"
+readonly DEVKIT_WORKSPACE_CONT_DIR_PATH="${DEVKIT_WORKSPACE_CONT_DIR_PATH:-$DEVKIT_WORKSPACE_HOST_DIR_PATH}"
+readonly DEVKIT_WORKSPACE_SHARED_BOOL="${DEVKIT_WORKSPACE_SHARED_BOOL:-true}"
+
+
+# directory where third party applications are located (may be graphical applications like IntelliJ IDEA etc.)
+readonly DEVKIT_SOFTWARE_HOST_DIR_PATH="${DEVKIT_SOFTWARE_HOST_DIR_PATH:-/opt}"
+readonly DEVKIT_SOFTWARE_CONT_DIR_PATH="${DEVKIT_SOFTWARE_CONT_DIR_PATH:-/opt/software}"
+readonly DEVKIT_SOFTWARE_SHARED_BOOL="${DEVKIT_SOFTWARE_SHARED_BOOL:-false}"
+
+
+# IntelliJ IDEA configuration
+readonly DEVKIT_INTELLIJ_IDEA_HOST_DIR_PATH="${DEVKIT_INTELLIJ_IDEA_HOST_DIR_PATH:-$DEVKIT_SOFTWARE_HOST_DIR_PATH/idea}"
+readonly DEVKIT_INTELLIJ_IDEA_CONT_DIR_PATH="$DEVKIT_SOFTWARE_CONT_DIR_PATH/idea"
+readonly DEVKIT_INTELLIJ_IDEA_SHARED_BOOL="${DEVKIT_INTELLIJ_IDEA_SHARED_BOOL:-$DEVKIT_SOFTWARE_SHARED_BOOL}"
+
+
+# CLion configuration
+readonly DEVKIT_CLION_HOST_DIR_PATH="${DEVKIT_CLION_HOST_DIR_PATH:-$DEVKIT_SOFTWARE_HOST_DIR_PATH/clion}"
+readonly DEVKIT_CLION_CONT_DIR_PATH="$DEVKIT_SOFTWARE_CONT_DIR_PATH/clion"
+readonly DEVKIT_CLION_SHARED_BOOL="${DEVKIT_CLION_SHARED_BOOL:-$DEVKIT_SOFTWARE_SHARED_BOOL}"
+
+
+# devkit's caches configuration
+readonly DEVKIT_CACHE_HOST_DIR_PATH="${DEVKIT_CACHE_HOST_DIR_PATH:-$HOME/.$NAME}"
+
+readonly DEVKIT_CACHE_GRADLE_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.gradle"
+readonly DEVKIT_CACHE_GRADLE_CONT_DIR_PATH="$HOME/.gradle"
+readonly DEVKIT_CACHE_GRADLE_SHARED_BOOL="${DEVKIT_CACHE_GRADLE_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_VAR_LIB_DOCKER_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.var-lib-docker"
+readonly DEVKIT_CACHE_VAR_LIB_DOCKER_CONT_DIR_PATH="/var/lib/docker"
+readonly DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL="${DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL:-false}"
+
+readonly DEVKIT_CACHE_DOCKER_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.docker"
+readonly DEVKIT_CACHE_DOCKER_CONT_DIR_PATH="$HOME/.docker"
+readonly DEVKIT_CACHE_DOCKER_SHARED_BOOL="${DEVKIT_CACHE_DOCKER_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_CONFIG_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.config"
+readonly DEVKIT_CACHE_CONFIG_CONT_DIR_PATH="$HOME/.config"
+readonly DEVKIT_CACHE_CONFIG_SHARED_BOOL="${DEVKIT_CACHE_CONFIG_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_PKI_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.pki"
+readonly DEVKIT_CACHE_PKI_CONT_DIR_PATH="$HOME/.pki"
+readonly DEVKIT_CACHE_PKI_SHARED_BOOL="${DEVKIT_CACHE_PKI_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_PKS_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.pks"
+readonly DEVKIT_CACHE_PKS_CONT_DIR_PATH="$HOME/.pks"
+readonly DEVKIT_CACHE_PKS_SHARED_BOOL="${DEVKIT_CACHE_PKS_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_KUBE_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.kube"
+readonly DEVKIT_CACHE_KUBE_CONT_DIR_PATH="$HOME/.kube"
+readonly DEVKIT_CACHE_KUBE_SHARED_BOOL="${DEVKIT_CACHE_KUBE_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_INTELLIJ_IDEA_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.IntelliJIdea"
+readonly DEVKIT_CACHE_INTELLIJ_IDEA_CONT_DIR_PATH="$USER_HOME/.IntelliJIdea"
+readonly DEVKIT_CACHE_INTELLIJ_IDEA_SHARED_BOOL="${DEVKIT_CACHE_INTELLIJ_IDEA_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_CLION_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.CLion"
+readonly DEVKIT_CACHE_CLION_CONT_DIR_PATH="$HOME/.CLion"
+readonly DEVKIT_CACHE_CLION_SHARED_BOOL="${DEVKIT_CACHE_CLION_SHARED_BOOL:-true}"
+
+readonly DEVKIT_CACHE_JAVA_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.java"
+readonly DEVKIT_CACHE_JAVA_CONT_DIR_PATH="$HOME/.java"
+readonly DEVKIT_CACHE_JAVA_SHARED_BOOL="$( $DEVKIT_CACHE_INTELLIJ_IDEA_SHARED_BOOL || $DEVKIT_CACHE_CLION_SHARED_BOOL )"
+
+readonly DEVKIT_CACHE_GO_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.go"
+readonly DEVKIT_CACHE_GO_CONT_DIR_PATH="/usr/share/go"
+readonly DEVKIT_CACHE_GO_SHARED_BOOL="${DEVKIT_CACHE_GO_SHARED_BOOL:-false}"
+
+# kind configuration
+readonly DEVKIT_KIND_KERNEL_MODULE_HOST_DIR_PATH="/lib/modules"
+readonly DEVKIT_KIND_KERNEL_MODULE_CONT_DIR_PATH="/lib/modules"
+readonly DEVKIT_KIND_KERNEL_MODULE_SHARED_BOOL="${DEVKIT_KIND_KERNEL_MODULE_SHARED_BOOL:-false}"
+
+readonly DEVKIT_KIND_SRC_HOST_DIR_PATH="/usr/src"
+readonly DEVKIT_KIND_SRC_CONT_DIR_PATH="/usr/src"
+readonly DEVKIT_KIND_SRC_SHARED_BOOL="${DEVKIT_KIND_SRC_SHARED_BOOL:-false}"
+
+readonly DEVKIT_DEVICES_HOST_DIR_PATH="/dev"
+readonly DEVKIT_DEVICES_CONT_DIR_PATH="/dev"
+readonly DEVKIT_DEVICES_SHARED_BOOL="${DEVKIT_DEVICES_SHARED_BOOL:-false}"
+
+readonly DEVKIT_UDEV_HOST_DIR_PATH="/run/udev"
+readonly DEVKIT_UDEV_CONT_DIR_PATH="/run/udev"
+readonly DEVKIT_UDEV_SHARED_BOOL="${DEVKIT_UDEV_SHARED_BOOL:-false}"
+
+# LVM cache and lvmetad socket
+readonly DEVKIT_LVM_HOST_DIR_PATH="/run/lvm"
+readonly DEVKIT_LVM_CONT_DIR_PATH="/run/lvm"
+readonly DEVKIT_LVM_SHARED_BOOL="${DEVKIT_LVM_SHARED_BOOL:-false}"
+
+# share /run/lock folder, useful for lvm locks
+readonly DEVKIT_LOCK_HOST_DIR_PATH="/run/lock"
+readonly DEVKIT_LOCK_CONT_DIR_PATH="/run/lock"
+readonly DEVKIT_LOCK_SHARED_BOOL="${DEVKIT_LOCK_SHARED_BOOL:-false}"
+
+# ssh configuration
+readonly DEVKIT_SSH_HOST_DIR_PATH="${DEVKIT_SSH_HOST_DIR_PATH:-$HOME/.ssh}"
+readonly DEVKIT_SSH_CONT_DIR_PATH="$USER_HOME/.ssh"
+readonly DEVKIT_SSH_SHARED_BOOL="${DEVKIT_SSH_SHARED_BOOL:-true}"
+
+# git configuration
+readonly DEVKIT_GIT_CONF_HOST_FILE_PATH="${DEVKIT_GIT_CONF_HOST_FILE_PATH:-$HOME/.gitconfig}"
+readonly DEVKIT_GIT_CONF_CONT_FILE_PATH="$USER_HOME/.gitconfig"
+readonly DEVKIT_GIT_CONF_SHARED_BOOL="${DEVKIT_GIT_CONF_SHARED_BOOL:-false}"
+# bash configuration
+readonly DEVKIT_BASH_RC_HOST_FILE_PATH="${DEVKIT_BASH_RC_HOST_FILE_PATH:-$HOME/.bashrc}"
+readonly DEVKIT_BASH_RC_CONT_FILE_PATH="$USER_HOME/.bashrc"
+readonly DEVKIT_BASH_RC_SHARED_BOOL="${DEVKIT_BASH_RC_SHARED_BOOL:-false}"
+# bash aliases
+readonly DEVKIT_BASH_ALIASES_HOST_FILE_PATH="${DEVKIT_BASH_ALIASES_HOST_FILE_PATH:-$HOME/.bash_aliases}"
+readonly DEVKIT_BASH_ALIASES_CONT_FILE_PATH="$USER_HOME/.bash_aliases"
+readonly DEVKIT_BASH_ALIASES_SHARED_BOOL="${DEVKIT_BASH_ALIASES_SHARED_BOOL:-false}"
+
+readonly DEVKIT_DOCKER_PSEUDO_TTY_BOOL="${DEVKIT_DOCKER_PSEUDO_TTY_BOOL:-true}"
+
+# the following variable may not be set; in this case user will be asked interactively
+# if there are more then one tag available
+readonly DEVKIT_DOCKER_IMAGE_TAG="${DEVKIT_DOCKER_IMAGE_TAG:-}"
+
+# devkit's docker repo name can be overriden to support using of pulled images
+readonly DEVKIT_DOCKER_IMAGE_REPO="${CSI_DEVKIT_DOCKER_IMAGE_REPO:-$NAME}"
+
+# whether --net host flag be added to docker container or not
+readonly DEVKIT_DOCKER_NETWORK_HOST_BOOL="${DEVKIT_DOCKER_NETWORK_HOST_BOOL:-false}"
+
+# whether docker container be removed on exit or not
+readonly DEVKIT_DOCKER_RM_BOOL="${DEVKIT_DOCKER_RM_BOOL:-true}"
+
+readonly DEVKIT_LOG_STDOUT_ENABLED_BOOL="${DEVKIT_LOG_STDOUT_ENABLED_BOOL:-true}"
+
+# variables related to X11 forwarding
+readonly DEVKIT_X11_FORWARDING_ENABLED_BOOL="${DEVKIT_X11_FORWARDING_ENABLED_BOOL:-false}"
+
+# host ipc
+readonly DEVKIT_DOCKER_IPC_HOST_BOOL="${DEVKIT_DOCKER_IPC_HOST_BOOL:-false}"
+
+readonly DEVKIT_XSOCK_HOST_DIR_PATH="/tmp/.X11-unix"
+readonly DEVKIT_XSOCK_CONT_DIR_PATH="$DEVKIT_XSOCK_HOST_DIR_PATH"
+readonly DEVKIT_XSOCK_SHARED_BOOL="$DEVKIT_X11_FORWARDING_ENABLED_BOOL"
+
+readonly DEVKIT_XAUTH_HOST_FILE_PATH="${DEVKIT_XAUTH_HOST_FILE_PATH:-$DEVKIT_CACHE_HOST_DIR_PATH/.xauth}"
+readonly DEVKIT_XAUTH_CONT_FILE_PATH="$HOME/.xauth"
+readonly DEVKIT_XAUTH_SHARED_BOOL="$DEVKIT_X11_FORWARDING_ENABLED_BOOL"
+
+readonly DEVKIT_BASH_HISTORY_HOST_FILE_PATH="${DEVKIT_BASH_HISTORY_HOST_FILE_PATH:-$DEVKIT_CACHE_HOST_DIR_PATH/.bash_history}"
+readonly DEVKIT_BASH_HISTORY_CONT_FILE_PATH="$HOME/.bash_history"
+readonly DEVKIT_BASH_HISTORY_SHARED_BOOL="${DEVKIT_BASH_HISTORY_SHARED_BOOL:-true}"
+
+readonly DEVKIT_DBUS_HOST_FILE_PATH="/run/dbus/system_bus_socket"
+readonly DEVKIT_DBUS_CONT_FILE_PATH="/run/dbus/system_bus_socket"
+readonly DEVKIT_DBUS_SHARED_BOOL="${DEVKIT_DBUS_SHARED_BOOL:-true}"
+
+# prepares host system for X11 forwarding
+function prepare_for_X11_forwarding() {
+    # prepare only in case devkit is started with the desire to use X11 forwarding
+    if ! $DEVKIT_X11_FORWARDING_ENABLED_BOOL; then
+        return 0
+    fi
+
+    if [[ -z "$DISPLAY" ]]; then
+        echo "ERROR: variable DISPLAY on the host system is not set; unable to setup X11 forwarding" 1>&2
+        echo "INFO: in order to disable X11 forwarding set DEVKIT_X11_FORWARDING_ENABLED_BOOL variable to false"
+        return 1
+    fi
+
+    mkdir --parents "$DEVKIT_XSOCK_HOST_DIR_PATH" "$(dirname $DEVKIT_XAUTH_HOST_FILE_PATH)"
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: unable to create $DEVKIT_XSOCK_HOST_DIR_PATH or $(dirname $DEVKIT_XAUTH_HOST_FILE_PATH) directory" 1>&2
+        return 1
+    fi
+
+    touch $DEVKIT_XAUTH_HOST_FILE_PATH
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: unable to touch file $DEVKIT_XAUTH_HOST_FILE_PATH" 1>&2
+        return 1
+    fi
+
+    # TODO: figure out how to threat it as a conditional dependency together with other dependencies.
+    if ! which xauth &>/dev/null; then
+        echo "ERROR: 'xauth' program is not installed on host machine" 1>&2
+        return 1
+    fi
+
+    # this allows application from docker to connect to host X-server
+    # a more "secure" approach, than xhost +
+    xauth nlist $DISPLAY | sed -e 's/^..../ffff/' | xauth -f $DEVKIT_XAUTH_HOST_FILE_PATH nmerge -
+    if [[ "${PIPESTATUS[@]}" =~ [1-9] ]]; then
+        echo "ERROR: failed to configure $DEVKIT_XAUTH_HOST_FILE_PATH using xauth tool" 1>&2
+        return 1
+    fi
+
+    return 0
+}
+
+# prepare idea.properties (JetBrains' IDE configuration file)
+function prepare_jetbrains_ide() {
+    local ret=0
+    local print_perms_help_on_error=false
+    local ide="$1"
+    local cache_dir="$2"
+
+    if [[ -z "$ide" || -z "$cache_dir" ]]; then
+        echo "ERROR: incorrect input arguments to prepare_jetbrains_ide() function [ ide=$ide, cache_dir=$cache_dir ]"
+        return 1
+    fi
+
+    host="DEVKIT_${ide^^}_HOST_DIR_PATH"
+    shared="DEVKIT_${ide^^}_SHARED_BOOL"
+
+    if ${!shared}; then
+        if [[ ! -r ${!host}/bin/idea.properties || \
+              ! -w ${!host}/bin/idea.properties ]]; then
+            echo "ERROR: user '$USER_NAME' does not have 'rw' access to ${!host}/bin/idea.properties or this file does not exist" 1>&2
+            print_perms_help_on_error=true
+            ((ret++))
+        fi
+
+        if [[ ! -r ${!host}/bin || \
+              ! -w ${!host}/bin ]]; then
+            echo "ERROR: user '$USER_NAME' does not have 'rw' access to ${!host}/bin or this directory does not exist" 1>&2
+            print_perms_help_on_error=true
+            ((ret++))
+        fi
+
+        if [[ $ret -eq 0 ]]; then
+            sed -e "s|#[ ]*idea.config.path.\+|idea.config.path=\${user.home}/${cache_dir}/config|" \
+                -e "s|#[ ]*idea.system.path.\+|idea.system.path=\${user.home}/${cache_dir}/system|" \
+                -e "s|#[ ]*idea.plugins.path.\+|idea.plugins.path=\${idea.config.path}/plugins|" \
+                -e "s|#[ ]*idea.log.path.\+|idea.log.path=\${idea.system.path}/log|" \
+                ${!host}/bin/idea.properties \
+                    > ${!host}/bin/idea.properties.new || ((ret++))
+            [[ $ret -eq 0 ]] && \
+                mv ${!host}/bin/idea.properties.new \
+                   ${!host}/bin/idea.properties || ((ret++))
+        fi
+    fi
+
+    if [[ $ret -ne 0 ]]; then
+        echo "ERROR: failed to configure ${!host}/bin/idea.properties; you might need to repair this file" 1>&2
+        $print_perms_help_on_error && \
+            echo "INFO: use 'sudo chmod -R a+rw ${!host}' command to quickly fix file/dir. permissions"
+        echo "INFO: set $shared to false to disable $ide configuration during start"
+    fi
+
+    return $ret
+}
+
+# prepare idea.properties (IntelliJ IDEA)
+function prepare_intellij_idea() {
+    prepare_jetbrains_ide "IntelliJ_IDEA" ".IntelliJIdea"
+    return $?
+}
+
+# prepare idea.properties (CLion)
+function prepare_clion() {
+    prepare_jetbrains_ide "CLion" ".CLion"
+    return $?
+}
+
+#
+# Below are some comments to make clear why some flags were used.
+# * container will be removed when interactive bash session finished
+# * use of a predefined name will prohibit execution of multiple devkit copies simultaneously (docker image store can be accessed by only one docker process at time)
+# * save gradle directory to increase speed of repeated builds
+# * save docker directory with dowloaded images to increase speed of repeated builds
+# * sharing of /sys/fs/cgroup helps to overcome a problem during docker build inside devkit
+# * pass effective user id and group id to overcome a problem with access permissions to generated files from host after builds
+#
+# Assigns value to DOCKER_VOLUME_OPTS and creates directories on host.
+#
+# Create (if needed) directories that will be shared with container.
+# Owner of these directoriers should be current user. These dirictories can be created
+# automatically during container creation, but since we start container as root user,
+# non-root user inside container will not be able to write to these directories.
+#
+function init_docker_opts() {
+    local host
+    # variable for --hostname option for later use if docker version allows it,
+    # because --hostname option has a conflict with --net option in the Docker version less than 1.11.0.
+    local hostname
+    local cont
+    local share
+    local ret=0
+
+    DOCKER_OPTS="--interactive \
+                 --privileged \
+                 --name              $CONT \
+                 --memory            8G \
+                 --memory-swappiness 10 \
+                 --env               EUID=$EFFECTIVE_UID \
+                 --env               EGID=$EFFECTIVE_GID \
+                 --env               USER_NAME=$USER_NAME \
+                 --env               STDOUT=$DEVKIT_LOG_STDOUT_ENABLED_BOOL \
+                 --workdir           $DEVKIT_WORKSPACE_CONT_DIR_PATH \
+                 --volume            /sys/fs/cgroup:/sys/fs/cgroup:ro "
+
+    if $DEVKIT_DOCKER_PSEUDO_TTY_BOOL; then
+        DOCKER_OPTS+=" --tty "
+    fi
+
+    if $DEVKIT_DOCKER_NETWORK_HOST_BOOL; then
+        # otherwise the custom hostname is unresolvable within container
+        hostname=""
+    else
+        # the dot in the end makes the --hostname argument a fully qualified domain name,
+        # which helps to avoid problems with the software products that do not meet 
+        # the requirements of the standard
+        hostname=" --hostname $NAME. "
+    fi
+
+    if $DEVKIT_DOCKER_NETWORK_HOST_BOOL && is_version_lt "$DOCKER_CLIENT_VERSION" '1.11.0'; then
+        DOCKER_OPTS+=${hostname}
+        DOCKER_OPTS+=" --net=host "
+    elif $DEVKIT_DOCKER_NETWORK_HOST_BOOL; then
+        DOCKER_OPTS+=${hostname}
+        DOCKER_OPTS+=" --network host "
+    else
+        DOCKER_OPTS+=${hostname}
+        for server in ${DNS_SERVER_LIST[@]}; do
+            DOCKER_OPTS+=" --dns $server "
+        done
+    fi
+
+    if $DEVKIT_DOCKER_IPC_HOST_BOOL; then
+        DOCKER_OPTS+="--ipc=host"
+    fi
+
+    for section in ${DOCKER_VOLUME_DIR_SECTIONS[@]}; do
+        host="DEVKIT_${section}_HOST_DIR_PATH"
+        cont="DEVKIT_${section}_CONT_DIR_PATH"
+        share="DEVKIT_${section}_SHARED_BOOL"
+
+        if ${!share}; then
+            DOCKER_VOLUME_OPTS+=" --volume ${!host}:${!cont}:z "
+            mkdir --parents ${!host} || ((++ret))
+        fi
+    done
+
+    for section in ${DOCKER_VOLUME_FILE_SECTIONS[@]}; do
+        host="DEVKIT_${section}_HOST_FILE_PATH"
+        cont="DEVKIT_${section}_CONT_FILE_PATH"
+        share="DEVKIT_${section}_SHARED_BOOL"
+
+        if ${!share}; then
+            DOCKER_VOLUME_OPTS+=" --volume ${!host}:${!cont}:z "
+            touch "${!host}" || ((++ret))
+        fi
+    done
+
+    if $DEVKIT_X11_FORWARDING_ENABLED_BOOL; then
+        DOCKER_OPTS+=" --env XAUTHORITY=$DEVKIT_XAUTH_CONT_FILE_PATH "
+        DOCKER_OPTS+=" --env DISPLAY=$DISPLAY "
+    fi
+
+    DOCKER_OPTS+=$DOCKER_VOLUME_OPTS
+
+    if [[ $ret -ne 0 ]]; then
+        echo "ERROR: failed to create some of the shared directories or some files do not exist on the host." 1>&2
+    fi
+
+    return $ret
+}
+
+#
+# Print all local tags of docker repo $CSI_DEVKIT_DOCKER_IMAGE_REPO
+#
+function list_repo_tags() {
+    local local_docker_daemon_version=$DOCKER_CLIENT_VERSION
+
+    # Option "--format" for "docker images" was introduced in docker 1.10.0
+    if is_version_lt "$local_docker_daemon_version" '1.10.0'; then
+        /usr/bin/docker images --no-trunc | awk -v repo="$CSI_DEVKIT_DOCKER_IMAGE_REPO" '$1 == repo {print $2}'
+    else
+        /usr/bin/docker images --format {{.Tag}} $CSI_DEVKIT_DOCKER_IMAGE_REPO
+    fi
+}
+
+#
+#  Compare two version strings. Returns 0 if the first is strictly less than the second.
+#  Example: is_version_lt 1.2 1.2.3 returns 0
+#
+function is_version_lt() {
+    test "$(printf '%s\n' "$@" | sort -V | tail -n 1)" != "$1"
+}
+
+#
+# Assign value to TAG global variable. Do it silently if there is only one devkit image presented.
+# Otherwise ask user which version of devkit to use.
+#
+function set_tag() {
+    local tag_lst;
+    tag_lst=( $(list_repo_tags) )
+
+    if [[ -z "${tag_lst[@]}" ]]; then
+        echo "ERROR: no image with repo '$CSI_DEVKIT_DOCKER_IMAGE_REPO' found" 1>&2
+        return 1
+    fi
+
+    if [[ -n $DEVKIT_DOCKER_IMAGE_TAG ]]; then
+
+        # in the following condition whitespaces before and after variable expansions are essential
+        # and allows to make a strict equality check
+        if [[ " ${tag_lst[@]} " =~ " $DEVKIT_DOCKER_IMAGE_TAG " ]]; then
+            TAG="$DEVKIT_DOCKER_IMAGE_TAG"
+            return 0
+        else
+            echo "ERROR: $CSI_DEVKIT_DOCKER_IMAGE_REPO:$DEVKIT_DOCKER_IMAGE_TAG image does not exist" 1>&2
+            return 1
+        fi
+
+    fi
+
+    if [[ ${#tag_lst[@]} -gt 1 ]]; then
+        echo "Available tags for '$CSI_DEVKIT_DOCKER_IMAGE_REPO':"
+        for tag in ${tag_lst[@]}; do
+            echo "    $tag"
+        done
+        
+        while true; do
+            local tag
+            read -p "Choose tag for '$CSI_DEVKIT_DOCKER_IMAGE_REPO' (enter tag's value): " tag
+            
+            for t in ${tag_lst[@]} ; do 
+               if [[ "$t" == "$tag" ]]; then
+                   TAG="$t"
+                   return 0
+               fi
+            done
+            
+            echo "Wrong input; please, try again..." 1>&2
+        done
+    else
+        TAG="${tag_lst[0]}"
+        return 0
+    fi
+}
+
+#
+# Check that the user is root or user is in 'docker' group.
+#
+function check_user_groups() {
+    local output;
+    output=$(groups $USER_NAME | grep "docker\|root")
+    if [[ $? -ne 0 || -z "$output" ]]; then
+        echo "ERROR: user should be in group 'docker'" 1>&2
+
+cat << EOF
+INFO: execute following commands to enable non-sudo access to docker for '$USER_NAME':
+          groupadd --force docker
+          usermod --append --groups docker $USER_NAME
+          systemctl restart docker
+EOF
+
+        return 1
+    fi
+
+    return 0
+}
+
+function signal_handler() {
+    # disable signal handling for the next signals
+    trap - SIGINT SIGTERM SIGHUP
+
+    local signal="$1"
+
+    echo "INFO: $signal signal has been caught"
+
+    /usr/bin/docker rm --force $CONT &>/dev/null
+
+    exit 127
+}
+
+#
+# check environment/system of the host (i.e. whether workspace exists or not, etc.)
+#
+function check_host_env() {
+    if $DEVKIT_WORKSPACE_SHARED_BOOL; then
+        if ! [[ -d $DEVKIT_WORKSPACE_HOST_DIR_PATH ]]; then
+            echo "ERROR: $NAME is configured to share $DEVKIT_WORKSPACE_HOST_DIR_PATH directory with host, but this directory does not exist." 1>&2
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+
+
+#
+# Execution starts here.
+#
+check_user_groups || exit 10
+
+check_host_env || exit 20
+
+prepare_for_X11_forwarding || exit 30
+
+#prepare_intellij_idea || exit 34
+
+#prepare_clion || exit 35
+
+init_docker_opts || exit 37
+
+set_tag || exit 40
+
+for sig in SIGINT SIGTERM SIGHUP; do
+    trap "signal_handler ${sig:3}" $sig 2>/dev/null
+done
+
+/usr/bin/docker create $DOCKER_OPTS $CSI_DEVKIT_DOCKER_IMAGE_REPO:$TAG "$@" &>/dev/null
+if [[ $? -ne 0 ]]; then
+    /usr/bin/docker rm --force $CONT &>/dev/null
+    exit 50
+fi
+
+# since docker command runs in background, we need to foward stdin from the outside
+# we are doing it using file descriptor 3
+{ /usr/bin/docker start --interactive $CONT <&3 3<&- & } 3<&0
+
+# 
+# The following approach of signal handling is based in the ideas discussed in
+#                                   http://veithen.github.io/2014/11/16/sigterm-propagation.html
+#
+pid=$!
+
+#  wait for child process (returns immediately if interrupted by a signal);
+#    shell will start executing the instructions following the wait command
+#    and may even exit before the child process has terminated
+#    (to handle this the second wait is written below).
+wait $pid
+	
+# no need to use signal handler anymore
+trap - SIGINT SIGTERM SIGHUP
+
+# waiting for complete termination of child processes
+wait $pid
+
+# this place will be reached when the process above will exit (failure or TERM/INT signal)
+exit_code=$?
+
+$DEVKIT_DOCKER_RM_BOOL && /usr/bin/docker rm --force $CONT &>/dev/null
+
+exit $exit_code
+
