@@ -577,7 +577,7 @@ check_user_groups || exit 10
 
 check_host_env || exit 20
 
-prepare_for_X11_forwarding || exit 30
+#prepare_for_X11_forwarding || exit 30
 
 #prepare_intellij_idea || exit 34
 
