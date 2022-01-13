@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -141,7 +142,7 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bool, ch <-chan struct{}) (ctrl.Manager, error) {
+func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bool, ctx context.Context) (ctrl.Manager, error) {
 	// create scheme
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
@@ -182,7 +183,7 @@ func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bo
 	}
 	wrappedK8SClient := k8s.NewKubeClient(client, log, *namespace)
 
-	kubeCache, err := k8s.InitKubeCache(log, ch,
+	kubeCache, err := k8s.InitKubeCache(log, ctx,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
 	if err != nil {
 		return nil, err

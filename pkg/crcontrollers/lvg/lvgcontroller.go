@@ -77,7 +77,7 @@ func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger)
 // Controller's node if LogicalVolumeGroup.Spec.Status is Creating. Also this loop handles VG deletion on the node if
 // LogicalVolumeGroup.ObjectMeta.DeletionTimestamp is not zero and VG is not placed on system drive.
 // Returns reconcile result as ctrl.Result or error if something went wrong
-func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_lvg_controller")()
 	ll := c.log.WithFields(logrus.Fields{
 		"method":  "Reconcile",
@@ -86,7 +86,7 @@ func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	lvg := &lvgcrd.LogicalVolumeGroup{}
 
-	if err := c.k8sClient.ReadCR(context.Background(), req.Name, "", lvg); err != nil {
+	if err := c.k8sClient.ReadCR(ctx, req.Name, "", lvg); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 

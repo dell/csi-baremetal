@@ -95,12 +95,12 @@ func (c *Controller) filterCRs(obj runtime.Object) bool {
 }
 
 // Reconcile reconciles Drive custom resources
-func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_drive_controller")()
 	// read name
 	driveName := req.Name
 	// create context
-	ctx, cancelFn := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelFn()
 
 	// customize logging

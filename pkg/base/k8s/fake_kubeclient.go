@@ -18,6 +18,7 @@ package k8s
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,7 +46,7 @@ type FakeClientWrapper struct {
 }
 
 // Get is a wrapper around Get method
-func (fkw *FakeClientWrapper) Get(ctx context.Context, key k8sCl.ObjectKey, obj runtime.Object) error {
+func (fkw *FakeClientWrapper) Get(ctx context.Context, key k8sCl.ObjectKey, obj k8sCl.Object) error {
 	if fkw.shouldPatchNS(obj) {
 		key = fkw.removeNSFromObjKey(key)
 	}
@@ -53,7 +54,7 @@ func (fkw *FakeClientWrapper) Get(ctx context.Context, key k8sCl.ObjectKey, obj 
 }
 
 // List is a wrapper around List method
-func (fkw *FakeClientWrapper) List(ctx context.Context, list runtime.Object, opts ...k8sCl.ListOption) error {
+func (fkw *FakeClientWrapper) List(ctx context.Context, list k8sCl.ObjectList, opts ...k8sCl.ListOption) error {
 	if fkw.shouldPatchNS(list) {
 		opts = fkw.removeNSFromListOptions(opts)
 	}
@@ -61,34 +62,45 @@ func (fkw *FakeClientWrapper) List(ctx context.Context, list runtime.Object, opt
 }
 
 // Create is a wrapper around Create method
-func (fkw *FakeClientWrapper) Create(ctx context.Context, obj runtime.Object, opts ...k8sCl.CreateOption) error {
+func (fkw *FakeClientWrapper) Create(ctx context.Context, obj k8sCl.Object, opts ...k8sCl.CreateOption) error {
 	return fkw.client.Create(ctx, obj, opts...)
 }
 
 // Delete is a wrapper around Delete method
-func (fkw *FakeClientWrapper) Delete(ctx context.Context, obj runtime.Object, opts ...k8sCl.DeleteOption) error {
+func (fkw *FakeClientWrapper) Delete(ctx context.Context, obj k8sCl.Object, opts ...k8sCl.DeleteOption) error {
 	return fkw.client.Delete(ctx, obj, opts...)
 }
 
 // Update is a wrapper around Update method
-func (fkw *FakeClientWrapper) Update(ctx context.Context, obj runtime.Object, opts ...k8sCl.UpdateOption) error {
+func (fkw *FakeClientWrapper) Update(ctx context.Context, obj k8sCl.Object, opts ...k8sCl.UpdateOption) error {
 	return fkw.client.Update(ctx, obj, opts...)
 }
 
 // Patch is a wrapper around Patch method
-func (fkw *FakeClientWrapper) Patch(ctx context.Context, obj runtime.Object,
+func (fkw *FakeClientWrapper) Patch(ctx context.Context, obj k8sCl.Object,
 	patch k8sCl.Patch, opts ...k8sCl.PatchOption) error {
 	return fkw.client.Patch(ctx, obj, patch, opts...)
 }
 
 // DeleteAllOf is a wrapper around DeleteAllOf method
-func (fkw *FakeClientWrapper) DeleteAllOf(ctx context.Context, obj runtime.Object, opts ...k8sCl.DeleteAllOfOption) error {
+func (fkw *FakeClientWrapper) DeleteAllOf(ctx context.Context, obj k8sCl.Object, opts ...k8sCl.DeleteAllOfOption) error {
 	return fkw.client.DeleteAllOf(ctx, obj, opts...)
 }
 
 // Status is a wrapper around Status method
 func (fkw *FakeClientWrapper) Status() k8sCl.StatusWriter {
 	return fkw.client.Status()
+}
+
+// Scheme is a wrapper around Scheme method
+func (fkw *FakeClientWrapper) Scheme() *runtime.Scheme {
+	return fkw.scheme
+}
+
+// RESTMapper is a wrapper around RESTMapper
+// should return the rest this client is using, but not need in fake implementation
+func (fkw *FakeClientWrapper) RESTMapper() meta.RESTMapper {
+	return nil
 }
 
 func (fkw *FakeClientWrapper) shouldPatchNS(obj runtime.Object) bool {
@@ -128,6 +140,6 @@ func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error
 	if err != nil {
 		return nil, err
 	}
-	fakeClientWrapper := NewFakeClientWrapper(fake.NewFakeClientWithScheme(scheme), scheme)
+	fakeClientWrapper := NewFakeClientWrapper(fake.NewClientBuilder().WithScheme(scheme).Build(), scheme)
 	return NewKubeClient(fakeClientWrapper, logger, testNs), nil
 }
