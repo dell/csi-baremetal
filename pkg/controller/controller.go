@@ -74,6 +74,7 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 	featureConf featureconfig.FeatureChecker) *CSIControllerService {
 	c := &CSIControllerService{
 		k8sclient:                k8sClient,
+		reqKeyMutes:  			  keymutex.NewHashed(0),
 		log:                      logger.WithField("component", "CSIControllerService"),
 		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
