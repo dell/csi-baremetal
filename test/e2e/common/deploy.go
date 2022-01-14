@@ -61,7 +61,7 @@ func collectPodLogs(f *framework.Framework) func() {
 	if err := podlogs.CopyAllLogs(ctx, cs, ns.Name, to); err != nil {
 		e2elog.Logf("Cant copy all pod logs: %s", err)
 	}
-	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs); err != nil {
+	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs, eventsLogs); err != nil {
 		e2elog.Logf("Cant copy all pod events: %s", err)
 	}
 	return func() {

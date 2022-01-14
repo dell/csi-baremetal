@@ -413,6 +413,7 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// ControllerGetVolume is not implemented yet
 func (c *CSIControllerService) ControllerGetVolume(ctx context.Context, request *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }

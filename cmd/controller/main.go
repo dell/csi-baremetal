@@ -115,7 +115,7 @@ func main() {
 	}
 	stopCH := ctrl.SetupSignalHandler()
 	// todo make ACR feature mandatory and get rid of feature flag https://github.com/dell/csi-baremetal/issues/366
-	mgr, err := createManager(kubeClient, logger, featureConf.IsEnabled(featureconfig.FeatureACReservation), stopCH)
+	mgr, err := createManager(stopCH, kubeClient, logger, featureConf.IsEnabled(featureconfig.FeatureACReservation))
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bool, ctx context.Context) (ctrl.Manager, error) {
+func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logger, featureEnabled bool) (ctrl.Manager, error) {
 	// create scheme
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
@@ -183,7 +183,7 @@ func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bo
 	}
 	wrappedK8SClient := k8s.NewKubeClient(client, log, *namespace)
 
-	kubeCache, err := k8s.InitKubeCache(log, ctx,
+	kubeCache, err := k8s.InitKubeCache(ctx, log,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
 	if err != nil {
 		return nil, err

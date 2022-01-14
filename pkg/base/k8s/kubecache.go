@@ -73,7 +73,7 @@ func NewKubeCache(reader k8sCl.Reader, logger *logrus.Logger) *KubeCache {
 
 // InitKubeCache creates and starts KubeCache,
 // if objects passed the function will block until cache synced for these objects
-func InitKubeCache(logger *logrus.Logger, stopCH context.Context, objects ...k8sCl.Object) (*KubeCache, error) {
+func InitKubeCache(stopCH context.Context, logger *logrus.Logger, objects ...k8sCl.Object) (*KubeCache, error) {
 	k8sCache, err := GetK8SCache()
 	if err != nil {
 		logger.Errorf("fail to create cache for kubernetes resources, error: %v", err)

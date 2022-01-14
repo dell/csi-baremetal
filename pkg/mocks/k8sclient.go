@@ -18,9 +18,9 @@ package mocks
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/meta"
 
 	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

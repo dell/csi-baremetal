@@ -18,8 +18,9 @@ package k8s
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/meta"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -27,7 +28,6 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/sirupsen/logrus"
 )
 
 // NewFakeClientWrapper return new instance of FakeClientWrapper
