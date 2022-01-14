@@ -21,7 +21,6 @@ import (
 	"context"
 	"k8s.io/utils/keymutex"
 	"strings"
-	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -229,9 +228,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 // Receives golang context and CSI Spec DeleteVolumeRequest
 // Returns CSI Spec DeleteVolumeResponse or error if something went wrong
 func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	volumeId := req.GetVolumeId()
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
-		"volumeID": req.GetVolumeId(),
+		"volumeID": volumeId,
 	})
 
 	ll.Infof("Processing request: %v", req)
@@ -241,9 +241,12 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	}
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.VolumeId)
 
-	c.reqMu.Lock()
+	c.reqKeyMutes.LockKey(volumeId)
 	err := c.svc.DeleteVolume(ctxWithID, req.GetVolumeId())
-	c.reqMu.Unlock()
+	if err := c.reqKeyMutes.UnlockKey(volumeId); err != nil {
+		// need to panic here
+		panic("Failed to unlock key" + volumeId)
+	}
 
 	if err != nil {
 		if k8sError.IsNotFound(err) || (status.Code(err) == codes.NotFound) {
@@ -259,9 +262,12 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		return nil, status.Error(codes.Internal, "Unable to delete volume")
 	}
 
-	c.reqMu.Lock()
+	c.reqKeyMutes.LockKey(volumeId)
 	c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
-	c.reqMu.Unlock()
+	if err := c.reqKeyMutes.UnlockKey(volumeId); err != nil {
+		// need to panic here
+		panic("Failed to unlock key" + volumeId)
+	}
 
 	ll.Debug("Volume was successfully deleted")
 
@@ -423,9 +429,12 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		}, nil
 	}
 
-	c.reqMu.Lock()
+	c.reqKeyMutes.LockKey(volID)
 	err = c.svc.ExpandVolume(ctx, volume, requiredBytes)
-	c.reqMu.Unlock()
+	if err := c.reqKeyMutes.UnlockKey(volID); err != nil {
+		// need to panic here
+		panic("Failed to unlock key" + volID)
+	}
 
 	if err != nil {
 		return nil, err
@@ -433,9 +442,12 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 
 	err = c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Resized)
 
-	c.reqMu.Lock()
+	c.reqKeyMutes.LockKey(volID)
 	c.svc.UpdateCRsAfterVolumeExpansion(ctx, volID, requiredBytes)
-	c.reqMu.Unlock()
+	if err := c.reqKeyMutes.UnlockKey(volID); err != nil {
+		// need to panic here
+		panic("Failed to unlock key" + volID)
+	}
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to expand volume")
