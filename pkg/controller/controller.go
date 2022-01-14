@@ -19,6 +19,7 @@ package controller
 
 import (
 	"context"
+	"k8s.io/utils/keymutex"
 	"strings"
 	"sync"
 
@@ -50,8 +51,8 @@ type NodeID string
 type CSIControllerService struct {
 	k8sclient *k8s.KubeClient
 
-	// mutex for csi request
-	reqMu sync.Mutex
+	// Key Mutex for csi request
+	reqKeyMutes keymutex.KeyMutex
 	log   *logrus.Entry
 
 	svc common.VolumeOperations
@@ -180,7 +181,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 	} else {
 		mode = apiV1.ModeRAW
 	}
-	c.reqMu.Lock()
+	// we need to have a lock per volume here
+	c.reqKeyMutes.LockKey(req.Name)
 	vol, err = c.svc.CreateVolume(ctxValue, api.Volume{
 		Id:           req.Name,
 		StorageClass: util.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
@@ -189,7 +191,11 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		Mode:         mode,
 		Type:         fsType,
 	})
-	c.reqMu.Unlock()
+	// unlock
+	if err := c.reqKeyMutes.UnlockKey(req.Name); err != nil {
+		// need to panic here
+		panic("Failed to unlock key" + req.Name)
+	}
 
 	if err != nil {
 		ll.Errorf("Failed to create volume: %v", err)

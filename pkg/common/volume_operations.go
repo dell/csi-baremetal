@@ -262,18 +262,28 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 		}
 	}
 
-	if volumeCR.Spec.CSIStatus == apiV1.Failed {
+	switch volumeCR.Spec.CSIStatus {
+	// return error if Failed
+	case apiV1.Failed:
 		return nil, fmt.Errorf("corresponding volume CR %s has failed status", volumeCR.Spec.Id)
+	// ok when Created
+	case apiV1.Created:
+		return &volumeCR.Spec, nil
+	// check timeout only for Creating
+	case apiV1.Creating:
+		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForVolumeOperations)
+		if expiredAt.Before(time.Now()) {
+			log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			// todo don't ignore error here
+			_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
+			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
+		}
+		return &volumeCR.Spec, nil
+	// unexpected state	- return error
+	default:
+		return nil, fmt.Errorf("unexpected state %s", volumeCR.Spec.CSIStatus)
 	}
-	// check that volume is in created state or time is over (for creating)
-	expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForVolumeOperations)
-	if expiredAt.Before(time.Now()) {
-		log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
-		volumeCR.Spec.CSIStatus = apiV1.Failed
-		_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
-		return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
-	}
-	return &volumeCR.Spec, nil
 }
 
 func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *logrus.Entry, namespace string,
