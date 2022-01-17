@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1/api"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"

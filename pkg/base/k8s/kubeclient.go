@@ -31,7 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"

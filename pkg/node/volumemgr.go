@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"

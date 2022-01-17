@@ -35,7 +35,7 @@ import (
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/keymutex"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"

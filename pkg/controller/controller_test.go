@@ -35,7 +35,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"

@@ -23,7 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base"

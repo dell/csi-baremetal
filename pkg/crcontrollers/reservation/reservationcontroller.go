@@ -8,7 +8,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1api "github.com/dell/csi-baremetal/api/generated/v1"
+	v1api "github.com/dell/csi-baremetal/api/generated/v1/api"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"

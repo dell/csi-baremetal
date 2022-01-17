@@ -105,7 +105,7 @@ jobs:
       id: changed_files
       with:
         files: |
-           api/generated/v1/*.go
+           api/generated/v1/api/*.go
            api/v1/*/*.go
            '.(go)$'
            

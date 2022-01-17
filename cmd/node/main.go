@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"

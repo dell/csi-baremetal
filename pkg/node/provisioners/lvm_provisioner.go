@@ -22,7 +22,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"

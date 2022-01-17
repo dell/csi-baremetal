@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"

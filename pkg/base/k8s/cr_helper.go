@@ -26,7 +26,7 @@ import (
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"

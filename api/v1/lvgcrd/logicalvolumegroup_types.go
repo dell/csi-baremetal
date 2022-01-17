@@ -19,7 +19,7 @@ package lvgcrd
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
+	"github.com/dell/csi-baremetal/api/generated/v1/api"
 )
 
 // +kubebuilder:object:root=true
