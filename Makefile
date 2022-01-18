@@ -14,6 +14,11 @@ version:
 dependency:
 	${GO_ENV_VARS} go mod download
 
+tidy:
+	${GO_ENV_VARS} go mod tidy
+	${GO_ENV_VARS} go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VER)
+	${GO_ENV_VARS} go get github.com/vektra/mockery/v2@$(MOCKERY_VER)
+
 all: build base-images images push
 
 ### Build binaries
@@ -81,7 +86,7 @@ install-protoc:
 	unzip protoc-3.11.0-linux-x86_64.zip -d proto_3.11.0/ && \
 	sudo mv proto_3.11.0/bin/protoc /usr/bin/protoc && \
 	protoc --version; rm -rf proto_3.11.0; rm protoc-*
-	go install github.com/golang/protobuf/protoc-gen-go@v1.3.2
+	go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VER)
 
 install-compile-proto: install-protoc compile-proto
 
