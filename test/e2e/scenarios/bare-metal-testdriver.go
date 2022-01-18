@@ -47,7 +47,8 @@ var (
 	ext4Fs                    = "ext4"
 	ext3Fs                    = "ext3"
 	hddStorageType            = "HDD"
-	maxDriveSize              = "3Gi"
+	// default value for expansion is hardcoded to 1Gi in e2e test framework
+	maxDriveSize              = "1.2Gi"
 )
 
 func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
