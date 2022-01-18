@@ -84,19 +84,19 @@ spec:
 
 #### Baremetal CSI Driver's improvements:
 
-At Baremetal CSI Driver we should improve Reservation flow (at ReservationController component) for supporting new type of volumes 
+At Baremetal CSI Driver we should improve Reservation flow (at reservation controller component) for supporting new type of volumes 
 planning (currently we support planning, only depending on capacity). For this we should make the following improvements:
-1. Improve AvailableCapacityReservation CRD. For the improvement we should update AvailableCapacityReservation proto message:
+1. Improve AvailableCapacityReservation CRD. For the improvement we should update AvailableCapacityReservation proto message: \
 1.1. Currently, it's structure is as follows:
-```protobuf
-message AvailableCapacityReservation {
-   string Namespace = 1;
-   string Status = 2;
-   NodeRequests NodeRequests = 3;
-   repeated ReservationRequest ReservationRequests = 4;
-}
-```
-where NodeRequests - are requests by nodes, ReservationRequests - requests per volumes. 
+   ```protobuf
+   message AvailableCapacityReservation {
+      string Namespace = 1;
+      string Status = 2;
+      NodeRequests NodeRequests = 3;
+      repeated ReservationRequest ReservationRequests = 4;
+   }
+   ```
+   where NodeRequests - are requests by nodes, ReservationRequests - requests per volumes. \
 1.2. We should update it to support new type of requests: based on affinity annotations:
 ```protobuf
 message AvailableCapacityReservation {
@@ -145,14 +145,18 @@ message DriveAntiaffinityPodLabelRequest {
   repeated string Labels = 1;
 }
 ```
-
-
-
-
-
-
-
-
+2. At scheduler extender (in case client set the drive affinity annotations) while creating capacity reservation - fill it with DriveRequests specified in p1.2 above.
+3. At reservation controller refactor planning logic:
+3.1. Create unified interface for filtering applicable capacities on nodes for volumes planning:
+```go
+type VolumesPlanFilter interface {
+	Filter(ctx context.Context, volumesPlanMap VolumesPlanMap) (filteredVolumesPlanMap VolumesPlanMap, err error)
+} 
+```
+3.2. Implement planning filters for affinity and capacity (currently already implemented in planner.go logic).
+3.3. Affinity planning filter can also be implemented as two separate filters (for affinity and antiaffinity) - as described at ChainOfResponsibility pattern.
+3.4. Rename CapacityManager to Manager and iterating logic over planning filters to it.
+3.5. Dynamically create needed filters (e.g. affinity filter only needed in case if affinity requests were set at DriveRequests).
 
 
 
