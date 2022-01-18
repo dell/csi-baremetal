@@ -100,6 +100,10 @@ jobs:
         make install-controller-gen
         make generate-deepcopy
 
+    - name: cat
+      run: |
+        cat api/v1/acreservationcrd/zz_generated.deepcopy.go
+
     - name: Verify Changed files
       uses: tj-actions/verify-changed-files@v5.5
       id: changed_files
