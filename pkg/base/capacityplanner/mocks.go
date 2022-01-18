@@ -22,7 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/dell/csi-baremetal/api/generated/v1/api"
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 )
@@ -63,10 +63,10 @@ type PlannerMock struct {
 }
 
 // PlanVolumesPlacing mock implementation of PlanVolumesPlacing
-func (cr *PlannerMock) PlanVolumesPlacing(ctx context.Context, volumes []*api.Volume, nodes []string) (*VolumesPlacingPlan, error) {
+func (cr *PlannerMock) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
 	args := cr.Mock.Called(ctx, volumes)
 
-	volIDToVol := make(map[string]*api.Volume, len(volumes))
+	volIDToVol := make(map[string]*genV1.Volume, len(volumes))
 	for _, vol := range volumes {
 		volIDToVol[vol.Id] = vol
 	}

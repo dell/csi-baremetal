@@ -34,7 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schedulerapi "k8s.io/kube-scheduler/extender/v1"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1/api"
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"

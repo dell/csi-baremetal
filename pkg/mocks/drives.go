@@ -17,7 +17,7 @@ limitations under the License.
 package mocks
 
 import (
-	"github.com/dell/csi-baremetal/api/generated/v1/api"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 )
 

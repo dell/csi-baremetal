@@ -19,7 +19,7 @@ package provisioners
 import (
 	"github.com/stretchr/testify/mock"
 
-	"github.com/dell/csi-baremetal/api/generated/v1/api"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 )
 
 // MockProvisioner is a mock implementation of Provisioner interface

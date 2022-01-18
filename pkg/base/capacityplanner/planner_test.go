@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1/api"
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"

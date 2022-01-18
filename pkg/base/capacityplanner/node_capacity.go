@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1/api"
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"

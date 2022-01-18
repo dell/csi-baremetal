@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package v1api;
-option go_package="v1/api";
+option go_package="v1api";
 
 message Drive {
     string UUID = 1;

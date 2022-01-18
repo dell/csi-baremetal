@@ -19,7 +19,7 @@ package capacityplanner
 import (
 	"sort"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1/api"
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 )
 

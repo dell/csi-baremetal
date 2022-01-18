@@ -19,7 +19,6 @@ require (
 	github.com/vektra/mockery/v2 v2.9.4 // indirect
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63
 	google.golang.org/grpc v1.38.0
-	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v1.22.5

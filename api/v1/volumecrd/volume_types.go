@@ -19,7 +19,7 @@ package volumecrd
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/dell/csi-baremetal/api/generated/v1/api"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 )
 
 // +kubebuilder:object:root=true

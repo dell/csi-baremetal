@@ -24,7 +24,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	genV1 "github.com/dell/csi-baremetal/api/generated/v1/api"
+	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
