@@ -195,6 +195,7 @@ jobs:
 
     - name: Make test
       continue-on-error: true
+      id: tests
       run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}/charts
 
     - name: Publish Unit Test Results
@@ -223,6 +224,13 @@ jobs:
       with:
         name: e2e_artifacts_log
         path: log.txt
+
+    - name: Fail if test fails
+      if: steps.tests.outcome != 'success'
+      uses: actions/github-script@v3
+      with:
+        script: |
+          core.setFailed('E2E Tests failed!')
 
   result_job:
     needs: e2e
