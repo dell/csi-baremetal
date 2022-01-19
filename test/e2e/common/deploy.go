@@ -49,10 +49,10 @@ func collectPodLogs(f *framework.Framework) func() {
 	ns := f.Namespace
 
 	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
-	if len(testName) > maxFileNameSize {
-		testName = testName[:maxFileNameSize]
-	}
 	dirname := fmt.Sprintf("reports/%v/", testName)
+	if len(dirname) > maxFileNameSize {
+		dirname = dirname[:maxFileNameSize]
+	}
 	if err := os.MkdirAll(dirname, os.ModePerm); err != nil {
 		log.Fatalf("error creating folders: %v", err)
 	}
