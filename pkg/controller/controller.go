@@ -19,7 +19,6 @@ package controller
 
 import (
 	"context"
-	"k8s.io/utils/keymutex"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -29,6 +28,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/keymutex"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -50,9 +50,9 @@ type NodeID string
 type CSIControllerService struct {
 	k8sclient *k8s.KubeClient
 
-	// Key Mutex for csi request
+	// Key Mutex for csi requests
 	reqKeyMutes keymutex.KeyMutex
-	log   *logrus.Entry
+	log         *logrus.Entry
 
 	svc common.VolumeOperations
 
@@ -73,8 +73,10 @@ type CSIControllerService struct {
 func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 	featureConf featureconfig.FeatureChecker) *CSIControllerService {
 	c := &CSIControllerService{
-		k8sclient:                k8sClient,
-		reqKeyMutes:  			  keymutex.NewHashed(0),
+		k8sclient: k8sClient,
+		// number of locks is set equal to default --worker-threads parameter value in kubernetes-csi/external-provisioner
+		// todo make it configurable though csi deployment CRD https://github.com/dell/csi-baremetal/issues/697
+		reqKeyMutes:              keymutex.NewHashed(100),
 		log:                      logger.WithField("component", "CSIControllerService"),
 		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
@@ -229,10 +231,10 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 // Receives golang context and CSI Spec DeleteVolumeRequest
 // Returns CSI Spec DeleteVolumeResponse or error if something went wrong
 func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	volumeId := req.GetVolumeId()
+	volumeID := req.GetVolumeId()
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
-		"volumeID": volumeId,
+		"volumeID": volumeID,
 	})
 
 	ll.Infof("Processing request: %v", req)
@@ -242,11 +244,11 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	}
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.VolumeId)
 
-	c.reqKeyMutes.LockKey(volumeId)
+	c.reqKeyMutes.LockKey(volumeID)
 	err := c.svc.DeleteVolume(ctxWithID, req.GetVolumeId())
-	if err := c.reqKeyMutes.UnlockKey(volumeId); err != nil {
+	if err := c.reqKeyMutes.UnlockKey(volumeID); err != nil {
 		// need to panic here
-		panic("Failed to unlock key" + volumeId)
+		panic("Failed to unlock key" + volumeID)
 	}
 
 	if err != nil {
@@ -263,11 +265,11 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		return nil, status.Error(codes.Internal, "Unable to delete volume")
 	}
 
-	c.reqKeyMutes.LockKey(volumeId)
+	c.reqKeyMutes.LockKey(volumeID)
 	c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
-	if err := c.reqKeyMutes.UnlockKey(volumeId); err != nil {
+	if err := c.reqKeyMutes.UnlockKey(volumeID); err != nil {
 		// need to panic here
-		panic("Failed to unlock key" + volumeId)
+		panic("Failed to unlock key" + volumeID)
 	}
 
 	ll.Debug("Volume was successfully deleted")
