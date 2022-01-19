@@ -38,6 +38,8 @@ import (
 const (
 	operatorVersionEnv = "OPERATOR_VERSION"
 	csiVersionEnv      = "CSI_VERSION"
+
+	maxFileNameSize = 256
 )
 
 // Create folder for every tests and save container logs and events
@@ -47,6 +49,9 @@ func collectPodLogs(f *framework.Framework) func() {
 	ns := f.Namespace
 
 	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
+	if len(testName) > maxFileNameSize {
+		testName = testName[:maxFileNameSize]
+	}
 	dirname := fmt.Sprintf("reports/%v/", testName)
 	if err := os.MkdirAll(dirname, os.ModePerm); err != nil {
 		log.Fatalf("error creating folders: %v", err)

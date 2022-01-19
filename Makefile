@@ -86,6 +86,7 @@ install-protoc:
 	unzip protoc-3.11.0-linux-x86_64.zip -d proto_3.11.0/ && \
 	sudo mv proto_3.11.0/bin/protoc /usr/bin/protoc && \
 	protoc --version; rm -rf proto_3.11.0; rm protoc-*
+	# TODO update to google.golang.org/protobuf - https://github.com/dell/csi-baremetal/issues/613
 	go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VER)
 
 install-compile-proto: install-protoc compile-proto
