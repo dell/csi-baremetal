@@ -194,6 +194,7 @@ jobs:
           OPERATOR Version: ${{env.CSI_OPERATOR_VERSION}}
 
     - name: Make test
+      continue-on-error: true
       run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}/charts
 
     - name: Publish Unit Test Results
