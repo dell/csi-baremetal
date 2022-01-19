@@ -55,7 +55,7 @@ func InitLogger(logPath string, logLevel string) (*logrus.Logger, error) {
 	}
 	formatter = &RuntimeFormatter{
 		ChildFormatter: formatter,
-		MinLevel:       logrus.ErrorLevel,
+		MaxLevel:       logrus.ErrorLevel,
 	}
 	logger.SetFormatter(formatter)
 

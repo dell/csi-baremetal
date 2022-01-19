@@ -22,13 +22,13 @@ const (
 // RuntimeFormatter decorates log entries with function name and package name (optional) and line number (optional)
 type RuntimeFormatter struct {
 	ChildFormatter logrus.Formatter
-	MinLevel logrus.Level
+	MaxLevel logrus.Level
 }
 
 // Format the current log entry by adding the function name and line number of the caller.
 func (f *RuntimeFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	data := logrus.Fields{}
-	if f.MinLevel >= entry.Level {
+	if f.MaxLevel >= entry.Level {
 		function, file, line := f.getCurrentPosition(entry)
 		packageEnd := strings.LastIndex(function, ".")
 		functionName := function[packageEnd+1:]
