@@ -104,7 +104,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 		"requestUUID": requestUUID.(string),
 	})
 	crKind := obj.GetObjectKind().GroupVersionKind().Kind
-	ll.Infof("Creating CR %s: %v", crKind, obj)
+	ll.Debugf("Creating CR '%s': %+v", crKind, obj)
 	err := k.Create(ctx, obj)
 	if err != nil {
 		if k8sError.IsAlreadyExists(err) {
@@ -150,7 +150,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "UpdateCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Debugf("Updating CR '%s', %+v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 
 	return k.Update(ctx, obj)
 }
@@ -168,7 +168,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "DeleteCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Deleting CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Debugf("Deleting CR '%s', %+v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
 
 	return k.Delete(ctx, obj)
 }

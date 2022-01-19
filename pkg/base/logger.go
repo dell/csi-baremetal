@@ -47,7 +47,7 @@ func InitLogger(logPath string, logLevel string) (*logrus.Logger, error) {
 		logger.SetFormatter(&nested.Formatter{
 			HideKeys:    true,
 			NoColors:    true,
-			FieldsOrder: []string{"component", "method", "volumeID"},
+			FieldsOrder: []string{"component", "method", "requestID"},
 		})
 	} else {
 		logger.SetFormatter(&logrus.JSONFormatter{})
