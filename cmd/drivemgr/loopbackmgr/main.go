@@ -28,6 +28,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
@@ -36,8 +37,8 @@ import (
 var (
 	endpoint = flag.String("drivemgrendpoint", base.DefaultDriveMgrEndpoint, "DriveManager Endpoint")
 	logPath  = flag.String("logpath", "", "log path for DriveManager")
-	logLevel = flag.String("loglevel", base.InfoLevel,
-		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	logLevel = flag.String("loglevel", logger.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", logger.InfoLevel, logger.DebugLevel, logger.TraceLevel))
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
 		"Whether svc should read id from node annotation")
 	useExternalAnnotation = flag.Bool("useexternalannotation", false,
@@ -55,7 +56,7 @@ func main() {
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
 	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
 
-	logger, err := base.InitLogger(*logPath, *logLevel)
+	logger, err := logger.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package base
+package logger
 
 import (
 	"os"
@@ -43,15 +43,21 @@ const (
 func InitLogger(logPath string, logLevel string) (*logrus.Logger, error) {
 	logger := logrus.New()
 	// TODO: should be configured in helm chart https://github.com/dell/csi-baremetal/issues/83
+	var formatter logrus.Formatter
 	if os.Getenv("LOG_FORMAT") == "text" {
-		logger.SetFormatter(&nested.Formatter{
+		formatter = &nested.Formatter{
 			HideKeys:    true,
 			NoColors:    true,
-			FieldsOrder: []string{"component", "method", "requestID"},
-		})
+			FieldsOrder: []string{"component", "method", "volumeID"},
+		}
 	} else {
-		logger.SetFormatter(&logrus.JSONFormatter{})
+		formatter = &logrus.JSONFormatter{}
 	}
+	formatter = &RuntimeFormatter{
+		ChildFormatter: formatter,
+		MinLevel:       logrus.ErrorLevel,
+	}
+	logger.SetFormatter(formatter)
 
 	var level logrus.Level
 	// set log level

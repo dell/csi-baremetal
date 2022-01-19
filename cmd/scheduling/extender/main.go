@@ -33,6 +33,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver"
@@ -44,7 +45,7 @@ var (
 	port              = flag.Int("port", base.DefaultExtenderPort, "Port for service")
 	certFile          = flag.String("certFile", "", "path to the cert file")
 	privateKeyFile    = flag.String("privateKeyFile", "", "path to the private key file")
-	logLevel          = flag.String("loglevel", base.InfoLevel, "Log level")
+	logLevel          = flag.String("loglevel", logger.InfoLevel, "Log level")
 	useNodeAnnotation = flag.Bool("usenodeannotation", false,
 		"Whether extender should read id from node annotation and use it as id for all CRs or not")
 	useExternalAnnotation = flag.Bool("useexternalannotation", false,
@@ -68,7 +69,7 @@ const (
 
 func main() {
 	flag.Parse()
-	logger, _ := base.InitLogger("", *logLevel)
+	logger, _ := logger.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
 	stopCH := ctrl.SetupSignalHandler()
