@@ -22,7 +22,7 @@ const (
 // RuntimeFormatter decorates log entries with function name and package name (optional) and line number (optional)
 type RuntimeFormatter struct {
 	ChildFormatter logrus.Formatter
-	MaxLevel logrus.Level
+	MaxLevel       logrus.Level
 }
 
 // Format the current log entry by adding the function name and line number of the caller.
