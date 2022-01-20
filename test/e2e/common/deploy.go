@@ -40,6 +40,7 @@ const (
 	csiVersionEnv      = "CSI_VERSION"
 
 	maxFileNameSize = 256
+	reportsDir      = "reports"
 )
 
 // Create folder for every tests and save container logs and events
@@ -49,7 +50,7 @@ func collectPodLogs(f *framework.Framework) func() {
 	ns := f.Namespace
 
 	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
-	dirname := fmt.Sprintf("reports/%v/", testName)
+	dirname := path.Join(reportsDir, testName)
 	if len(dirname) > maxFileNameSize {
 		dirname = dirname[:maxFileNameSize]
 	}
@@ -59,7 +60,7 @@ func collectPodLogs(f *framework.Framework) func() {
 	to := podlogs.LogOutput{
 		LogPathPrefix: dirname,
 	}
-	eventsLogs, err := os.OpenFile(fmt.Sprintf("reports/%v/events.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	eventsLogs, err := os.OpenFile(path.Join(dirname, "events.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
