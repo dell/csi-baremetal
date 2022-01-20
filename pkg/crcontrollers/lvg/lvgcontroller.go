@@ -175,6 +175,7 @@ func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Res
 
 	volumes := &vccrd.VolumeList{}
 
+	// TODO - Remove context.Background() usage - https://github.com/dell/csi-baremetal/issues/703
 	err := c.k8sClient.ReadList(context.Background(), volumes)
 	if err != nil {
 		ll.Errorf("Unable to read volume list: %v", err)
@@ -249,6 +250,7 @@ func (c *Controller) createSystemLVG(lvg *lvgcrd.LogicalVolumeGroup) (locations 
 	var deviceFiles = make([]string, 0) // device files of each drive in LogicalVolumeGroup
 	for _, driveUUID := range lvg.Spec.Locations {
 		drive := &drivecrd.Drive{}
+		// TODO - Remove context.Background() usage - https://github.com/dell/csi-baremetal/issues/703
 		if err := c.k8sClient.ReadCR(context.Background(), driveUUID, "", drive); err != nil {
 			// that drive will not be in LogicalVolumeGroup location
 			ll.Errorf("Unable to read drive %s, error: %v", driveUUID, err)
@@ -309,6 +311,7 @@ func (c *Controller) setNewVGSize(lvg *lvgcrd.LogicalVolumeGroup, size int64) er
 		lvg.Annotations = make(map[string]string, 1)
 	}
 	lvg.Annotations[apiV1.LVGFreeSpaceAnnotation] = strconv.FormatInt(size, 10)
+	// TODO - Remove context.Background() usage - https://github.com/dell/csi-baremetal/issues/703
 	ctx := context.WithValue(context.Background(), base.RequestUUID, lvg.Name)
 	if err := c.k8sClient.UpdateCR(ctx, lvg); err != nil {
 		return err
