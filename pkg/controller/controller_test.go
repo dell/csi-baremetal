@@ -19,6 +19,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"strings"
 	"testing"
 	"time"
@@ -917,7 +918,10 @@ func fillCache(controller *CSIControllerService, volumeID, namespace string) {
 
 // return CreateVolumeRequest based on provided parameters
 func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimName string, needBlock, needPart bool, mountFlags ...string) *csi.CreateVolumeRequest {
-	claimName
+	parameters := map[string]string{
+		util.ClaimNamespaceKey: testNs,
+		util.ClaimNameKey:      claimName,
+	}
 	if needPart {
 		parameters[RawPartModeKey] = RawPartModeValue
 	}

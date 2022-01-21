@@ -68,20 +68,21 @@ import (
 // Volume CR was successfully created, HDD SC
 func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	var (
-		svc      = setupVOOperationsTest(t)
-		volumeID = "pvc-aaaa-bbbb"
-		//ctxWithID      = context.WithValue(testCtx, base.RequestUUID, volumeID)
-		requiredNode  = testNode1Name
-		requiredSC    = apiV1.StorageClassHDD
-		requiredBytes = int64(util.GBYTE)
-		testAC        = testAC1.DeepCopy()
-		testVolume    = testVolume1.DeepCopy()
-		testPVC       = testPVC1.DeepCopy()
+		svc = setupVOOperationsTest(t)
+
+		testAC     = testAC1.DeepCopy()
+		testVolume = testVolume1.DeepCopy()
+		testPVC    = testPVC1.DeepCopy()
+
+		volumeID      = testVolume.Spec.Id
+		requiredSC    = testVolume.Spec.StorageClass
+		requiredNode  = testVolume.Spec.NodeId
+		requiredBytes = testVolume.Spec.Size
 	)
 
 	parameters := map[string]string{
 		util.ClaimNamespaceKey: testNS,
-		util.ClaimNameKey:      "testVolume",
+		util.ClaimNameKey:      testPVC.Name,
 	}
 
 	volumeInfo, err := util.NewVolumeInfo(parameters)
@@ -105,7 +106,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 		Size:         requiredBytes,
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, testVolume.Spec, createdVolume)
+	assert.Equal(t, &testVolume.Spec, createdVolume)
 }
 
 // Volume CR was successfully created, HDDLVG SC
