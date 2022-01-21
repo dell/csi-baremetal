@@ -107,7 +107,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 		"requestUUID": requestUUID.(string),
 	})
 	crKind := obj.GetObjectKind().GroupVersionKind().Kind
-	ll.Debugf("Creating CR '%s': %s", crKind, k.objectsLogger.Log(obj))
+	ll.Infof("Creating CR '%s': %s", crKind, k.objectsLogger.Log(obj))
 	err := k.Create(ctx, obj)
 	if err != nil {
 		if k8sError.IsAlreadyExists(err) {
@@ -153,7 +153,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "UpdateCR",
 		"requestUUID": requestUUID.(string),
-	}).Debugf("Updating CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
+	}).Infof("Updating CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
 	return k.Update(ctx, obj)
 }
@@ -171,7 +171,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "DeleteCR",
 		"requestUUID": requestUUID.(string),
-	}).Debugf("Deleting CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
+	}).Infof("Deleting CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
 	return k.Delete(ctx, obj)
 }
