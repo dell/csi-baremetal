@@ -14,6 +14,8 @@ import (
 )
 
 const (
+	csiGroup = "csi-baremetal.dell.com"
+
 	acKind     = "AvailableCapacity"
 	acrKind    = "AvailableCapacityKind"
 	driveKind  = "Drive"
@@ -37,18 +39,24 @@ type objectLogger struct {
 }
 
 func (l *objectLogger) Log(object runtime.Object) string {
-	switch kind := object.GetObjectKind().GroupVersionKind().Kind; kind {
-	case acKind:
+	gvk := object.GetObjectKind().GroupVersionKind()
+	if gvk.Group != csiGroup {
+		// print non CSI objects as regular
+		return fmt.Sprintf("%+v", object)
+	}
+
+	switch {
+	case gvk.Kind == acKind:
 		return l.acLogger.Log(object.(*accrd.AvailableCapacity))
-	case acrKind:
+	case gvk.Kind == acrKind:
 		return l.acrLogger.Log(object.(*acrcrd.AvailableCapacityReservation))
-	case driveKind:
+	case gvk.Kind == driveKind:
 		return l.driveLogger.Log(object.(*drivecrd.Drive))
-	case lvgKind:
+	case gvk.Kind == lvgKind:
 		return l.lvgLogger.Log(object.(*lvgcrd.LogicalVolumeGroup))
-	case nodeKind:
+	case gvk.Kind == nodeKind:
 		return l.nodeLogger.Log(object.(*nodecrd.Node))
-	case volumeKind:
+	case gvk.Kind == volumeKind:
 		return l.volumeLogger.Log(object.(*volumecrd.Volume))
 	}
 	return fmt.Sprintf("%+v", object)
