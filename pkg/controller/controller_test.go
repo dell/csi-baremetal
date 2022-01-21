@@ -46,7 +46,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/mocks"
@@ -918,10 +917,7 @@ func fillCache(controller *CSIControllerService, volumeID, namespace string) {
 
 // return CreateVolumeRequest based on provided parameters
 func getCreateVolumeRequest(name string, cap int64, preferredNode string, claimName string, needBlock, needPart bool, mountFlags ...string) *csi.CreateVolumeRequest {
-	parameters := map[string]string{
-		util.ClaimNamespaceKey: testNs,
-		util.ClaimNameKey:      claimName,
-	}
+	claimName
 	if needPart {
 		parameters[RawPartModeKey] = RawPartModeValue
 	}

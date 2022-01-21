@@ -11,7 +11,6 @@ require (
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/kubernetes-csi/csi-test/v3 v3.1.0
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.14.1
@@ -36,6 +35,7 @@ require (
 	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
 	sigs.k8s.io/controller-runtime v0.6.0
 	sigs.k8s.io/controller-tools v0.5.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v3 v3.0.1 // indirect
 )
 
 replace (

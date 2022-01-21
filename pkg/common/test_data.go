@@ -16,22 +16,71 @@ limitations under the License.
 
 package common
 
+import (
+	"context"
+	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	corev1 "k8s.io/api/core/v1"
+	"strings"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+)
+
 var (
-// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
-/*
-	testNS = "default"
+	// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
+	testNS     = "default"
 	testLogger = logrus.New()
 
-	testCtx = context.Background()
+	testCtx       = context.Background()
 	testNode1Name = "node1"
 	testNode2Name = "node2"
 
+	testApp = "app"
+
+	// Drives variables
 	testDrive1UUID = "drive1-uuid"
 	testDrive2UUID = "drive2-uuid"
 	testDrive3UUID = "drive3-uuid"
 	testDrive4UUID = "drive4-uuid"
 
+	testApiDrive4 = api.Drive{
+		UUID:     testDrive4UUID,
+		Type:     apiV1.DriveTypeHDD,
+		Size:     1024 * 1024,
+		IsSystem: false,
+		NodeId:   testNode2Name,
+	}
+
+	testDriveTypeMeta = k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version}
+	testDriveCR4      = drivecrd.Drive{
+		TypeMeta:   testDriveTypeMeta,
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testDrive4UUID},
+		Spec:       testApiDrive4,
+	}
+
 	// Available Capacity variables
+	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDrive2UUID))
+	testAC1     = &accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name},
+		Spec: api.AvailableCapacity{
+			Location:     testDrive1UUID,
+			NodeId:       testNode1Name,
+			StorageClass: apiV1.StorageClassHDD,
+			Size:         int64(util.GBYTE) * 42,
+		},
+	}
+
 	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
 	testAC2     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
@@ -57,7 +106,7 @@ var (
 	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive4UUID))
 	testAC4     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name, Namespace: testNS},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name},
 		Spec: api.AvailableCapacity{
 			Size:         testLVG.Spec.Size,
 			StorageClass: apiV1.StorageClassHDDLVG,
@@ -90,12 +139,27 @@ var (
 			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
 		},
 		Spec: api.Volume{
-			Id:           testVolume1Name,
-			NodeId:       testNode1Name,
-			Size:         int64(util.GBYTE),
-			StorageClass: apiV1.StorageClassHDD,
-			Location:     testDrive1UUID,
-			CSIStatus:    apiV1.Creating,
+			Id:                testVolume1Name,
+			Location:          testAC1.Spec.Location,
+			StorageClass:      testAC1.Spec.StorageClass,
+			NodeId:            testAC1.Spec.NodeId,
+			Size:              testAC1.Spec.Size,
+			CSIStatus:         apiV1.Creating,
+			Health:            apiV1.HealthGood,
+			LocationType:      apiV1.LocationTypeDrive,
+			OperationalStatus: apiV1.OperationalStatusOperative,
+			Usage:             apiV1.VolumeUsageInUse,
 		},
-	}*/
+	}
+
+	// PVC variables
+	testPVC1 = &corev1.PersistentVolumeClaim{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:      testVolume1.Name,
+			Namespace: testNS,
+			Labels: map[string]string{
+				k8s.AppLabelKey: testApp,
+			},
+		},
+	}
 )

@@ -653,7 +653,12 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 			log.Errorf("Unable to update AC %s CR: %v", ac.Name, err)
 			return false, err
 		}
-		return true, vo.k8sClient.DeleteCR(context.Background(), lvg)
+
+		if err := vo.k8sClient.DeleteCR(context.Background(), lvg); err != nil {
+			log.Errorf("Unable to delete LVG %s CR: %v", lvg.Name, err)
+			return false, err
+		}
+		return true, nil
 	}
 
 	// search for volume index

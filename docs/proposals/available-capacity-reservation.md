@@ -23,7 +23,7 @@ Since AvailableCapacityReservation or simply ACR doesn't have reference to the P
 To have a clear reference between Pod PVCs and ACR suggest to:
 * Set ACR name to **namespace** + **pod name**
 * Combine all storage allocation requests for a pod to a single ACR CR
-* Add PVC name and namespace fields in ACR for usual volumes
+* Add PVC name and namespaavailablecapacityreservationsce fields in ACR for usual volumes
 * Add volume name and namespace fields in ACR for inline volumes
 
 Additional improvements:
