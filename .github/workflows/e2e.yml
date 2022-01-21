@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
   issue_comment:
-    types: [created]
+    types: [ created ]
 
 env:
   REGISTRY: 'ghcr.io/dell/csi-baremetal'
@@ -23,11 +23,15 @@ jobs:
     - name: Get operator branch 
       uses: actions/github-script@v5
       id: set-branch
+      env:
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        KEY: "operator_branch="
       with:
         result-encoding: string
         script: |
-          var branch = `${{ github.event.comment.body }}`.split(String.fromCharCode(0x0A))[1]
-          var key = `operator_branch=`
+          const { COMMENT_BODY, KEY } = process.env
+          var branch = `${COMMENT_BODY}`.split(String.fromCharCode(0x0A))[1]
+          var key = `${KEY}`
           if (branch){
             if (branch.search(key) !== -1){
               return branch.split(key)[1]
@@ -37,7 +41,34 @@ jobs:
           }
           return ''
 
+    - name: Get PR SHA
+      # Since the issue comment event runs against the main branch
+      # we need to figure out a way to checkout the correct revision
+      # if we want to work with the changes from a pull request.
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+      id: sha
+      uses: actions/github-script@v4
+      with:
+        result-encoding: string
+        script: |
+          const { owner, repo, number } = context.issue;
+          const pr = await github.pulls.get({
+            owner,
+            repo,
+            pull_number: number,
+          });
+          return pr.data.head.sha
+
+    # Set ref if triggered from comment
     - name: Check out code
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+      uses: actions/checkout@v2
+      with:
+        ref: '${{ steps.sha.outputs.result }}'
+
+    # Set ref if event is merge to master
+    - name: Check out code
+      if: github.event.issue.pull_request == false
       uses: actions/checkout@v2
       
     - name: Add csi-baremetal-operator
@@ -64,16 +95,6 @@ jobs:
             }
           }
           return body
-
-    - name: Send message
-      # don't send on push to master
-      if: github.event.issue.pull_request
-      uses: actions-ecosystem/action-create-comment@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        body: |
-          @${{ github.actor }} ${{steps.set-answer.outputs.result}}.
-          Parameters: operator_branch='${{steps.set-branch.outputs.result}}'
 
     - name: Check on failures
       if: steps.checkout_branch.outcome != 'success'
@@ -156,19 +177,52 @@ jobs:
         make kind-tag-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
         make kind-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION 
 
+    - name: Send message
+      # don't send on push to master
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+      uses: actions-ecosystem/action-create-comment@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          @${{ github.actor }} ${{steps.set-answer.outputs.result}}.
+          Parameters: operator_branch='${{steps.set-branch.outputs.result}}'
+          Go Version: ${{env.go_version}}
+          GoLangCI Version: ${{env.golangci_version}}
+          Helm Version: ${{env.helm_version}}
+          Kubectl Version: ${{env.kubectl_version}}
+          CSI Version: ${{env.CSI_VERSION}}
+          OPERATOR Version: ${{env.CSI_OPERATOR_VERSION}}
+
     - name: Make test
       run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}/charts
+
+    - name: Publish Unit Test Results
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        check_name: "E2E Test Results"
+        commit: '${{ steps.sha.outputs.result }}' 
+        files: test/e2e/reports/report.xml
+        hide_comments: off
+        check_run_annotations: all tests
+        comment_mode: create new
+
+    - name: Archive logs
+      uses: papeloto/action-zip@v1
+      with:
+        files: test/e2e/reports
+        dest: reports.zip
 
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: report.xml
-        path: test/e2e/report.xml
-    
-    - name: Upload log to artifacts
+        name: e2e_artifacts_archive
+        path: reports.zip
+
+    - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: log.txt
+        name: e2e_artifacts_log
         path: log.txt
 
   result_job:
@@ -198,5 +252,4 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         body: |
-          @${{ github.actor }}, ${{steps.set-answer.outputs.result}}
-
+          @${{ github.actor }}, ${{steps.set-answer.outputs.result}} Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -57,35 +57,35 @@ var DiskCommands = map[string]CmdOut{
 		Stderr: "",
 		Err:    errors.New("unable to check partition existence for /dev/sdd"),
 	},
-	"partprobe -d -s /dev/sde": EmptyOutSuccess,
-	"partprobe /dev/sde":       EmptyOutSuccess,
-	"partprobe /dev/sda":       EmptyOutSuccess,
+	"partprobe -d -s /dev/sde":        EmptyOutSuccess,
+	"blockdev --rereadpt -v /dev/sde": EmptyOutSuccess,
 	"partprobe -d -s /dev/sdqwe": {
 		Stdout: "",
 		Stderr: "",
 		Err:    errors.New("unable to get partition table"),
 	},
-	"partprobe":                      EmptyOutSuccess,
-	"parted -s /dev/sda mklabel gpt": EmptyOutSuccess,
-	"parted -s /dev/sdd mklabel gpt": {
-		Stdout: "",
-		Stderr: "",
-		Err:    errors.New("unable to create partition table"),
-	},
-	"parted -s /dev/sdc mklabel gpt":                        EmptyOutSuccess,
-	"parted -s /dev/sda rm 1":                               EmptyOutSuccess,
-	"parted -s /dev/sdb rm 1":                               EmptyOutFail,
-	"parted -s /dev/sde mkpart --align optimal CSI 0% 100%": EmptyOutSuccess,
-	"parted -s /dev/sdf mkpart --align optimal CSI 0% 100%": EmptyOutFail,
-	"sgdisk /dev/sda --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
+	"sgdisk /dev/sda -o": EmptyOutSuccess,
+	"sgdisk /dev/sdc -o": EmptyOutSuccess,
+	"sgdisk -d 1 /dev/sda": {
 		Stdout: "The operation has completed successfully.",
 		Stderr: "",
 		Err:    nil,
 	},
-	"sgdisk /dev/sdb --partition-guid=1:64be631b-62a5-11e9-a756-00505680d67f": {
-		Stdout: "The operation has completed successfully.",
+	"sgdisk -n 1:0:0 -c 1:CSI -u 1:64be631b-62a5-11e9-a756-00505680d67f /dev/sde": {
+		Stdout: `Creating new GPT entries.
+Setting name!
+partNum is 0
+The operation has completed successfully`,
 		Stderr: "",
-		Err:    Err,
+		Err:    nil,
+	},
+	"sgdisk -n 1:0:0 -c 1:CSI /dev/sde": {
+		Stdout: `Creating new GPT entries.
+Setting name!
+partNum is 0
+The operation has completed successfully`,
+		Stderr: "",
+		Err:    nil,
 	},
 	"sgdisk /dev/sda --info=1": {
 		Stdout: `Partition GUID code: 0FC63DAF-8483-4772-8E79-3D69D8477DE4 (Linux filesystem)

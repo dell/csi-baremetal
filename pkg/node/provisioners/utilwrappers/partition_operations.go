@@ -125,7 +125,7 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 	}
 
 	// create partition
-	if err = d.CreatePartition(p.Device, p.Label); err != nil {
+	if err = d.CreatePartition(p.Device, p.Label, p.PartUUID, !p.Ephemeral); err != nil {
 		return nil, fmt.Errorf("unable to create partition: %v", err)
 	}
 	_ = d.SyncPartitionTable(p.Device)
@@ -135,8 +135,6 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 		if err != nil {
 			return nil, fmt.Errorf("unable to get partition UUID for ephemeral volume: %v", err)
 		}
-	} else if err = d.SetPartitionUUID(p.Device, p.Num, p.PartUUID); err != nil {
-		return nil, fmt.Errorf("unable to set partition UUID: %v", err)
 	}
 
 	p.Name = d.SearchPartName(p.Device, p.PartUUID)

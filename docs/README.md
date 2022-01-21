@@ -1,5 +1,5 @@
 [![PR validation](https://github.com/dell/csi-baremetal/actions/workflows/pr.yml/badge.svg)](https://github.com/dell/csi-baremetal/actions/workflows/pr.yml)
-[![E2E testing](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml/badge.svg)](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml)
+[![E2E testing](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml/badge.svg?branch=master&event=push)](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml)
 [![codecov](https://codecov.io/gh/dell/csi-baremetal/branch/master/graph/badge.svg)](https://codecov.io/gh/dell/csi-baremetal)
 
 Bare-metal CSI Driver
@@ -13,6 +13,8 @@ Features
 --------
 
 - [Dynamic provisioning](https://kubernetes-csi.github.io/docs/external-provisioner.html): Volumes are created dynamically when `PersistentVolumeClaim` objects are created.
+- Volume binding modes
+  - WaitForFirstConsumer 
 - Inline volumes
 - LVM support
 - Storage classes for the different drive types: HDD, SSD, NVMe
