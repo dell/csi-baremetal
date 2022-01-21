@@ -109,6 +109,10 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		if pattern.FsType == xfsFs || pattern.FsType == ext4Fs || pattern.FsType == ext3Fs {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
+
+		if pattern.Name == "Dynamic PV (filesystem volmode)" {
+			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
+		}
 	}
 
 	if pattern.AllowExpansion && pattern.VolMode == corev1.PersistentVolumeBlock {

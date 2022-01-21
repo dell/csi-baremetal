@@ -50,15 +50,15 @@ func collectPodLogs(f *framework.Framework) func() {
 	ns := f.Namespace
 
 	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
-	dirname := path.Join(reportsDir, testName)
-	if len(dirname) > maxFileNameSize {
-		dirname = dirname[:maxFileNameSize]
+	if len(testName) > maxFileNameSize {
+		testName = testName[:maxFileNameSize]
 	}
+	dirname := path.Join(reportsDir, testName)
 	if err := os.MkdirAll(dirname, os.ModePerm); err != nil {
 		log.Fatalf("error creating folders: %v", err)
 	}
 	to := podlogs.LogOutput{
-		LogPathPrefix: dirname,
+		LogPathPrefix: dirname + "/",
 	}
 	eventsLogs, err := os.OpenFile(path.Join(dirname, "events.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
