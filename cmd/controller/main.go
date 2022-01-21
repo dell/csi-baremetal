@@ -44,6 +44,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
@@ -92,7 +93,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	kubeClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	kubeClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
 	controllerService := controller.NewControllerService(kubeClient, logger, featureConf)
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiControllerServer)
@@ -181,7 +182,7 @@ func createManager(client *k8s.KubeClient, log *logrus.Logger, featureEnabled bo
 			return nil, err
 		}
 	}
-	wrappedK8SClient := k8s.NewKubeClient(client, log, *namespace)
+	wrappedK8SClient := k8s.NewKubeClient(client, log, objects.NewObjectLogger(), *namespace)
 
 	kubeCache, err := k8s.InitKubeCache(log, ch,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})

@@ -46,6 +46,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
@@ -151,7 +152,7 @@ func main() {
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
-	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
 	csiNodeService := node.NewCSINodeService(
 		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 

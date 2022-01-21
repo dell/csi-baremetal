@@ -29,6 +29,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/node"
 )
 
@@ -64,7 +65,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Unable to create k8s client: %v", err)
 	}
-	kubeClient := k8s.NewKubeClient(k8sClient, logger, *namespace)
+	kubeClient := k8s.NewKubeClient(k8sClient, logger, objects.NewObjectLogger(), *namespace)
 
 	nodeCtrl, err := node.NewController(*nodeSelector, *useExternalAnnotation, *nodeIDAnnotation, kubeClient, logger)
 	if err != nil {
