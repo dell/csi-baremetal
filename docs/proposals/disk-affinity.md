@@ -17,21 +17,23 @@ CSI should provide a way to support:
 ## Proposal
 
 Usually for affinity/antiaffinity topology feature is used. But the minimal domain, on which this feature operates, is nodes, not disks.
-So we should use a different approach for this one. Another approach, which is proposed, is to use annotations for pointing out how to use disk affinity/antiaffinity:
+So we should use a different approach for this one. Another approach, which is proposed, is to use annotations for pointing out how to use disk affinity/antiaffinity: \
 affinity.volumes.csi-baremetal.dell.com/types: <pod-bound-required|pod-bound-preferred|volume-bound-required|volume-bound-preferred|dedicated-required|dedicated-preferred> - specify disk affinity type:
 * pod-bound-(required|preferred) - mount PVs for the same pod on the same disk, depending on the suffix - the behaviour is required/preferred;
 * volume-bound-(required|preferred) - place the specific PVs on the same disks, depending on the suffix - the behaviour is required/preferred;
 * dedicated-(required|preferred) - place volumes on the certain disks, which were dedicated for this application, depending on the suffix - the behaviour is required/preferred; 
-affinity.volumes.csi-baremetal.dell.com/volumes: "[pv-1, pv-2], [pv-3, pv4], ..." - specify which pvs should be placed on the same disks.
+
+affinity.volumes.csi-baremetal.dell.com/volumes: "[pv-1, pv-2], [pv-3, pv4], ..." - specify which pvs should be placed on the same disks. \
 affinity.volumes.csi-baremetal.dell.com/tolerations: nginx - specify acs for placement, which were dedicated to volumes of this pod.
 
 antiaffinity.volumes.csi-baremetal.dell.com/types: <pod-label-required|pod-label-preferred|volume-bound-required|volume-bound-preferred> - specify disk antiaffinity type:
 * pod-label-(required|preferred) - specify pods by their labels, which should not use the same drives as the current one, depending on the suffix - the behaviour is required/preferred;
 * volume-bound-(required|preferred) - specify which volumes should not be placed together on the same drives, depending on the suffix - the behaviour is required/preferred.
-antiaffinity.volumes.csi-baremetal.dell.com/labels: "${list of the labels}" - do not mount PVs on the disks that already have some PVs from other specific pods (specified by labels).
+
+antiaffinity.volumes.csi-baremetal.dell.com/labels: "${list of the labels}" - do not mount PVs on the disks that already have some PVs from other specific pods (specified by labels). \
 antiaffinity.volumes.csi-baremetal.dell.com/volumes: "[pv-1, pv-2], [pv-1, pv3], ..." - specify which pvs should not be placed on the same disks.
 
-If we want to dedicate drive/lvg for the certain application, then we should place label on it's ac:
+If we want to dedicate drive/lvg for the certain application, then we should place label on it's ac: \
 affinity.csi-baremetal.dell.com/taint: nginx
 
 ## Implementation
@@ -197,6 +199,6 @@ type VolumesPlanFilter interface {
 3.2. Implement planning filters for affinity and capacity (currently already implemented in planner.go logic). 
 3.3. Affinity planning filter can also be implemented as two separate filters (for affinity and antiaffinity) - as described at ChainOfResponsibility pattern.
 Depending on their type (affinity/antiaffinity) perform the corresponding filtering operations (e.g. for antiaffinity pod-label type - select requested pods by labels and filter out drives, used by them)
-over ACs in inputted VolumesPlanMap.
-3.4. Rename CapacityManager to Manager and iterating logic over planning filters to it. Before iteration - create the initial VolumesPlanMap structure with available AC at requested nodes.
+over ACs in inputted VolumesPlanMap. \
+3.4. Rename CapacityManager to Manager and iterating logic over planning filters to it. Before iteration - create the initial VolumesPlanMap structure with available AC at requested nodes. \
 3.5. Dynamically create needed filters (e.g. affinity filter only needed in case if affinity requests were set at DriveRequests) at reservation controller.
