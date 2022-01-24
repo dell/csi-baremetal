@@ -18,9 +18,21 @@ CSI should provide a way to support:
 
 Usually for affinity/antiaffinity topology feature is used. But the minimal domain, on which this feature operates, is nodes, not disks.
 So we should use a different approach for this one. Another approach, which is proposed, is to use annotations for pointing out how to use disk affinity/antiaffinity:
-affinity.drives.csi-baremetal.dell.com/type: <pod-bound> - mount PVs for the same pod on the same disk;
-antiaffinity.drives.csi-baremetal.dell.com/type: <pod-label> - specify disk antiaffinity type: currently there is only one option - by pod labels;  
-antiaffinity.drives.csi-baremetal.dell.com/labels: "${list of the labels}" - do not mount PVs on the disks that already have some PVs from other specific pods (specified by labels).
+affinity.volumes.csi-baremetal.dell.com/types: <pod-bound-required|pod-bound-preferred|volume-bound-required|volume-bound-preferred|dedicated-required|dedicated-preferred> - specify disk affinity type:
+* pod-bound-(required|preferred) - mount PVs for the same pod on the same disk, depending on the suffix - the behaviour is required/preferred;
+* volume-bound-(required|preferred) - place the specific PVs on the same disks, depending on the suffix - the behaviour is required/preferred;
+* dedicated-(required|preferred) - place volumes on the certain disks, which were dedicated for this application, depending on the suffix - the behaviour is required/preferred; 
+affinity.volumes.csi-baremetal.dell.com/volumes: "[pv-1, pv-2], [pv-3, pv4], ..." - specify which pvs should be placed on the same disks.
+affinity.volumes.csi-baremetal.dell.com/tolerations: nginx - specify acs for placement, which were dedicated to volumes of this pod.
+
+antiaffinity.volumes.csi-baremetal.dell.com/types: <pod-label-required|pod-label-preferred|volume-bound-required|volume-bound-preferred> - specify disk antiaffinity type:
+* pod-label-(required|preferred) - specify pods by their labels, which should not use the same drives as the current one, depending on the suffix - the behaviour is required/preferred;
+* volume-bound-(required|preferred) - specify which volumes should not be placed together on the same drives, depending on the suffix - the behaviour is required/preferred.
+antiaffinity.volumes.csi-baremetal.dell.com/labels: "${list of the labels}" - do not mount PVs on the disks that already have some PVs from other specific pods (specified by labels).
+antiaffinity.volumes.csi-baremetal.dell.com/volumes: "[pv-1, pv-2], [pv-1, pv3], ..." - specify which pvs should not be placed on the same disks.
+
+If we want to dedicate drive/lvg for the certain application, then we should place label on it's ac:
+affinity.csi-baremetal.dell.com/taint: nginx
 
 ## Implementation
 
@@ -44,9 +56,9 @@ spec:
    template:
       metadata:
          annotations:
-            affinity.drives.csi-baremetal.dell.com/type: pod-bound                                # here we're specifying to use only one disk for each pod of nginx
-            antiaffinity.drives.csi-baremetal.dell.com/type: pod-label                            # here we're specifying the type of antiaffinity
-            antiaffinity.drives.csi-baremetal.dell.com/labels: ecs-cluster-ss, ecs-cluster-pvg    # here we're specifying not to use the same disks as for ss and pvg 
+            affinity.volumes.csi-baremetal.dell.com/types: pod-bound-required                       # here we're specifying to use only one disk for each pod of nginx
+            antiaffinity.volumes.csi-baremetal.dell.com/types: pod-label-preferred                  # here we're specifying the type of antiaffinity
+            antiaffinity.volumes.csi-baremetal.dell.com/labels: ecs-cluster-ss, ecs-cluster-pvg     # here we're specifying not to use the same disks as for ss and pvg
          labels:
             app: nginx
       spec:
@@ -104,45 +116,74 @@ message AvailableCapacityReservation {
    string Status = 2;
    NodeRequests NodeRequests = 3;
    repeated ReservationRequest ReservationRequests = 4;
-   DriveRequests DriveRequests = 5;
+   AffinityRules AffinityRules = 5;
 }
 
-message DriveRequests {
+message AffinityRules {
    // affinity requests - filled by scheduler/extender
-   repeated DriveAffinityRequests DriveAffinityRequests = 1;
+   repeated AffinityRequests AffinityRequests = 1;
    // antiaffinity requests - filled by scheduler/extender
-   repeated DriveAntiaffinityRequests DriveAntiaffinityRequests = 2; 
+   repeated AntiaffinityRequests AntiaffinityRequests = 2;
 }
 
-message DriveAffinityRequests {
-   repeated DriveAffinityRequest DriveAffinityRequest = 1;
+message AffinityRequests {
+   repeated AffinityRequest AffinityRequest = 1;
 }
 
-message DriveAffinityRequest {
-   DriveAffinityRequestType Type = 1;
-}
-
-enum DriveAffinityRequestType {
-   POD_BOUND = 1;
-} 
-
-message DriveAntiaffinityRequests {
-   repeated DriveAntiaffinityRequest DriveAntiaffinityRequest = 1;
-}
-
-message DriveAntiaffinityRequest {
-   DriveAntiaffinityRequestType Type = 1;
+message AffinityRequest {
+   AffinityRequestType Type = 1;
    oneof Request {
-      DriveAntiaffinityPodLabelRequest PodLabelRequest = 2;
+      AffinityVolumeBoundRequest AffinityVolumeBoundRequest = 2;
+      AffinityDedicatedRequest AffinityDedicatedRequest = 3;
+   }
+}
+
+enum AffinityRequestType {
+   POD_BOUND_REQUIRED = 1;
+   POD_BOUND_PREFERRED = 2;
+   VOLUME_BOUND_REQUIRED = 3;
+   VOLUME_BOUND_PREFERRED = 4;
+   DEDICATED_REQUIRED = 5;
+   DEDICATED_PREFERRED = 6;
+}
+
+message AffinityVolumeBoundRequest {
+   repeated VolumesBound VolumesBound = 1;
+}
+
+message AffinityDedicatedRequest {
+   repeated string Tolerations = 1;
+}
+
+message AntiaffinityRequests {
+   repeated AntiaffinityRequest AntiaffinityRequest = 1;
+}
+
+message AntiaffinityRequest {
+   AntiaffinityRequestType Type = 1;
+   oneof Request {
+      AntiaffinityPodLabelRequest PodLabelRequest = 2;
+      AntiaffinityVolumeBoundRequest AntiaffinityVolumeBoundRequest = 3;
    }  
 }
 
-enum DriveAntiaffinityRequestType {
-   POD_LABEL = 1;
+enum AntiaffinityRequestType {
+   POD_LABEL_REQUIRED = 1;
+   POD_LABEL_PREFERRED = 2;
+   VOLUME_BOUND_REQUIRED = 3;
+   VOLUME_BOUND_PREFERRED = 4;
 }
 
-message DriveAntiaffinityPodLabelRequest {
-  repeated string Labels = 1;
+message AntiaffinityPodLabelRequest {
+   repeated string Labels = 1;
+}
+
+message AntiaffinityVolumeBoundRequest {
+   repeated VolumesBound VolumesBound = 1;
+}
+
+message VolumesBound {
+   repeated string Volumes = 1;
 }
 ```
 2. At scheduler extender (in case client set the drive affinity annotations) while creating capacity reservation - fill it with DriveRequests specified in p1.2 above.
@@ -155,7 +196,7 @@ type VolumesPlanFilter interface {
 ```
 3.2. Implement planning filters for affinity and capacity (currently already implemented in planner.go logic). 
 3.3. Affinity planning filter can also be implemented as two separate filters (for affinity and antiaffinity) - as described at ChainOfResponsibility pattern.
-Depending on their type (affinity/antiaffinity) perform the corresponding filtering operations (e.g. for antiaffinity select requested pods by labels and filter out drives, used by them)
+Depending on their type (affinity/antiaffinity) perform the corresponding filtering operations (e.g. for antiaffinity pod-label type - select requested pods by labels and filter out drives, used by them)
 over ACs in inputted VolumesPlanMap.
 3.4. Rename CapacityManager to Manager and iterating logic over planning filters to it. Before iteration - create the initial VolumesPlanMap structure with available AC at requested nodes.
 3.5. Dynamically create needed filters (e.g. affinity filter only needed in case if affinity requests were set at DriveRequests) at reservation controller.
