@@ -188,7 +188,7 @@ message VolumesBound {
    repeated string Volumes = 1;
 }
 ```
-2. At scheduler extender (in case client set the drive affinity annotations) while creating capacity reservation - fill it with DriveRequests specified in p1.2 above.
+2. At scheduler extender (in case client set the drive affinity annotations) while creating capacity reservation - fill it with AffinityRules specified in p1.2 above.
 3. At reservation controller refactor planning logic:
 3.1. Create unified interface for filtering applicable capacities on nodes for volumes planning:
 ```go
@@ -196,9 +196,19 @@ type VolumesPlanFilter interface {
 	Filter(ctx context.Context, volumesPlanMap VolumesPlanMap) (filteredVolumesPlanMap VolumesPlanMap, err error)
 } 
 ```
-3.2. Implement planning filters for affinity and capacity (currently already implemented in planner.go logic). 
+3.2. Implement planning filters for affinity and capacity (currently already implemented in planner.go logic). \
 3.3. Affinity planning filter can also be implemented as two separate filters (for affinity and antiaffinity) - as described at ChainOfResponsibility pattern.
 Depending on their type (affinity/antiaffinity) perform the corresponding filtering operations (e.g. for antiaffinity pod-label type - select requested pods by labels and filter out drives, used by them)
 over ACs in inputted VolumesPlanMap. \
 3.4. Rename CapacityManager to Manager and iterating logic over planning filters to it. Before iteration - create the initial VolumesPlanMap structure with available AC at requested nodes. \
-3.5. Dynamically create needed filters (e.g. affinity filter only needed in case if affinity requests were set at DriveRequests) at reservation controller.
+3.5. Dynamically create needed filters (e.g. affinity filter only needed in case if affinity requests were set at AffinityRules) at reservation controller.
+
+#### Future planning
+
+* Framework based scheduler - in future it's planned to replace scheduler extender with framework based scheduler. \
+  In case of framework based scheduler it will be no need it AvailableCapacityReservation CRD. All reservations will be stored in the cache of a leader plugin instance. \
+  In general there will be 3 stages:
+  * Filter stage. Watches for the list of ACs and filter out those nodes which don't have resources to satisfy PVCs.
+  * Score stage. Assign scores for different nodes - node with less capacity consumed must have the highest score to provide balance across the nodes.
+  * Reserve stage. Tries to reserve specific ACs in the cache. If they busy - fail operation and return to the Filter stage. \
+  Disk affinity feature will work at Reserve stage. The difference with scheduler extender approach will consist in that, there will be only p3 described above (no need in p2).
