@@ -19,10 +19,11 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	corev1 "k8s.io/api/core/v1"
 	"strings"
 	"time"
+
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/sirupsen/logrus"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,10 +51,10 @@ var (
 	// Drives variables
 	testDrive1UUID = "drive1-uuid"
 	testDrive2UUID = "drive2-uuid"
-	testDrive3UUID = "drive3-uuid"
+	// testDrive3UUID = "drive3-uuid"
 	testDrive4UUID = "drive4-uuid"
 
-	testApiDrive4 = api.Drive{
+	testAPIDrive4 = api.Drive{
 		UUID:     testDrive4UUID,
 		Type:     apiV1.DriveTypeHDD,
 		Size:     1024 * 1024,
@@ -65,7 +66,7 @@ var (
 	testDriveCR4      = drivecrd.Drive{
 		TypeMeta:   testDriveTypeMeta,
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testDrive4UUID},
-		Spec:       testApiDrive4,
+		Spec:       testAPIDrive4,
 	}
 
 	// Available Capacity variables
@@ -81,28 +82,28 @@ var (
 		},
 	}
 
-	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
-	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
-		Spec: api.AvailableCapacity{
-			Size:         int64(util.GBYTE) * 100,
-			StorageClass: apiV1.StorageClassHDD,
-			Location:     testDrive2UUID,
-			NodeId:       testNode2Name,
-		},
-	}
-	testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive3UUID))
-	testAC3     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
-		Spec: api.AvailableCapacity{
-			Size:         int64(util.TBYTE),
-			StorageClass: apiV1.StorageClassHDD,
-			Location:     testDrive3UUID,
-			NodeId:       testNode2Name,
-		},
-	}
+	/*	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
+		testAC2     = accrd.AvailableCapacity{
+			TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+			ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
+			Spec: api.AvailableCapacity{
+				Size:         int64(util.GBYTE) * 100,
+				StorageClass: apiV1.StorageClassHDD,
+				Location:     testDrive2UUID,
+				NodeId:       testNode2Name,
+			},
+		}
+		testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive3UUID))
+		testAC3     = accrd.AvailableCapacity{
+			TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+			ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
+			Spec: api.AvailableCapacity{
+				Size:         int64(util.TBYTE),
+				StorageClass: apiV1.StorageClassHDD,
+				Location:     testDrive3UUID,
+				NodeId:       testNode2Name,
+			},
+		} */
 	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive4UUID))
 	testAC4     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},

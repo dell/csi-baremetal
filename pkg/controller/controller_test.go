@@ -19,7 +19,6 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +46,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/common"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/mocks"
