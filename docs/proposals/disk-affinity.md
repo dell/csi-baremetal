@@ -214,3 +214,15 @@ over ACs in inputted VolumesPlanMap. \
   Disk affinity feature will work at Filter and Reserve stage. The difference with scheduler extender approach will consist in that, there will be only p3 described above (no need in p2). \
   Also, as there will be no AvailableCapacityReservation CRD, we will need to mark each PVC with annotation with reserved AC to it.
   So at controller side we will know which AC to use while creating the volume.
+* Storage capacity feature - in future it's planned to use storage capacity feature to simplify reservation logic and try to get rid of scheduler extender. \
+  In case of storage capacity usage - we can get rid of resources calculating and using this link of the filtering chain (look above for more information).
+  But we cannot get rid of scheduler extender/framework based scheduler completely for disk affinity feature usage, or we should write out reservation hooks by ourselves.
+  It is because of requirements nature: we should make a reserving decision by application factors (e.g. pod-label disk antiaffinity type).
+  So, basically there are following options:
+  * Use scheduler extender/framework based scheduler with storage capacity feature as we are doing currently (and discussed above in this proposal), but without resources calculations (calculations will be done while reporting the capacity as described in CSIStorageCapacity CRD).
+  * Use custom hooks for volume reservation and so do not use scheduler extender/framework based scheduler. This hook will be called by controller while CreateVolume API will be called.
+    This approach has its disadvantages because scheduler will have already scheduled the deployment at specific node - so a lot reschedule operations will be possible.
+    Also, there appear synchronous calls to this hook - which is an anti-pattern for controller/operator cases.
+  * Just make reservation at controller side while CreateVolume API will be called. This approach is similar to the previous but has no synchronous calls.
+    But instead it puts extra burden to controller, which should not be there. \
+  So, from them above options, remaining of scheduler extender/framework based scheduler looks more perspective and correct.
