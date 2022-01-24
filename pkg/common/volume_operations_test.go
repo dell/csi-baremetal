@@ -95,7 +95,8 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	err = svc.k8sClient.Create(testCtx, testPVC)
 	assert.Nil(t, err)
 
-	testACR := getTestACR(testVolume.Spec.Size, apiV1.StorageClassHDD, parameters[util.ClaimNameKey], []*accrd.AvailableCapacity{testAC})
+	testACR := getTestACR(testVolume.Spec.Size, apiV1.StorageClassHDD, parameters[util.ClaimNameKey],
+		testVolume.Namespace, []*accrd.AvailableCapacity{testAC})
 	err = svc.k8sClient.CreateCR(ctx, testACR.Name, testACR)
 	assert.Nil(t, err)
 
@@ -621,8 +622,8 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	ac := &accrd.AvailableCapacity{}
 	err = svc.k8sClient.ReadCR(context.Background(), testAC4.Name, "", ac)
 	assert.Nil(t, err)
-
-	// ADD CHECK AC CR
+	assert.Equal(t, ac.Spec.Location, testDriveCR4.Name)
+	assert.Equal(t, ac.Spec.StorageClass, util.ConvertDriveTypeToStorageClass(testDriveCR4.Spec.GetType()))
 
 	// try to remove again
 	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
@@ -658,7 +659,7 @@ func getCapacityManagerMock() (capacityplanner.CapacityManagerBuilder, *capacity
 	return &capacityplanner.MockCapacityManagerBuilder{Manager: plannerMock}, plannerMock
 }
 
-func getTestACR(size int64, sc string, name string,
+func getTestACR(size int64, sc, name, podNamespace string,
 	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
 	acNames := make([]string, len(acList))
 	for i, ac := range acList {
@@ -666,10 +667,10 @@ func getTestACR(size int64, sc string, name string,
 	}
 	return &acrcrd.AvailableCapacityReservation{
 		TypeMeta: k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS,
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(),
 			CreationTimestamp: k8smetav1.NewTime(time.Now())},
 		Spec: api.AvailableCapacityReservation{
-			Namespace: testNS,
+			Namespace: podNamespace,
 			Status:    apiV1.ReservationConfirmed,
 			ReservationRequests: []*api.ReservationRequest{
 				{CapacityRequest: &api.CapacityRequest{

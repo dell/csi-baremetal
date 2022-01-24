@@ -19,7 +19,6 @@ package k8s
 import (
 	"context"
 
-	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -101,9 +100,8 @@ func (fkw *FakeClientWrapper) shouldPatchNS(obj runtime.Object) bool {
 	}
 	// NS patch shouldn't for namespaced resources
 	_, isVolume := obj.(*volumecrd.Volume)
-	_, isACR := obj.(*acrcrd.AvailableCapacityReservation)
 	_, isPVC := obj.(*corev1.PersistentVolume)
-	if isVolume || isACR || isPVC {
+	if isVolume || isPVC {
 		return false
 	}
 	return gvk.Group == apiV1.CSICRsGroupVersion
