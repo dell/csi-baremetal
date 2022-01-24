@@ -211,4 +211,6 @@ over ACs in inputted VolumesPlanMap. \
   * Filter stage. Watches for the list of ACs and filter out those nodes which don't have resources to satisfy PVCs.
   * Score stage. Assign scores for different nodes - node with less capacity consumed must have the highest score to provide balance across the nodes.
   * Reserve stage. Tries to reserve specific ACs in the cache. If they busy - fail operation and return to the Filter stage. \
-  Disk affinity feature will work at Reserve stage. The difference with scheduler extender approach will consist in that, there will be only p3 described above (no need in p2).
+  Disk affinity feature will work at Filter and Reserve stage. The difference with scheduler extender approach will consist in that, there will be only p3 described above (no need in p2). \
+  Also, as there will be no AvailableCapacityReservation CRD, we will need to mark each PVC with annotation with reserved AC to it.
+  So at controller side we will know which AC to use while creating the volume.
