@@ -54,11 +54,12 @@ import (
 )
 
 var (
-	testLogger = logrus.New()
-	testID     = "someID"
-	testNs     = "default"
-	testApp    = "app"
-	testPod    = "pod"
+	testLogger    = logrus.New()
+	testID        = "someID"
+	testNs        = "default"
+	testApp       = "app"
+	testAppLabels = map[string]string{}
+	testPod       = "pod"
 
 	testCtx       = context.Background()
 	testNode1Name = "node1"
@@ -374,7 +375,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err       error
 			)
 			// create volume crd to delete
-			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testApp, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
+			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testAppLabels, api.Volume{Id: volumeID,
+				CSIStatus: apiV1.Created})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeID, testNs)
