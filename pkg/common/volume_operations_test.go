@@ -18,34 +18,28 @@ package common
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"time"
-
-	"testing"
-
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//	"google.golang.org/grpc/status"
 	//	"google.golang.org/grpc/codes"
-	//	"time"
 	//	"strconv"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	//	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	//	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	//	"github.com/dell/csi-baremetal/pkg/base"
-	"github.com/dell/csi-baremetal/pkg/base/cache"
-	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	//	"github.com/dell/csi-baremetal/pkg/base/util"
 	//	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
