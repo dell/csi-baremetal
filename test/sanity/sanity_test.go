@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/coreos/rkt/tests/testutils/logger"
+	testLogger "github.com/coreos/rkt/tests/testutils/logger"
 	"github.com/google/uuid"
 	"github.com/kubernetes-csi/csi-test/v3/pkg/sanity"
 	"github.com/sirupsen/logrus"
@@ -36,10 +36,10 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/controller"
 	"github.com/dell/csi-baremetal/pkg/mocks"
@@ -118,7 +118,7 @@ func TestDriverWithSanity(t *testing.T) {
 }
 
 func newControllerSvc(kubeClient *k8s.KubeClient) {
-	ll, _ := base.InitLogger("", base.DebugLevel)
+	ll, _ := logger.InitLogger("", logger.DebugLevel)
 
 	controllerService := controller.NewControllerService(kubeClient, ll, featureconfig.NewFeatureConfig())
 
@@ -135,7 +135,7 @@ func newControllerSvc(kubeClient *k8s.KubeClient) {
 }
 
 func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
-	ll, _ := base.InitLogger("", base.DebugLevel)
+	ll, _ := logger.InitLogger("", logger.DebugLevel)
 
 	csiNodeService := prepareNodeMock(kubeClient, ll)
 
@@ -167,7 +167,7 @@ func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 							Size:         d.Spec.Size,
 						})
 						if err := kubeClient.CreateCR(context.Background(), name, acCR); err != nil {
-							logger.Errorf("unable to create AC, error: %v", err)
+							testLogger.Errorf("unable to create AC, error: %v", err)
 						}
 					}
 				}
@@ -180,7 +180,7 @@ func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 
 	ll.Info("Starting CSINodeService")
 	if err := csiUDSServer.RunServer(); err != nil {
-		logger.Fatalf("fail to serve: %v", err)
+		testLogger.Fatalf("fail to serve: %v", err)
 	}
 }
 

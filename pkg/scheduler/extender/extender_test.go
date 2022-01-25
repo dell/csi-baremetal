@@ -41,6 +41,7 @@ import (
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
@@ -463,7 +464,7 @@ func setup(t *testing.T) *Extender {
 	assert.Nil(t, err)
 
 	featureConf := fc.NewFeatureConfig()
-	kubeClient := k8s.NewKubeClient(k, testLogger, testNs)
+	kubeClient := k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs)
 	kubeCache := k8s.NewKubeCache(k, testLogger)
 	return &Extender{
 		k8sClient:              kubeClient,

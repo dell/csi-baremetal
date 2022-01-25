@@ -28,6 +28,7 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/sirupsen/logrus"
 )
 
@@ -133,5 +134,5 @@ func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error
 		return nil, err
 	}
 	fakeClientWrapper := NewFakeClientWrapper(fake.NewFakeClientWithScheme(scheme), scheme)
-	return NewKubeClient(fakeClientWrapper, logger, testNs), nil
+	return NewKubeClient(fakeClientWrapper, logger, objects.NewObjectLogger(), testNs), nil
 }
