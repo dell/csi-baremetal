@@ -1051,7 +1051,7 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
 		}
-		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health {
+		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health && updDrive.CurrentState.Spec.SerialNumber != "VAH5HBSL" {
 			if _, ok := updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation]; ok {
 				m.createEventForDriveHealthOverridden(
 					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
