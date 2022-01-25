@@ -44,6 +44,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/controller"
@@ -60,8 +62,8 @@ var (
 	logPath    = flag.String("logpath", "", "Log path for Controller service")
 	useACRs    = flag.Bool("extender", false,
 		"Whether controller should read AvailableCapacityReservation CR during CreateVolume request or not")
-	logLevel = flag.String("loglevel", base.InfoLevel,
-		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	logLevel = flag.String("loglevel", logger.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", logger.InfoLevel, logger.DebugLevel, logger.TraceLevel))
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath              = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
@@ -79,7 +81,7 @@ func main() {
 		enableMetrics = true
 	}
 
-	logger, err := base.InitLogger(*logPath, *logLevel)
+	logger, err := logger.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
@@ -92,7 +94,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	kubeClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	kubeClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
 	controllerService := controller.NewControllerService(kubeClient, logger, featureConf)
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiControllerServer)
@@ -181,7 +183,7 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 			return nil, err
 		}
 	}
-	wrappedK8SClient := k8s.NewKubeClient(client, log, *namespace)
+	wrappedK8SClient := k8s.NewKubeClient(client, log, objects.NewObjectLogger(), *namespace)
 
 	kubeCache, err := k8s.InitKubeCache(ctx, log,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})

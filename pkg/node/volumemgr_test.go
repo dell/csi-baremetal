@@ -46,6 +46,7 @@ import (
 	dataDiscover "github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover/types"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/mocks"
@@ -602,7 +603,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("update driveCRs failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 		// expect: updateDrivesCRs failed
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{},
 			nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
@@ -615,7 +616,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("discoverDataOnDrives failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
 		discoverData := &mocklu.MockWrapDataDiscover{}
 		discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(false, testErr).Once()
@@ -786,7 +787,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
-	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	var (

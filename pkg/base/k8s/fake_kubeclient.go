@@ -19,6 +19,7 @@ package k8s
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +29,7 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 )
 
 // NewFakeClientWrapper return new instance of FakeClientWrapper
@@ -108,8 +110,10 @@ func (fkw *FakeClientWrapper) shouldPatchNS(obj runtime.Object) bool {
 	if err != nil {
 		return false
 	}
-	_, ok := obj.(*volumecrd.Volume)
-	if ok {
+	// NS patch shouldn't for namespaced resources
+	_, isVolume := obj.(*volumecrd.Volume)
+	_, isPVC := obj.(*corev1.PersistentVolume)
+	if isVolume || isPVC {
 		return false
 	}
 	return gvk.Group == apiV1.CSICRsGroupVersion
@@ -142,4 +146,6 @@ func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error
 	}
 	fakeClientWrapper := NewFakeClientWrapper(fake.NewClientBuilder().WithScheme(scheme).Build(), scheme)
 	return NewKubeClient(fakeClientWrapper, logger, testNs), nil
+	fakeClientWrapper := NewFakeClientWrapper(fake.NewFakeClientWithScheme(scheme), scheme)
+	return NewKubeClient(fakeClientWrapper, logger, objects.NewObjectLogger(), testNs), nil
 }

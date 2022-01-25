@@ -40,6 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
@@ -65,9 +66,10 @@ const (
 // KubeClient is the extension of k8s client which supports CSI custom recources
 type KubeClient struct {
 	k8sCl.Client
-	log       *logrus.Entry
-	Namespace string
-	metrics   metrics.Statistic
+	log           *logrus.Entry
+	objectsLogger objects.ObjectLogger
+	Namespace     string
+	metrics       metrics.Statistic
 }
 
 // CRReader is a reader interface for k8s client wrapper
@@ -81,12 +83,13 @@ type CRReader interface {
 // NewKubeClient is the constructor for KubeClient struct
 // Receives basic k8s client from controller-runtime, logrus logger and namespace where to work
 // Returns an instance of KubeClient struct
-func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, namespace string) *KubeClient {
+func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, objectsLogger objects.ObjectLogger, namespace string) *KubeClient {
 	return &KubeClient{
-		Client:    k8sclient,
-		log:       logger.WithField("component", "KubeClient"),
-		Namespace: namespace,
-		metrics:   common.KubeclientDuration,
+		Client:        k8sclient,
+		log:           logger.WithField("component", "KubeClient"),
+		objectsLogger: objectsLogger,
+		Namespace:     namespace,
+		metrics:       common.KubeclientDuration,
 	}
 }
 
@@ -104,7 +107,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object
 		"requestUUID": requestUUID.(string),
 	})
 	crKind := obj.GetObjectKind().GroupVersionKind().Kind
-	ll.Infof("Creating CR %s: %v", crKind, obj)
+	ll.Infof("Creating CR '%s': %s", crKind, k.objectsLogger.Log(obj))
 	err := k.Create(ctx, obj)
 	if err != nil {
 		if k8sError.IsAlreadyExists(err) {
@@ -150,7 +153,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "UpdateCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Infof("Updating CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
 	return k.Update(ctx, obj)
 }
@@ -168,7 +171,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "DeleteCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Deleting CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Infof("Deleting CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
 	return k.Delete(ctx, obj)
 }
