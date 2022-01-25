@@ -227,7 +227,7 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 
 // Reconcile reconciles Node CR and k8s Node objects
 // at first define for which object current Reconcile is triggered and then run corresponding reconciliation method
-func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (bmc *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "Reconcile",
 		"name":   req.Name,
@@ -238,7 +238,7 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// however if it get NotFound error it tries to read Node object as well
 	if !strings.HasPrefix(req.Name, namePrefix) {
 		k8sNode := new(coreV1.Node)
-		err = bmc.k8sClient.ReadCR(context.Background(), req.Name, "", k8sNode)
+		err = bmc.k8sClient.ReadCR(ctx, req.Name, "", k8sNode)
 		switch {
 		case err == nil:
 			ll.Infof("Reconcile k8s node %s", k8sNode.Name)
@@ -251,7 +251,7 @@ func (bmc *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// try to read Node
 	bmNode := new(nodecrd.Node)
-	err = bmc.k8sClient.ReadCR(context.Background(), req.Name, "", bmNode)
+	err = bmc.k8sClient.ReadCR(ctx, req.Name, "", bmNode)
 	switch {
 	case err == nil:
 		ll.Infof("Reconcile Node %s", bmNode.Name)

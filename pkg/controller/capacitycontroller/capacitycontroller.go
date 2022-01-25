@@ -70,10 +70,10 @@ func (d *Controller) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // Reconcile reconciles Drive custom resources
-func (d *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (d *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("csicontroller_drive_controller")()
 	resourceName := req.Name
-	ctx, cancelFn := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelFn()
 
 	log := d.log.WithFields(logrus.Fields{"method": "Reconcile", "name": resourceName})

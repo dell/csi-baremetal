@@ -26,6 +26,7 @@ import (
 	"github.com/onsi/ginkgo"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 
@@ -33,7 +34,7 @@ import (
 )
 
 var (
-	CSITestSuites = []func() testsuites.TestSuite{
+	CSITestSuites = []func() storageframework.TestSuite{
 		testsuites.InitVolumesTestSuite,
 		testsuites.InitVolumeIOTestSuite,
 		testsuites.InitEphemeralTestSuite,
@@ -50,8 +51,8 @@ var (
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	ginkgo.AfterEach(failTestIfTimeout)
 
-	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
-		testsuites.DefineTestSuite(curDriver, CSITestSuites)
+	ginkgo.Context(storageframework.GetDriverNameWithFeatureTags(curDriver), func() {
+		storageframework.DefineTestSuites(curDriver, CSITestSuites)
 		DefineDriveHealthChangeTestSuite(curDriver)
 		DefineControllerNodeFailTestSuite(curDriver)
 		DefineNodeRebootTestSuite(curDriver)

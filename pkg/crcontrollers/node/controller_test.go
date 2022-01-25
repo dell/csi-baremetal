@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
@@ -152,7 +151,7 @@ func TestReconcile(t *testing.T) {
 
 		createObjects(t, c.k8sClient, bmNode, node)
 
-		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: node.Name}})
+		res, err := c.Reconcile(testCtx, ctrl.Request{NamespacedName: types.NamespacedName{Name: node.Name}})
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -173,7 +172,7 @@ func TestReconcile(t *testing.T) {
 
 		createObjects(t, c.k8sClient, bmNode, node)
 
-		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: bmNode.Name, Namespace: testNS}})
+		res, err := c.Reconcile(testCtx, ctrl.Request{NamespacedName: types.NamespacedName{Name: bmNode.Name, Namespace: testNS}})
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -187,7 +186,7 @@ func TestReconcile(t *testing.T) {
 
 	t.Run("Reconcile for nonexistent object", func(t *testing.T) {
 		c := setup(t)
-		res, err := c.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Name: "", Namespace: ""}})
+		res, err := c.Reconcile(testCtx, ctrl.Request{NamespacedName: types.NamespacedName{Name: "", Namespace: ""}})
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 	})
@@ -443,10 +442,8 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 
 		bmNodesList := &nodecrd.NodeList{}
 		assert.Nil(t, c.k8sClient.ReadList(testCtx, bmNodesList))
-		assert.Equal(t, 1, len(bmNodesList.Items))
+		assert.Equal(t, 0, len(bmNodesList.Items))
 
-		bmNode = &bmNodesList.Items[0]
-		assert.Nil(t, bmNode.GetFinalizers())
 		_, ok := c.cache.bmToK8sNode[bmNode.Name]
 		assert.False(t, ok)
 		_, ok = c.cache.k8sToBMNode[k8sNodeName]
@@ -542,7 +539,7 @@ func setup(t *testing.T) *Controller {
 	return c
 }
 
-func createObjects(t *testing.T, c *k8s.KubeClient, objs ...runtime.Object) {
+func createObjects(t *testing.T, c *k8s.KubeClient, objs ...k8sCl.Object) {
 	for _, obj := range objs {
 		assert.Nil(t, c.Create(testCtx, obj))
 	}

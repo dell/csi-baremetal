@@ -40,6 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
@@ -65,35 +66,37 @@ const (
 // KubeClient is the extension of k8s client which supports CSI custom recources
 type KubeClient struct {
 	k8sCl.Client
-	log       *logrus.Entry
-	Namespace string
-	metrics   metrics.Statistic
+	log           *logrus.Entry
+	objectsLogger objects.ObjectLogger
+	Namespace     string
+	metrics       metrics.Statistic
 }
 
 // CRReader is a reader interface for k8s client wrapper
 type CRReader interface {
 	// ReadCR reads CR
-	ReadCR(ctx context.Context, name string, namespace string, obj runtime.Object) error
+	ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object) error
 	// ReadList reads CR list
-	ReadList(ctx context.Context, obj runtime.Object) error
+	ReadList(ctx context.Context, obj k8sCl.ObjectList) error
 }
 
 // NewKubeClient is the constructor for KubeClient struct
 // Receives basic k8s client from controller-runtime, logrus logger and namespace where to work
 // Returns an instance of KubeClient struct
-func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, namespace string) *KubeClient {
+func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, objectsLogger objects.ObjectLogger, namespace string) *KubeClient {
 	return &KubeClient{
-		Client:    k8sclient,
-		log:       logger.WithField("component", "KubeClient"),
-		Namespace: namespace,
-		metrics:   common.KubeclientDuration,
+		Client:        k8sclient,
+		log:           logger.WithField("component", "KubeClient"),
+		objectsLogger: objectsLogger,
+		Namespace:     namespace,
+		metrics:       common.KubeclientDuration,
 	}
 }
 
 // CreateCR creates provided resource on k8s cluster with checking its existence before
 // Receives golang context, name of the created object, and object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Object) error {
+func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object) error {
 	defer k.metrics.EvaluateDurationForMethod("CreateCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -104,7 +107,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 		"requestUUID": requestUUID.(string),
 	})
 	crKind := obj.GetObjectKind().GroupVersionKind().Kind
-	ll.Infof("Creating CR %s: %v", crKind, obj)
+	ll.Infof("Creating CR '%s': %s", crKind, k.objectsLogger.Log(obj))
 	err := k.Create(ctx, obj)
 	if err != nil {
 		if k8sError.IsAlreadyExists(err) {
@@ -121,7 +124,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj runtime.Obje
 // ReadCR reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, obj runtime.Object) error {
+func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object) error {
 	defer k.metrics.EvaluateDurationForMethod("ReadCR")()
 	if namespace == "" {
 		return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
@@ -132,7 +135,7 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, 
 // ReadList reads a list of specified resources into k8s resource List struct (for example v1.PodList)
 // Receives golang context, and List object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
+func (k *KubeClient) ReadList(ctx context.Context, obj k8sCl.ObjectList) error {
 	defer k.metrics.EvaluateDurationForMethod("ReadList")()
 	return k.List(ctx, obj)
 }
@@ -140,7 +143,7 @@ func (k *KubeClient) ReadList(ctx context.Context, obj runtime.Object) error {
 // UpdateCR updates provided resource on k8s cluster
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
+func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object) error {
 	defer k.metrics.EvaluateDurationForMethod("UpdateCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -150,7 +153,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "UpdateCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Updating CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Infof("Updating CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
 	return k.Update(ctx, obj)
 }
@@ -158,7 +161,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj runtime.Object) error {
 // DeleteCR deletes provided resource from k8s cluster
 // Receives golang context and removable object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
+func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object) error {
 	defer k.metrics.EvaluateDurationForMethod("DeleteCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -168,7 +171,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj runtime.Object) error {
 	k.log.WithFields(logrus.Fields{
 		"method":      "DeleteCR",
 		"requestUUID": requestUUID.(string),
-	}).Infof("Deleting CR %s, %v", obj.GetObjectKind().GroupVersionKind().Kind, obj)
+	}).Infof("Deleting CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
 	return k.Delete(ctx, obj)
 }
@@ -280,7 +283,7 @@ func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.Node) *nodecr
 // with specified amount of attempts. Fails right away if resource is not found
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadCRWithAttempts(name string, namespace string, obj runtime.Object, attempts int) error {
+func (k *KubeClient) ReadCRWithAttempts(name string, namespace string, obj k8sCl.Object, attempts int) error {
 	ll := k.log.WithFields(logrus.Fields{
 		"method":   "ReadCRWithAttempts",
 		"volumeID": name,
@@ -310,7 +313,7 @@ func (k *KubeClient) ReadCRWithAttempts(name string, namespace string, obj runti
 // Fails right away if resource is not found or was changed
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj runtime.Object, attempts int) error {
+func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj k8sCl.Object, attempts int) error {
 	ll := k.log.WithField("method", "UpdateCRWithAttempts")
 
 	var (
