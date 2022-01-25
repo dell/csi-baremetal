@@ -17,7 +17,7 @@ env:
 jobs:
   e2e:
     # we need to start validation on master push or on /ci comment in PR only
-    if: github.event.issue.pull_request == false || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci'))
+    if: github.event_name == 'push' || (github.event.issue.pull_request && github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ci'))
     runs-on: ubuntu-20.04
     steps:
     - name: Get operator branch 
@@ -194,6 +194,8 @@ jobs:
           OPERATOR Version: ${{env.CSI_OPERATOR_VERSION}}
 
     - name: Make test
+      continue-on-error: true
+      id: tests
       run: make test-short-ci CSI_VERSION=$CSI_VERSION OPERATOR_VERSION=$CSI_OPERATOR_VERSION CHARTS_DIR=${{env.CSI_BAREMETAL_OPERATOR_DIR}}/charts
 
     - name: Publish Unit Test Results
@@ -207,11 +209,9 @@ jobs:
         check_run_annotations: all tests
         comment_mode: create new
 
-    - name: Archive logs
-      uses: papeloto/action-zip@v1
+    - uses: montudor/action-zip@v1
       with:
-        files: test/e2e/reports
-        dest: reports.zip
+        args: zip -qq -r reports.zip test/e2e/reports
 
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
@@ -225,10 +225,17 @@ jobs:
         name: e2e_artifacts_log
         path: log.txt
 
+    - name: Fail if test fails
+      if: steps.tests.outcome != 'success'
+      uses: actions/github-script@v3
+      with:
+        script: |
+          core.setFailed('E2E Tests failed!')
+
   result_job:
     needs: e2e
     # answer must be posted on PR with /ci comment only
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ci')
     runs-on: ubuntu-20.04
     steps:
     - name: Create answer body 
@@ -253,3 +260,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         body: |
           @${{ github.actor }}, ${{steps.set-answer.outputs.result}} Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+

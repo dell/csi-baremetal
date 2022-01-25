@@ -25,6 +25,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/ipmi"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/idracmgr"
 )
@@ -32,14 +33,14 @@ import (
 var (
 	endpoint = flag.String("drivemgrendpoint", base.DefaultDriveMgrEndpoint, "DriveManager Endpoint")
 	logPath  = flag.String("logpath", "", "log path for DriveManager")
-	logLevel = flag.String("loglevel", base.InfoLevel,
-		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	logLevel = flag.String("loglevel", logger.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", logger.InfoLevel, logger.DebugLevel, logger.TraceLevel))
 )
 
 func main() {
 	flag.Parse()
 
-	logger, err := base.InitLogger(*logPath, *logLevel)
+	logger, err := logger.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
