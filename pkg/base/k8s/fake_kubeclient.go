@@ -19,8 +19,8 @@ package k8s
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
@@ -145,7 +145,5 @@ func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error
 		return nil, err
 	}
 	fakeClientWrapper := NewFakeClientWrapper(fake.NewClientBuilder().WithScheme(scheme).Build(), scheme)
-	return NewKubeClient(fakeClientWrapper, logger, testNs), nil
-	fakeClientWrapper := NewFakeClientWrapper(fake.NewFakeClientWithScheme(scheme), scheme)
 	return NewKubeClient(fakeClientWrapper, logger, objects.NewObjectLogger(), testNs), nil
 }
