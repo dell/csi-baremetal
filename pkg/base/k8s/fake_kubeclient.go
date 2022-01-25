@@ -19,6 +19,8 @@ package k8s
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -96,8 +98,10 @@ func (fkw *FakeClientWrapper) shouldPatchNS(obj runtime.Object) bool {
 	if err != nil {
 		return false
 	}
-	_, ok := obj.(*volumecrd.Volume)
-	if ok {
+	// NS patch shouldn't for namespaced resources
+	_, isVolume := obj.(*volumecrd.Volume)
+	_, isPVC := obj.(*corev1.PersistentVolume)
+	if isVolume || isPVC {
 		return false
 	}
 	return gvk.Group == apiV1.CSICRsGroupVersion
