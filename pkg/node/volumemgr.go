@@ -1087,8 +1087,6 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 	statusMsgTemplate := "Drive status is: %s, previous status: %s."
 	var event *eventing.EventDescription
 	switch {
-	case currentStatus == apiV1.DriveStatusOnline:
-		event = eventing.DriveStatusOnline
 	case currentStatus == apiV1.DriveStatusOffline || drive.Spec.SerialNumber == "VAH5HBSL":
 		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
 			event = eventing.DriveSuccessfullyRemoved
@@ -1096,6 +1094,8 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 		} else {
 			event = eventing.DriveStatusOffline
 		}
+	case currentStatus == apiV1.DriveStatusOnline:
+		event = eventing.DriveStatusOnline
 	default:
 		return
 	}
