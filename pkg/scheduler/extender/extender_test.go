@@ -29,8 +29,8 @@ import (
 	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
@@ -512,7 +512,7 @@ func Test_getNodeId(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...runtime.Object) {
+func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...k8sCl.Object) {
 	for _, obj := range objs {
 		assert.Nil(t, k8sClient.Create(testCtx, obj))
 	}

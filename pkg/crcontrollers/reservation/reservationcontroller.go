@@ -47,10 +47,10 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // Reconcile reconciles ACR custom resources
-func (c *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	defer metrics.ReconcileDuration.EvaluateDurationForType("reservation_controller")()
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), contextTimeoutSeconds*time.Second)
+	ctx, cancelFn := context.WithTimeout(ctx, contextTimeoutSeconds*time.Second)
 	defer cancelFn()
 
 	// read name

@@ -94,7 +94,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 
 	// wait for pv deletion to clear devices for future tests
 	for _, pv := range pvs {
-		err = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
+		err = e2epv.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
 		if err != nil {
 			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}

@@ -133,7 +133,7 @@ func main() {
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, enableMetrics, logger)
 
-	kubeCache, err := k8s.InitKubeCache(logger, stopCH,
+	kubeCache, err := k8s.InitKubeCache(stopCH, logger,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
 	if err != nil {
 		logger.Fatalf("fail to start kubeCache, error: %v", err)

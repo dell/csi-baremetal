@@ -94,7 +94,7 @@ func main() {
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, objects.NewObjectLogger(), *namespace)
 
-	kubeCache, err := k8s.InitKubeCache(logger, stopCH,
+	kubeCache, err := k8s.InitKubeCache(stopCH, logger,
 		&coreV1.PersistentVolumeClaim{},
 		&storageV1.StorageClass{},
 		&volumecrd.Volume{})
