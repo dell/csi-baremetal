@@ -39,7 +39,7 @@ const (
 	operatorVersionEnv = "OPERATOR_VERSION"
 	csiVersionEnv      = "CSI_VERSION"
 
-	maxFileNameSize = 256
+	maxFileNameSize = 255
 	reportsDir      = "reports"
 )
 
@@ -50,10 +50,10 @@ func collectPodLogs(f *framework.Framework) func() {
 	ns := f.Namespace
 
 	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
-	if len(testName) > maxFileNameSize {
-		testName = testName[:maxFileNameSize]
-	}
 	dirname := path.Join(reportsDir, testName)
+	if len(dirname) > maxFileNameSize {
+		dirname = dirname[:maxFileNameSize]
+	}
 	if err := os.MkdirAll(dirname, os.ModePerm); err != nil {
 		log.Fatalf("error creating folders: %v", err)
 	}

@@ -118,3 +118,7 @@ generate-baremetal-crds: install-controller-gen
 	$(CONTROLLER_GEN_BIN) $(CRD_OPTIONS) paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 
 generate-api: compile-proto generate-baremetal-crds generate-deepcopy
+
+# Used for UT. Need to regenerate after updating k8s API version
+generate-mocks:
+	mockery --dir=/usr/local/go/pkg/mod/k8s.io/client-go\@$(CLIENT_GO_VER)/kubernetes/typed/core/v1/ --name=EventInterface --output=pkg/events/mocks
