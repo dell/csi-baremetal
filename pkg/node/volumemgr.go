@@ -1047,7 +1047,7 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			createdDrive, apiV1.HealthUnknown, createdDrive.Spec.Health)
 	}
 	for _, updDrive := range updates.Updated {
-		if updDrive.CurrentState.Spec.Status != updDrive.PreviousState.Spec.Status {
+		if updDrive.CurrentState.Spec.Status != updDrive.PreviousState.Spec.Status || updDrive.CurrentState.Spec.SerialNumber == "VAH5HBSL" {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
 		}
