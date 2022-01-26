@@ -29,7 +29,7 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -58,7 +58,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 
 	init := func() {
 		var (
-			perTestConf *testsuites.PerTestConfig
+			perTestConf *storageframework.PerTestConfig
 			err         error
 		)
 		ns = f.Namespace.Name

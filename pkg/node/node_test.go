@@ -19,7 +19,6 @@ package node
 import (
 	"errors"
 	"fmt"
-	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 	"path"
 	"testing"
 	"time"
@@ -46,6 +45,7 @@ import (
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
+	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 

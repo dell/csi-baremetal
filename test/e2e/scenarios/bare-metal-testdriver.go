@@ -31,12 +31,12 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/framework/volume"
-	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
+	"k8s.io/kubernetes/test/e2e/storage/utils"
 )
 
 type baremetalDriver struct {
-	driverInfo testsuites.DriverInfo
+	driverInfo storageframework.DriverInfo
 }
 
 var (
@@ -51,19 +51,19 @@ var (
 	maxDriveSize = "1.2Gi"
 )
 
-func initBaremetalDriverInfo(name string) testsuites.DriverInfo {
-	return testsuites.DriverInfo{
+func initBaremetalDriverInfo(name string) storageframework.DriverInfo {
+	return storageframework.DriverInfo{
 		Name:               name,
 		SupportedSizeRange: volume.SizeRange{Min: persistentVolumeClaimSize, Max: maxDriveSize},
-		MaxFileSize:        testpatterns.FileSizeSmall,
-		Capabilities: map[testsuites.Capability]bool{
-			testsuites.CapPersistence:         true,
-			testsuites.CapExec:                true,
-			testsuites.CapMultiPODs:           true,
-			testsuites.CapFsGroup:             true,
-			testsuites.CapSingleNodeVolume:    true,
-			testsuites.CapBlock:               true,
-			testsuites.CapControllerExpansion: true,
+		MaxFileSize:        storageframework.FileSizeSmall,
+		Capabilities: map[storageframework.Capability]bool{
+			storageframework.CapPersistence:         true,
+			storageframework.CapExec:                true,
+			storageframework.CapMultiPODs:           true,
+			storageframework.CapFsGroup:             true,
+			storageframework.CapSingleNodeVolume:    true,
+			storageframework.CapBlock:               true,
+			storageframework.CapControllerExpansion: true,
 		},
 		SupportedFsType: sets.NewString(
 			"", // Default fsType
@@ -81,18 +81,18 @@ func initBaremetalDriver() *baremetalDriver {
 	}
 }
 
-var _ testsuites.TestDriver = &baremetalDriver{}
-var _ testsuites.DynamicPVTestDriver = &baremetalDriver{}
-var _ testsuites.EphemeralTestDriver = &baremetalDriver{}
-var _ testsuites.PreprovisionedPVTestDriver = &baremetalDriver{}
+var _ storageframework.TestDriver = &baremetalDriver{}
+var _ storageframework.DynamicPVTestDriver = &baremetalDriver{}
+var _ storageframework.EphemeralTestDriver = &baremetalDriver{}
+var _ storageframework.PreprovisionedPVTestDriver = &baremetalDriver{}
 
 // GetDriverInfo is implementation of TestDriver interface method
-func (d *baremetalDriver) GetDriverInfo() *testsuites.DriverInfo {
+func (d *baremetalDriver) GetDriverInfo() *storageframework.DriverInfo {
 	return &d.driverInfo
 }
 
 // SkipUnsupportedTest is implementation of TestDriver interface method
-func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
+func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPattern) {
 	if !common.BMDriverTestContext.NeedAllTests {
 		// Block volume tests takes much time (20+ minutes). They should be skipped in short CI suite
 		if pattern.VolMode == corev1.PersistentVolumeBlock {
@@ -100,13 +100,17 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 		}
 
 		// Skip volume expand tests in short CI
-		if pattern == testpatterns.DefaultFsDynamicPVAllowExpansion {
+		if pattern == storageframework.DefaultFsDynamicPVAllowExpansion {
 			e2eskipper.Skipf("Should skip volume expand tests in short CI suite - skipping")
 		}
 
 		// We have volume and exec pvc test for default fs (equals to xfs) in short CI
 		// Not need to perform them for other filesystems
 		if pattern.FsType == xfsFs || pattern.FsType == ext4Fs || pattern.FsType == ext3Fs {
+			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
+		}
+
+		if pattern.Name == "Dynamic PV (filesystem volmode)" {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
 	}
@@ -116,13 +120,13 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) 
 	}
 
 	// TODO https://github.com/dell/csi-baremetal/issues/666 - add test coverage
-	if pattern.VolType == testpatterns.PreprovisionedPV {
+	if pattern.VolType == storageframework.PreprovisionedPV {
 		e2eskipper.Skipf("Baremetal Driver does not have PreprovisionedPV test suite implemented yet -- skipping")
 	}
 }
 
 // PrepareCSI deploys CSI and enables logging for containers
-func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (*testsuites.PerTestConfig, func()) {
+func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (*storageframework.PerTestConfig, func()) {
 	ginkgo.By("Deploying CSI Baremetal")
 
 	installArgs := ""
@@ -132,7 +136,7 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 	cleanup, err := common.DeployCSIComponents(f, installArgs)
 	framework.ExpectNoError(err)
 
-	testConf := &testsuites.PerTestConfig{
+	testConf := &storageframework.PerTestConfig{
 		Driver:    d,
 		Prefix:    "baremetal",
 		Framework: f,
@@ -153,11 +157,11 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 }
 
 // PrepareTest is implementation of TestDriver interface method
-func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
+func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*storageframework.PerTestConfig, func()) {
 	deployConfig := true
 	// This condition create custom config for loopbackmanager
 	if f.BaseName == volumeExpandTag {
-		testsuites.StartPodLogs(f)
+		utils.StartPodLogs(f, f.Namespace)
 		cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
 		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.TODO(), cm, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
@@ -167,7 +171,7 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTe
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method
-func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTestConfig,
+func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *storageframework.PerTestConfig,
 	fsType string) *storagev1.StorageClass {
 	var scFsType string
 	switch strings.ToLower(fsType) {
@@ -182,28 +186,28 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *testsuites.Per
 	}
 	ns := config.Framework.Namespace.Name
 	provisioner := d.driverInfo.Name
-	suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
+	//suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
 	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
 		"storageType": storageType,
 		"fsType":      scFsType,
 	}
 
-	return testsuites.GetStorageClass(provisioner, scParams, &delayedBinding, ns, suffix)
+	return storageframework.GetStorageClass(provisioner, scParams, &delayedBinding, ns)
 }
 
 // GetStorageClassWithStorageType allows to create SC with different storageType
-func (d *baremetalDriver) GetStorageClassWithStorageType(config *testsuites.PerTestConfig,
+func (d *baremetalDriver) GetStorageClassWithStorageType(config *storageframework.PerTestConfig,
 	storageType string) *storagev1.StorageClass {
 	ns := config.Framework.Namespace.Name
 	provisioner := d.driverInfo.Name
-	suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
+	//suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
 	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
 		"storageType": storageType,
 		"fsType":      xfsFs,
 	}
-	return testsuites.GetStorageClass(provisioner, scParams, &delayedBinding, ns, suffix)
+	return storageframework.GetStorageClass(provisioner, scParams, &delayedBinding, ns)
 }
 
 // GetClaimSize is implementation of DynamicPVTestDriver interface method
@@ -212,7 +216,7 @@ func (d *baremetalDriver) GetClaimSize() string {
 }
 
 // GetVolume is implementation of EphemeralTestDriver interface method
-func (d *baremetalDriver) GetVolume(config *testsuites.PerTestConfig,
+func (d *baremetalDriver) GetVolume(config *storageframework.PerTestConfig,
 	volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
 	attributes = make(map[string]string)
 	attributes["size"] = d.GetClaimSize()
@@ -221,17 +225,17 @@ func (d *baremetalDriver) GetVolume(config *testsuites.PerTestConfig,
 }
 
 // GetCSIDriverName is implementation of EphemeralTestDriver interface method
-func (d *baremetalDriver) GetCSIDriverName(config *testsuites.PerTestConfig) string {
+func (d *baremetalDriver) GetCSIDriverName(config *storageframework.PerTestConfig) string {
 	return d.GetDriverInfo().Name
 }
 
 // CreateVolume is implementation of PreprovisionedPVTestDriver interface method
-func (d *baremetalDriver) CreateVolume(config *testsuites.PerTestConfig, volumeType testpatterns.TestVolType) testsuites.TestVolume {
+func (d *baremetalDriver) CreateVolume(config *storageframework.PerTestConfig, volumeType storageframework.TestVolType) storageframework.TestVolume {
 	panic("implement me")
 }
 
 // GetPersistentVolumeSource is implementation of PreprovisionedPVTestDriver interface method
-func (d *baremetalDriver) GetPersistentVolumeSource(readOnly bool, fsType string, testVolume testsuites.TestVolume) (*corev1.PersistentVolumeSource, *corev1.VolumeNodeAffinity) {
+func (d *baremetalDriver) GetPersistentVolumeSource(readOnly bool, fsType string, testVolume storageframework.TestVolume) (*corev1.PersistentVolumeSource, *corev1.VolumeNodeAffinity) {
 	panic("implement me")
 }
 

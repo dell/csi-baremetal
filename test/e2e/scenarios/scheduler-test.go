@@ -32,7 +32,7 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/test/e2e/common"
@@ -76,7 +76,7 @@ func schedulingTest(driver *baremetalDriver) {
 
 	init := func(lmConf *common.LoopBackManagerConfig) {
 		var (
-			perTestConf *testsuites.PerTestConfig
+			perTestConf *storageframework.PerTestConfig
 			err         error
 		)
 
