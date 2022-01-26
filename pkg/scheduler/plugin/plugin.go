@@ -16,6 +16,7 @@ limitations under the License.
 
 package plugin
 
+/*
 import (
 	"context"
 
@@ -83,3 +84,4 @@ func (c CSISchedulerPlugin) Reserve(ctx context.Context, state *framework.CycleS
 func (c CSISchedulerPlugin) Unreserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) {
 	panic("implement me")
 }
+*/

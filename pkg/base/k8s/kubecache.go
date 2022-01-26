@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,12 +52,12 @@ type KubeCache struct {
 }
 
 // ReadCR CRReader implementation
-func (k KubeCache) ReadCR(ctx context.Context, name string, namespace string, obj runtime.Object) error {
+func (k KubeCache) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object) error {
 	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj)
 }
 
 // ReadList CRReader implementation
-func (k KubeCache) ReadList(ctx context.Context, obj runtime.Object) error {
+func (k KubeCache) ReadList(ctx context.Context, obj k8sCl.ObjectList) error {
 	return k.List(ctx, obj)
 }
 
@@ -74,7 +73,7 @@ func NewKubeCache(reader k8sCl.Reader, logger *logrus.Logger) *KubeCache {
 
 // InitKubeCache creates and starts KubeCache,
 // if objects passed the function will block until cache synced for these objects
-func InitKubeCache(logger *logrus.Logger, stopCH <-chan struct{}, objects ...runtime.Object) (*KubeCache, error) {
+func InitKubeCache(stopCH context.Context, logger *logrus.Logger, objects ...k8sCl.Object) (*KubeCache, error) {
 	k8sCache, err := GetK8SCache()
 	if err != nil {
 		logger.Errorf("fail to create cache for kubernetes resources, error: %v", err)

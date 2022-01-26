@@ -24,7 +24,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -438,7 +438,7 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, namespace string, newSpec
 }
 
 // DeleteObjectByName read runtime.Object by its name and then delete it
-func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespace string, obj runtime.Object) error {
+func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespace string, obj k8sCl.Object) error {
 	if err := cs.reader.ReadCR(ctx, name, namespace, obj); err != nil {
 		if k8sError.IsNotFound(err) {
 			return nil

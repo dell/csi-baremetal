@@ -14,6 +14,11 @@ version:
 dependency:
 	${GO_ENV_VARS} go mod download
 
+tidy:
+	${GO_ENV_VARS} go mod tidy
+	${GO_ENV_VARS} go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VER)
+	${GO_ENV_VARS} go get github.com/vektra/mockery/v2@$(MOCKERY_VER)
+
 all: build base-images images push
 
 ### Build binaries
@@ -81,7 +86,8 @@ install-protoc:
 	unzip protoc-3.11.0-linux-x86_64.zip -d proto_3.11.0/ && \
 	sudo mv proto_3.11.0/bin/protoc /usr/bin/protoc && \
 	protoc --version; rm -rf proto_3.11.0; rm protoc-*
-	go get -u github.com/golang/protobuf/protoc-gen-go@v1.3.2
+	# TODO update to google.golang.org/protobuf - https://github.com/dell/csi-baremetal/issues/613
+	go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VER)
 
 install-compile-proto: install-protoc compile-proto
 
@@ -112,3 +118,7 @@ generate-baremetal-crds: install-controller-gen
 	$(CONTROLLER_GEN_BIN) $(CRD_OPTIONS) paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 
 generate-api: compile-proto generate-baremetal-crds generate-deepcopy
+
+# Used for UT. Need to regenerate after updating k8s API version
+generate-mocks:
+	mockery --dir=/usr/local/go/pkg/mod/k8s.io/client-go\@$(CLIENT_GO_VER)/kubernetes/typed/core/v1/ --name=EventInterface --output=pkg/events/mocks

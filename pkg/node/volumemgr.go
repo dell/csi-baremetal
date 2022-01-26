@@ -255,7 +255,7 @@ func (m *VolumeManager) SetListBlk(listBlk lsblk.WrapLsblk) {
 // VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
 // Volume.Spec.CSIStatus is Removing.
 // Returns reconcile result as ctrl.DiscoverResult or error if something went wrong
-func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_volume_controller")()
 	m.volMu.LockKey(req.Name)
 	ll := m.log.WithFields(logrus.Fields{
@@ -269,7 +269,7 @@ func (m *VolumeManager) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}()
 	ctx, cancelFn := context.WithTimeout(
-		context.WithValue(context.Background(), base.RequestUUID, req.Name),
+		context.WithValue(ctx, base.RequestUUID, req.Name),
 		VolumeOperationsTimeout)
 	defer cancelFn()
 

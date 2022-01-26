@@ -93,7 +93,8 @@ type MockCapacityManagerBuilder struct {
 }
 
 // GetCapacityManager returns mock implementation of CapacityManager
-func (mcb *MockCapacityManagerBuilder) GetCapacityManager(logger *logrus.Entry, capReader CapacityReader) CapacityPlaner {
+func (mcb *MockCapacityManagerBuilder) GetCapacityManager(logger *logrus.Entry, capReader CapacityReader,
+	resReader ReservationReader) CapacityPlaner {
 	return mcb.Manager
 }
 

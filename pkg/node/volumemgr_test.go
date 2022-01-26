@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"sync"
 	"testing"
@@ -30,6 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,6 +46,7 @@ import (
 	dataDiscover "github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover/types"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/mocks"
@@ -231,14 +232,14 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		res, err := vm.Reconcile(req)
+		res, err := vm.Reconcile(testCtx, req)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 		wg.Done()
 	}()
 	wg.Add(1)
 	go func() {
-		res, err := vm.Reconcile(req)
+		res, err := vm.Reconcile(testCtx, req)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 		wg.Done()
@@ -256,7 +257,7 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: "not-found-that-name"}}
-	res, err := vm.Reconcile(req)
+	res, err := vm.Reconcile(testCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -421,7 +422,7 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	assert.Nil(t, err)
 
 	//successfully add finalizer
-	res, err := vm.Reconcile(req)
+	res, err := vm.Reconcile(testCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
@@ -432,7 +433,7 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	err = vm.k8sClient.UpdateCR(testCtx, newVolumeCR)
 	assert.Nil(t, err)
 
-	res, err = vm.Reconcile(req)
+	res, err = vm.Reconcile(testCtx, req)
 	assert.NotNil(t, k8sError.IsNotFound(err))
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -572,7 +573,7 @@ func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
 	newVolumeCR.Spec.CSIStatus = apiV1.Published
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, newVolumeCR.Name, newVolumeCR))
 
-	res, err = vm.Reconcile(req)
+	res, err = vm.Reconcile(testCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -602,7 +603,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("update driveCRs failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 		// expect: updateDrivesCRs failed
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{},
 			nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
@@ -615,7 +616,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("discoverDataOnDrives failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
 		discoverData := &mocklu.MockWrapDataDiscover{}
 		discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(false, testErr).Once()
@@ -692,8 +693,8 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 		HasData: true,
 	}
 	testResultDrive2 = &dataDiscover.DiscoverResult{
-		Message: fmt.Sprintf("Drive with path %s, SN %s, doesn't have filesystem, partition table, partitions and PV", drive2.Path, drive2.SerialNumber),
-		HasData: false,
+		Message: fmt.Sprintf("Drive with path %s, SN %s, has filesystem", drive2.Path, drive2.SerialNumber),
+		HasData: true,
 	}
 	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(testResultDrive1, nil)
 	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(testResultDrive2, nil)
@@ -704,7 +705,7 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	dItems = getDriveCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 2, len(dItems))
 	assert.Equal(t, false, dItems[0].Spec.IsClean)
-	assert.Equal(t, true, dItems[1].Spec.IsClean)
+	assert.Equal(t, false, dItems[1].Spec.IsClean)
 }
 
 func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
@@ -734,16 +735,14 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	assert.Len(t, updates.Updated, 1)
 	assert.Len(t, updates.NotChanged, 1)
 
-	drives = driveMgrRespDrives[1:]
-	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
-	driveCRs[0].Annotations = map[string]string{"health": "bad"}
-	vm.k8sClient.UpdateCR(testCtx, &driveCRs[0])
+	drives = driveMgrRespDrives
+	driveCR := vm.crHelper.GetDriveCRByUUID(driveCRs[0].Name)
+	driveCR.Annotations = map[string]string{"health": "bad"}
+	vm.k8sClient.UpdateCR(testCtx, driveCR)
 	updates, err = vm.updateDrivesCRs(testCtx, drives)
+	actualDrive := vm.crHelper.GetDriveCRByUUID(driveCR.Name)
 	assert.Nil(t, err)
-	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthBad)
-	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Status, apiV1.DriveStatusOffline)
-	assert.Len(t, updates.Updated, 1)
-	assert.Len(t, updates.NotChanged, 1)
+	assert.Equal(t, actualDrive.Spec.Health, apiV1.HealthBad)
 
 	vm = prepareSuccessVolumeManager(t)
 	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
@@ -788,7 +787,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
-	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	var (
