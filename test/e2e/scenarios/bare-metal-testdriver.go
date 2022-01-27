@@ -54,7 +54,7 @@ var (
 func initBaremetalDriverInfo(name string) storageframework.DriverInfo {
 	return storageframework.DriverInfo{
 		Name:               name,
-		SupportedSizeRange: volume.SizeRange{Max: persistentVolumeClaimSize},
+		SupportedSizeRange: volume.SizeRange{Min: persistentVolumeClaimSize, Max: maxDriveSize},
 		MaxFileSize:        storageframework.FileSizeSmall,
 		Capabilities: map[storageframework.Capability]bool{
 			storageframework.CapPersistence:         true,

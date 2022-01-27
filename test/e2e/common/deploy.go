@@ -241,8 +241,7 @@ func CleanupLoopbackDevices(ctx context.Context, f *framework.Framework) error {
 		return err
 	}
 	for _, pod := range pods {
-		stdout, stderr, err := f.ExecCommandInContainerWithFullOutput(pod, "drivemgr", "/bin/kill", "-SIGHUP", "1")
-		framework.Logf("Delete loopdevices in pod %s, stdout: %s, stderr: %s, err: %+v", pod, stdout, stderr, err)
+		f.ExecShellInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
 	}
 	return nil
 }
