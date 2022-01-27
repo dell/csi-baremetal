@@ -250,6 +250,21 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			}
 			continue
 		}
+		if v.Ephemeral != nil {
+			claimSpec := v.Ephemeral.VolumeClaimTemplate.Spec
+			if storageType, ok := scs[*claimSpec.StorageClassName]; ok {
+				storageReq, ok := claimSpec.Resources.Requests[coreV1.ResourceStorage]
+				if !ok {
+					ll.Errorf("There is no key for storage resource for PVC %s", v.Name)
+					storageReq = resource.Quantity{}
+				}
+				requests = append(requests, &genV1.CapacityRequest{
+					Name:         generateEphemeralVolumeName(pod, &v),
+					StorageClass: util.ConvertStorageClass(storageType),
+					Size:         storageReq.Value(),
+				})
+			}
+		}
 		if v.PersistentVolumeClaim != nil {
 			pvc := &coreV1.PersistentVolumeClaim{}
 			err := e.k8sCache.ReadCR(ctx, v.PersistentVolumeClaim.ClaimName, pod.Namespace, pvc)
@@ -593,4 +608,8 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
 	return scNameTypeMap, nil
+}
+
+func generateEphemeralVolumeName(pod *coreV1.Pod, volume *coreV1.Volume) string {
+	return pod.GetName() + "-" + volume.Name
 }
