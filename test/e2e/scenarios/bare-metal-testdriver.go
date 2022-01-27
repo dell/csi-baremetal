@@ -48,13 +48,13 @@ var (
 	ext3Fs                    = "ext3"
 	hddStorageType            = "HDD"
 	// default value for expansion is hardcoded to 1Gi in e2e test framework
-	maxDriveSize = "1.2Gi"
+	maxDriveSize = "2.1Gi"
 )
 
 func initBaremetalDriverInfo(name string) storageframework.DriverInfo {
 	return storageframework.DriverInfo{
 		Name:               name,
-		SupportedSizeRange: volume.SizeRange{Max: persistentVolumeClaimSize},
+		SupportedSizeRange: volume.SizeRange{Min: persistentVolumeClaimSize, Max: maxDriveSize},
 		MaxFileSize:        storageframework.FileSizeSmall,
 		Capabilities: map[storageframework.Capability]bool{
 			storageframework.CapPersistence:         true,
