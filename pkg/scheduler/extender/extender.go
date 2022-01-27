@@ -259,7 +259,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 					storageReq = resource.Quantity{}
 				}
 				requests = append(requests, &genV1.CapacityRequest{
-					Name:         generateEphemeralVolumeName(pod, &v),
+					Name:         generateEphemeralVolumeName(pod.GetName(), v.Name),
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
 				})
@@ -326,7 +326,7 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 
 	// if some parameters aren't parsed for some reason
 	// empty volume will be returned in order count that volume
-	requestName := podName + "-" + volume.Name
+	requestName := generateEphemeralVolumeName(podName, volume.Name)
 	request = &genV1.CapacityRequest{Name: requestName, StorageClass: v1.StorageClassAny}
 
 	v := volume.CSI
@@ -610,6 +610,6 @@ func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]str
 	return scNameTypeMap, nil
 }
 
-func generateEphemeralVolumeName(pod *coreV1.Pod, volume *coreV1.Volume) string {
-	return pod.GetName() + "-" + volume.Name
+func generateEphemeralVolumeName(podName, volumeName string) string {
+	return podName + "-" + volumeName
 }
