@@ -219,78 +219,78 @@ planning (currently we support planning, only depending on capacity). For this w
    ```
    where NodeRequests - are requests by nodes, ReservationRequests - requests per volumes. \
    1.2. We should update it to support new type of requests: based on affinity annotations:
-```protobuf
-message AvailableCapacityReservation {
-   string Namespace = 1;
-   string Status = 2;
-   NodeRequests NodeRequests = 3;
-   repeated ReservationRequest ReservationRequests = 4;
-   AffinityRules AffinityRules = 5;
-}
-
-message AffinityRules {
-   // affinity requests - filled by scheduler/extender
-   repeated AffinityRequests AffinityRequests = 1;
-   // antiaffinity requests - filled by scheduler/extender
-   repeated AntiaffinityRequests AntiaffinityRequests = 2;
-}
-
-message AffinityRequests {
-   repeated AffinityRequest AffinityRequest = 1;
-}
-
-message AffinityRequest {
-   AffinityRequestType Type = 1;
-   oneof Request {
-      AffinityDedicatedRequest AffinityDedicatedRequest = 3;
+   ```protobuf
+   message AvailableCapacityReservation {
+      string Namespace = 1;
+      string Status = 2;
+      NodeRequests NodeRequests = 3;
+      repeated ReservationRequest ReservationRequests = 4;
+      AffinityRules AffinityRules = 5;
    }
-}
 
-enum AffinityRequestType {
-   POD_BOUND_REQUIRED = 1;
-   POD_BOUND_PREFERRED = 2;
-   DEDICATED_REQUIRED = 5;
-   DEDICATED_PREFERRED = 6;
-}
+   message AffinityRules {
+      // affinity requests - filled by scheduler/extender
+      repeated AffinityRequests AffinityRequests = 1;
+      // antiaffinity requests - filled by scheduler/extender
+      repeated AntiaffinityRequests AntiaffinityRequests = 2;
+   }
 
-message AffinityDedicatedRequest {
-   repeated string Tolerations = 1;
-}
+   message AffinityRequests {
+      repeated AffinityRequest AffinityRequest = 1;
+   }
 
-message AntiaffinityRequests {
-   repeated AntiaffinityRequest AntiaffinityRequest = 1;
-}
+   message AffinityRequest {
+      AffinityRequestType Type = 1;
+      oneof Request {
+         AffinityDedicatedRequest AffinityDedicatedRequest = 3;
+      }
+   }
 
-message AntiaffinityRequest {
-   AntiaffinityRequestType Type = 1;
-   oneof Request {
-      AntiaffinityPodLabelRequest PodLabelRequest = 2;
-   }  
-}
+   enum AffinityRequestType {
+      POD_BOUND_REQUIRED = 1;
+      POD_BOUND_PREFERRED = 2;
+      DEDICATED_REQUIRED = 3;
+      DEDICATED_PREFERRED = 4;
+   }
 
-enum AntiaffinityRequestType {
-   POD_LABEL_REQUIRED = 1;
-   POD_LABEL_PREFERRED = 2;
-}
+   message AffinityDedicatedRequest {
+      repeated string Tolerations = 1;
+   }
 
-message AntiaffinityPodLabelRequest {
-   repeated string Labels = 1;
-}
-```
+   message AntiaffinityRequests {
+      repeated AntiaffinityRequest AntiaffinityRequest = 1;
+   }
+
+   message AntiaffinityRequest {
+      AntiaffinityRequestType Type = 1;
+      oneof Request {
+         AntiaffinityPodLabelRequest PodLabelRequest = 2;
+      }
+   }
+
+   enum AntiaffinityRequestType {
+      POD_LABEL_REQUIRED = 1;
+      POD_LABEL_PREFERRED = 2;
+   }
+
+   message AntiaffinityPodLabelRequest {
+      repeated string Labels = 1;
+   }
+   ```
 2. At scheduler extender (in case client set the drive affinity annotations) while creating capacity reservation - fill it with AffinityRules specified in p1.2 above.
-3. At reservation controller refactor planning logic:
+3. At reservation controller refactor planning logic: \
    3.1. Create unified interface for filtering applicable capacities on nodes for volumes planning:
-```go
-type VolumesPlanFilter interface {
-Filter(ctx context.Context, volumesPlanMap VolumesPlanMap) (filteredVolumesPlanMap VolumesPlanMap, err error)
-} 
-```
-3.2. Implement planning filters for affinity and capacity (currently already implemented in planner.go logic). \
-3.3. Affinity planning filter can also be implemented as two separate filters (for affinity and antiaffinity) - as described at ChainOfResponsibility pattern.
-Depending on their type (affinity/antiaffinity) perform the corresponding filtering operations (e.g. for antiaffinity pod-label type - select requested pods by labels and filter out drives, used by them)
-over ACs in inputted VolumesPlanMap. \
-3.4. Rename CapacityManager to Manager and iterating logic over planning filters to it. Before iteration - create the initial VolumesPlanMap structure with available AC at requested nodes. \
-3.5. Dynamically create needed filters (e.g. affinity filter only needed in case if affinity requests were set at AffinityRules) at reservation controller.
+   ```go
+   type VolumesPlanFilter interface {
+      Filter(ctx context.Context, volumesPlanMap VolumesPlanMap) (filteredVolumesPlanMap VolumesPlanMap, err error)
+   }
+   ```
+   3.2. Implement planning filters for affinity and capacity (currently already implemented in planner.go logic). \
+   3.3. Affinity planning filter can also be implemented as two separate filters (for affinity and antiaffinity) - as described at ChainOfResponsibility pattern.
+        Depending on their type (affinity/antiaffinity) perform the corresponding filtering operations (e.g. for antiaffinity pod-label type - select requested pods by labels and filter out drives, used by them)
+        over ACs in inputted VolumesPlanMap. \
+   3.4. Rename CapacityManager to Manager and iterating logic over planning filters to it. Before iteration - create the initial VolumesPlanMap structure with available AC at requested nodes. \
+   3.5. Dynamically create needed filters (e.g. affinity filter only needed in case if affinity requests were set at AffinityRules) at reservation controller.
 
 #### Future planning
 
