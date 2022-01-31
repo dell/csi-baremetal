@@ -252,12 +252,12 @@ function start() {
     local rc=0
     local docker_pid
 
-    if ! $JENKINS_RUN; then
-        install_hal "$HAL_OPT_VAL" 1>/dev/null
-        [[ $? -ne 0 ]] && \
-            devkit_echo 1 "to prevent failure you can provide '--hal no' flag" && return 1
-        devkit_echo 1 "viprhal and viprhal-devel....[$(state "test $HAL_OPT_VAL != no")]"
-    fi
+#    if ! $JENKINS_RUN; then
+#        install_hal "$HAL_OPT_VAL" 1>/dev/null
+#        [[ $? -ne 0 ]] && \
+#            devkit_echo 1 "to prevent failure you can provide '--hal no' flag" && return 1
+#        devkit_echo 1 "viprhal and viprhal-devel....[$(state "test $HAL_OPT_VAL != no")]"
+#    fi
 
     devkit_echo 1 "docker daemon..." true false
     if $DOCKER_IN_DOCKER; then

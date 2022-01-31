@@ -417,6 +417,7 @@ function init_docker_opts() {
         if ${!share}; then
             DOCKER_VOLUME_OPTS+=" --volume ${!host}:${!cont}:z "
             mkdir --parents ${!host} || ((++ret))
+
         fi
     done
 
