@@ -45,7 +45,7 @@ antiaffinity.volumes.csi-baremetal.dell.com/types: ${list of specified antiaffin
 ```
 The list of supported **_affinity_** types to use in the above annotation:
 * ```pod-bound-(required|preferred)``` - mount PVs for the same pod on the same disk, depending on the suffix - the behaviour is required/preferred;
-* ```dedicated-(required|preferred)``` - place volumes on the certain disks, which were dedicated for this application, depending on the suffix - the behaviour is required/preferred.
+* ```dedicated``` - place volumes on the certain disks, which were dedicated for this application.
 
 The list of supported **_antiaffinity_** types to use in the above annotation:
 * ```pod-label-(required|preferred)``` - specify pods by their labels, which should not use the same drives as the current one, depending on the suffix - the behaviour is required/preferred;
@@ -68,10 +68,14 @@ antiaffinity.volumes.csi-baremetal.dell.com/labels: ${pod-label1}:${pod-namespac
 In the above annotation we should specify labels of specific pods, whose disks in usage we do not want to consume by PVs of our application (pod).
 
 #### Directly dedicate disks for specific pods
+For directly dedication of disks for specific pods the following annotation should be specified on these pods before their creation:
+```yaml
+antiaffinity.volumes.csi-baremetal.dell.com/types: dedicated
+```
 Generally, we have two options to support directly dedicated disks (which one is preferable is the space for discussion):
 * Set the following annotation on the certain pod before its creation to request dedicated disks for it:
   ```yaml
-  affinity.volumes.csi-baremetal.dell.com/dedicated: true
+  affinity.volumes.csi-baremetal.dell.com/dedicated: <required|preferred>
   ```
   Based on this annotation, disk (more precisely: corresponding AvailableCapacity CR) will be annotated automatically (during capacity reservation process) by CSI by the following label:
   ```yaml
