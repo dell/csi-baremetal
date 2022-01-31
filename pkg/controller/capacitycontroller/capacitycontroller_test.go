@@ -179,7 +179,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 			},
 			expectedResult: expectedResult{
 				reconcileError: nil,
-				acList: accrd.AvailableCapacityList{
+				acList:         accrd.AvailableCapacityList{
 					Items: []accrd.AvailableCapacity{
 						{
 							Spec: acSpec,
@@ -215,7 +215,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 			},
 			expectedResult: expectedResult{
 				reconcileError: nil,
-				acList: accrd.AvailableCapacityList{
+				acList:         accrd.AvailableCapacityList{
 					Items: []accrd.AvailableCapacity{
 						{
 							Spec: acSpec,
