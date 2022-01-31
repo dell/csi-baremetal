@@ -88,7 +88,7 @@ KIND_WAIT := 30s
 ### ci vars
 # timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)
 SHORT_CI_TIMEOUT := 60m
-SANITY_TEST := '[Testpattern: Dynamic PV (default fs)] volumes should store data'
+SANITY_TEST := [Testpattern: Dynamic PV (default fs)] volumes should store data
 
 # override some of variables, optional file
 -include variables.override.mk
