@@ -1,22 +1,22 @@
-# Proposal: volume statuses
+# Volume statuses
 
-Last updated: 31.01.22
+Last updated: 01.02.22
 
 ## Abstract
 
-Every object can be created and have many states during its life. 
-Transfer from one state to another should be described by final state machine (FSM). 
-This proposal describes possible volume statuses which should provide CSI workflow.
+Every object can be created and have many states during its life.
+Transfer from one state to another should be described by final state machine (FSM).
+This document describes implemented volume statuses which should provide CSI workflow.
 
 ## Background
 
 CSI specification doesn't make restrictions for volume statuses.
-It only suggests the lifecycle of a volume, but implementation of the all RPC-es has to be mandatory. 
+It only suggests the lifecycle of a volume, but implementation of the all RPC-es has to be mandatory.
 
-## Proposal
+## Implementation details
 
-It's proposed to use special field of volume structure where volume status can be stored.
-That field can be called "CSIStatus":
+It's been proposed to use special field of volume structure where volume status can be stored.
+That field is called "CSIStatus":
 ```go
 type Volume struct {
 	Id                   string
@@ -25,7 +25,7 @@ type Volume struct {
 	CSIStatus            string 
 	...
 ```
-Volume statuses can be:
+Now it has the next volume statuses:
 * Creating;
 * Created;
 * VolumeReady;
