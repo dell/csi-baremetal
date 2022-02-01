@@ -35,7 +35,6 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -636,29 +635,13 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 	})
 
 	drivesUUIDs := vo.k8sClient.GetSystemDriveUUIDs()
-	// if only one volume remains - restore AC Location, and set 0 size for sync size with drive.
-	// Then delete LogicalVolumeGroup
+	// if only one volume remains - remove AC first and LogicalVolumeGroup then
 	if len(lvg.Spec.VolumeRefs) == 1 && !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
-		drive := &drivecrd.Drive{}
-		if err := vo.k8sClient.ReadCR(context.Background(), lvg.Spec.Locations[0], "", drive); err != nil {
-			log.Errorf("Unable to read Drive %s CR: %v", lvg.Spec.Locations[0], err)
+		if err := vo.k8sClient.DeleteCR(context.Background(), ac); err != nil {
+			log.Errorf("Unable to delete AC %s: %v", ac.Name, err)
 			return false, err
 		}
-
-		ac.Spec.Location = drive.Spec.GetUUID()
-		ac.Spec.Size = drive.Spec.GetSize()
-		ac.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(drive.Spec.GetType())
-
-		if err := vo.k8sClient.UpdateCR(context.Background(), ac); err != nil {
-			log.Errorf("Unable to update AC %s CR: %v", ac.Name, err)
-			return false, err
-		}
-
-		if err := vo.k8sClient.DeleteCR(context.Background(), lvg); err != nil {
-			log.Errorf("Unable to delete LVG %s CR: %v", lvg.Name, err)
-			return false, err
-		}
-		return true, nil
+		return true, vo.k8sClient.DeleteCR(context.Background(), lvg)
 	}
 
 	// search for volume index
