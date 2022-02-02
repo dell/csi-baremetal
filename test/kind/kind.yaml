@@ -24,3 +24,4 @@ nodes:
       - hostPath: /run/lvm
         containerPath: /run/lvm
       - hostPath: /run/lock
+        containerPath: /run/lock
