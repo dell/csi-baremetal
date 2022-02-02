@@ -10,23 +10,26 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
       - name: Parse release description
         id: split_description
         uses: jungwinter/split@v2
         with:
           msg: ${{ github.event.release.body }}
 
-      - name: Set versions
-        id: versions
+      - name: Set vars
+        id: vars
         run: |
           component_name_1=`echo "${{ steps.split_description.outputs._0 }}" | tr -d ':'`
           component_name_2=`echo "${{ steps.split_description.outputs._2 }}" | tr -d ':'`
           version_1=`echo "${{ steps.split_description.outputs._1 }}" | tr -d ','`
+          version_2=`echo "${{ steps.split_description.outputs._3 }}" | tr -d ','`
           echo "::set-output name=${component_name_1}::$version_1"
-          echo "::set-output name=${component_name_2}::${{ steps.split_description.outputs._3 }}"
+          echo "::set-output name=${component_name_2}::$version_2"
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.release.target_commitish }}
 
       - name: Trigger release workflow in csi-baremetal-operator repo
         uses: benc-uk/workflow-dispatch@v1
@@ -34,9 +37,10 @@ jobs:
           workflow: Release Charts
           repo: dell/csi-baremetal-operator
           token: ${{ secrets.CSI_WF_TOKEN }}
-          ref: ${{ github.event.release.target_commitish }}
+          ref: refs/heads/master  # need to hardcode here because of this issue: https://github.com/benc-uk/workflow-dispatch/issues/11
           inputs: |
-            { "csi_version": "${{ steps.versions.outputs.csi_version }}",
-              "csi_operator_version": "${{ steps.versions.outputs.csi_operator_version }}",
-              "release_tag": "${{ github.event.release.tag_name }}" }
+            { "csi_version": "${{ steps.vars.outputs.csi_version }}",
+              "csi_operator_version": "${{ steps.vars.outputs.csi_operator_version }}",
+              "release_tag": "${{ github.event.release.tag_name }}",
+              "branch": "${{ github.event.release.target_commitish }}" }
         if: startsWith(github.ref, 'refs/tags/')
