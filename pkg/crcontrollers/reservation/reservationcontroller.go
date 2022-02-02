@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	v1api "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
@@ -43,6 +45,15 @@ func NewController(client *k8s.KubeClient, log *logrus.Logger, sequentialLVGRese
 func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&acrcrd.AvailableCapacityReservation{}).
+		WithOptions(controller.Options{
+			// Rater controls timeout between reconcile attempts (if result.Requeue is true)
+			// here we make first 30 retries with 1.5 sec timeout and then it will be 12 sec forever
+			RateLimiter: workqueue.NewItemFastSlowRateLimiter(
+				1500*time.Millisecond, //fastTimeout
+				12*time.Second, //slowTimeout
+				30, //attempts from fast to slow timeout
+				),
+			}).
 		Complete(c)
 }
 
@@ -95,7 +106,7 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 		placingPlan, err := capManager.PlanVolumesPlacing(ctx, volumes, requestedNodes)
 		if err == baseerr.ErrorRejectReservationRequest {
 			log.Warningf("Reservation request rejected due to another ACR in RESERVED state has request based on LVG")
-			return ctrl.Result{RequeueAfter: time.Second}, err
+			return ctrl.Result{Requeue: true}, nil
 		}
 		if err != nil {
 			log.Errorf("Failed to create placing plan: %s", err.Error())
