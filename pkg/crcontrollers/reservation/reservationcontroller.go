@@ -49,11 +49,11 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 			// Rater controls timeout between reconcile attempts (if result.Requeue is true)
 			// here we make first 30 retries with 1.5 sec timeout and then it will be 12 sec forever
 			RateLimiter: workqueue.NewItemFastSlowRateLimiter(
-				1500*time.Millisecond, //fastTimeout
-				12*time.Second, //slowTimeout
-				30, //attempts from fast to slow timeout
-				),
-			}).
+				1500*time.Millisecond, // fastTimeout
+				12*time.Second,        // slowTimeout
+				30,                    // attempts from fast to slow timeout
+			),
+		}).
 		Complete(c)
 }
 
