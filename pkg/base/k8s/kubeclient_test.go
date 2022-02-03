@@ -44,7 +44,6 @@ const (
 	testID             = "someID"
 	testNode1Name      = "node1"
 	testDriveLocation1 = "drive"
-	testApp            = "app"
 )
 
 var (
@@ -53,7 +52,8 @@ var (
 	testUUID   = uuid.New().String()
 	testUUID2  = uuid.New().String()
 	attempts   = 3
-	testVolume = vcrd.Volume{
+	testAppLabels = map[string]string{AppLabelKey: "app", ReleaseLabelKey: "release"}
+	testVolume    = vcrd.Volume{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
 		Spec: api.Volume{
@@ -483,13 +483,13 @@ var _ = Describe("Constructor methods", func() {
 	})
 	Context("ConstructVolumeCR", func() {
 		It("Should return right Volume CR", func() {
-			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testNs, testApp, testApiVolume)
+			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testNs, testAppLabels, testApiVolume)
 			Expect(constructedCR.TypeMeta.Kind).To(Equal(testVolumeCR.TypeMeta.Kind))
 			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testVolumeCR.TypeMeta.APIVersion))
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testVolumeCR.ObjectMeta.Name))
 			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testVolumeCR.ObjectMeta.Namespace))
 			Expect(constructedCR.Spec).To(Equal(testVolumeCR.Spec))
-			Expect(constructedCR.Labels).To(Equal(constructCustomAppMap(testApp)))
+			Expect(constructedCR.Labels).To(Equal(testAppLabels))
 		})
 	})
 	Context("ConstructLVGCR", func() {

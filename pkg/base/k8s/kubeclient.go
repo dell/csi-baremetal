@@ -59,6 +59,8 @@ const (
 	AppLabelKey = "app.kubernetes.io/name"
 	// AppLabelShortKey matches CSI CRs with csi-baremetal app
 	AppLabelShortKey = "app"
+	// ReleaseLabelKey matches CSI CRs with the helm release
+	ReleaseLabelKey = "release"
 	// AppLabelValue matches CSI CRs with csi-baremetal app
 	AppLabelValue = "csi-baremetal"
 )
@@ -230,7 +232,8 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 // ConstructVolumeCR constructs Volume custom resource from api.Volume struct
 // Receives a name for k8s ObjectMeta and an instance of api.Volume struct
 // Returns an instance of Volume CR struct
-func (k *KubeClient) ConstructVolumeCR(name, namespace, appName string, apiVolume api.Volume) *volumecrd.Volume {
+func (k *KubeClient) ConstructVolumeCR(name, namespace string, labels map[string]string,
+	apiVolume api.Volume) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.VolumeKind,
@@ -239,7 +242,7 @@ func (k *KubeClient) ConstructVolumeCR(name, namespace, appName string, apiVolum
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    constructCustomAppMap(appName),
+			Labels:    labels,
 		},
 		Spec: apiVolume,
 	}
@@ -455,16 +458,10 @@ func PrepareScheme() (*runtime.Scheme, error) {
 }
 
 // constructAppMap creates the map contains app labels
-func constructDefaultAppMap() map[string]string {
-	return constructCustomAppMap(AppLabelValue)
-}
-
-func constructCustomAppMap(appName string) (labels map[string]string) {
-	if appName != "" {
-		labels = map[string]string{
-			AppLabelKey:      appName,
-			AppLabelShortKey: appName,
-		}
+func constructDefaultAppMap() (labels map[string]string) {
+	labels = map[string]string{
+		AppLabelKey:      AppLabelValue,
+		AppLabelShortKey: AppLabelValue,
 	}
 	return
 }
