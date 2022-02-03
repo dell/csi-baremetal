@@ -47,7 +47,9 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 		For(&acrcrd.AvailableCapacityReservation{}).
 		WithOptions(controller.Options{
 			// Rater controls timeout between reconcile attempts (if result.Requeue is true)
-			// here we make first 30 retries with 1.5 sec timeout and then it will be 12 sec forever
+			// Default RateLimiter is exponential, which leads to increasing timeout after 100 retries to 5+ mins
+			// Many attempts are expected during processing ACRs with LVG Volumes, so we need to use linear RateLimiter
+		    // Here we make first 30 retries with 1.5 sec timeout and then it will be 12 sec forever
 			RateLimiter: workqueue.NewItemFastSlowRateLimiter(
 				1500*time.Millisecond, // fastTimeout
 				12*time.Second,        // slowTimeout
