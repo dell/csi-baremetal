@@ -41,7 +41,7 @@ import (
 )
 
 var (
-	namespace  = "my-namespace"
+	namespace = "my-namespace"
 )
 
 // creates fake k8s client and creates AC CRs based on provided acs

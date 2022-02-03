@@ -47,11 +47,11 @@ const (
 )
 
 var (
-	testLogger = logrus.New()
-	testCtx    = context.Background()
-	testUUID   = uuid.New().String()
-	testUUID2  = uuid.New().String()
-	attempts   = 3
+	testLogger    = logrus.New()
+	testCtx       = context.Background()
+	testUUID      = uuid.New().String()
+	testUUID2     = uuid.New().String()
+	attempts      = 3
 	testAppLabels = map[string]string{AppLabelKey: "app", ReleaseLabelKey: "release"}
 	testVolume    = vcrd.Volume{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
