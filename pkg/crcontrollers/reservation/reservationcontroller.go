@@ -2,6 +2,8 @@ package reservation
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -21,6 +23,15 @@ import (
 
 const (
 	contextTimeoutSeconds = 60
+
+	// reservation parameters
+	fastTimeoutEnv = "RESERVATION_FAST_TIMEOUT"
+	slowTimeoutEnv = "RESERVATION_SLOW_TIMEOUT"
+	attemptsNumEnv = "RESERVATION_ATTEMPTS_NUM"
+
+	defaulFastTimeout = 1500 * time.Millisecond
+	defaulSlowTimeout = 12 * time.Second
+	defaulAttemptsNum = 30
 )
 
 // Controller to reconcile aviliablecapacityreservation custom resource
@@ -28,17 +39,22 @@ type Controller struct {
 	client                 *k8s.KubeClient
 	log                    *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
+	fastTimeout            time.Duration
+	slowTimeout            time.Duration
+	maxAttempts            uint64
 }
 
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient, node ID and logrus logger
 // Returns an instance of Controller
 func NewController(client *k8s.KubeClient, log *logrus.Logger, sequentialLVGReservation bool) *Controller {
-	return &Controller{
+	c := &Controller{
 		client:                 client,
 		log:                    log.WithField("component", "ReservationController"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{SequentialLVGReservation: sequentialLVGReservation},
 	}
+	c.setReservationParameters()
+	return c
 }
 
 // SetupWithManager registers Controller to ControllerManager
@@ -49,11 +65,11 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 			// Rater controls timeout between reconcile attempts (if result.Requeue is true)
 			// Default RateLimiter is exponential, which leads to increasing timeout after 100 retries to 5+ mins
 			// Many attempts are expected during processing ACRs with LVG Volumes, so we need to use linear RateLimiter
-			// Here we make first 30 retries with 1.5 sec timeout and then it will be 12 sec forever
+			// Here we make first maxAttempts retries with fastTimeout, and then it will be slowTimeout forever
 			RateLimiter: workqueue.NewItemFastSlowRateLimiter(
-				1500*time.Millisecond, // fastTimeout
-				12*time.Second,        // slowTimeout
-				30,                    // attempts from fast to slow timeout
+				c.fastTimeout,
+				c.slowTimeout,
+				int(c.maxAttempts),
 			),
 		}).
 		Complete(c)
@@ -147,4 +163,40 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 		log.Infof("CR is not in %s state", v1.ReservationRequested)
 		return ctrl.Result{}, nil
 	}
+}
+
+func (c *Controller) setReservationParameters() {
+	var (
+		fastTimeoutStr = os.Getenv(fastTimeoutEnv)
+		slowTimeoutStr = os.Getenv(slowTimeoutEnv)
+		maxAttemptsStr = os.Getenv(attemptsNumEnv)
+
+		fastTimeout time.Duration
+		slowTimeout time.Duration
+		maxAttempts uint64
+		err         error
+	)
+
+	fastTimeout, err = time.ParseDuration(fastTimeoutStr)
+	if err != nil {
+		c.log.Errorf("passed fastTimeout parameter %s is not parsable as time.Duration. Used defaul - %s", fastTimeoutStr, defaulFastTimeout)
+		fastTimeout = defaulFastTimeout
+	}
+
+	slowTimeout, err = time.ParseDuration(slowTimeoutStr)
+	if err != nil {
+		c.log.Errorf("passed slowTimeout parameter %s is not parsable as time.Duration. Used defaul - %s", slowTimeoutStr, defaulSlowTimeout)
+		slowTimeout = defaulSlowTimeout
+	}
+
+	maxAttempts, err = strconv.ParseUint(maxAttemptsStr, 10, 64)
+	if err != nil {
+		c.log.Errorf("passed maxAttempts parameter %s is not parsable as uint. Used defaul - %d", maxAttemptsStr, defaulAttemptsNum)
+		maxAttempts = defaulAttemptsNum
+	}
+
+	c.fastTimeout = fastTimeout
+	c.slowTimeout = slowTimeout
+	c.maxAttempts = maxAttempts
+	c.log.Infof("Reservation controller parameters: fastTimeout - %s, slowTimeout - %s, maxAttempts - %d", fastTimeout, slowTimeout, maxAttempts)
 }
