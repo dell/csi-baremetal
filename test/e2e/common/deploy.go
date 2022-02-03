@@ -236,12 +236,13 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 // CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
 // Returns error if it's failed to get node pods
 func CleanupLoopbackDevices(ctx context.Context, f *framework.Framework) error {
-	pods, err := GetNodePodsNames(ctx, f)
+	podNames, err := GetNodePodsNames(ctx, f)
 	if err != nil {
 		return err
 	}
-	for _, pod := range pods {
-		f.ExecShellInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
+	for _, podName := range podNames {
+		stdout, stderr, err := f.ExecCommandInContainerWithFullOutput(podName, "drivemgr", "/bin/kill", "-SIGHUP", "1")
+		framework.Logf("Delete loopdevices in pod %s, stdout: %s, stderr: %s, err: %w", podName, stdout, stderr, err)
 	}
 	return nil
 }
