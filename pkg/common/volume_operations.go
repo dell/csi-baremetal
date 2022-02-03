@@ -35,7 +35,6 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -159,7 +158,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		isFound           = false
 		ac                = &accrd.AvailableCapacity{}
 		volumeReservation = podReservation.Spec.ReservationRequests[volumeReservationNum]
-		appLabel          string
+		claimLabels       map[string]string
 	)
 	// scheduler extender reserves capacity on different nodes during filter stage since 'reserve' API is not available
 	// need to find capacity on requested node
@@ -208,7 +207,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 	}
 
 	if !v.Ephemeral {
-		appLabel, err = vo.getVolumeAppLabel(ctx, reservationName, podNamespace)
+		claimLabels, err = vo.getPersistentVolumeClaimLabels(ctx, reservationName, podNamespace)
 		if err != nil {
 			log.Errorf("Unable to get related PVC, error: %v", err)
 			return nil, status.Errorf(codes.Internal, "unable to get related PVC")
@@ -231,7 +230,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		Mode:              v.Mode,
 		Type:              v.Type,
 	}
-	volumeCR := vo.k8sClient.ConstructVolumeCR(v.Id, podNamespace, appLabel, apiVolume)
+	volumeCR := vo.k8sClient.ConstructVolumeCR(v.Id, podNamespace, claimLabels, apiVolume)
 
 	if err = vo.k8sClient.CreateCR(ctx, v.Id, volumeCR); err != nil {
 		log.Errorf("Unable to create CR, error: %v", err)
@@ -636,29 +635,13 @@ func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.L
 	})
 
 	drivesUUIDs := vo.k8sClient.GetSystemDriveUUIDs()
-	// if only one volume remains - restore AC Location, and set 0 size for sync size with drive.
-	// Then delete LogicalVolumeGroup
+	// if only one volume remains - remove AC first and LogicalVolumeGroup then
 	if len(lvg.Spec.VolumeRefs) == 1 && !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
-		drive := &drivecrd.Drive{}
-		if err := vo.k8sClient.ReadCR(context.Background(), lvg.Spec.Locations[0], "", drive); err != nil {
-			log.Errorf("Unable to read Drive %s CR: %v", lvg.Spec.Locations[0], err)
+		if err := vo.k8sClient.DeleteCR(context.Background(), ac); err != nil {
+			log.Errorf("Unable to delete AC %s: %v", ac.Name, err)
 			return false, err
 		}
-
-		ac.Spec.Location = drive.Spec.GetUUID()
-		ac.Spec.Size = drive.Spec.GetSize()
-		ac.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(drive.Spec.GetType())
-
-		if err := vo.k8sClient.UpdateCR(context.Background(), ac); err != nil {
-			log.Errorf("Unable to update AC %s CR: %v", ac.Name, err)
-			return false, err
-		}
-
-		if err := vo.k8sClient.DeleteCR(context.Background(), lvg); err != nil {
-			log.Errorf("Unable to delete LVG %s CR: %v", lvg.Name, err)
-			return false, err
-		}
-		return true, nil
+		return true, vo.k8sClient.DeleteCR(context.Background(), lvg)
 	}
 
 	// search for volume index
@@ -691,8 +674,9 @@ func (vo *VolumeOperationsImpl) fillCache() {
 	}
 }
 
-// getVolumeAppLabel returns App name related with PVC
-func (vo *VolumeOperationsImpl) getVolumeAppLabel(ctx context.Context, pvcName, pvcNamespace string) (string, error) {
+// VolumeOperationsImpl returns PVC labels: release, app.kubernetes.io/name and adds short app label
+func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Context, pvcName, pvcNamespace string) (
+	map[string]string, error) {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method": "getVolumeAppLabel",
 	})
@@ -703,8 +687,18 @@ func (vo *VolumeOperationsImpl) getVolumeAppLabel(ctx context.Context, pvcName, 
 		Namespace: pvcNamespace,
 	}, pvc); err != nil {
 		ll.Errorf("Failed to get PVC %s in namespace %s, error %v", pvcName, pvcNamespace, err)
-		return "", err
+		return nil, err
 	}
 
-	return pvc.GetLabels()[k8s.AppLabelKey], nil
+	// need to get release and app labels only
+	labels := map[string]string{}
+	if value, ok := pvc.GetLabels()[k8s.ReleaseLabelKey]; ok {
+		labels[k8s.ReleaseLabelKey] = value
+	}
+	if value, ok := pvc.GetLabels()[k8s.AppLabelKey]; ok {
+		labels[k8s.AppLabelKey] = value
+		labels[k8s.AppLabelShortKey] = value
+	}
+
+	return labels, nil
 }
