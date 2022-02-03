@@ -21,6 +21,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
@@ -31,17 +38,55 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//	"google.golang.org/grpc/status"
-	//	"google.golang.org/grpc/codes"
-	//	"strconv"
-	//	"github.com/dell/csi-baremetal/api/v1/volumecrd"
-	//	"github.com/dell/csi-baremetal/pkg/base"
-	//	"github.com/dell/csi-baremetal/pkg/mocks"
 )
+
+var (
+	namespace  = "my-namespace"
+)
+
+// creates fake k8s client and creates AC CRs based on provided acs
+// returns instance of ACOperationsImpl based on created k8s client
+func setupVOOperationsTest(t *testing.T) *VolumeOperationsImpl {
+	k8sClient, err := k8s.GetFakeKubeClient(namespace, testLogger)
+	assert.Nil(t, err)
+	assert.NotNil(t, k8sClient)
+
+	return NewVolumeOperationsImpl(k8sClient, testLogger, cache.NewMemCache(), featureconfig.NewFeatureConfig())
+}
+
+func Test_getPersistentVolumeClaimLabels(t *testing.T) {
+	var (
+		svc     = setupVOOperationsTest(t)
+		ctx     = context.TODO()
+		pvcName = "my-pvc"
+	)
+	// no PVC
+	labels, err := svc.getPersistentVolumeClaimLabels(ctx, pvcName, namespace)
+	assert.Nil(t, labels)
+	assert.NotNil(t, err)
+
+	// create PVC
+	var (
+		appName     = "my-app"
+		releaseName = "my-release"
+		pvcLabels   = map[string]string{
+			k8s.AppLabelKey:     appName,
+			k8s.ReleaseLabelKey: releaseName,
+		}
+		pvc = &v1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: namespace,
+			Labels: pvcLabels}}
+	)
+	err = svc.k8sClient.Create(ctx, pvc)
+	assert.Nil(t, err)
+
+	// check labels
+	labels, err = svc.getPersistentVolumeClaimLabels(ctx, pvcName, namespace)
+	assert.NotNil(t, labels)
+	assert.Nil(t, err)
+	assert.Equal(t, labels[k8s.AppLabelKey], appName)
+	assert.Equal(t, labels[k8s.AppLabelShortKey], appName)
+	assert.Equal(t, labels[k8s.ReleaseLabelKey], releaseName)
+}
 
 // TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
 /*func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
@@ -621,16 +666,6 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
 	assert.False(t, isDeleted)
 	assert.True(t, k8sError.IsNotFound(err))
-}
-
-// creates fake k8s client and creates AC CRs based on provided acs
-// returns instance of ACOperationsImpl based on created k8s client
-func setupVOOperationsTest(t *testing.T) *VolumeOperationsImpl {
-	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
-	assert.Nil(t, err)
-	assert.NotNil(t, k8sClient)
-
-	return NewVolumeOperationsImpl(k8sClient, testLogger, cache.NewMemCache(), featureconfig.NewFeatureConfig())
 }
 
 func buildVolumePlacingPlan(node string, vol *api.Volume,
