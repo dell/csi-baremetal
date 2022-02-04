@@ -63,6 +63,18 @@ var (
 		Driver:           testProvisioner,
 		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
 	}
+	testEphemeralVolumeSrc = coreV1.EphemeralVolumeSource{
+		VolumeClaimTemplate: &coreV1.PersistentVolumeClaimTemplate{
+			Spec: coreV1.PersistentVolumeClaimSpec{
+				StorageClassName: &testSCName1,
+				Resources: coreV1.ResourceRequirements{
+					Requests: coreV1.ResourceList{
+						coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
+					},
+				},
+			},
+		},
+	}
 
 	testSC1 = storageV1.StorageClass{
 		ObjectMeta: metaV1.ObjectMeta{
@@ -129,6 +141,10 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
 		VolumeSource: coreV1.VolumeSource{CSI: &testCSIVolumeSrc},
 	})
+	// append ephemeralVolume
+	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
+		VolumeSource: coreV1.VolumeSource{Ephemeral: &testEphemeralVolumeSrc},
+	})
 	// append testPVC1
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
 		VolumeSource: coreV1.VolumeSource{
@@ -150,7 +166,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 
 	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(volumes))
+	assert.Equal(t, 3, len(volumes))
 }
 
 func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
