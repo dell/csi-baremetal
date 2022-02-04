@@ -32,8 +32,8 @@ import (
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 	e2epv "k8s.io/kubernetes/test/e2e/framework/pv"
 
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
 )
 
 var utilExecutor command.CmdExecutor
@@ -43,7 +43,7 @@ func GetExecutor() command.CmdExecutor {
 	if utilExecutor == nil {
 		// TODO: workaround until https://github.com/dell/csi-baremetal/issues/83 is open
 		_ = os.Setenv("LOG_FORMAT", "text")
-		logger, _ := base.InitLogger("", "debug")
+		logger, _ := logger.InitLogger("", "debug")
 		utilExecutor = command.NewExecutor(logger)
 	}
 
@@ -94,7 +94,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 
 	// wait for pv deletion to clear devices for future tests
 	for _, pv := range pvs {
-		err = framework.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
+		err = e2epv.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
 		if err != nil {
 			e2elog.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}

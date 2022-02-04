@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
@@ -76,7 +76,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 
 	init := func(lmConf *common.LoopBackManagerConfig) {
 		var (
-			perTestConf *testsuites.PerTestConfig
+			perTestConf *storageframework.PerTestConfig
 			err         error
 		)
 		ns = f.Namespace.Name

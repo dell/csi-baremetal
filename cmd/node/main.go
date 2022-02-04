@@ -45,6 +45,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
@@ -82,8 +84,8 @@ var (
 		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
-	logLevel = flag.String("loglevel", base.InfoLevel,
-		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	logLevel = flag.String("loglevel", logger.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", logger.InfoLevel, logger.DebugLevel, logger.TraceLevel))
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
@@ -102,7 +104,7 @@ func main() {
 		enableMetrics = true
 	}
 
-	logger, err := base.InitLogger(*logPath, *logLevel)
+	logger, err := logger.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
@@ -131,7 +133,7 @@ func main() {
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, enableMetrics, logger)
 
-	kubeCache, err := k8s.InitKubeCache(logger, stopCH,
+	kubeCache, err := k8s.InitKubeCache(stopCH, logger,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
 	if err != nil {
 		logger.Fatalf("fail to start kubeCache, error: %v", err)
@@ -150,7 +152,7 @@ func main() {
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
-	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
 	csiNodeService := node.NewCSINodeService(
 		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 

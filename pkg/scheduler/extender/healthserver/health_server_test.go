@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver/common"
 )
 
@@ -120,7 +120,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 }
 
 func prepareExtenderHealthServer(nodeName string) (*ExtenderHealthServer, error) {
-	logger, err := base.InitLogger("", "DEBUG")
+	logger, err := logger.InitLogger("", "DEBUG")
 	if err != nil {
 		return nil, err
 	}

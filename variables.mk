@@ -67,6 +67,12 @@ GO_ENV_VARS     := GO111MODULE=on ${GOPRIVATE_PART} ${GOPROXY_PART}
 GOPRIVATE_PART  :=
 GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
 
+### go dependencies
+CONTROLLER_GEN_VER := v0.5.0
+MOCKERY_VER        := v2.9.4
+PROTOC_GEN_GO_VER  := v1.3.2
+CLIENT_GO_VER      := v0.22.5
+
 ### Ingest information to the binary at the compile time
 METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
 LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
@@ -82,6 +88,7 @@ KIND_WAIT := 30s
 ### ci vars
 # timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)
 SHORT_CI_TIMEOUT := 60m
+SANITY_TEST := 'volumes should store data'  # focus expects to get a regexp as input not a simple string
 
 # override some of variables, optional file
 -include variables.override.mk

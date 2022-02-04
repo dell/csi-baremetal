@@ -16,6 +16,78 @@ limitations under the License.
 
 package common
 
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
+	k8sError "k8s.io/apimachinery/pkg/api/errors"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/pkg/base/cache"
+	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
+)
+
+var (
+	namespace  = "my-namespace"
+)
+
+// creates fake k8s client and creates AC CRs based on provided acs
+// returns instance of ACOperationsImpl based on created k8s client
+func setupVOOperationsTest(t *testing.T) *VolumeOperationsImpl {
+	k8sClient, err := k8s.GetFakeKubeClient(namespace, testLogger)
+	assert.Nil(t, err)
+	assert.NotNil(t, k8sClient)
+
+	return NewVolumeOperationsImpl(k8sClient, testLogger, cache.NewMemCache(), featureconfig.NewFeatureConfig())
+}
+
+func Test_getPersistentVolumeClaimLabels(t *testing.T) {
+	var (
+		svc     = setupVOOperationsTest(t)
+		ctx     = context.TODO()
+		pvcName = "my-pvc"
+	)
+	// no PVC
+	labels, err := svc.getPersistentVolumeClaimLabels(ctx, pvcName, namespace)
+	assert.Nil(t, labels)
+	assert.NotNil(t, err)
+
+	// create PVC
+	var (
+		appName     = "my-app"
+		releaseName = "my-release"
+		pvcLabels   = map[string]string{
+			k8s.AppLabelKey:     appName,
+			k8s.ReleaseLabelKey: releaseName,
+		}
+		pvc = &v1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: namespace,
+			Labels: pvcLabels}}
+	)
+	err = svc.k8sClient.Create(ctx, pvc)
+	assert.Nil(t, err)
+
+	// check labels
+	labels, err = svc.getPersistentVolumeClaimLabels(ctx, pvcName, namespace)
+	assert.NotNil(t, labels)
+	assert.Nil(t, err)
+	assert.Equal(t, labels[k8s.AppLabelKey], appName)
+	assert.Equal(t, labels[k8s.AppLabelShortKey], appName)
+	assert.Equal(t, labels[k8s.ReleaseLabelKey], releaseName)
+}
+
 // TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
 /*func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 	// 1. Volume CR has already exist
@@ -33,44 +105,39 @@ package common
 }*/
 
 // Volume CR was successfully created, HDD SC
-/*func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
+func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	var (
-		svc           = setupVOOperationsTest(t)
-		volumeID      = "pvc-aaaa-bbbb"
-		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
-		requiredNode  = ""
-		requiredSC    = apiV1.StorageClassHDD
-		requiredBytes = int64(util.GBYTE)
-		expectedAC    = &accrd.AvailableCapacity{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "testAC"},
-			Spec: api.AvailableCapacity{
-				Location:     testDrive1UUID,
-				NodeId:       testNode1Name,
-				StorageClass: requiredSC,
-				Size:         int64(util.GBYTE) * 42,
-			},
-		}
-		expectedVolume = &api.Volume{
-			Id:                volumeID,
-			Location:          expectedAC.Spec.Location,
-			StorageClass:      expectedAC.Spec.StorageClass,
-			NodeId:            expectedAC.Spec.NodeId,
-			Size:              expectedAC.Spec.Size,
-			CSIStatus:         apiV1.Creating,
-			Health:            apiV1.HealthGood,
-			LocationType:      apiV1.LocationTypeDrive,
-			OperationalStatus: apiV1.OperationalStatusOperative,
-			Usage:             apiV1.VolumeUsageInUse,
-		}
+		svc = setupVOOperationsTest(t)
+
+		testAC     = testAC1.DeepCopy()
+		testVolume = testVolume1.DeepCopy()
+		testPVC    = testPVC1.DeepCopy()
+
+		volumeID      = testVolume.Spec.Id
+		requiredSC    = testVolume.Spec.StorageClass
+		requiredNode  = testVolume.Spec.NodeId
+		requiredBytes = testVolume.Spec.Size
 	)
 
-	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
+	parameters := map[string]string{
+		util.ClaimNamespaceKey: testNS,
+		util.ClaimNameKey:      testPVC.Name,
+	}
 
-	capMBuilder, capMMock := getCapacityManagerMock()
-	svc.capacityManagerBuilder = capMBuilder
-	capMMock.On("PlanVolumesPlacing", ctxWithID, mock.Anything).
-		Return(buildVolumePlacingPlan(testNode1Name, expectedVolume, expectedAC), nil).Times(1)
+	volumeInfo, err := util.NewVolumeInfo(parameters)
+	assert.Nil(t, err)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, volumeInfo)
+
+	err = svc.k8sClient.CreateCR(ctx, testAC.Name, testAC)
+	assert.Nil(t, err)
+
+	err = svc.k8sClient.Create(testCtx, testPVC)
+	assert.Nil(t, err)
+
+	testACR := getTestACR(testVolume.Spec.Size, apiV1.StorageClassHDD, parameters[util.ClaimNameKey],
+		testVolume.Namespace, []*accrd.AvailableCapacity{testAC})
+	err = svc.k8sClient.CreateCR(ctx, testACR.Name, testACR)
+	assert.Nil(t, err)
 
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
@@ -79,8 +146,8 @@ package common
 		Size:         requiredBytes,
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, expectedVolume, createdVolume)
-}*/
+	assert.Equal(t, &testVolume.Spec, createdVolume)
+}
 
 // Volume CR was successfully created, HDDLVG SC
 /*func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
@@ -562,6 +629,7 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
 }
+*/
 
 func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	svc := setupVOOperationsTest(t)
@@ -575,6 +643,8 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.True(t, k8sError.IsNotFound(err))
 
+	err = svc.k8sClient.CreateCR(context.Background(), testDriveCR4.Name, &testDriveCR4)
+	assert.Nil(t, err)
 	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
 	assert.Nil(t, err)
 	err = svc.k8sClient.CreateCR(context.Background(), testAC4.Name, &testAC4)
@@ -587,6 +657,7 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	lvg := &lvgcrd.LogicalVolumeGroup{}
 	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, "", lvg)
 	assert.True(t, k8sError.IsNotFound(err))
+
 	ac := &accrd.AvailableCapacity{}
 	err = svc.k8sClient.ReadCR(context.Background(), testAC4.Name, "", ac)
 	assert.True(t, k8sError.IsNotFound(err))
@@ -595,16 +666,6 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
 	assert.False(t, isDeleted)
 	assert.True(t, k8sError.IsNotFound(err))
-}
-
-// creates fake k8s client and creates AC CRs based on provided acs
-// returns instance of ACOperationsImpl based on created k8s client
-func setupVOOperationsTest(t *testing.T) *VolumeOperationsImpl {
-	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
-	assert.Nil(t, err)
-	assert.NotNil(t, k8sClient)
-
-	return NewVolumeOperationsImpl(k8sClient, testLogger, cache.NewMemCache(), featureconfig.NewFeatureConfig())
 }
 
 func buildVolumePlacingPlan(node string, vol *api.Volume,
@@ -623,4 +684,29 @@ func buildVolumePlacingPlan(node string, vol *api.Volume,
 func getCapacityManagerMock() (capacityplanner.CapacityManagerBuilder, *capacityplanner.PlannerMock) {
 	plannerMock := &capacityplanner.PlannerMock{}
 	return &capacityplanner.MockCapacityManagerBuilder{Manager: plannerMock}, plannerMock
-}*/
+}
+
+func getTestACR(size int64, sc, name, podNamespace string,
+	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
+	acNames := make([]string, len(acList))
+	for i, ac := range acList {
+		acNames[i] = ac.Name
+	}
+	return &acrcrd.AvailableCapacityReservation{
+		TypeMeta: k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(),
+			CreationTimestamp: k8smetav1.NewTime(time.Now())},
+		Spec: api.AvailableCapacityReservation{
+			Namespace: podNamespace,
+			Status:    apiV1.ReservationConfirmed,
+			ReservationRequests: []*api.ReservationRequest{
+				{CapacityRequest: &api.CapacityRequest{
+					StorageClass: sc,
+					Size:         size,
+					Name:         name,
+				},
+					Reservations: acNames},
+			},
+		},
+	}
+}
