@@ -25,13 +25,13 @@ const (
 	contextTimeoutSeconds = 60
 
 	// reservation parameters
-	fastTimeoutEnv = "RESERVATION_FAST_TIMEOUT"
-	slowTimeoutEnv = "RESERVATION_SLOW_TIMEOUT"
-	attemptsNumEnv = "RESERVATION_ATTEMPTS_NUM"
+	fastDelayEnv       = "RESERVATION_FAST_DELAY"
+	slowDelayEnv       = "RESERVATION_SLOW_DELAY"
+	maxFastAttemptsEnv = "RESERVATION_MAX_FAST_ATTEMPTS"
 
-	defaulFastTimeout = 1500 * time.Millisecond
-	defaulSlowTimeout = 12 * time.Second
-	defaulAttemptsNum = 30
+	defaulFastDelay       = 1500 * time.Millisecond
+	defaulSlowDelay       = 12 * time.Second
+	defaulMaxFastAttempts = 30
 )
 
 // Controller to reconcile aviliablecapacityreservation custom resource
@@ -39,9 +39,9 @@ type Controller struct {
 	client                 *k8s.KubeClient
 	log                    *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
-	fastTimeout            time.Duration
-	slowTimeout            time.Duration
-	maxAttempts            uint64
+	fastDelay              time.Duration
+	slowDelay              time.Duration
+	maxFastAttempts        uint64
 }
 
 // NewController creates new instance of Controller structure
@@ -67,9 +67,9 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 			// Many attempts are expected during processing ACRs with LVG Volumes, so we need to use linear RateLimiter
 			// Here we make first maxAttempts retries with fastTimeout, and then it will be slowTimeout forever
 			RateLimiter: workqueue.NewItemFastSlowRateLimiter(
-				c.fastTimeout,
-				c.slowTimeout,
-				int(c.maxAttempts),
+				c.fastDelay,
+				c.slowDelay,
+				int(c.maxFastAttempts),
 			),
 		}).
 		Complete(c)
@@ -167,36 +167,36 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 
 func (c *Controller) setReservationParameters() {
 	var (
-		fastTimeoutStr = os.Getenv(fastTimeoutEnv)
-		slowTimeoutStr = os.Getenv(slowTimeoutEnv)
-		maxAttemptsStr = os.Getenv(attemptsNumEnv)
+		fastDelayStr       = os.Getenv(fastDelayEnv)
+		slowDelayStr       = os.Getenv(slowDelayEnv)
+		maxFastAttemptsStr = os.Getenv(maxFastAttemptsEnv)
 
-		fastTimeout time.Duration
-		slowTimeout time.Duration
-		maxAttempts uint64
-		err         error
+		fastDelay       time.Duration
+		slowDelay       time.Duration
+		maxFastAttempts uint64
+		err             error
 	)
 
-	fastTimeout, err = time.ParseDuration(fastTimeoutStr)
+	fastDelay, err = time.ParseDuration(fastDelayStr)
 	if err != nil {
-		c.log.Errorf("passed fastTimeout parameter %s is not parsable as time.Duration. Used defaul - %s", fastTimeoutStr, defaulFastTimeout)
-		fastTimeout = defaulFastTimeout
+		c.log.Errorf("passed fastTimeout parameter %s is not parsable as time.Duration. Used defaul - %s", fastDelayStr, defaulFastDelay)
+		fastDelay = defaulFastDelay
 	}
 
-	slowTimeout, err = time.ParseDuration(slowTimeoutStr)
+	slowDelay, err = time.ParseDuration(slowDelayStr)
 	if err != nil {
-		c.log.Errorf("passed slowTimeout parameter %s is not parsable as time.Duration. Used defaul - %s", slowTimeoutStr, defaulSlowTimeout)
-		slowTimeout = defaulSlowTimeout
+		c.log.Errorf("passed slowTimeout parameter %s is not parsable as time.Duration. Used defaul - %s", slowDelayStr, defaulSlowDelay)
+		slowDelay = defaulSlowDelay
 	}
 
-	maxAttempts, err = strconv.ParseUint(maxAttemptsStr, 10, 64)
+	maxFastAttempts, err = strconv.ParseUint(maxFastAttemptsStr, 10, 64)
 	if err != nil {
-		c.log.Errorf("passed maxAttempts parameter %s is not parsable as uint. Used defaul - %d", maxAttemptsStr, defaulAttemptsNum)
-		maxAttempts = defaulAttemptsNum
+		c.log.Errorf("passed maxAttempts parameter %s is not parsable as uint. Used defaul - %d", maxFastAttemptsStr, defaulMaxFastAttempts)
+		maxFastAttempts = defaulMaxFastAttempts
 	}
 
-	c.fastTimeout = fastTimeout
-	c.slowTimeout = slowTimeout
-	c.maxAttempts = maxAttempts
-	c.log.Infof("Reservation controller parameters: fastTimeout - %s, slowTimeout - %s, maxAttempts - %d", fastTimeout, slowTimeout, maxAttempts)
+	c.fastDelay = fastDelay
+	c.slowDelay = slowDelay
+	c.maxFastAttempts = maxFastAttempts
+	c.log.Infof("Reservation controller parameters: fastTimeout - %s, slowTimeout - %s, maxAttempts - %d", fastDelay, slowDelay, maxFastAttempts)
 }
