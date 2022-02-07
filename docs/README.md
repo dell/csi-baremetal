@@ -6,7 +6,7 @@ Bare-metal CSI Driver
 
 Bare-metal CSI Driver is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached disks for Kubernetes.
 
-- **Project status**: Beta - no backward compatibility is provided   
+- **Project status**: GA
 
 Features
 --------
