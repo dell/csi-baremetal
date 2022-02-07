@@ -30,13 +30,12 @@ Last updated: [Date]
 
 ## Assumptions (if applicable)
 
-ID | Name | Descriptions | Comments
----| -----| -------------| --------
-ASSUM-1 |   |   |
-
+| ID      | Name | Descriptions | Comments |
+|---------|------|--------------|----------|
+| ASSUM-1 |      |              |          |
 
 ## Open issues (if applicable)
 
-ID | Name | Descriptions | Status | Comments
----| -----| -------------| ------ | --------
-ISSUE-1 |   |   |   |   
+| ID      | Name | Descriptions | Status | Comments |
+|---------|------|--------------|--------|----------|
+| ISSUE-1 |      |              |        |          |   
