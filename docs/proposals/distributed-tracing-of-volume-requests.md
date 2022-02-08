@@ -21,15 +21,30 @@ Proposal is to use OpenTelemetry API and SDK https://opentelemetry.io/docs/instr
 
 ## Rationale
 
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
+Distributed tracing must be supported in CSI. The open question whether to make it configurable or not.
 
 ## Compatibility
 
-[A discussion of the change with regard to the compatibility with previous product and Kubernetes versions.]
+No compatibility issues
 
 ## Implementation
 
-[A description of the steps in the implementation, who will do them, and when.]
+The following methods must be instrumented:
+- Scheduler extender
+  - FilterHandler
+  - PrioritizeHandler
+- Controller
+  - Reconcile of ACR CR
+  - CreateVolume
+  - ControllerExpandVolume
+  - DeleteVolume
+- Node
+  - Reconcile of Volume CR
+  - Reconcile of LVG CR
+  - NodeStageVolume
+  - NodePublishVolume
+  - NodeUnpublishVolume
+  - NodeUnstageVolume
 
 ## Assumptions (if applicable)
 
@@ -42,4 +57,4 @@ ASSUM-1 |   |   |
 
 ID | Name | Descriptions | Status | Comments
 ---| -----| -------------| ------ | --------
-ISSUE-1 |   |   |   |   
+ISSUE-1 | Optional | Should tracing be optional or mandatory? | Open | Do we need it in production?
