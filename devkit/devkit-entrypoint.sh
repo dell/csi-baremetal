@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # variables from the environment
 readonly EUID=${EUID:?"EUID environment variable should be defined"}
