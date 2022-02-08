@@ -610,4 +610,3 @@ exit_code=$?
 $DEVKIT_DOCKER_RM_BOOL && /usr/bin/docker rm --force $CONT &>/dev/null
 
 exit $exit_code
-
