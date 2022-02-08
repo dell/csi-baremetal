@@ -21,56 +21,69 @@ So in these cases CSI haven't to allocate Volumes for some drives.
 
 ### User API
 
-#### Pass settings
+The rules to include/exclude drives based on:
+- Size
+- Type (HDD, SSD, ...)
+- Serial Number
+- PID
+- VID
+```yaml
+drive_rule:
+  size:
+    less_then: 1Gi
+    more_then: 100Mi
+  # include drives with the following parameters only
+  in:
+    type:
+      - HDD
+    SN:
+      - sn1
+      - sn2
+    PID:
+      - ...
+    VID:
+      - ...
+  # exclude drives with the following parameters
+  not_in:
+    type:
+      - SSD
+    SN:
+      - ...
+    PID:
+      - ...
+    VID:
+      - ...
+```
 
-1. Exclude drives on CSI installation.
+Settings can be set for all nodes in the cluster or for only one node. 
+In the node section user chooses is global rules be applied or not.
+```yaml
+drive_options:
+  global:
+    drive_rule: ...
+  nodes:
+    - name: node1
+      enable_global: true/false
+      drive_rule:
+    - name: ...
+```
+
+#### Pass settings
+1. Set global drive rule on CSI installation.
 
 Helm command for `csi-baremetal-driver` should be modified with:
 ```yaml
---set 'driver.node.excludedDrives={sdb,sdc}'
+--set driver.node.global_drive_rule.size.more_then="1Gi" \
+--set driver.node.global_drive_rule.in.SN={sn1, sn2, sn3}
 ```
 
-This option will set excluded drives setting for all nodes.
+The option to modify rules for specific nodes is not supported due to complex formatting.
 
-2. After installing CSI user could edit a ConfigMap with CSI nodes setting to change excluded drives list
-```yaml
-excluded_drives:
-  default: # will work for all nodes
-    - sdb (ISSUE-3)
-    - sdc
-  nodes:
-    - name: node1
-      drives:
-        - sdh
-    - name: node2
-      drives:
-        - sdc
-```
-
-Result set of excluded drives will be the union of `default` and `nodes` options (ISSUE-1). An example from the ConfigMap above:
-- node1: [sdb, sdc, sdh]
-- node2: [sdb, sdc]
-
-#### Excluded drives behavior
-
-If drive was marked as excluded, it changes status to EXCLUDED. Drivemgr continues to receive and show its health, but DR procedure won't be initialized.
-An example:
-```bash
-NAME                                   SIZE        TYPE   HEALTH   STATUS   USAGE      SYSTEM   PATH          SERIAL NUMBER        NODE                                
-017d2529-a72b-422f-a435-23939f6ef4e5   105906176   HDD    GOOD     ONLINE   IN_USE              /dev/loop16   LOOPBACK3303120819   1145a3e6-2f80-4de8-ac90-d35391fdc026
-03bfa055-0ddf-4c90-817a-5ab6c88aa02f   105906176   HDD    BAD      ONLINE   IN_USE              /dev/loop20   LOOPBACK3866073594   5ff13d3f-84d0-4ce0-ad80-74c02c471aaa
-18e63992-0fad-49d3-930b-101d33ec9603   0           HDD    BAD      ONLINE   EXCLUDED            /dev/loop17   LOOPBACK4262524596   1145a3e6-2f80-4de8-ac90-d35391fdc026
-22b6e3c0-6991-4ae7-a1ac-74e41eab77b1   0           HDD    GOOD     ONLINE   EXCLUDED            /dev/loop15   LOOPBACK198229819    1145a3e6-2f80-4de8-ac90-d35391fdc026
-```
-Cases:
-- Drive is IN_USE and has no Volumes and Reservations -> Drive's usage will be changed to EXCLUDED
-- Drive isn't IN_USE (DR was started) has Volumes or Reservations -> Drive controller will generate event about failed exclusion (ISSUE-2)
+2. After installing CSI user could edit a ConfigMap with CSI nodes setting to change included/excluded drives list
 
 ## Rationale
 
-Drive CR can be deleted instead of just changing usage to EXCLUDED. 
-But it makes worse drives pool visibility.
-User can't see health of the EXCLUDED drive.
+n/a
 
 ## Compatibility
 
@@ -78,20 +91,15 @@ n/a
 
 ## Implementation
 
-On Discover stage (every one minute):
-1. Check excluded-drives section in the node-config
-2. If drive is in the exclusion list and has EXCLUDED status, we drop processing of this one
-3. Check usage, Volumes and Reservations for this drive
-4. Change usage to EXCLUDED or generate failing event
+#### Discover flow modification
 
-In drive reconciliation controller:
-1. Delete Drive CR, if it is EXCLUDED and OFFLINE
+![Screenshot](images/drive_including.png)
 
 ## Open issues (if applicable)
 
-| ID      | Name                                                                                                   | Descriptions                                                          | Status | Comments |
-|---------|--------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|--------|----------|
-| ISSUE-1 | Should we have option to include some drives on specific nodes in pool despite the common constraints? |                                                                       |        |          |   
-| ISSUE-2 | Do we need to implement procedure to replace Volumes on another drive if this one was excluded?        | CSI can reduce drive size to 0 and wait until Volumes will be removed |        |          |
-| ISSUE-3 | Could Serial Number be used instead of or in addition to drive path?                                   |                                                                       |        |          |
+| ID      | Name                                                                                                   | Descriptions                                                          | Status  | Comments                                      |
+|---------|--------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|---------|-----------------------------------------------|
+| ISSUE-1 | Should we have option to include some drives on specific nodes in pool despite the common constraints? |                                                                       | APPLIED |                                               |   
+| ISSUE-2 | Do we need to implement procedure to replace Volumes on another drive if this one was excluded?        | CSI can reduce drive size to 0 and wait until Volumes will be removed | REJECT  | Just sending event is enough                  |
+| ISSUE-3 | Could Serial Number be used instead of or in addition to drive path?                                   | Use SN, PID, VID instead                                              | APPLIED | Drive path might be changed after node reboot |
 
