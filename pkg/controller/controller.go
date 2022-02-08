@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -29,7 +30,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/utils/keymutex"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -58,9 +58,9 @@ const (
 type CSIControllerService struct {
 	k8sclient *k8s.KubeClient
 
-	// Key Mutex for csi requests
-	reqKeyMutes keymutex.KeyMutex
-	log         *logrus.Entry
+	// mutex for csi request
+	reqMu sync.Mutex
+	log   *logrus.Entry
 
 	svc common.VolumeOperations
 
@@ -81,10 +81,7 @@ type CSIControllerService struct {
 func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 	featureConf featureconfig.FeatureChecker) *CSIControllerService {
 	c := &CSIControllerService{
-		k8sclient: k8sClient,
-		// number of locks is set equal to default --worker-threads parameter value in kubernetes-csi/external-provisioner
-		// todo make it configurable though csi deployment CRD https://github.com/dell/csi-baremetal/issues/697
-		reqKeyMutes:              keymutex.NewHashed(100),
+		k8sclient:                k8sClient,
 		log:                      logger.WithField("component", "CSIControllerService"),
 		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
@@ -214,7 +211,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		mode = apiV1.ModeRAWPART
 	}
 
-	c.reqKeyMutes.LockKey(req.Name)
+	c.reqMu.Lock()
 	vol, err = c.svc.CreateVolume(ctxValue, api.Volume{
 		Id:           req.Name,
 		StorageClass: util.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
@@ -223,11 +220,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		Mode:         mode,
 		Type:         fsType,
 	})
-	// unlock
-	if err := c.reqKeyMutes.UnlockKey(req.Name); err != nil {
-		// need to panic here
-		panic("Failed to unlock key " + req.Name)
-	}
+	c.reqMu.Unlock()
 
 	if err != nil {
 		ll.Errorf("Failed to create volume: %v", err)
@@ -261,10 +254,9 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 // Receives golang context and CSI Spec DeleteVolumeRequest
 // Returns CSI Spec DeleteVolumeResponse or error if something went wrong
 func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	volumeID := req.GetVolumeId()
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "DeleteVolume",
-		"volumeID": volumeID,
+		"volumeID": req.GetVolumeId(),
 	})
 
 	ll.Infof("Processing request: %v", req)
@@ -274,12 +266,9 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	}
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.VolumeId)
 
-	c.reqKeyMutes.LockKey(volumeID)
+	c.reqMu.Lock()
 	err := c.svc.DeleteVolume(ctxWithID, req.GetVolumeId())
-	if err := c.reqKeyMutes.UnlockKey(volumeID); err != nil {
-		// need to panic here
-		panic("Failed to unlock key " + volumeID)
-	}
+	c.reqMu.Unlock()
 
 	if err != nil {
 		if k8sError.IsNotFound(err) || (status.Code(err) == codes.NotFound) {
@@ -295,12 +284,9 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		return nil, status.Error(codes.Internal, "Unable to delete volume")
 	}
 
-	c.reqKeyMutes.LockKey(volumeID)
+	c.reqMu.Lock()
 	c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
-	if err := c.reqKeyMutes.UnlockKey(volumeID); err != nil {
-		// need to panic here
-		panic("Failed to unlock key " + volumeID)
-	}
+	c.reqMu.Unlock()
 
 	ll.Debug("Volume was successfully deleted")
 
@@ -467,12 +453,9 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		}, nil
 	}
 
-	c.reqKeyMutes.LockKey(volID)
+	c.reqMu.Lock()
 	err = c.svc.ExpandVolume(ctx, volume, requiredBytes)
-	if err := c.reqKeyMutes.UnlockKey(volID); err != nil {
-		// need to panic here
-		panic("Failed to unlock key " + volID)
-	}
+	c.reqMu.Unlock()
 
 	if err != nil {
 		return nil, err
@@ -480,12 +463,9 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 
 	err = c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Resized)
 
-	c.reqKeyMutes.LockKey(volID)
+	c.reqMu.Lock()
 	c.svc.UpdateCRsAfterVolumeExpansion(ctx, volID, requiredBytes)
-	if err := c.reqKeyMutes.UnlockKey(volID); err != nil {
-		// need to panic here
-		panic("Failed to unlock key" + volID)
-	}
+	c.reqMu.Unlock()
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to expand volume")
