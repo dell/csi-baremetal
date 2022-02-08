@@ -158,7 +158,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		isFound           = false
 		ac                = &accrd.AvailableCapacity{}
 		volumeReservation = podReservation.Spec.ReservationRequests[volumeReservationNum]
-		appLabel          string
+		claimLabels       map[string]string
 	)
 	// scheduler extender reserves capacity on different nodes during filter stage since 'reserve' API is not available
 	// need to find capacity on requested node
@@ -207,7 +207,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 	}
 
 	if !v.Ephemeral {
-		appLabel, err = vo.getVolumeAppLabel(ctx, reservationName, podNamespace)
+		claimLabels, err = vo.getPersistentVolumeClaimLabels(ctx, reservationName, podNamespace)
 		if err != nil {
 			log.Errorf("Unable to get related PVC, error: %v", err)
 			return nil, status.Errorf(codes.Internal, "unable to get related PVC")
@@ -230,7 +230,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		Mode:              v.Mode,
 		Type:              v.Type,
 	}
-	volumeCR := vo.k8sClient.ConstructVolumeCR(v.Id, podNamespace, appLabel, apiVolume)
+	volumeCR := vo.k8sClient.ConstructVolumeCR(v.Id, podNamespace, claimLabels, apiVolume)
 
 	if err = vo.k8sClient.CreateCR(ctx, v.Id, volumeCR); err != nil {
 		log.Errorf("Unable to create CR, error: %v", err)
@@ -684,8 +684,9 @@ func (vo *VolumeOperationsImpl) fillCache() {
 	}
 }
 
-// getVolumeAppLabel returns App name related with PVC
-func (vo *VolumeOperationsImpl) getVolumeAppLabel(ctx context.Context, pvcName, pvcNamespace string) (string, error) {
+// VolumeOperationsImpl returns PVC labels: release, app.kubernetes.io/name and adds short app label
+func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Context, pvcName, pvcNamespace string) (
+	map[string]string, error) {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method": "getVolumeAppLabel",
 	})
@@ -696,8 +697,18 @@ func (vo *VolumeOperationsImpl) getVolumeAppLabel(ctx context.Context, pvcName, 
 		Namespace: pvcNamespace,
 	}, pvc); err != nil {
 		ll.Errorf("Failed to get PVC %s in namespace %s, error %v", pvcName, pvcNamespace, err)
-		return "", err
+		return nil, err
 	}
 
-	return pvc.GetLabels()[k8s.AppLabelKey], nil
+	// need to get release and app labels only
+	labels := map[string]string{}
+	if value, ok := pvc.GetLabels()[k8s.ReleaseLabelKey]; ok {
+		labels[k8s.ReleaseLabelKey] = value
+	}
+	if value, ok := pvc.GetLabels()[k8s.AppLabelKey]; ok {
+		labels[k8s.AppLabelKey] = value
+		labels[k8s.AppLabelShortKey] = value
+	}
+
+	return labels, nil
 }

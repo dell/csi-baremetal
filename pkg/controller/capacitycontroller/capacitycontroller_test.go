@@ -179,7 +179,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 			},
 			expectedResult: expectedResult{
 				reconcileError: nil,
-				acList:         accrd.AvailableCapacityList{
+				acList: accrd.AvailableCapacityList{
 					Items: []accrd.AvailableCapacity{
 						{
 							Spec: acSpec,
@@ -215,7 +215,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 			},
 			expectedResult: expectedResult{
 				reconcileError: nil,
-				acList:         accrd.AvailableCapacityList{
+				acList: accrd.AvailableCapacityList{
 					Items: []accrd.AvailableCapacity{
 						{
 							Spec: acSpec,
@@ -326,7 +326,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 			}
 
 			// reconciling controller
-			_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
+			_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testDrive.Name}})
 			assert.ErrorIs(t, testData.expectedResult.reconcileError, err)
 
 			// checking capacity results
@@ -350,7 +350,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testLVG := lvgCR1
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
+		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.Nil(t, err)
 	})
 
@@ -370,7 +370,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: strconv.FormatInt(int64(util.GBYTE), 10)}
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
+		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.Nil(t, err)
 		acList := &accrd.AvailableCapacityList{}
 		err = kubeClient.ReadList(tCtx, acList)
@@ -392,7 +392,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: "error"}
 		err = kubeClient.Create(tCtx, testLVG)
 		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
+		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "invalid syntax")
 	})
@@ -405,7 +405,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testLVG.Spec.Health = apiV1.HealthBad
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
+		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.Nil(t, err)
 	})
 	t.Run("LVG is bad, AC is present", func(t *testing.T) {
@@ -420,7 +420,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testLVG.Spec.Health = apiV1.HealthBad
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
+		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.Nil(t, err)
 		acList := &accrd.AvailableCapacityList{}
 		err = kubeClient.ReadList(tCtx, acList)
@@ -441,7 +441,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: strconv.FormatInt(int64(util.GBYTE), 10)}
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
-		_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
+		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.Nil(t, err)
 		acList := &accrd.AvailableCapacityList{}
 		err = kubeClient.ReadList(tCtx, acList)
@@ -456,7 +456,7 @@ func TestController_ReconcileResourcesNotFound(t *testing.T) {
 	assert.Nil(t, err)
 	controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 	assert.NotNil(t, controller)
-	_, err = controller.Reconcile(ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: drive1UUID}})
+	_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: drive1UUID}})
 	assert.Nil(t, err)
 }
 

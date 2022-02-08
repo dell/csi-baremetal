@@ -19,6 +19,7 @@ package scenarios
 import (
 	"context"
 	"fmt"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"sync"
 	"time"
 
@@ -31,7 +32,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -62,7 +63,7 @@ func driveStressTest(driver *baremetalDriver) {
 
 	init := func() {
 		var (
-			perTestConf *testsuites.PerTestConfig
+			perTestConf *storageframework.PerTestConfig
 			err         error
 		)
 		ns = f.Namespace.Name
@@ -95,7 +96,7 @@ func driveStressTest(driver *baremetalDriver) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err = f.WaitForPodNotFound(podCopy.Name, 2*time.Minute)
+				err = e2epod.WaitForPodNotFoundInNamespace(f.ClientSet, podCopy.Name, f.Namespace.Name, 2*time.Minute)
 				framework.ExpectNoError(err)
 			}()
 		}

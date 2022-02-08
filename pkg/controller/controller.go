@@ -427,6 +427,11 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
+// ControllerGetVolume is not implemented yet
+func (c *CSIControllerService) ControllerGetVolume(ctx context.Context, request *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented yet")
+}
+
 // ControllerExpandVolume is the implementation of CSI Spec ControllerExpandVolume.
 // Controller tries to update volume status to Resizing, trigger reconcile and update according AC,
 // After it controller wait for volume to have previous status, in case of Failed status it tries to return AC size back

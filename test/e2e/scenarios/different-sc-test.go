@@ -29,7 +29,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -71,7 +71,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 
 	init := func(scType string, args ...string) {
 		var (
-			perTestConf *testsuites.PerTestConfig
+			perTestConf *storageframework.PerTestConfig
 			driverType  string
 			// Allows to create SC with parameter for partitioned block mode
 			isNeedBlockPartitioned = false

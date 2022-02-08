@@ -161,7 +161,7 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 	c := setup(t, node1ID)
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: "not-found-that-name"}}
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -186,14 +186,14 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	lvmOps.On("PVCreate", mock.Anything).Return(nil)
 	lvmOps.On("VGCreate", mock.Anything, mock.Anything).Return(nil)
 
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 	err = c.k8sClient.ReadCR(tCtx, req.Name, "", lvg)
 	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
 
 	// reconciled second time
-	res, err = c.Reconcile(req)
+	res, err = c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
@@ -214,7 +214,7 @@ func TestReconcile_LVGHealthBad(t *testing.T) {
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: fLVG.Name}}
 
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -237,7 +237,7 @@ func TestReconcile_SuccessDeletion(t *testing.T) {
 	e.OnCommand(fmt.Sprintf(lvm.VGRemoveCmdTmpl, lvgCR1.Name)).Return("", "", nil)
 	e.OnCommand(fmt.Sprintf(lvm.PVsInVGCmdTmpl, lvm.EmptyName)).Return("", "", nil).Times(1)
 
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -257,7 +257,7 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 	err = c.k8sClient.CreateCR(tCtx, testVolumeCR1.Name, &testVolumeCR1)
 	assert.Nil(t, err)
 
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
@@ -283,7 +283,7 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 	// expect that LogicalVolumeGroup still contains LV
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("lv1", "", nil)
 
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "there are LVs in LogicalVolumeGroup")
 	assert.Equal(t, res, ctrl.Result{})
@@ -313,7 +313,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 	e.OnCommand(lsblkAllDevicesCmd).Return(lsblkResp, "", nil)
 	e.OnCommand("/sbin/lvm pvcreate --yes /dev/sda").Return("", "", errors.New("pvcreate failed"))
 
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
@@ -341,7 +341,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 	e.OnCommand(fmt.Sprintf("/sbin/lvm vgcreate --yes %s /dev/sda /dev/sdb", req.Name)).
 		Return("", "", expectedErr)
 
-	res, err := c.Reconcile(req)
+	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 

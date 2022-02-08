@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
@@ -54,11 +55,11 @@ import (
 )
 
 var (
-	testLogger = logrus.New()
-	testID     = "someID"
-	testNs     = "default"
-	testApp    = "app"
-	testPod    = "pod"
+	testLogger    = logrus.New()
+	testID        = "someID"
+	testNs        = "default"
+	testApp       = "app"
+	testAppLabels = map[string]string{}
 
 	testCtx       = context.Background()
 	testNode1Name = "node1"
@@ -115,7 +116,7 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: testAC1Name,
+			Name: testACR1Name,
 		},
 		Spec: api.AvailableCapacityReservation{
 			Namespace: testNs,
@@ -125,7 +126,7 @@ var (
 				Reserved:  []string{testNode1Name},
 			},
 			ReservationRequests: []*api.ReservationRequest{
-				&api.ReservationRequest{
+				{
 					CapacityRequest: &api.CapacityRequest{
 						Name:         testPVC1Name,
 						Size:         1024 * 1024 * 1024,
@@ -450,7 +451,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err       error
 			)
 			// create volume crd to delete
-			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testApp, api.Volume{Id: volumeID, CSIStatus: apiV1.Created})
+			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testAppLabels, api.Volume{Id: volumeID,
+				CSIStatus: apiV1.Created})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeID, testNs)
@@ -897,6 +899,47 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 		})
 	})
 })
+
+func TestController_UnimplementedMethods(t *testing.T) {
+
+	controller := newSvc()
+	expected := codes.Unimplemented.String()
+
+	t.Run("ValidateVolumeCapabilities", func(t *testing.T) {
+		_, err := controller.ValidateVolumeCapabilities(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("ListVolumes", func(t *testing.T) {
+		_, err := controller.ListVolumes(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("CreateSnapshot", func(t *testing.T) {
+		_, err := controller.CreateSnapshot(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("DeleteSnapshot", func(t *testing.T) {
+		_, err := controller.DeleteSnapshot(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("ListSnapshots", func(t *testing.T) {
+		_, err := controller.ListSnapshots(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("ControllerGetVolume", func(t *testing.T) {
+		_, err := controller.ControllerGetVolume(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("GetCapacity", func(t *testing.T) {
+		_, err := controller.GetCapacity(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+}
 
 // create and instance of CSIControllerService with scheme for working with CRD
 // create and instance of CSIControllerService with scheme for working with CRD

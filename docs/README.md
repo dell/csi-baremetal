@@ -1,13 +1,14 @@
 [![PR validation](https://github.com/dell/csi-baremetal/actions/workflows/pr.yml/badge.svg)](https://github.com/dell/csi-baremetal/actions/workflows/pr.yml)
 [![E2E testing](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml/badge.svg?branch=master&event=push)](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml)
 [![codecov](https://codecov.io/gh/dell/csi-baremetal/branch/master/graph/badge.svg)](https://codecov.io/gh/dell/csi-baremetal)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.19--v1.22-success?logo=kubernetes&logoColor=lightgrey)
 
 Bare-metal CSI Driver
 =====================
 
 Bare-metal CSI Driver is a [CSI spec](https://github.com/container-storage-interface/spec) implementation to manage locally attached disks for Kubernetes.
 
-- **Project status**: Beta - no backward compatibility is provided   
+- **Project status**: GA
 
 Features
 --------
@@ -15,7 +16,8 @@ Features
 - [Dynamic provisioning](https://kubernetes-csi.github.io/docs/external-provisioner.html): Volumes are created dynamically when `PersistentVolumeClaim` objects are created.
 - Volume binding modes
   - WaitForFirstConsumer 
-- Inline volumes
+- Inline (ephemeral) volumes
+- Generic ephemeral volumes (k8s v1.21+)
 - LVM support
 - Storage classes for the different drive types: HDD, SSD, NVMe
 - Drive health detection
