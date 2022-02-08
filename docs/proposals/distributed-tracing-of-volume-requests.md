@@ -9,7 +9,7 @@ Distributed tracing is a must for every microservices architecture: it allows to
 
 ## Background
 
-To create, expand, delete persistent volumes different requests are handled by CSI in the different components. For details please see ../docs/volume-requests-flow.md.
+To create, expand, delete persistent volumes different requests are handled by CSI across multiple components. For details please see [flow diagrams of CSI volume requests](https://github.com/dell/csi-baremetal/blob/master/docs/volume-requests-flow.md).
 When system doesn't respond in expected time frame it's really hard to find the issue using just metrics or log analysis.
 
 ## Proposal
