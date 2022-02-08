@@ -37,10 +37,10 @@ all: build
 build:
 	docker build --tag ${IMAGE_REPO_TAG} \
 	             --file ${PWD}/Dockerfile \
-				 --network host \
+	             --network host \
 	             --build-arg arg_docker_ver=${DOCKER_VERSION} \
-                 --build-arg arg_go_ver=${GO_VERSION} \
-                 --build-arg arg_golandci_ver=${GOLANDCI_VERSION} \
+	             --build-arg arg_go_ver=${GO_VERSION} \
+	             --build-arg arg_golandci_ver=${GOLANDCI_VERSION} \
 	             ${PWD}
 
 
@@ -70,28 +70,3 @@ clean:
 
 push: build
 	docker push ${IMAGE_REPO_TAG}
-
-
-
-
-
-
-
-
-# Additional variables
-#include vars.mk
-
-#IMG ?= csi-baremetal-devkit
-#SIMG ?= csi-baremetal-devkit
-#TIMG ?= csi-baremetal-devkit
-#DEVKIT_VERSION = latest
-#
-#build:
-#	docker build -f Dockerfile -t ${IMG}:${DEVKIT_VERSION} .
-#
-#push:
-#	docker push ${IMG}:${DEVKIT_VERSION}
-#
-#retag:
-#	docker tag ${SIMG}:${DEVKIT_VERSION} ${TIMG}:latest
-#	docker push ${TIMG}:latest

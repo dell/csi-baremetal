@@ -40,12 +40,9 @@ readonly EFFECTIVE_GID="$(id -g $USER_NAME)"
 # this array is used in docker volumes initialization code
 readonly DOCKER_VOLUME_DIR_SECTIONS=( \
                                       WORKSPACE \
-                                      CACHE_GRADLE \
                                       CACHE_VAR_LIB_DOCKER \
                                       CACHE_DOCKER \
                                       CACHE_CONFIG \
-                                      CACHE_PKI \
-                                      CACHE_PKS \
                                       CACHE_KUBE \
                                       CACHE_GO \
                                       SSH \
@@ -106,10 +103,6 @@ readonly DEVKIT_GOLAND_SHARED_BOOL="${DEVKIT_GOLAND_SHARED_BOOL:-$DEVKIT_SOFTWAR
 # devkit's caches configuration
 readonly DEVKIT_CACHE_HOST_DIR_PATH="${DEVKIT_CACHE_HOST_DIR_PATH:-$HOME/.$NAME}"
 
-readonly DEVKIT_CACHE_GRADLE_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.gradle"
-readonly DEVKIT_CACHE_GRADLE_CONT_DIR_PATH="$HOME/.gradle"
-readonly DEVKIT_CACHE_GRADLE_SHARED_BOOL="${DEVKIT_CACHE_GRADLE_SHARED_BOOL:-true}"
-
 readonly DEVKIT_CACHE_VAR_LIB_DOCKER_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.var-lib-docker"
 readonly DEVKIT_CACHE_VAR_LIB_DOCKER_CONT_DIR_PATH="/var/lib/docker"
 readonly DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL="${DEVKIT_CACHE_VAR_LIB_DOCKER_SHARED_BOOL:-false}"
@@ -121,14 +114,6 @@ readonly DEVKIT_CACHE_DOCKER_SHARED_BOOL="${DEVKIT_CACHE_DOCKER_SHARED_BOOL:-tru
 readonly DEVKIT_CACHE_CONFIG_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.config"
 readonly DEVKIT_CACHE_CONFIG_CONT_DIR_PATH="$HOME/.config"
 readonly DEVKIT_CACHE_CONFIG_SHARED_BOOL="${DEVKIT_CACHE_CONFIG_SHARED_BOOL:-true}"
-
-readonly DEVKIT_CACHE_PKI_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.pki"
-readonly DEVKIT_CACHE_PKI_CONT_DIR_PATH="$HOME/.pki"
-readonly DEVKIT_CACHE_PKI_SHARED_BOOL="${DEVKIT_CACHE_PKI_SHARED_BOOL:-true}"
-
-readonly DEVKIT_CACHE_PKS_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.pks"
-readonly DEVKIT_CACHE_PKS_CONT_DIR_PATH="$HOME/.pks"
-readonly DEVKIT_CACHE_PKS_SHARED_BOOL="${DEVKIT_CACHE_PKS_SHARED_BOOL:-true}"
 
 readonly DEVKIT_CACHE_KUBE_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.kube"
 readonly DEVKIT_CACHE_KUBE_CONT_DIR_PATH="$HOME/.kube"
@@ -202,7 +187,7 @@ readonly DEVKIT_DOCKER_PSEUDO_TTY_BOOL="${DEVKIT_DOCKER_PSEUDO_TTY_BOOL:-true}"
 readonly DEVKIT_DOCKER_IMAGE_TAG="${DEVKIT_DOCKER_IMAGE_TAG:-}"
 
 # devkit's docker repo name can be overriden to support using of pulled images
-readonly DEVKIT_DOCKER_IMAGE_REPO="${CSI_DEVKIT_DOCKER_IMAGE_REPO:-$NAME}"
+readonly DEVKIT_DOCKER_IMAGE_REPO="${DEVKIT_DOCKER_IMAGE_REPO:-$NAME}"
 
 # whether --net host flag be added to docker container or not
 readonly DEVKIT_DOCKER_NETWORK_HOST_BOOL="${DEVKIT_DOCKER_NETWORK_HOST_BOOL:-false}"
@@ -345,7 +330,6 @@ function prepare_goland() {
 # Below are some comments to make clear why some flags were used.
 # * container will be removed when interactive bash session finished
 # * use of a predefined name will prohibit execution of multiple devkit copies simultaneously (docker image store can be accessed by only one docker process at time)
-# * save gradle directory to increase speed of repeated builds
 # * save docker directory with dowloaded images to increase speed of repeated builds
 # * sharing of /sys/fs/cgroup helps to overcome a problem during docker build inside devkit
 # * pass effective user id and group id to overcome a problem with access permissions to generated files from host after builds
@@ -447,16 +431,16 @@ function init_docker_opts() {
 }
 
 #
-# Print all local tags of docker repo $CSI_DEVKIT_DOCKER_IMAGE_REPO
+# Print all local tags of docker repo $DEVKIT_DOCKER_IMAGE_REPO
 #
 function list_repo_tags() {
     local local_docker_daemon_version=$DOCKER_CLIENT_VERSION
 
     # Option "--format" for "docker images" was introduced in docker 1.10.0
     if is_version_lt "$local_docker_daemon_version" '1.10.0'; then
-        /usr/bin/docker images --no-trunc | awk -v repo="$CSI_DEVKIT_DOCKER_IMAGE_REPO" '$1 == repo {print $2}'
+        /usr/bin/docker images --no-trunc | awk -v repo="$DEVKIT_DOCKER_IMAGE_REPO" '$1 == repo {print $2}'
     else
-        /usr/bin/docker images --format {{.Tag}} $CSI_DEVKIT_DOCKER_IMAGE_REPO
+        /usr/bin/docker images --format {{.Tag}} $DEVKIT_DOCKER_IMAGE_REPO
     fi
 }
 
@@ -477,7 +461,7 @@ function set_tag() {
     tag_lst=( $(list_repo_tags) )
 
     if [[ -z "${tag_lst[@]}" ]]; then
-        echo "ERROR: no image with repo '$CSI_DEVKIT_DOCKER_IMAGE_REPO' found" 1>&2
+        echo "ERROR: no image with repo '$DEVKIT_DOCKER_IMAGE_REPO' found" 1>&2
         return 1
     fi
 
@@ -489,21 +473,21 @@ function set_tag() {
             TAG="$DEVKIT_DOCKER_IMAGE_TAG"
             return 0
         else
-            echo "ERROR: $CSI_DEVKIT_DOCKER_IMAGE_REPO:$DEVKIT_DOCKER_IMAGE_TAG image does not exist" 1>&2
+            echo "ERROR: $DEVKIT_DOCKER_IMAGE_REPO:$DEVKIT_DOCKER_IMAGE_TAG image does not exist" 1>&2
             return 1
         fi
 
     fi
 
     if [[ ${#tag_lst[@]} -gt 1 ]]; then
-        echo "Available tags for '$CSI_DEVKIT_DOCKER_IMAGE_REPO':"
+        echo "Available tags for '$DEVKIT_DOCKER_IMAGE_REPO':"
         for tag in ${tag_lst[@]}; do
             echo "    $tag"
         done
         
         while true; do
             local tag
-            read -p "Choose tag for '$CSI_DEVKIT_DOCKER_IMAGE_REPO' (enter tag's value): " tag
+            read -p "Choose tag for '$DEVKIT_DOCKER_IMAGE_REPO' (enter tag's value): " tag
             
             for t in ${tag_lst[@]} ; do 
                if [[ "$t" == "$tag" ]]; then
@@ -592,7 +576,7 @@ for sig in SIGINT SIGTERM SIGHUP; do
     trap "signal_handler ${sig:3}" $sig 2>/dev/null
 done
 
-/usr/bin/docker create $DOCKER_OPTS $CSI_DEVKIT_DOCKER_IMAGE_REPO:$TAG "$@" &>/dev/null
+/usr/bin/docker create $DOCKER_OPTS $DEVKIT_DOCKER_IMAGE_REPO:$TAG "$@" &>/dev/null
 if [[ $? -ne 0 ]]; then
     /usr/bin/docker rm --force $CONT &>/dev/null
     exit 50

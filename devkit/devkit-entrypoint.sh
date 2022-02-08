@@ -50,6 +50,13 @@ Options:
                                    }
                   default value: $DOCKER_OPT_VAL
 
+    --docker-storage-driver arg    possible values: {
+                                       <storage-driver>, /* Arbitrary, depends on the system setup. */
+                                                         /* External and internal docker storage drivers might be incompatible. */
+                                                         /* Examples: vfs, overlay2, devicemapper */
+                                   }
+                  default value: $DOCKER_STORAGE_DRIVER_OPT_VAL
+
     --idea arg    possible values: {
                                        yes, /* start idea during startup */
                                        no,  /* do not start idea during startup */
@@ -324,19 +331,19 @@ while true; do
             continue
         ;;
 
-#        $GOLAND_OPT)
-#            GOLAND_OPT_VAL="$2"
-#
-#            if [[ "$GOLAND_OPT_VAL" == "yes" ]]; then
-#                START_GOLAND=true
-#            elif [[ -z "$GOLAND_OPT_VAL" || "$GOLAND_OPT_VAL" != "no" ]]; then
-#                devkit_echo 2 "$GOLAND_OPT argument should be not empty and should be only yes/no"
-#                exit 2
-#            fi
-#
-#            shift 2
-#            continue
-#        ;;
+        $GOLAND_OPT)
+            GOLAND_OPT_VAL="$2"
+
+            if [[ "$GOLAND_OPT_VAL" == "yes" ]]; then
+                START_GOLAND=true
+            elif [[ -z "$GOLAND_OPT_VAL" || "$GOLAND_OPT_VAL" != "no" ]]; then
+                devkit_echo 2 "$GOLAND_OPT argument should be not empty and should be only yes/no"
+                exit 2
+            fi
+
+            shift 2
+            continue
+        ;;
 
         $HELP_OPT)
             usage
