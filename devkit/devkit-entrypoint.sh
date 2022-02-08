@@ -5,17 +5,9 @@ readonly EUID=${EUID:?"EUID environment variable should be defined"}
 readonly EGID=${EGID:?"EGID environment variable should be defined"}
 readonly USER_NAME=${USER_NAME:?"USER_NAME environment variable should be defined"}
 readonly STDOUT=${STDOUT:?"STDOUT environment variable should be defined"}
-# variables for adopting Infra-devkit usage in Jenkins with docker plugin
-JENKINS_RUN=false
-# Jenkins docker plugin send cat command to check the created container and it should be ignored
-CAT_OPT_VAL='cat'
 
 readonly DOCKER_BASE_CMD='/usr/bin/dockerd --insecure-registry 0.0.0.0/0'
 readonly USER_HOME_DIR="$([[ $EUID -eq 0 ]] && echo '/root' || echo "/home/$USER_NAME")"
-
-readonly HAL_OPT='--hal'
-# this is a default value; may be overriden if user explicitly provide corresponding option
-HAL_OPT_VAL=latest
 
 readonly CMD_OPT='--cmd'
 CMD_OPT_VAL=    # will be assigned later in the code if corresponding option was provided
@@ -24,26 +16,26 @@ readonly DOCKER_OPT="--docker"
 # this is a default value; may be overriden if user explicitly provide corresponding option
 DOCKER_OPT_VAL=yes
 
-readonly DOCKER_STORAGE_DRIVER_OPT="--docker-storage-driver"
-# this is a default value; may be overriden if user explicitly provide corresponding option
-DOCKER_STORAGE_DRIVER_OPT_VAL=vfs
-
 readonly IDEA_OPT='--idea'
 # this is a default value; may be overriden if user explicitly provide corresponding option
 IDEA_OPT_VAL=no
 
-readonly CLION_OPT='--clion'
+readonly GOLAND_OPT='--goland'
 # this is a default value; may be overriden if user explicitly provide corresponding option
-CLION_OPT_VAL=no
+GOLAND_OPT_VAL=no
+
+readonly DOCKER_STORAGE_DRIVER_OPT="--docker-storage-driver"
+# this is a default value; may be overriden if user explicitly provide corresponding option
+DOCKER_STORAGE_DRIVER_OPT_VAL=vfs
 
 readonly HELP_OPT='--help'
 
-readonly OPT_LST=( $HAL_OPT $CMD_OPT $DOCKER_OPT $IDEA_OPT $CLION_OPT )
+readonly OPT_LST=( $HAL_OPT $CMD_OPT $DOCKER_OPT )
 
 CMD_PROVIDED=false    # may be switched during analysis of input parameters
 DOCKER_IN_DOCKER=true # may be switched during analysis of input parameters
 START_IDEA=false      # may be switched during analysis of input parameters
-START_CLION=false     # may be switched during analysis of input parameters
+START_GOLAND=false     # may be switched during analysis of input parameters
 
 function usage() {
 cat << EOF
@@ -52,25 +44,11 @@ Usage:
     devkit [option...]
 
 Options:
-    --hal arg     possible values: {
-                                       latest,    /* install the latest HAL version during startup */
-                                       <version>, /* install the specified HAL version during startup */
-                                       no,        /* do not install HAL during startup */
-                                   }
-                  default value: $HAL_OPT_VAL
-
     --docker arg  possible values: {
                                        yes, /* start docker daemon during startup */
                                        no,  /* do not start docker daemon during startup */
                                    }
                   default value: $DOCKER_OPT_VAL
-
-    --docker-storage-driver arg    possible values: {
-                                       <storage-driver>, /* Arbitrary, depends on the system setup. */
-                                                         /* External and internal docker storage drivers might be incompatible. */
-                                                         /* Examples: vfs, overlay2, devicemapper */
-                                   }
-                  default value: $DOCKER_STORAGE_DRIVER_OPT_VAL
 
     --idea arg    possible values: {
                                        yes, /* start idea during startup */
@@ -78,11 +56,11 @@ Options:
                                    }
                   default value: $IDEA_OPT_VAL
 
-    --clion arg   possible values: {
-                                       yes, /* start clion during startup */
-                                       no,  /* do not start clion during startup */
+    --goland arg   possible values: {
+                                       yes, /* start goland during startup */
+                                       no,  /* do not start goland during startup */
                                    }
-                  default value: $CLION_OPT_VAL
+                  default value: $GOLAND_OPT_VAL
 
     --cmd arg     possible values: {
                                        "",                /* start bash session */
@@ -169,12 +147,6 @@ function create_user() {
 
     local ret=0
 
-    # database with EMC certificates required for error-free operation of Google Chrome
-    cp --recursive /usr/local/share/.pki $USER_HOME_DIR || ((ret++))
-
-    if [[ $EUID -eq 0 ]]; then
-        return $ret    # devkit was started by root user
-    fi
 
     if id --user $USER_NAME &>/dev/null; then
        # user already exists (container was started with 'docker start' instead of devkit wrapper)
@@ -198,9 +170,6 @@ function create_user() {
                       $useradd_more_opts \
                       $USER_NAME || ((ret++))
     echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/10-$USER_NAME-nopassword || ((ret++))
-
-    # database containing EMC certificates should be readable/writable by the user
-    chown --recursive $USER_NAME $USER_HOME_DIR/.pki || ((ret++))
 
     # since /home/USER_NAME directory is auto created during container creation
     # it is needed to give user rw access to this directory
@@ -252,13 +221,6 @@ function start() {
     local rc=0
     local docker_pid
 
-#    if ! $JENKINS_RUN; then
-#        install_hal "$HAL_OPT_VAL" 1>/dev/null
-#        [[ $? -ne 0 ]] && \
-#            devkit_echo 1 "to prevent failure you can provide '--hal no' flag" && return 1
-#        devkit_echo 1 "viprhal and viprhal-devel....[$(state "test $HAL_OPT_VAL != no")]"
-#    fi
-
     devkit_echo 1 "docker daemon..." true false
     if $DOCKER_IN_DOCKER; then
         local docker_opts="--storage-driver=$DOCKER_STORAGE_DRIVER_OPT_VAL"
@@ -272,21 +234,21 @@ function start() {
     devkit_echo 1 ".............[$(state $DOCKER_IN_DOCKER)]" false true
 
     create_user || return 3
-    
+
     setup_bashrc || return 4
 
     devkit_echo 1 "start IntelliJ IDEA..........[$(state $START_IDEA)]"
 
     start_ide idea || return 5
 
-    devkit_echo 1 "start CLion..................[$(state $START_CLION)]"
+    devkit_echo 1 "start CLion..................[$(state $START_GOLAND)]"
 
-    start_ide clion || return 6
+    start_ide goland || return 6
 
     devkit_echo 1 "bash session.................[$(state true)]"
 
     if ! $CMD_PROVIDED; then
-        su $USER_NAME <&0
+        su $USER_NAME -m <&0
     else
         su $USER_NAME -c "$CMD_OPT_VAL" <&0
     fi
@@ -306,15 +268,6 @@ function start() {
 #
 while true; do
     case "$1" in
-        $HAL_OPT)
-            HAL_OPT_VAL="$2"
-            [[ -z "$HAL_OPT_VAL" || '-' == "${HAL_OPT_VAL:0:1}" ]] && \
-                devkit_echo 2 "$HAL_OPT argument should not be empty or start with \`-\`" && \
-                exit 1
-            shift 2
-            continue
-        ;;
-
         $DOCKER_OPT)
             DOCKER_OPT_VAL="$2"
             if [[ "$DOCKER_OPT_VAL" == "no" ]]; then
@@ -371,28 +324,23 @@ while true; do
             continue
         ;;
 
-        $CLION_OPT)
-            CLION_OPT_VAL="$2"
-
-            if [[ "$CLION_OPT_VAL" == "yes" ]]; then
-                START_CLION=true
-            elif [[ -z "$CLION_OPT_VAL" || "$CLION_OPT_VAL" != "no" ]]; then
-                devkit_echo 2 "$CLION_OPT argument should be not empty and should be only yes/no"
-                exit 2
-            fi
-
-            shift 2
-            continue
-        ;;
+#        $GOLAND_OPT)
+#            GOLAND_OPT_VAL="$2"
+#
+#            if [[ "$GOLAND_OPT_VAL" == "yes" ]]; then
+#                START_GOLAND=true
+#            elif [[ -z "$GOLAND_OPT_VAL" || "$GOLAND_OPT_VAL" != "no" ]]; then
+#                devkit_echo 2 "$GOLAND_OPT argument should be not empty and should be only yes/no"
+#                exit 2
+#            fi
+#
+#            shift 2
+#            continue
+#        ;;
 
         $HELP_OPT)
             usage
             exit 0
-        ;;
-
-        $CAT_OPT_VAL)
-            shift 2
-            continue
         ;;
 
         *)

@@ -31,11 +31,11 @@ readonly EFFECTIVE_UID="$(id -u $USER_NAME)"
 readonly EFFECTIVE_GID="$(id -g $USER_NAME)"
 
 # known dns servers
-readonly DNS_SERVER_LIST=( \
-                           "10.254.66.23" \
-                           "10.73.241.44" \
-                           "168.159.216.74" \
-                         )
+#readonly DNS_SERVER_LIST=( \
+#                           "10.254.66.23" \
+#                           "10.73.241.44" \
+#                           "168.159.216.74" \
+#                         )
 
 # this array is used in docker volumes initialization code
 readonly DOCKER_VOLUME_DIR_SECTIONS=( \
@@ -54,8 +54,8 @@ readonly DOCKER_VOLUME_DIR_SECTIONS=( \
                                       INTELLIJ_IDEA \
                                       CACHE_INTELLIJ_IDEA \
                                       CACHE_JAVA \
-                                      CLION \
-                                      CACHE_CLION \
+                                      GOLAND \
+                                      CACHE_GOLAND \
                                       KIND_KERNEL_MODULE \
                                       KIND_SRC \
                                       DEVICES \
@@ -97,10 +97,10 @@ readonly DEVKIT_INTELLIJ_IDEA_CONT_DIR_PATH="$DEVKIT_SOFTWARE_CONT_DIR_PATH/idea
 readonly DEVKIT_INTELLIJ_IDEA_SHARED_BOOL="${DEVKIT_INTELLIJ_IDEA_SHARED_BOOL:-$DEVKIT_SOFTWARE_SHARED_BOOL}"
 
 
-# CLion configuration
-readonly DEVKIT_CLION_HOST_DIR_PATH="${DEVKIT_CLION_HOST_DIR_PATH:-$DEVKIT_SOFTWARE_HOST_DIR_PATH/clion}"
-readonly DEVKIT_CLION_CONT_DIR_PATH="$DEVKIT_SOFTWARE_CONT_DIR_PATH/clion"
-readonly DEVKIT_CLION_SHARED_BOOL="${DEVKIT_CLION_SHARED_BOOL:-$DEVKIT_SOFTWARE_SHARED_BOOL}"
+# GoLand configuration
+readonly DEVKIT_GOLAND_HOST_DIR_PATH="${DEVKIT_GOLAND_HOST_DIR_PATH:-$DEVKIT_SOFTWARE_HOST_DIR_PATH/goland}"
+readonly DEVKIT_GOLAND_CONT_DIR_PATH="$DEVKIT_SOFTWARE_CONT_DIR_PATH/goland"
+readonly DEVKIT_GOLAND_SHARED_BOOL="${DEVKIT_GOLAND_SHARED_BOOL:-$DEVKIT_SOFTWARE_SHARED_BOOL}"
 
 
 # devkit's caches configuration
@@ -138,13 +138,13 @@ readonly DEVKIT_CACHE_INTELLIJ_IDEA_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.
 readonly DEVKIT_CACHE_INTELLIJ_IDEA_CONT_DIR_PATH="$USER_HOME/.IntelliJIdea"
 readonly DEVKIT_CACHE_INTELLIJ_IDEA_SHARED_BOOL="${DEVKIT_CACHE_INTELLIJ_IDEA_SHARED_BOOL:-true}"
 
-readonly DEVKIT_CACHE_CLION_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.CLion"
-readonly DEVKIT_CACHE_CLION_CONT_DIR_PATH="$HOME/.CLion"
-readonly DEVKIT_CACHE_CLION_SHARED_BOOL="${DEVKIT_CACHE_CLION_SHARED_BOOL:-true}"
+readonly DEVKIT_CACHE_GOLAND_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.GoLand"
+readonly DEVKIT_CACHE_GOLAND_CONT_DIR_PATH="$HOME/.GoLand"
+readonly DEVKIT_CACHE_GOLAND_SHARED_BOOL="${DEVKIT_CACHE_GOLAND_SHARED_BOOL:-true}"
 
 readonly DEVKIT_CACHE_JAVA_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.java"
 readonly DEVKIT_CACHE_JAVA_CONT_DIR_PATH="$HOME/.java"
-readonly DEVKIT_CACHE_JAVA_SHARED_BOOL="$( $DEVKIT_CACHE_INTELLIJ_IDEA_SHARED_BOOL || $DEVKIT_CACHE_CLION_SHARED_BOOL )"
+readonly DEVKIT_CACHE_JAVA_SHARED_BOOL="$( $DEVKIT_CACHE_INTELLIJ_IDEA_SHARED_BOOL || $DEVKIT_CACHE_GOLAND_SHARED_BOOL )"
 
 readonly DEVKIT_CACHE_GO_HOST_DIR_PATH="$DEVKIT_CACHE_HOST_DIR_PATH/.go"
 readonly DEVKIT_CACHE_GO_CONT_DIR_PATH="/usr/share/go"
@@ -189,7 +189,7 @@ readonly DEVKIT_GIT_CONF_SHARED_BOOL="${DEVKIT_GIT_CONF_SHARED_BOOL:-false}"
 # bash configuration
 readonly DEVKIT_BASH_RC_HOST_FILE_PATH="${DEVKIT_BASH_RC_HOST_FILE_PATH:-$HOME/.bashrc}"
 readonly DEVKIT_BASH_RC_CONT_FILE_PATH="$USER_HOME/.bashrc"
-readonly DEVKIT_BASH_RC_SHARED_BOOL="${DEVKIT_BASH_RC_SHARED_BOOL:-false}"
+readonly DEVKIT_BASH_RC_SHARED_BOOL="${DEVKIT_BASH_RC_SHARED_BOOL:-true}"
 # bash aliases
 readonly DEVKIT_BASH_ALIASES_HOST_FILE_PATH="${DEVKIT_BASH_ALIASES_HOST_FILE_PATH:-$HOME/.bash_aliases}"
 readonly DEVKIT_BASH_ALIASES_CONT_FILE_PATH="$USER_HOME/.bash_aliases"
@@ -335,9 +335,9 @@ function prepare_intellij_idea() {
     return $?
 }
 
-# prepare idea.properties (CLion)
-function prepare_clion() {
-    prepare_jetbrains_ide "CLion" ".CLion"
+# prepare idea.properties (GoLand)
+function prepare_goland() {
+    prepare_jetbrains_ide "GoLand" ".GoLand"
     return $?
 }
 
@@ -398,11 +398,11 @@ function init_docker_opts() {
     elif $DEVKIT_DOCKER_NETWORK_HOST_BOOL; then
         DOCKER_OPTS+=${hostname}
         DOCKER_OPTS+=" --network host "
-    else
-        DOCKER_OPTS+=${hostname}
-        for server in ${DNS_SERVER_LIST[@]}; do
-            DOCKER_OPTS+=" --dns $server "
-        done
+#    else
+#        DOCKER_OPTS+=${hostname}
+#        for server in ${DNS_SERVER_LIST[@]}; do
+#            DOCKER_OPTS+=" --dns $server "
+#        done
     fi
 
     if $DEVKIT_DOCKER_IPC_HOST_BOOL; then
@@ -578,11 +578,11 @@ check_user_groups || exit 10
 
 check_host_env || exit 20
 
-#prepare_for_X11_forwarding || exit 30
+prepare_for_X11_forwarding || exit 30
 
-#prepare_intellij_idea || exit 34
+prepare_intellij_idea || exit 34
 
-#prepare_clion || exit 35
+prepare_goland || exit 35
 
 init_docker_opts || exit 37
 

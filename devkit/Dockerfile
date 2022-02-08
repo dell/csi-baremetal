@@ -1,31 +1,41 @@
 FROM opensuse/leap:latest
 
-# TODO: args
-#ARG           arg_docker_ver
+ARG           arg_docker_ver
+ARG           arg_go_ver
+ARG           arg_golandci_ver
 
 ENV           GOPATH="/usr/share/go"
-ENV           PATH="$PATH:/opt/emc/bin:/usr/local/go/bin:$GOPATH/bin"
-# deprecated since 1.16 go version
-ENV           GO111MODULE=on
+ENV           GOROOT="/usr/local/go"
+ENV           PATH="$PATH:$GOPATH/bin:$GOROOT/bin"
 
 
 RUN           zypper --no-gpg-checks --non-interactive refresh \
 &&            zypper --no-gpg-checks --non-interactive install --auto-agree-with-licenses --no-recommends \
-                  vim \
-                  make \
-                  curl \
-                  wget \
-                  git \
-                  docker \
+              curl \
+              docker-${arg_docker_ver} \
+              gcc \
+              git \
+              libXi6 \
+              libXtst6 \
+              make \
+              sudo \
+              vim \
+              wget \
+              xorg-x11 \
+              xorg-x11-fonts \
 # install go
-&&            wget https://go.dev/dl/go1.15.2.linux-amd64.tar.gz \
-&&            tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz \
-&&            rm go1.15.2.linux-amd64.tar.gz \
-# install golint
-&&            wget https://github.com/golangci/golangci-lint/releases/download/v1.31.0/golangci-lint-1.31.0-linux-amd64.tar.gz \
-&&            tar -C /usr/local -xzf golangci-lint-1.31.0-linux-amd64.tar.gz \
-&&            rm golangci-lint-1.31.0-linux-amd64.tar.gz
+&&            wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
+&&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
+&&            rm go${arg_go_ver}.linux-amd64.tar.gz \
+# install golangci
+&&            go install github.com/golangci/golangci-lint/cmd/golangci-lint@v${arg_golandci_ver} \
+# bind start_ide.sh
+&&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
+&&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland
 
 # set entrypoint and default arguments
-#ADD           entrypoint.sh    /usr/bin/
-#ENTRYPOINT    [ "entrypoint.sh" ]
+ADD           devkit \
+              start_ide.sh \
+              devkit-entrypoint.sh    /usr/bin/
+
+ENTRYPOINT    [ "devkit-entrypoint.sh" ]
