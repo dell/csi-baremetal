@@ -29,8 +29,8 @@ import (
 	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
@@ -41,6 +41,7 @@ import (
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
@@ -61,6 +62,18 @@ var (
 	testCSIVolumeSrc       = coreV1.CSIVolumeSource{
 		Driver:           testProvisioner,
 		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
+	}
+	testEphemeralVolumeSrc = coreV1.EphemeralVolumeSource{
+		VolumeClaimTemplate: &coreV1.PersistentVolumeClaimTemplate{
+			Spec: coreV1.PersistentVolumeClaimSpec{
+				StorageClassName: &testSCName1,
+				Resources: coreV1.ResourceRequirements{
+					Requests: coreV1.ResourceList{
+						coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
+					},
+				},
+			},
+		},
 	}
 
 	testSC1 = storageV1.StorageClass{
@@ -128,6 +141,10 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
 		VolumeSource: coreV1.VolumeSource{CSI: &testCSIVolumeSrc},
 	})
+	// append ephemeralVolume
+	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
+		VolumeSource: coreV1.VolumeSource{Ephemeral: &testEphemeralVolumeSrc},
+	})
 	// append testPVC1
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
 		VolumeSource: coreV1.VolumeSource{
@@ -149,7 +166,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 
 	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(volumes))
+	assert.Equal(t, 3, len(volumes))
 }
 
 func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
@@ -463,7 +480,7 @@ func setup(t *testing.T) *Extender {
 	assert.Nil(t, err)
 
 	featureConf := fc.NewFeatureConfig()
-	kubeClient := k8s.NewKubeClient(k, testLogger, testNs)
+	kubeClient := k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs)
 	kubeCache := k8s.NewKubeCache(k, testLogger)
 	return &Extender{
 		k8sClient:              kubeClient,
@@ -511,7 +528,7 @@ func Test_getNodeId(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...runtime.Object) {
+func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...k8sCl.Object) {
 	for _, obj := range objs {
 		assert.Nil(t, k8sClient.Create(testCtx, obj))
 	}

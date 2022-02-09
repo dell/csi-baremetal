@@ -61,8 +61,8 @@ func (m *MockWrapPartition) CreatePartitionTable(device, partTableType string) (
 }
 
 // CreatePartition is a mock implementations
-func (m *MockWrapPartition) CreatePartition(device, label string) (err error) {
-	args := m.Mock.Called(device, label)
+func (m *MockWrapPartition) CreatePartition(device, label, partUUID string, setUUID bool) (err error) {
+	args := m.Mock.Called(device, label, partUUID, setUUID)
 
 	return args.Error(0)
 }
@@ -70,13 +70,6 @@ func (m *MockWrapPartition) CreatePartition(device, label string) (err error) {
 // DeletePartition is a mock implementations
 func (m *MockWrapPartition) DeletePartition(device, partNum string) (err error) {
 	args := m.Mock.Called(device, partNum)
-
-	return args.Error(0)
-}
-
-// SetPartitionUUID is a mock implementations
-func (m *MockWrapPartition) SetPartitionUUID(device, partNum, partUUID string) error {
-	args := m.Mock.Called(device, partNum, partUUID)
 
 	return args.Error(0)
 }

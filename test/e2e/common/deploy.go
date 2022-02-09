@@ -32,12 +32,15 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
-	"k8s.io/kubernetes/test/e2e/framework/podlogs"
+	"k8s.io/kubernetes/test/e2e/storage/podlogs"
 )
 
 const (
 	operatorVersionEnv = "OPERATOR_VERSION"
 	csiVersionEnv      = "CSI_VERSION"
+
+	maxFileNameSize = 255
+	reportsDir      = "reports"
 )
 
 // Create folder for every tests and save container logs and events
@@ -47,21 +50,24 @@ func collectPodLogs(f *framework.Framework) func() {
 	ns := f.Namespace
 
 	testName := strings.ReplaceAll(ginkgo.CurrentGinkgoTestDescription().FullTestText, "/", "")
-	dirname := fmt.Sprintf("reports/%v/", testName)
+	dirname := path.Join(reportsDir, testName)
+	if len(dirname) > maxFileNameSize {
+		dirname = dirname[:maxFileNameSize]
+	}
 	if err := os.MkdirAll(dirname, os.ModePerm); err != nil {
 		log.Fatalf("error creating folders: %v", err)
 	}
 	to := podlogs.LogOutput{
-		LogPathPrefix: dirname,
+		LogPathPrefix: dirname + "/",
 	}
-	eventsLogs, err := os.OpenFile(fmt.Sprintf("reports/%v/events.log", testName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	eventsLogs, err := os.OpenFile(path.Join(dirname, "events.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	if err := podlogs.CopyAllLogs(ctx, cs, ns.Name, to); err != nil {
 		e2elog.Logf("Cant copy all pod logs: %s", err)
 	}
-	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs); err != nil {
+	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs, eventsLogs); err != nil {
 		e2elog.Logf("Cant copy all pod events: %s", err)
 	}
 	return func() {
@@ -230,12 +236,13 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 // CleanupLoopbackDevices executes in node pods drive managers containers kill -SIGHUP 1
 // Returns error if it's failed to get node pods
 func CleanupLoopbackDevices(ctx context.Context, f *framework.Framework) error {
-	pods, err := GetNodePodsNames(ctx, f)
+	podNames, err := GetNodePodsNames(ctx, f)
 	if err != nil {
 		return err
 	}
-	for _, pod := range pods {
-		f.ExecShellInContainer(pod, "drivemgr", "/bin/kill -SIGHUP 1")
+	for _, podName := range podNames {
+		stdout, stderr, err := f.ExecCommandInContainerWithFullOutput(podName, "drivemgr", "/bin/kill", "-SIGHUP", "1")
+		framework.Logf("Delete loopdevices in pod %s, stdout: %s, stderr: %s, err: %w", podName, stdout, stderr, err)
 	}
 	return nil
 }

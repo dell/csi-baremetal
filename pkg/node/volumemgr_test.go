@@ -29,6 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,12 +46,14 @@ import (
 	dataDiscover "github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover/types"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
+	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 )
 
 // TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
@@ -229,14 +232,14 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		res, err := vm.Reconcile(req)
+		res, err := vm.Reconcile(testCtx, req)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 		wg.Done()
 	}()
 	wg.Add(1)
 	go func() {
-		res, err := vm.Reconcile(req)
+		res, err := vm.Reconcile(testCtx, req)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 		wg.Done()
@@ -254,7 +257,7 @@ func TestReconcile_SuccessNotFound(t *testing.T) {
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: "not-found-that-name"}}
-	res, err := vm.Reconcile(req)
+	res, err := vm.Reconcile(testCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -419,7 +422,7 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	assert.Nil(t, err)
 
 	//successfully add finalizer
-	res, err := vm.Reconcile(req)
+	res, err := vm.Reconcile(testCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
@@ -430,7 +433,7 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	err = vm.k8sClient.UpdateCR(testCtx, newVolumeCR)
 	assert.Nil(t, err)
 
-	res, err = vm.Reconcile(req)
+	res, err = vm.Reconcile(testCtx, req)
 	assert.NotNil(t, k8sError.IsNotFound(err))
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -570,7 +573,7 @@ func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
 	newVolumeCR.Spec.CSIStatus = apiV1.Published
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, newVolumeCR.Name, newVolumeCR))
 
-	res, err = vm.Reconcile(req)
+	res, err = vm.Reconcile(testCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
@@ -600,7 +603,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("update driveCRs failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 		// expect: updateDrivesCRs failed
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{},
 			nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
@@ -613,7 +616,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("discoverDataOnDrives failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
-		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
 		discoverData := &mocklu.MockWrapDataDiscover{}
 		discoverData.On("DiscoverData", mock.Anything, mock.Anything).Return(false, testErr).Once()
@@ -690,8 +693,8 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 		HasData: true,
 	}
 	testResultDrive2 = &dataDiscover.DiscoverResult{
-		Message: fmt.Sprintf("Drive with path %s, SN %s, doesn't have filesystem, partition table, partitions and PV", drive2.Path, drive2.SerialNumber),
-		HasData: false,
+		Message: fmt.Sprintf("Drive with path %s, SN %s, has filesystem", drive2.Path, drive2.SerialNumber),
+		HasData: true,
 	}
 	discoverData.On("DiscoverData", drive1.Path, drive1.SerialNumber).Return(testResultDrive1, nil)
 	discoverData.On("DiscoverData", drive2.Path, drive2.SerialNumber).Return(testResultDrive2, nil)
@@ -702,7 +705,7 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 	dItems = getDriveCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 2, len(dItems))
 	assert.Equal(t, false, dItems[0].Spec.IsClean)
-	assert.Equal(t, true, dItems[1].Spec.IsClean)
+	assert.Equal(t, false, dItems[1].Spec.IsClean)
 }
 
 func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
@@ -732,16 +735,14 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	assert.Len(t, updates.Updated, 1)
 	assert.Len(t, updates.NotChanged, 1)
 
-	drives = driveMgrRespDrives[1:]
-	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
-	driveCRs[0].Annotations = map[string]string{"health": "bad"}
-	vm.k8sClient.UpdateCR(testCtx, &driveCRs[0])
+	drives = driveMgrRespDrives
+	driveCR := vm.crHelper.GetDriveCRByUUID(driveCRs[0].Name)
+	driveCR.Annotations = map[string]string{"health": "bad"}
+	vm.k8sClient.UpdateCR(testCtx, driveCR)
 	updates, err = vm.updateDrivesCRs(testCtx, drives)
+	actualDrive := vm.crHelper.GetDriveCRByUUID(driveCR.Name)
 	assert.Nil(t, err)
-	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthBad)
-	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Status, apiV1.DriveStatusOffline)
-	assert.Len(t, updates.Updated, 1)
-	assert.Len(t, updates.NotChanged, 1)
+	assert.Equal(t, actualDrive.Spec.Health, apiV1.HealthBad)
 
 	vm = prepareSuccessVolumeManager(t)
 	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
@@ -786,7 +787,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
-	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, testNs)
+	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	var (
@@ -1280,6 +1281,353 @@ func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
 		err = vm.k8sClient.ReadCR(testCtx, testDriveCR.Name, "", newDrive)
 		assert.Nil(t, err)
 		assert.Equal(t, true, newDrive.Spec.IsClean)
+	})
+}
+
+func TestVolumeManager_WbtConfiguration(t *testing.T) {
+	// setWbtValue UT
+	t.Run("setWbtValue: success", func(t *testing.T) {
+		var (
+			testVol          = volCR.DeepCopy()
+			testDrive        = testDriveCR.DeepCopy()
+			wbtValue  uint32 = 0
+			mockWbt          = &mocklu.MockWrapWbt{}
+			device           = "sda" //testDrive.Spec.Path = "/dev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+		vm.wbtConfig = &wbtcommon.WbtConfig{Value: wbtValue}
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("SetValue", device, wbtValue).Return(nil)
+
+		err = vm.setWbtValue(testVol)
+		assert.Nil(t, err)
+	})
+	t.Run("setWbtValue: findDeviceName failed", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = "/dev"
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		err = vm.setWbtValue(testVol)
+		assert.NotNil(t, err)
+	})
+	t.Run("setWbtValue: wbtOps.SetValue failed", func(t *testing.T) {
+		var (
+			testVol          = volCR.DeepCopy()
+			testDrive        = testDriveCR.DeepCopy()
+			wbtValue  uint32 = 0
+			mockWbt          = &mocklu.MockWrapWbt{}
+			device           = "sda" //testDrive.Spec.Path = "/dev/sda"
+			mockErr          = fmt.Errorf("some error")
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+		vm.wbtConfig = &wbtcommon.WbtConfig{Value: wbtValue}
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("SetValue", device, wbtValue).Return(mockErr)
+
+		err = vm.setWbtValue(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, mockErr, err)
+	})
+
+	// restoreWbtValue UT
+	t.Run("restoreWbtValue: success", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+			mockWbt   = &mocklu.MockWrapWbt{}
+			device    = "sda" //testDrive.Spec.Path = "/dev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("RestoreDefault", device).Return(nil)
+
+		err = vm.restoreWbtValue(testVol)
+		assert.Nil(t, err)
+	})
+	t.Run("restoreWbtValue: findDeviceName failed", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = "/dev"
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		err = vm.restoreWbtValue(testVol)
+		assert.NotNil(t, err)
+	})
+	t.Run("restoreWbtValue: wbtOps.RestoreDefault failed", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			testDrive = testDriveCR.DeepCopy()
+			mockWbt   = &mocklu.MockWrapWbt{}
+			device    = "sda" //testDrive.Spec.Path = "/dev/sda"
+			mockErr   = fmt.Errorf("some error")
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtOps = mockWbt
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		mockWbt.On("RestoreDefault", device).Return(mockErr)
+
+		err = vm.restoreWbtValue(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, mockErr, err)
+	})
+
+	// checkWbtChangingEnable
+	t.Run("checkWbtChangingEnable: success", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			volumeSC   = "csi-baremetal-sc-hdd"
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{volumeSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		pv := &corev1.PersistentVolume{}
+		pv.Name = testVol.Name
+		pv.Spec.StorageClassName = volumeSC
+		err := vm.k8sClient.Create(testCtx, pv)
+		assert.Nil(t, err)
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		assert.True(t, result)
+	})
+	t.Run("checkWbtChangingEnable: wbtConf is nil", func(t *testing.T) {
+		var (
+			testVol = volCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = nil
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: wbt disabled", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			volumeSC   = "csi-baremetal-sc-hdd"
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: false,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{volumeSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: wrong Mode", func(t *testing.T) {
+		var (
+			testVol   = volCR.DeepCopy()
+			wrongMode = apiV1.ModeRAW
+			volumeSC  = "csi-baremetal-sc-hdd"
+			wbtConf   = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:          []string{wrongMode},
+					StorageClasses: []string{volumeSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: wrong SC", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			volumeSC   = "csi-baremetal-sc-hdd"
+			wrongSC    = "csi-baremetal-sc-hddlvg"
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{wrongSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		pv := &corev1.PersistentVolume{}
+		pv.Name = testVol.Name
+		pv.Spec.StorageClassName = volumeSC
+		err := vm.k8sClient.Create(testCtx, pv)
+		assert.Nil(t, err)
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		assert.False(t, result)
+	})
+	t.Run("checkWbtChangingEnable: PV not found", func(t *testing.T) {
+		var (
+			testVol    = volCR.DeepCopy()
+			volumeMode = apiV1.ModeFS
+			volumeSC   = "csi-baremetal-sc-hdd"
+			wrongSC    = "csi-baremetal-sc-hddlvg"
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{wrongSC},
+				},
+			}
+		)
+		vm := prepareSuccessVolumeManager(t)
+		vm.wbtConfig = wbtConf
+
+		pv := &corev1.PersistentVolume{}
+		pv.Name = "some_name"
+		pv.Spec.StorageClassName = volumeSC
+		err := vm.k8sClient.Create(testCtx, pv)
+		assert.Nil(t, err)
+
+		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		assert.False(t, result)
+	})
+
+	// findDeviceName
+	t.Run("findDeviceName: success", func(t *testing.T) {
+		var (
+			testVol        = volCR.DeepCopy()
+			testDrive      = testDriveCR.DeepCopy()
+			expectedDevice = "sda" //testDrive.Spec.Path = "/dev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedDevice, device)
+	})
+	t.Run("findDeviceName: GetDriveCRByVolume failed", func(t *testing.T) {
+		var (
+			testVol = volCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testVol.Spec.LocationType = apiV1.LocationTypeLVM
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+	t.Run("findDeviceName: GetDriveCRByVolume failed", func(t *testing.T) {
+		var (
+			testVol = volCR.DeepCopy()
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+	t.Run("findDeviceName: regexp failed", func(t *testing.T) {
+		var (
+			testVol     = volCR.DeepCopy()
+			testDrive   = testDriveCR.DeepCopy()
+			wrongDevice = "/dev/"
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = wrongDevice
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+	t.Run("findDeviceName: regexp failed", func(t *testing.T) {
+		var (
+			testVol     = volCR.DeepCopy()
+			testDrive   = testDriveCR.DeepCopy()
+			wrongDevice = "/nodev/sda"
+		)
+		vm := prepareSuccessVolumeManager(t)
+
+		testDrive.Spec.Path = wrongDevice
+
+		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
+		assert.Nil(t, err)
+
+		device, err := vm.findDeviceName(testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, "", device)
+	})
+
+	// SetWbtConfig UT
+	t.Run("SetWbtConfig: success", func(t *testing.T) {
+		var (
+			volumeMode = apiV1.ModeFS
+			volumeSC   = apiV1.StorageClassHDD
+			wbtConf    = &wbtcommon.WbtConfig{
+				Enable: true,
+				VolumeOptions: wbtcommon.VolumeOptions{
+					Modes:          []string{volumeMode},
+					StorageClasses: []string{volumeSC},
+				},
+			}
+		)
+
+		// nil
+		vm := prepareSuccessVolumeManager(t)
+		vm.SetWbtConfig(wbtConf)
+		assert.Equal(t, wbtConf, vm.wbtConfig)
+
+		// changed
+		changedWbtConf := &wbtcommon.WbtConfig{
+			Enable: true,
+			VolumeOptions: wbtcommon.VolumeOptions{
+				Modes:          []string{volumeMode},
+				StorageClasses: []string{volumeSC},
+			},
+		}
+		vm.SetWbtConfig(changedWbtConf)
+		assert.Equal(t, changedWbtConf, vm.wbtConfig)
 	})
 }
 

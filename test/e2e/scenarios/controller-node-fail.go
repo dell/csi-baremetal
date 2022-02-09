@@ -19,6 +19,7 @@ package scenarios
 import (
 	"context"
 	"fmt"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -30,7 +31,7 @@ import (
 	e2edep "k8s.io/kubernetes/test/e2e/framework/deployment"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
-	"k8s.io/kubernetes/test/e2e/storage/testsuites"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	"github.com/dell/csi-baremetal/test/e2e/common"
 )
@@ -40,13 +41,13 @@ const (
 	ContextTimeout = 20 * time.Minute
 )
 
-func DefineControllerNodeFailTestSuite(driver testsuites.TestDriver) {
+func DefineControllerNodeFailTestSuite(driver storageframework.TestDriver) {
 	ginkgo.Context("Baremetal-csi controller node fail tests", func() {
 		controllerNodeFailTest(driver)
 	})
 }
 
-func controllerNodeFailTest(driver testsuites.TestDriver) {
+func controllerNodeFailTest(driver storageframework.TestDriver) {
 	ginkgo.BeforeEach(skipIfNotAllTests)
 
 	var (
@@ -64,7 +65,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 
 	init := func() {
 		var (
-			perTestConf *testsuites.PerTestConfig
+			perTestConf *storageframework.PerTestConfig
 			err         error
 		)
 		ns = f.Namespace.Name
@@ -147,7 +148,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 
 		// check if CSI controller keep handle requests
 		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
-			constructPVC(ns, PersistentVolumeClaimSize, k8sSC.Name, pvcName),
+			constructPVC(ns, persistentVolumeClaimSize, k8sSC.Name, pvcName),
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
@@ -156,7 +157,7 @@ func controllerNodeFailTest(driver testsuites.TestDriver) {
 		framework.ExpectNoError(err)
 
 		e2elog.Logf("Waiting for test pod %s to be in running state...", pod.Name)
-		err = f.WaitForPodRunning(pod.Name)
+		err = e2epod.WaitForPodNameRunningInNamespace(f.ClientSet, pod.Name, f.Namespace.Name)
 		framework.ExpectNoError(err)
 	})
 }

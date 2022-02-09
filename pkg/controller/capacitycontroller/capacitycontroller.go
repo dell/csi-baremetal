@@ -70,10 +70,10 @@ func (d *Controller) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // Reconcile reconciles Drive custom resources
-func (d *Controller) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (d *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("csicontroller_drive_controller")()
 	resourceName := req.Name
-	ctx, cancelFn := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelFn()
 
 	log := d.log.WithFields(logrus.Fields{"method": "Reconcile", "name": resourceName})
@@ -127,7 +127,9 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 		usage  = drive.Spec.GetUsage()
 	)
 	switch {
-	case health != apiV1.HealthGood || status != apiV1.DriveStatusOnline || usage != apiV1.DriveUsageInUse:
+	case (health != apiV1.HealthGood && health != apiV1.HealthUnknown) ||
+		status != apiV1.DriveStatusOnline ||
+		usage != apiV1.DriveUsageInUse:
 		return d.handleInaccessibleDrive(ctx, drive.Spec)
 	default:
 		return d.createOrUpdateCapacity(ctx, drive.Spec)
@@ -233,11 +235,12 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 				return err
 			}
 			if err == errTypes.ErrorNotFound {
+				ll.Infof("Creating SYSLVG AC for lvg %s", location)
 				name := uuid.New().String()
 				capacity := &api.AvailableCapacity{
 					Size:         size,
 					Location:     lvg.Name,
-					StorageClass: util.ConvertDriveTypeToStorageClass(apiV1.StorageClassSystemLVG),
+					StorageClass: apiV1.StorageClassSystemLVG,
 					NodeId:       lvg.Spec.Node,
 				}
 				ac = d.client.ConstructACCR(name, *capacity)
@@ -245,6 +248,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 				}
 			} else {
+				ll.Infof("Replacing AC %s location from drive %s with lvg %s", ac.Name, ac.Spec.Location, location)
 				ac.Spec.Size = size
 				ac.Spec.Location = location
 				ac.Spec.StorageClass = apiV1.StorageClassSystemLVG
@@ -252,7 +256,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 				}
 			}
-			ll.Infof("Created AC %v for lvg %s", ac, location)
+			ll.Infof("Created AC %+v for lvg %s", ac, location)
 			return nil
 		}
 		ll.Infof("There is no available space on %s", location)

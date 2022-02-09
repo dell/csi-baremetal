@@ -44,15 +44,16 @@ const (
 	testID             = "someID"
 	testNode1Name      = "node1"
 	testDriveLocation1 = "drive"
-	testApp            = "app"
 )
 
 var (
-	testLogger = logrus.New()
-	testCtx    = context.Background()
-	testUUID   = uuid.New().String()
-	testUUID2  = uuid.New().String()
-	testVolume = vcrd.Volume{
+	testLogger    = logrus.New()
+	testCtx       = context.Background()
+	testUUID      = uuid.New().String()
+	testUUID2     = uuid.New().String()
+	attempts      = 3
+	testAppLabels = map[string]string{AppLabelKey: "app", ReleaseLabelKey: "release"}
+	testVolume    = vcrd.Volume{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testID, Namespace: testNs},
 		Spec: api.Volume{
@@ -335,6 +336,15 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("\"%s\" not found", name)))
 		})
 
+		It("Should create and read drive CR with attempts", func() {
+			err := k8sclient.CreateCR(testCtx, testUUID, testDriveCR.DeepCopy())
+			Expect(err).To(BeNil())
+			rdrive := &drivecrd.Drive{}
+			err = k8sclient.ReadCRWithAttempts(testUUID, "", rdrive, attempts)
+			Expect(err).To(BeNil())
+			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
+		})
+
 	})
 
 	Context("Update CR instance", func() {
@@ -363,6 +373,21 @@ var _ = Describe("Working with CRD", func() {
 			driveCRUpdate.Spec.Health = apiV1.HealthBad
 
 			err = k8sclient.UpdateCR(testCtx, driveCRUpdate)
+			Expect(err).To(BeNil())
+			Expect(driveCRUpdate.Spec.Health).To(Equal(apiV1.HealthBad))
+		})
+
+		It("Should Drive update successfully with attempts", func() {
+			driveCR := testDriveCR.DeepCopy()
+			err := k8sclient.CreateCR(testCtx, testUUID, driveCR)
+			Expect(err).To(BeNil())
+
+			driveCRUpdate := &drivecrd.Drive{}
+			err = k8sclient.ReadCR(testCtx, driveCR.Name, "", driveCRUpdate)
+			Expect(err).To(BeNil())
+			driveCRUpdate.Spec.Health = apiV1.HealthBad
+
+			err = k8sclient.UpdateCRWithAttempts(testCtx, driveCRUpdate, attempts)
 			Expect(err).To(BeNil())
 			Expect(driveCRUpdate.Spec.Health).To(Equal(apiV1.HealthBad))
 		})
@@ -458,13 +483,13 @@ var _ = Describe("Constructor methods", func() {
 	})
 	Context("ConstructVolumeCR", func() {
 		It("Should return right Volume CR", func() {
-			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testNs, testApp, testApiVolume)
+			constructedCR := k8sclient.ConstructVolumeCR(testApiVolume.Id, testNs, testAppLabels, testApiVolume)
 			Expect(constructedCR.TypeMeta.Kind).To(Equal(testVolumeCR.TypeMeta.Kind))
 			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testVolumeCR.TypeMeta.APIVersion))
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testVolumeCR.ObjectMeta.Name))
 			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testVolumeCR.ObjectMeta.Namespace))
 			Expect(constructedCR.Spec).To(Equal(testVolumeCR.Spec))
-			Expect(constructedCR.Labels).To(Equal(constructCustomAppMap(testApp)))
+			Expect(constructedCR.Labels).To(Equal(testAppLabels))
 		})
 	})
 	Context("ConstructLVGCR", func() {

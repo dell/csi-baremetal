@@ -28,6 +28,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -44,6 +45,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
@@ -52,6 +55,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
+	"github.com/dell/csi-baremetal/pkg/node/wbt"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -80,8 +84,8 @@ var (
 		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
-	logLevel = flag.String("loglevel", base.InfoLevel,
-		fmt.Sprintf("Log level, support values are %s, %s, %s", base.InfoLevel, base.DebugLevel, base.TraceLevel))
+	logLevel = flag.String("loglevel", logger.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", logger.InfoLevel, logger.DebugLevel, logger.TraceLevel))
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
@@ -100,7 +104,7 @@ func main() {
 		enableMetrics = true
 	}
 
-	logger, err := base.InitLogger(*logPath, *logLevel)
+	logger, err := logger.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
@@ -129,7 +133,7 @@ func main() {
 	// gRPC server that will serve requests (node CSI) from k8s via unix socket
 	csiUDSServer := rpc.NewServerRunner(nil, *csiEndpoint, enableMetrics, logger)
 
-	kubeCache, err := k8s.InitKubeCache(logger, stopCH,
+	kubeCache, err := k8s.InitKubeCache(stopCH, logger,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
 	if err != nil {
 		logger.Fatalf("fail to start kubeCache, error: %v", err)
@@ -140,10 +144,15 @@ func main() {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
 
+	wbtWatcher, err := prepareWbtWatcher(k8SClient, eventRecorder, *nodeName, logger)
+	if err != nil {
+		logger.Fatalf("fail to prepare wbt watcher: %v", err)
+	}
+
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
-	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, *namespace)
+	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
 	csiNodeService := node.NewCSINodeService(
 		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
@@ -190,6 +199,9 @@ func main() {
 
 	// wait for readiness
 	waitForVolumeManagerReadiness(csiNodeService, logger)
+
+	// start to updating Wbt Config
+	wbtWatcher.StartWatch(csiNodeService)
 
 	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
@@ -328,4 +340,17 @@ func prepareEventRecorder(nodeName string, logger *logrus.Logger) (*events.Recor
 		return nil, fmt.Errorf("fail to create events recorder, error: %s", err)
 	}
 	return eventRecorder, nil
+}
+
+func prepareWbtWatcher(client k8sClient.Client, eventsRecorder *events.Recorder, nodeName string, logger *logrus.Logger) (*wbt.ConfWatcher, error) {
+	k8sNode := &corev1.Node{}
+	err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, k8sNode)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeKernel := k8sNode.Status.NodeInfo.KernelVersion
+	ll := logger.WithField("componentName", "WbtWatcher")
+
+	return wbt.NewConfWatcher(client, eventsRecorder, ll, nodeKernel), nil
 }

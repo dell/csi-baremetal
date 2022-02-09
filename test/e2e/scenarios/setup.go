@@ -1,12 +1,9 @@
 /*
 Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
    http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,6 +26,7 @@ import (
 	"github.com/onsi/ginkgo"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 
@@ -36,24 +34,25 @@ import (
 )
 
 var (
-	CSITestSuites = []func() testsuites.TestSuite{
+	CSITestSuites = []func() storageframework.TestSuite{
 		testsuites.InitVolumesTestSuite,
 		testsuites.InitVolumeIOTestSuite,
 		testsuites.InitEphemeralTestSuite,
 		testsuites.InitProvisioningTestSuite,
 		testsuites.InitMultiVolumeTestSuite,
 		testsuites.InitVolumeModeTestSuite,
+		testsuites.InitVolumeExpandTestSuite,
 	}
 
-	curDriver = InitBaremetalDriver(common.BMDriverTestContext.NeedAllTests)
+	curDriver = initBaremetalDriver()
 	startTime = time.Now()
 )
 
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	ginkgo.AfterEach(failTestIfTimeout)
 
-	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(curDriver), func() {
-		testsuites.DefineTestSuite(curDriver, CSITestSuites)
+	ginkgo.Context(storageframework.GetDriverNameWithFeatureTags(curDriver), func() {
+		storageframework.DefineTestSuites(curDriver, CSITestSuites)
 		DefineDriveHealthChangeTestSuite(curDriver)
 		DefineControllerNodeFailTestSuite(curDriver)
 		DefineNodeRebootTestSuite(curDriver)
