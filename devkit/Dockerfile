@@ -6,6 +6,8 @@ ARG           arg_golandci_ver
 
 ENV           GOPATH="/usr/share/go"
 ENV           GOROOT="/usr/local/go"
+ENV           GOCACHE="$GOPATH/.cache/go-build"
+ENV           GOENV="$GOPATH/.cache/go/env"
 ENV           PATH="$PATH:$GOPATH/bin:$GOROOT/bin"
 
 
@@ -27,15 +29,17 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
 &&            wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
 &&            rm go${arg_go_ver}.linux-amd64.tar.gz \
-# install golangci
-&&            go install github.com/golangci/golangci-lint/cmd/golangci-lint@v${arg_golandci_ver} \
+&&            chmod -R a+rwx $GOPATH \
+# install bin golangci
+&&            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${arg_golandci_ver} \
 # bind start_ide.sh
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland
 
-# set entrypoint and default arguments
+# add scripts required to properly setup running container
 ADD           devkit \
               start_ide.sh \
               devkit-entrypoint.sh    /usr/bin/
 
+# set entrypoint and default arguments
 ENTRYPOINT    [ "devkit-entrypoint.sh" ]
