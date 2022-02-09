@@ -29,9 +29,9 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
 &&            wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
 &&            rm go${arg_go_ver}.linux-amd64.tar.gz \
-&&            chmod -R a+rwx $GOPATH \
 # install bin golangci
 &&            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${arg_golandci_ver} \
+&&            chmod -R a+rwx $GOPATH \
 # bind start_ide.sh
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland
