@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -45,6 +46,10 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+)
+
+var (
+	reservationConfirmedDuration = 5 * time.Minute
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -101,6 +106,9 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
+	defer func() {
+		_ = req.Body.Close()
+	}()
 
 	ll = ll.WithFields(logrus.Fields{
 		"pod": extenderArgs.Pod.Name,
@@ -165,6 +173,9 @@ func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Errorf("Unable to decode request body: %v", err)
 		return
 	}
+	defer func() {
+		_ = req.Body.Close()
+	}()
 
 	ll.Info("Scoring")
 
@@ -210,6 +221,9 @@ func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
+	defer func() {
+		_ = req.Body.Close()
+	}()
 
 	extenderBindingRes.Error = "don't know how to use bind API"
 	if err := resp.Encode(extenderBindingRes); err != nil {
@@ -395,11 +409,11 @@ func getReservationName(pod *coreV1.Pod) string {
 	return namespace + "-" + pod.Name
 }
 
-func (e *Extender) createReservation(ctx context.Context, namespace string, name string, nodes []coreV1.Node,
-	capacities []*genV1.CapacityRequest) error {
+func (e *Extender) createReservation(ctx context.Context, ns, name string,
+	nodes []coreV1.Node, capacities []*genV1.CapacityRequest) error {
 	// ACR CRD
 	reservation := genV1.AvailableCapacityReservation{
-		Namespace: namespace,
+		Namespace: ns,
 		Status:    v1.ReservationRequested,
 	}
 
@@ -431,6 +445,42 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 		// cannot create reservation
 		return err
 	}
+	// wait for reservation to be confirmed
+	// continue on reading error
+	// return after reservation confirmed
+	// or wait context deadline
+	readCh := make(chan struct{})
+	ticker := time.NewTicker(time.Second)
+	ctx, cancel := context.WithTimeout(ctx, reservationConfirmedDuration)
+	ll := e.logger.WithFields(logrus.Fields{
+		"method":      "createReservation",
+		"sessionUUID": ctx.Value(base.RequestUUID),
+	})
+	go func() {
+		defer ticker.Stop()
+		for range ticker.C {
+			acr := &acrcrd.AvailableCapacityReservation{}
+			if err := e.k8sClient.ReadCR(ctx, name, ns, acr); err != nil {
+				ll.Warningf("Failed to read capacity reservation '%s' CR", name)
+				continue
+			}
+			if acr.Spec.Status == v1.ReservationConfirmed {
+				ll.Infof("Capacity reservation '%s' status is '%s'", name, acr.Spec.Status)
+				readCh <- struct{}{}
+				return
+			}
+		}
+	}()
+	ll.Infof("Wait for capacity reservation '%s' become in status '%s'", name, v1.ReservationConfirmed)
+	select {
+	case <-ctx.Done():
+		ll.Warningf("Context deadline reached capacity reservation '%s' CR", name)
+		break
+	case <-readCh:
+		break
+	}
+	close(readCh)
+	cancel()
 	return nil
 }
 
