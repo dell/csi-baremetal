@@ -18,6 +18,7 @@ package common
 
 import (
 	"context"
+	"github.com/dell/csi-baremetal/pkg/base"
 	"testing"
 	"time"
 
@@ -147,6 +148,46 @@ func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, &testVolume.Spec, createdVolume)
+}
+
+func Test_handleVolumeInProgress(t *testing.T) {
+	var (
+		svc             = setupVOOperationsTest(t)
+		ctx             = context.TODO()
+		testVolume      = testVolume1.DeepCopy()
+		podName         = "my-pod"
+		reservationName = "default-" + podName
+		logger          = testLogger.WithField("test", "handleVolumeInProgress")
+	)
+
+	// Creating
+	volume, err := svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.CSIStatus, apiV1.Creating)
+
+	// Created
+	testVolume.Spec.CSIStatus = apiV1.Created
+	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
+	assert.Nil(t, err)
+	assert.Equal(t, volume.CSIStatus, apiV1.Created)
+
+	// Failed
+	testVolume.Spec.CSIStatus = apiV1.Failed
+	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
+	assert.NotNil(t, err)
+
+	// Published
+	testVolume.Spec.CSIStatus = apiV1.Published
+	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
+	assert.NotNil(t, err)
+
+	// Timeout
+	testVolume.Spec.CSIStatus = apiV1.Creating
+	// Update creation timestamp
+	testVolume.ObjectMeta.SetCreationTimestamp(metav1.Time{Time: time.Now().Add(-base.DefaultTimeoutForVolumeOperations)})
+	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
+	assert.NotNil(t, err)
+	assert.Nil(t, volume)
 }
 
 // Volume CR was successfully created, HDDLVG SC
