@@ -10,10 +10,9 @@ Excluded drives won't be used for allocating new Volumes or LVGs.
 
 ## Background
 
-User stories:
-1. Deploy another CSI driver in kube-cluster.
-2. Reserve space for increasing root partition.
-3. A kube-node is used for 2 or more kube-clusters (or not only for cluster).
+CSI customers might not want to use some disks for whatever reason:
+- for another application not managed by CSI
+- as a workaround for any disk detection issues in CSI
 
 So in these cases CSI haven't to allocate Volumes for some drives.
 
@@ -69,6 +68,10 @@ drive_options:
 ```
 
 #### Pass settings
+Propose to process excluded drives on Discover stage in csi-baremetal-node part. 
+Node container will take drive setting from the ConfigMap created with csi-baremetal-deployment.
+
+Node ConfigMap can be updated in the following ways:
 1. Set global drive rule on CSI installation.
 
 Helm command for `csi-baremetal-driver` should be modified with:
