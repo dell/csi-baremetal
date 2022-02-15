@@ -671,6 +671,22 @@ func Test_createReservationAndCheckStatus(t *testing.T) {
 	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
 	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 
+	// rejected
+	namespace = ""
+	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name = getReservationName(pod)
+	go updateCRStatus(v1.ReservationRejected)
+	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+	assert.Nil(t, err)
+
+	reservationResource = &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, v1.ReservationRejected, reservationResource.Spec.Status)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
+
 	// context timeout exceeded
 	namespace = ""
 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}

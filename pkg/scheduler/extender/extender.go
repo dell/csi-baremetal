@@ -464,14 +464,14 @@ func (e *Extender) createReservation(ctx context.Context, ns, name string,
 				ll.Warningf("Failed to read capacity reservation '%s' CR", name)
 				continue
 			}
-			if acr.Spec.Status == v1.ReservationConfirmed {
+			if acr.Spec.Status == v1.ReservationConfirmed || acr.Spec.Status == v1.ReservationRejected {
 				ll.Infof("Capacity reservation '%s' status is '%s'", name, acr.Spec.Status)
 				readCh <- struct{}{}
 				return
 			}
 		}
 	}()
-	ll.Infof("Wait for capacity reservation '%s' become in status '%s'", name, v1.ReservationConfirmed)
+	ll.Infof("Wait for CR '%s' become in status '%s' or '%s'", name, v1.ReservationConfirmed, v1.ReservationRejected)
 	select {
 	case <-ctx.Done():
 		ll.Warningf("Context deadline reached capacity reservation '%s' CR", name)
