@@ -27,10 +27,10 @@ The rules to include/exclude drives based on:
 - PID
 - VID
 ```yaml
-drive_rule:
+driveRule:
   size:
-    less_then: 1Gi
-    more_then: 100Mi
+    lessThen: 1Gi
+    moreThen: 100Mi
   # include drives with the following parameters only
   in:
     type:
@@ -43,7 +43,7 @@ drive_rule:
     VID:
       - ...
   # exclude drives with the following parameters
-  not_in:
+  notIn:
     type:
       - SSD
     SN:
@@ -57,13 +57,13 @@ drive_rule:
 Settings can be set for all nodes in the cluster or for only one node. 
 In the node section user chooses is global rules be applied or not.
 ```yaml
-drive_options:
+drive-rules.yaml:
   global:
-    drive_rule: ...
+    driveRule: ...
   nodes:
     - name: node1
-      enable_global: true/false
-      drive_rule:
+      enableGlobal: true/false
+      driveRule:
     - name: ...
 ```
 
@@ -82,7 +82,60 @@ Helm command for `csi-baremetal-driver` should be modified with:
 
 The option to modify rules for specific nodes is not supported due to complex formatting.
 
-2. After installing CSI user could edit a ConfigMap with CSI nodes setting to change included/excluded drives list
+2. After installing CSI user could edit a ConfigMap with CSI nodes setting to change included/excluded drives list.
+
+For example:
+```bash
+# See current state
+[root@servicenode ~]# kubectl describe cm node-config
+Name:         node-config
+Namespace:    default
+Labels:       app=csi-baremetal-node
+              app.kubernetes.io/managed-by=Helm
+Annotations:  meta.helm.sh/release-name: csi-baremetal
+              meta.helm.sh/release-namespace: default
+
+Data
+====
+drive-rules.yaml:
+----
+global:
+  driveRule:
+      size:
+        lessThen: 1Gi
+...
+        
+# Edit ConfigMap
+[root@servicenode ~]# kubectl edit cm node-config
+
+# Check ConfigMap content via using text processor, edit and save
+---
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+data:
+    drive-rules.yaml:
+    ----
+    global:
+      driveRule:
+          size:
+            lessThen: 1Gi
+    nodes:
+    - name: node1
+      enableGlobal: true
+      driveRule:
+        in:
+          SN:
+          - sn1
+          - sn2
+...
+---
+
+# See csi-baremetal-node logs and see that new settings confirmed
+```
+
 
 ## Rationale
 
