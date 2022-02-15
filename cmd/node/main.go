@@ -21,6 +21,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/tracing"
 	"net"
 	"net/http"
 	"strconv"
@@ -98,6 +99,10 @@ func main() {
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
 	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
+
+	// tracing
+	f := tracing.NewTracer("node")
+	defer f()
 
 	var enableMetrics bool
 	if *metricspath != "" {

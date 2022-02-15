@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"path"
 	"strconv"
 	"strings"
@@ -148,6 +150,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		"method":   "NodeStageVolume",
 		"volumeID": req.GetVolumeId(),
 	})
+
+	_, span := otel.Tracer("node").Start(ctx, "NodeStageVolume")
+	span.SetAttributes(attribute.String("volumeID", req.GetVolumeId()))
+	defer span.End()
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())
@@ -359,6 +365,10 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		"method":   "NodePublishVolume",
 		"volumeID": req.GetVolumeId(),
 	})
+
+	_, span := otel.Tracer("node").Start(ctx, "NodePublishVolume")
+	span.SetAttributes(attribute.String("volumeID", req.GetVolumeId()))
+	defer span.End()
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())

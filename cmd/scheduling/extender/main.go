@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/tracing"
 	"net"
 	"net/http"
 	"os"
@@ -72,6 +73,10 @@ func main() {
 	flag.Parse()
 	logger, _ := logger.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
+
+	// tracing
+	f := tracing.NewTracer("extender")
+	defer f()
 
 	stopCH := ctrl.SetupSignalHandler()
 

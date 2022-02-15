@@ -2,6 +2,8 @@ package reservation
 
 import (
 	"context"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"os"
 	"strconv"
 	"time"
@@ -86,6 +88,10 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	name := req.Name
 	// customize logging
 	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": name})
+
+	_, span := otel.Tracer("controller").Start(ctx, "ReconcileAvailableCapacityReservation")
+	span.SetAttributes(attribute.String("name", name))
+	defer span.End()
 
 	// obtain corresponding reservation
 	reservation := &acrcrd.AvailableCapacityReservation{}

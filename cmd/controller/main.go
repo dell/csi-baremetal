@@ -21,6 +21,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/tracing"
 	"net"
 	"net/http"
 	"strconv"
@@ -87,6 +88,10 @@ func main() {
 	}
 
 	logger.Info("Starting controller ...")
+
+	// tracing
+	f := tracing.NewTracer("controller")
+	defer f()
 
 	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, enableMetrics, logger)
 
