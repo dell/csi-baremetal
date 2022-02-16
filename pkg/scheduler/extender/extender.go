@@ -457,11 +457,11 @@ func (e *Extender) createReservation(ctx context.Context, ns, name string,
 		for range ticker.C {
 			acr := &acrcrd.AvailableCapacityReservation{}
 			if err := e.k8sClient.ReadCR(ctx, name, ns, acr); err != nil {
-				ll.Warningf("Failed to read capacity reservation '%s' CR", name)
+				ll.Warningf("Failed to read CR '%s' error: %s", name, err)
 				continue
 			}
 			if acr.Spec.Status == v1.ReservationConfirmed || acr.Spec.Status == v1.ReservationRejected {
-				ll.Infof("Capacity reservation '%s' status is '%s'", name, acr.Spec.Status)
+				ll.Infof("CR '%s' status is '%s'", name, acr.Spec.Status)
 				readCh <- struct{}{}
 				return
 			}
@@ -470,7 +470,7 @@ func (e *Extender) createReservation(ctx context.Context, ns, name string,
 	ll.Infof("Wait for CR '%s' become in status '%s' or '%s'", name, v1.ReservationConfirmed, v1.ReservationRejected)
 	select {
 	case <-ctx.Done():
-		ll.Warningf("Context deadline reached capacity reservation '%s' CR", name)
+		ll.Warningf("Context deadline reached CR '%s'", name)
 		break
 	case <-readCh:
 		break
