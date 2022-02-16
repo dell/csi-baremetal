@@ -28,26 +28,17 @@ The rules to include/exclude drives based on:
 - VID
 ```yaml
 driveRule:
-  size:
-    lessThen: 1Gi
-    moreThen: 100Mi
-  # include drives with the following parameters only
-  in:
+    # include -> CSI will use drives, witch satisfy the following conditions ONLY
+    # exclude -> CSI will detect all drives automatically except the passed ones
+    strategy: include/exclude
+    size:
+        lessThen: 1Gi
+        moreThen: 100Mi
     type:
       - HDD
     SN:
       - sn1
       - sn2
-    PID:
-      - ...
-    VID:
-      - ...
-  # exclude drives with the following parameters
-  notIn:
-    type:
-      - SSD
-    SN:
-      - ...
     PID:
       - ...
     VID:
@@ -101,6 +92,7 @@ drive-rules.yaml:
 ----
 global:
   driveRule:
+      strategy: exclude
       size:
         lessThen: 1Gi
 ...
@@ -120,16 +112,17 @@ data:
     ----
     global:
       driveRule:
+          strategy: exclude
           size:
             lessThen: 1Gi
     nodes:
     - name: node1
       enableGlobal: true
       driveRule:
-        in:
-          SN:
-          - sn1
-          - sn2
+        strategy: exclude
+        SN:
+        - sn1
+        - sn2
 ...
 ---
 
