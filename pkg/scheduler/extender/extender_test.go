@@ -641,88 +641,64 @@ func Test_createReservationAndCheckStatus(t *testing.T) {
 		reservation.Spec.Status = status
 		assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))
 	}
-	{
-		go updateCRStatus(v1.ReservationConfirmed)
-		err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-		assert.Nil(t, err)
+	go updateCRStatus(v1.ReservationConfirmed)
+	err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+	assert.Nil(t, err)
 
-		// read back and check fields
-		reservationResource := &acrcrd.AvailableCapacityReservation{}
-		err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
-		assert.Nil(t, err)
-		assert.Equal(t, name, reservationResource.Name)
-		assert.Equal(t, v1.ReservationConfirmed, reservationResource.Spec.Status)
-		assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-		assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-		assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
-	}
+	// read back and check fields
+	reservationResource := &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Nil(t, err)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, v1.ReservationConfirmed, reservationResource.Spec.Status)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 
-	{
-		// empty namespace
-		namespace = ""
-		pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
-		name = getReservationName(pod)
-		go updateCRStatus(v1.ReservationConfirmed)
-		err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-		assert.Nil(t, err)
+	// empty namespace
+	namespace = ""
+	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name = getReservationName(pod)
+	go updateCRStatus(v1.ReservationConfirmed)
+	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+	assert.Nil(t, err)
 
-		reservationResource := &acrcrd.AvailableCapacityReservation{}
-		err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
-		assert.Equal(t, name, reservationResource.Name)
-		assert.Equal(t, v1.ReservationConfirmed, reservationResource.Spec.Status)
-		assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-		assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-		assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
-	}
+	reservationResource = &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, v1.ReservationConfirmed, reservationResource.Spec.Status)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 
-	{
-		// rejected
-		namespace = ""
-		pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
-		name = getReservationName(pod)
-		go updateCRStatus(v1.ReservationRejected)
-		err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-		assert.Nil(t, err)
+	// rejected
+	namespace = ""
+	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name = getReservationName(pod)
+	go updateCRStatus(v1.ReservationRejected)
+	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+	assert.Nil(t, err)
 
-		reservationResource := &acrcrd.AvailableCapacityReservation{}
-		err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
-		assert.Equal(t, name, reservationResource.Name)
-		assert.Equal(t, v1.ReservationRejected, reservationResource.Spec.Status)
-		assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-		assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-		assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
-	}
+	reservationResource = &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, v1.ReservationRejected, reservationResource.Spec.Status)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 
-	{
-		// context timeout exceeded
-		namespace = ""
-		pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
-		name = getReservationName(pod)
-		testCtx, cancel := context.WithTimeout(testCtx, 100*time.Millisecond)
-		assert.Nil(t, e.createReservation(testCtx, namespace, name, nodes, capacityRequests))
+	// context timeout exceeded
+	namespace = ""
+	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name = getReservationName(pod)
+	testCtx, cancel := context.WithTimeout(testCtx, 100*time.Millisecond)
+	assert.Nil(t, e.createReservation(testCtx, namespace, name, nodes, capacityRequests))
 
-		reservationResource := &acrcrd.AvailableCapacityReservation{}
-		assert.Nil(t, e.k8sClient.ReadCR(testCtx, name, "", reservationResource))
-		assert.Equal(t, name, reservationResource.Name)
-		assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-		assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-		assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
-		cancel()
-	}
-
-	{
-		// reservation not found
-		testCtx, cancel := context.WithTimeout(testCtx, 3*time.Second)
-		defer cancel()
-		go func() {
-			// A little delay before check status of CR
-			time.Sleep(100 * time.Millisecond)
-			reservation := *e.k8sClient.ConstructACRCR(getReservationName(pod), genV1.AvailableCapacityReservation{Status: v1.ReservationRequested})
-			assert.Nil(t, e.k8sClient.DeleteCR(testCtx, &reservation))
-		}()
-		pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: ""}}
-		name = getReservationName(pod)
-		assert.Nil(t, e.createReservation(testCtx, namespace, name, nodes, capacityRequests))
-		assert.Error(t, e.k8sClient.ReadCR(testCtx, name, "", &acrcrd.AvailableCapacityReservation{}))
-	}
+	reservationResource = &acrcrd.AvailableCapacityReservation{}
+	assert.Nil(t, e.k8sClient.ReadCR(testCtx, name, "", reservationResource))
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
+	cancel()
 }
