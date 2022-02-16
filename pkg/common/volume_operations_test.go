@@ -18,12 +18,18 @@ package common
 
 import (
 	"context"
-	"github.com/dell/csi-baremetal/pkg/base"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/mocks"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +40,7 @@ import (
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -89,8 +96,7 @@ func Test_getPersistentVolumeClaimLabels(t *testing.T) {
 	assert.Equal(t, labels[k8s.ReleaseLabelKey], releaseName)
 }
 
-// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
-/*func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
+func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 	// 1. Volume CR has already exist
 	svc := setupVOOperationsTest(t)
 
@@ -103,7 +109,7 @@ func Test_getPersistentVolumeClaimLabels(t *testing.T) {
 	createdVolume1, err := svc.CreateVolume(ctx, api.Volume{Id: v.Spec.Id})
 	assert.Nil(t, err)
 	assert.Equal(t, &v.Spec, createdVolume1)
-}*/
+}
 
 // Volume CR was successfully created, HDD SC
 func TestVolumeOperationsImpl_CreateVolume_HDDVolumeCreated(t *testing.T) {
@@ -191,7 +197,7 @@ func Test_handleVolumeInProgress(t *testing.T) {
 }
 
 // Volume CR was successfully created, HDDLVG SC
-/*func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
+func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	var (
 		svc           *VolumeOperationsImpl
 		acProvider    = &mocks.ACOperationsMock{}
@@ -269,7 +275,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailCauseTimeout(t *testing.T) {
 		svc = setupVOOperationsTest(t)
 		v   = testVolume1
 	)
-	v.ObjectMeta.CreationTimestamp = v1.Time{
+	v.ObjectMeta.CreationTimestamp = k8smetav1.Time{
 		Time: time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local),
 	}
 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
@@ -546,9 +552,17 @@ func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
 	svc = setupVOOperationsTest(t)
 	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &volumeCR)
-	volAC := testAC2
+	volAC := &accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+		Spec: api.AvailableCapacity{
+			Size:         10000,
+			StorageClass: apiV1.StorageClassSystemLVG,
+			// NodeId:       nodeID,
+		},
+	}
 	volAC.Spec.Location = testDrive1UUID
-	err = svc.k8sClient.CreateCR(testCtx, testAC2Name, &volAC)
+	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
 	assert.Nil(t, err)
 
 	for _, v := range [2]string{apiV1.Resizing, apiV1.Resized} {
@@ -607,9 +621,17 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	assert.Equal(t, codes.Internal, status.Code(err))
 
 	//Required capacity is more than capacity of AC
-	volAC := testAC2
+	volAC := &accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+		Spec: api.AvailableCapacity{
+			Size:         10000,
+			StorageClass: apiV1.StorageClassSystemLVG,
+			// NodeId:       nodeID,
+		},
+	}
 	volAC.Spec.Location = testDrive1UUID
-	err = svc.k8sClient.CreateCR(testCtx, testAC2Name, &volAC)
+	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
 	assert.Nil(t, err)
 	err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
 	assert.NotNil(t, err)
@@ -627,9 +649,17 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	svc.cache.Set(volumeCR.Spec.Id, testNS)
 	volumeCR.Spec.CSIStatus = apiV1.Failed
 	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR)
-	volAC := testAC2
+	volAC := &accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+		Spec: api.AvailableCapacity{
+			Size:         10000,
+			StorageClass: apiV1.StorageClassSystemLVG,
+			// NodeId:       nodeID,
+		},
+	}
 	volAC.Spec.Location = testDrive1UUID
-	err = svc.k8sClient.CreateCR(testCtx, testAC2Name, &volAC)
+	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
 	assert.Nil(t, err)
 
 	// volume doesn't have annotation
@@ -670,7 +700,6 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
 }
-*/
 
 func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	svc := setupVOOperationsTest(t)
