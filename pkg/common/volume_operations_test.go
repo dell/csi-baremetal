@@ -102,7 +102,7 @@ func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 
 	v := testVolume1
 	v.Spec.CSIStatus = apiV1.Created
-	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: testNS})
 	err := svc.k8sClient.CreateCR(ctx, testVolume1Name, &v)
 	assert.Nil(t, err)
 
@@ -196,6 +196,7 @@ func Test_handleVolumeInProgress(t *testing.T) {
 	assert.Nil(t, volume)
 }
 
+// FIXME
 // Volume CR was successfully created, HDDLVG SC
 func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	var (
@@ -242,7 +243,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, &acToReturn).
 		Return(&recreatedAC).Times(1)
 
-	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: testNS})
 	createdVolume, err = svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,
@@ -261,7 +262,7 @@ func TestVolumeOperationsImpl_CreateVolume_FaileCauseExist(t *testing.T) {
 	v := testVolume1
 	v.Spec.CSIStatus = apiV1.Failed
 	svc.cache.Set(v.Name, v.Namespace)
-	ctx := context.WithValue(testCtx, util.VolumeInfoKey, v.Namespace)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: v.Namespace})
 	assert.Nil(t, svc.k8sClient.CreateCR(ctx, testVolume1Name, &v))
 
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{Id: v.Spec.Id})
@@ -278,7 +279,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailCauseTimeout(t *testing.T) {
 	v.ObjectMeta.CreationTimestamp = k8smetav1.Time{
 		Time: time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local),
 	}
-	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: v.Namespace})
 	err := svc.k8sClient.CreateCR(ctx, v.Name, &v)
 	assert.Nil(t, err)
 
@@ -288,6 +289,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailCauseTimeout(t *testing.T) {
 	assert.Nil(t, createdVolume)
 }
 
+// FIXME
 // There is no suitable AC
 func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 	var (
@@ -304,7 +306,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 	acProvider.On("SearchAC", ctxWithID, requiredNode, requiredBytes, requiredSC).
 		Return(nil).Times(1)
 
-	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: testNS})
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,
@@ -316,6 +318,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 	assert.Nil(t, createdVolume)
 }
 
+// FIXME
 // Fail to recreate AC from HDD to LogicalVolumeGroup
 func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 	var (
@@ -346,7 +349,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 	acProvider.On("RecreateACToLVGSC", ctxWithID, mock.Anything, requiredSC, mock.Anything).
 		Return(nil).Times(1)
 
-	ctx := context.WithValue(testCtx, util.VolumeInfoKey, testNS)
+	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: testNS})
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
 		StorageClass: requiredSC,
@@ -423,6 +426,7 @@ func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
 	assert.Equal(t, status.Error(codes.Internal, "volume has reached failed status"), err)
 }
 
+// FIXME
 // volume has status Removed or Removing
 func TestVolumeOperationsImpl_DeleteVolume(t *testing.T) {
 	var (
@@ -501,6 +505,7 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+// FIXME
 func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	var err error
 
