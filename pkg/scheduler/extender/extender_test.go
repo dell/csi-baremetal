@@ -686,7 +686,6 @@ func Test_createReservationAndCheckStatus(t *testing.T) {
 	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
 	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
 	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
-
 	// context timeout exceeded
 	namespace = ""
 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
