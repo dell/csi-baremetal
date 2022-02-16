@@ -48,10 +48,6 @@ import (
 	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
-var (
-	reservationConfirmedDuration = 5 * time.Minute
-)
-
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
 // based on pod volumes requirements and Available Capacities
 type Extender struct {
@@ -451,7 +447,6 @@ func (e *Extender) createReservation(ctx context.Context, ns, name string,
 	// or wait context deadline
 	readCh := make(chan struct{})
 	ticker := time.NewTicker(time.Second)
-	ctx, cancel := context.WithTimeout(ctx, reservationConfirmedDuration)
 	ll := e.logger.WithFields(logrus.Fields{
 		"method":      "createReservation",
 		"sessionUUID": ctx.Value(base.RequestUUID),
@@ -480,7 +475,6 @@ func (e *Extender) createReservation(ctx context.Context, ns, name string,
 		break
 	}
 	close(readCh)
-	cancel()
 	return nil
 }
 
