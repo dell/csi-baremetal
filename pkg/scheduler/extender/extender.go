@@ -441,14 +441,13 @@ func (e *Extender) createReservation(ctx context.Context, ns, name string,
 	// return after reservation confirmed
 	// or wait context deadline
 	readCh := make(chan struct{})
-	ticker := time.NewTicker(time.Second)
 	ll := e.logger.WithFields(logrus.Fields{
 		"method":      "createReservation",
 		"sessionUUID": ctx.Value(base.RequestUUID),
 	})
 	go func() {
-		defer ticker.Stop()
-		for range ticker.C {
+		for _, timer := range []time.Duration{1 * time.Second, 3 * time.Second, 10 * time.Second} {
+			time.Sleep(timer)
 			acr := &acrcrd.AvailableCapacityReservation{}
 			if err := e.k8sClient.ReadCR(ctx, name, ns, acr); err != nil {
 				ll.Warningf("Failed to read CR '%s' error: %s", name, err)
