@@ -102,9 +102,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	defer func() {
-		_ = req.Body.Close()
-	}()
+	_ = req.Body.Close()
 
 	ll = ll.WithFields(logrus.Fields{
 		"pod": extenderArgs.Pod.Name,
@@ -169,9 +167,7 @@ func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Errorf("Unable to decode request body: %v", err)
 		return
 	}
-	defer func() {
-		_ = req.Body.Close()
-	}()
+	_ = req.Body.Close()
 
 	ll.Info("Scoring")
 
@@ -217,9 +213,7 @@ func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	defer func() {
-		_ = req.Body.Close()
-	}()
+	_ = req.Body.Close()
 
 	extenderBindingRes.Error = "don't know how to use bind API"
 	if err := resp.Encode(extenderBindingRes); err != nil {
