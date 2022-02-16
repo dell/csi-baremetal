@@ -1,4 +1,5 @@
 [This is a template for CSI-Baremetal's changes proposal. ]
+<!-- If you need to draw a diagram, use https://app.diagrams.net/. Don't forget to save it in xlm format as well for edit option.-->
 # Proposal: [Title]
 
 Last updated: [Date]
