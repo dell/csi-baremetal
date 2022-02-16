@@ -405,6 +405,7 @@ func getReservationName(pod *coreV1.Pod) string {
 	return namespace + "-" + pod.Name
 }
 
+// TODO https://github.com/dell/csi-baremetal/issues/747
 func (e *Extender) createReservation(ctx context.Context, ns, name string,
 	nodes []coreV1.Node, capacities []*genV1.CapacityRequest) error {
 	// ACR CRD
