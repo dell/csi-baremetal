@@ -627,6 +627,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
 		if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 			ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
+			return nil, status.Error(codes.Internal, updateErr.Error())
 		}
 	}
 
