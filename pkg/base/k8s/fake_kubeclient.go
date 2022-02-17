@@ -33,8 +33,10 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 )
 
+type contextKey string
+
 const (
-	updateFailCtxKey   = "updateFail"
+	updateFailCtxKey   = contextKey("updateFail")
 	updateFailCtxValue = "yes"
 )
 
