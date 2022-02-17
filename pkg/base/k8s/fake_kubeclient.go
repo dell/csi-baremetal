@@ -18,6 +18,7 @@ package k8s
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +31,16 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
+)
+
+const (
+	updateFailCtxKey   = "updateFail"
+	updateFailCtxValue = "yes"
+)
+
+var (
+	// UpdateFailCtx raises an error on fakeClient.Update
+	UpdateFailCtx = context.WithValue(context.Background(), updateFailCtxKey, updateFailCtxValue)
 )
 
 // NewFakeClientWrapper return new instance of FakeClientWrapper
@@ -75,6 +86,9 @@ func (fkw *FakeClientWrapper) Delete(ctx context.Context, obj k8sCl.Object, opts
 
 // Update is a wrapper around Update method
 func (fkw *FakeClientWrapper) Update(ctx context.Context, obj k8sCl.Object, opts ...k8sCl.UpdateOption) error {
+	if ctx.Value(updateFailCtxKey) == updateFailCtxValue {
+		return errors.New("raise update error")
+	}
 	return fkw.client.Update(ctx, obj, opts...)
 }
 

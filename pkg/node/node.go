@@ -590,7 +590,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.FailedPrecondition, msg)
 	}
 
-	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
+	ctxWithID := context.WithValue(ctx, base.RequestUUID, req.GetVolumeId())
 	if err := s.fsOps.UnmountWithCheck(req.GetTargetPath()); err != nil {
 		ll.Errorf("Unable to unmount volume: %v", err)
 		volumeCR.Spec.CSIStatus = apiV1.Failed
