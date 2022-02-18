@@ -13,7 +13,7 @@ versions:
 <!-- Great intros give readers a quick understanding of what's in the article, so they can tell whether it's relevant to them before moving ahead. For more tips, see https://github.com/github/docs/blob/main/contributing/content-model.md#intro. -->
 <!-- For product callout info, see https://github.com/github/docs/tree/main/content#product.-->
 <!-- For product version instructions, see https://github.com/github/docs/tree/main/content#versions.-->
-<!-- If you need to draw a diagram, use https://app.diagrams.net/. Don't forget to save it in xlm format as well for edit option.-->
+<!-- If you need to draw a diagram, use https://app.diagrams.net/. Export drawing in svg format.-->
 <!-- Remove these comments from your article file when you're done writing. -->
 
 ## A section here
