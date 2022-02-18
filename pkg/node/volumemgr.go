@@ -469,8 +469,11 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 		newStatus = apiV1.Failed
 	}
 
+	attempts := 5
 	volume.Spec.CSIStatus = newStatus
-	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); updateErr != nil {
+	if updateErr := m.k8sClient.UpdateCR(ctx, volume, &k8s.KubeClientRequestOptions{
+		MaxBackoffRetries: &attempts,
+	}); updateErr != nil {
 		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
 		return ctrl.Result{Requeue: true}, updateErr
 	}
@@ -492,8 +495,11 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 		return ctrl.Result{Requeue: true}, err
 	}
 
+	attempts := 10
 	volume.Spec.CSIStatus = newStatus
-	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
+	if updateErr := m.k8sClient.UpdateCR(ctx, volume, &k8s.KubeClientRequestOptions{
+		MaxBackoffRetries: &attempts,
+	}); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
 		return ctrl.Result{Requeue: true}, updateErr
 	}
@@ -515,8 +521,11 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
 		if drive != nil {
+			attempts := 5
 			drive.Spec.Usage = apiV1.DriveUsageFailed
-			if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
+			if err := m.k8sClient.UpdateCR(ctx, drive, &k8s.KubeClientRequestOptions{
+				MaxBackoffRetries: &attempts,
+			}); err != nil {
 				ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
 					drive.Name, drive.Spec.Usage, err)
 				return "", err

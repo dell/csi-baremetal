@@ -18,6 +18,9 @@ package k8s
 
 import (
 	"context"
+	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/backoff"
+	"github.com/pkg/errors"
 	"strings"
 	"time"
 
@@ -72,6 +75,7 @@ type KubeClient struct {
 	objectsLogger objects.ObjectLogger
 	Namespace     string
 	metrics       metrics.Statistic
+	backoffHandler backoff.Handler
 }
 
 // CRReader is a reader interface for k8s client wrapper
@@ -85,20 +89,21 @@ type CRReader interface {
 // NewKubeClient is the constructor for KubeClient struct
 // Receives basic k8s client from controller-runtime, logrus logger and namespace where to work
 // Returns an instance of KubeClient struct
-func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, objectsLogger objects.ObjectLogger, namespace string) *KubeClient {
+func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, objectsLogger objects.ObjectLogger, namespace string, backoffHandler backoff.Handler) *KubeClient {
 	return &KubeClient{
 		Client:        k8sclient,
 		log:           logger.WithField("component", "KubeClient"),
 		objectsLogger: objectsLogger,
 		Namespace:     namespace,
 		metrics:       common.KubeclientDuration,
+		backoffHandler: backoffHandler,
 	}
 }
 
 // CreateCR creates provided resource on k8s cluster with checking its existence before
 // Receives golang context, name of the created object, and object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object) error {
+func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("CreateCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -110,42 +115,86 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object
 	})
 	crKind := obj.GetObjectKind().GroupVersionKind().Kind
 	ll.Infof("Creating CR '%s': %s", crKind, k.objectsLogger.Log(obj))
-	err := k.Create(ctx, obj)
-	if err != nil {
-		if k8sError.IsAlreadyExists(err) {
-			ll.Infof("CR %s %s already exist", crKind, name)
-			return nil
+
+	opt := mergeKubeClientRequestOptions(opts...)
+	var retries int
+	for {
+		err := k.Create(ctx, obj)
+		if err != nil {
+			if k8sError.IsAlreadyExists(err) {
+				ll.Infof("CR %s %s already exist", crKind, name)
+				return nil
+			}
+
+			ll.WithFields(logrus.Fields{"method": "CreateCR", "requestUUID": requestUUID.(string)}).
+				Errorf("error occurred while creating custom resource: '%v'", err)
+			if backoffErr := k.makeBackoffRetry(ctx, "CreateCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+				return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+			}
 		}
-		ll.Errorf("Unable to create CR %s %s: %v", crKind, name, err)
-		return err
+		ll.Infof("CR %s %s created", crKind, name)
 	}
-	ll.Infof("CR %s %s created", crKind, name)
-	return nil
 }
 
 // ReadCR reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object) error {
+func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("ReadCR")()
-	if namespace == "" {
-		return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: k.Namespace}, obj)
+	requestUUID := ctx.Value(base.RequestUUID)
+	if requestUUID == nil {
+		requestUUID = DefaultVolumeID
 	}
-	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj)
+	if namespace == "" {
+		namespace = k.Namespace
+	}
+
+	opt := mergeKubeClientRequestOptions(opts...)
+	var retries int
+	for {
+		err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj)
+		if err == nil {
+			return nil
+		}
+
+		k.log.WithFields(logrus.Fields{"method": "ReadCR", "requestUUID": requestUUID.(string)}).
+			Errorf("error occurred while reading custom resource: '%v'", err)
+		if backoffErr := k.makeBackoffRetry(ctx, "ReadCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+			return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+		}
+	}
 }
 
 // ReadList reads a list of specified resources into k8s resource List struct (for example v1.PodList)
 // Receives golang context, and List object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadList(ctx context.Context, obj k8sCl.ObjectList) error {
+func (k *KubeClient) ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ...*KubeClientRequestOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("ReadList")()
-	return k.List(ctx, obj)
+	requestUUID := ctx.Value(base.RequestUUID)
+	if requestUUID == nil {
+		requestUUID = DefaultVolumeID
+	}
+
+	opt := mergeKubeClientRequestOptions(opts...)
+	var retries int
+	for {
+		err := k.List(ctx, obj)
+		if err == nil {
+			return nil
+		}
+
+		k.log.WithFields(logrus.Fields{"method": "ListCR", "requestUUID": requestUUID.(string)}).
+			Errorf("error occurred while listing custom resource: '%v'", err)
+		if backoffErr := k.makeBackoffRetry(ctx, "ListCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+			return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+		}
+	}
 }
 
 // UpdateCR updates provided resource on k8s cluster
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object) error {
+func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("UpdateCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -157,13 +206,28 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object) error {
 		"requestUUID": requestUUID.(string),
 	}).Infof("Updating CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
-	return k.Update(ctx, obj)
+	opt := mergeKubeClientRequestOptions(opts...)
+	var retries int
+	for {
+		switch err := k.Update(ctx, obj); {
+		case err == nil:
+			return nil
+		case k8sError.IsNotFound(err) || k8sError.IsConflict(err):  // immediately return if object was removed or modified
+			return err
+		default:
+			k.log.WithFields(logrus.Fields{"method": "UpdateCR", "requestUUID": requestUUID.(string)}).
+				Errorf("error occurred while updating custom resource: '%v'", err)
+			if backoffErr := k.makeBackoffRetry(ctx, "UpdateCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+				return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+			}
+		}
+	}
 }
 
 // DeleteCR deletes provided resource from k8s cluster
 // Receives golang context and removable object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object) error {
+func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("DeleteCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -175,7 +239,37 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object) error {
 		"requestUUID": requestUUID.(string),
 	}).Infof("Deleting CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
-	return k.Delete(ctx, obj)
+	opt := mergeKubeClientRequestOptions(opts...)
+	var retries int
+	for {
+		err := k.Delete(ctx, obj)
+		if err == nil {
+			return nil
+		}
+
+		k.log.WithFields(logrus.Fields{"method": "DeleteCR", "requestUUID": requestUUID.(string)}).
+			Errorf("error occurred while deleting custom resource: '%v'", err)
+		if backoffErr := k.makeBackoffRetry(ctx, "DeleteCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+			return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+		}
+	}
+}
+
+func (k *KubeClient) makeBackoffRetry(ctx context.Context, method, requestUUID string, retries, maxBackoffRetries int) error {
+	select {
+	case <-ctx.Done():
+		k.log.WithFields(logrus.Fields{"method": method, "requestUUID": requestUUID}).
+			Debug("context was cancelled, returning from backoff retry")
+		return nil
+	case <-time.After(k.backoffHandler.Handle(retries)):
+		retries++
+		k.log.WithFields(logrus.Fields{"method": method, "requestUUID": requestUUID}).
+			Infof("kubeclient trying to handling method: '%s', retry: '%d'", method, retries)
+		if maxBackoffRetries > 0 && retries >= maxBackoffRetries {
+			return backoff.ErrMaxBackoffRetriesExceeded
+		}
+	}
+	return nil
 }
 
 // ConstructACCR constructs AvailableCapacity custom resource from api.AvailableCapacity struct
@@ -280,67 +374,6 @@ func (k *KubeClient) ConstructCSIBMNodeCR(name string, csiNode api.Node) *nodecr
 		},
 		Spec: csiNode,
 	}
-}
-
-// ReadCRWithAttempts reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
-// with specified amount of attempts. Fails right away if resource is not found
-// Receives golang context, name of the read object, and object pointer where to read
-// Returns error if something went wrong
-func (k *KubeClient) ReadCRWithAttempts(name string, namespace string, obj k8sCl.Object, attempts int) error {
-	ll := k.log.WithFields(logrus.Fields{
-		"method":   "ReadCRWithAttempts",
-		"volumeID": name,
-	})
-
-	var (
-		err    error
-		ticker = time.NewTicker(TickerStep)
-	)
-
-	defer ticker.Stop()
-
-	// read volume into v
-	for i := 0; i < attempts; i++ {
-		if err = k.ReadCR(context.Background(), name, namespace, obj); err == nil {
-			return nil
-		} else if k8sError.IsNotFound(err) {
-			return err
-		}
-		ll.Warnf("Unable to read CR: %v. Attempt %d out of %d.", err, i, attempts)
-		<-ticker.C
-	}
-	return err
-}
-
-// UpdateCRWithAttempts updates provided resource on k8s cluster with specified amount of attempts
-// Fails right away if resource is not found or was changed
-// Receives golang context and updated object that implements k8s runtime.Object interface
-// Returns error if something went wrong
-func (k *KubeClient) UpdateCRWithAttempts(ctx context.Context, obj k8sCl.Object, attempts int) error {
-	ll := k.log.WithField("method", "UpdateCRWithAttempts")
-
-	var (
-		err    error
-		ticker = time.NewTicker(TickerStep)
-		ctxVal = context.WithValue(context.Background(), base.RequestUUID, ctx.Value(base.RequestUUID))
-	)
-
-	defer ticker.Stop()
-
-	for i := 0; i < attempts; i++ {
-		err = k.UpdateCR(ctxVal, obj)
-		if err == nil {
-			return nil
-		}
-		// immediately return if object was removed or modified
-		if k8sError.IsNotFound(err) || k8sError.IsConflict(err) {
-			return err
-		}
-		ll.Warnf("Unable to update volume CR. Attempt %d out of %d with err %v", i, attempts, err)
-		<-ticker.C
-	}
-
-	return err
 }
 
 // GetPods returns list of pods which names contain mask

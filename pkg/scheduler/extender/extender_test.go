@@ -19,8 +19,11 @@ package extender
 import (
 	"context"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/backoff"
+	grpcbackoff "google.golang.org/grpc/backoff"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -480,7 +483,14 @@ func setup(t *testing.T) *Extender {
 	assert.Nil(t, err)
 
 	featureConf := fc.NewFeatureConfig()
-	kubeClient := k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs)
+	kubeClient := k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs,
+		backoff.NewExponentialHandler(&grpcbackoff.Config{
+			BaseDelay:  30*time.Millisecond,
+			Multiplier: 1.6,
+			Jitter:     0.5,
+			MaxDelay:   30*time.Second,
+		}),
+	)
 	kubeCache := k8s.NewKubeCache(k, testLogger)
 	return &Extender{
 		k8sClient:              kubeClient,

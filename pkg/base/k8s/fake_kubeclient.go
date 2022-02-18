@@ -19,6 +19,9 @@ package k8s
 import (
 	"context"
 	"errors"
+	"github.com/dell/csi-baremetal/pkg/base/backoff"
+	grpcbackoff "google.golang.org/grpc/backoff"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -161,5 +164,12 @@ func GetFakeKubeClient(testNs string, logger *logrus.Logger) (*KubeClient, error
 		return nil, err
 	}
 	fakeClientWrapper := NewFakeClientWrapper(fake.NewClientBuilder().WithScheme(scheme).Build(), scheme)
-	return NewKubeClient(fakeClientWrapper, logger, objects.NewObjectLogger(), testNs), nil
+	return NewKubeClient(fakeClientWrapper, logger, objects.NewObjectLogger(), testNs,
+		backoff.NewExponentialHandler(&grpcbackoff.Config{
+			BaseDelay:  30*time.Millisecond,
+			Multiplier: 1.6,
+			Jitter:     0.5,
+			MaxDelay:   30*time.Second,
+		}),
+	), nil
 }

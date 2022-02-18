@@ -64,6 +64,7 @@ type VolumeOperationsImpl struct {
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 	crHelper               *k8s.CRHelper
+	updateCRAttempts int
 
 	metrics        metrics.Statistic
 	cache          cache.Interface
@@ -86,14 +87,15 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, c
 			Errorf("Failed to register metric: %v", err)
 	}
 	vo := &VolumeOperationsImpl{
-		k8sClient:              k8sClient,
-		crHelper:               k8s.NewCRHelper(k8sClient, logger),
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
-		log:                    logger.WithField("component", "VolumeOperationsImpl"),
-		featureChecker:         featureConf,
+		k8sClient:              k8sClient,
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
-		cache:                  cache,
+		crHelper:               k8s.NewCRHelper(k8sClient, logger),
+		updateCRAttempts:       5,
 		metrics:                volumeMetrics,
+		cache:                  cache,
+		featureChecker:         featureConf,
+		log:                    logger.WithField("component", "VolumeOperationsImpl"),
 	}
 	vo.fillCache()
 	return vo
@@ -240,7 +242,9 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	// decrease AC size
 	ac.Spec.Size -= allocatedBytes
-	if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
+	if err = vo.k8sClient.UpdateCR(ctx, ac, &k8s.KubeClientRequestOptions{
+		MaxBackoffRetries: &vo.updateCRAttempts,
+	}); err != nil {
 		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 	}
 	// release reservation
@@ -276,7 +280,9 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 			log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
 			volumeCR.Spec.CSIStatus = apiV1.Failed
 			// todo don't ignore error here
-			_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
+			_ = vo.k8sClient.UpdateCR(ctx, volumeCR, &k8s.KubeClientRequestOptions{
+				MaxBackoffRetries: &vo.updateCRAttempts,
+			})
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
 		return &volumeCR.Spec, nil
@@ -467,7 +473,9 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	if !isDeleted && volumeCR.Spec.Health == apiV1.HealthGood {
 		// Increase size of AC using volume size
 		acCR.Spec.Size += volumeCR.Spec.Size
-		if err = vo.k8sClient.UpdateCRWithAttempts(ctx, &acCR, 5); err != nil {
+		if err = vo.k8sClient.UpdateCR(ctx, &acCR, &k8s.KubeClientRequestOptions{
+			MaxBackoffRetries: &vo.updateCRAttempts,
+		}); err != nil {
 			ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
 		}
 	}
@@ -551,7 +559,9 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 				fmt.Sprintf("Not enough capacity to expand volume: requested - %d, available - %d", requiredBytes, capacity.Spec.Size))
 		}
 		capacity.Spec.Size -= acSize
-		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, capacity, 5); err != nil {
+		if err := vo.k8sClient.UpdateCR(ctx, capacity, &k8s.KubeClientRequestOptions{
+			MaxBackoffRetries: &vo.updateCRAttempts,
+		}); err != nil {
 			ll.Errorf("Failed to update AC, error: %v", err)
 			return status.Error(codes.Internal, "Unable to reserve AC")
 		}
@@ -564,7 +574,9 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 		volume.Spec.CSIStatus = apiV1.Resizing
 		volume.Spec.Size = requiredBytes
 
-		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+		if err := vo.k8sClient.UpdateCR(ctx, volume, &k8s.KubeClientRequestOptions{
+			MaxBackoffRetries: &vo.updateCRAttempts,
+		}); err != nil {
 			ll.Errorf("Failed to update volume, error: %v", err)
 			return status.Error(codes.Internal, "Unable to update volume")
 		}
@@ -611,7 +623,9 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeExpansion(ctx context.Contex
 		} else {
 			acSize := requiredBytes - volume.Spec.Size
 			ac.Spec.Size += acSize
-			if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
+			if err = vo.k8sClient.UpdateCR(ctx, ac, &k8s.KubeClientRequestOptions{
+				MaxBackoffRetries: &vo.updateCRAttempts,
+			}); err != nil {
 				ll.Errorf("Failed to update AC: %v", err)
 			}
 		}

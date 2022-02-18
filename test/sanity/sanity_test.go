@@ -206,17 +206,22 @@ func prepareNodeMock(kubeClient *k8s.KubeClient, log *logrus.Logger) *node.CSINo
 
 // imitateVolumeManagerReconcile imitates working of VolumeManager's Reconcile loop under not k8s env.
 func imitateVolumeManagerReconcile(kubeClient *k8s.KubeClient) {
+	attempts := 5
 	for range time.Tick(10 * time.Second) {
 		volumes := &vcrd.VolumeList{}
 		_ = kubeClient.ReadList(context.Background(), volumes)
 		for _, v := range volumes.Items {
 			if v.Spec.CSIStatus == apiV1.Creating {
 				v.Spec.CSIStatus = apiV1.Created
-				_ = kubeClient.UpdateCRWithAttempts(context.Background(), &v, 5)
+				_ = kubeClient.UpdateCR(context.Background(), &v, &k8s.KubeClientRequestOptions{
+					MaxBackoffRetries: &attempts,
+				})
 			}
 			if v.Spec.CSIStatus == apiV1.Removing {
 				v.Spec.CSIStatus = apiV1.Removed
-				_ = kubeClient.UpdateCRWithAttempts(context.Background(), &v, 5)
+				_ = kubeClient.UpdateCR(context.Background(), &v, &k8s.KubeClientRequestOptions{
+					MaxBackoffRetries: &attempts,
+				})
 			}
 		}
 	}

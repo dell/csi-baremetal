@@ -24,7 +24,9 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
+	grpcbackoff "google.golang.org/grpc/backoff"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -36,6 +38,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/dell/csi-baremetal/pkg/base/backoff"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -94,7 +97,15 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	kubeClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
+	kubeClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace,
+		backoff.NewExponentialHandler(&grpcbackoff.Config{
+			// TODO(n.mikhnenko): customize vars
+			BaseDelay:  30*time.Millisecond,
+			Multiplier: 1.6,
+			Jitter:     0.5,
+			MaxDelay:   30*time.Second,
+		}),
+	)
 	controllerService := controller.NewControllerService(kubeClient, logger, featureConf)
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiControllerServer)
@@ -183,7 +194,15 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 			return nil, err
 		}
 	}
-	wrappedK8SClient := k8s.NewKubeClient(client, log, objects.NewObjectLogger(), *namespace)
+	wrappedK8SClient := k8s.NewKubeClient(client, log, objects.NewObjectLogger(), *namespace,
+		backoff.NewExponentialHandler(&grpcbackoff.Config{
+			// TODO(n.mikhnenko): customize vars
+			BaseDelay:  30*time.Millisecond,
+			Multiplier: 1.6,
+			Jitter:     0.5,
+			MaxDelay:   30*time.Second,
+		}),
+	)
 
 	kubeCache, err := k8s.InitKubeCache(ctx, log,
 		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
