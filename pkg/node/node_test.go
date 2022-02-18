@@ -402,6 +402,15 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(status.Code(err)).To(Equal(codes.NotFound))
 		})
+		It("Update Volume CR failed", func() {
+			req := getNodeUnpublishRequest(testV1ID, targetPath)
+
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
+
+			_, err := node.NodeUnpublishVolume(k8s.UpdateFailCtx, req)
+			Expect(err).NotTo(BeNil())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+		})
 	})
 })
 var _ = Describe("CSINodeService NodeUnStage()", func() {
@@ -427,7 +436,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 		})
 	})
 
-	Context("NodeUnPublish() failure", func() {
+	Context("NodeUnStage() failure", func() {
 		It("Should fail with missing VolumeId", func() {
 			req := &csi.NodeUnstageVolumeRequest{
 				StagingTargetPath: stagePath,

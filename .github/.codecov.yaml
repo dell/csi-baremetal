@@ -3,3 +3,6 @@ coverage:
     project:
       default:
         threshold: 1%
+ignore:
+  # test module
+  - "pkg/base/k8s/fake_kubeclient.go"
