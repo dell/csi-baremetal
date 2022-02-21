@@ -3,6 +3,9 @@ output:
   format: colored-line-number
 
 linters-settings:
+  dupl:
+    # increasing tokens threshold to reduce the chance of false-positives triggers
+    threshold: 210
   lll:
     line-length: 190
   funlen:
