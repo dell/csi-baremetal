@@ -607,10 +607,10 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs,
 			backoff.NewExponentialHandler(&grpcbackoff.Config{
-				BaseDelay:  30*time.Millisecond,
+				BaseDelay:  30 * time.Millisecond,
 				Multiplier: 1.6,
 				Jitter:     0.5,
-				MaxDelay:   30*time.Second,
+				MaxDelay:   30 * time.Second,
 			}),
 		)
 		// expect: updateDrivesCRs failed
@@ -627,10 +627,10 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs,
 			backoff.NewExponentialHandler(&grpcbackoff.Config{
-				BaseDelay:  30*time.Millisecond,
+				BaseDelay:  30 * time.Millisecond,
 				Multiplier: 1.6,
 				Jitter:     0.5,
-				MaxDelay:   30*time.Second,
+				MaxDelay:   30 * time.Second,
 			}),
 		)
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
@@ -805,10 +805,10 @@ func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
 	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs,
 		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			BaseDelay:  30*time.Millisecond,
+			BaseDelay:  30 * time.Millisecond,
 			Multiplier: 1.6,
 			Jitter:     0.5,
-			MaxDelay:   30*time.Second,
+			MaxDelay:   30 * time.Second,
 		}),
 	)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)

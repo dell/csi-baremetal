@@ -8,8 +8,10 @@ import (
 	"google.golang.org/grpc/backoff"
 )
 
+// ErrMaxBackoffRetriesExceeded stays for max backoff retries exceeded error
 var ErrMaxBackoffRetriesExceeded = errors.New("max backoff retries exceeded")
 
+// Handler is a backoff handler
 type Handler interface {
 	Handle(retries int) time.Duration
 }
@@ -40,6 +42,7 @@ func (s *exponentialHandler) Handle(retries int) time.Duration {
 	return time.Duration(curBackoff)
 }
 
+// NewExponentialHandler is a constructor for backoff handler
 func NewExponentialHandler(config *backoff.Config) Handler {
 	return &exponentialHandler{
 		config: config,

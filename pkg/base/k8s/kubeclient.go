@@ -19,11 +19,11 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/backoff"
-	"github.com/pkg/errors"
 	"strings"
 	"time"
 
+	"github.com/dell/csi-baremetal/pkg/base/backoff"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
@@ -71,19 +71,19 @@ const (
 // KubeClient is the extension of k8s client which supports CSI custom recources
 type KubeClient struct {
 	k8sCl.Client
-	log           *logrus.Entry
-	objectsLogger objects.ObjectLogger
-	Namespace     string
-	metrics       metrics.Statistic
+	log            *logrus.Entry
+	objectsLogger  objects.ObjectLogger
+	Namespace      string
+	metrics        metrics.Statistic
 	backoffHandler backoff.Handler
 }
 
 // CRReader is a reader interface for k8s client wrapper
 type CRReader interface {
 	// ReadCR reads CR
-	ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object) error
+	ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error
 	// ReadList reads CR list
-	ReadList(ctx context.Context, obj k8sCl.ObjectList) error
+	ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ...*KubeClientRequestOptions) error
 }
 
 // NewKubeClient is the constructor for KubeClient struct
@@ -91,11 +91,11 @@ type CRReader interface {
 // Returns an instance of KubeClient struct
 func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, objectsLogger objects.ObjectLogger, namespace string, backoffHandler backoff.Handler) *KubeClient {
 	return &KubeClient{
-		Client:        k8sclient,
-		log:           logger.WithField("component", "KubeClient"),
-		objectsLogger: objectsLogger,
-		Namespace:     namespace,
-		metrics:       common.KubeclientDuration,
+		Client:         k8sclient,
+		log:            logger.WithField("component", "KubeClient"),
+		objectsLogger:  objectsLogger,
+		Namespace:      namespace,
+		metrics:        common.KubeclientDuration,
 		backoffHandler: backoffHandler,
 	}
 }
@@ -119,18 +119,21 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object
 	opt := mergeKubeClientRequestOptions(opts...)
 	var retries int
 	for {
-		err := k.Create(ctx, obj)
-		if err != nil {
-			if k8sError.IsAlreadyExists(err) {
-				ll.Infof("CR %s %s already exist", crKind, name)
-				return nil
-			}
-
+		switch err := k.Create(ctx, obj); {
+		case err == nil:
+			return nil
+		case k8sError.IsAlreadyExists(err):
+			ll.Infof("CR %s %s already exist", crKind, name)
+			return nil
+		case !k8sError.IsServerTimeout(err) && !k8sError.IsTimeout(err): // return if errors are not related wth timeouts
+			return err
+		default:
 			ll.WithFields(logrus.Fields{"method": "CreateCR", "requestUUID": requestUUID.(string)}).
 				Errorf("error occurred while creating custom resource: '%v'", err)
 			if backoffErr := k.makeBackoffRetry(ctx, "CreateCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
 				return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
 			}
+			retries++
 		}
 		ll.Infof("CR %s %s created", crKind, name)
 	}
@@ -152,15 +155,18 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, 
 	opt := mergeKubeClientRequestOptions(opts...)
 	var retries int
 	for {
-		err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj)
-		if err == nil {
+		switch err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj); {
+		case err == nil:
 			return nil
-		}
-
-		k.log.WithFields(logrus.Fields{"method": "ReadCR", "requestUUID": requestUUID.(string)}).
-			Errorf("error occurred while reading custom resource: '%v'", err)
-		if backoffErr := k.makeBackoffRetry(ctx, "ReadCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
-			return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+		case !k8sError.IsServerTimeout(err) && !k8sError.IsTimeout(err): // return if errors are not related wth timeouts
+			return err
+		default:
+			k.log.WithFields(logrus.Fields{"method": "ReadCR", "requestUUID": requestUUID.(string)}).
+				Errorf("error occurred while reading custom resource: '%v'", err)
+			if backoffErr := k.makeBackoffRetry(ctx, "ReadCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+				return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+			}
+			retries++
 		}
 	}
 }
@@ -178,15 +184,18 @@ func (k *KubeClient) ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ..
 	opt := mergeKubeClientRequestOptions(opts...)
 	var retries int
 	for {
-		err := k.List(ctx, obj)
-		if err == nil {
+		switch err := k.List(ctx, obj); {
+		case err == nil:
 			return nil
-		}
-
-		k.log.WithFields(logrus.Fields{"method": "ListCR", "requestUUID": requestUUID.(string)}).
-			Errorf("error occurred while listing custom resource: '%v'", err)
-		if backoffErr := k.makeBackoffRetry(ctx, "ListCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
-			return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+		case !k8sError.IsServerTimeout(err) && !k8sError.IsTimeout(err): // return if errors are not related wth timeouts
+			return err
+		default:
+			k.log.WithFields(logrus.Fields{"method": "ListCR", "requestUUID": requestUUID.(string)}).
+				Errorf("error occurred while listing custom resource: '%v'", err)
+			if backoffErr := k.makeBackoffRetry(ctx, "ListCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+				return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+			}
+			retries++
 		}
 	}
 }
@@ -212,7 +221,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object, opts ...*Ku
 		switch err := k.Update(ctx, obj); {
 		case err == nil:
 			return nil
-		case k8sError.IsNotFound(err) || k8sError.IsConflict(err):  // immediately return if object was removed or modified
+		case !k8sError.IsServerTimeout(err) && !k8sError.IsTimeout(err): // return if errors are not related wth timeouts
 			return err
 		default:
 			k.log.WithFields(logrus.Fields{"method": "UpdateCR", "requestUUID": requestUUID.(string)}).
@@ -220,6 +229,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object, opts ...*Ku
 			if backoffErr := k.makeBackoffRetry(ctx, "UpdateCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
 				return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
 			}
+			retries++
 		}
 	}
 }
@@ -242,15 +252,18 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object, opts ...*Ku
 	opt := mergeKubeClientRequestOptions(opts...)
 	var retries int
 	for {
-		err := k.Delete(ctx, obj)
-		if err == nil {
+		switch err := k.Delete(ctx, obj); {
+		case err == nil:
 			return nil
-		}
-
-		k.log.WithFields(logrus.Fields{"method": "DeleteCR", "requestUUID": requestUUID.(string)}).
-			Errorf("error occurred while deleting custom resource: '%v'", err)
-		if backoffErr := k.makeBackoffRetry(ctx, "DeleteCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
-			return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+		case !k8sError.IsServerTimeout(err) && !k8sError.IsTimeout(err): // return if errors are not related wth timeouts
+			return err
+		default:
+			k.log.WithFields(logrus.Fields{"method": "DeleteCR", "requestUUID": requestUUID.(string)}).
+				Errorf("error occurred while deleting custom resource: '%v'", err)
+			if backoffErr := k.makeBackoffRetry(ctx, "DeleteCR", requestUUID.(string), retries, *opt.MaxBackoffRetries); backoffErr != nil {
+				return errors.Wrap(backoffErr, fmt.Sprintf("backoff retries failed for origin error: '%v'", err.Error()))
+			}
+			retries++
 		}
 	}
 }
@@ -260,9 +273,8 @@ func (k *KubeClient) makeBackoffRetry(ctx context.Context, method, requestUUID s
 	case <-ctx.Done():
 		k.log.WithFields(logrus.Fields{"method": method, "requestUUID": requestUUID}).
 			Debug("context was cancelled, returning from backoff retry")
-		return nil
+		return ctx.Err()
 	case <-time.After(k.backoffHandler.Handle(retries)):
-		retries++
 		k.log.WithFields(logrus.Fields{"method": method, "requestUUID": requestUUID}).
 			Infof("kubeclient trying to handling method: '%s', retry: '%d'", method, retries)
 		if maxBackoffRetries > 0 && retries >= maxBackoffRetries {

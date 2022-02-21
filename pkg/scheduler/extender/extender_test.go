@@ -485,10 +485,10 @@ func setup(t *testing.T) *Extender {
 	featureConf := fc.NewFeatureConfig()
 	kubeClient := k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs,
 		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			BaseDelay:  30*time.Millisecond,
+			BaseDelay:  30 * time.Millisecond,
 			Multiplier: 1.6,
 			Jitter:     0.5,
-			MaxDelay:   30*time.Second,
+			MaxDelay:   30 * time.Second,
 		}),
 	)
 	kubeCache := k8s.NewKubeCache(k, testLogger)

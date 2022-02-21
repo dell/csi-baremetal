@@ -64,7 +64,7 @@ type VolumeOperationsImpl struct {
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 	crHelper               *k8s.CRHelper
-	updateCRAttempts int
+	updateCRAttempts       int
 
 	metrics        metrics.Statistic
 	cache          cache.Interface
