@@ -1,4 +1,5 @@
 [This is a template for CSI-Baremetal's changes proposal. ]
+<!-- If you need to draw a diagram, use https://app.diagrams.net/. Export drawing in svg format.-->
 # Proposal: [Title]
 
 Last updated: [Date]
