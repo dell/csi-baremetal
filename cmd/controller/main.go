@@ -24,7 +24,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -32,7 +31,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	grpcbackoff "google.golang.org/grpc/backoff"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -98,13 +96,7 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 	kubeClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace,
-		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			// TODO(n.mikhnenko): customize vars
-			BaseDelay:  30 * time.Millisecond,
-			Multiplier: 1.6,
-			Jitter:     0.5,
-			MaxDelay:   30 * time.Second,
-		}),
+		backoff.NewExponentialHandler(&backoff.DefaultConfig),
 	)
 	controllerService := controller.NewControllerService(kubeClient, logger, featureConf)
 	handler := util.NewSignalHandler(logger)
@@ -195,13 +187,7 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 		}
 	}
 	wrappedK8SClient := k8s.NewKubeClient(client, log, objects.NewObjectLogger(), *namespace,
-		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			// TODO(n.mikhnenko): customize vars
-			BaseDelay:  30 * time.Millisecond,
-			Multiplier: 1.6,
-			Jitter:     0.5,
-			MaxDelay:   30 * time.Second,
-		}),
+		backoff.NewExponentialHandler(&backoff.DefaultConfig),
 	)
 
 	kubeCache, err := k8s.InitKubeCache(ctx, log,

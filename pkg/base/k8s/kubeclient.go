@@ -81,9 +81,9 @@ type KubeClient struct {
 // CRReader is a reader interface for k8s client wrapper
 type CRReader interface {
 	// ReadCR reads CR
-	ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error
+	ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, opts ...*ClientOptions) error
 	// ReadList reads CR list
-	ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ...*KubeClientRequestOptions) error
+	ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ...*ClientOptions) error
 }
 
 // NewKubeClient is the constructor for KubeClient struct
@@ -103,7 +103,7 @@ func NewKubeClient(k8sclient k8sCl.Client, logger *logrus.Logger, objectsLogger 
 // CreateCR creates provided resource on k8s cluster with checking its existence before
 // Receives golang context, name of the created object, and object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
+func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object, opts ...*ClientOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("CreateCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -116,7 +116,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object
 	crKind := obj.GetObjectKind().GroupVersionKind().Kind
 	ll.Infof("Creating CR '%s': %s", crKind, k.objectsLogger.Log(obj))
 
-	opt := mergeKubeClientRequestOptions(opts...)
+	opt := mergeClientOptions(opts...)
 	var retries int
 	for {
 		switch err := k.Create(ctx, obj); {
@@ -142,7 +142,7 @@ func (k *KubeClient) CreateCR(ctx context.Context, name string, obj k8sCl.Object
 // ReadCR reads specified resource from k8s cluster into a pointer of struct that implements runtime.Object
 // Receives golang context, name of the read object, and object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
+func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, opts ...*ClientOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("ReadCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -152,7 +152,7 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, 
 		namespace = k.Namespace
 	}
 
-	opt := mergeKubeClientRequestOptions(opts...)
+	opt := mergeClientOptions(opts...)
 	var retries int
 	for {
 		switch err := k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj); {
@@ -174,14 +174,14 @@ func (k *KubeClient) ReadCR(ctx context.Context, name string, namespace string, 
 // ReadList reads a list of specified resources into k8s resource List struct (for example v1.PodList)
 // Receives golang context, and List object pointer where to read
 // Returns error if something went wrong
-func (k *KubeClient) ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ...*KubeClientRequestOptions) error {
+func (k *KubeClient) ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ...*ClientOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("ReadList")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
 		requestUUID = DefaultVolumeID
 	}
 
-	opt := mergeKubeClientRequestOptions(opts...)
+	opt := mergeClientOptions(opts...)
 	var retries int
 	for {
 		switch err := k.List(ctx, obj); {
@@ -203,7 +203,7 @@ func (k *KubeClient) ReadList(ctx context.Context, obj k8sCl.ObjectList, opts ..
 // UpdateCR updates provided resource on k8s cluster
 // Receives golang context and updated object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
+func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object, opts ...*ClientOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("UpdateCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -215,7 +215,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object, opts ...*Ku
 		"requestUUID": requestUUID.(string),
 	}).Infof("Updating CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
-	opt := mergeKubeClientRequestOptions(opts...)
+	opt := mergeClientOptions(opts...)
 	var retries int
 	for {
 		switch err := k.Update(ctx, obj); {
@@ -237,7 +237,7 @@ func (k *KubeClient) UpdateCR(ctx context.Context, obj k8sCl.Object, opts ...*Ku
 // DeleteCR deletes provided resource from k8s cluster
 // Receives golang context and removable object that implements k8s runtime.Object interface
 // Returns error if something went wrong
-func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object, opts ...*KubeClientRequestOptions) error {
+func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object, opts ...*ClientOptions) error {
 	defer k.metrics.EvaluateDurationForMethod("DeleteCR")()
 	requestUUID := ctx.Value(base.RequestUUID)
 	if requestUUID == nil {
@@ -249,7 +249,7 @@ func (k *KubeClient) DeleteCR(ctx context.Context, obj k8sCl.Object, opts ...*Ku
 		"requestUUID": requestUUID.(string),
 	}).Infof("Deleting CR '%s': %s", obj.GetObjectKind().GroupVersionKind().Kind, k.objectsLogger.Log(obj))
 
-	opt := mergeKubeClientRequestOptions(opts...)
+	opt := mergeClientOptions(opts...)
 	var retries int
 	for {
 		switch err := k.Delete(ctx, obj); {

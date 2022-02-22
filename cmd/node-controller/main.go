@@ -21,10 +21,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/dell/csi-baremetal/pkg/base/backoff"
-	grpcbackoff "google.golang.org/grpc/backoff"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -69,13 +67,7 @@ func main() {
 		logger.Fatalf("Unable to create k8s client: %v", err)
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, objects.NewObjectLogger(), *namespace,
-		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			// TODO(n.mikhnenko): customize vars
-			BaseDelay:  30 * time.Millisecond,
-			Multiplier: 1.6,
-			Jitter:     0.5,
-			MaxDelay:   30 * time.Second,
-		}),
+		backoff.NewExponentialHandler(&backoff.DefaultConfig),
 	)
 
 	nodeCtrl, err := node.NewController(*nodeSelector, *useExternalAnnotation, *nodeIDAnnotation, kubeClient, logger)

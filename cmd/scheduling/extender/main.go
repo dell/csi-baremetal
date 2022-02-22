@@ -23,11 +23,9 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/dell/csi-baremetal/pkg/base/backoff"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	grpcbackoff "google.golang.org/grpc/backoff"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -96,13 +94,7 @@ func main() {
 		logger.Fatal(err)
 	}
 	kubeClient := k8s.NewKubeClient(k8sClient, logger, objects.NewObjectLogger(), *namespace,
-		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			// TODO(n.mikhnenko): customize vars
-			BaseDelay:  30 * time.Millisecond,
-			Multiplier: 1.6,
-			Jitter:     0.5,
-			MaxDelay:   30 * time.Second,
-		}),
+		backoff.NewExponentialHandler(&backoff.DefaultConfig),
 	)
 
 	kubeCache, err := k8s.InitKubeCache(stopCH, logger,

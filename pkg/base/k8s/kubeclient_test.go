@@ -340,7 +340,7 @@ var _ = Describe("Working with CRD", func() {
 			err := k8sclient.CreateCR(testCtx, testUUID, testDriveCR.DeepCopy())
 			Expect(err).To(BeNil())
 			rdrive := &drivecrd.Drive{}
-			err = k8sclient.ReadCR(testCtx, testUUID, "", rdrive, &KubeClientRequestOptions{
+			err = k8sclient.ReadCR(testCtx, testUUID, "", rdrive, &ClientOptions{
 				MaxBackoffRetries: &attempts,
 			})
 			Expect(err).To(BeNil())
@@ -389,7 +389,7 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err).To(BeNil())
 			driveCRUpdate.Spec.Health = apiV1.HealthBad
 
-			err = k8sclient.UpdateCR(testCtx, driveCRUpdate, &KubeClientRequestOptions{
+			err = k8sclient.UpdateCR(testCtx, driveCRUpdate, &ClientOptions{
 				MaxBackoffRetries: &attempts,
 			})
 			Expect(err).To(BeNil())

@@ -19,11 +19,8 @@ package extender
 import (
 	"context"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/backoff"
-	grpcbackoff "google.golang.org/grpc/backoff"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -40,6 +37,7 @@ import (
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/backoff"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -484,12 +482,7 @@ func setup(t *testing.T) *Extender {
 
 	featureConf := fc.NewFeatureConfig()
 	kubeClient := k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs,
-		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			BaseDelay:  30 * time.Millisecond,
-			Multiplier: 1.6,
-			Jitter:     0.5,
-			MaxDelay:   30 * time.Second,
-		}),
+		backoff.NewExponentialHandler(&backoff.DefaultConfig),
 	)
 	kubeCache := k8s.NewKubeCache(k, testLogger)
 	return &Extender{

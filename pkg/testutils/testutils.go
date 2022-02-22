@@ -55,7 +55,7 @@ func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, names
 		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
 	)
 
-	if err := k8sClient.ReadCR(ctx, volumeID, namespace, v, &k8s.KubeClientRequestOptions{
+	if err := k8sClient.ReadCR(ctx, volumeID, namespace, v, &k8s.ClientOptions{
 		MaxBackoffRetries: &attempts,
 	}); err != nil {
 		return err
@@ -63,7 +63,7 @@ func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, names
 
 	// change status
 	v.Spec.CSIStatus = newStatus
-	if err := k8sClient.UpdateCR(ctx, v, &k8s.KubeClientRequestOptions{
+	if err := k8sClient.UpdateCR(ctx, v, &k8s.ClientOptions{
 		MaxBackoffRetries: &attempts,
 	}); err != nil {
 		return err

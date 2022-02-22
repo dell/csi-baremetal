@@ -471,7 +471,7 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 
 	attempts := 5
 	volume.Spec.CSIStatus = newStatus
-	if updateErr := m.k8sClient.UpdateCR(ctx, volume, &k8s.KubeClientRequestOptions{
+	if updateErr := m.k8sClient.UpdateCR(ctx, volume, &k8s.ClientOptions{
 		MaxBackoffRetries: &attempts,
 	}); updateErr != nil {
 		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
@@ -497,7 +497,7 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 
 	attempts := 10
 	volume.Spec.CSIStatus = newStatus
-	if updateErr := m.k8sClient.UpdateCR(ctx, volume, &k8s.KubeClientRequestOptions{
+	if updateErr := m.k8sClient.UpdateCR(ctx, volume, &k8s.ClientOptions{
 		MaxBackoffRetries: &attempts,
 	}); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
@@ -523,7 +523,7 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 		if drive != nil {
 			attempts := 5
 			drive.Spec.Usage = apiV1.DriveUsageFailed
-			if err := m.k8sClient.UpdateCR(ctx, drive, &k8s.KubeClientRequestOptions{
+			if err := m.k8sClient.UpdateCR(ctx, drive, &k8s.ClientOptions{
 				MaxBackoffRetries: &attempts,
 			}); err != nil {
 				ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",

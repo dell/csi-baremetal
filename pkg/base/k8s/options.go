@@ -3,20 +3,20 @@ package k8s
 // DefaultMaxBackoffRetries is a maximum backoff reties number by default
 var DefaultMaxBackoffRetries = 3
 
-// KubeClientRequestOptions represents kubeclient request options, such as maximum backoff retries
-type KubeClientRequestOptions struct {
+// ClientOptions represents kubeclient request options, such as maximum backoff retries
+type ClientOptions struct {
 	MaxBackoffRetries *int
 }
 
-// DefaultKubeClientRequestOptions helps to initialize default kubeclient request options
-func DefaultKubeClientRequestOptions() KubeClientRequestOptions {
-	return KubeClientRequestOptions{
+// DefaultClientOptions helps to initialize default kubeclient request options
+func DefaultClientOptions() ClientOptions {
+	return ClientOptions{
 		MaxBackoffRetries: &DefaultMaxBackoffRetries,
 	}
 }
 
-func mergeKubeClientRequestOptions(opts ...*KubeClientRequestOptions) KubeClientRequestOptions {
-	k := DefaultKubeClientRequestOptions()
+func mergeClientOptions(opts ...*ClientOptions) ClientOptions {
+	k := DefaultClientOptions()
 
 	for _, opt := range opts {
 		if opt == nil {

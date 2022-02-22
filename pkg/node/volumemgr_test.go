@@ -20,8 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/backoff"
-	grpcbackoff "google.golang.org/grpc/backoff"
 	"reflect"
 	"sync"
 	"testing"
@@ -44,6 +42,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/backoff"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	dataDiscover "github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover/types"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
@@ -606,12 +605,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	t.Run("update driveCRs failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs,
-			backoff.NewExponentialHandler(&grpcbackoff.Config{
-				BaseDelay:  30 * time.Millisecond,
-				Multiplier: 1.6,
-				Jitter:     0.5,
-				MaxDelay:   30 * time.Second,
-			}),
+			backoff.NewExponentialHandler(&backoff.DefaultConfig),
 		)
 		// expect: updateDrivesCRs failed
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{},
@@ -626,12 +620,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 	t.Run("discoverDataOnDrives failed", func(t *testing.T) {
 		mockK8sClient := &mocks.K8Client{}
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs,
-			backoff.NewExponentialHandler(&grpcbackoff.Config{
-				BaseDelay:  30 * time.Millisecond,
-				Multiplier: 1.6,
-				Jitter:     0.5,
-				MaxDelay:   30 * time.Second,
-			}),
+			backoff.NewExponentialHandler(&backoff.DefaultConfig),
 		)
 		vm = NewVolumeManager(&mocks.MockDriveMgrClient{}, nil, testLogger, kubeClient, kubeClient, nil, nodeID, nodeName)
 		discoverData := &mocklu.MockWrapDataDiscover{}
@@ -804,12 +793,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
 	mockK8sClient := &mocks.K8Client{}
 	kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs,
-		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			BaseDelay:  30 * time.Millisecond,
-			Multiplier: 1.6,
-			Jitter:     0.5,
-			MaxDelay:   30 * time.Second,
-		}),
+		backoff.NewExponentialHandler(&backoff.DefaultConfig),
 	)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 

@@ -52,12 +52,12 @@ type KubeCache struct {
 }
 
 // ReadCR CRReader implementation
-func (k KubeCache) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, _ ...*KubeClientRequestOptions) error {
+func (k KubeCache) ReadCR(ctx context.Context, name string, namespace string, obj k8sCl.Object, _ ...*ClientOptions) error {
 	return k.Get(ctx, k8sCl.ObjectKey{Name: name, Namespace: namespace}, obj)
 }
 
 // ReadList CRReader implementation
-func (k KubeCache) ReadList(ctx context.Context, obj k8sCl.ObjectList, _ ...*KubeClientRequestOptions) error {
+func (k KubeCache) ReadList(ctx context.Context, obj k8sCl.ObjectList, _ ...*ClientOptions) error {
 	return k.List(ctx, obj)
 }
 

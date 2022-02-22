@@ -242,7 +242,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	// decrease AC size
 	ac.Spec.Size -= allocatedBytes
-	if err = vo.k8sClient.UpdateCR(ctx, ac, &k8s.KubeClientRequestOptions{
+	if err = vo.k8sClient.UpdateCR(ctx, ac, &k8s.ClientOptions{
 		MaxBackoffRetries: &vo.updateCRAttempts,
 	}); err != nil {
 		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
@@ -279,10 +279,10 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 		if expiredAt.Before(time.Now()) {
 			log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
 			volumeCR.Spec.CSIStatus = apiV1.Failed
-			// todo don't ignore error here
-			_ = vo.k8sClient.UpdateCR(ctx, volumeCR, &k8s.KubeClientRequestOptions{
+			err := vo.k8sClient.UpdateCR(ctx, volumeCR, &k8s.ClientOptions{
 				MaxBackoffRetries: &vo.updateCRAttempts,
 			})
+			log.Errorf("Failed to update volume resource: '%v'", err)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
 		return &volumeCR.Spec, nil
@@ -473,7 +473,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	if !isDeleted && volumeCR.Spec.Health == apiV1.HealthGood {
 		// Increase size of AC using volume size
 		acCR.Spec.Size += volumeCR.Spec.Size
-		if err = vo.k8sClient.UpdateCR(ctx, &acCR, &k8s.KubeClientRequestOptions{
+		if err = vo.k8sClient.UpdateCR(ctx, &acCR, &k8s.ClientOptions{
 			MaxBackoffRetries: &vo.updateCRAttempts,
 		}); err != nil {
 			ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
@@ -559,7 +559,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 				fmt.Sprintf("Not enough capacity to expand volume: requested - %d, available - %d", requiredBytes, capacity.Spec.Size))
 		}
 		capacity.Spec.Size -= acSize
-		if err := vo.k8sClient.UpdateCR(ctx, capacity, &k8s.KubeClientRequestOptions{
+		if err := vo.k8sClient.UpdateCR(ctx, capacity, &k8s.ClientOptions{
 			MaxBackoffRetries: &vo.updateCRAttempts,
 		}); err != nil {
 			ll.Errorf("Failed to update AC, error: %v", err)
@@ -574,7 +574,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 		volume.Spec.CSIStatus = apiV1.Resizing
 		volume.Spec.Size = requiredBytes
 
-		if err := vo.k8sClient.UpdateCR(ctx, volume, &k8s.KubeClientRequestOptions{
+		if err := vo.k8sClient.UpdateCR(ctx, volume, &k8s.ClientOptions{
 			MaxBackoffRetries: &vo.updateCRAttempts,
 		}); err != nil {
 			ll.Errorf("Failed to update volume, error: %v", err)
@@ -623,7 +623,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeExpansion(ctx context.Contex
 		} else {
 			acSize := requiredBytes - volume.Spec.Size
 			ac.Spec.Size += acSize
-			if err = vo.k8sClient.UpdateCR(ctx, ac, &k8s.KubeClientRequestOptions{
+			if err = vo.k8sClient.UpdateCR(ctx, ac, &k8s.ClientOptions{
 				MaxBackoffRetries: &vo.updateCRAttempts,
 			}); err != nil {
 				ll.Errorf("Failed to update AC: %v", err)

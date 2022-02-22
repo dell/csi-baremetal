@@ -28,7 +28,6 @@ import (
 
 	"github.com/dell/csi-baremetal/pkg/base/backoff"
 	"google.golang.org/grpc"
-	grpcbackoff "google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -155,13 +154,7 @@ func main() {
 	defer eventRecorder.Wait()
 
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace,
-		backoff.NewExponentialHandler(&grpcbackoff.Config{
-			// TODO(n.mikhnenko): customize vars
-			BaseDelay:  30 * time.Millisecond,
-			Multiplier: 1.6,
-			Jitter:     0.5,
-			MaxDelay:   30 * time.Second,
-		}),
+		backoff.NewExponentialHandler(&backoff.DefaultConfig),
 	)
 	csiNodeService := node.NewCSINodeService(
 		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)

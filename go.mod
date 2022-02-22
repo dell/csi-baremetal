@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.3
-	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
+	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e // indirect
 	github.com/container-storage-interface/spec v1.5.0
 	github.com/coreos/rkt v1.30.0
 	github.com/fsnotify/fsnotify v1.4.9

@@ -213,13 +213,13 @@ func imitateVolumeManagerReconcile(kubeClient *k8s.KubeClient) {
 		for _, v := range volumes.Items {
 			if v.Spec.CSIStatus == apiV1.Creating {
 				v.Spec.CSIStatus = apiV1.Created
-				_ = kubeClient.UpdateCR(context.Background(), &v, &k8s.KubeClientRequestOptions{
+				_ = kubeClient.UpdateCR(context.Background(), &v, &k8s.ClientOptions{
 					MaxBackoffRetries: &attempts,
 				})
 			}
 			if v.Spec.CSIStatus == apiV1.Removing {
 				v.Spec.CSIStatus = apiV1.Removed
-				_ = kubeClient.UpdateCR(context.Background(), &v, &k8s.KubeClientRequestOptions{
+				_ = kubeClient.UpdateCR(context.Background(), &v, &k8s.ClientOptions{
 					MaxBackoffRetries: &attempts,
 				})
 			}

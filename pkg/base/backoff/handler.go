@@ -4,8 +4,6 @@ import (
 	"errors"
 	"math/rand"
 	"time"
-
-	"google.golang.org/grpc/backoff"
 )
 
 // ErrMaxBackoffRetriesExceeded stays for max backoff retries exceeded error
@@ -17,11 +15,11 @@ type Handler interface {
 }
 
 type exponentialHandler struct {
-	config *backoff.Config
+	config *Config
 }
 
 func (s *exponentialHandler) Handle(retries int) time.Duration {
-	// if there were no retries, then return baseDelay time
+	// if there were no retries, then return baseDelay time, which is 1 second by default
 	if retries == 0 {
 		return s.config.BaseDelay
 	}
@@ -43,7 +41,7 @@ func (s *exponentialHandler) Handle(retries int) time.Duration {
 }
 
 // NewExponentialHandler is a constructor for backoff handler
-func NewExponentialHandler(config *backoff.Config) Handler {
+func NewExponentialHandler(config *Config) Handler {
 	return &exponentialHandler{
 		config: config,
 	}
