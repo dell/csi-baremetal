@@ -561,7 +561,6 @@ func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 		Spec: api.AvailableCapacity{
 			Size:         10000,
 			StorageClass: apiV1.StorageClassSystemLVG,
-			// NodeId:       nodeID,
 		},
 	}
 	volAC.Spec.Location = testDrive1UUID
@@ -569,7 +568,6 @@ func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 	assert.Nil(t, err)
 
 	for _, v := range [2]string{apiV1.Resizing, apiV1.Resized} {
-		// volumeCR.ObjectMeta.ResourceVersion = ""
 		volumeCR.Spec.CSIStatus = v
 		err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
 		assert.Nil(t, err)
@@ -577,7 +575,6 @@ func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 		assert.Nil(t, err)
 	}
 	for _, v := range [3]string{apiV1.VolumeReady, apiV1.Created, apiV1.Published} {
-		// volumeCR.ObjectMeta.ResourceVersion = ""
 		volumeCR.Spec.CSIStatus = v
 		err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
 		assert.Nil(t, err)
@@ -612,101 +609,100 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	}
 
 	// 	// Storage class is not lvg
-	// 	volumeCR.Spec.CSIStatus = apiV1.Created
-	// 	volumeCR.ObjectMeta.ResourceVersion = ""
-	// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-	// 	err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
-	// 	assert.NotNil(t, err)
-	// 	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+	volumeCR.Spec.CSIStatus = apiV1.Created
+	volumeCR.ObjectMeta.ResourceVersion = ""
+	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, &volumeCR))
+	if err := svc.ExpandVolume(testCtx, &volumeCR, capacity); err != nil {
+		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+	}
 
 	// 	// Failed to get AC
-	// 	volumeCR.ObjectMeta.ResourceVersion = ""
-	// 	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
-	// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-	// 	err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
-	// 	assert.NotNil(t, err)
-	// 	assert.Equal(t, codes.Internal, status.Code(err))
+	volumeCR.ObjectMeta.ResourceVersion = ""
+	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
+	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, &volumeCR))
+	err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
+	assert.NotNil(t, err)
+	assert.Equal(t, codes.Internal, status.Code(err))
 
-	// 	//Required capacity is more than capacity of AC
-	// 	volAC := &accrd.AvailableCapacity{
-	// 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-	// 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
-	// 		Spec: api.AvailableCapacity{
-	// 			Size:         10000,
-	// 			StorageClass: apiV1.StorageClassSystemLVG,
-	// 			// NodeId:       nodeID,
-	// 		},
-	// 	}
-	// 	volAC.Spec.Location = testDrive1UUID
-	// 	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
-	// 	assert.Nil(t, err)
-	// 	err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
-	// 	assert.NotNil(t, err)
-	// 	assert.Equal(t, codes.OutOfRange, status.Code(err))
-	// }
-
-	// func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
-	// 	var (
-	// 		svc *VolumeOperationsImpl
-	// 		err error
-	// 	)
-
-	// 	volumeCR := testVolume1
-	// 	svc = setupVOOperationsTest(t)
-	// 	svc.cache.Set(volumeCR.Spec.Id, testNS)
-	// 	volumeCR.Spec.CSIStatus = apiV1.Failed
-	// 	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR)
-	// 	volAC := &accrd.AvailableCapacity{
-	// 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-	// 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
-	// 		Spec: api.AvailableCapacity{
-	// 			Size:         10000,
-	// 			StorageClass: apiV1.StorageClassSystemLVG,
-	// 			// NodeId:       nodeID,
-	// 		},
-	// 	}
-	// 	volAC.Spec.Location = testDrive1UUID
-	// 	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
-	// 	assert.Nil(t, err)
-
-	// 	// volume doesn't have annotation
-	// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
-
-	// 	capacity, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
-	// 	assert.Nil(t, err)
-	// 	assert.Equal(t, volAC.Spec.Size, capacity.Spec.Size)
-
-	// 	// volume has annotation and status failed
-	// 	volumeCR.Annotations = map[string]string{apiV1.VolumePreviousCapacity: strconv.FormatInt(int64(util.MBYTE), 10)}
-	// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-	// 	pAC, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
-	// 	assert.Nil(t, err)
-	// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
-
-	// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
-	// 	assert.Nil(t, err)
-	// 	capacity, err = svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
-	// 	assert.Nil(t, err)
-	// 	assert.Equal(t, pAC.Spec.Size+int64(util.GBYTE)*100-int64(util.MBYTE), capacity.Spec.Size)
-
-	// 	// volume has resized status and doesn't have annotation
-	// 	volumeCR.Spec.CSIStatus = apiV1.Resized
-	// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-	// 	assert.Nil(t, err)
-	// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
-	// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
-	// 	assert.Nil(t, err)
-	// 	assert.Equal(t, apiV1.Resized, volumeCR.Spec.CSIStatus)
-
-	// 	// volume has resized status
-	// 	volumeCR.Annotations = map[string]string{apiV1.VolumePreviousStatus: apiV1.Created}
-	// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-	// 	assert.Nil(t, err)
-	// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
-	// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
-	// 	assert.Nil(t, err)
-	// 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
+	//Required capacity is more than capacity of AC
+	volAC := &accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+		Spec: api.AvailableCapacity{
+			Size:         10000,
+			StorageClass: apiV1.StorageClassSystemLVG,
+			// NodeId:       nodeID,
+		},
+	}
+	volAC.Spec.Location = testDrive1UUID
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, "", volAC))
+	err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
+	assert.NotNil(t, err)
+	assert.Equal(t, codes.OutOfRange, status.Code(err))
 }
+
+// func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
+// 	var (
+// 		svc *VolumeOperationsImpl
+// 		err error
+// 	)
+
+// 	volumeCR := testVolume1
+// 	svc = setupVOOperationsTest(t)
+// 	svc.cache.Set(volumeCR.Spec.Id, testNS)
+// 	volumeCR.Spec.CSIStatus = apiV1.Failed
+// 	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR)
+// 	volAC := &accrd.AvailableCapacity{
+// 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+// 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+// 		Spec: api.AvailableCapacity{
+// 			Size:         10000,
+// 			StorageClass: apiV1.StorageClassSystemLVG,
+// 			// NodeId:       nodeID,
+// 		},
+// 	}
+// 	volAC.Spec.Location = testDrive1UUID
+// 	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
+// 	assert.Nil(t, err)
+
+// 	// volume doesn't have annotation
+// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+
+// 	capacity, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
+// 	assert.Nil(t, err)
+// 	assert.Equal(t, volAC.Spec.Size, capacity.Spec.Size)
+
+// 	// volume has annotation and status failed
+// 	volumeCR.Annotations = map[string]string{apiV1.VolumePreviousCapacity: strconv.FormatInt(int64(util.MBYTE), 10)}
+// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+// 	pAC, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
+// 	assert.Nil(t, err)
+// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+
+// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
+// 	assert.Nil(t, err)
+// 	capacity, err = svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
+// 	assert.Nil(t, err)
+// 	assert.Equal(t, pAC.Spec.Size+int64(util.GBYTE)*100-int64(util.MBYTE), capacity.Spec.Size)
+
+// 	// volume has resized status and doesn't have annotation
+// 	volumeCR.Spec.CSIStatus = apiV1.Resized
+// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+// 	assert.Nil(t, err)
+// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
+// 	assert.Nil(t, err)
+// 	assert.Equal(t, apiV1.Resized, volumeCR.Spec.CSIStatus)
+
+// 	// volume has resized status
+// 	volumeCR.Annotations = map[string]string{apiV1.VolumePreviousStatus: apiV1.Created}
+// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
+// 	assert.Nil(t, err)
+// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
+// 	assert.Nil(t, err)
+// 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
+// }
 
 func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	svc := setupVOOperationsTest(t)
