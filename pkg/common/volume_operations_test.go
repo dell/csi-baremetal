@@ -197,59 +197,71 @@ func Test_handleVolumeInProgress(t *testing.T) {
 // Volume CR was successfully created, HDDLVG SC
 // func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 // 	var (
-// 		svc           *VolumeOperationsImpl
-// 		acProvider    = &mocks.ACOperationsMock{}
-// 		volumeID      = "pvc-aaaa-bbbb"
-// 		ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
-// 		requiredNode  = ""
+// 		svc = setupVOOperationsTest(t)
+
+// 		testVolume = testVolume1.DeepCopy()
+
+// 		volumeID      = testVolume.Spec.Id
 // 		requiredSC    = apiV1.StorageClassHDDLVG
-// 		requiredBytes = int64(util.GBYTE)
-// 		acToReturn    = accrd.AvailableCapacity{
-// 			Spec: api.AvailableCapacity{
-// 				Location:     testLVG.Spec.Name,
-// 				NodeId:       testLVG.Spec.Node,
-// 				StorageClass: apiV1.StorageClassHDDLVG,
-// 				Size:         testLVG.Spec.Size,
+// 		requiredNode  = testVolume.Spec.NodeId
+// 		requiredBytes = testVolume.Spec.Size
+
+// 		// svc           *VolumeOperationsImpl
+// 		// acProvider    = &mocks.ACOperationsMock{}
+// 		// requiredSC    = apiV1.StorageClassHDDLVG
+// 		// volumeID      = "pvc-aaaa-bbbb"
+// 		// requiredNode  = ""
+// 		// requiredBytes = int64(util.GBYTE)
+// 		// testPVC       = testPVC1.DeepCopy()
+// 		// ctxWithID     = context.WithValue(testCtx, base.RequestUUID, volumeID)
+// 		acToReturn = &acrcrd.AvailableCapacityReservation{
+// 			TypeMeta: k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
+// 			ObjectMeta: k8smetav1.ObjectMeta{Name: volumeID,
+// 				CreationTimestamp: k8smetav1.NewTime(time.Now())},
+// 			Spec: api.AvailableCapacityReservation{
+// 				Namespace: testNS,
+// 				Status:    apiV1.ReservationConfirmed,
+// 				ReservationRequests: []*api.ReservationRequest{
+// 					{CapacityRequest: &api.CapacityRequest{
+// 						StorageClass: requiredSC,
+// 						Size:         requiredBytes,
+// 						Name:         testVolume1Name,
+// 					},
+// 						Reservations: []string{volumeID}},
+// 				},
 // 			},
 // 		}
-// 		expectedVolume = api.Volume{
-// 			Id:                volumeID,
-// 			Location:          acToReturn.Spec.Location,
-// 			StorageClass:      requiredSC,
-// 			NodeId:            acToReturn.Spec.NodeId,
-// 			Size:              requiredBytes,
-// 			CSIStatus:         apiV1.Creating,
-// 			Health:            apiV1.HealthGood,
-// 			LocationType:      apiV1.LocationTypeLVM,
-// 			OperationalStatus: apiV1.OperationalStatusOperative,
-// 			Usage:             apiV1.VolumeUsageInUse,
-// 		}
-// 		createdVolume *api.Volume
-// 		err           error
+// 		// expectedVolume = api.Volume{
+// 		// 	Id:                volumeID,
+// 		// 	Location:          acToReturn.Spec.Location,
+// 		// 	StorageClass:      requiredSC,
+// 		// 	NodeId:            acToReturn.Spec.NodeId,
+// 		// 	Size:              requiredBytes,
+// 		// 	CSIStatus:         apiV1.Creating,
+// 		// 	Health:            apiV1.HealthGood,
+// 		// 	LocationType:      apiV1.LocationTypeLVM,
+// 		// 	OperationalStatus: apiV1.OperationalStatusOperative,
+// 		// 	Usage:             apiV1.VolumeUsageInUse,
+// 		// }
+// 		// createdVolume *api.Volume
+// 		// err           error
 // 	)
-
-// 	// expect volume with "creating" CSIStatus, AC with HDDLVG exists and LogicalVolumeGroup has "created" status
-// 	svc = setupVOOperationsTest(t)
-// 	svc.acProvider = acProvider
-// 	recreatedAC := acToReturn
-// 	recreatedAC.Spec.StorageClass = requiredSC
-// 	capMBuilder, capMMock := getCapacityManagerMock()
-// 	svc.capacityManagerBuilder = capMBuilder
-// 	capMMock.On("PlanVolumesPlacing", ctxWithID, mock.Anything).
-// 		Return(buildVolumePlacingPlan(testNode1Name, &expectedVolume, &acToReturn), nil).Times(1)
-// 	acProvider.On("RecreateACToLVGSC", ctxWithID, requiredSC, &acToReturn).
-// 		Return(&recreatedAC).Times(1)
-
-// 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: testNS})
-// 	createdVolume, err = svc.CreateVolume(ctx, api.Volume{
+// 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, acToReturn.Name, acToReturn))
+// 	tv := api.Volume{
 // 		Id:           volumeID,
 // 		StorageClass: requiredSC,
 // 		NodeId:       requiredNode,
 // 		Size:         requiredBytes,
-// 	})
+// 		Location:     testLVG.Spec.Name,
+// 	}
+
+// 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Name: volumeID, Namespace: testNS})
+// 	createdVolume, err := svc.CreateVolume(ctx, tv)
+// 	log.Printf("%+v", err)
 // 	assert.Nil(t, err)
 // 	assert.NotNil(t, createdVolume)
-// 	assert.Equal(t, expectedVolume, createdVolume)
+// 	log.Printf("%+v", createdVolume)
+// 	// assert.Equal(t, expectedVolume, createdVolume)
 // }
 
 // Volume CR exists and has "failed" CSIStatus
@@ -641,6 +653,7 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	assert.Equal(t, codes.OutOfRange, status.Code(err))
 }
 
+// FIXME
 // func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 // 	var (
 // 		svc *VolumeOperationsImpl
