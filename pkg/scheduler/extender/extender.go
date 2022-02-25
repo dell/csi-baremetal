@@ -226,13 +226,11 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 		"pod":         pod.Name,
 	})
 
-	scs, err := e.scNameStorageTypeMapping(ctx)
+	scChecker, err := e.buildSCChecker(ctx, ll)
 	if err != nil {
 		ll.Errorf("Unable to collect storage classes: %v", err)
 		return nil, err
 	}
-
-	ll.Debugf("SC map: %+v", scs)
 
 	requests := make([]*genV1.CapacityRequest, 0)
 	for _, v := range pod.Spec.Volumes {
@@ -252,7 +250,18 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 		}
 		if v.Ephemeral != nil {
 			claimSpec := v.Ephemeral.VolumeClaimTemplate.Spec
-			if storageType, ok := scs[*claimSpec.StorageClassName]; ok {
+			if claimSpec.StorageClassName == nil {
+				ll.Warningf("PVC %s skipped due to empty StorageClass", v.Ephemeral.VolumeClaimTemplate.Name)
+				continue
+			}
+
+			storageType, scType := scChecker.check(*claimSpec.StorageClassName)
+			switch scType {
+			case unknown:
+				return nil, baseerr.ErrorNotFound
+			case unrelatedSC:
+				continue
+			case relatedSC:
 				storageReq, ok := claimSpec.Resources.Requests[coreV1.ResourceStorage]
 				if !ok {
 					ll.Errorf("There is no key for storage resource for PVC %s", v.Name)
@@ -263,6 +272,8 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
 				})
+			default:
+				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
 		}
 		if v.PersistentVolumeClaim != nil {
@@ -296,20 +307,25 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			// Workaround is realized in CSI Operator ACRValidator. It checks all ACR and removed ones for
 			// Running pods.
 
-			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
+			storageType, scType := scChecker.check(*pvc.Spec.StorageClassName)
+			switch scType {
+			case unknown:
+				return nil, baseerr.ErrorNotFound
+			case unrelatedSC:
+				continue
+			case relatedSC:
 				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
 				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
+					ll.Errorf("There is no key for storage resource for PVC %s", v.Name)
 					storageReq = resource.Quantity{}
 				}
-
 				requests = append(requests, &genV1.CapacityRequest{
-					Name:         pvc.Name,
+					Name:         generateEphemeralVolumeName(pod.GetName(), v.Name),
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
 				})
-			} else {
-				ll.Infof("PVC %s skipped due to storage class is not provisioned", pvc.Name)
+			default:
+				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
 		}
 	}
@@ -589,27 +605,61 @@ func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int64, i
 	return nrank, maxCount
 }
 
-// scNameStorageTypeMapping reads k8s storage class resources and collect map with key storage class name
-// and value .parameters.storageType for that sc, collect only sc that have provisioner e.provisioner
-func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]string, error) {
-	scs := storageV1.StorageClassList{}
+func generateEphemeralVolumeName(podName, volumeName string) string {
+	return podName + "-" + volumeName
+}
+
+type SCChecker struct {
+	relatedSCs   map[string]string
+	unrelatedSCs map[string]bool
+}
+
+func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*SCChecker, error) {
+	ll := log.WithFields(logrus.Fields{
+		"method": "buildSCChecker",
+	})
+
+	var (
+		result = &SCChecker{relatedSCs: map[string]string{}, unrelatedSCs: map[string]bool{}}
+		scs    = storageV1.StorageClassList{}
+	)
 
 	if err := e.k8sCache.ReadList(ctx, &scs); err != nil {
 		return nil, err
 	}
 
-	scNameTypeMap := map[string]string{}
 	for _, sc := range scs.Items {
 		if sc.Provisioner == e.provisioner {
-			scNameTypeMap[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+			result.relatedSCs[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+		} else {
+			result.unrelatedSCs[sc.Name] = true
 		}
 	}
-	if len(scNameTypeMap) == 0 {
+
+	ll.Debugf("related SCs: %+v", result.relatedSCs)
+	ll.Debugf("unrelated SCs: %+v", result.unrelatedSCs)
+
+	if len(result.relatedSCs) == 0 {
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
-	return scNameTypeMap, nil
+
+	return result, nil
 }
 
-func generateEphemeralVolumeName(podName, volumeName string) string {
-	return podName + "-" + volumeName
+const (
+	relatedSC   = 0
+	unrelatedSC = 1
+	unknown     = 2
+)
+
+func (ch *SCChecker) check(name string) (string, int) {
+	if storageType, ok := ch.relatedSCs[name]; ok {
+		return storageType, relatedSC
+	}
+
+	if _, ok := ch.unrelatedSCs[name]; ok {
+		return "", unrelatedSC
+	}
+
+	return "", unknown
 }
