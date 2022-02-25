@@ -258,8 +258,10 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			storageType, scType := scChecker.check(*claimSpec.StorageClassName)
 			switch scType {
 			case unknown:
+				ll.Warningf("SC %s is not found in cache, wait until update", *claimSpec.StorageClassName)
 				return nil, baseerr.ErrorNotFound
 			case unrelatedSC:
+				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip this volume", *claimSpec.StorageClassName)
 				continue
 			case relatedSC:
 				storageReq, ok := claimSpec.Resources.Requests[coreV1.ResourceStorage]
@@ -310,8 +312,10 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			storageType, scType := scChecker.check(*pvc.Spec.StorageClassName)
 			switch scType {
 			case unknown:
+				ll.Warningf("SC %s is not found in cache, wait until update", *pvc.Spec.StorageClassName)
 				return nil, baseerr.ErrorNotFound
 			case unrelatedSC:
+				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip this volume", *pvc.Spec.StorageClassName)
 				continue
 			case relatedSC:
 				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
@@ -609,18 +613,21 @@ func generateEphemeralVolumeName(podName, volumeName string) string {
 	return podName + "-" + volumeName
 }
 
-type SCChecker struct {
+// scChecker keeps info about the related SCs (provisioned by CSI Baremetal) and
+// the unrelated ones (prvisioned by other CSI drivers)
+type scChecker struct {
 	relatedSCs   map[string]string
 	unrelatedSCs map[string]bool
 }
 
-func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*SCChecker, error) {
+// buildSCChecker creates an instance of scChecker
+func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scChecker, error) {
 	ll := log.WithFields(logrus.Fields{
 		"method": "buildSCChecker",
 	})
 
 	var (
-		result = &SCChecker{relatedSCs: map[string]string{}, unrelatedSCs: map[string]bool{}}
+		result = &scChecker{relatedSCs: map[string]string{}, unrelatedSCs: map[string]bool{}}
 		scs    = storageV1.StorageClassList{}
 	)
 
@@ -646,13 +653,18 @@ func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*SCCh
 	return result, nil
 }
 
+// scChecker.check return codes
 const (
 	relatedSC   = 0
 	unrelatedSC = 1
 	unknown     = 2
 )
 
-func (ch *SCChecker) check(name string) (string, int) {
+// check returns storageType and scType, return codes:
+// relatedSC - SC is provisioned by CSI baremetal
+// unrelatedSC - SC is provisioned by another CSI driver
+// unknown - SC is not found in cache
+func (ch *scChecker) check(name string) (string, int) {
 	if storageType, ok := ch.relatedSCs[name]; ok {
 		return storageType, relatedSC
 	}

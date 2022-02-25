@@ -456,23 +456,41 @@ func TestExtender_filterSuccess(t *testing.T) {
 	}*/
 }
 
-func TestExtender_getSCNameStorageType_Success(t *testing.T) {
+func TestExtender_buildSCChecker_Success(t *testing.T) {
 	e := setup(t)
 	// create 2 storage classes
 	applyObjs(t, e.k8sClient, testSC1.DeepCopy(), testSC2.DeepCopy())
 
-	m, err := e.scNameStorageTypeMapping(testCtx)
+	m, err := e.buildSCChecker(testCtx, testLogger.WithField("test", "buildSCChecker"))
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(m))
-	assert.Equal(t, m[testSCName1], testStorageType)
+	assert.Equal(t, 1, len(m.relatedSCs))
+	assert.Equal(t, 1, len(m.unrelatedSCs))
+	assert.Equal(t, m.relatedSCs[testSCName1], testStorageType)
 }
 
-func TestExtender_getSCNameStorageType_Fail(t *testing.T) {
+func TestExtender_buildSCChecker_Fail(t *testing.T) {
 	e := setup(t)
 
-	m, err := e.scNameStorageTypeMapping(testCtx)
+	m, err := e.buildSCChecker(testCtx, testLogger.WithField("test", "buildSCChecker"))
 	assert.Nil(t, m)
 	assert.NotNil(t, err)
+}
+
+func TestExtender_scChecker_check(t *testing.T) {
+	ch := &scChecker{
+		relatedSCs:   map[string]string{testSCName1: testStorageType},
+		unrelatedSCs: map[string]bool{testSCName2: true},
+	}
+
+	storageType, scType := ch.check(testSCName1)
+	assert.Equal(t, scType, relatedSC)
+	assert.Equal(t, storageType, testStorageType)
+
+	_, scType = ch.check(testSCName2)
+	assert.Equal(t, scType, unrelatedSC)
+
+	_, scType = ch.check("non-cached-sc")
+	assert.Equal(t, scType, unknown)
 }
 
 func setup(t *testing.T) *Extender {
