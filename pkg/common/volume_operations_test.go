@@ -18,6 +18,7 @@ package common
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -39,7 +40,6 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
-	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -95,12 +95,14 @@ func Test_getPersistentVolumeClaimLabels(t *testing.T) {
 
 func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 	// 1. Volume CR has already exist
-	svc := setupVOOperationsTest(t)
+	var (
+		svc = setupVOOperationsTest(t)
+		v   = testVolume1.DeepCopy()
+	)
 
-	v := testVolume1
 	v.Spec.CSIStatus = apiV1.Created
 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: testNS})
-	err := svc.k8sClient.CreateCR(ctx, testVolume1Name, &v)
+	err := svc.k8sClient.CreateCR(ctx, testVolume1Name, v)
 	assert.Nil(t, err)
 
 	createdVolume1, err := svc.CreateVolume(ctx, api.Volume{Id: v.Spec.Id})
@@ -262,13 +264,15 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 
 // Volume CR exists and has "failed" CSIStatus
 func TestVolumeOperationsImpl_CreateVolume_FaileCauseExist(t *testing.T) {
-	svc := setupVOOperationsTest(t)
+	var (
+		svc = setupVOOperationsTest(t)
+		v   = testVolume1.DeepCopy()
+	)
 
-	v := testVolume1
 	v.Spec.CSIStatus = apiV1.Failed
 	svc.cache.Set(v.Name, v.Namespace)
 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: v.Namespace})
-	assert.Nil(t, svc.k8sClient.CreateCR(ctx, testVolume1Name, &v))
+	assert.Nil(t, svc.k8sClient.CreateCR(ctx, testVolume1Name, v))
 
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{Id: v.Spec.Id})
 	assert.NotNil(t, err)
@@ -279,13 +283,13 @@ func TestVolumeOperationsImpl_CreateVolume_FaileCauseExist(t *testing.T) {
 func TestVolumeOperationsImpl_CreateVolume_FailCauseTimeout(t *testing.T) {
 	var (
 		svc = setupVOOperationsTest(t)
-		v   = testVolume1
+		v   = testVolume1.DeepCopy()
 	)
 	v.ObjectMeta.CreationTimestamp = k8smetav1.Time{
 		Time: time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local),
 	}
 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: v.Namespace})
-	err := svc.k8sClient.CreateCR(ctx, v.Name, &v)
+	err := svc.k8sClient.CreateCR(ctx, v.Name, v)
 	assert.Nil(t, err)
 
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{Id: v.Name})
@@ -376,13 +380,11 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 
 func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 	var (
-		svc      *VolumeOperationsImpl
 		err      error
 		volumeCR volumecrd.Volume
 	)
 
-	svc = setupVOOperationsTest(t)
-
+	svc := setupVOOperationsTest(t)
 	err = svc.DeleteVolume(testCtx, "unknown-namespace")
 	assert.NotNil(t, err)
 
@@ -393,7 +395,7 @@ func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 	assert.NotNil(t, err)
 
 	svc = setupVOOperationsTest(t)
-	volumeCR = testVolume1
+	volumeCR = *testVolume1.DeepCopy()
 	volumeCR.Spec.CSIStatus = apiV1.Removed
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
 
@@ -403,7 +405,7 @@ func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 
 	svc = setupVOOperationsTest(t)
 	svc.cache.Set(volumeCR.Name, volumeCR.Namespace)
-	volumeCR = testVolume1
+	volumeCR = *testVolume1.DeepCopy()
 	volumeCR.Spec.CSIStatus = ""
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
 
@@ -413,7 +415,7 @@ func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 
 	svc = setupVOOperationsTest(t)
 	svc.cache.Set(volumeCR.Name, volumeCR.Namespace)
-	volumeCR = testVolume1
+	volumeCR = *testVolume1.DeepCopy()
 	volumeCR.Spec.Ephemeral = true
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
 
@@ -425,13 +427,13 @@ func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
 	var (
 		svc = setupVOOperationsTest(t)
-		v   = testVolume1
+		v   = testVolume1.DeepCopy()
 		err error
 	)
 
 	svc.cache.Set(v.Name, v.Namespace)
 	v.Spec.CSIStatus = apiV1.Failed
-	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
+	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, v)
 	assert.Nil(t, err)
 
 	err = svc.DeleteVolume(testCtx, testVolume1Name)
@@ -443,14 +445,14 @@ func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
 func TestVolumeOperationsImpl_DeleteVolume(t *testing.T) {
 	var (
 		svc = setupVOOperationsTest(t)
-		v   = testVolume1
+		v   = testVolume1.DeepCopy()
 		err error
 	)
 
 	for _, st := range []string{apiV1.Removing, apiV1.Removed} {
 		v.ObjectMeta.ResourceVersion = ""
 		v.Spec.CSIStatus = st
-		err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
+		err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, v)
 		assert.Nil(t, err)
 		svc.cache.Set(v.Name, v.Namespace)
 		err = svc.DeleteVolume(testCtx, testVolume1Name)
@@ -461,31 +463,32 @@ func TestVolumeOperationsImpl_DeleteVolume(t *testing.T) {
 func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
 	var (
 		svc        = setupVOOperationsTest(t)
-		v          = testVolume1
+		v          = testVolume1.DeepCopy()
 		updatedVol = volumecrd.Volume{}
 		err        error
 	)
 
 	v.Spec.CSIStatus = apiV1.Created
 	svc.cache.Set(v.Name, v.Namespace)
-	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
+	err = svc.k8sClient.CreateCR(testCtx, v.Name, v)
 	assert.Nil(t, err)
 
-	err = svc.DeleteVolume(testCtx, testVolume1Name)
+	err = svc.DeleteVolume(testCtx, v.Name)
 	assert.Nil(t, err)
 
-	err = svc.k8sClient.ReadCR(testCtx, testVolume1Name, testVolume1.Namespace, &updatedVol)
+	err = svc.k8sClient.ReadCR(testCtx, v.Name, v.Namespace, &updatedVol)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.Removing, updatedVol.Spec.CSIStatus)
 }
 
 func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
-	svc := setupVOOperationsTest(t)
-
-	v := testVolume1
+	var (
+		svc = setupVOOperationsTest(t)
+		v = testVolume1.DeepCopy()
+	)
 	v.Spec.CSIStatus = apiV1.Created
 	svc.cache.Set(v.Name, v.Namespace)
-	err := svc.k8sClient.CreateCR(testCtx, testVolume1Name, &v)
+	err := svc.k8sClient.CreateCR(testCtx, v.Name, v)
 	assert.Nil(t, err)
 
 	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
@@ -496,7 +499,10 @@ func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
 }
 
 func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
-	svc := setupVOOperationsTest(t)
+	var (
+		svc     = setupVOOperationsTest(t)
+		testVol = testVolume1.DeepCopy()
+	)
 	// namespace wasn't found
 	err := svc.WaitStatus(testCtx, "unknown_name", apiV1.Created)
 	assert.NotNil(t, err)
@@ -505,8 +511,8 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	err = svc.WaitStatus(testCtx, "unknown_name", apiV1.Created)
 	assert.NotNil(t, err)
 	// ctx is done scenario
-	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &testVolume1)
-	svc.cache.Set(testVolume1.Name, testVolume1.Namespace)
+	err = svc.k8sClient.CreateCR(testCtx, testVol.Name, testVol)
+	svc.cache.Set(testVol.Name, testVol.Namespace)
 	assert.Nil(t, err)
 
 	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
@@ -514,50 +520,54 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	ctx.Done()
 
 	// volume CR wasn't found
-	err = svc.WaitStatus(ctx, testVolume1Name, apiV1.Created)
+	err = svc.WaitStatus(ctx, testVol.Name, apiV1.Created)
 	assert.NotNil(t, err)
 }
 
-// FIXME
-// func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
-// 	var err error
+func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
+	var (
+		err       error
+		svc       = setupVOOperationsTest(t)
+		volumeOne = testVolume1.DeepCopy()
+		lvgOne    = testLVG.DeepCopy()
+	)
 
-// 	svc1 := setupVOOperationsTest(t)
+	// 1. volume with HDDLVG SC, corresponding AC should be increased, volume CR should be removed
+	volumeOne.ObjectMeta.ResourceVersion = ""
+	err = svc.k8sClient.CreateCR(testCtx, volumeOne.Name, volumeOne)
+	assert.Nil(t, err)
+	svc.cache.Set(volumeOne.Name, volumeOne.Namespace)
+	svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeOne.Name)
 
-// 	// 1. volume with HDDLVG SC, corresponding AC should be increased, volume CR should be removed
-// 	v1 := testVolume1
-// 	err = svc1.k8sClient.CreateCR(testCtx, testVolume1Name, &v1)
-// 	assert.Nil(t, err)
-// 	svc1.cache.Set(testVolume1Name, v1.Namespace)
-// 	svc1.UpdateCRsAfterVolumeDeletion(testCtx, testVolume1Name)
+	err = svc.k8sClient.ReadCR(testCtx, volumeOne.Name, volumeOne.Namespace, &volumecrd.Volume{})
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
 
-// 	err = svc1.k8sClient.ReadCR(testCtx, testVolume1Name, v1.Namespace, &volumecrd.Volume{})
-// 	assert.NotNil(t, err)
-// 	assert.True(t, k8sError.IsNotFound(err))
+	// create AC, LVG and Volume
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testAC4Name, &testAC4))
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testLVGName, lvgOne))
+	volumeOne.ObjectMeta.ResourceVersion = ""
+	volumeOne.Spec.StorageClass = apiV1.StorageClassHDDLVG
+	volumeOne.Spec.Location = lvgOne.Name
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeOne.Name, volumeOne))
+	lvgOne.ObjectMeta.ResourceVersion = ""
+	lvgOne.Namespace = ""
+	lvgOne.Spec.Locations = []string{lvgOne.Spec.Name}
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, lvgOne.Name, lvgOne))
 
-// 	// create AC, LVG and Volume
-// 	err = svc1.k8sClient.CreateCR(testCtx, testAC4Name, &testAC4)
-// 	assert.Nil(t, err)
-// 	err = svc1.k8sClient.CreateCR(testCtx, testLVGName, &testLVG)
-// 	assert.Nil(t, err)
-// 	v1.ObjectMeta.ResourceVersion = ""
-// 	v1.Spec.StorageClass = apiV1.StorageClassHDDLVG
-// 	v1.Spec.Location = testLVGName
-// 	err = svc1.k8sClient.CreateCR(testCtx, testVolume1Name, &v1)
-// 	assert.Nil(t, err)
+	// check that Volume was removed
+	svc.cache.Set(volumeOne.Name, volumeOne.Namespace)
+	svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeOne.Name)
+	err = svc.k8sClient.ReadCR(testCtx, volumeOne.Name, volumeOne.Namespace, &volumecrd.Volume{})
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
 
-// 	svc1.UpdateCRsAfterVolumeDeletion(testCtx, testVolume1Name)
-// 	// check that Volume was removed
-// 	err = svc1.k8sClient.ReadCR(testCtx, testVolume1Name, v1.Namespace, &volumecrd.Volume{})
-// 	assert.NotNil(t, err)
-// 	assert.True(t, k8sError.IsNotFound(err))
-
-// 	// check that AC size was increased
-// 	var updatedAC = &accrd.AvailableCapacity{}
-// 	err = svc1.k8sClient.ReadCR(testCtx, testAC4Name, "", updatedAC)
-// 	assert.Nil(t, err)
-// 	assert.Equal(t, testAC4.Spec.Size+v1.Spec.Size, updatedAC.Spec.Size)
-// }
+	// check that AC size was increased
+	var updatedAC = &accrd.AvailableCapacity{}
+	err = svc.k8sClient.ReadCR(testCtx, testAC4Name, "", updatedAC)
+	assert.Nil(t, err)
+	assert.Equal(t, testAC4.Spec.Size+volumeOne.Spec.Size, updatedAC.Spec.Size)
+}
 
 func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 	var (
@@ -657,69 +667,71 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	assert.Equal(t, codes.OutOfRange, status.Code(err))
 }
 
-// FIXME
-// func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
-// 	var (
-// 		svc *VolumeOperationsImpl
-// 		err error
-// 	)
+func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
+	var (
+		svc      = setupVOOperationsTest(t)
+		volumeCR = testVolume1.DeepCopy()
+		err      error
+	)
 
-// 	volumeCR := testVolume1
-// 	svc = setupVOOperationsTest(t)
-// 	svc.cache.Set(volumeCR.Spec.Id, testNS)
-// 	volumeCR.Spec.CSIStatus = apiV1.Failed
-// 	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR)
-// 	volAC := &accrd.AvailableCapacity{
-// 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-// 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
-// 		Spec: api.AvailableCapacity{
-// 			Size:         10000,
-// 			StorageClass: apiV1.StorageClassSystemLVG,
-// 			// NodeId:       nodeID,
-// 		},
-// 	}
-// 	volAC.Spec.Location = testDrive1UUID
-// 	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
-// 	assert.Nil(t, err)
+	svc.cache.Set(volumeCR.Spec.Id, volumeCR.Namespace)
+	volumeCR.Spec.CSIStatus = apiV1.Failed
+	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, volumeCR)
+	volAC := &accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+		Spec: api.AvailableCapacity{
+			Size:         107373143824,
+			StorageClass: apiV1.StorageClassSystemLVG,
+			// NodeId:       nodeID,
+		},
+	}
+	volAC.Spec.Location = testDrive1UUID
+	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
+	assert.Nil(t, err)
 
-// 	// volume doesn't have annotation
-// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+	// volume doesn't have annotation
+	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
 
-// 	capacity, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
-// 	assert.Nil(t, err)
-// 	assert.Equal(t, volAC.Spec.Size, capacity.Spec.Size)
+	capacity, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
+	assert.Nil(t, err)
+	assert.Equal(t, volAC.Spec.Size, capacity.Spec.Size)
 
-// 	// volume has annotation and status failed
-// 	volumeCR.Annotations = map[string]string{apiV1.VolumePreviousCapacity: strconv.FormatInt(int64(util.MBYTE), 10)}
-// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-// 	pAC, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
-// 	assert.Nil(t, err)
-// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+	// volume has annotation and status failed
+	volumeCR.Annotations = map[string]string{
+		apiV1.VolumePreviousCapacity: strconv.FormatInt(int64(util.MBYTE), 10),
+	}
+	err = svc.k8sClient.UpdateCR(testCtx, volumeCR)
+	pAC, err := svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
+	assert.Nil(t, err)
+	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
 
-// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
-// 	assert.Nil(t, err)
-// 	capacity, err = svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
-// 	assert.Nil(t, err)
-// 	assert.Equal(t, pAC.Spec.Size+int64(util.GBYTE)*100-int64(util.MBYTE), capacity.Spec.Size)
+	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, volumeCR)
+	assert.Nil(t, err)
+	capacity, err = svc.crHelper.GetACByLocation(volumeCR.Spec.Location)
+	assert.Nil(t, err)
+	assert.Equal(t, pAC.Spec.Size+int64(util.GBYTE)*100-int64(util.MBYTE), capacity.Spec.Size)
 
-// 	// volume has resized status and doesn't have annotation
-// 	volumeCR.Spec.CSIStatus = apiV1.Resized
-// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-// 	assert.Nil(t, err)
-// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
-// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
-// 	assert.Nil(t, err)
-// 	assert.Equal(t, apiV1.Resized, volumeCR.Spec.CSIStatus)
+	// volume has resized status and doesn't have annotation
+	volumeCR.Spec.CSIStatus = apiV1.Resized
+	err = svc.k8sClient.UpdateCR(testCtx, volumeCR)
+	assert.Nil(t, err)
+	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, volumeCR)
+	assert.Nil(t, err)
+	assert.Equal(t, apiV1.Resized, volumeCR.Spec.CSIStatus)
 
-// 	// volume has resized status
-// 	volumeCR.Annotations = map[string]string{apiV1.VolumePreviousStatus: apiV1.Created}
-// 	err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
-// 	assert.Nil(t, err)
-// 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
-// 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, &volumeCR)
-// 	assert.Nil(t, err)
-// 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
-// }
+	// volume has resized status
+	volumeCR.Annotations = map[string]string{
+		apiV1.VolumePreviousStatus: apiV1.Created,
+	}
+	err = svc.k8sClient.UpdateCR(testCtx, volumeCR)
+	assert.Nil(t, err)
+	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
+	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, volumeCR)
+	assert.Nil(t, err)
+	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
+}
 
 func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	svc := setupVOOperationsTest(t)
@@ -735,8 +747,10 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 
 	err = svc.k8sClient.CreateCR(context.Background(), testDriveCR4.Name, &testDriveCR4)
 	assert.Nil(t, err)
+	testLVG.ObjectMeta.ResourceVersion = ""
 	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
 	assert.Nil(t, err)
+	testAC4.ObjectMeta.ResourceVersion = ""
 	err = svc.k8sClient.CreateCR(context.Background(), testAC4.Name, &testAC4)
 	assert.Nil(t, err)
 
@@ -756,24 +770,6 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
 	assert.False(t, isDeleted)
 	assert.True(t, k8sError.IsNotFound(err))
-}
-
-func buildVolumePlacingPlan(node string, vol *api.Volume,
-	ac *accrd.AvailableCapacity) *capacityplanner.VolumesPlacingPlan {
-	return capacityplanner.NewVolumesPlacingPlan(
-		capacityplanner.VolumesPlanMap{
-			node: capacityplanner.VolToACMap{
-				vol: ac,
-			},
-		},
-		capacityplanner.NodeCapacityMap{
-			node: capacityplanner.ACMap{ac.Name: ac},
-		})
-}
-
-func getCapacityManagerMock() (capacityplanner.CapacityManagerBuilder, *capacityplanner.PlannerMock) {
-	plannerMock := &capacityplanner.PlannerMock{}
-	return &capacityplanner.MockCapacityManagerBuilder{Manager: plannerMock}, plannerMock
 }
 
 func getTestACR(size int64, sc, name, podNamespace string,
