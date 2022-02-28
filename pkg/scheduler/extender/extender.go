@@ -655,9 +655,9 @@ func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scCh
 
 // scChecker.check return codes
 const (
-	relatedSC   = 0
-	unrelatedSC = 1
-	unknown     = 2
+	relatedSC = iota
+	unrelatedSC
+	unknown
 )
 
 // check returns storageType and scType, return codes:
