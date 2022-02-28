@@ -618,18 +618,18 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	var (
 		svc      *VolumeOperationsImpl
 		capacity = int64(util.TBYTE)
+		volumeCR = testVolume1.DeepCopy()
 	)
 
-	volumeCR := testVolume1
 	svc = setupVOOperationsTest(t)
 	volumeCR.ObjectMeta.CreationTimestamp = k8smetav1.Time{}
 	volumeCR.ObjectMeta.ResourceVersion = ""
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, &volumeCR))
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, volumeCR))
 
 	for _, v := range [4]string{apiV1.Failed, apiV1.Removed, apiV1.Removing, apiV1.Creating} {
 		volumeCR.Spec.CSIStatus = v
-		assert.Nil(t, svc.k8sClient.UpdateCR(testCtx, &volumeCR))
-		err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
+		assert.Nil(t, svc.k8sClient.UpdateCR(testCtx, volumeCR))
+		err := svc.ExpandVolume(testCtx, volumeCR, capacity)
 		assert.NotNil(t, err)
 		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 	}
@@ -637,16 +637,16 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	// Storage class is not lvg
 	volumeCR.Spec.CSIStatus = apiV1.Created
 	volumeCR.ObjectMeta.ResourceVersion = ""
-	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, &volumeCR))
-	if err := svc.ExpandVolume(testCtx, &volumeCR, capacity); err != nil {
+	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, volumeCR))
+	if err := svc.ExpandVolume(testCtx, volumeCR, capacity); err != nil {
 		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 	}
 
 	// Failed to get AC
 	volumeCR.ObjectMeta.ResourceVersion = ""
 	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
-	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, &volumeCR))
-	err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
+	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, volumeCR))
+	err := svc.ExpandVolume(testCtx, volumeCR, capacity)
 	assert.NotNil(t, err)
 	assert.Equal(t, codes.Internal, status.Code(err))
 
@@ -661,7 +661,7 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	}
 	volAC.Spec.Location = testDrive1UUID
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, "", volAC))
-	err = svc.ExpandVolume(testCtx, &volumeCR, capacity)
+	err = svc.ExpandVolume(testCtx, volumeCR, capacity)
 	assert.NotNil(t, err)
 	assert.Equal(t, codes.OutOfRange, status.Code(err))
 }
@@ -678,7 +678,7 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, volumeCR)
 	volAC := &accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String()},
 		Spec: api.AvailableCapacity{
 			Size:         107373143824,
 			StorageClass: apiV1.StorageClassSystemLVG,
