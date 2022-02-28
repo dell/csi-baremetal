@@ -484,7 +484,7 @@ func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
 func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
 	var (
 		svc = setupVOOperationsTest(t)
-		v = testVolume1.DeepCopy()
+		v   = testVolume1.DeepCopy()
 	)
 	v.Spec.CSIStatus = apiV1.Created
 	svc.cache.Set(v.Name, v.Namespace)
@@ -532,7 +532,7 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		lvgOne    = testLVG.DeepCopy()
 	)
 
-	// 1. volume with HDDLVG SC, corresponding AC should be increased, volume CR should be removed
+	// volume with HDDLVG SC, corresponding AC should be increased, volume CR should be removed
 	volumeOne.ObjectMeta.ResourceVersion = ""
 	err = svc.k8sClient.CreateCR(testCtx, volumeOne.Name, volumeOne)
 	assert.Nil(t, err)
@@ -634,7 +634,7 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 	}
 
-	// 	// Storage class is not lvg
+	// Storage class is not lvg
 	volumeCR.Spec.CSIStatus = apiV1.Created
 	volumeCR.ObjectMeta.ResourceVersion = ""
 	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, &volumeCR))
@@ -642,7 +642,7 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 	}
 
-	// 	// Failed to get AC
+	// Failed to get AC
 	volumeCR.ObjectMeta.ResourceVersion = ""
 	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
 	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, &volumeCR))
@@ -650,14 +650,13 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, codes.Internal, status.Code(err))
 
-	//Required capacity is more than capacity of AC
+	// Required capacity is more than capacity of AC
 	volAC := &accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         10000,
 			StorageClass: apiV1.StorageClassSystemLVG,
-			// NodeId:       nodeID,
 		},
 	}
 	volAC.Spec.Location = testDrive1UUID
@@ -683,7 +682,6 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 		Spec: api.AvailableCapacity{
 			Size:         107373143824,
 			StorageClass: apiV1.StorageClassSystemLVG,
-			// NodeId:       nodeID,
 		},
 	}
 	volAC.Spec.Location = testDrive1UUID
