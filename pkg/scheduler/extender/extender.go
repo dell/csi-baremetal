@@ -324,7 +324,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 					storageReq = resource.Quantity{}
 				}
 				requests = append(requests, &genV1.CapacityRequest{
-					Name:         generateEphemeralVolumeName(pod.GetName(), v.Name),
+					Name:         pvc.Name,
 					StorageClass: util.ConvertStorageClass(storageType),
 					Size:         storageReq.Value(),
 				})
