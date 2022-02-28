@@ -315,12 +315,12 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				ll.Warningf("SC %s is not found in cache, wait until update", *pvc.Spec.StorageClassName)
 				return nil, baseerr.ErrorNotFound
 			case unrelatedSC:
-				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip this volume", *pvc.Spec.StorageClassName)
+				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip PVC %s", *pvc.Spec.StorageClassName, pvc.Name)
 				continue
 			case relatedSC:
 				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
 				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", v.Name)
+					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
 					storageReq = resource.Quantity{}
 				}
 				requests = append(requests, &genV1.CapacityRequest{
