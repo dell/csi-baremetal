@@ -260,20 +260,16 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			case unknown:
 				ll.Warningf("SC %s is not found in cache, wait until update", *claimSpec.StorageClassName)
 				return nil, baseerr.ErrorNotFound
-			case unrelatedSC:
+			case unmanagedSC:
 				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip this volume", *claimSpec.StorageClassName)
 				continue
-			case relatedSC:
-				storageReq, ok := claimSpec.Resources.Requests[coreV1.ResourceStorage]
-				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", v.Name)
-					storageReq = resource.Quantity{}
-				}
-				requests = append(requests, &genV1.CapacityRequest{
-					Name:         generateEphemeralVolumeName(pod.GetName(), v.Name),
-					StorageClass: util.ConvertStorageClass(storageType),
-					Size:         storageReq.Value(),
-				})
+			case managedSC:
+				requests = append(requests, createRequestFromPVCSpec(
+					generateEphemeralVolumeName(pod.GetName(), v.Name),
+					storageType,
+					claimSpec.Resources,
+					ll,
+				))
 			default:
 				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
@@ -314,20 +310,16 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			case unknown:
 				ll.Warningf("SC %s is not found in cache, wait until update", *pvc.Spec.StorageClassName)
 				return nil, baseerr.ErrorNotFound
-			case unrelatedSC:
+			case unmanagedSC:
 				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip PVC %s", *pvc.Spec.StorageClassName, pvc.Name)
 				continue
-			case relatedSC:
-				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
-				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
-					storageReq = resource.Quantity{}
-				}
-				requests = append(requests, &genV1.CapacityRequest{
-					Name:         pvc.Name,
-					StorageClass: util.ConvertStorageClass(storageType),
-					Size:         storageReq.Value(),
-				})
+			case managedSC:
+				requests = append(requests, createRequestFromPVCSpec(
+					pvc.Name,
+					storageType,
+					pvc.Spec.Resources,
+					ll,
+				))
 			default:
 				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
@@ -613,11 +605,24 @@ func generateEphemeralVolumeName(podName, volumeName string) string {
 	return podName + "-" + volumeName
 }
 
+func createRequestFromPVCSpec(volumeName, storageType string, resourceRequirements coreV1.ResourceRequirements, log *logrus.Entry) *genV1.CapacityRequest {
+	storageReq, ok := resourceRequirements.Requests[coreV1.ResourceStorage]
+	if !ok {
+		log.Errorf("There is no key for storage resource for PVC %s", volumeName)
+		storageReq = resource.Quantity{}
+	}
+	return &genV1.CapacityRequest{
+		Name:         volumeName,
+		StorageClass: util.ConvertStorageClass(storageType),
+		Size:         storageReq.Value(),
+	}
+}
+
 // scChecker keeps info about the related SCs (provisioned by CSI Baremetal) and
 // the unrelated ones (prvisioned by other CSI drivers)
 type scChecker struct {
-	relatedSCs   map[string]string
-	unrelatedSCs map[string]bool
+	managedSCs   map[string]string
+	unmanagedSCs map[string]bool
 }
 
 // buildSCChecker creates an instance of scChecker
@@ -627,7 +632,7 @@ func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scCh
 	})
 
 	var (
-		result = &scChecker{relatedSCs: map[string]string{}, unrelatedSCs: map[string]bool{}}
+		result = &scChecker{managedSCs: map[string]string{}, unmanagedSCs: map[string]bool{}}
 		scs    = storageV1.StorageClassList{}
 	)
 
@@ -637,16 +642,16 @@ func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scCh
 
 	for _, sc := range scs.Items {
 		if sc.Provisioner == e.provisioner {
-			result.relatedSCs[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+			result.managedSCs[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
 		} else {
-			result.unrelatedSCs[sc.Name] = true
+			result.unmanagedSCs[sc.Name] = true
 		}
 	}
 
-	ll.Debugf("related SCs: %+v", result.relatedSCs)
-	ll.Debugf("unrelated SCs: %+v", result.unrelatedSCs)
+	ll.Debugf("related SCs: %+v", result.managedSCs)
+	ll.Debugf("unrelated SCs: %+v", result.unmanagedSCs)
 
-	if len(result.relatedSCs) == 0 {
+	if len(result.managedSCs) == 0 {
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
 
@@ -655,8 +660,8 @@ func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scCh
 
 // scChecker.check return codes
 const (
-	relatedSC = iota
-	unrelatedSC
+	managedSC = iota
+	unmanagedSC
 	unknown
 )
 
@@ -665,12 +670,12 @@ const (
 // unrelatedSC - SC is provisioned by another CSI driver
 // unknown - SC is not found in cache
 func (ch *scChecker) check(name string) (string, int) {
-	if storageType, ok := ch.relatedSCs[name]; ok {
-		return storageType, relatedSC
+	if storageType, ok := ch.managedSCs[name]; ok {
+		return storageType, managedSC
 	}
 
-	if _, ok := ch.unrelatedSCs[name]; ok {
-		return "", unrelatedSC
+	if _, ok := ch.unmanagedSCs[name]; ok {
+		return "", unmanagedSC
 	}
 
 	return "", unknown
