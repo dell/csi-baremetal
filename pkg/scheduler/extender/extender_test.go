@@ -517,9 +517,9 @@ func TestExtender_buildSCChecker_Success(t *testing.T) {
 
 	m, err := e.buildSCChecker(testCtx, testLogger.WithField("test", "buildSCChecker"))
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(m.relatedSCs))
-	assert.Equal(t, 1, len(m.unrelatedSCs))
-	assert.Equal(t, m.relatedSCs[testSCName1], testStorageType)
+	assert.Equal(t, 1, len(m.managedSCs))
+	assert.Equal(t, 1, len(m.unmanagedSCs))
+	assert.Equal(t, m.managedSCs[testSCName1], testStorageType)
 }
 
 func TestExtender_buildSCChecker_Fail(t *testing.T) {
@@ -532,16 +532,16 @@ func TestExtender_buildSCChecker_Fail(t *testing.T) {
 
 func TestExtender_scChecker_check(t *testing.T) {
 	ch := &scChecker{
-		relatedSCs:   map[string]string{testSCName1: testStorageType},
-		unrelatedSCs: map[string]bool{testSCName2: true},
+		managedSCs:   map[string]string{testSCName1: testStorageType},
+		unmanagedSCs: map[string]bool{testSCName2: true},
 	}
 
 	storageType, scType := ch.check(testSCName1)
-	assert.Equal(t, scType, relatedSC)
+	assert.Equal(t, scType, managedSC)
 	assert.Equal(t, storageType, testStorageType)
 
 	_, scType = ch.check(testSCName2)
-	assert.Equal(t, scType, unrelatedSC)
+	assert.Equal(t, scType, unmanagedSC)
 
 	_, scType = ch.check("non-cached-sc")
 	assert.Equal(t, scType, unknown)
