@@ -134,7 +134,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 	err = vo.k8sClient.ReadCR(ctx, v.Id, namespace, volumeCR)
 	if err != nil {
 		if k8sError.IsNotFound(err) {
-			log.Infof("Creating volume %v", v)
+			log.Infof("Creating volume %+v", v)
 			// create volume
 			return vo.handleVolumeCreation(ctxWithID, log, v, namespace, volumeInfo.Name)
 		}
