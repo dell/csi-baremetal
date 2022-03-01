@@ -233,6 +233,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 	}
 
 	requests := make([]*genV1.CapacityRequest, 0)
+	// TODO - refactor repeatable code - https://github.com/dell/csi-baremetal/issues/760
 	for _, v := range pod.Spec.Volumes {
 		ll.Debugf("Volume %s details: %+v", v.Name, v)
 		// check whether volume Ephemeral or not
