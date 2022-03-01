@@ -226,7 +226,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 		"pod":         pod.Name,
 	})
 
-	scChecker, err := e.buildSCChecker(ctx, ll)
+	scs, err := e.buildSCChecker(ctx, ll)
 	if err != nil {
 		ll.Errorf("Unable to collect storage classes: %v", err)
 		return nil, err
@@ -255,7 +255,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				continue
 			}
 
-			storageType, scType := scChecker.check(*claimSpec.StorageClassName)
+			storageType, scType := scs.check(*claimSpec.StorageClassName)
 			switch scType {
 			case unknown:
 				ll.Warningf("SC %s is not found in cache, wait until update", *claimSpec.StorageClassName)
@@ -309,7 +309,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			// Workaround is realized in CSI Operator ACRValidator. It checks all ACR and removed ones for
 			// Running pods.
 
-			storageType, scType := scChecker.check(*pvc.Spec.StorageClassName)
+			storageType, scType := scs.check(*pvc.Spec.StorageClassName)
 			switch scType {
 			case unknown:
 				ll.Warningf("SC %s is not found in cache, wait until update", *pvc.Spec.StorageClassName)
