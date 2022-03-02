@@ -26,6 +26,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
@@ -85,14 +86,12 @@ func TestDriveProvisioner_PrepareVolume_Success(t *testing.T) {
 		}
 	)
 
-	mockLsblk.On("SearchDrivePath",
-		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
-		Return(device, nil)
+	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return(device, nil)
 	mockPH.On("PreparePartition", part).Return(&expectedPart, nil)
 	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), expectedPart.GetFullPath()).
 		Return(nil)
 
-	err = dp.PrepareVolume(testVolume2)
+	err = dp.PrepareVolume(&testVolume2)
 	assert.Nil(t, err)
 }
 
@@ -109,11 +108,9 @@ func TestDriveProvisioner_PrepareVolume_Block_Success(t *testing.T) {
 		device = "/some/device"
 	)
 
-	mockLsblk.On("SearchDrivePath",
-		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
-		Return(device, nil)
+	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return(device, nil)
 
-	err = dp.PrepareVolume(testVolume2Raw)
+	err = dp.PrepareVolume(&testVolume2Raw)
 	assert.Nil(t, err)
 }
 
@@ -145,12 +142,10 @@ func TestDriveProvisioner_PrepareVolume_Blockrawpart_Success(t *testing.T) {
 		}
 	)
 
-	mockLsblk.On("SearchDrivePath",
-		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
-		Return(device, nil)
+	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return(device, nil)
 	mockPH.On("PreparePartition", part).Return(&expectedPart, nil)
 
-	err = dp.PrepareVolume(testVolume2RawPart)
+	err = dp.PrepareVolume(&testVolume2RawPart)
 	assert.Nil(t, err)
 }
 
@@ -161,7 +156,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	)
 
 	// drive CR isn't exist
-	err = dp.PrepareVolume(testVolume2)
+	err = dp.PrepareVolume(&testVolume2)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "failed to read drive CR with name")
 
@@ -173,7 +168,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	mockLsblk.On("SearchDrivePath", mock.Anything).
 		Return("", errTest).Once()
 
-	err = dp.PrepareVolume(testVolume2)
+	err = dp.PrepareVolume(&testVolume2)
 	assert.Error(t, err)
 	assert.Equal(t, errTest, err)
 
@@ -185,7 +180,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	mockPH.On("PreparePartition", mock.Anything).
 		Return(&uw.Partition{}, errTest).Once()
 
-	err = dp.PrepareVolume(testVolume2)
+	err = dp.PrepareVolume(&testVolume2)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to prepare partition for volume")
 
@@ -194,7 +189,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 		Return(&uw.Partition{}, nil).Once()
 	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), mock.Anything).Return(errTest)
 
-	err = dp.PrepareVolume(testVolume2)
+	err = dp.PrepareVolume(&testVolume2)
 	assert.Error(t, err)
 	assert.Equal(t, errTest, err)
 }
@@ -222,15 +217,13 @@ func TestDriveProvisioner_ReleaseVolume_Success(t *testing.T) {
 		}
 	)
 
-	mockLsblk.On("SearchDrivePath",
-		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
-		Return(deviceFile, nil).Once()
+	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return(deviceFile, nil)
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).Return(partName, nil).Once()
 	mockFS.On("WipeFS", deviceFile+partName).Return(nil).Once()
 	mockPH.On("ReleasePartition", part).Return(nil)
 	mockFS.On("WipeFS", deviceFile).Return(nil).Once()
 
-	err = dp.ReleaseVolume(testVolume2)
+	err = dp.ReleaseVolume(&testVolume2, &testDriveCR.Spec)
 	assert.Nil(t, err)
 
 	// SearchPartName failed but partition isn't exist (was removed before)
@@ -241,7 +234,7 @@ func TestDriveProvisioner_ReleaseVolume_Success(t *testing.T) {
 	mockLsblk.On("GetBlockDevices", deviceFile).Return(nil, nil).Once()
 	mockFS.On("WipeFS", deviceFile).Return(nil).Once()
 
-	err = dp.ReleaseVolume(testVolume2)
+	err = dp.ReleaseVolume(&testVolume2, &testDriveCR.Spec)
 	assert.Nil(t, err)
 }
 
@@ -251,20 +244,13 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 		err                           error
 	)
 
-	// failed to find DriveCR
-	err = dp.ReleaseVolume(api.Volume{})
-	assert.Error(t, err)
-	assert.EqualError(t, err, "unable to find drive by vol location")
-
 	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	// SearchDrivePath failed
-	mockLsblk.On("SearchDrivePath",
-		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
-		Return("", errTest).Once()
+	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return("", errTest).Once()
 
-	err = dp.ReleaseVolume(testVolume2)
+	err = dp.ReleaseVolume(&testVolume2, &testDriveCR.Spec)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to find device for drive with S/N")
 
@@ -279,7 +265,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	mockLsblk.On("GetBlockDevices", deviceFile).
 		Return(nil, errTest)
 
-	err = dp.ReleaseVolume(testVolume2)
+	err = dp.ReleaseVolume(&testVolume2, &testDriveCR.Spec)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to find partition name")
 
@@ -291,7 +277,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	// WipeFS failed
 	mockFS.On("WipeFS", deviceFile+partName).Return(errTest).Once()
 
-	err = dp.ReleaseVolume(testVolume2)
+	err = dp.ReleaseVolume(&testVolume2, &testDriveCR.Spec)
 	assert.Error(t, err)
 	assert.Equal(t, errTest, err)
 
@@ -299,7 +285,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	mockFS.On("WipeFS", mock.Anything).Return(nil).Once()
 	mockPH.On("ReleasePartition", mock.Anything).Return(errTest).Once()
 
-	err = dp.ReleaseVolume(testVolume2)
+	err = dp.ReleaseVolume(&testVolume2, &testDriveCR.Spec)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to release partition")
 
@@ -308,7 +294,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	mockPH.On("ReleasePartition", mock.Anything).Return(nil)
 	mockFS.On("WipeFS", deviceFile).Return(errTest)
 
-	err = dp.ReleaseVolume(testVolume2)
+	err = dp.ReleaseVolume(&testVolume2, &testDriveCR.Spec)
 	assert.Error(t, err)
 	assert.Equal(t, errTest, err)
 }
@@ -328,13 +314,11 @@ func TestDriveProvisioner_GetVolumePath_Success(t *testing.T) {
 		partName   = "p1"
 	)
 
-	mockLsblk.On("SearchDrivePath",
-		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
-		Return(deviceFile, nil).Once()
+	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return(deviceFile, nil).Once()
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
 		Return(partName, nil).Once()
 
-	fullPath, err = dp.GetVolumePath(testVolume2)
+	fullPath, err = dp.GetVolumePath(&testVolume2)
 	assert.Nil(t, err)
 	assert.Equal(t, deviceFile+partName, fullPath)
 }
@@ -347,20 +331,18 @@ func TestDriveProvisioner_GetVolumePath_Fail(t *testing.T) {
 	)
 
 	// failed to find DriveCR
-	fullPath, err = dp.GetVolumePath(api.Volume{})
+	fullPath, err = dp.GetVolumePath(&api.Volume{})
 	assert.Error(t, err)
 	assert.Equal(t, "", fullPath)
-	assert.Contains(t, err.Error(), "unable to find drive by location")
+	assert.Equal(t, err, baseerr.ErrorGetDriveFailed)
 
 	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
 	// SearchDrivePath
-	mockLsblk.On("SearchDrivePath",
-		mock.MatchedBy(func(d *drivecrd.Drive) bool { return d.Name == testDriveCR.Name })).
-		Return("", errTest).Once()
+	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return("", errTest).Once()
 
-	fullPath, err = dp.GetVolumePath(testVolume2)
+	fullPath, err = dp.GetVolumePath(&testVolume2)
 	assert.Error(t, err)
 	assert.Equal(t, "", fullPath)
 	assert.Contains(t, err.Error(), "unable to find device for drive with S/N")
@@ -372,7 +354,7 @@ func TestDriveProvisioner_GetVolumePath_Fail(t *testing.T) {
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
 		Return("").Once()
 
-	fullPath, err = dp.GetVolumePath(testVolume2)
+	fullPath, err = dp.GetVolumePath(&testVolume2)
 	assert.Error(t, err)
 	assert.Equal(t, "", fullPath)
 	assert.Contains(t, err.Error(), "unable to find part name for device")

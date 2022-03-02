@@ -35,10 +35,10 @@ const (
 
 // Provisioner is a high-level interface that encapsulates all low-level work with volumes on node
 type Provisioner interface {
-	// Prepare volume for mount
-	PrepareVolume(volume api.Volume) error
-	// Completely release underlying resources that had consumed by volume
-	ReleaseVolume(volume api.Volume) error
-	// Return full path of device file that represent volume on node
-	GetVolumePath(volume api.Volume) (string, error)
+	// PrepareVolume prepares volume for mount
+	PrepareVolume(volume *api.Volume) error
+	// ReleaseVolume completely releases underlying resources that had consumed by volume
+	ReleaseVolume(volume *api.Volume, drive *api.Drive) error
+	// GetVolumePath returns full path of device file that represent volume on node
+	GetVolumePath(volume *api.Volume) (string, error)
 }

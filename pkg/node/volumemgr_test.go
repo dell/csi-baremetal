@@ -62,9 +62,8 @@ var (
 	testErr            = errors.New("error")
 	lsblkAllDevicesCmd = fmt.Sprintf(lsblk.CmdTmpl, "")
 
-	drive1UUID   = uuid.New().String()
-	drive2UUID   = uuid.New().String()
-	testPartUUID = uuid.New().String()
+	drive1UUID = uuid.New().String()
+	drive2UUID = uuid.New().String()
 
 	drive1 = api.Drive{
 		UUID:         drive1UUID,
@@ -96,15 +95,6 @@ var (
 		Type:     drive1.Type,
 		Size:     lsblk.CustomInt64{Int64: drive1.Size},
 		Serial:   drive1.SerialNumber,
-		Children: nil,
-	}
-
-	// block device that corresponds to the drive2
-	bdev2 = lsblk.BlockDevice{
-		Name:     drive2.Path,
-		Type:     drive2.Type,
-		Size:     lsblk.CustomInt64{Int64: drive1.Size},
-		Serial:   drive2.SerialNumber,
 		Children: nil,
 	}
 
@@ -298,7 +288,7 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 	// PrepareVolume failed
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 	pMock = &mockProv.MockProvisioner{}
-	pMock.On("PrepareVolume", testVol.Spec).Return(testErr)
+	pMock.On("PrepareVolume", &testVol.Spec).Return(testErr)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 	res, err = vm.prepareVolume(testCtx, testVol)
@@ -311,11 +301,10 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 
 func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	var (
-		vm     *VolumeManager
-		req    = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
-		volume = &vcrd.Volume{}
-		res    ctrl.Result
-		err    error
+		vm  *VolumeManager
+		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
+		res ctrl.Result
+		err error
 	)
 
 	t.Run("happy path", func(t *testing.T) {
@@ -323,20 +312,25 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		testVol := volCR.DeepCopy()
 		testVol.Spec.CSIStatus = apiV1.Removing
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		drive := testDriveCR.DeepCopy()
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, drive))
 		pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 		res, err = vm.handleRemovingStatus(testCtx, testVol)
 		assert.Nil(t, err)
 		assert.Equal(t, res, ctrl.Result{})
+		volume := &vcrd.Volume{}
 		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 		assert.Nil(t, err)
 		assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
 	})
 
 	t.Run("failed to update", func(t *testing.T) {
-		testVol := volCR.DeepCopy()
 		vm = prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		drive := testDriveCR.DeepCopy()
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, drive))
 		pMock := mockProv.GetMockProvisionerSuccess("/some/path")
 		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
@@ -345,17 +339,36 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		assert.True(t, res.Requeue)
 	})
 
-	t.Run("ReleaseVolume failed", func(t *testing.T) {
+	t.Run("failed to get drive", func(t *testing.T) {
+		vm = prepareSuccessVolumeManager(t)
 		testVol := volCR.DeepCopy()
 		testVol.Spec.CSIStatus = apiV1.Removing
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+
+		res, err = vm.handleRemovingStatus(testCtx, testVol)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+		volume := &vcrd.Volume{}
+		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
+		assert.Nil(t, err)
+		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removing)
+	})
+
+	t.Run("ReleaseVolume failed", func(t *testing.T) {
+		vm = prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		drive := testDriveCR.DeepCopy()
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, drive))
 		pMock := &mockProv.MockProvisioner{}
-		pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
+		pMock.On("ReleaseVolume", &testVol.Spec, &drive1).Return(testErr)
 		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 		res, err = vm.handleRemovingStatus(testCtx, testVol)
 		assert.NotNil(t, err)
 		assert.Equal(t, res, ctrl.Result{})
+		volume := &vcrd.Volume{}
 		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 		assert.Nil(t, err)
 		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
@@ -367,12 +380,11 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		testVol.Spec.CSIStatus = apiV1.Removing
 		testVol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
-		pMock := &mockProv.MockProvisioner{}
-		vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 		res, err = vm.handleRemovingStatus(testCtx, testVol)
 		assert.Nil(t, err)
 		assert.Equal(t, res, ctrl.Result{})
+		volume := &vcrd.Volume{}
 		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 		assert.Nil(t, err)
 		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
@@ -391,18 +403,18 @@ func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 
 	pMock := &mockProv.MockProvisioner{}
-	pMock.On("ReleaseVolume", testVol.Spec).Return(testErr)
+	pMock.On("ReleaseVolume", &testVol.Spec, &drive).Return(testErr)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.DriveBasedVolumeType: pMock})
 
 	res, err := vm.handleRemovingStatus(testCtx, testVol)
 	assert.Error(t, testErr)
 
-	drivecrd := &drivecrd.Drive{}
-	err = vm.k8sClient.ReadCR(context.Background(), testVol.Spec.Location, "", drivecrd)
+	driveCR := &drivecrd.Drive{}
+	err = vm.k8sClient.ReadCR(context.Background(), testVol.Spec.Location, "", driveCR)
 	assert.Nil(t, err)
 
 	assert.Equal(t, res, ctrl.Result{})
-	assert.Equal(t, apiV1.DriveUsageFailed, drivecrd.Spec.Usage)
+	assert.Equal(t, apiV1.DriveUsageFailed, driveCR.Spec.Usage)
 }
 
 func TestReconcile_SuccessDeleteVolume(t *testing.T) {
@@ -709,80 +721,116 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 }
 
 func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
-	vm := prepareSuccessVolumeManager(t)
-	driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
-	vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
 
-	updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
-	assert.Nil(t, err)
-	driveCRs, err := vm.crHelper.GetDriveCRs(vm.nodeID)
-	assert.Nil(t, err)
-	assert.Equal(t, len(driveCRs), 2)
-	assert.Len(t, updates.Created, 2)
+	t.Run("happy path", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
 
-	driveMgrRespDrives[0].Health = apiV1.HealthBad
-	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
-	assert.Nil(t, err)
-	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthBad)
-	assert.Len(t, updates.Updated, 1)
-	assert.Len(t, updates.NotChanged, 1)
-
-	drives := driveMgrRespDrives[1:]
-	updates, err = vm.updateDrivesCRs(testCtx, drives)
-	assert.Nil(t, err)
-	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Health, apiV1.HealthUnknown)
-	assert.Equal(t, vm.crHelper.GetDriveCRByUUID(driveMgrRespDrives[0].UUID).Spec.Status, apiV1.DriveStatusOffline)
-	assert.Len(t, updates.Updated, 1)
-	assert.Len(t, updates.NotChanged, 1)
-
-	drives = driveMgrRespDrives
-	driveCR := vm.crHelper.GetDriveCRByUUID(driveCRs[0].Name)
-	driveCR.Annotations = map[string]string{"health": "bad"}
-	vm.k8sClient.UpdateCR(testCtx, driveCR)
-	updates, err = vm.updateDrivesCRs(testCtx, drives)
-	actualDrive := vm.crHelper.GetDriveCRByUUID(driveCR.Name)
-	assert.Nil(t, err)
-	assert.Equal(t, actualDrive.Spec.Health, apiV1.HealthBad)
-
-	vm = prepareSuccessVolumeManager(t)
-	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
-	assert.Nil(t, err)
-	assert.Empty(t, driveCRs)
-	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
-	assert.Nil(t, err)
-	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
-	assert.Nil(t, err)
-	assert.Equal(t, len(driveCRs), 2)
-	assert.Len(t, updates.Created, 2)
-	driveMgrRespDrives = append(driveMgrRespDrives, &api.Drive{
-		UUID:         uuid.New().String(),
-		SerialNumber: "hdd3",
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
-		Size:         1024 * 1024 * 1024 * 150,
-		NodeId:       nodeID,
+		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+		assert.Nil(t, err)
+		driveCRs, err := vm.crHelper.GetDriveCRs(vm.nodeID)
+		assert.Nil(t, err)
+		assert.Equal(t, len(driveCRs), 2)
+		assert.Len(t, updates.Created, 2)
 	})
-	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
-	assert.Nil(t, err)
-	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
-	assert.Nil(t, err)
-	assert.Equal(t, len(driveCRs), 3)
-	assert.Len(t, updates.Created, 1)
-	assert.Len(t, updates.NotChanged, 2)
 
-	driveMgrRespDrives = append(driveMgrRespDrives, &api.Drive{
-		UUID:         uuid.New().String(),
-		SerialNumber: "",
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
-		Size:         1024 * 1024 * 1024 * 150,
-		NodeId:       nodeID,
+	t.Run("disk become bad", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+
+		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+		assert.Nil(t, err)
+		driveCRs, err := vm.crHelper.GetDriveCRs(vm.nodeID)
+		assert.Nil(t, err)
+		assert.Equal(t, len(driveCRs), 2)
+		assert.Len(t, updates.Created, 2)
+
+		driveMgrRespDrives[0].Health = apiV1.HealthBad
+		updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+		assert.Nil(t, err)
+		updatedDrive := &drivecrd.Drive{}
+		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, driveMgrRespDrives[0].UUID, "", updatedDrive))
+		assert.Equal(t, updatedDrive.Spec.Health, apiV1.HealthBad)
+		assert.Len(t, updates.Updated, 1)
+		assert.Len(t, updates.NotChanged, 1)
 	})
-	updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
-	assert.Nil(t, err)
-	driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
-	assert.Nil(t, err)
-	assert.Equal(t, len(driveCRs), 3)
+
+	t.Run("missing disk", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+
+		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+		assert.Nil(t, err)
+		driveCRs, err := vm.crHelper.GetDriveCRs(vm.nodeID)
+		assert.Nil(t, err)
+		assert.Equal(t, len(driveCRs), 2)
+		assert.Len(t, updates.Created, 2)
+
+		drive := driveCRs[0]
+		updates, err = vm.updateDrivesCRs(testCtx, []*api.Drive{&drive.Spec})
+		assert.Nil(t, err)
+		updatedDrive := &drivecrd.Drive{}
+		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, driveCRs[1].Name, "", updatedDrive))
+		assert.Equal(t, updatedDrive.Spec.Health, apiV1.HealthUnknown)
+		assert.Equal(t, updatedDrive.Spec.Status, apiV1.DriveStatusOffline)
+		assert.Len(t, updates.Updated, 1)
+		assert.Len(t, updates.NotChanged, 1)
+	})
+
+	t.Run("health bad annotation", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+
+		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+		assert.Nil(t, err)
+		driveCRs, err := vm.crHelper.GetDriveCRs(vm.nodeID)
+		assert.Nil(t, err)
+		assert.Equal(t, len(driveCRs), 2)
+		assert.Len(t, updates.Created, 2)
+
+		drive := driveCRs[0]
+		drive.Annotations = map[string]string{"health": "bad"}
+		_ = vm.k8sClient.UpdateCR(testCtx, &drive)
+		updates, err = vm.updateDrivesCRs(testCtx, []*api.Drive{&driveCRs[0].Spec, &driveCRs[1].Spec})
+
+		actualDrive := &drivecrd.Drive{}
+		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, drive.Name, "", actualDrive))
+		assert.Nil(t, err)
+		assert.Equal(t, actualDrive.Spec.Health, apiV1.HealthBad)
+	})
+
+	t.Run("new drive", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+
+		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+		assert.Nil(t, err)
+		driveCRs, err := vm.crHelper.GetDriveCRs(vm.nodeID)
+		assert.Nil(t, err)
+		assert.Equal(t, len(driveCRs), 2)
+		assert.Len(t, updates.Created, 2)
+
+		driveMgrRespDrives = []*api.Drive{&driveCRs[0].Spec, &driveCRs[1].Spec, {
+			UUID:         uuid.New().String(),
+			SerialNumber: "hdd3",
+			Health:       apiV1.HealthGood,
+			Type:         apiV1.DriveTypeHDD,
+			Size:         1024 * 1024 * 1024 * 150,
+			NodeId:       nodeID,
+		}}
+		updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
+		assert.Nil(t, err)
+		driveCRs, err = vm.crHelper.GetDriveCRs(vm.nodeID)
+		assert.Nil(t, err)
+		assert.Equal(t, len(driveCRs), 3)
+		assert.Len(t, updates.Created, 1)
+		assert.Len(t, updates.NotChanged, 2)
+	})
 }
 
 func TestVolumeManager_updatesDrivesCRs_Fail(t *testing.T) {
@@ -1145,7 +1193,7 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 
 	vm = prepareSuccessVolumeManager(t)
 	pMock = &mockProv.MockProvisioner{}
-	pMock.On("GetVolumePath", testVol.Spec).Return("path", testErr)
+	pMock.On("GetVolumePath", &testVol.Spec).Return("path", testErr)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
 	res, err = vm.handleExpandingStatus(testCtx, &testVol)
 	assert.NotNil(t, err)
@@ -1154,7 +1202,7 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, &testVol))
 
 	pMock = &mockProv.MockProvisioner{}
-	pMock.On("GetVolumePath", testVol.Spec).Return("path", nil)
+	pMock.On("GetVolumePath", &testVol.Spec).Return("path", nil)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
 	lvmOps := &mocklu.MockWrapLVM{}
 	lvmOps.On("ExpandLV", "path", testVol.Spec.Size).Return(fmt.Errorf("error"))
@@ -1167,7 +1215,7 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
 	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
 
-	pMock.On("GetVolumePath", vol.Spec).Return("path", nil)
+	pMock.On("GetVolumePath", &vol.Spec).Return("path", nil)
 
 	lvmOps = &mocklu.MockWrapLVM{}
 	lvmOps.On("ExpandLV", "path", vol.Spec.Size).Return(nil)

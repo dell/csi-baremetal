@@ -342,22 +342,6 @@ func (cs *CRHelper) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) 
 	return res, nil
 }
 
-// GetDriveCRByUUID reads drive CRs and returns drive CR with uuid dUUID
-func (cs *CRHelper) GetDriveCRByUUID(dUUID string) *drivecrd.Drive {
-	driveCRs, _ := cs.GetDriveCRs()
-	for _, d := range driveCRs {
-		if d.Spec.UUID == dUUID {
-			return &d
-		}
-	}
-
-	cs.log.WithFields(logrus.Fields{
-		"method":    "GetDriveCRByUUID",
-		"driveUUID": dUUID,
-	}).Infof("Drive CR isn't exist")
-	return nil
-}
-
 // GetDriveCRByVolume reads drive CRs and returns CR for drive on which volume is located
 func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, error) {
 	ll := cs.log.WithFields(logrus.Fields{
@@ -365,13 +349,17 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 		"volume": volume.Name,
 	})
 
-	dUUID := volume.Spec.Location
+	var (
+		dUUID = volume.Spec.Location
+		drive = &drivecrd.Drive{}
+		ctx   = context.Background()
+	)
 
 	if volume.Spec.LocationType == apiV1.LocationTypeLVM {
 		lvgObj := &lvgcrd.LogicalVolumeGroup{}
-		err := cs.reader.ReadCR(context.Background(), volume.Spec.Location, "", lvgObj)
+		err := cs.reader.ReadCR(ctx, volume.Spec.Location, "", lvgObj)
 		if err != nil {
-			ll.Errorf("failed to read LogicalVolumeGroup CR list: %s", err.Error())
+			ll.Errorf("failed to read LogicalVolumeGroup CR: %s", err.Error())
 			return nil, err
 		}
 		if len(lvgObj.Spec.Locations) == 0 {
@@ -379,7 +367,14 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 		}
 		dUUID = lvgObj.Spec.Locations[0]
 	}
-	return cs.GetDriveCRByUUID(dUUID), nil
+
+	err := cs.reader.ReadCR(ctx, dUUID, "", drive)
+	if err != nil {
+		ll.Errorf("failed to read Drive CR: %v", err)
+		return nil, err
+	}
+
+	return drive, err
 }
 
 // GetVGNameByLVGCRName read LogicalVolumeGroup CR with name lvgCRName and returns LogicalVolumeGroup CR.Spec.Name

@@ -96,20 +96,6 @@ func TestCRHelper_GetVolumeByID(t *testing.T) {
 	assert.Nil(t, volume)
 }
 
-func TestCRHelper_GetDriveCRByUUID(t *testing.T) {
-	ch := setup()
-	expectedD := testDriveCR.DeepCopy()
-	err := ch.k8sClient.CreateCR(testCtx, expectedD.Name, expectedD)
-	assert.Nil(t, err)
-
-	currentD := ch.GetDriveCRByUUID(expectedD.Spec.UUID)
-	assert.NotNil(t, currentD)
-	assert.Equal(t, expectedD.Spec, currentD.Spec)
-
-	// expected nil because of empty string as a ID
-	assert.Nil(t, ch.GetDriveCRByUUID(""))
-}
-
 func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 	ch := setup()
 	expectedV := testVolumeCR.DeepCopy()
@@ -132,14 +118,14 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 
 func TestCRHelper_GetVolumeCRs(t *testing.T) {
 	ch := setup()
-	v1 := testVolumeCR
-	v2 := testVolumeCR
-	v2.Name = "anotherName"
-	v2.Spec.NodeId = "anotherNode"
+	vol1 := testVolumeCR
+	vol2 := testVolumeCR
+	vol2.Name = "anotherName"
+	vol2.Spec.NodeId = "anotherNode"
 
-	err := ch.k8sClient.CreateCR(testCtx, v1.Name, &v1)
+	err := ch.k8sClient.CreateCR(testCtx, vol1.Name, &vol1)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, v2.Name, &v2)
+	err = ch.k8sClient.CreateCR(testCtx, vol2.Name, &vol2)
 	assert.Nil(t, err)
 
 	// node as empty string - expected all volumes
@@ -148,10 +134,10 @@ func TestCRHelper_GetVolumeCRs(t *testing.T) {
 	assert.Equal(t, 2, len(currentVs))
 
 	// expected one volume
-	currentVs, _ = ch.GetVolumeCRs(v1.Spec.NodeId)
+	currentVs, _ = ch.GetVolumeCRs(vol1.Spec.NodeId)
 	assert.NotNil(t, currentVs)
 	assert.Equal(t, 1, len(currentVs))
-	assert.Equal(t, v1.Spec, currentVs[0].Spec)
+	assert.Equal(t, vol1.Spec, currentVs[0].Spec)
 }
 
 func TestCRHelper_GetDriveCRs(t *testing.T) {
@@ -215,8 +201,10 @@ func TestCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
 	err = mock.UpdateDrivesStatusOnNode(testDriveCRCopy.Spec.NodeId, v1.DriveStatusOffline)
 	assert.Nil(t, err)
 
-	drive := mock.GetDriveCRByUUID(testDriveCRCopy.Name)
-	assert.Equal(t, drive.Spec.Status, v1.DriveStatusOffline)
+	drives, err := mock.GetDriveCRs(testDriveCRCopy.Spec.NodeId)
+	assert.Nil(t, err)
+	assert.Len(t, drives, 1)
+	assert.Equal(t, drives[0].Spec.Status, v1.DriveStatusOffline)
 }
 
 // test Volume operational status update
