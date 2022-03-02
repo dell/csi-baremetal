@@ -226,15 +226,14 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 		"pod":         pod.Name,
 	})
 
-	scs, err := e.scNameStorageTypeMapping(ctx)
+	scs, err := e.buildSCChecker(ctx, ll)
 	if err != nil {
 		ll.Errorf("Unable to collect storage classes: %v", err)
 		return nil, err
 	}
 
-	ll.Debugf("SC map: %+v", scs)
-
 	requests := make([]*genV1.CapacityRequest, 0)
+	// TODO - refactor repeatable code - https://github.com/dell/csi-baremetal/issues/760
 	for _, v := range pod.Spec.Volumes {
 		ll.Debugf("Volume %s details: %+v", v.Name, v)
 		// check whether volume Ephemeral or not
@@ -252,17 +251,28 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 		}
 		if v.Ephemeral != nil {
 			claimSpec := v.Ephemeral.VolumeClaimTemplate.Spec
-			if storageType, ok := scs[*claimSpec.StorageClassName]; ok {
-				storageReq, ok := claimSpec.Resources.Requests[coreV1.ResourceStorage]
-				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", v.Name)
-					storageReq = resource.Quantity{}
-				}
-				requests = append(requests, &genV1.CapacityRequest{
-					Name:         generateEphemeralVolumeName(pod.GetName(), v.Name),
-					StorageClass: util.ConvertStorageClass(storageType),
-					Size:         storageReq.Value(),
-				})
+			if claimSpec.StorageClassName == nil {
+				ll.Warningf("PVC %s skipped due to empty StorageClass", v.Ephemeral.VolumeClaimTemplate.Name)
+				continue
+			}
+
+			storageType, scType := scs.check(*claimSpec.StorageClassName)
+			switch scType {
+			case unknown:
+				ll.Warningf("SC %s is not found in cache, wait until update", *claimSpec.StorageClassName)
+				return nil, baseerr.ErrorNotFound
+			case unmanagedSC:
+				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip this volume", *claimSpec.StorageClassName)
+				continue
+			case managedSC:
+				requests = append(requests, createRequestFromPVCSpec(
+					generateEphemeralVolumeName(pod.GetName(), v.Name),
+					storageType,
+					claimSpec.Resources,
+					ll,
+				))
+			default:
+				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
 		}
 		if v.PersistentVolumeClaim != nil {
@@ -296,20 +306,23 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			// Workaround is realized in CSI Operator ACRValidator. It checks all ACR and removed ones for
 			// Running pods.
 
-			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
-				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
-				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
-					storageReq = resource.Quantity{}
-				}
-
-				requests = append(requests, &genV1.CapacityRequest{
-					Name:         pvc.Name,
-					StorageClass: util.ConvertStorageClass(storageType),
-					Size:         storageReq.Value(),
-				})
-			} else {
-				ll.Infof("PVC %s skipped due to storage class is not provisioned", pvc.Name)
+			storageType, scType := scs.check(*pvc.Spec.StorageClassName)
+			switch scType {
+			case unknown:
+				ll.Warningf("SC %s is not found in cache, wait until update", *pvc.Spec.StorageClassName)
+				return nil, baseerr.ErrorNotFound
+			case unmanagedSC:
+				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip PVC %s", *pvc.Spec.StorageClassName, pvc.Name)
+				continue
+			case managedSC:
+				requests = append(requests, createRequestFromPVCSpec(
+					pvc.Name,
+					storageType,
+					pvc.Spec.Resources,
+					ll,
+				))
+			default:
+				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
 		}
 	}
@@ -589,27 +602,82 @@ func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int64, i
 	return nrank, maxCount
 }
 
-// scNameStorageTypeMapping reads k8s storage class resources and collect map with key storage class name
-// and value .parameters.storageType for that sc, collect only sc that have provisioner e.provisioner
-func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]string, error) {
-	scs := storageV1.StorageClassList{}
+func generateEphemeralVolumeName(podName, volumeName string) string {
+	return podName + "-" + volumeName
+}
+
+func createRequestFromPVCSpec(volumeName, storageType string, resourceRequirements coreV1.ResourceRequirements, log *logrus.Entry) *genV1.CapacityRequest {
+	storageReq, ok := resourceRequirements.Requests[coreV1.ResourceStorage]
+	if !ok {
+		log.Errorf("There is no key for storage resource for PVC %s", volumeName)
+		storageReq = resource.Quantity{}
+	}
+	return &genV1.CapacityRequest{
+		Name:         volumeName,
+		StorageClass: util.ConvertStorageClass(storageType),
+		Size:         storageReq.Value(),
+	}
+}
+
+// scChecker keeps info about the related SCs (provisioned by CSI Baremetal) and
+// the unrelated ones (prvisioned by other CSI drivers)
+type scChecker struct {
+	managedSCs   map[string]string
+	unmanagedSCs map[string]bool
+}
+
+// buildSCChecker creates an instance of scChecker
+func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scChecker, error) {
+	ll := log.WithFields(logrus.Fields{
+		"method": "buildSCChecker",
+	})
+
+	var (
+		result = &scChecker{managedSCs: map[string]string{}, unmanagedSCs: map[string]bool{}}
+		scs    = storageV1.StorageClassList{}
+	)
 
 	if err := e.k8sCache.ReadList(ctx, &scs); err != nil {
 		return nil, err
 	}
 
-	scNameTypeMap := map[string]string{}
 	for _, sc := range scs.Items {
 		if sc.Provisioner == e.provisioner {
-			scNameTypeMap[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+			result.managedSCs[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+		} else {
+			result.unmanagedSCs[sc.Name] = true
 		}
 	}
-	if len(scNameTypeMap) == 0 {
+
+	ll.Debugf("related SCs: %+v", result.managedSCs)
+	ll.Debugf("unrelated SCs: %+v", result.unmanagedSCs)
+
+	if len(result.managedSCs) == 0 {
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
-	return scNameTypeMap, nil
+
+	return result, nil
 }
 
-func generateEphemeralVolumeName(podName, volumeName string) string {
-	return podName + "-" + volumeName
+// scChecker.check return codes
+const (
+	managedSC = iota
+	unmanagedSC
+	unknown
+)
+
+// check returns storageType and scType, return codes:
+// relatedSC - SC is provisioned by CSI baremetal
+// unrelatedSC - SC is provisioned by another CSI driver
+// unknown - SC is not found in cache
+func (ch *scChecker) check(name string) (string, int) {
+	if storageType, ok := ch.managedSCs[name]; ok {
+		return storageType, managedSC
+	}
+
+	if _, ok := ch.unmanagedSCs[name]; ok {
+		return "", unmanagedSC
+	}
+
+	return "", unknown
 }
