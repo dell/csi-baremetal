@@ -56,17 +56,38 @@ var (
 	testSCName1     = "baremetal-sc-qwe"
 	testSCName2     = "another-one-sc"
 
-	testSizeGb       int64 = 10
-	testSizeStr            = fmt.Sprintf("%dG", testSizeGb)
-	testStorageType        = v1.StorageClassHDD
-	testCSIVolumeSrc       = coreV1.CSIVolumeSource{
+	testSizeGb      int64 = 10
+	testSizeStr           = fmt.Sprintf("%dG", testSizeGb)
+	testStorageType       = v1.StorageClassHDD
+
+	testCSIVolumeSrc = coreV1.CSIVolumeSource{
 		Driver:           testProvisioner,
 		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
 	}
+
 	testEphemeralVolumeSrc = coreV1.EphemeralVolumeSource{
 		VolumeClaimTemplate: &coreV1.PersistentVolumeClaimTemplate{
 			Spec: coreV1.PersistentVolumeClaimSpec{
 				StorageClassName: &testSCName1,
+				Resources: coreV1.ResourceRequirements{
+					Requests: coreV1.ResourceList{
+						coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
+					},
+				},
+			},
+		},
+	}
+
+	testEphemeralVolumeSrcNilSC = coreV1.EphemeralVolumeSource{
+		VolumeClaimTemplate: &coreV1.PersistentVolumeClaimTemplate{
+			Spec: coreV1.PersistentVolumeClaimSpec{},
+		},
+	}
+
+	testEphemeralVolumeSrcAnotherDriver = coreV1.EphemeralVolumeSource{
+		VolumeClaimTemplate: &coreV1.PersistentVolumeClaimTemplate{
+			Spec: coreV1.PersistentVolumeClaimSpec{
+				StorageClassName: &testSCName2,
 				Resources: coreV1.ResourceRequirements{
 					Requests: coreV1.ResourceList{
 						coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
@@ -123,6 +144,23 @@ var (
 			Name:      testPVC2Name,
 			Namespace: testNs,
 		},
+		Spec: coreV1.PersistentVolumeClaimSpec{
+			StorageClassName: &testSCName2,
+			Resources: coreV1.ResourceRequirements{
+				Requests: coreV1.ResourceList{
+					coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
+				},
+			},
+		},
+	}
+
+	testPVC3Name = "corrupted-pvc"
+	testPVC3     = coreV1.PersistentVolumeClaim{
+		TypeMeta: testPVCTypeMeta,
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      testPVC3Name,
+			Namespace: testNs,
+		},
 		Spec: coreV1.PersistentVolumeClaimSpec{},
 	}
 
@@ -136,14 +174,22 @@ var (
 
 func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	e := setup(t)
-	pod := testPod
-	// append inlineVolume
+	pod := testPod.DeepCopy()
+	// append ephemeralVolume
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
 		VolumeSource: coreV1.VolumeSource{CSI: &testCSIVolumeSrc},
 	})
-	// append ephemeralVolume
+	// append generic ephemeralVolume with CSI Baremetal SC
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
 		VolumeSource: coreV1.VolumeSource{Ephemeral: &testEphemeralVolumeSrc},
+	})
+	// append generic ephemeralVolume with Nil SC
+	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
+		VolumeSource: coreV1.VolumeSource{Ephemeral: &testEphemeralVolumeSrcNilSC},
+	})
+	// append generic ephemeralVolume with another CSI SC
+	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
+		VolumeSource: coreV1.VolumeSource{Ephemeral: &testEphemeralVolumeSrcAnotherDriver},
 	})
 	// append testPVC1
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
@@ -161,10 +207,18 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 			},
 		},
 	})
+	// append testPVC3
+	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
+		VolumeSource: coreV1.VolumeSource{
+			PersistentVolumeClaim: &coreV1.PersistentVolumeClaimVolumeSource{
+				ClaimName: testPVC3Name,
+			},
+		},
+	})
 	// create PVCs and SC
-	applyObjs(t, e.k8sClient, testPVC1.DeepCopy(), testPVC2.DeepCopy(), testSC1.DeepCopy())
+	applyObjs(t, e.k8sClient, testPVC1.DeepCopy(), testPVC2.DeepCopy(), testPVC3.DeepCopy(), testSC1.DeepCopy(), testSC2.DeepCopy())
 
-	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
+	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(volumes))
 }
@@ -173,13 +227,13 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	e := setup(t)
 
 	// sc mapping empty
-	pod := testPod
-	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
+	pod := testPod.DeepCopy()
+	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, pod)
 	assert.Nil(t, volumes)
 	assert.NotNil(t, err)
 
 	// createCapacityRequest failed
-	pod = testPod
+	pod = testPod.DeepCopy()
 	badCSIVolumeSrc := testCSIVolumeSrc
 	badCSIVolumeSrc.VolumeAttributes = map[string]string{}
 	// append inlineVolume
@@ -189,7 +243,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	// create SC
 	applyObjs(t, e.k8sClient, testSC1.DeepCopy())
 
-	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
+	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, pod)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(volumes))
 	//assert.True(t, volumes[0].Ephemeral)
@@ -206,7 +260,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 			},
 		},
 	})
-	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
+	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, pod)
 	assert.Nil(t, volumes)
 	assert.Equal(t, err, baseerr.ErrorNotFound) // PVC can be created later
 
@@ -224,7 +278,7 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 		},
 	}}
 
-	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, &pod)
+	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, pod)
 	assert.Nil(t, err)
 	assert.NotNil(t, volumes)
 	assert.Equal(t, 1, len(volumes))
@@ -456,23 +510,41 @@ func TestExtender_filterSuccess(t *testing.T) {
 	}*/
 }
 
-func TestExtender_getSCNameStorageType_Success(t *testing.T) {
+func TestExtender_buildSCChecker_Success(t *testing.T) {
 	e := setup(t)
 	// create 2 storage classes
 	applyObjs(t, e.k8sClient, testSC1.DeepCopy(), testSC2.DeepCopy())
 
-	m, err := e.scNameStorageTypeMapping(testCtx)
+	m, err := e.buildSCChecker(testCtx, testLogger.WithField("test", "buildSCChecker"))
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(m))
-	assert.Equal(t, m[testSCName1], testStorageType)
+	assert.Equal(t, 1, len(m.managedSCs))
+	assert.Equal(t, 1, len(m.unmanagedSCs))
+	assert.Equal(t, m.managedSCs[testSCName1], testStorageType)
 }
 
-func TestExtender_getSCNameStorageType_Fail(t *testing.T) {
+func TestExtender_buildSCChecker_Fail(t *testing.T) {
 	e := setup(t)
 
-	m, err := e.scNameStorageTypeMapping(testCtx)
+	m, err := e.buildSCChecker(testCtx, testLogger.WithField("test", "buildSCChecker"))
 	assert.Nil(t, m)
 	assert.NotNil(t, err)
+}
+
+func TestExtender_scChecker_check(t *testing.T) {
+	ch := &scChecker{
+		managedSCs:   map[string]string{testSCName1: testStorageType},
+		unmanagedSCs: map[string]bool{testSCName2: true},
+	}
+
+	storageType, scType := ch.check(testSCName1)
+	assert.Equal(t, scType, managedSC)
+	assert.Equal(t, storageType, testStorageType)
+
+	_, scType = ch.check(testSCName2)
+	assert.Equal(t, scType, unmanagedSC)
+
+	_, scType = ch.check("non-cached-sc")
+	assert.Equal(t, scType, unknown)
 }
 
 func setup(t *testing.T) *Extender {
@@ -531,22 +603,6 @@ func Test_getNodeId(t *testing.T) {
 func applyObjs(t *testing.T, k8sClient *k8s.KubeClient, objs ...k8sCl.Object) {
 	for _, obj := range objs {
 		assert.Nil(t, k8sClient.Create(testCtx, obj))
-	}
-}
-
-func getNodeNames(nodes []coreV1.Node) []string {
-	nodeNames := make([]string, 0)
-	for _, n := range nodes {
-		nodeNames = append(nodeNames, n.Name)
-	}
-	return nodeNames
-}
-
-func removeAllACRs(k *k8s.KubeClient, t *testing.T) {
-	acrList := acrcrd.AvailableCapacityReservationList{}
-	assert.Nil(t, k.ReadList(testCtx, &acrList))
-	for _, acr := range acrList.Items {
-		assert.Nil(t, k.DeleteCR(testCtx, &acr))
 	}
 }
 
