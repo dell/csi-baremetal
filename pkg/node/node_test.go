@@ -19,6 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"path"
 	"testing"
 	"time"
@@ -319,6 +320,24 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("mount error"))
+		})
+		It("disk not found", func() {
+			// testVolume2 need to have Create status
+			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
+			volumeCR := &vcrd.Volume{}
+			_ = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
+			volumeCR.Spec.CSIStatus = apiV1.Created
+			err := node.k8sClient.UpdateCR(testCtx, volumeCR)
+
+			prov.On("GetVolumePath", &testVolume2).Return("", baseerr.ErrorGetDriveFailed)
+
+			resp, err := node.NodeStageVolume(testCtx, req)
+			Expect(err).NotTo(BeNil())
+			Expect(resp).To(BeNil())
+			// check volume CR status
+			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 	})
 })

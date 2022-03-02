@@ -7,6 +7,6 @@ var (
 	ErrorNotFound                 = errors.New("not found")
 	ErrorEmptyParameter           = errors.New("empty parameter")
 	ErrorFailedParsing            = errors.New("failed to parse")
-	ErrorGetDriveFailed           = errors.New("failed to get/update/delete k8s object")
+	ErrorGetDriveFailed           = errors.New("failed to get drive cr")
 	ErrorRejectReservationRequest = errors.New("reject reservation request")
 )
