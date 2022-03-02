@@ -66,7 +66,7 @@ func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featur
 func chooseAnnotationKey(annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	if featureChecker.IsEnabled(featureconfig.FeatureExternalAnnotationForNode) {
 		if annotationKey == "" {
-			return "", fmt.Errorf("%s is set as True but ", featureconfig.FeatureExternalAnnotationForNode)
+			return "", fmt.Errorf("%s is set as True but annotation keys is empty", featureconfig.FeatureExternalAnnotationForNode)
 		}
 
 		return annotationKey, nil

@@ -424,10 +424,9 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 
 	// fill in node requests
 	reservation.NodeRequests = &genV1.NodeRequests{}
-	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
-		reservation.NodeRequests.Requested = nodes
-	} else {
-		return err
+	reservation.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	if len(reservation.NodeRequests.Requested) == 0 {
+		return fmt.Errorf("createReservation: list of requested nodes is empty, incoming length: %d", len(nodes))
 	}
 
 	// create new reservation
@@ -447,20 +446,20 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	return nil
 }
 
-func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) ([]string, error) {
+func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
 	requestedNodes := make([]string, len(nodes))
 
-	for i, node := range nodes {
-		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+	for _, node := range nodes {
+		n := node
+		nodeID, err := annotations.GetNodeID(&n, e.annotationKey, e.featureChecker)
 		if err != nil {
-			e.logger.Errorf("failed to get NodeID: %s", err)
-			return nil, err
+			e.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
+			continue
 		}
-		requestedNodes[i] = nodeID
+		requestedNodes = append(requestedNodes, nodeID)
 	}
 
-	return requestedNodes, nil
+	return requestedNodes
 }
 
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
@@ -514,12 +513,10 @@ func (e *Extender) resendReservationRequest(ctx context.Context, reservation *ac
 	nodes []coreV1.Node) error {
 	reservation.Spec.Status = v1.ReservationRequested
 	// update nodes
-	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
-		reservation.Spec.NodeRequests.Requested = nodes
-	} else {
-		return err
+	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	if len(reservation.Spec.NodeRequests.Requested) == 0 {
+		return fmt.Errorf("resendReservationRequest: list of requested nodes is empty, incoming length: %d", len(nodes))
 	}
-
 	// remove reservations if any
 	for i := range reservation.Spec.ReservationRequests {
 		reservation.Spec.ReservationRequests[i].Reservations = nil

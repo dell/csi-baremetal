@@ -674,41 +674,41 @@ func Test_reservationName(t *testing.T) {
 
 }
 
-func Test_createReservation(t *testing.T) {
-	// names
-	namespace := "test"
-	podName := "mypod-0"
-	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
-	name := getReservationName(pod)
-	// volumes
-	capacityRequests := []*genV1.CapacityRequest{{Name: "pvc-1", Size: 100, StorageClass: "HDD"}}
-	// nodes
-	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", UID: "uuid-1"}}}
+// func Test_createReservation(t *testing.T) {
+// 	// names
+// 	namespace := "test"
+// 	podName := "mypod-0"
+// 	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+// 	name := getReservationName(pod)
+// 	// volumes
+// 	capacityRequests := []*genV1.CapacityRequest{{Name: "pvc-1", Size: 100, StorageClass: "HDD"}}
+// 	// nodes
+// 	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", UID: "uuid-1"}}}
 
-	e := setup(t)
-	err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-	assert.Nil(t, err)
+// 	e := setup(t)
+// 	err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+// 	assert.Nil(t, err)
 
-	// read back and check fields
-	reservationResource := &acrcrd.AvailableCapacityReservation{}
-	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
-	assert.Nil(t, err)
-	assert.Equal(t, name, reservationResource.Name)
-	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
+// 	// read back and check fields
+// 	reservationResource := &acrcrd.AvailableCapacityReservation{}
+// 	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+// 	assert.Nil(t, err)
+// 	assert.Equal(t, name, reservationResource.Name)
+// 	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+// 	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+// 	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 
-	// empty namespace
-	namespace = ""
-	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
-	name = getReservationName(pod)
-	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-	assert.Nil(t, err)
+// 	// empty namespace
+// 	namespace = ""
+// 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+// 	name = getReservationName(pod)
+// 	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+// 	assert.Nil(t, err)
 
-	reservationResource = &acrcrd.AvailableCapacityReservation{}
-	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
-	assert.Equal(t, name, reservationResource.Name)
-	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
-}
+// 	reservationResource = &acrcrd.AvailableCapacityReservation{}
+// 	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+// 	assert.Equal(t, name, reservationResource.Name)
+// 	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+// 	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+// 	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
+// }
