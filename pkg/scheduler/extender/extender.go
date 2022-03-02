@@ -426,7 +426,7 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	reservation.NodeRequests = &genV1.NodeRequests{}
 	reservation.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
 	if len(reservation.NodeRequests.Requested) == 0 {
-		return fmt.Errorf("createReservation: list of requested nodes is empty, incoming length: %d", len(nodes))
+		return fmt.Errorf("createReservation: list of requested nodes is empty, incoming nodes count: %d", len(nodes))
 	}
 
 	// create new reservation
@@ -447,7 +447,7 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 }
 
 func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
-	requestedNodes := make([]string, len(nodes))
+	requestedNodes := []string{}
 
 	for _, node := range nodes {
 		n := node
@@ -515,7 +515,7 @@ func (e *Extender) resendReservationRequest(ctx context.Context, reservation *ac
 	// update nodes
 	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
 	if len(reservation.Spec.NodeRequests.Requested) == 0 {
-		return fmt.Errorf("resendReservationRequest: list of requested nodes is empty, incoming length: %d", len(nodes))
+		return fmt.Errorf("resendReservationRequest: list of requested nodes is empty, incoming nodes count: %d", len(nodes))
 	}
 	// remove reservations if any
 	for i := range reservation.Spec.ReservationRequests {
