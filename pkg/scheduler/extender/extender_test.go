@@ -18,6 +18,7 @@ package extender
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -337,24 +338,17 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), sizeStr)
 }*/
-
-func TestExtender_filterSuccess(t *testing.T) {
+func TestExtender_filterCases(t *testing.T) {
 	var (
 		podName   = "mypod"
 		node1Name = "NODE-1"
-		node2Name = "NODE-2"
-		node3Name = "NODE-3"
 		node1UID  = "node-1111-uuid"
-		node2UID  = "node-2222-uuid"
-		node3UID  = "node-3333-uuid"
 
 		e *Extender
 	)
 
 	nodes := []coreV1.Node{
 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node1UID), Name: node1Name}},
-		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node2UID), Name: node2Name}},
-		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node3UID), Name: node3Name}},
 	}
 
 	pod := &coreV1.Pod{
@@ -372,145 +366,190 @@ func TestExtender_filterSuccess(t *testing.T) {
 	e = setup(t)
 	capacities := make([]*genV1.CapacityRequest, 1)
 
-	// reservation requested
-	reservation := *e.k8sClient.ConstructACRCR(getReservationName(pod), genV1.AvailableCapacityReservation{
-		Status: v1.ReservationRequested})
-	assert.Nil(t, e.k8sClient.Create(testCtx, &reservation))
-
-	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
-	assert.Nil(t, err)
-	assert.Nil(t, matched)
-	assert.Nil(t, failed)
-
-	// todo implement this use cases - https://github.com/dell/csi-baremetal/issues/371
-	/*// reservation confirmed
-	reservation.Spec.Status = v1.ReservationConfirmed
-	assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))
-	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
-	assert.Nil(t, err)
-	assert.Nil(t, matched)
-	assert.Nil(t, failed)
-
-	// reservation rejected
-	reservation.Spec.Status = v1.ReservationRejected
-	assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))
-	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
-	assert.Nil(t, err)
-	assert.Nil(t, matched)
-	assert.Nil(t, failed)
-
-	// reservation cancelled
-	reservation.Spec.Status = v1.ReservationCancelled
-	assert.Nil(t, e.k8sClient.UpdateCR(testCtx, &reservation))
-	matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
-	assert.Nil(t, err)
-	assert.Nil(t, matched)
-	assert.Nil(t, failed)*/
-
-	/*// create all AC
-	for _, ac := range acs {
-		assert.Nil(t, e.k8sClient.Create(testCtx, &ac))
-	}*/
-
-	/*testCases := []struct {
-		CapacityRequests  []*genV1.CapacityRequest
+	for _, tt := range []struct {
+		Status            string
 		ExpectedNodeNames []string
-		Msg               string
+		Err               error
 	}{
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
+		{Status: v1.ReservationConfirmed, Err: nil},
+		{Status: v1.ReservationRejected, Err: nil},
+		{Status: v1.ReservationCancelled, Err: errors.New("unsupported reservation status: CANCELLED")},
+	} {
+		reservation := *e.k8sClient.ConstructACRCR(
+			getReservationName(pod),
+			genV1.AvailableCapacityReservation{
+				Status:       tt.Status,
+				NodeRequests: &genV1.NodeRequests{Requested: []string{node1Name}},
 			},
-			ExpectedNodeNames: []string{node1Name},
-			Msg:               "Volumes: HDD[50Gb, 100Gb]; Expected nodes: [NODE-1]",
-		},
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)},
-			},
-			ExpectedNodeNames: []string{node2Name},
-			Msg:               "Volumes: SSD[50Gb]; Expected nodes: [NODE-2]",
-		},
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassAny, Size: 150 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassAny, Size: 100 * int64(util.GBYTE)},
-			},
-			ExpectedNodeNames: []string{},
-			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: []",
-		},
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)},
-			},
-			ExpectedNodeNames: []string{node1Name, node2Name},
-			Msg:               "Volumes: HDD[80Gb]; Expected nodes: [NODE-1, NODE-2]",
-		},
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-			},
-			ExpectedNodeNames: []string{node1Name, node3Name},
-			Msg:               "Volumes: HDDLVG[50Gb, 50Gb, 50Gb]; Expected nodes: [NODE-1, NODE-3]",
-		},
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassSSDLVG, Size: 50 * int64(util.GBYTE)},
-			},
-			ExpectedNodeNames: []string{node2Name, node3Name},
-			Msg:               "Volumes: HDDLVG[100Gb], SSDLVG[50Gb]; Expected nodes: [NODE-2, NODE-3]",
-		},
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
-			},
-			ExpectedNodeNames: []string{node1Name, node2Name, node3Name},
-			Msg:               "Volumes: HDDLVG[100Gb]; Expected nodes: [NODE-1, NODE-2, NODE-3]",
-		},
-		{
-			CapacityRequests: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
-			},
-			ExpectedNodeNames: []string{},
-			Msg:               "Volumes: HDDLVG[100Gb], SSDLVG[50Gb]; Expected nodes: []",
-		},
+		)
+		assert.Nil(t, e.k8sClient.Create(testCtx, &reservation))
+
+		matched, failed, err = e.filter(testCtx, pod, nodes, capacities)
+		assert.Equal(t, tt.Err, err)
+		assert.Nil(t, matched)
+		assert.Nil(t, failed)
+		assert.Nil(t, e.k8sClient.DeleteCR(testCtx, &reservation))
 	}
-
-	for _, testCase := range testCases {
-		matchedNodes, failedNode, err := e.filter(testCtx, nil, nodes, testCase.CapacityRequests)
-		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
-		matchedNodeNames := getNodeNames(matchedNodes)
-		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
-			fmt.Sprintf("Matched nodes %v. Test case: %v", matchedNodeNames, testCase.Msg))
-		assert.Nil(t, err, testCase.Msg)
-
-		// check ACRs
-		acrList := &acrcrd.AvailableCapacityReservationList{}
-		assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList), testCase.Msg)
-		if len(testCase.ExpectedNodeNames) > 0 {
-			assert.Equal(t, len(testCase.CapacityRequests), len(acrList.Items), testCase.Msg)
-		}
-
-		reservedACCount := 0
-		for _, acr := range acrList.Items {
-			reservedACCount += len(acr.Spec.Reservations)
-		}
-		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.CapacityRequests), reservedACCount, testCase.Msg)
-
-		for _, n := range testCase.ExpectedNodeNames {
-			assert.True(t, util.ContainsString(matchedNodeNames, n),
-				fmt.Sprintf("Matched nodes: %v, msg - %s", matchedNodeNames, testCase.Msg))
-		}
-		removeAllACRs(e.k8sClient, t)
-	}*/
 }
 
-func TestExtender_buildSCChecker_Success(t *testing.T) {
+// func TestExtender_filterSuccess(t *testing.T) {
+// 	var (
+// 		podName   = "mypod"
+// 		node1Name = "NODE-1"
+// 		node2Name = "NODE-2"
+// 		node3Name = "NODE-3"
+// 		node1UID  = "node-1111-uuid"
+// 		node2UID  = "node-2222-uuid"
+// 		node3UID  = "node-3333-uuid"
+
+// 		e *Extender
+// 	)
+
+// 	nodes := []coreV1.Node{
+// 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node1UID), Name: node1Name}},
+// 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node2UID), Name: node2Name}},
+// 		{ObjectMeta: metaV1.ObjectMeta{UID: types.UID(node3UID), Name: node3Name}},
+// 	}
+
+// 	pod := &coreV1.Pod{
+// 		ObjectMeta: metaV1.ObjectMeta{Name: podName},
+// 	}
+
+// 	// empty volumes
+// 	e = setup(t)
+// 	matched, failed, err := e.filter(testCtx, pod, nodes, nil)
+// 	assert.Nil(t, err)
+// 	assert.Nil(t, failed)
+// 	assert.Equal(t, len(nodes), len(matched))
+
+// 	// create all AC
+// 	for _, ac := range []*accrd.AvailableCapacity{
+// 		// NODE-1 ACs, HDD[50Gb, 100Gb]
+// 		e.k8sClient.ConstructACCR(uuid.New().String(),
+// 			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)}),
+// 		e.k8sClient.ConstructACCR(uuid.New().String(),
+// 			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+// 		// NODE-2 ACs, HDD[100Gb], SSD[50Gb]
+// 		e.k8sClient.ConstructACCR(uuid.New().String(),
+// 			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+// 		e.k8sClient.ConstructACCR(uuid.New().String(),
+// 			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)}),
+// 		// NODE-3 ACs, HDDLVG[150Gb], SSDLVG[100Gb]
+// 		e.k8sClient.ConstructACCR(uuid.New().String(),
+// 			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)}),
+// 		e.k8sClient.ConstructACCR(uuid.New().String(),
+// 			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)}),
+// 	} {
+// 		assert.Nil(t, e.k8sClient.Create(testCtx, ac))
+// 	}
+
+// 	testCases := []struct {
+// 		CapacityRequests  []*genV1.CapacityRequest
+// 		ExpectedNodeNames []string
+// 		Msg               string
+// 	}{
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)},
+// 				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{node1Name},
+// 			Msg:               "Volumes: HDD[50Gb, 100Gb]; Expected nodes: [NODE-1]",
+// 		},
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{node2Name},
+// 			Msg:               "Volumes: SSD[50Gb]; Expected nodes: [NODE-2]",
+// 		},
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassAny, Size: 150 * int64(util.GBYTE)},
+// 				{StorageClass: v1.StorageClassAny, Size: 100 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{},
+// 			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: []",
+// 		},
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{node1Name, node2Name},
+// 			Msg:               "Volumes: HDD[80Gb]; Expected nodes: [NODE-1, NODE-2]",
+// 		},
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+// 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+// 				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{node1Name, node3Name},
+// 			Msg:               "Volumes: HDDLVG[50Gb, 50Gb, 50Gb]; Expected nodes: [NODE-1, NODE-3]",
+// 		},
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+// 				{StorageClass: v1.StorageClassSSDLVG, Size: 50 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{node2Name, node3Name},
+// 			Msg:               "Volumes: HDDLVG[100Gb], SSDLVG[50Gb]; Expected nodes: [NODE-2, NODE-3]",
+// 		},
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{node1Name, node2Name, node3Name},
+// 			Msg:               "Volumes: HDDLVG[100Gb]; Expected nodes: [NODE-1, NODE-2, NODE-3]",
+// 		},
+// 		{
+// 			CapacityRequests: []*genV1.CapacityRequest{
+// 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+// 				{StorageClass: v1.StorageClassHDDLVG, Size: 100 * int64(util.GBYTE)},
+// 			},
+// 			ExpectedNodeNames: []string{},
+// 			Msg:               "Volumes: HDDLVG[100Gb], SSDLVG[50Gb]; Expected nodes: []",
+// 		},
+// 	}
+// 	reservation := *e.k8sClient.ConstructACRCR(
+// 		getReservationName(pod),
+// 		genV1.AvailableCapacityReservation{
+// 			Status:       v1.ReservationRequested,
+// 			NodeRequests: &genV1.NodeRequests{Requested: []string{node1Name}},
+// 		},
+// 	)
+// 	assert.Nil(t, e.k8sClient.Create(testCtx, &reservation))
+
+// 	for _, testCase := range testCases {
+// 		matchedNodes, failedNode, err := e.filter(testCtx, pod, nodes, testCase.CapacityRequests)
+// 		assert.Equal(t, len(nodes)-len(matchedNodes), len(failedNode), testCase.Msg)
+// 		matchedNodeNames := getNodeNames(matchedNodes)
+// 		assert.Equal(t, len(testCase.ExpectedNodeNames), len(matchedNodes),
+// 			fmt.Sprintf("Matched nodes %v. Test case: %v", matchedNodeNames, testCase.Msg))
+// 		assert.Nil(t, err, testCase.Msg)
+
+// 		// check ACRs
+// 		acrList := &acrcrd.AvailableCapacityReservationList{}
+// 		assert.Nil(t, e.k8sClient.ReadList(testCtx, acrList), testCase.Msg)
+// 		if len(testCase.ExpectedNodeNames) > 0 {
+// 			assert.Equal(t, len(testCase.CapacityRequests), len(acrList.Items), testCase.Msg)
+// 		}
+
+// 		reservedACCount := 0
+// 		for _, acr := range acrList.Items {
+// 			reservedACCount += len(acr.Spec.ReservationRequests)
+// 		}
+// 		assert.Equal(t, len(testCase.ExpectedNodeNames)*len(testCase.CapacityRequests), reservedACCount, testCase.Msg)
+
+// 		for _, n := range testCase.ExpectedNodeNames {
+// 			assert.True(t, util.ContainsString(matchedNodeNames, n),
+// 				fmt.Sprintf("Matched nodes: %v, msg - %s", matchedNodeNames, testCase.Msg))
+// 		}
+// 		removeAllACRs(e.k8sClient, t)
+// 	}
+// }
+
+func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 	e := setup(t)
 	// create 2 storage classes
 	applyObjs(t, e.k8sClient, testSC1.DeepCopy(), testSC2.DeepCopy())
@@ -562,6 +601,59 @@ func setup(t *testing.T) *Extender {
 		provisioner:            testProvisioner,
 		logger:                 testLogger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+	}
+}
+
+func Test_prepareListOfNodes(t *testing.T) {
+	e := setup(t)
+	testCases := []struct {
+		Message       string
+		ExpectedNodes []string
+		Nodes         []coreV1.Node
+	}{
+		{
+			Message: "exclude nodes without uuid fails",
+			Nodes: []coreV1.Node{
+				{
+					ObjectMeta: metaV1.ObjectMeta{
+						UID:         types.UID("1111-2222"),
+						Name:        "node-1",
+						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+					},
+				},
+				{
+					ObjectMeta: metaV1.ObjectMeta{
+						UID:         types.UID(""),
+						Name:        "node-1",
+						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+					},
+				},
+			},
+			ExpectedNodes: []string{"1111-2222"},
+		},
+		{
+			Message: "expected nodes count not equal actual",
+			Nodes: []coreV1.Node{
+				{
+					ObjectMeta: metaV1.ObjectMeta{
+						UID:         types.UID("1111-2222"),
+						Name:        "node-1",
+						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+					},
+				},
+				{
+					ObjectMeta: metaV1.ObjectMeta{
+						UID:         types.UID("1111-3333"),
+						Name:        "node-1",
+						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+					},
+				},
+			},
+			ExpectedNodes: []string{"1111-2222", "1111-3333"},
+		},
+	}
+	for _, tt := range testCases {
+		assert.Equalf(t, tt.ExpectedNodes, e.prepareListOfRequestedNodes(tt.Nodes), tt.Message)
 	}
 }
 
@@ -674,41 +766,41 @@ func Test_reservationName(t *testing.T) {
 
 }
 
-// func Test_createReservation(t *testing.T) {
-// 	// names
-// 	namespace := "test"
-// 	podName := "mypod-0"
-// 	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
-// 	name := getReservationName(pod)
-// 	// volumes
-// 	capacityRequests := []*genV1.CapacityRequest{{Name: "pvc-1", Size: 100, StorageClass: "HDD"}}
-// 	// nodes
-// 	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", UID: "uuid-1"}}}
+func Test_createReservation(t *testing.T) {
+	// names
+	namespace := "test"
+	podName := "mypod-0"
+	pod := &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name := getReservationName(pod)
+	// volumes
+	capacityRequests := []*genV1.CapacityRequest{{Name: "pvc-1", Size: 100, StorageClass: "HDD"}}
+	// nodes
+	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", UID: "uuid-1"}}}
 
-// 	e := setup(t)
-// 	err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-// 	assert.Nil(t, err)
+	e := setup(t)
+	err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+	assert.Nil(t, err)
 
-// 	// read back and check fields
-// 	reservationResource := &acrcrd.AvailableCapacityReservation{}
-// 	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
-// 	assert.Nil(t, err)
-// 	assert.Equal(t, name, reservationResource.Name)
-// 	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-// 	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-// 	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
+	// read back and check fields
+	reservationResource := &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Nil(t, err)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
 
-// 	// empty namespace
-// 	namespace = ""
-// 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
-// 	name = getReservationName(pod)
-// 	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-// 	assert.Nil(t, err)
+	// empty namespace
+	namespace = ""
+	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: namespace}}
+	name = getReservationName(pod)
+	err = e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
+	assert.Nil(t, err)
 
-// 	reservationResource = &acrcrd.AvailableCapacityReservation{}
-// 	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
-// 	assert.Equal(t, name, reservationResource.Name)
-// 	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
-// 	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
-// 	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
-// }
+	reservationResource = &acrcrd.AvailableCapacityReservation{}
+	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	assert.Equal(t, name, reservationResource.Name)
+	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
+	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
+	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
+}
