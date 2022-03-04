@@ -6,8 +6,8 @@ ADD     extender  extender
 
 ADD     health_probe    health_probe
 
-RUN addgroup -S bmcsi && adduser -S bmcsi -G bmcsi
+RUN addgroup -S bmcsi && adduser -S bmcsi -u 1000 -G bmcsi
 
-USER bmcsi
+USER 1000
 
 ENTRYPOINT ["/extender"]
