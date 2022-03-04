@@ -118,14 +118,14 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 
 func TestCRHelper_GetVolumeCRs(t *testing.T) {
 	ch := setup()
-	vol1 := testVolumeCR
-	vol2 := testVolumeCR
+	vol1 := testVolumeCR.DeepCopy()
+	vol2 := testVolumeCR.DeepCopy()
 	vol2.Name = "anotherName"
 	vol2.Spec.NodeId = "anotherNode"
 
-	err := ch.k8sClient.CreateCR(testCtx, vol1.Name, &vol1)
+	err := ch.k8sClient.CreateCR(testCtx, vol1.Name, vol1)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, vol2.Name, &vol2)
+	err = ch.k8sClient.CreateCR(testCtx, vol2.Name, vol2)
 	assert.Nil(t, err)
 
 	// node as empty string - expected all volumes
