@@ -210,7 +210,10 @@ func (d *DriveProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
 	if err := d.k8sClient.ReadCR(ctxWithID, vol.Location, "", drive); err != nil {
 		ll.Errorf("failed to get drive CR %s: %v", vol.Location, err)
-		return "", baseerr.ErrorGetDriveFailed
+		if baseerr.IsSafeReturnError(err) {
+			return "", baseerr.ErrorGetDriveFailed
+		}
+		return "", err
 	}
 	ll.Debugf("Got drive %+v", drive)
 

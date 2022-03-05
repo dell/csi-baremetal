@@ -1,0 +1,10 @@
+package error
+
+import k8sError "k8s.io/apimachinery/pkg/api/errors"
+
+// IsSafeReturnError returns if error is safe to retry
+func IsSafeReturnError(err error) bool {
+	return k8sError.IsServiceUnavailable(err) ||
+		k8sError.IsTimeout(err) ||
+		k8sError.IsTooManyRequests(err)
+}
