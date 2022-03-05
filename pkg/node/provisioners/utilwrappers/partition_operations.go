@@ -128,7 +128,9 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 	if err = d.CreatePartition(p.Device, p.Label, p.PartUUID, !p.Ephemeral); err != nil {
 		return nil, fmt.Errorf("unable to create partition: %v", err)
 	}
-	_ = d.SyncPartitionTable(p.Device)
+	if err = d.SyncPartitionTable(p.Device); err != nil {
+		return nil, fmt.Errorf("unable to sync partition table: %v", err)
+	}
 
 	if p.Ephemeral {
 		p.PartUUID, err = d.GetPartitionUUID(p.Device, p.Num)
@@ -137,8 +139,8 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 		}
 	}
 
-	p.Name = d.SearchPartName(p.Device, p.PartUUID)
-	if p.Name == "" {
+	p.Name, err = d.GetPartitionNameByUUID(p.Device, p.PartUUID)
+	if err != nil {
 		return nil, fmt.Errorf("unable to determine partition name after it being created: %v", err)
 	}
 
@@ -179,21 +181,11 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string
 	)
 
 	// get partition name
-	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
-		// sync partition table
-		err = d.SyncPartitionTable(device)
-		if err != nil {
-			// log and ignore error
-			ll.Warningf("Unable to sync partition table for device %s", device)
-		}
-		time.Sleep(SleepBetweenRetriesToSyncPartTable)
-		partName, err = d.GetPartitionNameByUUID(device, partUUID)
-		if err != nil {
-			ll.Debugf("unable to find part name: %v", err)
-			continue
-		}
-		break
+	partName, err = d.GetPartitionNameByUUID(device, partUUID)
+	if err != nil {
+		ll.Debugf("unable to find part name: %v", err)
 	}
+
 
 	ll.Debugf("Got partition number %s", partName)
 	return partName

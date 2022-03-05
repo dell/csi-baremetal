@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -76,6 +77,11 @@ const (
 
 	// GetPartitionUUIDCmdTmpl command for read GUID of the first partition, fill device and part number
 	GetPartitionUUIDCmdTmpl = sgdisk + "%s --info=%s"
+
+	// NumberOfRetriesToSyncPartTable how many times to sync fs tab
+	NumberOfRetriesToSyncPartTable = 5
+	// SleepBetweenRetriesToSyncPartTable default timeout between fs tab sync attempt
+	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
 )
 
 // supportedTypes list of supported partition table types
@@ -254,20 +260,22 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 // SyncPartitionTable syncs partition table for specific device
 // Receives device path to sync with partprobe, device could be an empty string (sync for all devices in the system)
 // Returns error if something went wrong
-func (p *WrapPartitionImpl) SyncPartitionTable(device string) error {
+func (p *WrapPartitionImpl) SyncPartitionTable(device string) (err error) {
 	cmd := fmt.Sprintf(BlockdevCmdTmpl, device)
 
-	p.opMutex.Lock()
-	_, _, err := p.e.RunCmd(cmd,
-		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
-	p.opMutex.Unlock()
-
-	if err != nil {
-		return err
+	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
+		// sync partition table
+		p.opMutex.Lock()
+		_, _, err := p.e.RunCmd(cmd, command.UseMetrics(true),
+			command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
+		p.opMutex.Unlock()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(SleepBetweenRetriesToSyncPartTable)
 	}
 
-	return nil
+	return
 }
 
 // GetPartitionNameByUUID gets partition name by it's UUID
