@@ -26,7 +26,6 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
@@ -334,7 +333,6 @@ func TestDriveProvisioner_GetVolumePath_Fail(t *testing.T) {
 	fullPath, err = dp.GetVolumePath(&api.Volume{})
 	assert.Error(t, err)
 	assert.Equal(t, "", fullPath)
-	assert.Equal(t, err, baseerr.ErrorGetDriveFailed)
 
 	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
