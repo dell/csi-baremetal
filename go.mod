@@ -25,4 +25,6 @@ require (
 	k8s.io/kube-scheduler v0.23.4
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	sigs.k8s.io/controller-runtime v0.9.0
+	sigs.k8s.io/controller-tools v0.5.0 // indirect
+	github.com/vektra/mockery/v2 v2.9.4 // indirect
 )

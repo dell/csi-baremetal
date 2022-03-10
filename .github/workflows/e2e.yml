@@ -204,7 +204,7 @@ jobs:
       with:
         check_name: "E2E Test Results"
         commit: '${{ steps.sha.outputs.result }}' 
-        files: test/e2e/reports/report.xml
+        files: tests/e2e/reports/report.xml
         hide_comments: off
         check_run_annotations: all tests
         comment_mode: create new
@@ -223,7 +223,7 @@ jobs:
       uses: actions/upload-artifact@v2.2.1
       with:
         name: e2e_artifacts_log
-        path: log.txt
+        path: tests/log.txt
 
     - name: Fail if test fails
       if: steps.tests.outcome != 'success'
