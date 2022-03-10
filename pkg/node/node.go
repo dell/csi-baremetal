@@ -40,6 +40,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -215,8 +216,11 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 	}
 
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(volumeCR.Spec)
+	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(&volumeCR.Spec)
 	if err != nil {
+		if err == baseerr.ErrorGetDriveFailed {
+			return nil, err
+		}
 		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
 		ignoreErrorIfFakeAttach(err)
 	} else {
@@ -416,7 +420,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 			ll.Errorf("Failed to create inline volume: %v", err)
 			return nil, status.Error(codes.Internal, "unable to create inline volume")
 		}
-		srcPath, err = s.getProvisionerForVolume(vol).GetVolumePath(*vol)
+		srcPath, err = s.getProvisionerForVolume(vol).GetVolumePath(vol)
 		if err != nil {
 			ll.Errorf("failed to get partition for volume %v: %v", vol, err)
 			return nil, status.Error(codes.Internal, "failed to publish inline volume: partition error")
@@ -636,12 +640,12 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 }
 
 // NodeGetVolumeStats returns empty response
-func (s *CSINodeService) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+func (s *CSINodeService) NodeGetVolumeStats(_ context.Context, _ *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
 	return &csi.NodeGetVolumeStatsResponse{}, nil
 }
 
 // NodeExpandVolume returns empty response
-func (s *CSINodeService) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+func (s *CSINodeService) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	return &csi.NodeExpandVolumeResponse{}, nil
 }
 
@@ -649,7 +653,7 @@ func (s *CSINodeService) NodeExpandVolume(ctx context.Context, req *csi.NodeExpa
 // Provides Node capabilities of CSI driver to k8s. STAGE/UNSTAGE Volume for now.
 // Receives golang context and CSI Spec NodeGetCapabilitiesRequest
 // Returns CSI Spec NodeGetCapabilitiesResponse and nil error
-func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+func (s *CSINodeService) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	return &csi.NodeGetCapabilitiesResponse{Capabilities: []*csi.NodeServiceCapability{
 		{
 			Type: &csi.NodeServiceCapability_Rpc{
@@ -665,7 +669,7 @@ func (s *CSINodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeG
 // chooses a node where to deploy a volume.
 // Receives golang context and CSI Spec NodeGetInfoRequest
 // Returns CSI Spec NodeGetInfoResponse with topology NodeIDTopologyLabelKey: NodeID and nil error
-func (s *CSINodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+func (s *CSINodeService) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method": "NodeGetInfo",
 	})
@@ -702,7 +706,7 @@ func (s *CSINodeService) Check(ctx context.Context, req *grpc_health_v1.HealthCh
 
 // Watch is used by clients to receive updates when the svc status changes.
 // Watch only dummy implemented just to satisfy the interface.
-func (s *CSINodeService) Watch(req *grpc_health_v1.HealthCheckRequest, srv grpc_health_v1.Health_WatchServer) error {
+func (s *CSINodeService) Watch(_ *grpc_health_v1.HealthCheckRequest, _ grpc_health_v1.Health_WatchServer) error {
 	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 

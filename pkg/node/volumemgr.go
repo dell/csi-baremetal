@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
+	crevent "sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -205,7 +205,7 @@ func NewVolumeManager(
 	}
 
 	partImpl := ph.NewWrapPartitionImpl(executor, logger)
-	lvm := lvm.NewLVM(executor, logger)
+	lvmOps := lvm.NewLVM(executor, logger)
 	fsOps := utilwrappers.NewFSOperationsImpl(executor, logger)
 	wbtOps := wbtops.NewWbt(executor)
 
@@ -221,7 +221,7 @@ func NewVolumeManager(
 			p.LVMBasedVolumeType:   p.NewLVMProvisioner(executor, k8sClient, logger),
 		},
 		fsOps:                  fsOps,
-		lvmOps:                 lvm,
+		lvmOps:                 lvmOps,
 		listBlk:                lsblk.NewLSBLK(logger),
 		partOps:                partImpl,
 		wbtOps:                 wbtOps,
@@ -234,7 +234,7 @@ func NewVolumeManager(
 		systemDrivesUUIDs:      make([]string, 0),
 		metricDriveMgrDuration: driveMgrDuration,
 		metricDriveMgrCount:    driveMgrCount,
-		dataDiscover:           datadiscover.NewDataDiscover(fsOps, partImpl, lvm),
+		dataDiscover:           datadiscover.NewDataDiscover(fsOps, partImpl, lvmOps),
 	}
 	return vm
 }
@@ -463,7 +463,7 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 
 	newStatus := apiV1.Created
 
-	err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(volume.Spec)
+	err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(&volume.Spec)
 	if err != nil {
 		ll.Errorf("Unable to create volume size of %d bytes: %v. Set volume status to Failed", volume.Spec.Size, err)
 		newStatus = apiV1.Failed
@@ -511,18 +511,22 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 		return apiV1.Removed, nil
 	}
 
-	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(volume.Spec); err != nil {
+	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
+	drive := &drivecrd.Drive{}
+	if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, "", drive); err != nil {
+		return "", fmt.Errorf("failed to read drive CR with name %s, error %w", volume.Spec.Location, err)
+	}
+	ll.Debugf("Got drive %+v", drive)
+
+	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
-		drive := m.crHelper.GetDriveCRByUUID(volume.Spec.Location)
-		if drive != nil {
-			drive.Spec.Usage = apiV1.DriveUsageFailed
-			if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
-				ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
-					drive.Name, drive.Spec.Usage, err)
-				return "", err
-			}
-			m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
+		drive.Spec.Usage = apiV1.DriveUsageFailed
+		if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
+			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
+				drive.Name, drive.Spec.Usage, err)
+			return "", err
 		}
+		m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
 		return apiV1.Failed, err
 	}
 
@@ -538,16 +542,16 @@ func (m *VolumeManager) SetupWithManager(mgr ctrl.Manager) error {
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
 		WithEventFilter(predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
+			CreateFunc: func(e crevent.CreateEvent) bool {
 				return m.isCorrespondedToNodePredicate(e.Object)
 			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
+			DeleteFunc: func(e crevent.DeleteEvent) bool {
 				return m.isCorrespondedToNodePredicate(e.Object)
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
+			UpdateFunc: func(e crevent.UpdateEvent) bool {
 				return m.isCorrespondedToNodePredicate(e.ObjectOld)
 			},
-			GenericFunc: func(e event.GenericEvent) bool {
+			GenericFunc: func(e crevent.GenericEvent) bool {
 				return m.isCorrespondedToNodePredicate(e.Object)
 			},
 		}).
@@ -1163,7 +1167,7 @@ func (m *VolumeManager) handleExpandingStatus(ctx context.Context, volume *volum
 	ll := m.log.WithFields(logrus.Fields{
 		"method": "handleExpandingStatus",
 	})
-	volumePath, err := m.provisioners[p.LVMBasedVolumeType].GetVolumePath(volume.Spec)
+	volumePath, err := m.provisioners[p.LVMBasedVolumeType].GetVolumePath(&volume.Spec)
 	if err != nil {
 		ll.Errorf("Failed to get volume path, err: %v", err)
 		return ctrl.Result{Requeue: true}, err
