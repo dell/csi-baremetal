@@ -43,6 +43,7 @@ import (
 var (
 	namespace         = flag.String("namespace", "", "Namespace in which Node Service service run")
 	provisioner       = flag.String("provisioner", "", "Provisioner name which storage classes extender will be observing")
+	nodeSelector      = flag.String("nodeselector", "", "Contains key=value pair to deploy node components on specific k8sNodes")
 	port              = flag.Int("port", base.DefaultExtenderPort, "Port for service")
 	certFile          = flag.String("certFile", "", "path to the cert file")
 	privateKeyFile    = flag.String("privateKeyFile", "", "path to the private key file")
@@ -117,7 +118,7 @@ func main() {
 		}
 	}()
 
-	newExtender, err := extender.NewExtender(logger, kubeClient, kubeCache, *provisioner, featureConf, *nodeIDAnnotation)
+	newExtender, err := extender.NewExtender(logger, kubeClient, kubeCache, *provisioner, featureConf, *nodeIDAnnotation, *nodeSelector)
 	if err != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}

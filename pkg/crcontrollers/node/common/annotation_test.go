@@ -38,7 +38,7 @@ func TestGetNodeID(t *testing.T) {
 	t.Run("All features disabled", func(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
 
-		nodeID, err := GetNodeID(&testNode, annotationKey, featureConf)
+		nodeID, err := GetNodeID(&testNode, annotationKey, "", featureConf)
 		assert.Equal(t, nodeUID, nodeID)
 		assert.Nil(t, err)
 	})
@@ -48,9 +48,10 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 
 		node := testNode.DeepCopy()
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 		node.Annotations[DeafultNodeIDAnnotationKey] = annotationValue
 
-		nodeID, err := GetNodeID(node, annotationKey, featureConf)
+		nodeID, err := GetNodeID(node, annotationKey, "app=baremetal-csi", featureConf)
 		assert.Equal(t, annotationValue, nodeID)
 		assert.Nil(t, err)
 	})
@@ -62,8 +63,9 @@ func TestGetNodeID(t *testing.T) {
 
 		node := testNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		nodeID, err := GetNodeID(node, annotationKey, featureConf)
+		nodeID, err := GetNodeID(node, annotationKey, "app=baremetal-csi", featureConf)
 		assert.Equal(t, annotationValue, nodeID)
 		assert.Nil(t, err)
 	})
@@ -74,8 +76,9 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 
 		node := testNode.DeepCopy()
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		_, err := GetNodeID(node, annotationKey, featureConf)
+		_, err := GetNodeID(node, annotationKey, "app=baremetal-csi", featureConf)
 		assert.NotNil(t, err)
 	})
 
@@ -86,8 +89,9 @@ func TestGetNodeID(t *testing.T) {
 
 		node := testNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		_, err := GetNodeID(node, "", featureConf)
+		_, err := GetNodeID(node, "", "app=baremetal-csi", featureConf)
 		assert.NotNil(t, err)
 	})
 }
@@ -103,9 +107,11 @@ func TestGetNodeIDByName(t *testing.T) {
 
 		node := testNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
+
 		assert.Nil(t, k8sClient.Create(testCtx, node))
 
-		nodeID, err := GetNodeIDByName(k8sClient, nodeName, annotationKey, featureConf)
+		nodeID, err := GetNodeIDByName(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
 		assert.Equal(t, annotationValue, nodeID)
 		assert.Nil(t, err)
 	})
@@ -116,7 +122,7 @@ func TestGetNodeIDByName(t *testing.T) {
 
 		featureConf := fc.NewFeatureConfig()
 
-		_, err = GetNodeIDByName(k8sClient, nodeName, annotationKey, featureConf)
+		_, err = GetNodeIDByName(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
 		assert.NotNil(t, err)
 	})
 }
