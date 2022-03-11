@@ -512,9 +512,11 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 	}
 
 	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
-	drive := &drivecrd.Drive{}
-	if err := m.k8sClient.ReadCR(ctx, volume.Spec.Location, "", drive); err != nil {
-		return "", fmt.Errorf("failed to read drive CR with name %s, error %w", volume.Spec.Location, err)
+	drive, err := m.crHelper.GetDriveCRByVolume(volume)
+	if err != nil {
+		updateErr := fmt.Errorf("failed to read drive CR with name %s, error %w", volume.Spec.Location, err)
+		ll.Error(updateErr)
+		return "", updateErr
 	}
 	ll.Debugf("Got drive %+v", drive)
 
