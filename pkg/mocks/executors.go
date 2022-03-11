@@ -34,7 +34,7 @@ type LevelSetter struct {
 
 // SetLevel sets log Level to a MockExecutor
 // Receives logrus Level
-func (l LevelSetter) SetLevel(level logrus.Level) {
+func (l *LevelSetter) SetLevel(level logrus.Level) {
 	l.msgLevel = level
 }
 
