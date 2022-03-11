@@ -110,6 +110,10 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
 
+		if pattern.BindingMode == storagev1.VolumeBindingImmediate {
+			e2eskipper.Skipf("Immediate volume binding mode is not supported -- skipping")
+		}
+
 		if pattern.Name == "Dynamic PV (filesystem volmode)" {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
