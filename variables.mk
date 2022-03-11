@@ -75,7 +75,8 @@ CLIENT_GO_VER      := v0.22.5
 
 ### Ingest information to the binary at the compile time
 METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
-LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
+CONSTANT_PACKAGE := github.com/dell/csi-baremetal/pkg/base
+LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH} -X ${CONSTANT_PACKAGE}.PluginVersion=${PRODUCT_VERSION}"
 
 ### Kind
 KIND_DIR := test/kind
