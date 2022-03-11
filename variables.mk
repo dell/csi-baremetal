@@ -4,7 +4,6 @@ PROJECT          := csi-baremetal
 ### common path
 CSI_OPERATOR_PATH=../csi-baremetal-operator
 CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
-CONTROLLER_GEN_BIN=./bin/controller-gen
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 ### version
