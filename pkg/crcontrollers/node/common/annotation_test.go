@@ -126,3 +126,28 @@ func TestGetNodeIDByName(t *testing.T) {
 		assert.NotNil(t, err)
 	})
 }
+
+func TestLabelStringToKV(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		payload string
+		result  map[string]string
+	}{
+		{
+			name:    "valid",
+			payload: "app=baremetal",
+			result:  map[string]string{"key": "app", "value": "baremetal"},
+		},
+		{
+			name:    "invalid",
+			payload: "",
+			result:  map[string]string{"key": "", "value": ""},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			key, value := labelStringToKV(tt.payload)
+			assert.Equal(t, tt.result["key"], key)
+			assert.Equal(t, tt.result["value"], value)
+		})
+	}
+}
