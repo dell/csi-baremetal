@@ -216,7 +216,7 @@ func obtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.
 	// try to obtain node ID
 	for i := 0; i < numberOfRetries; i++ {
 		logger.Info("Obtaining node ID...")
-		if nodeID, err = annotations.GetNodeIDByName(client, *nodeName, *nodeIDAnnotation, featureConf); err == nil {
+		if nodeID, err = annotations.GetNodeIDByName(client, *nodeName, *nodeIDAnnotation, "", featureConf); err == nil {
 			logger.Infof("Node ID is %s", nodeID)
 			return nodeID, nil
 		}
