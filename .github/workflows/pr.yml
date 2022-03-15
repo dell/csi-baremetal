@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ master ]
 env:
-  go_version: '1.17.7'
+  go_version: '1.16.8'
   golangci_version: '1.44.0'
 jobs:
   lint-test:
