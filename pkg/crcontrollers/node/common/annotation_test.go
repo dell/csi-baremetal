@@ -56,6 +56,19 @@ func TestGetNodeID(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
+	t.Run("Default annotation feature wrong labels", func(t *testing.T) {
+		featureConf := fc.NewFeatureConfig()
+		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
+
+		node := testNode.DeepCopy()
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
+		node.Annotations[DeafultNodeIDAnnotationKey] = annotationValue
+
+		nodeID, err := GetNodeID(node, annotationKey, "app=csi-baremetal", featureConf)
+		assert.Equal(t, "", nodeID)
+		assert.Nil(t, err)
+	})
+
 	t.Run("Custom annotation feature", func(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
