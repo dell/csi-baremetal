@@ -744,6 +744,25 @@ func Test_prepareListOfNodes(t *testing.T) {
 	}
 }
 
+func Test_Score(t *testing.T) {
+	e := setup(t)
+	uid := "1111-2222"
+	val := "aaaa-bbbb"
+	nodes := []coreV1.Node{
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				UID:         types.UID(uid),
+				Name:        "node-1",
+				Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: val},
+				Labels:      map[string]string{"app": "baremetal-csi"},
+			},
+		},
+	}
+
+	_, err := e.score(nodes)
+	assert.Nil(t, err)
+}
+
 func Test_getNodeId(t *testing.T) {
 	var (
 		e    = setup(t)
