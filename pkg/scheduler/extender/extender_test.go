@@ -733,6 +733,11 @@ func Test_prepareListOfNodes(t *testing.T) {
 			},
 			ExpectedNodes: []string{"1111-2222", "1111-3333"},
 		},
+		{
+			Message:       "empty nodes leads to empty nodeids",
+			Nodes:         []coreV1.Node{},
+			ExpectedNodes: []string{},
+		},
 	}
 	for _, tt := range testCases {
 		assert.Equalf(t, tt.ExpectedNodes, e.prepareListOfRequestedNodes(tt.Nodes), tt.Message)
