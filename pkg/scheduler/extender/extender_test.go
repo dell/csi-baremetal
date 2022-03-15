@@ -861,12 +861,14 @@ func Test_createReservation(t *testing.T) {
 	nodes := []coreV1.Node{{ObjectMeta: metaV1.ObjectMeta{Name: "node-1", UID: "uuid-1"}}}
 
 	e := setup(t)
-	err := e.createReservation(testCtx, namespace, name, nodes, capacityRequests)
-	assert.Nil(t, err)
+	assert.Nil(t, e.createReservation(testCtx, namespace, name, nodes, capacityRequests))
+
+	// empty node returns nil
+	assert.Nil(t, e.createReservation(testCtx, namespace, name, []coreV1.Node{}, capacityRequests))
 
 	// read back and check fields
 	reservationResource := &acrcrd.AvailableCapacityReservation{}
-	err = e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
+	err := e.k8sClient.ReadCR(testCtx, name, "", reservationResource)
 	assert.Nil(t, err)
 	assert.Equal(t, name, reservationResource.Name)
 	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
