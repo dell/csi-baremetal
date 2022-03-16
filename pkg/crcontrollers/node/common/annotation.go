@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,21 +29,26 @@ import (
 
 // GetNodeIDByName return special id for k8sNode with nodeName
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func GetNodeIDByName(client k8sClient.Client, nodeName string, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func GetNodeIDByName(client k8sClient.Client, nodeName, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	k8sNode := corev1.Node{}
 	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
 		return "", err
 	}
 
-	return GetNodeID(&k8sNode, annotationKey, featureChecker)
+	return GetNodeID(&k8sNode, annotationKey, nodeSelector, featureChecker)
 }
 
 // GetNodeID return special id for k8sNode
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
-	// node name
+func GetNodeID(k8sNode *corev1.Node, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	name := k8sNode.Name
 	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
+		if nodeSelector != "" {
+			key, value := labelStringToKV(nodeSelector)
+			if val, ok := k8sNode.GetLabels()[key]; !ok || val != value {
+				return "", nil
+			}
+		}
 		akey, err := chooseAnnotationKey(annotationKey, featureChecker)
 		if err != nil {
 			return "", err
@@ -66,11 +72,19 @@ func GetNodeID(k8sNode *corev1.Node, annotationKey string, featureChecker featur
 func chooseAnnotationKey(annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	if featureChecker.IsEnabled(featureconfig.FeatureExternalAnnotationForNode) {
 		if annotationKey == "" {
-			return "", fmt.Errorf("%s is set as True but ", featureconfig.FeatureExternalAnnotationForNode)
+			return "", fmt.Errorf("%s is set as True but annotation keys is empty", featureconfig.FeatureExternalAnnotationForNode)
 		}
 
 		return annotationKey, nil
 	}
 
 	return DeafultNodeIDAnnotationKey, nil
+}
+
+func labelStringToKV(payload string) (string, string) {
+	data := strings.Split(payload, "=")
+	if len(data) != 2 {
+		return "", ""
+	}
+	return data[0], data[1]
 }
