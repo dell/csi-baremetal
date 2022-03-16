@@ -117,7 +117,7 @@ kind-load-images:
 	$(KIND) load docker-image ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-build:
-	chmod +x $(KIND_DIR)/kind-build.sh $(KIND_DIR)
+	chmod +x $(KIND_DIR)/kind-build.sh
 	$(KIND_DIR)/kind-build.sh $(KIND_DIR)
 
 kind-install: kind-build

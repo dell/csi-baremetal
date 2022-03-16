@@ -5,8 +5,6 @@ KIND_DIR=$1
 KIND=$KIND_DIR/kind
 KIND_VER=0.11.1
 
-echo "First arg: $1"
-
 # Get kind sources
 wget -O $KIND_DIR/kind-src https://codeload.github.com/kubernetes-sigs/kind/tar.gz/refs/tags/v$KIND_VER
 tar -xzvf $KIND_DIR/kind-src -C $KIND_DIR

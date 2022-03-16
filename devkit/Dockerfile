@@ -1,10 +1,13 @@
+# build kind binary
 ARG KIND_BUILDER
 FROM $KIND_BUILDER as builder
 
 COPY kind/ /kind/
 
-RUN chmod +x /kind/kind-build.sh \
-&&  /kind/kind-build.sh /kind
+RUN     apt update \
+&&      apt install patch \
+&&      chmod +x /kind/kind-build.sh \
+&&      /kind/kind-build.sh /kind
 
 FROM opensuse/leap:latest
 
@@ -57,6 +60,7 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
 && rm helm-v${arg_helm_ver}-linux-amd64.tar.gz \
 && rm -rf linux-amd64
 
+# copy kind from builder
 COPY --from=builder /kind/kind /usr/local/bin
 RUN chmod +x /usr/local/bin/kind
 
