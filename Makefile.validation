@@ -117,26 +117,8 @@ kind-load-images:
 	$(KIND) load docker-image ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-build:
-	# Get kind sources
-	wget -O kind-src https://codeload.github.com/kubernetes-sigs/kind/tar.gz/refs/tags/v$(KIND_VER)
-	tar -xzvf kind-src
-
-	# Add "--ipc=host" docker option and build binary
-	patch -p0 < $(KIND_DIR)/kind-$(KIND_VER).patch
-	cd kind-$(KIND_VER) && make build
-
-	# Copy file
-	cp kind-$(KIND_VER)/bin/kind $(KIND_DIR)
-
-	# Make executive
-	chmod +x $(KIND)
-
-	# Check
-	$(KIND) version
-
-	# Clean workdir
-	rm -rf kind-$(KIND_VER)
-	rm -f kind-src
+	chmod +x $(KIND_DIR)/kind-build.sh $(KIND_DIR)
+	$(KIND_DIR)/kind-build.sh $(KIND_DIR)
 
 kind-install: kind-build
 	# Delete actual

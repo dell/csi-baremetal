@@ -78,9 +78,8 @@ METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
 LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
 
 ### Kind
-KIND_DIR := test/kind
+KIND_DIR := ${PWD}/devkit/kind
 KIND     := ${KIND_DIR}/kind
-KIND_VER := 0.11.1
 KIND_CONFIG := kind.yaml
 KIND_IMAGE_VERSION := v1.19.11
 KIND_WAIT := 30s 
