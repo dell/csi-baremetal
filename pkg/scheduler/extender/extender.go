@@ -57,6 +57,7 @@ type Extender struct {
 	provisioner    string
 	featureChecker fc.FeatureChecker
 	annotationKey  string
+	nodeSelector   string
 	sync.Mutex
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
@@ -64,13 +65,14 @@ type Extender struct {
 
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
-	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey string) (*Extender, error) {
+	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey, nodeselector string) (*Extender, error) {
 	return &Extender{
 		k8sClient:              kubeClient,
 		k8sCache:               kubeCache,
 		provisioner:            provisioner,
 		featureChecker:         featureConf,
 		annotationKey:          annotationKey,
+		nodeSelector:           nodeselector,
 		logger:                 logger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}, nil
@@ -424,10 +426,9 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 
 	// fill in node requests
 	reservation.NodeRequests = &genV1.NodeRequests{}
-	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
-		reservation.NodeRequests.Requested = nodes
-	} else {
-		return err
+	reservation.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	if len(reservation.NodeRequests.Requested) == 0 {
+		return nil
 	}
 
 	// create new reservation
@@ -447,20 +448,23 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	return nil
 }
 
-func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) ([]string, error) {
-	requestedNodes := make([]string, len(nodes))
+func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
+	requestedNodes := []string{}
 
-	for i, node := range nodes {
-		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+	for _, node := range nodes {
+		n := node
+		nodeID, err := annotations.GetNodeID(&n, e.annotationKey, e.nodeSelector, e.featureChecker)
 		if err != nil {
-			e.logger.Errorf("failed to get NodeID: %s", err)
-			return nil, err
+			e.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
+			continue
 		}
-		requestedNodes[i] = nodeID
+		if nodeID == "" {
+			continue
+		}
+		requestedNodes = append(requestedNodes, nodeID)
 	}
 
-	return requestedNodes, nil
+	return requestedNodes
 }
 
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
@@ -477,9 +481,12 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 			isFound := false
 			// node ID
 			node := requestedNode
-			nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+			nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.nodeSelector, e.featureChecker)
 			if err != nil {
 				e.logger.Errorf("failed to get NodeID: %s", err)
+				continue
+			}
+			if nodeID == "" {
 				continue
 			}
 			for _, node := range reservation.Spec.NodeRequests.Reserved {
@@ -514,12 +521,10 @@ func (e *Extender) resendReservationRequest(ctx context.Context, reservation *ac
 	nodes []coreV1.Node) error {
 	reservation.Spec.Status = v1.ReservationRequested
 	// update nodes
-	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
-		reservation.Spec.NodeRequests.Requested = nodes
-	} else {
-		return err
+	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	if len(reservation.Spec.NodeRequests.Requested) == 0 {
+		return nil
 	}
-
 	// remove reservations if any
 	for i := range reservation.Spec.ReservationRequests {
 		reservation.Spec.ReservationRequests[i].Reservations = nil
@@ -557,9 +562,14 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 		rank := maxVolumeCount
 
 		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.nodeSelector, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("failed to get NodeID: %s", err)
+			continue
+		}
+
+		if nodeID == "" {
+			continue
 		}
 
 		if r, ok := priorityFromVolumes[nodeID]; ok {
