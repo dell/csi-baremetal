@@ -117,8 +117,8 @@ kind-load-images:
 	$(KIND) load docker-image ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-build:
-	chmod +x $(KIND_DIR)/kind-build.sh
-	$(KIND_DIR)/kind-build.sh $(KIND_DIR)
+	chmod +x $(KIND_BUILD_DIR)/kind-build.sh
+	$(KIND_BUILD_DIR)/kind-build.sh $(KIND_BUILD_DIR)
 
 kind-install: kind-build
 	# Delete actual
@@ -131,7 +131,7 @@ kind-install: kind-build
 	kind version
 
 kind-create-cluster:
-	$(KIND) create cluster --config $(KIND_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
+	$(KIND) create cluster --config $(KIND_CONFIG_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
 
 kind-delete-cluster:
 	$(KIND) delete cluster

@@ -2,12 +2,13 @@
 ARG KIND_BUILDER
 FROM $KIND_BUILDER as builder
 
-COPY kind/ /kind/
+COPY          kind/ /kind/
 
-RUN     apt update \
-&&      apt install patch \
-&&      chmod +x /kind/kind-build.sh \
-&&      /kind/kind-build.sh /kind
+RUN           apt update \
+&&            apt install patch \
+&&            chmod +x /kind/kind-build.sh \
+&&            /kind/kind-build.sh /kind
+
 
 FROM opensuse/leap:latest
 
@@ -49,20 +50,20 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland \
 # install kubectl
-&& curl -LO https://dl.k8s.io/release/v${arg_kubectl_ver}/bin/linux/amd64/kubectl \
-&& install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
-&& rm kubectl \
+&&            curl -LO https://dl.k8s.io/release/v${arg_kubectl_ver}/bin/linux/amd64/kubectl \
+&&            install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
+&&            rm kubectl \
 # install helm3
-&& curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar.gz \
-&& tar -xzf helm-v${arg_helm_ver}-linux-amd64.tar.gz \
-&& chmod +x linux-amd64/helm \
-&& mv linux-amd64/helm /usr/local/bin/helm \
-&& rm helm-v${arg_helm_ver}-linux-amd64.tar.gz \
-&& rm -rf linux-amd64
+&&            curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar.gz \
+&&            tar -xzf helm-v${arg_helm_ver}-linux-amd64.tar.gz \
+&&            chmod +x linux-amd64/helm \
+&&            mv linux-amd64/helm /usr/local/bin/helm \
+&&            rm helm-v${arg_helm_ver}-linux-amd64.tar.gz \
+&&            rm -rf linux-amd64
 
 # copy kind from builder
-COPY --from=builder /kind/kind /usr/local/bin
-RUN chmod +x /usr/local/bin/kind
+COPY          --from=builder /kind/kind /usr/local/bin
+RUN           chmod +x /usr/local/bin/kind
 
 # add scripts required to properly setup running container
 ADD           devkit \
