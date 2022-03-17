@@ -82,7 +82,7 @@ LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_
 ### Kind
 KIND_BUILD_DIR		:= ${PWD}/devkit/kind
 KIND_CONFIG_DIR		:= test/kind
-KIND				:= ${KIND_DIR}/kind
+KIND				:= ${KIND_BUILD_DIR}/kind
 KIND_CONFIG			:= kind.yaml
 KIND_IMAGE_VERSION	:= v1.19.11
 KIND_WAIT			:= 30s
