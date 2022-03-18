@@ -55,7 +55,7 @@ RUN           curl -LO https://dl.k8s.io/release/v${arg_kubectl_ver}/bin/linux/a
 &&            install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
 &&            rm kubectl
 # install helm3
-RUN           curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar.gz
+RUN           curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar.gz \
 &&            tar -xzf helm-v${arg_helm_ver}-linux-amd64.tar.gz \
 &&            chmod +x linux-amd64/helm \
 &&            mv linux-amd64/helm /usr/local/bin/helm \
