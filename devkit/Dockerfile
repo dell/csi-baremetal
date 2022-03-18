@@ -39,23 +39,23 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               wget \
               xorg-x11 \
               xorg-x11-fonts \
-              unzip \
+              unzip
 # install go
-&&            wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
+RUN           wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
-&&            rm go${arg_go_ver}.linux-amd64.tar.gz \
+&&            rm go${arg_go_ver}.linux-amd64.tar.gz
 # install bin golangci
-&&            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${arg_golandci_ver} \
+RUN           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${arg_golandci_ver} \
 &&            chmod -R a+rwx $GOPATH \
 # bind start_ide.sh
-&&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
-&&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland \
+RUN           ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
+&&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland
 # install kubectl
-&&            curl -LO https://dl.k8s.io/release/v${arg_kubectl_ver}/bin/linux/amd64/kubectl \
+RUN           curl -LO https://dl.k8s.io/release/v${arg_kubectl_ver}/bin/linux/amd64/kubectl
 &&            install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
 &&            rm kubectl \
 # install helm3
-&&            curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar.gz \
+RUN           curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar.gz
 &&            tar -xzf helm-v${arg_helm_ver}-linux-amd64.tar.gz \
 &&            chmod +x linux-amd64/helm \
 &&            mv linux-amd64/helm /usr/local/bin/helm \
