@@ -82,7 +82,7 @@ kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/library/nginx:1.14-alpine
 	docker pull ${REGISTRY}/library/centos:latest
 	docker pull ${REGISTRY}/e2e-test-images/nginx:1.14-1
-    docker pull ${REGISTRY}/e2e-test-images/busybox:1.29-1
+	docker pull ${REGISTRY}/e2e-test-images/busybox:1.29-1
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
