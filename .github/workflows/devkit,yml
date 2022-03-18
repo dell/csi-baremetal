@@ -1,0 +1,43 @@
+name: devkit
+
+on:
+  push:
+    branches: [ master ]
+  issue_comment:
+    types: [ created ]
+
+env:
+  REGISTRY:   'ghcr.io/yurkov-anton/csi-baremetal'
+  IMAGE_NAME:      'csi-baremetal-devkit'
+  LATEST_TAG: 'latest'
+  LATEST_IMAGE: ${{ REGISTRY }}/${{ IMAGE_NAME }}:${{ LATEST_TAG }}
+  
+  docker_version: '1.16.8'
+
+defaults:
+  run:
+    working-directory: ./devkit
+jobs:
+  build:
+    # we need to start validation on master push or on /ci comment in PR only
+    if: github.event_name == 'push' || (github.event.issue.pull_request && github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ci'))
+    runs-on: ubuntu-20.04
+    steps:       
+    - name: Pull latest csi-baremetal-devkit
+      run: |
+        docker pull ${{ LATEST_IMAGE }}
+        
+    - name: Build devkit image
+      run: |
+        cd ${{ env.CSI_BAREMETAL_DEVKIT_DIR }}
+        make build
+    
+    - name: Check equeal with latest 
+      allow-failure: true
+      run:
+        echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{env.LATEST_IMAGE}})" >> $GITHUB_ENV
+        
+    - name: Push devkit
+      if: ${{ env.equeal_with_latest }}
+      run:
+        make push REGISTRY=${{ REGISTRY }}
