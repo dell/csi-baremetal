@@ -68,5 +68,14 @@ help:
 clean:
 	docker rmi --force ${IMAGE_REPO_TAG} 2>/dev/null || true
 
-push: build
-	docker push ${IMAGE_REPO_TAG}
+push:
+	docker push ${REGISTRY}/${IMAGE_REPO_TAG}
+
+is-equal-with:
+	@id1=$(shell docker inspect --format="{{.Id}}" ${IMAGE_REPO_TAG})
+	@id2=$(shell docker inspect --format="{{.Id}}" ${COMPARE_IMAGE})
+        ifeq ($(id1), $(id2))
+		@echo "true"
+        else
+		@echo "false"
+        endif
