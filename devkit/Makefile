@@ -69,7 +69,14 @@ clean:
 	docker rmi --force ${IMAGE_REPO_TAG} 2>/dev/null || true
 
 push:
-	docker push ${REGISTRY}/${IMAGE_REPO_TAG}
+        docker tag ${IMAGE_REPO_TAG} ${REGISTRY}/${IMAGE_REPO_TAG}
+        docker push ${REGISTRY}/${IMAGE_REPO_TAG}
+
+version:
+        @echo ${TAG}
+
+repo:
+        @echo ${REPO}
 
 is-equal-with:
 	@id1=$(shell docker inspect --format="{{.Id}}" ${IMAGE_REPO_TAG})
