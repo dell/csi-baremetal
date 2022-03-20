@@ -27,11 +27,11 @@ jobs:
         echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
         
     - name: Pull latest csi-baremetal-devkit
+      continue-on-error: true
       run: |
         docker pull ${{ env.LATEST_IMAGE }}
         
     - name: Checkout code
-      if: always()
       uses: actions/checkout@v2
         
     - name: Check dir
@@ -47,12 +47,13 @@ jobs:
         make build
     
     - name: Check equeal with latest
+      continue-on-error: true
       working-directory: devkit
       run: |
         echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{env.LATEST_IMAGE}})" >> $GITHUB_ENV
         
     - name: Push devkit
       working-directory: devkit
-      if: ${{ !env.equeal_with_latest || failure() }}
+      if: ${{ !env.equeal_with_latest }}
       run: |
         make push REGISTRY=${{ env.REGISTRY }}
