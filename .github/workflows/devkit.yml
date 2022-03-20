@@ -12,9 +12,9 @@ env:
   REGISTRY: ghcr.io/yurkov-anton/csi-baremetal
   docker_version: "1.16.8"
 
-defaults:
-  run:
-    working-directory: devkit
+#defaults:
+#  run:
+#    working-directory: devkit
 jobs:
   build:
     # we need to start validation on master push or on /ci comment in PR only
