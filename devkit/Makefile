@@ -74,8 +74,8 @@ push:
 is-equal-with:
 	@id1=$(shell docker inspect --format="{{.Id}}" ${IMAGE_REPO_TAG})
 	@id2=$(shell docker inspect --format="{{.Id}}" ${COMPARE_IMAGE})
-    ifeq ($(id1), $(id2))
+        ifeq ($(id1), $(id2))
 		@echo "true"
-    else
+        else
 		@echo "false"
-    endif
+        endif
