@@ -13,9 +13,6 @@ env:
   equeal_with_latest: false
   docker_version: "1.16.8"
 
-#defaults:
-#  run:
-#    working-directory: devkit
 jobs:
   build:
     # we need to start validation on master push or on /ci comment in PR only
@@ -50,7 +47,9 @@ jobs:
       continue-on-error: true
       working-directory: devkit
       run: |
-        echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{env.LATEST_IMAGE}})" >> $GITHUB_ENV
+        echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{ env.LATEST_IMAGE }})" >> $GITHUB_ENV
+        echo ${{ env.equeal_with_latest }}
+        echo ${{ !env.equeal_with_latest }}
         
     - name: Push devkit
       working-directory: devkit
