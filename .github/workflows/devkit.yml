@@ -24,10 +24,6 @@ jobs:
     steps:
     - name: Setup env variables
       run: |
-        pwd
-        ls
-        ls ..
-        ls ../..
         echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
         
     - name: Pull latest csi-baremetal-devkit
@@ -35,12 +31,18 @@ jobs:
         docker pull ${{ env.LATEST_IMAGE }}
         
     - name: Checkout code
-      run: | 
-        uses: actions/checkout@v2
+      if: always()
+      uses: actions/checkout@v2
         
+    - name: Check dir
+      run: |
+        pwd
+        ls
+        ls ..
+        ls ../..
+
     - name: Build devkit image
       working-directory: devkit
-      if: always()
       run: |
         make build
     
