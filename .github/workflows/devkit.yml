@@ -25,6 +25,9 @@ jobs:
     - name: Setup env variables
       run: |
         pwd
+        ls
+        ls ..
+        ls ../..
         echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
         
     - name: Pull latest csi-baremetal-devkit
