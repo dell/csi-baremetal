@@ -20,39 +20,28 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Setup env variables
-      run: |
-        echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
+      run: echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
         
     - name: Pull latest csi-baremetal-devkit
       continue-on-error: true
-      run: |
-        docker pull ${{ env.LATEST_IMAGE }}
+      run: docker pull ${{ env.LATEST_IMAGE }}
         
     - name: Checkout code
       uses: actions/checkout@v2
-        
-    - name: Check dir
-      run: |
-        pwd
-        ls
-        ls ..
-        ls ../..
 
     - name: Build devkit image
       working-directory: devkit
-      run: |
-        make build
+      run: make build
     
     - name: Check equeal with latest
       continue-on-error: true
       working-directory: devkit
       run: |
         echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{ env.LATEST_IMAGE }})" >> $GITHUB_ENV
-        echo ${{ env.equeal_with_latest }}
-        echo ${{ !env.equeal_with_latest }}
+        echo ${{ env.equeal_with_latest == 'true' }}
+        echo ${{ env.equeal_with_latest != 'true' }}
         
     - name: Push devkit
       working-directory: devkit
-      if: ${{ !env.equeal_with_latest }}
-      run: |
-        make push REGISTRY=${{ env.REGISTRY }}
+      if: failure()
+      run: make push REGISTRY=${{ env.REGISTRY }}
