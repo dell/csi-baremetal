@@ -44,6 +44,6 @@ jobs:
         
     - name: Push devkit
       working-directory: devkit
-      if: ${{ !env.equeal_with_latest || failed() }}
+      if: ${{ !env.equeal_with_latest || failure() }}
       run: |
         make push REGISTRY=${{ env.REGISTRY }}
