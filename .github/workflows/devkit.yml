@@ -10,6 +10,7 @@ env:
   IMAGE_NAME: csi-baremetal-devkit
   LATEST_TAG: latest
   REGISTRY: ghcr.io/yurkov-anton/csi-baremetal
+  equeal_with_latest: false
   docker_version: "1.16.8"
 
 #defaults:
@@ -23,21 +24,27 @@ jobs:
     steps:
     - name: Setup env variables
       run: |
+        pwd
         echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
         
     - name: Pull latest csi-baremetal-devkit
+      allow-failure: true
       run: |
         docker pull ${{ env.LATEST_IMAGE }}
         
     - name: Build devkit image
+      working-directory: devkit
       run: |
         make build
     
-    - name: Check equeal with latest 
+    - name: Check equeal with latest
+      allow-failure: true
+      working-directory: devkit
       run:
         echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{env.LATEST_IMAGE}})" >> $GITHUB_ENV
         
     - name: Push devkit
-      if: ${{ env.equeal_with_latest }}
+      working-directory: devkit
+      if: ${{ !env.equeal_with_latest }}
       run:
         make push REGISTRY=${{ env.REGISTRY }}
