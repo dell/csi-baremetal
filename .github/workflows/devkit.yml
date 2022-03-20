@@ -14,11 +14,11 @@ env:
 
 defaults:
   run:
-    working-directory: ./devkit
+    working-directory: devkit
 jobs:
   build:
     # we need to start validation on master push or on /ci comment in PR only
-    if: github.event_name == 'push' || (github.event.issue.pull_request && github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ci'))
+    if: github.event_name == 'push' || (github.event.issue.pull_request && github.event_name == 'issue_comment')
     runs-on: ubuntu-20.04
     steps:
     - name: Setup env variables
@@ -31,7 +31,6 @@ jobs:
         
     - name: Build devkit image
       run: |
-        cd ${{ env.CSI_BAREMETAL_DEVKIT_DIR }}
         make build
     
     - name: Check equeal with latest 
