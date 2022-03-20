@@ -36,12 +36,9 @@ jobs:
     - name: Check equeal with latest
       continue-on-error: true
       working-directory: devkit
-      run: |
-        echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{ env.LATEST_IMAGE }})" >> $GITHUB_ENV
-        echo ${{ env.equeal_with_latest == 'true' }}
-        echo ${{ env.equeal_with_latest != 'true' }}
+      run: echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{ env.LATEST_IMAGE }})" >> $GITHUB_ENV
         
     - name: Push devkit
       working-directory: devkit
-      if: failure()
+      if: ${{ env.equeal_with_latest != 'true' }}
       run: make push REGISTRY=${{ env.REGISTRY }}
