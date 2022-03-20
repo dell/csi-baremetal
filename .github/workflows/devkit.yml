@@ -27,7 +27,7 @@ jobs:
         
     - name: Pull latest csi-baremetal-devkit
       run: |
-        docker pull ${{ LATEST_IMAGE }}
+        docker pull ${{ env.LATEST_IMAGE }}
         
     - name: Build devkit image
       run: |
@@ -41,4 +41,4 @@ jobs:
     - name: Push devkit
       if: ${{ env.equeal_with_latest }}
       run:
-        make push REGISTRY=${{ REGISTRY }}
+        make push REGISTRY=${{ env.REGISTRY }}
