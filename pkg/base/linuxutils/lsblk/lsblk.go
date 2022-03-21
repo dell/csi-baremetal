@@ -25,7 +25,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 )
 
@@ -42,7 +42,7 @@ const (
 // WrapLsblk is an interface that encapsulates operation with system lsblk util
 type WrapLsblk interface {
 	GetBlockDevices(device string) ([]BlockDevice, error)
-	SearchDrivePath(drive *drivecrd.Drive) (string, error)
+	SearchDrivePath(drive *api.Drive) (string, error)
 }
 
 // LSBLK is a wrap for system lsblk util
@@ -160,9 +160,9 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 // SearchDrivePath if not defined returns drive path based on drive S/N, VID and PID.
 // Receives an instance of drivecrd.Drive struct
 // Returns drive's path based on provided drivecrd.Drive or error if something went wrong
-func (l *LSBLK) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
+func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	// device path might be already set by hwmgr
-	device := drive.Spec.Path
+	device := drive.Path
 	if device != "" {
 		return device, nil
 	}
@@ -174,9 +174,9 @@ func (l *LSBLK) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
 	}
 
 	// get drive serial number
-	sn := drive.Spec.SerialNumber
-	vid := drive.Spec.VID
-	pid := drive.Spec.PID
+	sn := drive.SerialNumber
+	vid := drive.VID
+	pid := drive.PID
 	for _, l := range lsblkOut {
 		if strings.EqualFold(l.Serial, sn) && strings.EqualFold(l.Vendor, vid) &&
 			strings.EqualFold(l.Model, pid) {

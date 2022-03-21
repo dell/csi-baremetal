@@ -49,9 +49,13 @@ def run():
     parser.add_argument('--source-policy-path',
                         help='source path for scheduler policy file', required=True)
     parser.add_argument('--source_config_19_path',
-                        help='source path for scheduler config file for the kubernetes > 1.18', required=True)
+                        help='source path for scheduler config file for the kubernetes 1.19-1.22', required=True)
     parser.add_argument('--target_config_19_path',
-                        help='target path for scheduler config file for the kubernetes > 1.18', required=True)
+                        help='target path for scheduler config file for the kubernetes 1.19-1.22', required=True)
+    parser.add_argument('--source_config_23_path',
+                        help='source path for scheduler config file for the kubernetes >= 1.23', required=True)
+    parser.add_argument('--target_config_23_path',
+                        help='target path for scheduler config file for the kubernetes >= 1.23', required=True)
     parser.add_argument(
         '--loglevel', help="Set level for logging", dest="loglevel", default='info')
     parser.add_argument(
@@ -84,6 +88,9 @@ def run():
     source_config_19 = File(args.source_config_19_path)
     target_config_19 = File(args.target_config_19_path)
 
+    source_config_23 = File(args.source_config_23_path)
+    target_config_23 = File(args.target_config_23_path)
+
     config_volume = Volume("scheduler-config", args.target_config_path)
     config_volume.compile_config() 
 
@@ -92,17 +99,22 @@ def run():
 
     config_19_volume = Volume("scheduler-config-19", args.target_config_19_path)
     config_19_volume.compile_config()
+
+    config_23_volume = Volume("scheduler-config-23", args.target_config_23_path)
+    config_23_volume.compile_config()
     
     path =  args.target_config_path
     if kube_major_ver==1 and kube_minor_ver>18:
         path = args.target_config_19_path
+    if kube_major_ver==1 and kube_minor_ver>22:
+        path = args.target_config_23_path
 
     manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
     if args.platform == "rke":
         manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
 
     manifest = ManifestFile(
-        manifest, [config_volume, policy_volume, config_19_volume], path, args.backup_path)
+        manifest, [config_volume, policy_volume, config_19_volume, config_23_volume], path, args.backup_path)
 
     # add watcher on signals
     killer = GracefulKiller(args.restore, manifest)
@@ -116,6 +128,7 @@ def run():
         _must_exist(manifest, source_config, source_policy, source_config_19)
             # copy config and policy if they don't exist or they have different content
         copy_not_equal(source_config_19, target_config_19)
+        copy_not_equal(source_config_23, target_config_23)
         copy_not_equal(source_config, target_config)
         copy_not_equal(source_policy, target_policy)
 

@@ -53,12 +53,12 @@ func NewLVMProvisioner(e command.CmdExecutor, k *k8s.KubeClient, log *logrus.Log
 
 // PrepareVolume search volume group based on vol attributes, creates Logical Volume
 // and create file system on it. After that Logical Volume is ready for mount operations
-func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
+func (l *LVMProvisioner) PrepareVolume(vol *api.Volume) error {
 	ll := l.log.WithFields(logrus.Fields{
 		"method":   "PrepareVolume",
 		"volumeID": vol.Id,
 	})
-	ll.Infof("Processing for volume %#v", vol)
+	ll.Infof("Processing for volume %+v", *vol)
 
 	var (
 		vgName string
@@ -70,7 +70,7 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
 	sizeStr := strconv.FormatInt(size, 10)
 	sizeStr += "m"
 
-	vgName, err = l.getVGName(&vol)
+	vgName, err = l.getVGName(vol)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (l *LVMProvisioner) PrepareVolume(vol api.Volume) error {
 
 // ReleaseVolume search volume group based on vol attributes, remove Logical Volume
 // and wipe file system on it. After that Logical Volume that had consumed by vol is completely removed
-func (l *LVMProvisioner) ReleaseVolume(vol api.Volume) error {
+func (l *LVMProvisioner) ReleaseVolume(vol *api.Volume, _ *api.Drive) error {
 	ll := logrus.WithFields(logrus.Fields{
 		"method":   "ReleaseVolume",
 		"volumeID": vol.Id,
@@ -105,7 +105,7 @@ func (l *LVMProvisioner) ReleaseVolume(vol api.Volume) error {
 
 	if err := l.fsOps.WipeFS(deviceFile); err != nil {
 		// check whether such LV (deviceFile) exist or not
-		vgName, sErr := l.getVGName(&vol)
+		vgName, sErr := l.getVGName(vol)
 		if sErr != nil {
 			return fmt.Errorf("unable to remove LV %s: %v and unable to determine VG name: %v",
 				deviceFile, err, sErr)
@@ -127,14 +127,14 @@ func (l *LVMProvisioner) ReleaseVolume(vol api.Volume) error {
 
 // GetVolumePath search Volume Group name by vol attributes and construct
 // full path to the volume using template: /dev/VG_NAME/LV_NAME
-func (l *LVMProvisioner) GetVolumePath(vol api.Volume) (string, error) {
+func (l *LVMProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 	ll := l.log.WithFields(logrus.Fields{
 		"method":   "GetVolumePath",
 		"volumeID": vol.Id,
 	})
 	ll.Debugf("Processing for %v", vol)
 
-	vgName, err := l.getVGName(&vol)
+	vgName, err := l.getVGName(vol)
 	if err != nil {
 		return "", err
 	}

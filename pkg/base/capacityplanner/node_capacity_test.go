@@ -1,12 +1,16 @@
 package capacityplanner
 
 import (
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"reflect"
-	"testing"
 )
 
 const (
@@ -333,4 +337,14 @@ func TestSelectACForVolume(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_nodeCapacity_String(t *testing.T) {
+	var (
+		testACHDD1 = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassHDD)
+		nc         = newNodeCapacity(nodeName, []accrd.AvailableCapacity{testACHDD1}, nil)
+	)
+
+	str := nc.String()
+	assert.True(t, strings.Contains(str, testACHDD1.Name))
 }

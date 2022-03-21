@@ -89,7 +89,7 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	path := "/dev/sda"
 	dCR.Spec.Path = path
 
-	res, err := l.SearchDrivePath(&dCR)
+	res, err := l.SearchDrivePath(&dCR.Spec)
 	assert.Nil(t, err)
 	assert.Equal(t, path, res)
 
@@ -100,7 +100,7 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	d2CR := testDriveCR
 	d2CR.Spec.SerialNumber = sn
 
-	res, err = l.SearchDrivePath(&d2CR)
+	res, err = l.SearchDrivePath(&d2CR.Spec)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedDevice, res)
 }
@@ -112,7 +112,7 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 	// lsblk fail
 	expectedErr := errors.New("lsblk error")
 	e.On("RunCmd", allDevicesCmd).Return("", "", expectedErr)
-	res, err := l.SearchDrivePath(&testDriveCR)
+	res, err := l.SearchDrivePath(&testDriveCR.Spec)
 	assert.Equal(t, "", res)
 	assert.Equal(t, expectedErr, err)
 
@@ -122,7 +122,7 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 	dCR := testDriveCR
 	dCR.Spec.SerialNumber = sn
 
-	res, err = l.SearchDrivePath(&dCR)
+	res, err = l.SearchDrivePath(&dCR.Spec)
 	assert.Equal(t, "", res)
 	assert.NotNil(t, err)
 
@@ -133,7 +133,7 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 	dCR.Spec.VID = "vendor"
 	dCR.Spec.PID = "pid"
 
-	res, err = l.SearchDrivePath(&dCR)
+	res, err = l.SearchDrivePath(&dCR.Spec)
 	assert.NotNil(t, err)
 }
 
