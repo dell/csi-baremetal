@@ -28,6 +28,13 @@ jobs:
           echo "DEST_IMAGE=${{ env.REGISTRY }}/$image_name:$image_tag" >> $GITHUB_ENV
           echo "LATEST_IMAGE=${{ env.REGISTRY }}/$image_name:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
 
+    - name: Log in to GitHub Docker Registry
+      uses: docker/login-action@v1.14.1
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Pull latest csi-baremetal-devkit
       continue-on-error: true
       run: docker pull ${{ env.LATEST_IMAGE }}
@@ -44,15 +51,7 @@ jobs:
         id2=`docker inspect --format="{{.Id}}" ${env.LATEST_IMAGE}`
         equeal_with_latest="false"
         [ ${id1} == ${id2} ] ; &&  equeal_with_latest="true"
-        echo "equeal_with_latest=${equeal_with_latest}" >> $GITHUB_ENV
-    
-    - name: Log in to GitHub Docker Registry
-      if: github.event_name == 'push' && env.equeal_with_latest != 'true'
-      uses: docker/login-action@v1.14.1
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}      
+        echo "equeal_with_latest=${equeal_with_latest}" >> $GITHUB_ENV      
           
     - name: Push devkit
       working-directory: devkit
