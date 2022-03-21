@@ -81,6 +81,8 @@ kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker pull ${REGISTRY}/library/nginx:1.14-alpine
 	docker pull ${REGISTRY}/library/centos:latest
+	docker pull ${REGISTRY}/e2e-test-images/nginx:1.14-1
+	docker pull ${REGISTRY}/e2e-test-images/busybox:1.29-1
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -90,6 +92,8 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG} ${BUSYBOX}:${BUSYBOX_TAG}
 	docker tag ${REGISTRY}/library/nginx:1.14-alpine docker.io/library/nginx:1.14-alpine
 	docker tag ${REGISTRY}/library/centos:latest docker.io/library/centos:latest
+	docker tag ${REGISTRY}/e2e-test-images/nginx:1.14-1 k8s.gcr.io/e2e-test-images/nginx:1.14-1
+	docker tag ${REGISTRY}/e2e-test-images/busybox:1.29-1 k8s.gcr.io/e2e-test-images/busybox:1.29-1
 	docker tag ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG} ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${PROJECT}-${NODE}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG} ${PROJECT}-${NODE}-kernel-5.4:${TAG}
@@ -107,6 +111,8 @@ kind-load-images:
 	$(KIND) load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
 	$(KIND) load docker-image docker.io/library/nginx:1.14-alpine
 	$(KIND) load docker-image docker.io/library/centos:latest
+	$(KIND) load docker-image k8s.gcr.io/e2e-test-images/nginx:1.14-1
+	$(KIND) load docker-image k8s.gcr.io/e2e-test-images/busybox:1.29-1
 	$(KIND) load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${NODE}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${NODE}-kernel-5.4:${TAG}
@@ -144,6 +150,8 @@ deps-docker-pull:
 	docker pull ${BUSYBOX}:${BUSYBOX_TAG}
 	docker pull nginx:1.14-alpine
 	docker pull centos:latest
+	docker pull k8s.gcr.io/e2e-test-images/nginx:1.14-1
+	docker pull k8s.gcr.io/e2e-test-images/busybox:1.29-1
 
 deps-docker-tag:
 	docker tag k8s.gcr.io/sig-storage/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -153,6 +161,8 @@ deps-docker-tag:
 	docker tag ${BUSYBOX}:${BUSYBOX_TAG} ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker tag nginx:1.14-alpine ${REGISTRY}/library/nginx:1.14-alpine
 	docker tag centos:latest ${REGISTRY}/library/centos:latest
+	docker tag k8s.gcr.io/e2e-test-images/nginx:1.14-1 ${REGISTRY}/e2e-test-images/nginx:1.14-1
+	docker tag k8s.gcr.io/e2e-test-images/busybox:1.29-1 ${REGISTRY}/e2e-test-images/busybox:1.29-1
 
 deps-docker-push:
 	docker push ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -162,3 +172,5 @@ deps-docker-push:
 	docker push ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker push ${REGISTRY}/library/nginx:1.14-alpine
 	docker push ${REGISTRY}/library/centos:latest
+	docker push ${REGISTRY}/e2e-test-images/nginx:1.14-1
+	docker push ${REGISTRY}/e2e-test-images/busybox:1.29-1
