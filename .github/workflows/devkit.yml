@@ -48,7 +48,7 @@ jobs:
       run: |
         id1=`docker inspect --format="{{.Id}}" ${env.LOCAL_IMAGE}`
         id2=`docker inspect --format="{{.Id}}" ${env.LATEST_IMAGE}`
-        echo equeal_with_latest=${{ id1 == id2 }} >> $GITHUB_ENV
+        echo "equeal_with_latest=${{ id1 == id2 }}" >> $GITHUB_ENV
     
     - name: Check
       run: |
