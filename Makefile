@@ -5,6 +5,7 @@ include Makefile.validation
 # optional include
 -include Makefile.addition
 
+
 .PHONY: version test build
 
 # print version
