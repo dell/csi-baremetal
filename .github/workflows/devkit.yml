@@ -25,7 +25,7 @@ jobs:
       working-directory: devkit
       run: |
           echo "IMAGE_NAME=$( make repo )" >> $GITHUB_ENV
-          echo "IAMGE_TAG=$( make version )" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$( make version )" >> $GITHUB_ENV
 
     - name: Set env variables
       run: |          
