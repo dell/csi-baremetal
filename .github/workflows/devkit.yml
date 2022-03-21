@@ -21,11 +21,12 @@ jobs:
     steps:
     - name: Setup env variables
       run: |
-          echo "IMAGE_NAME=$( make repo )" >> $GITHUB_ENV
-          echo "IMAGE_TAG=$( make version )" >> $GITHUB_ENV
-          echo "CURRENT_IMAGE=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
-          echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
+          image_name = $( make repo )"
+          image_tag = $( make version )"
           
+          echo "LOCAL_IMAGE=${{ image_name }}:${{ image_tag }}" >> $GITHUB_ENV
+          echo "DEST_IMAGE=${{env.REGISTRY}}/${{ image_name }}:${{ image_tag }}" >> $GITHUB_ENV
+          echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ image_name }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
 
     - name: Pull latest csi-baremetal-devkit
       continue-on-error: true
@@ -51,9 +52,9 @@ jobs:
       run: |
         echo "${{ env.equeal_with_latest != 'true' }}"
         # Push current image
-        docker tag ${{ env.CURRENT_IMAGE }} ${{ REGISTRY }}/${{ CURRENT_IMAGE}}
-        docker push ${{ REGISTRY }}/${{ CURRENT_IMAGE}}
+        docker tag ${{ env.LOCAL_IMAGE }} ${{ env.DEST_IMAGE }}
+        docker push ${{ env.DEST_IMAGE }}
         # Update latest image
-        docker tag ${{ REGISTRY }}/${{ CURRENT_IMAGE}} ${{LATEST_IMAGE}}
-        docker push ${{LATEST_IMAGE}}
+        docker tag ${{ env.DEST_IMAGE }} ${{ env.LATEST_IMAGE }}
+        docker push ${{ env.LATEST_IMAGE }}
         
