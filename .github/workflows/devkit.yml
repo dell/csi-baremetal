@@ -18,6 +18,9 @@ jobs:
     if: github.event_name == 'push' || (github.event.issue.pull_request && github.event_name == 'issue_comment')
     runs-on: ubuntu-20.04
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+ 
     - name: Setup env variables
       run: |
           echo "IMAGE_NAME=$( make repo )" >> $GITHUB_ENV
@@ -30,9 +33,6 @@ jobs:
     - name: Pull latest csi-baremetal-devkit
       continue-on-error: true
       run: docker pull ${{ env.LATEST_IMAGE }}
-        
-    - name: Checkout code
-      uses: actions/checkout@v2
 
     - name: Build devkit image
       working-directory: devkit
