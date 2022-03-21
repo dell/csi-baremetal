@@ -37,9 +37,9 @@ jobs:
       continue-on-error: true
       run: docker pull ${{ env.LATEST_IMAGE }}
 
-    - name: Build devkit image
-      working-directory: devkit
-      run: make build
+#    - name: Build devkit image
+#      working-directory: devkit
+#      run: make build
     
     - name: Check equeal with latest
       continue-on-error: true
@@ -47,6 +47,10 @@ jobs:
       run: |
           echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{ env.LATEST_IMAGE }})" >> $GITHUB_ENV
           echo "${{ env.equeal_with_latest != 'true' }}"
+    
+    - name: Check
+      run: |
+        echo "${{ env.equeal_with_latest != 'true' }}"
           
     - name: Push devkit
       working-directory: devkit
