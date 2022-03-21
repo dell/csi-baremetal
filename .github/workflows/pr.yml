@@ -12,14 +12,20 @@ jobs:
   lint-test:
     name: Validate code and charts
     runs-on: ubuntu-18.04
+    container: 
+      image: anndutova/csi-baremetal-devkit:latest
+      env:
+        EUID: 0
+        EGID: 0
+        USER_NAME: root
+        STDOUT: true
+      volumes:
+        - /root:/root
+        - /tmp:/tmp
+        - /var/run/docker.sock:/var/run/docker.sock
     steps:
     - name: Check out code
       uses: actions/checkout@v2
-
-    - name: Prepare Golang 
-      uses: actions/setup-go@v2
-      with:
-        go-version: ${{env.go_version}}
 
     - name: Load dep cache
       uses: actions/cache@v2
@@ -42,11 +48,6 @@ jobs:
     - name: Get dependencies
       run:  make dependency
       
-    - name: Install golangci-lint
-      run: |
-        wget -q -O golangci-lint.deb https://github.com/golangci/golangci-lint/releases/download/v${{ env.golangci_version }}/golangci-lint-${{ env.golangci_version }}-linux-amd64.deb
-        sudo dpkg -i golangci-lint.deb
-        
     - name: Lint code
       run: GOGC=300 make lint
       
@@ -83,17 +84,23 @@ jobs:
   gen-files-validate:
     name: Generated files should be consistent
     runs-on: ubuntu-18.04
+    container: 
+      image: anndutova/csi-baremetal-devkit:latest
+      env:
+        EUID: 0
+        EGID: 0
+        USER_NAME: root
+        STDOUT: true
+      volumes:
+        - /root:/root
+        - /tmp:/tmp
+        - /var/run/docker.sock:/var/run/docker.sock
     steps:
     - name: Check out code
       uses: actions/checkout@v2
 
-    - name: Prepare Golang 
-      uses: actions/setup-go@v2
-      with:
-        go-version: ${{ env.go_version }}
-  
     - name: Compile proto files
-      run: make install-compile-proto
+      run: make compile-proto
 
     - name: Generate CRD
       run: |
