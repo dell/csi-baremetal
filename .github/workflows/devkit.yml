@@ -47,8 +47,8 @@ jobs:
       continue-on-error: true
       working-directory: devkit
       run: |
-        id1=`docker inspect --format="{{.Id}}" ${env.LOCAL_IMAGE}`
-        id2=`docker inspect --format="{{.Id}}" ${env.LATEST_IMAGE}`
+        id1=`docker inspect --format="{{.Id}}" ${{ env.LOCAL_IMAGE }}`
+        id2=`docker inspect --format="{{.Id}}" ${{ env.LATEST_IMAGE }}`
         equeal_with_latest="false"
         [ ${id1} == ${id2} ] ; &&  equeal_with_latest="true"
         echo "equeal_with_latest=${equeal_with_latest}" >> $GITHUB_ENV      
