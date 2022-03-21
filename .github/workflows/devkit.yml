@@ -31,7 +31,7 @@ jobs:
       working-directory: devkit
       run: |      
           image_name=`make repo`
-          echo "LOCAL_IMAGE=${ image_name }:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          echo "LOCAL_IMAGE=$image_name:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
           echo "DEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
           echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
 
