@@ -28,9 +28,10 @@ jobs:
           echo "IMAGE_TAG=$( make version )" >> $GITHUB_ENV
 
     - name: Set env variables
-      run: |          
+      run: |      
+          image_name=`make repo`
           echo "LOCAL_IMAGE=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
-          echo "DEST_IMAGE=${{env.REGISTRY}}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          echo "DEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
           echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
 
     - name: Pull latest csi-baremetal-devkit
@@ -45,12 +46,20 @@ jobs:
       continue-on-error: true
       working-directory: devkit
       run: |
-          echo "equeal_with_latest=$(make is-equal-with COMPARE_IMAGE=${{ env.LATEST_IMAGE }})" >> $GITHUB_ENV
-          echo "${{ env.equeal_with_latest != 'true' }}"
+        id1=`docker inspect --format="{{.Id}}" ${env.LOCAL_IMAGE}`
+        id2=`docker inspect --format="{{.Id}}" ${env.LATEST_IMAGE}`
+        echo equeal_with_latest=${{ id1 == id2 }} >> $GITHUB_ENV
     
     - name: Check
       run: |
-        echo "${{ env.equeal_with_latest != 'true' }}"
+        echo "${{ env.equeal_with_latest }}"
+          
+    - name: Log in to GitHub Docker Registry
+      uses: docker/login-action@v1.14.1
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}      
           
     - name: Push devkit
       working-directory: devkit
