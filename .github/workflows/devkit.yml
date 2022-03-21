@@ -36,12 +36,11 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Pull latest csi-baremetal-devkit
-      continue-on-error: true
-      run: docker pull ${{ env.LATEST_IMAGE }}
+      run: docker pull ${{ env.LATEST_IMAGE }} || true
 
     - name: Build devkit image
       working-directory: devkit
-      run: make build
+      run: make build CACHE_IMAGE=${{ env.LATEST_IMAGE }}
     
     - name: Check equeal with latest
       continue-on-error: true
@@ -50,7 +49,7 @@ jobs:
         id1=`docker inspect --format="{{.Id}}" ${{ env.LOCAL_IMAGE }}`
         id2=`docker inspect --format="{{.Id}}" ${{ env.LATEST_IMAGE }}`
         equeal_with_latest="false"
-        [ ${id1} == ${id2} ] ; &&  equeal_with_latest="true"
+        [ ${id1} == ${id2} ] &&  equeal_with_latest="true"
         echo "equeal_with_latest=${equeal_with_latest}" >> $GITHUB_ENV      
           
     - name: Push devkit
