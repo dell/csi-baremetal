@@ -3,8 +3,8 @@ name: devkit
 on:
   push:
     branches: [ master ]
-  issue_comment:
-    types: [ created ]
+  pull_request:
+    branches: [ master ]
 
 env:
   LATEST_TAG: latest
@@ -14,8 +14,6 @@ env:
 
 jobs:
   build:
-    # we need to start validation on master push or on /ci comment in PR only
-    if: github.event_name == 'push' || (github.event.issue.pull_request && github.event_name == 'issue_comment')
     runs-on: ubuntu-20.04
     steps:
     - name: Checkout code
@@ -48,11 +46,8 @@ jobs:
         [ ${id1} == ${id2} ] ; &&  equeal_with_latest="true"
         echo "equeal_with_latest=${equeal_with_latest}" >> $GITHUB_ENV
     
-    - name: Check
-      run: |
-        echo "${{ env.equeal_with_latest }}"
-          
     - name: Log in to GitHub Docker Registry
+      if: github.event_name == 'push' && env.equeal_with_latest != 'true'
       uses: docker/login-action@v1.14.1
       with:
         registry: ${{ env.REGISTRY }}
@@ -61,9 +56,9 @@ jobs:
           
     - name: Push devkit
       working-directory: devkit
-  #    if: ${{ env.equeal_with_latest != 'true' }}
+      if: github.event_name == 'push' && env.equeal_with_latest != 'true'
+      
       run: |
-        echo "${{ env.equeal_with_latest != 'true' }}"
         # Push current image
         docker tag ${{ env.LOCAL_IMAGE }} ${{ env.DEST_IMAGE }}
         docker push ${{ env.DEST_IMAGE }}
