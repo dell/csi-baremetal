@@ -20,8 +20,13 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Setup env variables
-      run: echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
-        
+      run: |
+          echo "IMAGE_NAME=$( make repo )" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$( make version )" >> $GITHUB_ENV
+          echo "CURRENT_IMAGE=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
+          
+
     - name: Pull latest csi-baremetal-devkit
       continue-on-error: true
       run: docker pull ${{ env.LATEST_IMAGE }}
@@ -42,7 +47,13 @@ jobs:
           
     - name: Push devkit
       working-directory: devkit
-      #if: ${{ env.equeal_with_latest != 'true' }}
+      if: env.equeal_with_latest != 'true'
       run: |
         echo "${{ env.equeal_with_latest != 'true' }}"
-        make push REGISTRY=${{ env.REGISTRY }}
+        # Push current image
+        docker tag ${{ env.CURRENT_IMAGE }} ${{ REGISTRY }}/${{ CURRENT_IMAGE}}
+        docker push ${{ REGISTRY }}/${{ CURRENT_IMAGE}}
+        # Update latest image
+        docker tag ${{ REGISTRY }}/${{ CURRENT_IMAGE}} ${{LATEST_IMAGE}}
+        docker push ${{LATEST_IMAGE}}
+        
