@@ -7,7 +7,6 @@ on:
     types: [ created ]
 
 env:
-  IMAGE_NAME: csi-baremetal-devkit
   LATEST_TAG: latest
   REGISTRY: ghcr.io/yurkov-anton/csi-baremetal
   equeal_with_latest: false
@@ -21,12 +20,12 @@ jobs:
     steps:
     - name: Setup env variables
       run: |
-          image_name = $( make repo )"
-          image_tag = $( make version )"
+          echo "IMAGE_NAME=$( make repo )" >> $GITHUB_ENV
+          echo "IAMGE_TAG=$( make version )" >> $GITHUB_ENV
           
-          echo "LOCAL_IMAGE=${{ image_name }}:${{ image_tag }}" >> $GITHUB_ENV
-          echo "DEST_IMAGE=${{env.REGISTRY}}/${{ image_name }}:${{ image_tag }}" >> $GITHUB_ENV
-          echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ image_name }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
+          echo "LOCAL_IMAGE=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          echo "DEST_IMAGE=${{env.REGISTRY}}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          echo "LATEST_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}" >> $GITHUB_ENV
 
     - name: Pull latest csi-baremetal-devkit
       continue-on-error: true
