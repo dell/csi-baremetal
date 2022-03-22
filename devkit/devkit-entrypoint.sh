@@ -9,6 +9,9 @@ readonly STDOUT=${STDOUT:?"STDOUT environment variable should be defined"}
 readonly DOCKER_BASE_CMD='/usr/bin/dockerd --insecure-registry 0.0.0.0/0'
 readonly USER_HOME_DIR="$([[ $EUID -eq 0 ]] && echo '/root' || echo "/home/$USER_NAME")"
 
+# Jenkins docker plugin send cat command to check the created container and it should be ignored
+CAT_OPT_VAL='cat'
+
 readonly CMD_OPT='--cmd'
 CMD_OPT_VAL=    # will be assigned later in the code if corresponding option was provided
 
@@ -348,6 +351,11 @@ while true; do
         $HELP_OPT)
             usage
             exit 0
+        ;;
+
+        $CAT_OPT_VAL)
+            shift 2
+            continue
         ;;
 
         *)

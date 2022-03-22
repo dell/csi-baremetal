@@ -26,8 +26,11 @@ TAG  ?= $(major).$(minor).$(patch)-$(git_rev)
 IMAGE_REPO_TAG := $(REPO):$(TAG)
 
 DOCKER_VERSION ?= 20.10.9_ce
-GO_VERSION ?= 1.16.13
+GO_VERSION ?= 1.17.8
 GOLANGCI_VERSION ?= 1.44.0
+KUBECTL_VERSION ?= 1.23.4
+HELM_VERSION ?= 3.8.1
+KIND_BUILDER ?= golang:1.16
 
 
 #
@@ -39,6 +42,9 @@ DOCKER_BUILD_ARGS = --tag ${IMAGE_REPO_TAG} \
               --build-arg arg_docker_ver=${DOCKER_VERSION} \
               --build-arg arg_go_ver=${GO_VERSION} \
               --build-arg arg_golandci_ver=${GOLANGCI_VERSION} \
+              --build-arg arg_kubectl_ver=${KUBECTL_VERSION} \
+	            --build-arg arg_helm_ver=${HELM_VERSION} \
+	            --build-arg KIND_BUILDER=${KIND_BUILDER} \
               ${PWD}
 
 ifdef CACHE_IMAGE
