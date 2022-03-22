@@ -55,7 +55,6 @@ jobs:
     - name: Push devkit
       working-directory: devkit
       if: github.event_name == 'push' && env.equeal_with_latest != 'true'
-      
       run: |
         # Push current image
         docker tag ${{ env.LOCAL_IMAGE }} ${{ env.DEST_IMAGE }}
