@@ -43,8 +43,8 @@ DOCKER_BUILD_ARGS = --tag ${IMAGE_REPO_TAG} \
               --build-arg arg_go_ver=${GO_VERSION} \
               --build-arg arg_golandci_ver=${GOLANGCI_VERSION} \
               --build-arg arg_kubectl_ver=${KUBECTL_VERSION} \
-	            --build-arg arg_helm_ver=${HELM_VERSION} \
-	            --build-arg KIND_BUILDER=${KIND_BUILDER} \
+	      --build-arg arg_helm_ver=${HELM_VERSION} \
+	      --build-arg KIND_BUILDER=${KIND_BUILDER} \
               ${PWD}
 
 ifdef CACHE_IMAGE
