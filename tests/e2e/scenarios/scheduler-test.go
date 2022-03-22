@@ -34,8 +34,8 @@ import (
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 // DefineSchedulerTestSuite defines tests for scheduler extender
