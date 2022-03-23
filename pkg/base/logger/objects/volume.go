@@ -9,7 +9,8 @@ import (
 type volume struct{}
 
 func (l *volume) Log(object *volumecrd.Volume) (str string) {
-	return fmt.Sprintf("Labels: %+v, Annotations: %+v, Spec: %+v",
+	return fmt.Sprintf("ID: '%s', Name: '%s', Namespace: '%s', Labels: %+v, Annotations: %+v, Spec: %+v",
+		object.ObjectMeta.UID, object.ObjectMeta.Name, object.ObjectMeta.Namespace,
 		object.ObjectMeta.Labels, object.ObjectMeta.Annotations, object.Spec)
 }
 
