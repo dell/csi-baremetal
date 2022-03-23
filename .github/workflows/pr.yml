@@ -88,7 +88,10 @@ jobs:
     name: Generated files should be consistent
     runs-on: ubuntu-18.04
     container: 
-      image: anndutova/csi-baremetal-devkit:latest
+      image: ghcr.io/dell/csi-baremetal/csi-baremetal-devkit:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       env:
         EUID: 0
         EGID: 0
