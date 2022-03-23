@@ -211,7 +211,7 @@ jobs:
 
     - uses: montudor/action-zip@v1
       with:
-        args: zip -qq -r reports.zip test/e2e/reports
+        args: zip -qq -r reports.zip tests/e2e/reports
 
     - name: Upload report to artifacts
       uses: actions/upload-artifact@v2.2.1
