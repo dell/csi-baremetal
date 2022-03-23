@@ -94,6 +94,7 @@ install-compile-proto: install-protoc compile-proto
 install-controller-gen:
 	# Instgall controller-gen
 	${GO_ENV_VARS} go install sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_GEN_VER}
+	${GO_ENV_VARS} go mod download go.uber.org/goleak
 
 install-mockery:
     # Install mockery
