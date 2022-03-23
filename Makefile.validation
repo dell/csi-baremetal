@@ -31,14 +31,14 @@ pr-validation-junit:
 # Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
 # Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.
 test-ci:
-	${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -all-tests -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
+	cd tests && ${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -all-tests -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
 
 # Run e2e tests and run community tests only.
 test-short-ci:
-	${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -ginkgo.failFast -timeout-short-ci=${SHORT_CI_TIMEOUT} -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
+	cd tests && ${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -ginkgo.failFast -timeout-short-ci=${SHORT_CI_TIMEOUT} -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
 
 test-sanity-ci:
-	${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -timeout 0 -ginkgo.focus="$(strip $(subst ',, ${SANITY_TEST}))" -ginkgo.v -ginkgo.progress -all-tests  -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} > log.txt
+	cd tests && ${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v e2e/baremetal_e2e_test.go -timeout 0 -ginkgo.focus="$(strip $(subst ',, ${SANITY_TEST}))" -ginkgo.v -ginkgo.progress -all-tests  -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} > log.txt
 
 # Run commnity sanity tests for CSI. TODO https://github.com/dell/csi-baremetal/issues/298 Make sanity test work for expansion
 # TODO enable tests back - https://github.com/dell/csi-baremetal/issues/371

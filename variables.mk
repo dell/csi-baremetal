@@ -4,7 +4,6 @@ PROJECT          := csi-baremetal
 ### common path
 CSI_OPERATOR_PATH=../csi-baremetal-operator
 CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
-CONTROLLER_GEN_BIN=./bin/controller-gen
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 ### version
@@ -80,12 +79,12 @@ BASE_PACKAGE := ${PACKAGE_NAME}/pkg/base
 LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH} -X ${BASE_PACKAGE}.PluginVersion=${PRODUCT_VERSION}"
 
 ### Kind
-KIND_BUILD_DIR		:= ${PWD}/devkit/kind
-KIND_CONFIG_DIR		:= test/kind
-KIND				:= ${KIND_BUILD_DIR}/kind
-KIND_CONFIG			:= kind.yaml
-KIND_IMAGE_VERSION	:= v1.19.11
-KIND_WAIT			:= 30s
+KIND_DIR := tests/kind
+KIND     := ${KIND_DIR}/kind
+KIND_VER := 0.11.1
+KIND_CONFIG := kind.yaml
+KIND_IMAGE_VERSION := v1.19.11
+KIND_WAIT := 30s 
 
 ### ci vars
 # timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)

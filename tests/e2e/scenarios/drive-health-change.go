@@ -34,10 +34,10 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	akey "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
-	"github.com/dell/csi-baremetal/test/e2e/common"
 )
 
 const (

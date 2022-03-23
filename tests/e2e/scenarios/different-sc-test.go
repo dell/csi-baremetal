@@ -31,7 +31,7 @@ import (
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 )
 
 const (

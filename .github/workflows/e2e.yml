@@ -8,8 +8,8 @@ on:
 
 env:
   REGISTRY: 'ghcr.io/dell/csi-baremetal'
-  go_version: '1.16.8'
-  golangci_version: '1.37.0'
+  go_version: '1.17.7'
+  golangci_version: '1.44.0'
   helm_version: '3.7.1'
   kubectl_version: 'v1.22.2'
   kind_config: 'small-kind.yaml'
@@ -204,7 +204,7 @@ jobs:
       with:
         check_name: "E2E Test Results"
         commit: '${{ steps.sha.outputs.result }}' 
-        files: test/e2e/reports/report.xml
+        files: tests/e2e/reports/report.xml
         hide_comments: off
         check_run_annotations: all tests
         comment_mode: create new
@@ -223,7 +223,7 @@ jobs:
       uses: actions/upload-artifact@v2.2.1
       with:
         name: e2e_artifacts_log
-        path: log.txt
+        path: tests/log.txt
 
     - name: Fail if test fails
       if: steps.tests.outcome != 'success'
