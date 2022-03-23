@@ -80,6 +80,7 @@ LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_
 
 ### Kind
 KIND_DIR := tests/kind
+KIND_BUILD_DIR := tests/kind
 KIND     := ${KIND_DIR}/kind
 KIND_VER := 0.11.1
 KIND_CONFIG := kind.yaml
