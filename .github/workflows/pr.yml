@@ -13,7 +13,7 @@ jobs:
     name: Validate code and charts
     runs-on: ubuntu-18.04
     container: 
-      image: anndutova/csi-baremetal-devkit:latest
+      image: ghcr.io/dell/csi-baremetal/csi-baremetal-devkit:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
