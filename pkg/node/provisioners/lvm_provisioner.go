@@ -75,6 +75,11 @@ func (l *LVMProvisioner) PrepareVolume(vol *api.Volume) error {
 		return err
 	}
 
+	volUUID, err := util.GetVolumeUUID(vol.Id)
+	if err != nil {
+		return fmt.Errorf("failed to get volume UUID %s: %w", vol.Id, err)
+	}
+
 	// create lv with name /dev/VG_NAME/vol.Id
 	ll.Infof("Creating LV %s sizeof %s in VG %s", vol.Id, sizeStr, vgName)
 	if err = l.lvmOps.LVCreate(vol.Id, sizeStr, vgName); err != nil {
@@ -83,10 +88,12 @@ func (l *LVMProvisioner) PrepareVolume(vol *api.Volume) error {
 
 	deviceFile := fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
 	ll.Debugf("Creating FS on %s", deviceFile)
+
 	if vol.Mode == apiV1.ModeRAW || vol.Mode == apiV1.ModeRAWPART {
 		return nil
 	}
-	return l.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), deviceFile)
+
+	return l.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), deviceFile, volUUID)
 }
 
 // ReleaseVolume search volume group based on vol attributes, remove Logical Volume

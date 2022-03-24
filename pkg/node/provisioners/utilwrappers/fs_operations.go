@@ -36,7 +36,7 @@ type FSOperations interface {
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	// CreateFSIfNotExist checks FS and creates one if not exist
-	CreateFSIfNotExist(fsType fs.FileSystem, device string) error
+	CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error
 	fs.WrapFS
 }
 
@@ -187,28 +187,37 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 
 		mkfs.<fsType> <device>
 */
-func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device string) error {
+func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error {
 	ll := fsOp.log.WithFields(logrus.Fields{
 		"method": "CreateFSIfNotExist",
 	})
 
-	// check FS
-	existingFS, err := fsOp.GetFSType(device)
+	// check existing FS
+	existingType, err := fsOp.GetFSType(device)
 	if err != nil {
 		ll.Errorf("Unable to check FS type on %s: %v", device, err)
 		return err
 	}
-	if fs.FileSystem(existingFS) == fsType {
-		ll.Warnf("FS on %s with type %s is already exist, skip creating", device, fs.FileSystem(existingFS))
+	existingUUID, err := fsOp.GetFSUUID(device)
+	if err != nil {
+		ll.Errorf("Unable to check FS UUID on %s: %v", device, err)
+		return err
+	}
+
+	// FS was created by CSI driver
+	if fs.FileSystem(existingType) == fsType && existingUUID == uuid {
+		ll.Warnf("FS on %s with type %s and uuid %s is already exist, skip creating", device, fs.FileSystem(existingType), existingUUID)
 		return nil
 	}
-	if existingFS != "" {
+
+	// wrong FS
+	if existingType != "" || existingUUID != "" {
 		ll.Errorf("device %s is not empty. Existing FS - %s", device, fsType)
-		return fmt.Errorf("device %s is not empty. Existing FS - %s", device, fsType)
+		return fmt.Errorf("device %s is not empty. Existing FS type - %s, uuid - %s", device, existingType, existingUUID)
 	}
 
 	// create FS
-	err = fsOp.CreateFS(fsType, device)
+	err = fsOp.CreateFS(fsType, device, uuid)
 	if err != nil {
 		ll.Errorf("Unable to create FS type %s on %s: %v", fsType, device, err)
 		return err

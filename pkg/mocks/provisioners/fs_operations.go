@@ -27,7 +27,7 @@ type MockFsOpts struct {
 }
 
 // PrepareAndPerformMount is a mock implementation
-func (m *MockFsOpts) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error {
+func (m *MockFsOpts) PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, _ ...string) error {
 	args := m.Mock.Called(src, dst, bindMount, dstIsDir)
 
 	return args.Error(0)
@@ -48,8 +48,8 @@ func (m *MockFsOpts) UnmountWithCheck(path string) error {
 }
 
 // CreateFSIfNotExist is a mock implementation
-func (m *MockFsOpts) CreateFSIfNotExist(fsType fs.FileSystem, device string) error {
-	args := m.Mock.Called(fsType, device)
+func (m *MockFsOpts) CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error {
+	args := m.Mock.Called(fsType, device, uuid)
 
 	return args.Error(0)
 }

@@ -59,7 +59,7 @@ func TestLVMProvisioner_PrepareVolume_Success(t *testing.T) {
 		Return(nil).Times(1)
 
 	devFile := fmt.Sprintf("/dev/%s/%s", testVolume1.Location, testVolume1.Id)
-	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile).
+	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile, testVolume1.Id).
 		Return(nil).Times(1)
 
 	err := lp.PrepareVolume(&testVolume1)
@@ -112,7 +112,7 @@ func TestLVMProvisioner_PrepareVolume_Fail(t *testing.T) {
 		Return(nil).Times(1)
 
 	devFile := fmt.Sprintf("/dev/%s/%s", testVolume1.Location, testVolume1.Id)
-	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile).
+	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile, testVolume1.Id).
 		Return(errTest).Times(1)
 
 	err = lp.PrepareVolume(&testVolume1)
