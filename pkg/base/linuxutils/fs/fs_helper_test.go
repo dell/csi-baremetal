@@ -259,3 +259,28 @@ func Test_GetFSType(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "xfs", hasData)
 }
+
+func Test_GetFSUUID(t *testing.T) {
+	var (
+		e        = &mocks.GoMockExecutor{}
+		fh       = NewFSImpl(e)
+		path     = "/dev/sda"
+		cmd      = fmt.Sprintf(GetFsUUIDCmdTmpl, path)
+		testUUID = "aaaa-bbbb"
+	)
+
+	e.OnCommand(cmd).Return("", "", nil).Times(1)
+	uuid, err := fh.GetFSUUID(path)
+	assert.Nil(t, err)
+	assert.Equal(t, "", uuid)
+
+	e.OnCommand(cmd).Return(testUUID, "", testError).Times(1)
+	uuid, err = fh.GetFSUUID(path)
+	assert.NotNil(t, err)
+	assert.Equal(t, "", uuid)
+
+	e.OnCommand(cmd).Return(testUUID, "", nil).Times(1)
+	uuid, err = fh.GetFSUUID(path)
+	assert.Nil(t, err)
+	assert.Equal(t, testUUID, uuid)
+}
