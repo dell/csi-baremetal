@@ -19,8 +19,9 @@ package scenarios
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +32,7 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 )
 
 // DefineNodeRebootTestSuite defines custom csi-baremetal node reboot test

@@ -22,7 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
+
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"

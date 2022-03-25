@@ -4,7 +4,6 @@ PROJECT          := csi-baremetal
 ### common path
 CSI_OPERATOR_PATH=../csi-baremetal-operator
 CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
-CONTROLLER_GEN_BIN=./bin/controller-gen
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 ### version
@@ -81,7 +80,7 @@ LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_
 
 ### Kind
 KIND_BUILD_DIR		:= ${PWD}/devkit/kind
-KIND_CONFIG_DIR		:= test/kind
+KIND_CONFIG_DIR		:= tests/kind
 KIND				:= ${KIND_BUILD_DIR}/kind
 KIND_CONFIG			:= kind.yaml
 KIND_IMAGE_VERSION	:= v1.19.11

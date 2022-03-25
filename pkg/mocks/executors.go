@@ -21,27 +21,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 )
 
-// LevelSetter is the struct to fully implement CmdExecutor interface
-type LevelSetter struct {
-	msgLevel logrus.Level
-}
-
-// SetLevel sets log Level to a MockExecutor
-// Receives logrus Level
-func (l LevelSetter) SetLevel(level logrus.Level) {
-	l.msgLevel = level
-}
-
 // EmptyExecutorSuccess implements CmdExecutor interface for test purposes, each command will finish success
 type EmptyExecutorSuccess struct {
-	LevelSetter
 }
+
+// SetLevel implements EmptyExecutorSuccess interface for test purposes
+func (EmptyExecutorSuccess) SetLevel(logrus.Level) {}
 
 // RunCmd simulates successful execution of a command
 // Returns "" as stdout, "" as stderr and nil as error
@@ -57,8 +47,10 @@ func (e EmptyExecutorSuccess) RunCmdWithAttempts(interface{}, int, time.Duration
 
 // EmptyExecutorFail implements CmdExecutor interface for test purposes, each command will finish with error
 type EmptyExecutorFail struct {
-	LevelSetter
 }
+
+// SetLevel implements EmptyExecutorFail interface for test purposes
+func (EmptyExecutorFail) SetLevel(logrus.Level) {}
 
 // RunCmd simulates failed execution of a command
 // Returns "error happened" as stdout, "error" as stderr and errors.New("error") as error
@@ -93,9 +85,10 @@ type MockExecutor struct {
 	// if command doesn't in cmdMap RunCmd method will fail or success with empty output
 	// based on that parameter
 	successIfNotFound bool
-
-	LevelSetter
 }
+
+// SetLevel implements MockExecutor interface for test purposes
+func (*MockExecutor) SetLevel(logrus.Level) {}
 
 // NewMockExecutor is the constructor for MockExecutor struct
 // Receives map which contains commands as keys and their outputs as values
@@ -172,8 +165,10 @@ var (
 // GoMockExecutor implements CmdExecutor based on stretchr/testify/mock
 type GoMockExecutor struct {
 	mock.Mock
-	LevelSetter
 }
+
+// SetLevel implements GoMockExecutor interface for test purposes
+func (g *GoMockExecutor) SetLevel(logrus.Level) {}
 
 // RunCmdWithAttempts simulates execution of a command with OnCommandWithAttempts where user can set what the method should return
 func (g *GoMockExecutor) RunCmdWithAttempts(cmd interface{}, attempts int, timeout time.Duration, opts ...command.Options) (string, string, error) {

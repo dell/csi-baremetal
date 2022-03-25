@@ -30,7 +30,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 )
 
 var (
