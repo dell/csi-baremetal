@@ -101,7 +101,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Compile proto files
-      run: make install-compile-proto
+      run: make compile-proto
 
     - name: Generate CRD
       run: |
