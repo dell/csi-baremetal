@@ -60,7 +60,7 @@ RUN 	      curl -L -O https://github.com/protocolbuffers/protobuf/releases/downl
 # bind start_ide.sh
 RUN           ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland
-# install kubectl:
+# install kubectl
 RUN           curl -LO https://dl.k8s.io/release/v${arg_kubectl_ver}/bin/linux/amd64/kubectl \
 &&            install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
 &&            rm kubectl
