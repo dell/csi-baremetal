@@ -52,8 +52,6 @@ RUN           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lin
 # install proto
 RUN 	      curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v${arg_protobuf_ver}/protoc-${arg_protobuf_ver}-linux-x86_64.zip \
 &&    	      unzip protoc-${arg_protobuf_ver}-linux-x86_64.zip -d $PROTOPATH \
-&&            chmod -R a+rwx $PROTOPATH \
-&&    	      protoc --version \
 # TODO update to google.golang.org/protobuf - https://github.com/dell/csi-baremetal/issues/613
 &&        	  go install github.com/golang/protobuf/protoc-gen-go@${arg_protoc_gen_go_ver}
 
@@ -77,7 +75,9 @@ COPY          --from=builder /kind/kind /usr/local/bin
 RUN           chmod +x /usr/local/bin/kind
 
 # set access rules
-RUN           chmod -R a+rwx $GOPATH
+RUN           chmod -R a+rwx $GOPATH \
+&&            chmod -R a+rwx $PROTOPATH
+
 
 # add scripts required to properly setup running container
 ADD           devkit \
