@@ -47,8 +47,8 @@ DOCKER_BUILD_ARGS = --tag ${IMAGE_REPO_TAG} \
               --build-arg arg_protobuf_ver=${PROTOBUF_VERSION} \
               --build-arg arg_protoc_gen_go_ver=${PROTOC_GEN_GO_VER} \
               --build-arg arg_kubectl_ver=${KUBECTL_VERSION} \
-	          --build-arg arg_helm_ver=${HELM_VERSION} \
-	          --build-arg KIND_BUILDER=${KIND_BUILDER} \
+	      --build-arg arg_helm_ver=${HELM_VERSION} \
+	      --build-arg KIND_BUILDER=${KIND_BUILDER} \
               ${PWD}
 
 ifdef CACHE_IMAGE
