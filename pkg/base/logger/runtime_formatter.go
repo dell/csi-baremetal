@@ -37,7 +37,11 @@ func (f *RuntimeFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		// setting function name
 		data[FunctionKey] = functionName
 		// setting modified filepath: removing base project path and redundant delimiter
-		data[FileKey] = strings.TrimPrefix(strings.TrimPrefix(file, base.ProjectPath), "/") + ":" + line
+		adaptedFilepath := strings.TrimPrefix(file, base.ProjectPath)
+		if adaptedFilepath != file { // if current file's path is a subdirectory of passed project path - then trim prefix delimiter
+			adaptedFilepath = strings.TrimPrefix(adaptedFilepath, "/")
+		}
+		data[FileKey] = adaptedFilepath + ":" + line
 	}
 	for k, v := range entry.Data {
 		data[k] = v
