@@ -25,6 +25,9 @@ type CtxKey string
 // PluginVersion is a version of current CSI plugin
 var PluginVersion = ""
 
+// ProjectPath is the current path of a project
+var ProjectPath = ""
+
 const (
 	// RequestUUID is the constant for context request
 	RequestUUID CtxKey = "RequestUUID"

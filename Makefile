@@ -31,7 +31,7 @@ build-scheduler \
 build-node-controller
 
 build-drivemgr:
-	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/$(DRIVE_MANAGER_TYPE) ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
+	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/$(DRIVE_MANAGER_TYPE) ${LDFLAGS} ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
 
 build-node:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${NODE}/${NODE} ${LDFLAGS} ./cmd/${NODE}/main.go
@@ -40,13 +40,13 @@ build-controller:
 	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CONTROLLER}/${CONTROLLER} ${LDFLAGS} ./cmd/${CONTROLLER}/main.go
 
 build-extender:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${EXTENDER}/${EXTENDER} ./cmd/${SCHEDULING_PKG}/${EXTENDER}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${EXTENDER}/${EXTENDER} ${LDFLAGS} ./cmd/${SCHEDULING_PKG}/${EXTENDER}/main.go
 
 build-scheduler:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER} ./cmd/${SCHEDULING_PKG}/${SCHEDULER}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${SCHEDULING_PKG}/${SCHEDULER}/${SCHEDULER} ${LDFLAGS} ./cmd/${SCHEDULING_PKG}/${SCHEDULER}/main.go
 
 build-node-controller:
-	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}/${CONTROLLER} ./cmd/${NODE_CONTROLLER}/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o ./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}/${CONTROLLER} ${LDFLAGS} ./cmd/${NODE_CONTROLLER}/main.go
 
 ### Clean artifacts
 clean-all: clean clean-images
