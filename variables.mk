@@ -77,7 +77,7 @@ CLIENT_GO_VER      := v0.22.5
 PACKAGE_NAME := github.com/dell/csi-baremetal
 METRICS_PACKAGE := ${PACKAGE_NAME}/pkg/metrics
 BASE_PACKAGE := ${PACKAGE_NAME}/pkg/base
-LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH} -X ${BASE_PACKAGE}.PluginVersion=${PRODUCT_VERSION} -X ${BASE_PACKAGE}.PROJECT_PATH=${PROJECT_PATH}"
+LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH} -X ${BASE_PACKAGE}.PluginVersion=${PRODUCT_VERSION} -X ${BASE_PACKAGE}.ProjectPath=${PROJECT_PATH}"
 
 ### Kind
 KIND_BUILD_DIR		:= ${PWD}/devkit/kind
