@@ -3,7 +3,7 @@ package logger
 import (
 	"bytes"
 	"encoding/json"
-	"os"
+	"path"
 	"reflect"
 	"testing"
 
@@ -47,7 +47,7 @@ func TestRuntimeFormatter(t *testing.T) {
 	logrus.SetOutput(buffer)
 
 	decoder := json.NewDecoder(buffer)
-	currentDirectory, _ := os.Getwd()
+	currentDirectory := path.Join("pkg", "base", "logger")
 	currentFile := "runtime_formatter_test.go"
 
 	foo()
@@ -90,7 +90,7 @@ func TestFunctionInFunctionFormatter(t *testing.T) {
 	logrus.SetOutput(buffer)
 
 	decoder := json.NewDecoder(buffer)
-	currentDirectory, _ := os.Getwd()
+	currentDirectory := path.Join("pkg", "base", "logger")
 	currentFile := "runtime_formatter_test.go"
 
 	funcInFunc()
