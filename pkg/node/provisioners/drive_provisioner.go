@@ -129,7 +129,7 @@ func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 		return nil
 	}
 
-	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath(), volUUID)
+	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath(), volUUID, vol.Ephemeral)
 }
 
 // ReleaseVolume remove FS and partition based on vol attributes.

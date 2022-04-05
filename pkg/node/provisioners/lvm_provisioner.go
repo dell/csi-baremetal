@@ -93,7 +93,7 @@ func (l *LVMProvisioner) PrepareVolume(vol *api.Volume) error {
 		return nil
 	}
 
-	return l.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), deviceFile, volUUID)
+	return l.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), deviceFile, volUUID, vol.Ephemeral)
 }
 
 // ReleaseVolume search volume group based on vol attributes, remove Logical Volume

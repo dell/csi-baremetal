@@ -19,7 +19,9 @@ package utilwrappers
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	uuidpkg "github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
@@ -36,7 +38,7 @@ type FSOperations interface {
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	// CreateFSIfNotExist checks FS and creates one if not exist
-	CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error
+	CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string, ephemeral bool) error
 	fs.WrapFS
 }
 
@@ -187,10 +189,20 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 
 		mkfs.<fsType> <device>
 */
-func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error {
+func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string, ephemeral bool) error {
 	ll := fsOp.log.WithFields(logrus.Fields{
 		"method": "CreateFSIfNotExist",
 	})
+
+	if ephemeral {
+		transformedUUID, err := transformEphemeralNameToUUID(uuid)
+		if err != nil {
+			ll.Errorf("Unable to transform volume name %s to UUID format: %v", uuid, err)
+			return err
+		}
+
+		uuid = transformedUUID
+	}
 
 	// check existing FS
 	existingType, err := fsOp.GetFSType(device)
@@ -240,4 +252,24 @@ func addMountOptions(mountOptions []string) (opts string) {
 	}
 
 	return
+}
+
+// transform CSI inline volume ID to UUID
+// input: csi-02f2c6dab7067666c0aa3eab03e7646c0a1b863f2c03f96f0d0486f939857c9d
+// output: 02f2c6da-b706-7666-c0aa-3eab03e7646c
+func transformEphemeralNameToUUID(ephemeralUUID string) (string, error) {
+	ephemeralUUID = strings.TrimLeft(ephemeralUUID, "csi-")
+
+	if len(ephemeralUUID) < 32 {
+		return "", fmt.Errorf("%s is shorter then expected", ephemeralUUID)
+	}
+
+	ephemeralUUID = ephemeralUUID[:32]
+
+	uuid, err := uuidpkg.Parse(ephemeralUUID)
+	if err != nil {
+		return "", err
+	}
+
+	return uuid.String(), nil
 }
