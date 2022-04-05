@@ -87,7 +87,7 @@ func TestDriveProvisioner_PrepareVolume_Success(t *testing.T) {
 
 	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return(device, nil)
 	mockPH.On("PreparePartition", part).Return(&expectedPart, nil)
-	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), expectedPart.GetFullPath()).
+	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), expectedPart.GetFullPath(), testVolume2.Id, false).
 		Return(nil)
 
 	err = dp.PrepareVolume(&testVolume2)
@@ -186,7 +186,7 @@ func TestDriveProvisioner_PrepareVolume_Fail(t *testing.T) {
 	// CreateFS failed
 	mockPH.On("PreparePartition", mock.Anything).
 		Return(&uw.Partition{}, nil).Once()
-	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), mock.Anything).Return(errTest)
+	mockFS.On("CreateFSIfNotExist", fs.FileSystem(testVolume2.Type), mock.Anything, testVolume2.Id, false).Return(errTest)
 
 	err = dp.PrepareVolume(&testVolume2)
 	assert.Error(t, err)

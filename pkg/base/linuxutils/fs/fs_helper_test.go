@@ -146,25 +146,34 @@ func TestRmDir(t *testing.T) {
 
 func TestCreateFS(t *testing.T) {
 	var (
-		e      = &mocks.GoMockExecutor{}
-		fh     = NewFSImpl(e)
-		device = "/dev/sda1"
-		fsType = XFS
-		cmd    = fmt.Sprintf(MkFSCmdTmpl, fsType, device)
-		err    error
+		e       = &mocks.GoMockExecutor{}
+		fh      = NewFSImpl(e)
+		device  = "/dev/sda1"
+		uuid    = "test-uuid"
+		xfsType = XFS
+		extType = EXT3
+		xfsCmd  = fmt.Sprintf(MkFSCmdTmpl, xfsType, device, fmt.Sprintf(XfsUUIDOption, uuid))
+		extCmd  = fmt.Sprintf(MkFSCmdTmpl, extType, device, fmt.Sprintf(ExtUUIDOption, uuid)) + SpeedUpFsCreationOpts
+		err     error
 	)
 
-	e.OnCommand(cmd).Return("", "", nil).Times(1)
-	err = fh.CreateFS(fsType, device)
+	// xfs
+	e.OnCommand(xfsCmd).Return("", "", nil).Times(1)
+	err = fh.CreateFS(xfsType, device, uuid)
+	assert.Nil(t, err)
+
+	// ext
+	e.OnCommand(extCmd).Return("", "", nil).Times(1)
+	err = fh.CreateFS(extType, device, uuid)
 	assert.Nil(t, err)
 
 	// cmd failed
-	e.OnCommand(cmd).Return("", "", testError).Times(1)
-	err = fh.CreateFS(fsType, device)
+	e.OnCommand(xfsCmd).Return("", "", testError).Times(1)
+	err = fh.CreateFS(xfsType, device, uuid)
 	assert.NotNil(t, err)
 
 	// unsupported FS
-	err = fh.CreateFS("anotherFS", device)
+	err = fh.CreateFS("anotherFS", device, uuid)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unsupported file system")
 }
@@ -249,4 +258,29 @@ func Test_GetFSType(t *testing.T) {
 	hasData, err = fh.GetFSType(path)
 	assert.Nil(t, err)
 	assert.Equal(t, "xfs", hasData)
+}
+
+func Test_GetFSUUID(t *testing.T) {
+	var (
+		e        = &mocks.GoMockExecutor{}
+		fh       = NewFSImpl(e)
+		path     = "/dev/sda"
+		cmd      = fmt.Sprintf(GetFsUUIDCmdTmpl, path)
+		testUUID = "aaaa-bbbb"
+	)
+
+	e.OnCommand(cmd).Return("", "", nil).Times(1)
+	uuid, err := fh.GetFSUUID(path)
+	assert.Nil(t, err)
+	assert.Equal(t, "", uuid)
+
+	e.OnCommand(cmd).Return(testUUID, "", testError).Times(1)
+	uuid, err = fh.GetFSUUID(path)
+	assert.NotNil(t, err)
+	assert.Equal(t, "", uuid)
+
+	e.OnCommand(cmd).Return(testUUID, "", nil).Times(1)
+	uuid, err = fh.GetFSUUID(path)
+	assert.Nil(t, err)
+	assert.Equal(t, testUUID, uuid)
 }
