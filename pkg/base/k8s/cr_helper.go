@@ -79,7 +79,7 @@ func (cs *CRHelper) GetACByLocation(location string) (*accrd.AvailableCapacity, 
 		}
 	}
 
-	ll.Warn("Can't find AC assigned to provided location")
+	ll.Warn("Can't find AC assigned to provided location: %v", location)
 
 	return nil, errTypes.ErrorNotFound
 }

@@ -19,7 +19,6 @@ package common
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -35,6 +34,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -426,50 +426,54 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	}
 
 	vo.cache.Delete(volumeID)
-	// find corresponding AC CR
-	acList := accrd.AvailableCapacityList{}
-	if err = vo.k8sClient.ReadList(ctx, &acList); err != nil {
-		ll.Errorf("Volume was deleted but corresponding AC with SC %s hadn't updated, unable to read list: %v",
-			volumeCR.Spec.StorageClass, err)
-	}
 
-	// search for AC
-	acCR := accrd.AvailableCapacity{}
-	for _, a := range acList.Items {
-		if a.Spec.Location == volumeCR.Spec.Location {
-			acCR = a
-			break
-		}
-	}
-	// AC CR must exist
-	if acCR.Name == "" {
-		ll.Errorf("Unable to find available capacity resource for volume %s", volumeID)
+	acCR, err := vo.crHelper.GetACByLocation(volumeCR.Spec.Location)
+	if err != nil {
+		ll.Errorf("AC not found by location %s: %v", volumeCR.Spec.Location, err)
 		return
 	}
 
-	// for LogicalVolumeGroup SCs we need to delete AC CR when no volumes remain to avoid new allocations since
-	// underlying LogicalVolumeGroup CR is destroying. For other SC just to increase size
-	isDeleted := false
-	lvg := &lvgcrd.LogicalVolumeGroup{}
+	if volumeCR.Spec.Health == apiV1.HealthGood {
+		// Increase size of AC using volume size
+		acCR.Spec.Size += volumeCR.Spec.Size
+	}
+
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
-		if err = vo.k8sClient.ReadCR(context.Background(), volumeCR.Spec.Location, "", lvg); err != nil {
+		lvg := lvgcrd.LogicalVolumeGroup{}
+		if err := vo.k8sClient.ReadCR(ctx, volumeCR.Spec.Location, "", &lvg); err != nil {
 			ll.Errorf("Unable to get LogicalVolumeGroup %s: %v", volumeCR.Spec.Location, err)
 			return
 		}
 
-		if isDeleted, err = vo.deleteLVGIfVolumesNotExistOrUpdate(lvg, volumeCR.Name, &acCR); err != nil {
-			ll.Errorf("Unable to remove volume reference from LogicalVolumeGroup %s: %v", volumeCR.Spec.Location, err)
+		// If volume not last, remove from lvg ref list, If volume is last need convert AC to Drive and remove LVG
+		if len(lvg.Spec.VolumeRefs) > 1 {
+			lvg.Spec.VolumeRefs = util.RemoveString(lvg.Spec.VolumeRefs, volumeCR.Name)
+			ll.Debugf("Remove volume %s from LogicalVolumeGroup %v", volumeCR.Name, lvg)
+			if err := vo.k8sClient.UpdateCR(ctx, &lvg); err != nil {
+				ll.Errorf("Unable to update LVG %s CR: %v", lvg.Name, err)
+				return
+			}
+		} else {
+			drive := &drivecrd.Drive{}
+			if err := vo.k8sClient.ReadCR(ctx, lvg.Spec.Locations[0], "", drive); err != nil {
+				ll.Errorf("Unable to read Drive %s CR: %v", lvg.Spec.Locations[0], err)
+				return
+			}
+
+			acCR.Spec.Location = drive.Spec.GetUUID()
+			acCR.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(drive.Spec.GetType())
+
+			ll.Debugf("Delete LVG %v", lvg.Name)
+			if err := vo.k8sClient.DeleteCR(ctx, &lvg); err != nil {
+				ll.Errorf("Unable to delete LVG %s CR: %v", lvg.Name, err)
+				return
+			}
 		}
 	}
 
-	// if LogicalVolumeGroup wasn't deleted and health of volume is GOOD increase AC size
-	// We don't increase AC size for unhealthy volume to avoid new allocations on top of unhealthy drive/lvg
-	if !isDeleted && volumeCR.Spec.Health == apiV1.HealthGood {
-		// Increase size of AC using volume size
-		acCR.Spec.Size += volumeCR.Spec.Size
-		if err = vo.k8sClient.UpdateCRWithAttempts(ctx, &acCR, 5); err != nil {
-			ll.Errorf("Unable to update AC %s size: %v", acCR.Name, err)
-		}
+	ll.Debugf("Update AC %s, to %v", acCR.Name, acCR.Spec)
+	if err := vo.k8sClient.UpdateCR(ctx, acCR); err != nil {
+		ll.Errorf("Unable to update AC %s CR: %v", acCR.Name, err)
 	}
 }
 
@@ -630,44 +634,6 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeExpansion(ctx context.Contex
 	if updateErr := vo.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
 	}
-}
-
-// deleteLVGIfVolumesNotExistOrUpdate tries to remove volume ID into VolumeRefs slice from LogicalVolumeGroup struct
-// and updates according LogicalVolumeGroup
-// If VolumeRefs length equals 0, then deletes according AC and LogicalVolumeGroup
-// Receives LogicalVolumeGroup and volumeID of a Volume CR which should be removed
-// Returns true if LogicalVolumeGroup CR was deleted and false otherwise, error if something went wrong
-func (vo *VolumeOperationsImpl) deleteLVGIfVolumesNotExistOrUpdate(lvg *lvgcrd.LogicalVolumeGroup,
-	volID string, ac *accrd.AvailableCapacity) (bool, error) {
-	log := vo.log.WithFields(logrus.Fields{
-		"method":   "deleteLVGIfVolumesNotExistOrUpdate",
-		"volumeID": volID,
-	})
-
-	drivesUUIDs := vo.k8sClient.GetSystemDriveUUIDs()
-	// if only one volume remains - remove AC first and LogicalVolumeGroup then
-	if len(lvg.Spec.VolumeRefs) == 1 && !util.ContainsString(drivesUUIDs, lvg.Spec.Locations[0]) {
-		if err := vo.k8sClient.DeleteCR(context.Background(), ac); err != nil {
-			log.Errorf("Unable to delete AC %s: %v", ac.Name, err)
-			return false, err
-		}
-		return true, vo.k8sClient.DeleteCR(context.Background(), lvg)
-	}
-
-	// search for volume index
-	for i, id := range lvg.Spec.VolumeRefs {
-		if volID == id {
-			log.Debugf("Remove volume %s from LogicalVolumeGroup %v", volID, lvg)
-			l := len(lvg.Spec.VolumeRefs)
-			lvg.Spec.VolumeRefs[i] = lvg.Spec.VolumeRefs[l-1]
-			lvg.Spec.VolumeRefs = lvg.Spec.VolumeRefs[:l-1]
-
-			return false, vo.k8sClient.UpdateCR(context.Background(), lvg)
-		}
-	}
-
-	log.Errorf("Reference to volume %s in LogicalVolumeGroup %v not found", volID, lvg)
-	return false, errors.New("lvg CR wasn't updated")
 }
 
 // fillCache tries to fill volume/namespace cache after VolumeOperationsImpl initialization

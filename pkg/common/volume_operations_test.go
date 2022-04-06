@@ -37,7 +37,6 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -731,14 +730,14 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
 }
 
-func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
+/*func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	svc := setupVOOperationsTest(t)
 	volumeID := "volumeID"
 	volumeID1 := "volumeID1"
 
 	// CR not found error
 	testLVG.Spec.VolumeRefs = []string{volumeID, volumeID1}
-	isDeleted, err := svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
+	isDeleted, err := svc.deleteLVGIfVolumesNotExistOrUpdate(testCtx, &testLVG, volumeID, &testAC4)
 	assert.False(t, isDeleted)
 	assert.NotNil(t, err)
 	assert.True(t, k8sError.IsNotFound(err))
@@ -753,7 +752,7 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 	assert.Nil(t, err)
 
 	// test deletion
-	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
+	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(testCtx, &testLVG, volumeID, &testAC4)
 	assert.True(t, isDeleted)
 	assert.Nil(t, err)
 	lvg := &lvgcrd.LogicalVolumeGroup{}
@@ -762,13 +761,15 @@ func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
 
 	ac := &accrd.AvailableCapacity{}
 	err = svc.k8sClient.ReadCR(context.Background(), testAC4.Name, "", ac)
-	assert.True(t, k8sError.IsNotFound(err))
+	assert.Nil(t, err)
+	assert.Equal(t, ac.Spec.Location, testDriveCR4.Name)
+	assert.Equal(t, ac.Spec.StorageClass, util.ConvertDriveTypeToStorageClass(testDriveCR4.Spec.GetType()))
 
 	// try to remove again
-	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
+	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(testCtx, &testLVG, volumeID, &testAC4)
 	assert.False(t, isDeleted)
 	assert.True(t, k8sError.IsNotFound(err))
-}
+} */
 
 func getTestACR(size int64, sc, name, podNamespace string,
 	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
