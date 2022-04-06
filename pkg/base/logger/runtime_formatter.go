@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,12 +34,19 @@ func (f *RuntimeFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		packageEnd := strings.LastIndex(function, ".")
 		functionName := function[packageEnd+1:]
 
+		// setting function name
 		data[FunctionKey] = functionName
-		data[FileKey] = file + ":" + line
+		// setting modified filepath: removing base project path and redundant delimiter
+		adaptedFilepath := strings.TrimPrefix(file, base.ProjectPath)
+		if adaptedFilepath != file { // if current file's path is a subdirectory of passed project path - then trim prefix delimiter
+			adaptedFilepath = strings.TrimPrefix(adaptedFilepath, "/")
+		}
+		data[FileKey] = adaptedFilepath + ":" + line
 	}
 	for k, v := range entry.Data {
 		data[k] = v
 	}
+
 	entry.Data = data
 
 	return f.ChildFormatter.Format(entry)

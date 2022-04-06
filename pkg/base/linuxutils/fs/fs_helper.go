@@ -45,7 +45,11 @@ const (
 	// CheckSpaceCmdImpl cmd for getting space on the mounted FS, produce output in megabytes (--block-size=M)
 	CheckSpaceCmdImpl = "df %s --output=target,avail --block-size=M" // add mounted fs part
 	// MkFSCmdTmpl mkfs command template
-	MkFSCmdTmpl = "mkfs.%s %s" // add fs type and device/path
+	MkFSCmdTmpl = "mkfs.%s %s %s" // args: 1 - fs type, 2 - device/path, 3 - fs uuid option
+	// XfsUUIDOption option to set uuid for mkfs.xfs
+	XfsUUIDOption = "-m uuid=%s"
+	// ExtUUIDOption option to set uuid for mkfs.ext3(4)
+	ExtUUIDOption = "-U %s"
 	// SpeedUpFsCreationOpts options that could be used for speeds up creation of ext3 and ext4 FS
 	SpeedUpFsCreationOpts = " -E lazy_journal_init=1,lazy_itable_init=1,discard"
 	// MkDirCmdTmpl mkdir template
@@ -56,6 +60,8 @@ const (
 	WipeFSCmdTmpl = wipefs + "-af %s" //
 	// GetFSTypeCmdTmpl cmd for detecting FS on device
 	GetFSTypeCmdTmpl = "lsblk %s --output FSTYPE --noheadings"
+	// GetFsUUIDCmdTmpl cmd for detecting FS on device
+	GetFsUUIDCmdTmpl = "lsblk %s --output UUID --noheadings"
 	// MountInfoFile "/proc/mounts" path
 	MountInfoFile = "/proc/self/mountinfo"
 	// FindMntCmdTmpl find source device for target mount path cmd
@@ -76,9 +82,10 @@ type WrapFS interface {
 	MkDir(src string) error
 	MkFile(src string) error
 	RmDir(src string) error
-	CreateFS(fsType FileSystem, device string) error
+	CreateFS(fsType FileSystem, device, uuid string) error
 	WipeFS(device string) error
 	GetFSType(device string) (string, error)
+	GetFSUUID(device string) (string, error)
 	// Mount operations
 	IsMounted(src string) (bool, error)
 	FindMountPoint(target string) (string, error)
@@ -189,20 +196,20 @@ func (h *WrapFSImpl) RmDir(src string) error {
 // CreateFS creates specified file system on the provided device using mkfs
 // Receives file system as a var of FileSystem type and path of the device as a string
 // Returns error if something went wrong
-func (h *WrapFSImpl) CreateFS(fsType FileSystem, device string) error {
+func (h *WrapFSImpl) CreateFS(fsType FileSystem, device, uuid string) error {
 	var cmd string
 	switch fsType {
 	case XFS:
-		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device)
+		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device, fmt.Sprintf(XfsUUIDOption, uuid))
 	case EXT3, EXT4:
-		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device) + SpeedUpFsCreationOpts
+		cmd = fmt.Sprintf(MkFSCmdTmpl, fsType, device, fmt.Sprintf(ExtUUIDOption, uuid)) + SpeedUpFsCreationOpts
 	default:
 		return fmt.Errorf("unsupported file system %v", fsType)
 	}
 
 	if _, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
-		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, "", "")))); err != nil {
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(MkFSCmdTmpl, "", "", "")))); err != nil {
 		return fmt.Errorf("failed to create file system on %s: %w", device, err)
 	}
 	return nil
@@ -296,7 +303,7 @@ func (h *WrapFSImpl) Unmount(path string) error {
 	return err
 }
 
-// GetFSType detect FS from the provided device using lsblk --output FSTYPE
+// GetFSType detect FS type from the provided device using lsblk --output FSTYPE
 // Receives file path of the device as a string
 // Returns error if something went wrong
 func (h *WrapFSImpl) GetFSType(device string) (string, error) {
@@ -308,6 +315,23 @@ func (h *WrapFSImpl) GetFSType(device string) (string, error) {
 	if stdout, _, err = h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(fmt.Sprintf(GetFSTypeCmdTmpl, ""))); err != nil {
+		return "", fmt.Errorf("failed to detect file system on %s: %w", device, err)
+	}
+	return strings.TrimSpace(stdout), err
+}
+
+// GetFSUUID detect FS UUID from the provided device using lsblk --output UUID
+// Receives file path of the device as a string
+// Returns error if something went wrong
+func (h *WrapFSImpl) GetFSUUID(device string) (string, error) {
+	var (
+		cmd    = fmt.Sprintf(GetFsUUIDCmdTmpl, device)
+		stdout string
+		err    error
+	)
+	if stdout, _, err = h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(fmt.Sprintf(GetFsUUIDCmdTmpl, ""))); err != nil {
 		return "", fmt.Errorf("failed to detect file system on %s: %w", device, err)
 	}
 	return strings.TrimSpace(stdout), err

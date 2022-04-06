@@ -34,6 +34,13 @@ func (m *MockWrapFS) GetFSType(device string) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+// GetFSUUID is a mock implementations
+func (m *MockWrapFS) GetFSUUID(device string) (string, error) {
+	args := m.Mock.Called(device)
+
+	return args.String(0), args.Error(1)
+}
+
 // GetFSSpace is a mock implementations
 func (m *MockWrapFS) GetFSSpace(src string) (int64, error) {
 	args := m.Mock.Called(src)
@@ -63,8 +70,8 @@ func (m *MockWrapFS) RmDir(src string) error {
 }
 
 // CreateFS is a mock implementations
-func (m *MockWrapFS) CreateFS(fsType fs.FileSystem, device string) error {
-	args := m.Mock.Called(fsType, device)
+func (m *MockWrapFS) CreateFS(fsType fs.FileSystem, device, uuid string) error {
+	args := m.Mock.Called(fsType, device, uuid)
 
 	return args.Error(0)
 }

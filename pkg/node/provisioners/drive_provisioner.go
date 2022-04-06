@@ -103,13 +103,17 @@ func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 		return nil
 	}
 
-	partUUID, _ := util.GetVolumeUUID(vol.Id)
+	volUUID, err := util.GetVolumeUUID(vol.Id)
+	if err != nil {
+		return fmt.Errorf("failed to get volume UUID %s: %w", vol.Id, err)
+	}
+
 	part := uw.Partition{
 		Device:    device,
 		TableType: partitionhelper.PartitionGPT,
 		Label:     DefaultPartitionLabel,
 		Num:       DefaultPartitionNumber,
-		PartUUID:  partUUID,
+		PartUUID:  volUUID,
 		Ephemeral: vol.Ephemeral,
 	}
 
@@ -125,7 +129,7 @@ func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 		return nil
 	}
 
-	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath())
+	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath(), volUUID, vol.Ephemeral)
 }
 
 // ReleaseVolume remove FS and partition based on vol attributes.
