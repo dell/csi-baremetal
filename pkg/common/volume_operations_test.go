@@ -730,47 +730,6 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
 }
 
-/*func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
-	svc := setupVOOperationsTest(t)
-	volumeID := "volumeID"
-	volumeID1 := "volumeID1"
-
-	// CR not found error
-	testLVG.Spec.VolumeRefs = []string{volumeID, volumeID1}
-	isDeleted, err := svc.deleteLVGIfVolumesNotExistOrUpdate(testCtx, &testLVG, volumeID, &testAC4)
-	assert.False(t, isDeleted)
-	assert.NotNil(t, err)
-	assert.True(t, k8sError.IsNotFound(err))
-
-	err = svc.k8sClient.CreateCR(context.Background(), testDriveCR4.Name, &testDriveCR4)
-	assert.Nil(t, err)
-	testLVG.ObjectMeta.ResourceVersion = ""
-	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
-	assert.Nil(t, err)
-	testAC4.ObjectMeta.ResourceVersion = ""
-	err = svc.k8sClient.CreateCR(context.Background(), testAC4.Name, &testAC4)
-	assert.Nil(t, err)
-
-	// test deletion
-	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(testCtx, &testLVG, volumeID, &testAC4)
-	assert.True(t, isDeleted)
-	assert.Nil(t, err)
-	lvg := &lvgcrd.LogicalVolumeGroup{}
-	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, "", lvg)
-	assert.True(t, k8sError.IsNotFound(err))
-
-	ac := &accrd.AvailableCapacity{}
-	err = svc.k8sClient.ReadCR(context.Background(), testAC4.Name, "", ac)
-	assert.Nil(t, err)
-	assert.Equal(t, ac.Spec.Location, testDriveCR4.Name)
-	assert.Equal(t, ac.Spec.StorageClass, util.ConvertDriveTypeToStorageClass(testDriveCR4.Spec.GetType()))
-
-	// try to remove again
-	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(testCtx, &testLVG, volumeID, &testAC4)
-	assert.False(t, isDeleted)
-	assert.True(t, k8sError.IsNotFound(err))
-} */
-
 func getTestACR(size int64, sc, name, podNamespace string,
 	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
 	acNames := make([]string, len(acList))
