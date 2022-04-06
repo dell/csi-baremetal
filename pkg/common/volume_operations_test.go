@@ -18,7 +18,6 @@ package common
 
 import (
 	"context"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"strconv"
 	"testing"
 	"time"
@@ -38,6 +37,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
