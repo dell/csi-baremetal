@@ -544,15 +544,14 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 
 	// create AC, LVG and Volume
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testAC4Name, &testAC4))
+	lvgOne.Namespace = ""
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testLVGName, lvgOne))
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testDrive4UUID, &testDriveCR4))
 	volumeOne.ObjectMeta.ResourceVersion = ""
 	volumeOne.Spec.StorageClass = apiV1.StorageClassHDDLVG
 	volumeOne.Spec.Location = lvgOne.Name
+	volumeOne.Spec.LocationType = apiV1.LocationTypeLVM
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeOne.Name, volumeOne))
-	lvgOne.ObjectMeta.ResourceVersion = ""
-	lvgOne.Namespace = ""
-	lvgOne.Spec.Locations = []string{lvgOne.Spec.Name}
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, lvgOne.Name, lvgOne))
 
 	// check that Volume was removed
 	svc.cache.Set(volumeOne.Name, volumeOne.Namespace)

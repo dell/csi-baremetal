@@ -427,54 +427,79 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 
 	vo.cache.Delete(volumeID)
 
+	// Handle AC, Drive, LVG after volume deletion
 	acCR, err := vo.crHelper.GetACByLocation(volumeCR.Spec.Location)
 	if err != nil {
 		ll.Errorf("AC not found by location %s: %v", volumeCR.Spec.Location, err)
 		return
 	}
+	driveCR, err := vo.crHelper.GetDriveCRByVolume(&volumeCR)
+	if err != nil {
+		ll.Errorf("Unable to read Drive CR for Volume %s : %v", volumeCR.Name, err)
+		return
+	}
+
+	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
+		if err = vo.updateLVGAfterVolumeDeletion(ctx, &volumeCR, driveCR, acCR); err != nil {
+			return
+		}
+	}
 
 	if volumeCR.Spec.Health == apiV1.HealthGood {
 		// Increase size of AC using volume size
 		acCR.Spec.Size += volumeCR.Spec.Size
-	}
-
-	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
-		lvg := lvgcrd.LogicalVolumeGroup{}
-		if err := vo.k8sClient.ReadCR(ctx, volumeCR.Spec.Location, "", &lvg); err != nil {
-			ll.Errorf("Unable to get LogicalVolumeGroup %s: %v", volumeCR.Spec.Location, err)
-			return
-		}
-
-		// If volume not last, remove from lvg ref list, If volume is last need convert AC to Drive and remove LVG
-		if len(lvg.Spec.VolumeRefs) > 1 {
-			lvg.Spec.VolumeRefs = util.RemoveString(lvg.Spec.VolumeRefs, volumeCR.Name)
-			ll.Debugf("Remove volume %s from LogicalVolumeGroup %v", volumeCR.Name, lvg)
-			if err := vo.k8sClient.UpdateCR(ctx, &lvg); err != nil {
-				ll.Errorf("Unable to update LVG %s CR: %v", lvg.Name, err)
-				return
-			}
-		} else {
-			drive := &drivecrd.Drive{}
-			if err := vo.k8sClient.ReadCR(ctx, lvg.Spec.Locations[0], "", drive); err != nil {
-				ll.Errorf("Unable to read Drive %s CR: %v", lvg.Spec.Locations[0], err)
-				return
-			}
-
-			acCR.Spec.Location = drive.Spec.GetUUID()
-			acCR.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(drive.Spec.GetType())
-
-			ll.Debugf("Delete LVG %v", lvg.Name)
-			if err := vo.k8sClient.DeleteCR(ctx, &lvg); err != nil {
-				ll.Errorf("Unable to delete LVG %s CR: %v", lvg.Name, err)
-				return
-			}
+		ll.Debugf("Add %d to size of AC %s", volumeCR.Spec.Size, acCR.Name)
+		if err := vo.k8sClient.UpdateCR(ctx, acCR); err != nil {
+			ll.Errorf("Unable to update AC %s CR: %v", acCR.Name, err)
 		}
 	}
 
-	ll.Debugf("Update AC %s, to %v", acCR.Name, acCR.Spec)
-	if err := vo.k8sClient.UpdateCR(ctx, acCR); err != nil {
-		ll.Errorf("Unable to update AC %s CR: %v", acCR.Name, err)
+	// Delete volume status annotations for drive
+	annotationKey := fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volumeCR.Name)
+	delete(driveCR.Annotations, annotationKey)
+	ll.Debugf("Delete status annotation for drive %s", driveCR.Name)
+	if err := vo.k8sClient.UpdateCR(ctx, driveCR); err != nil {
+		ll.Errorf("Unable to update Drive %s CR: %v", driveCR.Name, err)
 	}
+}
+
+func (vo *VolumeOperationsImpl) updateLVGAfterVolumeDeletion(ctx context.Context, volumeCR *volumecrd.Volume,
+	driveCR *drivecrd.Drive, acCR *accrd.AvailableCapacity) error {
+	ll := vo.log.WithFields(logrus.Fields{
+		"method": "updateLVGAfterVolumeDeletion",
+		"lvgID":  volumeCR.Spec.Location,
+	})
+
+	lvg := lvgcrd.LogicalVolumeGroup{}
+	if err := vo.k8sClient.ReadCR(ctx, volumeCR.Spec.Location, "", &lvg); err != nil {
+		ll.Errorf("Unable to get LogicalVolumeGroup %s: %v", volumeCR.Spec.Location, err)
+		return err
+	}
+
+	// If volume not last, remove from lvg ref list, If volume is last need convert AC to Drive and remove LVG
+	if len(lvg.Spec.VolumeRefs) > 1 {
+		lvg.Spec.VolumeRefs = util.RemoveString(lvg.Spec.VolumeRefs, volumeCR.Name)
+		ll.Debugf("Remove volume %s from LogicalVolumeGroup %v", volumeCR.Name, lvg)
+		if err := vo.k8sClient.UpdateCR(ctx, &lvg); err != nil {
+			ll.Errorf("Unable to update LVG %s CR: %v", lvg.Name, err)
+			return err
+		}
+	} else {
+		ll.Debugf("Delete LVG %v", lvg.Name)
+		if err := vo.k8sClient.DeleteCR(ctx, &lvg); err != nil {
+			ll.Errorf("Unable to delete LVG %s CR: %v", lvg.Name, err)
+			return err
+		}
+
+		acCR.Spec.Location = driveCR.Spec.GetUUID()
+		acCR.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(driveCR.Spec.GetType())
+
+		ll.Debugf("Convert AC from LVG to Drive: %s %v", acCR.Name, acCR.Spec)
+		if err := vo.k8sClient.UpdateCR(ctx, acCR); err != nil {
+			ll.Errorf("Unable to update AC %s CR: %v", acCR.Name, err)
+		}
+	}
+	return nil
 }
 
 // WaitStatus check volume status until it will be reached one of the statuses

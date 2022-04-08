@@ -3,6 +3,7 @@ package drive
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -15,7 +16,6 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -262,13 +262,13 @@ func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Driv
 	return nil
 }
 
-func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
-	for _, vol := range volumes {
-		if vol.Spec.CSIStatus != apiV1.Removed {
-			return false
+func (c *Controller) checkVolumeAnnotationsExist(drive *drivecrd.Drive) bool {
+	for k := range drive.GetAnnotations() {
+		if strings.Contains(k, apiV1.DriveAnnotationVolumeStatusPrefix) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // placeStatusInUse places drive.Usage to IN_USE if CR is annotated
@@ -307,11 +307,7 @@ func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 }
 
 func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
-	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
-	if err != nil {
-		return ignore, err
-	}
-	if !c.checkAllVolsRemoved(volumes) {
+	if c.checkVolumeAnnotationsExist(drive) {
 		return ignore, nil
 	}
 	drive.Spec.Usage = apiV1.DriveUsageRemoved
@@ -321,8 +317,8 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 		// We can not set locate for missing disks, try to locate Node instead
 		log.Infof("Try to locate node LED %s", drive.Spec.NodeId)
 		if _, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStart}); locateErr != nil {
-			log.Errorf("Failed to start node locate: %s", err.Error())
-			return ignore, err
+			log.Errorf("Failed to start node locate: %s", locateErr.Error())
+			return ignore, locateErr
 		}
 	}
 	return update, nil
