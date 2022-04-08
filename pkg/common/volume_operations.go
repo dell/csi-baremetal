@@ -430,7 +430,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	// Handle AC, Drive, LVG after volume deletion
 	acCR, err := vo.crHelper.GetACByLocation(volumeCR.Spec.Location)
 	if err != nil {
-		ll.Errorf("AC not found by location %s: %v", volumeCR.Spec.Location, err)
+		ll.Errorf("AC not found for Volume %s by location %s: %v", volumeCR.Name, volumeCR.Spec.Location, err)
 		return
 	}
 	driveCR, err := vo.crHelper.GetDriveCRByVolume(&volumeCR)
