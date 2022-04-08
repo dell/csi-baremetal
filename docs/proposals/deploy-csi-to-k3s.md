@@ -14,8 +14,8 @@ Currently csi is compatible with Vanilla Kubernetes, RKE2, OpenShift and Kind, b
 ## Proposal
 
 Need to create next config file in directory `/var/lib/rancher/k3s/agent/pod-manifests`:
-
-`apiVersion: kubescheduler.config.k8s.io/v1beta1
+```
+apiVersion: kubescheduler.config.k8s.io/v1beta1
 kind: KubeSchedulerConfiguration
 extenders:
   - urlPrefix: "http://127.0.0.1:8889"
@@ -29,8 +29,8 @@ extenders:
 leaderElection:
   leaderElect: true
 clientConnection:
-  kubeconfig: /var/lib/rancher/k3s/server/cred/scheduler.kubeconfig`
-
+  kubeconfig: /var/lib/rancher/k3s/server/cred/scheduler.kubeconfig
+```
 For passing it to k3s server component use `--kube-scheduler-arg=config`
 
 
