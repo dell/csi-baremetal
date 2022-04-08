@@ -126,18 +126,6 @@ func ContainsString(slice []string, str string) bool {
 	return false
 }
 
-// ContainsSubString return true if slice contains substring str
-// Receives slice of strings and substring to find
-// Returns true if contains or false if not
-func ContainsSubString(slice []string, substr string) bool {
-	for _, s := range slice {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
-}
-
 // RemoveString removes string s from slice
 // Receives slice of strings and string to remove
 // Returns slice without mentioned string
