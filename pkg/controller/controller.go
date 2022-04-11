@@ -299,31 +299,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 // Returns CSI Spec ControllerPublishVolumeResponse or error if something went wrong
 func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 	req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	ll := c.log.WithFields(logrus.Fields{
-		"method":   "ControllerPublishVolume",
-		"volumeID": req.GetVolumeId(),
-	})
-
-	if req.NodeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Node ID must be provided")
-	}
-
-	if req.VolumeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume ID must be provided")
-	}
-
-	if req.VolumeCapability == nil {
-		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume capabilities"+
-			" must be provided")
-	}
-	if _, err := c.crHelper.GetVolumeByID(req.VolumeId); err != nil {
-		ll.Errorf("k8s client can't read volume CR")
-		return nil, status.Error(codes.NotFound, "Volume is not found")
-	}
-
-	ll.Info("Return empty response, ok.")
-
-	return &csi.ControllerPublishVolumeResponse{}, nil
+	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
 // ControllerUnpublishVolume is the implementation of CSI Spec ControllerUnpublishVolume.
@@ -332,18 +308,7 @@ func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
 // Returns CSI Spec ControllerUnpublishVolumeResponse or error if Volume ID is not provided in request
 func (c *CSIControllerService) ControllerUnpublishVolume(ctx context.Context,
 	req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	ll := c.log.WithFields(logrus.Fields{
-		"method":   "ControllerUnpublishVolume",
-		"volumeID": req.GetVolumeId(),
-	})
-
-	if req.VolumeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume: Volume ID must be provided")
-	}
-
-	ll.Info("Return empty response, ok")
-
-	return &csi.ControllerUnpublishVolumeResponse{}, nil
+	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
 // ValidateVolumeCapabilities is not implemented yet
@@ -383,7 +348,7 @@ func (c *CSIControllerService) ControllerGetCapabilities(context.Context, *csi.C
 	caps := make([]*csi.ControllerServiceCapability, 0)
 	for _, c := range []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-		//csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+		// csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 	} {
 		caps = append(caps, newCap(c))
