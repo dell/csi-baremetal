@@ -50,6 +50,23 @@ test-sanity:
 #	should fail when requesting to create a volume with already existing name and different capacity|\
 #	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
 
+### Workflows
+
+prepare-env:
+	go install github.com/rhysd/actionlint/cmd/actionlint@latest
+	go install github.com/nektos/act@latest
+
+workflows-lint:
+	actionlint
+
+test-release-workflow:
+	cd .github/workflows/tests
+	act release -e release.json --secret-file wf.secrets
+
+cleanup:
+	git tag -d v1.1.0-test
+	git push --delete origin v1.1.0-test
+
 load-operator-image: pull-operator-image \
 kind-tag-operator-image \
 kind-load-operator-image 
