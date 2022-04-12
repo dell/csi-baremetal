@@ -293,21 +293,15 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
-// ControllerPublishVolume is the implementation of CSI Spec ControllerPublishVolume. This method just checks existence
-// of provided Volume CR and returns success response if the Volume CR exists.
-// Receives golang context and CSI Spec ControllerPublishVolumeRequest
-// Returns CSI Spec ControllerPublishVolumeResponse or error if something went wrong
-func (c *CSIControllerService) ControllerPublishVolume(ctx context.Context,
-	req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+// ControllerPublishVolume is not implemented yet
+func (c *CSIControllerService) ControllerPublishVolume(_ context.Context,
+	_ *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
-// ControllerUnpublishVolume is the implementation of CSI Spec ControllerUnpublishVolume.
-// This method just returns empty response.
-// Receives golang context and CSI Spec ControllerUnpublishVolumeRequest
-// Returns CSI Spec ControllerUnpublishVolumeResponse or error if Volume ID is not provided in request
-func (c *CSIControllerService) ControllerUnpublishVolume(ctx context.Context,
-	req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+// ControllerUnpublishVolume is not implemented yet
+func (c *CSIControllerService) ControllerUnpublishVolume(_ context.Context,
+	_ *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
