@@ -37,6 +37,7 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               libXi6 \
               libXtst6 \
               make \
+              ShellCheck \
               sudo \
               vim \
               wget \

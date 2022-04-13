@@ -60,8 +60,8 @@ workflows-lint:
 	actionlint
 
 test-release-workflow:
-	cd .github/workflows/tests
-	act release -e release.json --secret-file wf.secrets
+	act release -e .github/workflows/tests/release.json --secret-file .github/workflows/tests/wf.secrets
+	act release -e .github/workflows/tests/pre-release.json --secret-file .github/workflows/tests/wf.secrets
 
 cleanup:
 	git tag -d v1.1.0-test
