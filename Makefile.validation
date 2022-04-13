@@ -63,10 +63,6 @@ test-release-workflow:
 	act release -e .github/workflows/tests/release.json --secret-file .github/workflows/tests/wf.secrets
 	act release -e .github/workflows/tests/pre-release.json --secret-file .github/workflows/tests/wf.secrets
 
-cleanup:
-	git tag -d v1.1.0-test
-	git push --delete origin v1.1.0-test
-
 load-operator-image: pull-operator-image \
 kind-tag-operator-image \
 kind-load-operator-image 
