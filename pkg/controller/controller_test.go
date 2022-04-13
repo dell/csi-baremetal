@@ -938,6 +938,16 @@ func TestController_UnimplementedMethods(t *testing.T) {
 		_, err := controller.GetCapacity(testCtx, nil)
 		assert.True(t, strings.Contains(err.Error(), expected))
 	})
+
+	t.Run("ControllerPublishVolume", func(t *testing.T) {
+		_, err := controller.ControllerPublishVolume(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("ControllerUnpublishVolume", func(t *testing.T) {
+		_, err := controller.ControllerUnpublishVolume(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
 }
 
 // create and instance of CSIControllerService with scheme for working with CRD
