@@ -10,8 +10,7 @@ Whole release workflow contains 2 parts:
 1. Release workflow in current repo triggered on release or pre-release creation
 2. Release workflow in [csi-baremetal-operator](https://github.com/dell/csi-baremetal-operator) repo
 
-### Detailed description
-
+## Detailed description
 ![Getting Started](./images/release_workflow.png)
 
 ## Restrictions
@@ -20,8 +19,8 @@ Whole release workflow contains 2 parts:
 `csi_version: <version>, csi_operator_version: <version>`
 
 ## Testing strategy
-Linting is performed on the [actionlint](https://github.com/rhysd/actionlint) base ([shellcheck](https://github.com/koalaman/shellcheck) is required).
-Local testing can be performed with [Act](https://github.com/nektos/act).
+Workflows linting is performed on the [actionlint](https://github.com/rhysd/actionlint) base ([shellcheck](https://github.com/koalaman/shellcheck) is required).
+Local workflow testing can be performed with [Act](https://github.com/nektos/act).
 
 Steps to run tests:
 1. `make prepare-env` will download and install mentioned tools
@@ -31,5 +30,11 @@ Steps to run tests:
 5. `make test-release-workflow` will run workflow locally and execute all steps except marked as `${{ !env.ACT }}`
 
 Release workflow in csi-baremetal-operator workflow test is started by the following cmd:
-* test GA release: `act workflow_dispatch -e .github/workflows/tests/release.json --secret-file .github/workflows/tests/wf.secrets`
-* test pre-release: `act workflow_dispatch -e .github/workflows/tests/pre-release.json --secret-file .github/workflows/tests/wf.secrets`
+`make test-release-workflow`
+
+## Usage
+Create release in this repo choosing necessary tag, target, fill title and description using the following format:
+`csi_version: <version>, csi_operator_version: <version>`
+Tick 'This is a pre-release' if necessary.
+
+All further release process is automated according with described flow.
