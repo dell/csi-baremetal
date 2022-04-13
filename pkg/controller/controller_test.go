@@ -630,7 +630,6 @@ var _ = Describe("CSIControllerService ControllerGetCapabilities", func() {
 			err                       error
 			expectedCapabilitiesTypes = []csi.ControllerServiceCapability_RPC_Type{
 				csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-				csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 				csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			}
 		)
