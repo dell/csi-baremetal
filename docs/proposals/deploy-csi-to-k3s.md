@@ -1,15 +1,15 @@
-# Proposal: Deploy CSI on K3s cluster 
+# Proposal:  K3s Kubernetes distribution 
 
-Last updated: 8.04.22
+Last updated: 12.04.22
 
 
 ## Abstract
 
-Deploy CSI on K3s cluster, test it work and add steps for manual patching scheduler 
+Specify required changes to support working CSI on k3s, describe steps for manual patching scheduler 
 
 ## Background
 
-Currently csi is compatible with Vanilla Kubernetes, RKE2, OpenShift and Kind, but only for test purpose. We want to deploy csi to new platform.  
+Currently csi is compatible with Vanilla Kubernetes, RKE2, OpenShift and Kind. However, Kind is only used for testing purposes. We want to support new platform.  
 
 ## Proposal
 
@@ -31,8 +31,14 @@ leaderElection:
 clientConnection:
   kubeconfig: /var/lib/rancher/k3s/server/cred/scheduler.kubeconfig
 ```
-For passing it to k3s server component use `--kube-scheduler-arg=config`
+After that there are two ways:
+1. If you haven't started the service yet, run service creation command with the following flag `k3s server --kube-scheduler-arg=config=/var/lib/rancher/k3s/agent/pod-manifests/scheduler/config.yaml`
+2. If you already have a running service, modify  `/etc/systemd/system/k3s.service`. Add at the end of the file `--kube-scheduler-arg=config=/var/lib/rancher/k3s/agent/pod-manifests/scheduler/config.yaml` and manually run the command for reloading daemon `systemctl daemon-reload && systemctl restart k3s`.
 
+## Rationale
+
+1. First method will modify the default service script with the required configuration file and start the service. If the service is already running this command will not be able to modify it. It will try to run another one in parallel with the default configuration and run into the problem of running two servers on the same host.
+2. Second method is suitable for a situation with a running service. The problem of the method is the lack of automatic reload. 
 
 ## Compatibility
 
@@ -45,6 +51,7 @@ Tasks:
 2.	Pass it to the k3s application server with appropriate flag
 3.	Reload daemon 
 4.	Test with temp pod
+5.  Uninstall CSI
 
 
 ## Open issues (if applicable)
