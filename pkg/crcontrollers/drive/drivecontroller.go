@@ -3,7 +3,6 @@ package drive
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -16,6 +15,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -38,6 +38,7 @@ const (
 	ignore uint8 = 0
 	update uint8 = 1
 	remove uint8 = 2
+	wait   uint8 = 3
 )
 
 const (
@@ -131,6 +132,8 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			log.Errorf("Failed to delete Drive %s CR", driveName)
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
+	case wait:
+		return ctrl.Result{RequeueAfter: base.DefaultTimeoutForVolumeOperations}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -262,13 +265,22 @@ func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Driv
 	return nil
 }
 
-func (c *Controller) checkVolumeAnnotationsExist(drive *drivecrd.Drive) bool {
-	for k := range drive.GetAnnotations() {
-		if strings.Contains(k, apiV1.DriveAnnotationVolumeStatusPrefix) {
-			return true
+func (c *Controller) getVolsStatuses(volumes []*volumecrd.Volume) map[string]string {
+	statuses := map[string]string{}
+
+	for _, vol := range volumes {
+		statuses[vol.Name] = vol.Spec.CSIStatus
+	}
+	return statuses
+}
+
+func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
+	for _, vol := range volumes {
+		if vol.Spec.CSIStatus != apiV1.Removed {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // placeStatusInUse places drive.Usage to IN_USE if CR is annotated
@@ -307,9 +319,26 @@ func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 }
 
 func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
-	if c.checkVolumeAnnotationsExist(drive) {
-		return ignore, nil
+	// wait all volumes have REMOVED status
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+	if err != nil {
+		return ignore, err
 	}
+	if !c.checkAllVolsRemoved(volumes) {
+		log.Debugf("Waiting all volumes in REMOVED status, current statuses: %v", c.getVolsStatuses(volumes))
+		return wait, nil
+	}
+
+	// wait lvg is removed if exist
+	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
+	if err != nil && err != errTypes.ErrorNotFound {
+		return ignore, err
+	}
+	if lvg != nil {
+		log.Debugf("Waiting LVG %s remove", lvg.Name)
+		return wait, nil
+	}
+
 	drive.Spec.Usage = apiV1.DriveUsageRemoved
 	if drive.Spec.Status == apiV1.DriveStatusOnline {
 		c.locateDriveLED(ctx, log, drive)

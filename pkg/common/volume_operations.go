@@ -453,28 +453,6 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 			ll.Errorf("Unable to update AC %s CR: %v", acCR.Name, err)
 		}
 	}
-
-	// Delete volume status annotations for drive
-	annotationKey := fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volumeCR.Name)
-	if err := RemoveAnnotation(ctx, vo.k8sClient, driveCR, annotationKey); err != nil {
-		ll.Errorf("Unable to update Drive %s CR: %v", driveCR.Name, err)
-	}
-	// delete(driveCR.Annotations, annotationKey)
-	ll.Debugf("Delete annotation %s for Drive %s", annotationKey, driveCR.Name)
-
-	// if err := vo.k8sClient.UpdateCR(ctx, driveCR); err != nil {
-	//	ll.Errorf("Unable to update Drive %s CR: %v", driveCR.Name, err)
-	// }
-}
-
-// RemoveAnnotation remove
-func RemoveAnnotation(ctx context.Context, c client.Client, obj *drivecrd.Drive, annotation string) error {
-	withAnnotation := obj.DeepCopy()
-	annotations := obj.GetAnnotations()
-	delete(annotations, annotation)
-	obj.SetAnnotations(annotations)
-
-	return c.Patch(ctx, obj, client.MergeFrom(withAnnotation))
 }
 
 func (vo *VolumeOperationsImpl) updateLVGAfterVolumeDeletion(ctx context.Context, volumeCR *volumecrd.Volume,
