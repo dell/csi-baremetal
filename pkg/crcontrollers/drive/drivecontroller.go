@@ -133,7 +133,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
 	case wait:
-		return ctrl.Result{RequeueAfter: base.DefaultTimeoutForVolumeOperations}, nil
+		return ctrl.Result{RequeueAfter: base.DefaultTimeoutForVolumeUpdate}, nil
 	}
 
 	return ctrl.Result{}, nil
