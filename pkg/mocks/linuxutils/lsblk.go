@@ -19,7 +19,7 @@ package linuxutils
 import (
 	"github.com/stretchr/testify/mock"
 
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
 )
 
@@ -49,7 +49,7 @@ func (m *MockWrapLsblk) GetBlockDevices(device string) ([]lsblk.BlockDevice, err
 }
 
 // SearchDrivePath is a mock implementations
-func (m *MockWrapLsblk) SearchDrivePath(drive *drivecrd.Drive) (string, error) {
+func (m *MockWrapLsblk) SearchDrivePath(drive *api.Drive) (string, error) {
 	args := m.Mock.Called(drive)
 
 	return args.String(0), args.Error(1)

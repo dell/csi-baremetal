@@ -11,8 +11,9 @@ build/
 coverage.out
 coverage.html
 ci.log
-test/e2e/report.xml
-test/kind/kind
+tests/e2e/reports/report.xml
+tests/kind/kind
+tests/log.txt
 # vscode
 .vscode
 # python 

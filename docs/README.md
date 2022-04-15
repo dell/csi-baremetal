@@ -2,7 +2,7 @@
 [![E2E testing](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml/badge.svg?branch=master&event=push)](https://github.com/dell/csi-baremetal/actions/workflows/e2e.yml)
 [![codecov](https://codecov.io/gh/dell/csi-baremetal/branch/master/graph/badge.svg)](https://codecov.io/gh/dell/csi-baremetal)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dell/csi-baremetal)](https://goreportcard.com/report/github.com/dell/csi-baremetal)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.19--v1.22-success?logo=kubernetes&logoColor=lightgrey)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.18--v1.23-success?logo=kubernetes&logoColor=lightgrey)
 
 Bare-metal CSI Driver
 =====================

@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -58,10 +59,10 @@ func TestLVMProvisioner_PrepareVolume_Success(t *testing.T) {
 		Return(nil).Times(1)
 
 	devFile := fmt.Sprintf("/dev/%s/%s", testVolume1.Location, testVolume1.Id)
-	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile).
+	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile, testVolume1.Id, false).
 		Return(nil).Times(1)
 
-	err := lp.PrepareVolume(testVolume1)
+	err := lp.PrepareVolume(&testVolume1)
 	assert.Nil(t, err)
 }
 
@@ -71,7 +72,7 @@ func TestLVMProvisioner_PrepareVolume_Block_Success(t *testing.T) {
 	lvmOps.On("LVCreate", testVolume1.Id, mock.Anything, testVolume1.Location).
 		Return(nil).Times(1)
 
-	err := lp.PrepareVolume(testVolume1Raw)
+	err := lp.PrepareVolume(&testVolume1Raw)
 	assert.Nil(t, err)
 }
 
@@ -81,7 +82,7 @@ func TestLVMProvisioner_PrepareVolume_Block_RawPart_Success(t *testing.T) {
 	lvmOps.On("LVCreate", testVolume1.Id, mock.Anything, testVolume1.Location).
 		Return(nil).Times(1)
 
-	err := lp.PrepareVolume(testVolume1RawPart)
+	err := lp.PrepareVolume(&testVolume1RawPart)
 	assert.Nil(t, err)
 }
 
@@ -94,7 +95,7 @@ func TestLVMProvisioner_PrepareVolume_Fail(t *testing.T) {
 	// in that case vgName will be searching in CRs and here we get error
 	vol.StorageClass = apiV1.StorageClassSystemLVG
 
-	err = lp.PrepareVolume(vol)
+	err = lp.PrepareVolume(&vol)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to determine VG name")
 
@@ -102,7 +103,7 @@ func TestLVMProvisioner_PrepareVolume_Fail(t *testing.T) {
 	lvmOps.On("LVCreate", testVolume1.Id, mock.Anything, testVolume1.Location).
 		Return(errTest).Times(1)
 
-	err = lp.PrepareVolume(testVolume1)
+	err = lp.PrepareVolume(&testVolume1)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to create LV")
 
@@ -111,10 +112,10 @@ func TestLVMProvisioner_PrepareVolume_Fail(t *testing.T) {
 		Return(nil).Times(1)
 
 	devFile := fmt.Sprintf("/dev/%s/%s", testVolume1.Location, testVolume1.Id)
-	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile).
+	fsOps.On("CreateFSIfNotExist", fs.FileSystem(testVolume1.Type), devFile, testVolume1.Id, false).
 		Return(errTest).Times(1)
 
-	err = lp.PrepareVolume(testVolume1)
+	err = lp.PrepareVolume(&testVolume1)
 	assert.NotNil(t, err)
 	assert.Equal(t, errTest, err)
 }
@@ -130,14 +131,14 @@ func TestLVMProvisioner_ReleaseVolume_Success(t *testing.T) {
 	fsOps.On("WipeFS", devFile).Return(nil).Times(1)
 	lvmOps.On("LVRemove", devFile).Return(nil).Times(1)
 
-	err = lp.ReleaseVolume(testVolume1)
+	err = lp.ReleaseVolume(&testVolume1, &api.Drive{})
 	assert.Nil(t, err)
 
 	// WipeFS failed, LV isn't exist - ReleaseVolume success
 	fsOps.On("WipeFS", devFile).Return(errTest).Times(1)
 	lvmOps.On("GetLVsInVG", testVolume1.Location).Return(nil, nil).Times(1)
 
-	err = lp.ReleaseVolume(testVolume1)
+	err = lp.ReleaseVolume(&testVolume1, &api.Drive{})
 	assert.Nil(t, err)
 }
 
@@ -151,7 +152,7 @@ func TestLVMProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	// in that case vgName will be searching in CRs and here we get error
 	vol.StorageClass = apiV1.StorageClassSystemLVG
 
-	err = lp.PrepareVolume(vol)
+	err = lp.PrepareVolume(&vol)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to determine VG name")
 
@@ -160,7 +161,7 @@ func TestLVMProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	fsOps.On("WipeFS", devFile).Return(errTest).Times(1)
 	lvmOps.On("GetLVsInVG", testVolume1.Location).Return([]string{testVolume1.Id}, nil).Times(1)
 
-	err = lp.ReleaseVolume(testVolume1)
+	err = lp.ReleaseVolume(&testVolume1, &api.Drive{})
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "failed to wipe FS")
 
@@ -168,7 +169,7 @@ func TestLVMProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	fsOps.On("WipeFS", devFile).Return(errTest).Times(1)
 	lvmOps.On("GetLVsInVG", testVolume1.Location).Return(nil, errTest).Times(1)
 
-	err = lp.ReleaseVolume(testVolume1)
+	err = lp.ReleaseVolume(&testVolume1, &api.Drive{})
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to remove LV")
 	assert.Contains(t, err.Error(), "and unable to list LVs in VG")
@@ -179,7 +180,7 @@ func TestLVMProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	lvmOps.On("GetLVsInVG", testVolume1.Location).
 		Return([]string{testVolume1.Id}, nil).Times(1)
 
-	err = lp.ReleaseVolume(testVolume1)
+	err = lp.ReleaseVolume(&testVolume1, &api.Drive{})
 	assert.NotNil(t, err)
 	assert.Equal(t, errTest, err)
 }
@@ -188,7 +189,7 @@ func TestLVMProvisioner_GetVolumePath_Success(t *testing.T) {
 	setupTestLVMProvisioner()
 
 	expectedPath := fmt.Sprintf("/dev/%s/%s", testVolume1.Location, testVolume1.Id)
-	currentPath, err := lp.GetVolumePath(testVolume1)
+	currentPath, err := lp.GetVolumePath(&testVolume1)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedPath, currentPath)
 }

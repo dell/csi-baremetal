@@ -259,7 +259,7 @@ func (c *Controller) createSystemLVG(lvg *lvgcrd.LogicalVolumeGroup) (locations 
 		// get serial number
 		sn := drive.Spec.SerialNumber
 		// get device path
-		dev, err := c.listBlk.SearchDrivePath(drive)
+		dev, err := c.listBlk.SearchDrivePath(&drive.Spec)
 		if err != nil {
 			ll.Error(err)
 			continue
