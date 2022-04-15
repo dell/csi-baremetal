@@ -301,8 +301,9 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			// drive must be present in the system
 			drive, _ := m.crHelper.GetDriveCRByVolume(volume)
 			if drive != nil {
-				delete(drive.Annotations,
-					fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volume.Name))
+				annotations := drive.GetAnnotations()
+				delete(annotations, fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volume.Name))
+				drive.SetAnnotations(annotations)
 				if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 					ll.Errorf("Unable to update Drive annotations")
 				}
