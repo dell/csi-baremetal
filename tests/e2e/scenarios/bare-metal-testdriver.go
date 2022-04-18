@@ -84,7 +84,8 @@ func initBaremetalDriver() *baremetalDriver {
 
 var _ storageframework.TestDriver = &baremetalDriver{}
 var _ storageframework.DynamicPVTestDriver = &baremetalDriver{}
-var _ storageframework.EphemeralTestDriver = &baremetalDriver{}
+// todo add test coverage for generic ephemeral volumes
+//var _ storageframework.EphemeralTestDriver = &baremetalDriver{}
 var _ storageframework.PreprovisionedPVTestDriver = &baremetalDriver{}
 
 // GetDriverInfo is implementation of TestDriver interface method
@@ -227,7 +228,8 @@ func (d *baremetalDriver) GetClaimSize() string {
 }
 
 // GetVolume is implementation of EphemeralTestDriver interface method
-func (d *baremetalDriver) GetVolume(config *storageframework.PerTestConfig,
+// todo add test coverage for generic ephemeral volumes
+/*func (d *baremetalDriver) GetVolume(config *storageframework.PerTestConfig,
 	volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
 	attributes = make(map[string]string)
 	attributes["size"] = d.GetClaimSize()
@@ -238,7 +240,7 @@ func (d *baremetalDriver) GetVolume(config *storageframework.PerTestConfig,
 // GetCSIDriverName is implementation of EphemeralTestDriver interface method
 func (d *baremetalDriver) GetCSIDriverName(config *storageframework.PerTestConfig) string {
 	return d.GetDriverInfo().Name
-}
+}*/
 
 // CreateVolume is implementation of PreprovisionedPVTestDriver interface method
 func (d *baremetalDriver) CreateVolume(config *storageframework.PerTestConfig, volumeType storageframework.TestVolType) storageframework.TestVolume {

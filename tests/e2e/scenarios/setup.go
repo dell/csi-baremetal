@@ -37,7 +37,8 @@ var (
 	CSITestSuites = []func() storageframework.TestSuite{
 		testsuites.InitVolumesTestSuite,
 		testsuites.InitVolumeIOTestSuite,
-		testsuites.InitEphemeralTestSuite,
+		// todo add test coverage for generic ephemeral volumes
+		//testsuites.InitEphemeralTestSuite,
 		testsuites.InitProvisioningTestSuite,
 		testsuites.InitMultiVolumeTestSuite,
 		testsuites.InitVolumeModeTestSuite,

@@ -178,10 +178,6 @@ var (
 func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 	e := setup(t)
 	pod := testPod.DeepCopy()
-	// append ephemeralVolume
-	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
-		VolumeSource: coreV1.VolumeSource{CSI: &testCSIVolumeSrc},
-	})
 	// append generic ephemeralVolume with CSI Baremetal SC
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
 		VolumeSource: coreV1.VolumeSource{Ephemeral: &testEphemeralVolumeSrc},
@@ -223,7 +219,7 @@ func TestExtender_gatherVolumesByProvisioner_Success(t *testing.T) {
 
 	volumes, err := e.gatherCapacityRequestsByProvisioner(testCtx, pod)
 	assert.Nil(t, err)
-	assert.Equal(t, 3, len(volumes))
+	assert.Equal(t, 2, len(volumes))
 }
 
 func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
@@ -239,19 +235,8 @@ func TestExtender_gatherVolumesByProvisioner_Fail(t *testing.T) {
 	pod = testPod.DeepCopy()
 	badCSIVolumeSrc := testCSIVolumeSrc
 	badCSIVolumeSrc.VolumeAttributes = map[string]string{}
-	// append inlineVolume
-	pod.Spec.Volumes = append(pod.Spec.Volumes, coreV1.Volume{
-		VolumeSource: coreV1.VolumeSource{CSI: &badCSIVolumeSrc},
-	})
 	// create SC
 	applyObjs(t, e.k8sClient, testSC1.DeepCopy())
-
-	volumes, err = e.gatherCapacityRequestsByProvisioner(testCtx, pod)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(volumes))
-	//assert.True(t, volumes[0].Ephemeral)
-	// any because storageType key missing in csi volume sourc
-	assert.Equal(t, v1.StorageClassAny, volumes[0].StorageClass)
 
 	// unable to read PVCs (bad namespace)
 	pod.Namespace = "unexisted-namespace"
