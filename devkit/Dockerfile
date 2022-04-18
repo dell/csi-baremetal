@@ -34,9 +34,11 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               docker-${arg_docker_ver} \
               gcc \
               git \
+              jq \
               libXi6 \
               libXtst6 \
               make \
+              ShellCheck \
               sudo \
               vim \
               wget \
@@ -48,13 +50,13 @@ RUN           wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
 &&            rm go${arg_go_ver}.linux-amd64.tar.gz
 # install bin golangci
-RUN           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${arg_golandci_ver}
+RUN           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v${arg_golandci_ver}
 # install proto
 RUN 	      curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v${arg_protobuf_ver}/protoc-${arg_protobuf_ver}-linux-x86_64.zip \
 &&    	      unzip protoc-${arg_protobuf_ver}-linux-x86_64.zip -d $PROTOPATH \
+&&            rm protoc-${arg_protobuf_ver}-linux-x86_64.zip \
 # TODO update to google.golang.org/protobuf - https://github.com/dell/csi-baremetal/issues/613
 &&        	  go install github.com/golang/protobuf/protoc-gen-go@${arg_protoc_gen_go_ver}
-
 # bind start_ide.sh
 RUN           ln --symbolic /usr/bin/start_ide.sh    /usr/bin/idea \
 &&            ln --symbolic /usr/bin/start_ide.sh    /usr/bin/goland

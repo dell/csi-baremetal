@@ -630,7 +630,6 @@ var _ = Describe("CSIControllerService ControllerGetCapabilities", func() {
 			err                       error
 			expectedCapabilitiesTypes = []csi.ControllerServiceCapability_RPC_Type{
 				csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-				csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 				csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			}
 		)
@@ -937,6 +936,16 @@ func TestController_UnimplementedMethods(t *testing.T) {
 
 	t.Run("GetCapacity", func(t *testing.T) {
 		_, err := controller.GetCapacity(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("ControllerPublishVolume", func(t *testing.T) {
+		_, err := controller.ControllerPublishVolume(testCtx, nil)
+		assert.True(t, strings.Contains(err.Error(), expected))
+	})
+
+	t.Run("ControllerUnpublishVolume", func(t *testing.T) {
+		_, err := controller.ControllerUnpublishVolume(testCtx, nil)
 		assert.True(t, strings.Contains(err.Error(), expected))
 	})
 }
