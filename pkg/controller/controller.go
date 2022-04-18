@@ -179,7 +179,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 
 	var (
 		fsType   string
-		mode     string
+		mode     apiV1.VolumeMode
 		vol      *api.Volume
 		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
@@ -223,7 +223,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		StorageClass: util.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
 		NodeId:       preferredNode,
 		Size:         req.GetCapacityRange().GetRequiredBytes(),
-		Mode:         mode,
+		Mode:         apiV1.MatchVolumeMode(mode),
 		Type:         fsType,
 	})
 	c.reqLock.Unlock()
@@ -233,9 +233,9 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		return nil, err
 	}
 
-	if vol.CSIStatus == apiV1.Creating {
+	if apiV1.CSIStatus(vol.CSIStatus) == apiV1.Creating {
 		ll.Infof("Waiting until volume will reach Created status. Current status - %s", vol.CSIStatus)
-		if err := c.svc.WaitStatus(ctx, vol.Id, apiV1.Failed, apiV1.Created); err != nil {
+		if err := c.svc.WaitStatus(ctx, vol.Id, apiV1.MatchCSIStatus(apiV1.Failed), apiV1.MatchCSIStatus(apiV1.Created)); err != nil {
 			return nil, status.Error(codes.Internal, "Unable to create volume")
 		}
 	}
@@ -289,7 +289,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		return nil, err
 	}
 
-	if err = c.svc.WaitStatus(ctxWithID, req.VolumeId, apiV1.Failed, apiV1.Removed); err != nil {
+	if err = c.svc.WaitStatus(ctx, req.VolumeId, apiV1.MatchCSIStatus(apiV1.Failed), apiV1.MatchCSIStatus(apiV1.Removed)); err != nil {
 		// we might not get DeleteVolume request again. Volume CR will have to be removed manually in this case
 		return nil, status.Error(codes.Internal, "Unable to delete volume")
 	}
@@ -391,7 +391,7 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 }
 
 // ControllerGetVolume is not implemented yet
-func (c *CSIControllerService) ControllerGetVolume(_ context.Context, _ *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+func (c *CSIControllerService) ControllerGetVolume(context.Context, *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
@@ -442,7 +442,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		return nil, err
 	}
 
-	err = c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Resized)
+	err = c.svc.WaitStatus(ctxWithID, volID, apiV1.MatchCSIStatus(apiV1.Failed), apiV1.MatchCSIStatus(apiV1.Resized))
 
 	// try to acquire lock until context is valid. otherwise provisioner will send new request for the same volume
 	if ok := c.reqLock.TryLockWithContext(ctxWithID); !ok {

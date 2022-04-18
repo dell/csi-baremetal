@@ -69,7 +69,7 @@ func TestCRHelper_GetVolumeByLocation(t *testing.T) {
 	ch = setup()
 	testVolume := testVolumeCR.DeepCopy()
 	testVolume.Spec.Location = testLVGCR.Name
-	testVolume.Spec.LocationType = v1.LocationTypeLVM
+	testVolume.Spec.LocationType = v1.MatchLocationType(v1.LocationTypeLVM)
 	err = ch.k8sClient.CreateCR(testCtx, testVolume.Name, testVolume)
 	assert.Nil(t, err)
 	testLVGCR1 := testLVGCR.DeepCopy()
@@ -105,7 +105,7 @@ func TestCRHelper_GetDriveCRAndLVGCRByVolume(t *testing.T) {
 
 	// Positive case: volume point to lvg
 	volume.Spec.Location = lvg.Name
-	volume.Spec.LocationType = v1.LocationTypeLVM
+	volume.Spec.LocationType = v1.MatchLocationType(v1.LocationTypeLVM)
 	lvg.Spec.Locations = []string{drive.Name}
 
 	ch := setup()
@@ -132,7 +132,7 @@ func TestCRHelper_GetDriveCRAndLVGCRByVolume(t *testing.T) {
 
 	// Positive case: volume point to drive
 	volume.Spec.Location = drive.Name
-	volume.Spec.LocationType = v1.LocationTypeDrive
+	volume.Spec.LocationType = v1.MatchLocationType(v1.LocationTypeDrive)
 	err = ch.k8sClient.UpdateCR(testCtx, volume)
 	assert.Nil(t, err)
 
@@ -151,7 +151,7 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 
 	// Positive case: volume point to lvg
 	volume.Spec.Location = lvg.Name
-	volume.Spec.LocationType = v1.LocationTypeLVM
+	volume.Spec.LocationType = v1.MatchLocationType(v1.LocationTypeLVM)
 	lvg.Spec.Locations = []string{drive.Name}
 
 	ch := setup()
@@ -167,7 +167,7 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 
 	// Positive case: volume point to drive
 	volume.Spec.Location = drive.Name
-	volume.Spec.LocationType = v1.LocationTypeDrive
+	volume.Spec.LocationType = v1.MatchLocationType(v1.LocationTypeDrive)
 	err = ch.k8sClient.UpdateCR(testCtx, volume)
 	assert.Nil(t, err)
 
@@ -259,13 +259,13 @@ func TestCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
 	err := mock.k8sClient.CreateCR(testCtx, testDriveCRCopy.Name, testDriveCRCopy)
 	assert.Nil(t, err)
 
-	err = mock.UpdateDrivesStatusOnNode(testDriveCRCopy.Spec.NodeId, v1.DriveStatusOffline)
+	err = mock.UpdateDrivesStatusOnNode(testDriveCRCopy.Spec.NodeId, v1.MatchDriveStatus(v1.DriveStatusOffline))
 	assert.Nil(t, err)
 
 	drives, err := mock.GetDriveCRs(testDriveCRCopy.Spec.NodeId)
 	assert.Nil(t, err)
 	assert.Len(t, drives, 1)
-	assert.Equal(t, drives[0].Spec.Status, v1.DriveStatusOffline)
+	assert.Equal(t, v1.DriveStatus(drives[0].Spec.Status), v1.DriveStatusOffline)
 }
 
 // test Volume operational status update
@@ -274,12 +274,12 @@ func TestCRHelper_UpdateVolumesOpStatusOnNode(t *testing.T) {
 	err := mock.k8sClient.CreateCR(testCtx, testVolume.Name, testVolume.DeepCopy())
 	assert.Nil(t, err)
 
-	err = mock.UpdateVolumesOpStatusOnNode(testVolume.Spec.NodeId, v1.OperationalStatusMissing)
+	err = mock.UpdateVolumesOpStatusOnNode(testVolume.Spec.NodeId, v1.MatchVolumeOperationalStatus(v1.OperationalStatusMissing))
 	assert.Nil(t, err)
 
 	volume, err := mock.GetVolumeByID(testVolume.Name)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.OperationalStatus, v1.OperationalStatusMissing)
+	assert.Equal(t, v1.VolumeOperationalStatus(volume.Spec.OperationalStatus), v1.OperationalStatusMissing)
 }
 
 func TestCRHelper_DeleteObjectByName(t *testing.T) {

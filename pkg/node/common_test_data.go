@@ -62,15 +62,15 @@ var (
 		Id:           testV1ID,
 		NodeId:       nodeID,
 		Location:     disk1.UUID,
-		StorageClass: apiV1.StorageClassHDD,
-		CSIStatus:    apiV1.VolumeReady,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
+		CSIStatus:    apiV1.MatchCSIStatus(apiV1.VolumeReady),
 	}
 	testVolume2 = api.Volume{
 		Id:           testV2ID,
 		NodeId:       nodeID,
 		Location:     disk2.UUID,
-		StorageClass: apiV1.StorageClassHDD,
-		CSIStatus:    apiV1.Created,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
+		CSIStatus:    apiV1.MatchCSIStatus(apiV1.Created),
 	}
 	testVolume3 = api.Volume{Id: testV3ID, NodeId: nodeID, Location: ""}
 

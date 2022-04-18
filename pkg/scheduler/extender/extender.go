@@ -341,7 +341,7 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 	// if some parameters aren't parsed for some reason
 	// empty volume will be returned in order count that volume
 	requestName := generateEphemeralVolumeName(podName, volume.Name)
-	request = &genV1.CapacityRequest{Name: requestName, StorageClass: v1.StorageClassAny}
+	request = &genV1.CapacityRequest{Name: requestName, StorageClass: v1.MatchStorageClass(v1.StorageClassAny)}
 
 	v := volume.CSI
 	sc, ok := v.VolumeAttributes[base.StorageTypeKey]
@@ -414,7 +414,7 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	// ACR CRD
 	reservation := genV1.AvailableCapacityReservation{
 		Namespace: namespace,
-		Status:    v1.ReservationRequested,
+		Status:    v1.MatchReservationStatus(v1.ReservationRequested),
 	}
 
 	// fill in reservation requests
@@ -468,7 +468,7 @@ func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) (nodeNames [
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
 	nodes []coreV1.Node) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
 	// handle reservation status
-	switch reservation.Spec.Status {
+	switch v1.ReservationStatus(reservation.Spec.Status) {
 	case v1.ReservationRequested:
 		// not an error - reservation requested. need to retry
 		return nil, nil, nil
@@ -517,7 +517,7 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 
 func (e *Extender) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
 	nodes []coreV1.Node) error {
-	reservation.Spec.Status = v1.ReservationRequested
+	reservation.Spec.Status = v1.MatchReservationStatus(v1.ReservationRequested)
 	// update nodes
 	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
 	if len(reservation.Spec.NodeRequests.Requested) == 0 {

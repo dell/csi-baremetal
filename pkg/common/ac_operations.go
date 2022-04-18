@@ -84,8 +84,8 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string,
 			Name:      name,
 			Locations: lvgLocations,
 			Size:      lvgSize,
-			Status:    apiV1.Creating,
-			Health:    apiV1.HealthGood,
+			Status:    apiV1.MatchCSIStatus(apiV1.Creating),
+			Health:    apiV1.MatchHealthStatus(apiV1.HealthGood),
 		}
 	)
 

@@ -69,7 +69,7 @@ func schedulingTest(driver *baremetalDriver) {
 		driverCleanup func()
 		ns            string
 		f             = framework.NewDefaultFramework("scheduling-test")
-		availableSC   = []string{storageClassAny, storageClassHDD, storageClassSSD,
+		availableSC   = []apiV1.StorageClass{storageClassAny, storageClassHDD, storageClassSSD,
 			storageClassNVMe, storageClassHDDLVG, storageClassSSDLVG}
 		storageClasses = make(map[string]*storagev1.StorageClass)
 	)
@@ -93,10 +93,10 @@ func schedulingTest(driver *baremetalDriver) {
 		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
 
 		for _, scName := range availableSC {
-			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)
+			sc := driver.GetStorageClassWithStorageType(perTestConf, apiV1.MatchStorageClass(scName))
 			sc, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), sc, metav1.CreateOptions{})
 			framework.ExpectNoError(err)
-			storageClasses[scName] = sc
+			storageClasses[apiV1.MatchStorageClass(scName)] = sc
 		}
 	}
 
@@ -110,10 +110,10 @@ func schedulingTest(driver *baremetalDriver) {
 		}
 	}
 
-	createTestPod := func(podSCList []string) (*corev1.Pod, []*corev1.PersistentVolumeClaim) {
+	createTestPod := func(podSCList []apiV1.StorageClass) (*corev1.Pod, []*corev1.PersistentVolumeClaim) {
 		var podPVCs []*corev1.PersistentVolumeClaim
 		for _, scKey := range podSCList {
-			sc := storageClasses[scKey]
+			sc := storageClasses[apiV1.MatchStorageClass(scKey)]
 			pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(
 				context.TODO(),
 				constructPVC(ns, driver.GetClaimSize(), sc.Name, pvcName+"-"+uuid.New().String()),
@@ -131,7 +131,7 @@ func schedulingTest(driver *baremetalDriver) {
 
 	createTestPods := func(testPodsCount int, testPodsDisksPerPod int) {
 		wg := sync.WaitGroup{}
-		var podSCList []string
+		var podSCList []apiV1.StorageClass
 		for i := 0; i < testPodsDisksPerPod; i++ {
 			podSCList = append(podSCList, "ANY")
 		}
@@ -209,10 +209,10 @@ func schedulingTest(driver *baremetalDriver) {
 		init(lmConfig)
 		defer cleanup()
 
-		createTestPod([]string{storageClassHDD, storageClassSSD})
-		createTestPod([]string{storageClassHDD, storageClassNVMe})
-		createTestPod([]string{storageClassHDD, storageClassHDD})
-		createTestPod([]string{storageClassAny})
+		createTestPod([]apiV1.StorageClass{storageClassHDD, storageClassSSD})
+		createTestPod([]apiV1.StorageClass{storageClassHDD, storageClassNVMe})
+		createTestPod([]apiV1.StorageClass{storageClassHDD, storageClassHDD})
+		createTestPod([]apiV1.StorageClass{storageClassAny})
 	})
 
 	ginkgo.It("2 LVM PV on one drive", func() {
@@ -231,8 +231,8 @@ func schedulingTest(driver *baremetalDriver) {
 		init(lmConfig)
 		defer cleanup()
 
-		createTestPod([]string{storageClassHDDLVG, storageClassHDDLVG})
-		createTestPod([]string{storageClassSSDLVG, storageClassSSDLVG})
+		createTestPod([]apiV1.StorageClass{storageClassHDDLVG, storageClassHDDLVG})
+		createTestPod([]apiV1.StorageClass{storageClassSSDLVG, storageClassSSDLVG})
 	})
 
 	ginkgo.It("PODs should distribute across nodes with sequential deploy", func() {
@@ -261,7 +261,7 @@ func schedulingTest(driver *baremetalDriver) {
 
 		// create pods sequential
 		for p := 0; p < testPodsCount; p++ {
-			createTestPod([]string{"ANY"})
+			createTestPod([]apiV1.StorageClass{storageClassAny})
 		}
 		volumes := getVolumesByNodes(f)
 		e2elog.Logf("volumes by nodes %v", volumes)

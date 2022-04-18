@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	v1 "github.com/dell/csi-baremetal/api/v1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,13 +25,13 @@ import (
 
 // LoopBackManagerConfigDevice struct contains fields to describe a loop device bound with a file
 type LoopBackManagerConfigDevice struct {
-	VendorID     *string `yaml:"vid,omitempty"`
-	ProductID    *string `yaml:"pid,omitempty"`
-	SerialNumber *string `yaml:"serialNumber,omitempty"`
-	Size         *string `yaml:"size,omitempty"`
-	Removed      *bool   `yaml:"removed,omitempty"`
-	Health       *string `yaml:"health,omitempty"`
-	DriveType    *string `yaml:"driveType,omitempty"`
+	VendorID     *string       `yaml:"vid,omitempty"`
+	ProductID    *string       `yaml:"pid,omitempty"`
+	SerialNumber *string       `yaml:"serialNumber,omitempty"`
+	Size         *string       `yaml:"size,omitempty"`
+	Removed      *bool         `yaml:"removed,omitempty"`
+	Health       *string       `yaml:"health,omitempty"`
+	DriveType    *v1.DriveType `yaml:"driveType,omitempty"`
 }
 
 // LoopBackManagerConfigNode struct represents particular configuration of LoopBackManager for specified node

@@ -89,7 +89,7 @@ func (l *LVMProvisioner) PrepareVolume(vol *api.Volume) error {
 	deviceFile := fmt.Sprintf("/dev/%s/%s", vgName, vol.Id)
 	ll.Debugf("Creating FS on %s", deviceFile)
 
-	if vol.Mode == apiV1.ModeRAW || vol.Mode == apiV1.ModeRAWPART {
+	if apiV1.VolumeMode(vol.Mode) == apiV1.ModeRAW || apiV1.VolumeMode(vol.Mode) == apiV1.ModeRAWPART {
 		return nil
 	}
 
@@ -155,7 +155,7 @@ func (l *LVMProvisioner) getVGName(vol *api.Volume) (string, error) {
 	// Volume.Location is an LVG CR name, LVG CR name in general is the same as a real VG name on node,
 	// however for LVG based on system disk LVG CR name is not the same as a VG name
 	// we need to read appropriate LVG CR and use LVG CR.Spec.Name as VG name
-	if vol.StorageClass == apiV1.StorageClassSystemLVG {
+	if apiV1.StorageClass(vol.StorageClass) == apiV1.StorageClassSystemLVG {
 		var err error
 		vgName, err = l.crHelper.GetVGNameByLVGCRName(vol.Location)
 		if err != nil {

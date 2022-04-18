@@ -56,7 +56,7 @@ var (
 		Id:           testV1ID,
 		NodeId:       testNodeID,
 		Location:     testAPILVG.Name,
-		StorageClass: apiV1.StorageClassHDD,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 		Type:         "xfs",
 	}
 
@@ -64,16 +64,16 @@ var (
 		Id:           testV1ID,
 		NodeId:       testNodeID,
 		Location:     testAPILVG.Name,
-		StorageClass: apiV1.StorageClassHDD,
-		Mode:         apiV1.ModeRAW,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
+		Mode:         apiV1.MatchVolumeMode(apiV1.ModeRAW),
 	}
 
 	testVolume1RawPart = api.Volume{
 		Id:           testV1ID,
 		NodeId:       testNodeID,
 		Location:     testAPILVG.Name,
-		StorageClass: apiV1.StorageClassHDD,
-		Mode:         apiV1.ModeRAWPART,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
+		Mode:         apiV1.MatchVolumeMode(apiV1.ModeRAWPART),
 	}
 
 	// Volume CR that points on Drive CR
@@ -81,10 +81,10 @@ var (
 		UUID:         "drive1-uuid",
 		SerialNumber: "drive1-sn",
 		NodeId:       testNodeID,
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         1024 * 1024,
-		Status:       apiV1.DriveStatusOnline,
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 	}
 	testDriveCR = drivecrd.Drive{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
@@ -97,7 +97,7 @@ var (
 		Id:           testV2ID,
 		NodeId:       testNodeID,
 		Location:     testDriveCR.Name,
-		StorageClass: apiV1.StorageClassHDD,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 		Type:         "xfs",
 	}
 
@@ -105,15 +105,15 @@ var (
 		Id:           testV2ID,
 		NodeId:       testNodeID,
 		Location:     testDriveCR.Name,
-		StorageClass: apiV1.StorageClassHDD,
-		Mode:         apiV1.ModeRAW,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
+		Mode:         apiV1.MatchVolumeMode(apiV1.ModeRAW),
 	}
 
 	testVolume2RawPart = api.Volume{ // points on testDriveCR
 		Id:           testV2ID,
 		NodeId:       testNodeID,
 		Location:     testDriveCR.Name,
-		StorageClass: apiV1.StorageClassHDD,
-		Mode:         apiV1.ModeRAWPART,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
+		Mode:         apiV1.MatchVolumeMode(apiV1.ModeRAWPART),
 	}
 )

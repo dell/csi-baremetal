@@ -174,7 +174,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		return nil, status.Error(codes.NotFound, message)
 	}
 
-	currStatus := volumeCR.Spec.CSIStatus
+	currStatus := apiV1.CSIStatus(volumeCR.Spec.CSIStatus)
 	switch currStatus {
 	// expected currStatus in [Created (first call), VolumeReady (retry), Published (multiple pods)]
 	case apiV1.Created, apiV1.VolumeReady, apiV1.Published:
@@ -249,7 +249,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	if currStatus != apiV1.VolumeReady {
-		volumeCR.Spec.CSIStatus = newStatus
+		volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(newStatus)
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
@@ -301,7 +301,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		return nil, status.Error(codes.Internal, message)
 	}
 
-	currStatus := volumeCR.Spec.CSIStatus
+	currStatus := apiV1.CSIStatus(volumeCR.Spec.CSIStatus)
 	if currStatus == apiV1.Created {
 		ll.Info("Volume has been already unstaged")
 		return &csi.NodeUnstageVolumeResponse{}, nil
@@ -312,7 +312,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		return nil, status.Error(codes.FailedPrecondition, msg)
 	}
 
-	volumeCR.Spec.CSIStatus = apiV1.Created
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 
 	var (
 		resp        = &csi.NodeUnstageVolumeResponse{}
@@ -327,7 +327,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		}
 
 		if errToReturn != nil {
-			volumeCR.Spec.CSIStatus = apiV1.Failed
+			volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 			resp = nil
 		}
 	}
@@ -407,7 +407,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.Internal, "Unable to find volume")
 	}
 
-	currStatus := volumeCR.Spec.CSIStatus
+	currStatus := apiV1.CSIStatus(volumeCR.Spec.CSIStatus)
 	// if currStatus not in [VolumeReady, Published]
 	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
@@ -450,7 +450,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volumeID)
-	volumeCR.Spec.CSIStatus = newStatus
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(newStatus)
 	if err = s.k8sClient.UpdateCR(ctxWithID, volumeCR); err != nil {
 		ll.Errorf("Unable to update volume CR to %v, error: %v", volumeCR, err)
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: update volume CR error")
@@ -493,7 +493,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.NotFound, "Unable to find volume")
 	}
 
-	currStatus := volumeCR.Spec.CSIStatus
+	currStatus := apiV1.CSIStatus(volumeCR.Spec.CSIStatus)
 	// if currStatus not in [VolumeReady, Published]
 	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
@@ -505,7 +505,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	ctxWithID := context.WithValue(ctx, base.RequestUUID, req.GetVolumeId())
 	if err := s.fsOps.UnmountWithCheck(req.GetTargetPath()); err != nil {
 		ll.Errorf("Unable to unmount volume: %v", err)
-		volumeCR.Spec.CSIStatus = apiV1.Failed
+		volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 		if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 			ll.Errorf("Unable to set volume CR status to failed: %v", updateErr)
 		}
@@ -513,7 +513,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	}
 
 	volumeCR.Spec.Owners = nil
-	volumeCR.Spec.CSIStatus = apiV1.VolumeReady
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.VolumeReady)
 	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 		ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
 		return nil, status.Error(codes.Internal, updateErr.Error())

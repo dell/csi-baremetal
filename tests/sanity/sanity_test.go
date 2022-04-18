@@ -65,19 +65,19 @@ var (
 			UUID:         "uuid-1",
 			SerialNumber: "hdd1",
 			Size:         1024 * 1024 * 1024 * 500,
-			Health:       apiV1.HealthGood,
-			Status:       apiV1.DriveStatusOnline,
+			Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+			Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 			Path:         "/dev/sda",
-			Type:         apiV1.DriveTypeHDD,
+			Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		},
 		{
 			UUID:         "uuid-2",
 			SerialNumber: "hdd2",
 			Size:         1024 * 1024 * 1024 * 200,
-			Health:       apiV1.HealthGood,
-			Status:       apiV1.DriveStatusOnline,
+			Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+			Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 			Path:         "/dev/sdb",
-			Type:         apiV1.DriveTypeHDD,
+			Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		},
 	}
 )
@@ -210,12 +210,12 @@ func imitateVolumeManagerReconcile(kubeClient *k8s.KubeClient) {
 		volumes := &vcrd.VolumeList{}
 		_ = kubeClient.ReadList(context.Background(), volumes)
 		for _, v := range volumes.Items {
-			if v.Spec.CSIStatus == apiV1.Creating {
-				v.Spec.CSIStatus = apiV1.Created
+			if apiV1.CSIStatus(v.Spec.CSIStatus) == apiV1.Creating {
+				v.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 				_ = kubeClient.UpdateCRWithAttempts(context.Background(), &v, 5)
 			}
-			if v.Spec.CSIStatus == apiV1.Removing {
-				v.Spec.CSIStatus = apiV1.Removed
+			if apiV1.CSIStatus(v.Spec.CSIStatus) == apiV1.Removing {
+				v.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removed)
 				_ = kubeClient.UpdateCRWithAttempts(context.Background(), &v, 5)
 			}
 		}

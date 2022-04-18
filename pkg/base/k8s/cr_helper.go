@@ -166,7 +166,7 @@ func (cs *CRHelperImpl) GetVolumesByLocation(ctx context.Context, location strin
 		v := v
 		if strings.EqualFold(v.Spec.Location, location) {
 			volumes = append(volumes, &v)
-			if v.Spec.LocationType == apiV1.LocationTypeDrive {
+			if apiV1.LocationType(v.Spec.LocationType) == apiV1.LocationTypeDrive {
 				// only one volume with LocationTypeDrive can exist on drive
 				break
 			}
@@ -383,7 +383,7 @@ func (cs *CRHelperImpl) GetDriveCRAndLVGCRByVolume(volume *volumecrd.Volume) (*d
 		ctx   = context.Background()
 	)
 
-	if volume.Spec.LocationType == apiV1.LocationTypeLVM {
+	if apiV1.LocationType(volume.Spec.LocationType) == apiV1.LocationTypeLVM {
 		err := cs.reader.ReadCR(ctx, volume.Spec.Location, "", lvg)
 		if err != nil {
 			ll.Errorf("failed to read LogicalVolumeGroup CR: %s", err.Error())

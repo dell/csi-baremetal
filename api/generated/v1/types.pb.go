@@ -206,19 +206,20 @@ func (m *Drive) GetIsClean() bool {
 }
 
 type Volume struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
-	Location             string   `protobuf:"bytes,2,opt,name=Location,proto3" json:"Location,omitempty"`
-	LocationType         string   `protobuf:"bytes,3,opt,name=LocationType,proto3" json:"LocationType,omitempty"`
-	StorageClass         string   `protobuf:"bytes,4,opt,name=StorageClass,proto3" json:"StorageClass,omitempty"`
-	NodeId               string   `protobuf:"bytes,5,opt,name=NodeId,proto3" json:"NodeId,omitempty"`
-	Owners               []string `protobuf:"bytes,6,rep,name=Owners,proto3" json:"Owners,omitempty"`
-	Size                 int64    `protobuf:"varint,7,opt,name=Size,proto3" json:"Size,omitempty"`
-	Mode                 string   `protobuf:"bytes,8,opt,name=Mode,proto3" json:"Mode,omitempty"`
-	Type                 string   `protobuf:"bytes,9,opt,name=Type,proto3" json:"Type,omitempty"`
-	Health               string   `protobuf:"bytes,10,opt,name=Health,proto3" json:"Health,omitempty"`
-	OperationalStatus    string   `protobuf:"bytes,11,opt,name=OperationalStatus,proto3" json:"OperationalStatus,omitempty"`
-	CSIStatus            string   `protobuf:"bytes,12,opt,name=CSIStatus,proto3" json:"CSIStatus,omitempty"`
-	Usage                string   `protobuf:"bytes,13,opt,name=Usage,proto3" json:"Usage,omitempty"`
+	Id                string   `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	Location          string   `protobuf:"bytes,2,opt,name=Location,proto3" json:"Location,omitempty"`
+	LocationType      string   `protobuf:"bytes,3,opt,name=LocationType,proto3" json:"LocationType,omitempty"`
+	StorageClass      string   `protobuf:"bytes,4,opt,name=StorageClass,proto3" json:"StorageClass,omitempty"`
+	NodeId            string   `protobuf:"bytes,5,opt,name=NodeId,proto3" json:"NodeId,omitempty"`
+	Owners            []string `protobuf:"bytes,6,rep,name=Owners,proto3" json:"Owners,omitempty"`
+	Size              int64    `protobuf:"varint,7,opt,name=Size,proto3" json:"Size,omitempty"`
+	Mode              string   `protobuf:"bytes,8,opt,name=Mode,proto3" json:"Mode,omitempty"`
+	Type              string   `protobuf:"bytes,9,opt,name=Type,proto3" json:"Type,omitempty"`
+	Health            string   `protobuf:"bytes,10,opt,name=Health,proto3" json:"Health,omitempty"`
+	OperationalStatus string   `protobuf:"bytes,11,opt,name=OperationalStatus,proto3" json:"OperationalStatus,omitempty"`
+	CSIStatus         string   `protobuf:"bytes,12,opt,name=CSIStatus,proto3" json:"CSIStatus,omitempty"`
+	Usage             string   `protobuf:"bytes,13,opt,name=Usage,proto3" json:"Usage,omitempty"`
+	// inline volumes are not support anymore. need to remove field in the next version
 	Ephemeral            bool     `protobuf:"varint,14,opt,name=Ephemeral,proto3" json:"Ephemeral,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

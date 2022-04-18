@@ -152,10 +152,10 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 
 	// check whether update is required
 	toUpdate := false
-	switch usage {
+	switch apiV1.DriveUsage(usage) {
 	case apiV1.DriveUsageInUse:
-		if health == apiV1.HealthSuspect || health == apiV1.HealthBad {
-			drive.Spec.Usage = apiV1.DriveUsageReleasing
+		if apiV1.HealthStatus(health) == apiV1.HealthSuspect || apiV1.HealthStatus(health) == apiV1.HealthBad {
+			drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageReleasing)
 			toUpdate = true
 		}
 	case apiV1.DriveUsageReleasing:
@@ -167,13 +167,13 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		for _, vol := range volumes {
 			status, found := drive.Annotations[fmt.Sprintf(
 				"%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, vol.Name)]
-			if !found || status != apiV1.VolumeUsageReleased {
+			if !found || apiV1.VolumeUsage(status) != apiV1.VolumeUsageReleased {
 				allFound = false
 				break
 			}
 		}
 		if allFound {
-			drive.Spec.Usage = apiV1.DriveUsageReleased
+			drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageReleased)
 			eventMsg := fmt.Sprintf("Drive is ready for documented removal procedure. %s", drive.GetDriveDescription())
 			c.eventRecorder.Eventf(drive, eventing.DriveReadyForRemoval, eventMsg)
 			toUpdate = true
@@ -190,7 +190,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 		toUpdate = true
-		drive.Spec.Usage = apiV1.DriveUsageRemoving
+		drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageRemoving)
 
 		// check volumes annotations and update if required
 		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
@@ -201,8 +201,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			value, found := getDriveAnnotationRemoval(vol.Annotations)
 			if !found || value != apiV1.DriveAnnotationRemovalReady {
 				// need to update volume annotations
-				vol.Annotations[apiV1.DriveAnnotationRemoval] = apiV1.DriveAnnotationRemovalReady
-				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationRemovalReady
+				vol.Annotations[apiV1.MatchDriveAnnotation(apiV1.DriveAnnotationRemoval)] = string(apiV1.DriveAnnotationRemovalReady)
+				vol.Annotations[apiV1.MatchDriveAnnotation(apiV1.DriveAnnotationReplacement)] = string(apiV1.DriveAnnotationRemovalReady)
 				if err := c.client.UpdateCR(ctx, vol); err != nil {
 					log.Errorf("Failed to update volume %s annotations, error: %v", vol.Name, err)
 					return ignore, err
@@ -235,12 +235,12 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 }
 
 // For support deprecated Replacement annotation
-func getDriveAnnotationRemoval(annotations map[string]string) (string, bool) {
-	status, found := annotations[apiV1.DriveAnnotationRemoval]
+func getDriveAnnotationRemoval(annotations map[string]string) (apiV1.DriveAnnotation, bool) {
+	status, found := annotations[apiV1.MatchDriveAnnotation(apiV1.DriveAnnotationRemoval)]
 	if !found {
-		status, found = annotations[apiV1.DriveAnnotationReplacement]
+		status, found = annotations[apiV1.MatchDriveAnnotation(apiV1.DriveAnnotationReplacement)]
 	}
-	return status, found
+	return apiV1.DriveAnnotation(status), found
 }
 
 func (c *Controller) changeVolumeUsageAfterActionAnnotation(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) error {
@@ -249,12 +249,12 @@ func (c *Controller) changeVolumeUsageAfterActionAnnotation(ctx context.Context,
 		return err
 	}
 	for _, vol := range volumes {
-		value, found := vol.GetAnnotations()[apiV1.VolumeAnnotationRelease]
-		if found && value == apiV1.VolumeAnnotationReleaseFailed {
+		value, found := vol.GetAnnotations()[apiV1.MatchVolumeAnnotation(apiV1.VolumeAnnotationRelease)]
+		if found && apiV1.VolumeAnnotation(value) == apiV1.VolumeAnnotationReleaseFailed {
 			prevUsage := vol.Spec.Usage
-			vol.Spec.Usage = apiV1.VolumeUsageInUse
+			vol.Spec.Usage = apiV1.MatchVolumeUsage(apiV1.VolumeUsageInUse)
 			annotations := vol.GetAnnotations()
-			delete(annotations, apiV1.VolumeAnnotationRelease)
+			delete(annotations, apiV1.MatchVolumeAnnotation(apiV1.VolumeAnnotationRelease))
 			vol.SetAnnotations(annotations)
 			if err := c.client.UpdateCR(ctx, vol); err != nil {
 				log.Errorf("Unable to change volume %s usage status from %s to %s, error: %v.",
@@ -272,18 +272,18 @@ func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Driv
 		return err
 	}
 
-	switch drive.Spec.Status {
+	switch apiV1.DriveStatus(drive.Spec.Status) {
 	case apiV1.DriveStatusOffline:
 		for _, volume := range volumes {
-			if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.OperationalStatusMissing); err != nil {
+			if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusMissing)); err != nil {
 				return err
 			}
 		}
 	case apiV1.DriveStatusOnline:
 		// move MISSING volumes to OPERATIVE status
 		for _, volume := range volumes {
-			if volume.Spec.OperationalStatus == apiV1.OperationalStatusMissing {
-				if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.OperationalStatusOperative); err != nil {
+			if apiV1.VolumeOperationalStatus(volume.Spec.OperationalStatus) == apiV1.OperationalStatusMissing {
+				if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusOperative)); err != nil {
 					return err
 				}
 			}
@@ -303,7 +303,7 @@ func (c *Controller) getVolsStatuses(volumes []*volumecrd.Volume) map[string]str
 
 func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 	for _, vol := range volumes {
-		if vol.Spec.CSIStatus != apiV1.Removed {
+		if apiV1.CSIStatus(vol.Spec.CSIStatus) != apiV1.Removed {
 			return false
 		}
 	}
@@ -314,14 +314,14 @@ func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 // deletes the annotation to avoid event repeating
 func (c *Controller) checkAndPlaceStatusInUse(drive *drivecrd.Drive) bool {
 	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionAddAnnotationValue {
-		drive.Spec.Usage = apiV1.DriveUsageInUse
+		drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageInUse)
 		delete(drive.Annotations, driveActionAnnotationKey)
 		return true
 	}
 
 	// check with deprecated annotation
 	if value, ok := drive.GetAnnotations()[driveRestartReplacementAnnotationKeyDeprecated]; ok && value == driveRestartReplacementAnnotationValueDeprecated {
-		drive.Spec.Usage = apiV1.DriveUsageInUse
+		drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageInUse)
 		delete(drive.Annotations, driveRestartReplacementAnnotationKeyDeprecated)
 		return true
 	}
@@ -333,7 +333,7 @@ func (c *Controller) checkAndPlaceStatusInUse(drive *drivecrd.Drive) bool {
 // deletes the annotation to avoid event repeating
 func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 	if value, ok := drive.GetAnnotations()[driveActionAnnotationKey]; ok && value == driveActionRemoveAnnotationValue {
-		drive.Spec.Usage = apiV1.DriveUsageRemoved
+		drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageRemoved)
 		delete(drive.Annotations, driveActionAnnotationKey)
 
 		eventMsg := fmt.Sprintf("Drive was removed via annotation, %s", drive.GetDriveDescription())
@@ -366,13 +366,13 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 		return wait, nil
 	}
 
-	drive.Spec.Usage = apiV1.DriveUsageRemoved
-	if drive.Spec.Status == apiV1.DriveStatusOnline {
+	drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageRemoved)
+	if apiV1.DriveStatus(drive.Spec.Status) == apiV1.DriveStatusOnline {
 		c.locateDriveLED(ctx, log, drive)
 	} else {
 		// We can not set locate for missing disks, try to locate Node instead
 		log.Infof("Try to locate node LED %s", drive.Spec.NodeId)
-		if _, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStart}); locateErr != nil {
+		if _, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: int32(apiV1.LocateStatusOn)}); locateErr != nil {
 			log.Errorf("Failed to start node locate: %s", locateErr.Error())
 			return ignore, locateErr
 		}
@@ -381,7 +381,7 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 }
 
 func (c *Controller) handleDriveUsageRemoved(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
-	if drive.Spec.Status != apiV1.DriveStatusOffline {
+	if apiV1.DriveStatus(drive.Spec.Status) != apiV1.DriveStatusOffline {
 		return ignore, nil
 	}
 	// drive was removed from the system. need to clean corresponding custom resource
@@ -397,10 +397,10 @@ func (c *Controller) handleDriveUsageRemoved(ctx context.Context, log *logrus.En
 
 func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) {
 	// try to enable LED
-	status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: apiV1.LocateStart, DriveSerialNumber: drive.Spec.SerialNumber})
-	if err != nil || (status.Status != apiV1.LocateStatusOn && status.Status != apiV1.LocateStatusNotAvailable) {
+	status, err := c.driveMgrClient.Locate(ctx, &api.DriveLocateRequest{Action: int32(apiV1.LocateStatusOn), DriveSerialNumber: drive.Spec.SerialNumber})
+	if err != nil || (status.Status != int32(apiV1.LocateStatusOn) && status.Status != int32(apiV1.LocateStatusNA)) {
 		log.Errorf("Failed to locate LED of drive %s, LED status - %+v, err %v", drive.Spec.SerialNumber, status, err)
-		drive.Spec.Usage = apiV1.DriveUsageFailed
+		drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageFailed)
 		// send error level alert
 		eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
 		c.eventRecorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
@@ -422,13 +422,13 @@ func (c *Controller) stopLocateNodeLED(ctx context.Context, log *logrus.Entry, c
 		if drive.Name == curDrive.Name {
 			continue
 		}
-		if drive.Spec.GetUsage() == apiV1.DriveUsageRemoved {
+		if apiV1.DriveUsage(drive.Spec.GetUsage()) == apiV1.DriveUsageRemoved {
 			log.Infof("Drive %s is still in REMOVED. Decline node locate stop request.", drive.Name)
 			return nil
 		}
 	}
 
-	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStop})
+	_, err := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: int32(apiV1.LocateStatusOff)})
 	if err != nil {
 		log.Errorf("Failed to disable node locate: %s", err.Error())
 		return err

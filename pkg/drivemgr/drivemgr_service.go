@@ -58,7 +58,7 @@ func (svc *DriveServiceServerImpl) GetDrivesList(ctx context.Context, req *api.D
 	for _, drive := range drives {
 		drive.NodeId = req.NodeId
 		if drive.Status == "" {
-			drive.Status = apiV1.DriveStatusOnline
+			drive.Status = apiV1.MatchDriveStatus(apiV1.DriveStatusOnline)
 		}
 	}
 	return &api.DrivesResponse{

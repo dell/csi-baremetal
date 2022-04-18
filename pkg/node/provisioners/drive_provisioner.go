@@ -99,7 +99,7 @@ func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 		return err
 	}
 
-	if vol.Mode == apiV1.ModeRAW {
+	if apiV1.VolumeMode(vol.Mode) == apiV1.ModeRAW {
 		return nil
 	}
 
@@ -124,7 +124,7 @@ func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 	}
 	ll.Infof("Partition was created successfully %+v", partPtr)
 
-	if vol.Mode == apiV1.ModeRAWPART {
+	if apiV1.VolumeMode(vol.Mode) == apiV1.ModeRAWPART {
 		return nil
 	}
 
@@ -219,7 +219,7 @@ func (d *DriveProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 	ll.Debugf("Got device %s", device)
 
 	var volumeUUID = vol.Id
-	if vol.Mode == apiV1.ModeRAW {
+	if apiV1.VolumeMode(vol.Mode) == apiV1.ModeRAW {
 		return device, nil
 	}
 	volumeUUID, _ = util.GetVolumeUUID(volumeUUID)

@@ -316,12 +316,12 @@ func (n *ServicesStateMonitor) updateCRs() {
 		// mark disks as OFFLINE when permanentDown
 		// mark volumes as MISSING
 		for _, id := range permanentDown {
-			err := n.crHelper.UpdateDrivesStatusOnNode(id, apiV1.DriveStatusOffline)
+			err := n.crHelper.UpdateDrivesStatusOnNode(id, apiV1.MatchDriveStatus(apiV1.DriveStatusOffline))
 			if err != nil {
 				log.Tracef("Error occurred during drives status update: %s", err)
 			}
 			// todo create issue to return volume back to OPERATIVE state when node is up
-			err = n.crHelper.UpdateVolumesOpStatusOnNode(id, apiV1.OperationalStatusMissing)
+			err = n.crHelper.UpdateVolumesOpStatusOnNode(id, apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusMissing))
 			if err != nil {
 				log.Tracef("Error occurred during volumes status update: %s", err)
 			}

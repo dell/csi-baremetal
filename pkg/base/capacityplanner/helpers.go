@@ -72,7 +72,7 @@ func (rh *ReservationHelper) UpdateReservation(ctx context.Context, placingPlan 
 	// update reserved nodes
 	reservation.Spec.NodeRequests.Reserved = nodes
 	// confirm reservation
-	reservation.Spec.Status = v1.ReservationConfirmed
+	reservation.Spec.Status = v1.MatchReservationStatus(v1.ReservationConfirmed)
 	if err := rh.client.UpdateCR(ctx, reservation); err != nil {
 		logger.Errorf("Unable to update reservation %s: %v", reservation.Name, err)
 		return err

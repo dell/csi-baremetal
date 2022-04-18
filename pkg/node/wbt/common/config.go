@@ -1,5 +1,7 @@
 package common
 
+import v1 "github.com/dell/csi-baremetal/api/v1"
+
 // WbtConfig is a part of WBT ConfigMap
 // contains changing value and options to select acceptable volume
 type WbtConfig struct {
@@ -10,8 +12,8 @@ type WbtConfig struct {
 
 // VolumeOptions contains options to select acceptable volume
 type VolumeOptions struct {
-	Modes          []string `yaml:"modes"`
-	StorageClasses []string `yaml:"storage_classes"`
+	Modes          []v1.VolumeMode   `yaml:"modes"`
+	StorageClasses []v1.StorageClass `yaml:"storage_classes"`
 }
 
 // AcceptableKernelsConfig is a part of WBT ConfigMap

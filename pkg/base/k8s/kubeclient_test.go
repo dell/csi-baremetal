@@ -68,7 +68,7 @@ var (
 
 	testApiAC = api.AvailableCapacity{
 		Size:         1024 * 1024,
-		StorageClass: apiV1.StorageClassHDD,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 		Location:     testDriveLocation1,
 		NodeId:       testNode1Name,
 	}
@@ -86,10 +86,10 @@ var (
 		PID:          "testPID",
 		SerialNumber: "testSN",
 		NodeId:       testNode1Name,
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         1024 * 1024,
-		Status:       apiV1.DriveStatusOnline,
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 	}
 
 	testApiDrive2 = api.Drive{
@@ -98,10 +98,10 @@ var (
 		PID:          "testPID2",
 		SerialNumber: "testSN2",
 		NodeId:       testNode1Name,
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         1024 * 1024,
-		Status:       apiV1.DriveStatusOnline,
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 		IsSystem:     true,
 	}
 
@@ -372,11 +372,11 @@ var _ = Describe("Working with CRD", func() {
 			driveCRUpdate := &drivecrd.Drive{}
 			err = k8sclient.ReadCR(testCtx, driveCR.Name, "", driveCRUpdate)
 			Expect(err).To(BeNil())
-			driveCRUpdate.Spec.Health = apiV1.HealthBad
+			driveCRUpdate.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 
 			err = k8sclient.UpdateCR(testCtx, driveCRUpdate)
 			Expect(err).To(BeNil())
-			Expect(driveCRUpdate.Spec.Health).To(Equal(apiV1.HealthBad))
+			Expect(apiV1.HealthStatus(driveCRUpdate.Spec.Health)).To(Equal(apiV1.HealthBad))
 		})
 
 		It("Should Drive update successfully with attempts", func() {
@@ -387,11 +387,11 @@ var _ = Describe("Working with CRD", func() {
 			driveCRUpdate := &drivecrd.Drive{}
 			err = k8sclient.ReadCR(testCtx, driveCR.Name, "", driveCRUpdate)
 			Expect(err).To(BeNil())
-			driveCRUpdate.Spec.Health = apiV1.HealthBad
+			driveCRUpdate.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 
 			err = k8sclient.UpdateCR(testCtx, driveCRUpdate)
 			Expect(err).To(BeNil())
-			Expect(driveCRUpdate.Spec.Health).To(Equal(apiV1.HealthBad))
+			Expect(apiV1.HealthStatus(driveCRUpdate.Spec.Health)).To(Equal(apiV1.HealthBad))
 		})
 	})
 

@@ -59,7 +59,7 @@ func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, 
 // Returns string of CSI StorageClass
 func ConvertStorageClass(strSC string) string {
 	// TODO: use map or something else for such conversion https://github.com/dell/csi-baremetal/issues/84
-	sc := strings.ToUpper(strSC)
+	sc := api.StorageClass(strings.ToUpper(strSC))
 	switch sc {
 	case api.StorageClassHDD,
 		api.StorageClassSSD,
@@ -69,31 +69,31 @@ func ConvertStorageClass(strSC string) string {
 		api.StorageClassNVMeLVG,
 		api.StorageClassSystemLVG,
 		api.StorageClassAny:
-		return sc
+		return api.MatchStorageClass(sc)
 	}
 
-	return api.StorageClassAny
+	return api.MatchStorageClass(api.StorageClassAny)
 }
 
 // ConvertDriveTypeToStorageClass converts type of a drive to AvailableCapacity StorageClass
 // Receives driveType var of string type
 // Returns string of Available Capacity StorageClass
 func ConvertDriveTypeToStorageClass(driveType string) string {
-	switch driveType {
+	switch api.DriveType(driveType) {
 	case api.DriveTypeHDD:
-		return api.StorageClassHDD
+		return api.MatchDriveType(api.DriveTypeHDD)
 	case api.DriveTypeSSD:
-		return api.StorageClassSSD
+		return api.MatchDriveType(api.DriveTypeSSD)
 	case api.DriveTypeNVMe:
-		return api.StorageClassNVMe
+		return api.MatchDriveType(api.DriveTypeNVMe)
 	default:
-		return api.StorageClassAny
+		return api.MatchStorageClass(api.StorageClassAny)
 	}
 }
 
 // GetSubStorageClass return appropriate underlying storage class for
 // storage classes that are based on LVM, or empty string
-func GetSubStorageClass(sc string) string {
+func GetSubStorageClass(sc api.StorageClass) api.StorageClass {
 	switch sc {
 	case api.StorageClassHDDLVG:
 		return api.StorageClassHDD
@@ -107,7 +107,8 @@ func GetSubStorageClass(sc string) string {
 }
 
 // IsStorageClassLVG returns whether provided sc relates to LVG or no
-func IsStorageClassLVG(sc string) bool {
+func IsStorageClassLVG(scStr string) bool {
+	sc := api.StorageClass(scStr)
 	return sc == api.StorageClassHDDLVG ||
 		sc == api.StorageClassSSDLVG ||
 		sc == api.StorageClassNVMeLVG ||

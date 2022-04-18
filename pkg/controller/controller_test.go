@@ -77,7 +77,7 @@ var (
 		},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024,
-			StorageClass: apiV1.StorageClassHDD,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 			Location:     testDriveLocation1,
 			NodeId:       testNode1Name,
 		},
@@ -103,7 +103,7 @@ var (
 		},
 		Spec: api.AvailableCapacityReservation{
 			Namespace: testNs,
-			Status:    apiV1.ReservationConfirmed,
+			Status:    apiV1.MatchReservationStatus(apiV1.ReservationConfirmed),
 			NodeRequests: &api.NodeRequests{
 				Requested: []string{testNode1Name},
 				Reserved:  []string{testNode1Name},
@@ -113,7 +113,7 @@ var (
 					CapacityRequest: &api.CapacityRequest{
 						Name:         testPVC1Name,
 						Size:         1024 * 1024 * 1024,
-						StorageClass: apiV1.StorageClassHDD,
+						StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 					},
 					Reservations: []string{testAC1Name},
 				},
@@ -132,7 +132,7 @@ var (
 		},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 1024,
-			StorageClass: apiV1.StorageClassHDD,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 			Location:     testDriveLocation2,
 			NodeId:       testNode2Name,
 		},
@@ -149,7 +149,7 @@ var (
 		},
 		Spec: api.AvailableCapacity{
 			Size:         1024 * 1024 * 1024 * 100,
-			StorageClass: apiV1.StorageClassHDDLVG,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG),
 			Location:     testDriveLocation4,
 			NodeId:       testNode2Name,
 		},
@@ -240,7 +240,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(Equal(status.Error(codes.Internal, "Unable to create volume")))
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
-			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Failed))
+			Expect(apiV1.CSIStatus(vol.Spec.CSIStatus)).To(Equal(apiV1.Failed))
 		})
 		It("Volume CR creation timeout expired", func() {
 			uuid := "uuid-1234"
@@ -258,7 +258,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Id:        req.GetName(),
 					Size:      1024 * 60,
 					NodeId:    testNode1Name,
-					CSIStatus: apiV1.Creating,
+					CSIStatus: apiV1.MatchCSIStatus(apiV1.Creating),
 				}})
 			Expect(err).To(BeNil())
 
@@ -268,7 +268,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			v := vcrd.Volume{}
 			err = controller.k8sclient.ReadCR(testCtx, req.GetName(), "default", &v)
 			Expect(err).To(BeNil())
-			Expect(v.Spec.CSIStatus).To(Equal(apiV1.Failed))
+			Expect(apiV1.CSIStatus(v.Spec.CSIStatus)).To(Equal(apiV1.Failed))
 		})
 		It("Context cancelled", func() {
 			uuid := "uuid-1234"
@@ -287,7 +287,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Id:        req.GetName(),
 					Size:      capacity,
 					NodeId:    testNode1Name,
-					CSIStatus: apiV1.Creating,
+					CSIStatus: apiV1.MatchCSIStatus(apiV1.Creating),
 				}})
 			Expect(err).To(BeNil())
 
@@ -318,7 +318,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 						Id:        volumeID,
 						NodeId:    testNode1Name,
 						Location:  testDriveLocation1,
-						CSIStatus: apiV1.Created,
+						CSIStatus: apiV1.MatchCSIStatus(apiV1.Created),
 					},
 				}
 				err error
@@ -357,8 +357,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
-			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
-			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeFS))
+			Expect(apiV1.CSIStatus(vol.Spec.CSIStatus)).To(Equal(apiV1.Created))
+			Expect(apiV1.VolumeMode(vol.Spec.Mode)).To(Equal(apiV1.ModeFS))
 			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
 		})
 		It("Volume is created successfully (Block)", func() {
@@ -382,8 +382,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
-			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
-			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeRAW))
+			Expect(apiV1.CSIStatus(vol.Spec.CSIStatus)).To(Equal(apiV1.Created))
+			Expect(apiV1.VolumeMode(vol.Spec.Mode)).To(Equal(apiV1.ModeRAW))
 			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
 		})
 		It("Volume is created successfully (Block, Part)", func() {
@@ -407,8 +407,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
-			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
-			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeRAWPART))
+			Expect(apiV1.CSIStatus(vol.Spec.CSIStatus)).To(Equal(apiV1.Created))
+			Expect(apiV1.VolumeMode(vol.Spec.Mode)).To(Equal(apiV1.ModeRAWPART))
 			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
 		})
 		It("Volume CR has already exists", func() {
@@ -426,7 +426,7 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Id:        req.GetName(),
 					Size:      1024 * 60,
 					NodeId:    testNode1Name,
-					CSIStatus: apiV1.Created,
+					CSIStatus: apiV1.MatchCSIStatus(apiV1.Created),
 				}})
 			Expect(err).To(BeNil())
 
@@ -457,8 +457,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 
 			err = controller.k8sclient.ReadCR(context.Background(), "req1", testNs, vol)
 			Expect(err).To(BeNil())
-			Expect(vol.Spec.CSIStatus).To(Equal(apiV1.Created))
-			Expect(vol.Spec.Mode).To(Equal(apiV1.ModeFS))
+			Expect(apiV1.CSIStatus(vol.Spec.CSIStatus)).To(Equal(apiV1.Created))
+			Expect(apiV1.VolumeMode(vol.Spec.Mode)).To(Equal(apiV1.ModeFS))
 			Expect(vol.Labels[k8s.AppLabelKey]).To(Equal(testApp))
 		})
 	})
@@ -512,7 +512,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			)
 			// create volume crd to delete
 			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testAppLabels, api.Volume{Id: volumeID,
-				CSIStatus: apiV1.Created})
+				CSIStatus: apiV1.MatchCSIStatus(apiV1.Created)})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeID, testNs)
@@ -525,7 +525,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 
 			err = controller.k8sclient.ReadCR(context.Background(), volumeID, testNs, volumeCrd)
 			Expect(err).To(BeNil())
-			Expect(volumeCrd.Spec.CSIStatus).To(Equal(apiV1.Failed))
+			Expect(apiV1.CSIStatus(volumeCrd.Spec.CSIStatus)).To(Equal(apiV1.Failed))
 		})
 		It("Volume is created with unsupported option", func() {
 			err := testutils.AddAC(controller.k8sclient, testAC1.DeepCopy(), testAC2.DeepCopy())
@@ -585,7 +585,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 						Id:        volumeID,
 						NodeId:    node,
 						Location:  testDriveLocation1,
-						CSIStatus: apiV1.Created,
+						CSIStatus: apiV1.MatchCSIStatus(apiV1.Created),
 					},
 				}
 				err error
@@ -630,9 +630,9 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					NodeId:       testNode2Name,
 					Location:     lvgName, // testAC4
 					Size:         capacityV,
-					StorageClass: apiV1.StorageClassHDDLVG,
-					CSIStatus:    apiV1.Created,
-					LocationType: apiV1.LocationTypeLVM,
+					StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG),
+					CSIStatus:    apiV1.MatchCSIStatus(apiV1.Created),
+					LocationType: apiV1.MatchLocationType(apiV1.LocationTypeLVM),
 				}
 				volumeCrd = vcrd.Volume{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -646,7 +646,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					Node:       testNode2Name,
 					Locations:  []string{driveName},
 					VolumeRefs: []string{volumeName},
-					Status:     apiV1.Creating,
+					Status:     apiV1.MatchCSIStatus(apiV1.Creating),
 					Size:       capacity,
 				}
 				lvgCR = lvgcrd.LogicalVolumeGroup{
@@ -683,7 +683,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 					},
 					Spec: api.AvailableCapacity{
 						Size:         capacity - capacityV,
-						StorageClass: apiV1.StorageClassHDDLVG,
+						StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG),
 						Location:     lvgName,
 						NodeId:       testNode2Name,
 					},
@@ -849,9 +849,9 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 			Spec: api.Volume{
 				Id:           uuid,
 				NodeId:       node,
-				CSIStatus:    apiV1.Created,
+				CSIStatus:    apiV1.MatchCSIStatus(apiV1.Created),
 				Size:         1000,
-				StorageClass: apiV1.StorageClassHDDLVG,
+				StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG),
 				Location:     testAC1.Spec.Location,
 			}})
 		Expect(err).To(BeNil())
@@ -899,7 +899,7 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 			fmt.Println(err.Error())
 			err = controller.k8sclient.ReadCR(context.Background(), uuid, testNs, volumeCrd)
 			Expect(err).To(BeNil())
-			Expect(volumeCrd.Spec.CSIStatus).To(Equal(apiV1.Failed))
+			Expect(apiV1.CSIStatus(volumeCrd.Spec.CSIStatus)).To(Equal(apiV1.Failed))
 		})
 		It("Expand failed", func() {
 			var (

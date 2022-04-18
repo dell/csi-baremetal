@@ -54,7 +54,7 @@ type NVMDevice struct {
 	PhysicalSize int64  `json:"PhysicalSize,omitempty"`
 	// Can VID be string for nvme?
 	Vendor int `json:"vid,omitempty"`
-	Health string
+	Health apiV1.HealthStatus
 }
 
 // SMARTLog represents SMART information for NVMe devices
@@ -103,7 +103,7 @@ func (na *NVMECLI) GetNVMDevices() ([]NVMDevice, error) {
 }
 
 // getNVMDeviceHealth gets information about device health based on critical_warning SMART attribute using nvme_cli smart-log util
-func (na *NVMECLI) getNVMDeviceHealth(path string) string {
+func (na *NVMECLI) getNVMDeviceHealth(path string) apiV1.HealthStatus {
 	ll := na.log.WithField("method", "getNVMDeviceHealth")
 	cmd := fmt.Sprintf(NVMeHealthCmdImpl, path)
 	strOut, _, err := na.e.RunCmd(cmd,

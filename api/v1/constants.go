@@ -28,110 +28,178 @@ const (
 	CSICRsGroupVersion = "csi-baremetal.dell.com"
 	APIV1Version       = "csi-baremetal.dell.com/v1"
 
-	// CSI statuses
-	Creating    = "CREATING"
-	Created     = "CREATED"
-	VolumeReady = "VOLUME_READY"
-	Published   = "PUBLISHED"
-	Removing    = "REMOVING"
-	Removed     = "REMOVED"
-	Failed      = "FAILED"
-	Empty       = ""
-	Resizing    = "RESIZING"
-	Resized     = "RESIZED"
-
-	// Health statuses
-	HealthUnknown = "UNKNOWN"
-	HealthGood    = "GOOD"
-	HealthSuspect = "SUSPECT"
-	HealthBad     = "BAD"
-
-	// TODO need to split constants by different packages
-	// Drive status
-	DriveStatusOnline  = "ONLINE"
-	DriveStatusOffline = "OFFLINE"
-
-	// Drive Usage status
-	DriveUsageInUse     = "IN_USE"
-	DriveUsageReleasing = "RELEASING"
-	DriveUsageReleased  = "RELEASED"
-	DriveUsageFailed    = "FAILED"
-	DriveUsageRemoving  = "REMOVING"
-	DriveUsageRemoved   = "REMOVED"
-
-	// Drive type
-	DriveTypeHDD  = "HDD"
-	DriveTypeSSD  = "SSD"
-	DriveTypeNVMe = "NVME"
-
-	// Drive annotations
-	DriveAnnotationRemoval            = "removal"
-	DriveAnnotationRemovalReady       = "ready"
-	DriveAnnotationVolumeStatusPrefix = "status"
-	// Deprecated annotations
-	DriveAnnotationReplacement = "replacement"
-
-	// Volume operational status
-	OperationalStatusOperative   = "OPERATIVE"
-	OperationalStatusInoperative = "INOPERATIVE"
-	OperationalStatusStaging     = "STAGING"
-	OperationalStatusMissing     = "MISSING"
-	OperationalStatusMaintenance = "MAINTENANCE"
-	OperationalStatusUnknown     = "UNKNOWN"
-
-	// Volume Usage status
-	VolumeUsageInUse     = DriveUsageInUse
-	VolumeUsageReleasing = DriveUsageReleasing
-	VolumeUsageReleased  = DriveUsageReleased
-	VolumeUsageFailed    = DriveUsageFailed
-
-	// Release Volume annotations
-	VolumeAnnotationRelease       = "release"
-	VolumeAnnotationReleaseDone   = "done"
-	VolumeAnnotationReleaseFailed = "failed"
-	VolumeAnnotationReleaseStatus = "status"
-
 	//Volume expansion annotations
 	VolumePreviousStatus   = "expansion/previous-status"
 	VolumePreviousCapacity = "expansion/previous-capacity"
-	// TODO Mount status?
-	// Volume mode
-	ModeRAW     = "RAW"
-	ModeRAWPART = "RAW_PART"
-	ModeFS      = "FS"
 
 	//LVG annotations
 	LVGFreeSpaceAnnotation = "lvg/free-space"
 
-	// Volume location type
-	LocationTypeDrive = "DRIVE"
-	LocationTypeLVM   = "LVM"
-	LocationTypeNVMe  = "NVME"
-
-	// Available Capacity Reservation statuses
-	ReservationRequested = "REQUESTED"
-	ReservationConfirmed = "RESERVED"
-	ReservationRejected  = "REJECTED"
-	ReservationCancelled = "CANCELLED"
-
-	// CSI StorageClass
-	// For volumes with storage class 'ANY' CSI will pick any AC except LVG AC
-	StorageClassAny       = "ANY"
-	StorageClassHDD       = "HDD"
-	StorageClassSSD       = "SSD"
-	StorageClassNVMe      = "NVME"
-	StorageClassHDDLVG    = "HDDLVG"
-	StorageClassSSDLVG    = "SSDLVG"
-	StorageClassNVMeLVG   = "NVMELVG"
-	StorageClassSystemLVG = "SYSLVG"
-
-	LocateStart  = int32(0)
-	LocateStop   = int32(1)
-	LocateStatus = int32(2)
-
-	LocateStatusOff          = int32(0)
-	LocateStatusOn           = int32(1)
-	LocateStatusNotAvailable = int32(2)
+	// TODO Mount status?
 
 	DockerImageKernelVersion = "5.4"
 )
+
+type CSIStatus string
+
+const (
+	Creating    CSIStatus = "CREATING"
+	Created     CSIStatus = "CREATED"
+	VolumeReady CSIStatus = "VOLUME_READY"
+	Published   CSIStatus = "PUBLISHED"
+	Removing    CSIStatus = "REMOVING"
+	Removed     CSIStatus = "REMOVED"
+	Failed      CSIStatus = "FAILED"
+	Empty       CSIStatus = ""
+	Resizing    CSIStatus = "RESIZING"
+	Resized     CSIStatus = "RESIZED"
+)
+
+func MatchCSIStatus(cs CSIStatus) string { return string(cs) }
+
+type DriveAnnotation string
+
+const (
+	DriveAnnotationRemoval            DriveAnnotation = "removal"
+	DriveAnnotationRemovalReady       DriveAnnotation = "ready"
+	DriveAnnotationVolumeStatusPrefix DriveAnnotation = "status"
+	DriveAnnotationReplacement        DriveAnnotation = "replacement" // Deprecated
+)
+
+func MatchDriveAnnotation(da DriveAnnotation) string { return string(da) }
+
+type DriveType string
+
+const (
+	DriveTypeHDD  DriveType = "HDD"
+	DriveTypeSSD  DriveType = "SSD"
+	DriveTypeNVMe DriveType = "NVME"
+)
+
+func MatchDriveType(dt DriveType) string { return string(dt) }
+
+type DriveStatus string
+
+const (
+	DriveStatusOnline  DriveStatus = "ONLINE"
+	DriveStatusOffline DriveStatus = "OFFLINE"
+	DriveStatusFailed  DriveStatus = "FAILED"
+)
+
+func MatchDriveStatus(ds DriveStatus) string { return string(ds) }
+
+type DriveUsage string
+
+const (
+	DriveUsageInUse     DriveUsage = "IN_USE"
+	DriveUsageReleasing DriveUsage = "RELEASING"
+	DriveUsageReleased  DriveUsage = "RELEASED"
+	DriveUsageFailed    DriveUsage = "FAILED"
+	DriveUsageRemoving  DriveUsage = "REMOVING"
+	DriveUsageRemoved   DriveUsage = "REMOVED"
+)
+
+func MatchDriveUsage(du DriveUsage) string { return string(du) }
+
+type HealthStatus string
+
+const (
+	HealthUnknown HealthStatus = "UNKNOWN"
+	HealthGood    HealthStatus = "GOOD"
+	HealthSuspect HealthStatus = "SUSPECT"
+	HealthBad     HealthStatus = "BAD"
+)
+
+func MatchHealthStatus(hs HealthStatus) string { return string(hs) }
+
+type LocateStatus int32
+
+const (
+	LocateStatusOn LocateStatus = iota
+	LocateStatusOff
+	LocateStatusNA
+)
+
+func MatchLocateStatus(ls LocateStatus) int32 { return int32(ls) }
+
+type LocationType string
+
+const (
+	LocationTypeDrive LocationType = "DRIVE"
+	LocationTypeLVM   LocationType = "LVM"
+	LocationTypeNVMe  LocationType = "NVME"
+)
+
+func MatchLocationType(lt LocationType) string { return string(lt) }
+
+type ReservationStatus string
+
+const (
+	ReservationRequested ReservationStatus = "REQUESTED"
+	ReservationConfirmed ReservationStatus = "RESERVED"
+	ReservationRejected  ReservationStatus = "REJECTED"
+	ReservationCancelled ReservationStatus = "CANCELLED"
+)
+
+func MatchReservationStatus(rs ReservationStatus) string { return string(rs) }
+
+type StorageClass string
+
+const (
+	StorageClassAny       StorageClass = "ANY"
+	StorageClassHDD       StorageClass = "HDD"
+	StorageClassSSD       StorageClass = "SSD"
+	StorageClassNVMe      StorageClass = "NVME"
+	StorageClassHDDLVG    StorageClass = "HDDLVG"
+	StorageClassSSDLVG    StorageClass = "SSDLVG"
+	StorageClassNVMeLVG   StorageClass = "NVMELVG"
+	StorageClassSystemLVG StorageClass = "SYSLVG"
+)
+
+func MatchStorageClass(sc StorageClass) string { return string(sc) }
+
+type VolumeAnnotation string
+
+const (
+	VolumeAnnotationRelease       VolumeAnnotation = "release"
+	VolumeAnnotationReleaseDone   VolumeAnnotation = "done"
+	VolumeAnnotationReleaseFailed VolumeAnnotation = "failed"
+	VolumeAnnotationReleaseStatus VolumeAnnotation = "status"
+)
+
+func MatchVolumeAnnotation(va VolumeAnnotation) string { return string(va) }
+
+type VolumeMode string
+
+const (
+	ModeRAW     VolumeMode = "RAW"
+	ModeRAWPART VolumeMode = "RAW_PART"
+	ModeFS      VolumeMode = "FS"
+	ModeEmpty   VolumeMode = ""
+)
+
+func MatchVolumeMode(vm VolumeMode) string { return string(vm) }
+
+type VolumeOperationalStatus string
+
+const (
+	OperationalStatusOperative   VolumeOperationalStatus = "OPERATIVE"
+	OperationalStatusInoperative VolumeOperationalStatus = "INOPERATIVE"
+	OperationalStatusStaging     VolumeOperationalStatus = "STAGING"
+	OperationalStatusMissing     VolumeOperationalStatus = "MISSING"
+	OperationalStatusMaintenance VolumeOperationalStatus = "MAINTENANCE"
+	OperationalStatusUnknown     VolumeOperationalStatus = "UNKNOWN"
+)
+
+func MatchVolumeOperationalStatus(vos VolumeOperationalStatus) string { return string(vos) }
+
+type VolumeUsage string
+
+const (
+	VolumeUsageInUse     = VolumeUsage(DriveUsageInUse)
+	VolumeUsageReleasing = VolumeUsage(DriveUsageReleasing)
+	VolumeUsageReleased  = VolumeUsage(DriveUsageReleased)
+	VolumeUsageFailed    = VolumeUsage(DriveUsageFailed)
+)
+
+func MatchVolumeUsage(vu VolumeUsage) string { return string(vu) }

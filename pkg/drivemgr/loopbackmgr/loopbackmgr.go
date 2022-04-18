@@ -44,7 +44,6 @@ const (
 	defaultPID             = "Loopback"
 	// 1Mi is for the metadata
 	defaultSize      = "101Mi"
-	defaultHealth    = apiV1.HealthGood
 	defaultDriveType = apiV1.DriveTypeHDD
 
 	threshold         = "1Gi"
@@ -81,14 +80,14 @@ type LoopBackManager struct {
 
 // LoopBackDevice struct contains fields to describe a loop device bound with a file
 type LoopBackDevice struct {
-	VendorID     string `yaml:"vid"`
-	ProductID    string `yaml:"pid"`
-	SerialNumber string `yaml:"serialNumber"`
-	Size         string `yaml:"size"`
-	Removed      bool   `yaml:"removed"`
-	Health       string `yaml:"health"`
-	DriveType    string `yaml:"driveType"`
-	LED          int    `yaml:"led"`
+	VendorID     string             `yaml:"vid"`
+	ProductID    string             `yaml:"pid"`
+	SerialNumber string             `yaml:"serialNumber"`
+	Size         string             `yaml:"size"`
+	Removed      bool               `yaml:"removed"`
+	LED          apiV1.LocateStatus `yaml:"led"`
+	Health       apiV1.HealthStatus `yaml:"health"`
+	DriveType    apiV1.DriveType    `yaml:"driveType"`
 
 	fileName string
 	// for example, /dev/loop0
@@ -215,7 +214,7 @@ func (d *LoopBackDevice) Equals(device *LoopBackDevice) bool {
 // fillEmptyFieldsWithDefaults fills fields of LoopBackDevice which are not provided in configuration with defaults
 func (d *LoopBackDevice) fillEmptyFieldsWithDefaults() {
 	if d.Health == "" {
-		d.Health = defaultHealth // apiV1.HealthGood
+		d.Health = apiV1.HealthGood
 	}
 	if d.VendorID == "" {
 		d.VendorID = defaultVID
@@ -493,7 +492,7 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 	defer mgr.Unlock()
 	drives := make([]*api.Drive, 0, len(mgr.devices))
 	for i := 0; i < len(mgr.devices); i++ {
-		var driveStatus string
+		var driveStatus apiV1.DriveStatus
 		if mgr.devices[i].Removed {
 			driveStatus = apiV1.DriveStatusOffline
 		} else {
@@ -504,10 +503,10 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 			VID:          mgr.devices[i].VendorID,
 			PID:          mgr.devices[i].ProductID,
 			SerialNumber: mgr.devices[i].SerialNumber,
-			Health:       strings.ToUpper(mgr.devices[i].Health),
-			Type:         strings.ToUpper(mgr.devices[i].DriveType),
+			Health:       apiV1.MatchHealthStatus(mgr.devices[i].Health),
+			Type:         apiV1.MatchDriveType(mgr.devices[i].DriveType),
 			Size:         sizeBytes,
-			Status:       driveStatus,
+			Status:       apiV1.MatchDriveStatus(driveStatus),
 			Path:         mgr.devices[i].devicePath,
 		}
 		drives = append(drives, drive)
@@ -519,15 +518,15 @@ func (mgr *LoopBackManager) GetDrivesList() ([]*api.Drive, error) {
 func (mgr *LoopBackManager) Locate(serialNumber string, action int32) (int32, error) {
 	for i, device := range mgr.devices {
 		if device.SerialNumber == serialNumber {
-			switch action {
-			case apiV1.LocateStart:
-				mgr.devices[i].LED = int(apiV1.LocateStatusOn)
-				return apiV1.LocateStatusOn, nil
-			case apiV1.LocateStop:
-				mgr.devices[i].LED = int(apiV1.LocateStatusOff)
-				return apiV1.LocateStatusOff, nil
-			case apiV1.LocateStatus:
-				return int32(mgr.devices[i].LED), nil
+			switch apiV1.LocateStatus(action) {
+			case apiV1.LocateStatusOn:
+				mgr.devices[i].LED = apiV1.LocateStatusOn
+				return apiV1.MatchLocateStatus(apiV1.LocateStatusOn), nil
+			case apiV1.LocateStatusOff:
+				mgr.devices[i].LED = apiV1.LocateStatusOff
+				return apiV1.MatchLocateStatus(apiV1.LocateStatusOff), nil
+			case apiV1.LocateStatusNA:
+				return apiV1.MatchLocateStatus(mgr.devices[i].LED), nil
 			}
 		}
 	}
@@ -535,7 +534,7 @@ func (mgr *LoopBackManager) Locate(serialNumber string, action int32) (int32, er
 }
 
 // LocateNode implements LocateNode method of DriveManager interface
-func (mgr *LoopBackManager) LocateNode(action int32) error {
+func (mgr *LoopBackManager) LocateNode(int32) error {
 	// not implemented
 	return nil
 }

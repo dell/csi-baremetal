@@ -100,7 +100,7 @@ func TestConsistentReadFail(t *testing.T) {
 
 var strToSC = []struct {
 	strSC string
-	check string
+	check api.StorageClass
 }{
 	{"hdd", api.StorageClassHDD},
 	{"ssd", api.StorageClassSSD},
@@ -116,7 +116,7 @@ var strToSC = []struct {
 func TestConvertStorageClass(t *testing.T) {
 	for _, test := range strToSC {
 		got := ConvertStorageClass(test.strSC)
-		if got != test.check {
+		if api.StorageClass(got) != test.check {
 			t.Errorf("Unexpected conversion between stringSC and api.StorageClass, expected %s, got %s",
 				test.strSC, test.check)
 		}
@@ -124,8 +124,8 @@ func TestConvertStorageClass(t *testing.T) {
 }
 
 var driveTypeToSC = []struct {
-	driveType string
-	check     string
+	driveType api.DriveType
+	check     api.StorageClass
 }{
 	{api.DriveTypeHDD, api.StorageClassHDD},
 	{api.DriveTypeSSD, api.StorageClassSSD},
@@ -136,8 +136,8 @@ var driveTypeToSC = []struct {
 // Test byte value parsing from strings containing correct values
 func TestConvertDriveTypeToStorageClass(t *testing.T) {
 	for _, test := range driveTypeToSC {
-		got := ConvertDriveTypeToStorageClass(test.driveType)
-		if got != test.check {
+		got := ConvertDriveTypeToStorageClass(api.MatchDriveType(test.driveType))
+		if api.StorageClass(got) != test.check {
 			t.Errorf("Unexpected conversion between api.DriveType and api.StorageClass, expected %s, got %s",
 				test.driveType, test.check)
 		}

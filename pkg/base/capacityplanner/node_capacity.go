@@ -39,7 +39,7 @@ func (rc *reservedCapacity) String() string {
 
 type reservedACs map[string]*reservedCapacity
 
-type scToACOrder map[string][]string
+type scToACOrder map[v1.StorageClass][]string
 
 type nodeCapacity struct {
 	node string
@@ -89,10 +89,10 @@ func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.A
 
 	acsOrder := scToACOrder{}
 	for _, ac := range acs {
-		if acsOrder[ac.Spec.StorageClass] == nil {
-			acsOrder[ac.Spec.StorageClass] = []string{}
+		if acsOrder[v1.StorageClass(ac.Spec.StorageClass)] == nil {
+			acsOrder[v1.StorageClass(ac.Spec.StorageClass)] = []string{}
 		}
-		acsOrder[ac.Spec.StorageClass] = append(acsOrder[ac.Spec.StorageClass], ac.Name)
+		acsOrder[v1.StorageClass(ac.Spec.StorageClass)] = append(acsOrder[v1.StorageClass(ac.Spec.StorageClass)], ac.Name)
 	}
 
 	// ANY SC should select ACs with the order - HDD->SSD->NVMe
@@ -109,7 +109,7 @@ func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.A
 
 	reservedACs := reservedACs{}
 	for _, acr := range acrs {
-		if acr.Spec.Status != v1.ReservationConfirmed {
+		if acr.Spec.Status != v1.MatchReservationStatus(v1.ReservationConfirmed) {
 			continue
 		}
 		for _, request := range acr.Spec.ReservationRequests {
@@ -145,7 +145,7 @@ func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCap
 		requiredSize = AlignSizeByPE(vol.GetSize())
 	}
 
-	for _, ac := range nc.acsOrder[vol.StorageClass] {
+	for _, ac := range nc.acsOrder[v1.StorageClass(vol.StorageClass)] {
 		if requiredSize <= nc.acs[ac].Spec.Size {
 			// check if AC is reserved
 			reservation, ok := nc.reservedACs[ac]

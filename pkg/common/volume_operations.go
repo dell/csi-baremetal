@@ -199,7 +199,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 	var (
 		sc             = ac.Spec.StorageClass
 		allocatedBytes int64
-		locationType   string
+		locationType   apiV1.LocationType
 	)
 
 	if util.IsStorageClassLVG(sc) {
@@ -222,13 +222,13 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		NodeId:            ac.Spec.NodeId,
 		Size:              allocatedBytes,
 		Location:          ac.Spec.Location,
-		CSIStatus:         apiV1.Creating,
+		CSIStatus:         apiV1.MatchCSIStatus(apiV1.Creating),
 		StorageClass:      sc,
 		Ephemeral:         v.Ephemeral,
-		Health:            apiV1.HealthGood,
-		LocationType:      locationType,
-		OperationalStatus: apiV1.OperationalStatusOperative,
-		Usage:             apiV1.VolumeUsageInUse,
+		Health:            apiV1.MatchHealthStatus(apiV1.HealthGood),
+		LocationType:      apiV1.MatchLocationType(locationType),
+		OperationalStatus: apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusOperative),
+		Usage:             apiV1.MatchVolumeUsage(apiV1.VolumeUsageInUse),
 		Mode:              v.Mode,
 		Type:              v.Type,
 	}
@@ -264,7 +264,7 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 		}
 	}
 
-	switch volumeCR.Spec.CSIStatus {
+	switch apiV1.CSIStatus(volumeCR.Spec.CSIStatus) {
 	// return error if Failed
 	case apiV1.Failed:
 		return nil, fmt.Errorf("corresponding volume CR %s has failed status", volumeCR.Spec.Id)
@@ -276,7 +276,7 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 		expiredAt := volumeCR.ObjectMeta.GetCreationTimestamp().Add(base.DefaultTimeoutForVolumeOperations)
 		if expiredAt.Before(time.Now()) {
 			log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
-			volumeCR.Spec.CSIStatus = apiV1.Failed
+			volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 			// todo don't ignore error here
 			_ = vo.k8sClient.UpdateCR(ctx, volumeCR)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
@@ -302,7 +302,7 @@ func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *l
 	)
 	for _, reservation := range reservations {
 		reservation := reservation
-		if reservation.Spec.Status != apiV1.ReservationConfirmed {
+		if apiV1.ReservationStatus(reservation.Spec.Status) != apiV1.ReservationConfirmed {
 			continue
 		}
 
@@ -369,7 +369,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 		return err
 	}
 
-	switch volumeCR.Spec.CSIStatus {
+	switch apiV1.CSIStatus(volumeCR.Spec.CSIStatus) {
 	case apiV1.Created:
 	case apiV1.Failed:
 		return status.Error(codes.Internal, "volume has reached failed status")
@@ -385,7 +385,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 			apiV1.Removing, volumeCR.Spec.CSIStatus, apiV1.Created)
 	}
 
-	volumeCR.Spec.CSIStatus = apiV1.Removing
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removing)
 	return vo.k8sClient.UpdateCR(ctx, volumeCR)
 }
 
@@ -449,7 +449,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		acAction = update
 	}
 
-	if volumeCR.Spec.Health == apiV1.HealthGood {
+	if apiV1.HealthStatus(volumeCR.Spec.Health) == apiV1.HealthGood {
 		// Increase size of AC using volume size
 		acCR.Spec.Size += volumeCR.Spec.Size
 		ll.Debugf("Add %d to size of AC %s", volumeCR.Spec.Size, acCR.Name)
@@ -529,7 +529,7 @@ func (vo *VolumeOperationsImpl) WaitStatus(ctx context.Context, volumeID string,
 			}
 			for _, s := range statuses {
 				if v.Spec.CSIStatus == s {
-					if s == apiV1.Failed {
+					if apiV1.CSIStatus(s) == apiV1.Failed {
 						return fmt.Errorf("volume has reached Failed status")
 					}
 					return nil
@@ -550,7 +550,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 		"volumeID": volume.Spec.Id,
 	})
 	currStatus := volume.Spec.CSIStatus
-	switch currStatus {
+	switch apiV1.CSIStatus(currStatus) {
 	case apiV1.Resizing, apiV1.Resized:
 		ll.Debug("Volume is already expanding")
 	case apiV1.VolumeReady, apiV1.Created, apiV1.Published:
@@ -580,7 +580,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 		}
 		volume.Annotations[apiV1.VolumePreviousStatus] = currStatus
 		volume.Annotations[apiV1.VolumePreviousCapacity] = strconv.FormatInt(volume.Spec.Size, 10)
-		volume.Spec.CSIStatus = apiV1.Resizing
+		volume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Resizing)
 		volume.Spec.Size = requiredBytes
 
 		if err := vo.k8sClient.UpdateCR(ctx, volume); err != nil {
@@ -616,7 +616,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeExpansion(ctx context.Contex
 		ll.Errorf("Failed to read volume: %v", err)
 		return
 	}
-	switch volume.Spec.CSIStatus {
+	switch apiV1.CSIStatus(volume.Spec.CSIStatus) {
 	case apiV1.Failed:
 		capacity, err := strconv.ParseInt(volume.Annotations[apiV1.VolumePreviousCapacity], 10, 64)
 		if err != nil {

@@ -20,14 +20,15 @@ import (
 	"context"
 	"time"
 
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
 
-// VolumeReconcileImitation looking for volume CR with name volId and sets it's status to newStatus
-func VolumeReconcileImitation(k8sClient *k8s.KubeClient, volID string, namespace string, newStatus string) {
+// VolumeReconcileImitation looking for volume CR with name volId and sets its status to newStatus
+func VolumeReconcileImitation(k8sClient *k8s.KubeClient, volID string, namespace string, newStatus apiV1.CSIStatus) {
 	for {
 		<-time.After(200 * time.Millisecond)
 		err := ReadVolumeAndChangeStatus(k8sClient, volID, namespace, newStatus)
@@ -48,7 +49,7 @@ func AddAC(k8sClient *k8s.KubeClient, acs ...*accrd.AvailableCapacity) error {
 }
 
 // ReadVolumeAndChangeStatus returns error if something went wrong
-func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, namespace string, newStatus string) error {
+func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, namespace string, newStatus apiV1.CSIStatus) error {
 	v := &volumecrd.Volume{}
 	ctx := context.WithValue(context.Background(), base.RequestUUID, volumeID)
 
@@ -56,8 +57,7 @@ func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, names
 		return err
 	}
 
-	// change status
-	v.Spec.CSIStatus = newStatus
+	v.Spec.CSIStatus = apiV1.MatchCSIStatus(newStatus)
 	if err := k8sClient.UpdateCR(ctx, v); err != nil {
 		return err
 	}

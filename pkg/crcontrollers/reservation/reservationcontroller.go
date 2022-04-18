@@ -106,7 +106,7 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 	log.Infof("Reservation status: %s", status)
 
 	switch status {
-	case v1.ReservationRequested:
+	case v1.MatchReservationStatus(v1.ReservationRequested):
 		// handle reservation request
 		// convert to volumes
 		volumes := make([]*v1api.Volume, len(reservationSpec.ReservationRequests))
@@ -151,7 +151,7 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 			}
 		} else {
 			// reject reservation
-			reservation.Spec.Status = v1.ReservationRejected
+			reservation.Spec.Status = v1.MatchReservationStatus(v1.ReservationRejected)
 			if err := c.client.UpdateCR(ctx, reservation); err != nil {
 				log.Errorf("Unable to reject reservation %s: %v", reservation.Name, err)
 				return ctrl.Result{Requeue: true}, err

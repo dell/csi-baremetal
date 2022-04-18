@@ -38,7 +38,7 @@ func TestNewNodeCapacity(t *testing.T) {
 		testACRHDDLVG2 = *getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, []*accrd.AvailableCapacity{&testACHDDLVG1})
 	)
 
-	testACRHDD2.Spec.Status = apiV1.ReservationRejected
+	testACRHDD2.Spec.Status = apiV1.MatchReservationStatus(apiV1.ReservationRejected)
 
 	tests := []struct {
 		name string
@@ -151,8 +151,8 @@ func TestNewNodeCapacity(t *testing.T) {
 					apiV1.StorageClassHDD: []string{testACHDD1.Name},
 				},
 				reservedACs: reservedACs{
-					testACHDD1.Name: &reservedCapacity{testSmallSize, apiV1.StorageClassHDD},
-					testACHDD2.Name: &reservedCapacity{testSmallSize, apiV1.StorageClassHDD},
+					testACHDD1.Name: &reservedCapacity{testSmallSize, apiV1.MatchStorageClass(apiV1.StorageClassHDD)},
+					testACHDD2.Name: &reservedCapacity{testSmallSize, apiV1.MatchStorageClass(apiV1.StorageClassHDD)},
 				},
 			},
 		},
@@ -186,7 +186,7 @@ func TestNewNodeCapacity(t *testing.T) {
 					apiV1.StorageClassHDDLVG: []string{testACHDDLVG1.Name},
 				},
 				reservedACs: reservedACs{
-					testACHDDLVG1.Name: &reservedCapacity{2 * testSmallSize, apiV1.StorageClassHDDLVG},
+					testACHDDLVG1.Name: &reservedCapacity{2 * testSmallSize, apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG)},
 				},
 			},
 		},
