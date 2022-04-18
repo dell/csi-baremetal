@@ -6,7 +6,7 @@ on:
       - created
 
 jobs:
-  build:
+  release:
     name: Release
     runs-on: ubuntu-latest
     steps:
@@ -42,5 +42,6 @@ jobs:
             { "csi_version": "${{ steps.vars.outputs.csi_version }}",
               "csi_operator_version": "${{ steps.vars.outputs.csi_operator_version }}",
               "release_tag": "${{ github.event.release.tag_name }}",
-              "branch": "${{ github.event.release.target_commitish }}" }
+              "branch": "${{ github.event.release.target_commitish }}",
+              "prerelease": ${{ github.event.release.prerelease }} }
         if: startsWith(github.ref, 'refs/tags/')

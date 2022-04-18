@@ -1,0 +1,11 @@
+{
+  "action": "created",
+  "release": {
+    "tag_name": "v1.1.0-test",
+    "target_commitish": "master",
+    "name": "Release v1.1.0-test",
+    "draft": false,
+    "prerelease": true,
+    "body": "csi_version: 1.1.0-569.d875c82, csi_operator_version: 1.1.0-99.36a85e3"
+  }
+}
