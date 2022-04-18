@@ -348,7 +348,7 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 	return drive, err
 }
 
-// GetDriveCRAndLVGCRByVolume GetDriveCRAndLVGByVolume reads drive CRs and returns CR for drive and CR for lvg (if exist) on which volume is located
+// GetDriveCRAndLVGCRByVolume reads drive CRs and returns CR for drive and CR for lvg (if exist) on which volume is located
 func (cs *CRHelper) GetDriveCRAndLVGCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, *lvgcrd.LogicalVolumeGroup, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method": "GetDriveCRByVolume",

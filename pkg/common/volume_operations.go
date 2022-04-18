@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	//"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -434,7 +433,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 
 	vo.cache.Delete(volumeID)
 
-	// Handle AC, Drive, LVG after volume deletion
+	// Update AC and LVG after volume deletion
 	acCR, err := vo.crHelper.GetACByLocation(volumeCR.Spec.Location)
 	if err != nil {
 		ll.Errorf("AC not found for Volume %s by location %s: %v", volumeCR.Name, volumeCR.Spec.Location, err)
