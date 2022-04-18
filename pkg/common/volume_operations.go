@@ -28,14 +28,13 @@ import (
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	//"sigs.k8s.io/controller-runtime/pkg/client"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
-	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
@@ -70,6 +69,12 @@ type VolumeOperationsImpl struct {
 	featureChecker fc.FeatureChecker
 	log            *logrus.Entry
 }
+
+const (
+	ignore uint8 = 0
+	update uint8 = 1
+	remove uint8 = 2
+)
 
 // NewVolumeOperationsImpl is the constructor for VolumeOperationsImpl struct
 // Receives an instance of base.KubeClient and logrus logger
@@ -404,8 +409,10 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	})
 
 	var (
-		volumeCR = volumecrd.Volume{}
-		err      error
+		volumeCR  = volumecrd.Volume{}
+		lvgAction = ignore
+		acAction  = ignore
+		err       error
 	)
 
 	namespace, err := vo.cache.Get(volumeID)
@@ -433,64 +440,60 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		ll.Errorf("AC not found for Volume %s by location %s: %v", volumeCR.Name, volumeCR.Spec.Location, err)
 		return
 	}
-	driveCR, err := vo.crHelper.GetDriveCRByVolume(&volumeCR)
+	driveCR, lvgCR, err := vo.crHelper.GetDriveCRAndLVGCRByVolume(&volumeCR)
 	if err != nil {
 		ll.Errorf("Unable to read Drive CR for Volume %s : %v", volumeCR.Name, err)
 		return
 	}
 
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
-		if err = vo.updateLVGAfterVolumeDeletion(ctx, &volumeCR, driveCR, acCR); err != nil {
-			return
+		if len(lvgCR.Spec.VolumeRefs) > 1 {
+			lvgCR.Spec.VolumeRefs = util.RemoveString(lvgCR.Spec.VolumeRefs, volumeCR.Name)
+			ll.Debugf("Remove volume ref %s from LVG %s", volumeCR.Name, lvgCR.Name)
+			lvgAction = update
+		} else {
+			lvgAction = remove
 		}
+	}
+
+	if lvgAction == remove {
+		// Convert AC from LVG to Drive type and location
+		acCR.Spec.Location = driveCR.Spec.GetUUID()
+		acCR.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(driveCR.Spec.GetType())
+		ll.Debugf("Convert AC %s from LVG to Drive %s", acCR.Name, driveCR.Name)
+		acAction = update
 	}
 
 	if volumeCR.Spec.Health == apiV1.HealthGood {
 		// Increase size of AC using volume size
 		acCR.Spec.Size += volumeCR.Spec.Size
 		ll.Debugf("Add %d to size of AC %s", volumeCR.Spec.Size, acCR.Name)
-		if err := vo.k8sClient.UpdateCR(ctx, acCR); err != nil {
-			ll.Errorf("Unable to update AC %s CR: %v", acCR.Name, err)
-		}
+		acAction = update
+	}
+
+	if err = vo.doAction(ctx, ll, acCR, acAction, "AC"); err != nil {
+		return
+	}
+
+	if err = vo.doAction(ctx, ll, lvgCR, lvgAction, "LVG"); err != nil {
+		return
 	}
 }
 
-func (vo *VolumeOperationsImpl) updateLVGAfterVolumeDeletion(ctx context.Context, volumeCR *volumecrd.Volume,
-	driveCR *drivecrd.Drive, acCR *accrd.AvailableCapacity) error {
-	ll := vo.log.WithFields(logrus.Fields{
-		"method":   "updateLVGAfterVolumeDeletion",
-		"volumeID": volumeCR.Name,
-	})
-
-	lvg := lvgcrd.LogicalVolumeGroup{}
-	if err := vo.k8sClient.ReadCR(ctx, volumeCR.Spec.Location, "", &lvg); err != nil {
-		ll.Errorf("Unable to get LogicalVolumeGroup %s: %v", volumeCR.Spec.Location, err)
-		return err
-	}
-
-	// If volume not last, remove from lvg ref list, If volume is last need convert AC to Drive and remove LVG
-	if len(lvg.Spec.VolumeRefs) > 1 {
-		lvg.Spec.VolumeRefs = util.RemoveString(lvg.Spec.VolumeRefs, volumeCR.Name)
-		ll.Debugf("Remove volume ref %s from LVG %s", volumeCR.Name, lvg.Name)
-		if err := vo.k8sClient.UpdateCR(ctx, &lvg); err != nil {
-			ll.Errorf("Unable to update LVG %s CR: %v", lvg.Name, err)
+func (vo *VolumeOperationsImpl) doAction(ctx context.Context, log *logrus.Entry, obj k8sCl.Object, action uint8,
+	typeCR string) error {
+	switch action {
+	case update:
+		if err := vo.k8sClient.UpdateCR(ctx, obj); err != nil {
+			log.Errorf("Unable to update %s %s: %v", typeCR, obj.GetName(), err)
 			return err
 		}
-	} else {
-		ll.Debugf("Delete LVG %v", lvg.Name)
-		if err := vo.k8sClient.DeleteCR(ctx, &lvg); err != nil {
-			ll.Errorf("Unable to delete LVG %s CR: %v", lvg.Name, err)
+	case remove:
+		if err := vo.k8sClient.DeleteCR(ctx, obj); err != nil {
+			log.Errorf("Unable to delete %s %s: %v", typeCR, obj.GetName(), err)
 			return err
 		}
-
-		acCR.Spec.Location = driveCR.Spec.GetUUID()
-		acCR.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(driveCR.Spec.GetType())
-
-		ll.Debugf("Convert AC %s from LVG to Drive %s", acCR.Name, driveCR.Name)
-		if err := vo.k8sClient.UpdateCR(ctx, acCR); err != nil {
-			ll.Errorf("Unable to update AC %s CR: %v", acCR.Name, err)
-			return err
-		}
+		log.Infof("%s %s CR was removed", typeCR, obj.GetName())
 	}
 	return nil
 }
@@ -676,7 +679,7 @@ func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Conte
 	})
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	if err := vo.k8sClient.Get(ctx, client.ObjectKey{
+	if err := vo.k8sClient.Get(ctx, k8sCl.ObjectKey{
 		Name:      pvcName,
 		Namespace: pvcNamespace,
 	}, pvc); err != nil {
