@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -61,8 +60,7 @@ const (
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
-	svc   common.VolumeOperations
-	reqMu sync.Mutex
+	svc common.VolumeOperations
 
 	log           *logrus.Entry
 	livenessCheck LivenessHelper
@@ -407,7 +405,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 
 	currStatus := volumeCR.Spec.CSIStatus
 	// if currStatus not in [VolumeReady, Published]
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published  {
+	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)

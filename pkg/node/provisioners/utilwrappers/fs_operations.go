@@ -18,8 +18,9 @@ package utilwrappers
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"os"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
