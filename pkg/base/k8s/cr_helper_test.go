@@ -96,7 +96,7 @@ func TestCRHelper_GetVolumeByID(t *testing.T) {
 	assert.Nil(t, volume)
 }
 
-func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
+func TestCRHelper_GetDriveCRAndLVGCRByVolume(t *testing.T) {
 	ch := setup()
 	expectedV := testVolumeCR.DeepCopy()
 	expectedV.Spec.Location = testLVGCR.Name
@@ -111,8 +111,9 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 	testDriveCR1 := testDriveCR.DeepCopy()
 	err = ch.k8sClient.CreateCR(testCtx, testDriveCR1.Name, testDriveCR1)
 	assert.Nil(t, err)
-	drive, err := ch.GetDriveCRByVolume(expectedV)
+	drive, lvg, err := ch.GetDriveCRAndLVGCRByVolume(expectedV)
 	assert.NotNil(t, drive)
+	assert.NotNil(t, lvg)
 	assert.Nil(t, err)
 }
 

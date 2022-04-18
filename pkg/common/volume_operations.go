@@ -470,16 +470,18 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		acAction = update
 	}
 
-	if err = vo.doAction(ctx, ll, acCR, acAction, "AC"); err != nil {
+	if err = vo.DoAction(ctx, ll, acCR, acAction, "AC"); err != nil {
 		return
 	}
 
-	if err = vo.doAction(ctx, ll, lvgCR, lvgAction, "LVG"); err != nil {
+	if err = vo.DoAction(ctx, ll, lvgCR, lvgAction, "LVG"); err != nil {
 		return
 	}
 }
 
-func (vo *VolumeOperationsImpl) doAction(ctx context.Context, log *logrus.Entry, obj k8sCl.Object, action uint8,
+// DoAction do UpdateCR or DeleteCR with CR
+// return error if k8sClient action done with err
+func (vo *VolumeOperationsImpl) DoAction(ctx context.Context, log *logrus.Entry, obj k8sCl.Object, action uint8,
 	typeCR string) error {
 	switch action {
 	case update:
