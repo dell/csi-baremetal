@@ -34,9 +34,11 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               docker-${arg_docker_ver} \
               gcc \
               git \
+              jq \
               libXi6 \
               libXtst6 \
               make \
+              ShellCheck \
               sudo \
               vim \
               wget \
