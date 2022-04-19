@@ -44,7 +44,11 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               wget \
               xorg-x11 \
               xorg-x11-fonts \
-              unzip
+              unzip \
+              MozillaFirefox \
+              libasound2 \
+              libgbm1 \
+              libxshmfence1
 # install go
 RUN           wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
