@@ -258,7 +258,7 @@ function start() {
     devkit_echo 1 "bash session.................[$(state true)]"
 
     if ! $CMD_PROVIDED; then
-        su $USER_NAME -m <&0
+        su $USER_NAME <&0
     else
         su $USER_NAME -c "$CMD_OPT_VAL" <&0
     fi
