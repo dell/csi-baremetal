@@ -34,15 +34,21 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               docker-${arg_docker_ver} \
               gcc \
               git \
+              jq \
               libXi6 \
               libXtst6 \
               make \
+              ShellCheck \
               sudo \
               vim \
               wget \
               xorg-x11 \
               xorg-x11-fonts \
-              unzip
+              unzip \
+              MozillaFirefox \
+              libasound2 \
+              libgbm1 \
+              libxshmfence1
 # install go
 RUN           wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
