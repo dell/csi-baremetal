@@ -18,8 +18,6 @@ package utilwrappers
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
@@ -39,13 +37,6 @@ type PartitionOperations interface {
 	SearchPartName(device, partUUID string) string
 	ph.WrapPartition
 }
-
-const (
-	// NumberOfRetriesToSyncPartTable how many times to sync fs tab
-	NumberOfRetriesToSyncPartTable = 3
-	// SleepBetweenRetriesToSyncPartTable default timeout between fs tab sync attempt
-	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
-)
 
 // Partition is hold all attributes of partition on block device
 type Partition struct {

@@ -89,16 +89,31 @@ var supportedTypes = []string{PartitionGPT}
 
 // WrapPartitionImpl is the basic implementation of WrapPartition interface
 type WrapPartitionImpl struct {
-	e         command.CmdExecutor
-	lsblkUtil lsblk.WrapLsblk
-	opMutex   sync.Mutex
+	e                                  command.CmdExecutor
+	lsblkUtil                          lsblk.WrapLsblk
+	opMutex                            sync.Mutex
+	numberOfRetriesToSyncPartTable     int
+	sleepBetweenRetriesToSyncPartTable time.Duration
 }
 
 // NewWrapPartitionImpl is a constructor for WrapPartitionImpl instance
 func NewWrapPartitionImpl(e command.CmdExecutor, log *logrus.Logger) *WrapPartitionImpl {
 	return &WrapPartitionImpl{
-		e:         e,
-		lsblkUtil: lsblk.NewLSBLK(log),
+		e:                                  e,
+		lsblkUtil:                          lsblk.NewLSBLK(log),
+		numberOfRetriesToSyncPartTable:     NumberOfRetriesToSyncPartTable,
+		sleepBetweenRetriesToSyncPartTable: SleepBetweenRetriesToSyncPartTable,
+	}
+}
+
+// NewWrapPartitionImplWithParameters is a constructor for WrapPartitionImpl instance
+func NewWrapPartitionImplWithParameters(e command.CmdExecutor, log *logrus.Logger, numberOfRetriesToSyncPartTable int,
+	sleepBetweenRetriesToSyncPartTable time.Duration) *WrapPartitionImpl {
+	return &WrapPartitionImpl{
+		e:                                  e,
+		lsblkUtil:                          lsblk.NewLSBLK(log),
+		numberOfRetriesToSyncPartTable:     numberOfRetriesToSyncPartTable,
+		sleepBetweenRetriesToSyncPartTable: sleepBetweenRetriesToSyncPartTable,
 	}
 }
 
@@ -260,7 +275,7 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 func (p *WrapPartitionImpl) SyncPartitionTable(device string) (err error) {
 	cmd := fmt.Sprintf(BlockdevCmdTmpl, device)
 
-	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
+	for i := 0; i < p.numberOfRetriesToSyncPartTable; i++ {
 		// sync partition table
 		p.opMutex.Lock()
 		_, _, err = p.e.RunCmd(cmd, command.UseMetrics(true),
@@ -269,7 +284,7 @@ func (p *WrapPartitionImpl) SyncPartitionTable(device string) (err error) {
 		if err == nil {
 			return nil
 		}
-		time.Sleep(SleepBetweenRetriesToSyncPartTable)
+		time.Sleep(p.sleepBetweenRetriesToSyncPartTable)
 	}
 
 	return
