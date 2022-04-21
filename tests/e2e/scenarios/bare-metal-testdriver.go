@@ -84,7 +84,6 @@ func initBaremetalDriver() *baremetalDriver {
 
 var _ storageframework.TestDriver = &baremetalDriver{}
 var _ storageframework.DynamicPVTestDriver = &baremetalDriver{}
-var _ storageframework.EphemeralTestDriver = &baremetalDriver{}
 var _ storageframework.PreprovisionedPVTestDriver = &baremetalDriver{}
 
 // GetDriverInfo is implementation of TestDriver interface method
@@ -120,6 +119,11 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		if pattern.Name == "Generic Ephemeral-volume (default fs) (late-binding)" {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
+	}
+
+	// skip inline volume test since not supported anymore
+	if pattern.VolType == storageframework.InlineVolume || pattern.VolType == storageframework.CSIInlineVolume {
+		e2eskipper.Skipf("Baremetal Driver does not support Inline Volumes -- skipping")
 	}
 
 	if pattern.BindingMode == storagev1.VolumeBindingImmediate {
@@ -225,6 +229,8 @@ func (d *baremetalDriver) GetStorageClassWithStorageType(config *storageframewor
 func (d *baremetalDriver) GetClaimSize() string {
 	return persistentVolumeClaimSize
 }
+
+var _ storageframework.EphemeralTestDriver = &baremetalDriver{}
 
 // GetVolume is implementation of EphemeralTestDriver interface method
 func (d *baremetalDriver) GetVolume(config *storageframework.PerTestConfig,

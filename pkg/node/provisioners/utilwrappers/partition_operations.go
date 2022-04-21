@@ -55,7 +55,6 @@ type Partition struct {
 	TableType string
 	Label     string
 	PartUUID  string
-	Ephemeral bool
 }
 
 // GetFullPath return full path of partition, that path could be used for file system operations
@@ -125,22 +124,18 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 	}
 
 	// create partition
-	if err = d.CreatePartition(p.Device, p.Label, p.PartUUID, !p.Ephemeral); err != nil {
+	if err = d.CreatePartition(p.Device, p.Label, p.PartUUID); err != nil {
 		return nil, fmt.Errorf("unable to create partition: %v", err)
 	}
+
+	// sync partition table
 	if err = d.SyncPartitionTable(p.Device); err != nil {
 		return nil, fmt.Errorf("unable to sync partition table: %v", err)
 	}
 
-	if p.Ephemeral {
-		p.PartUUID, err = d.GetPartitionUUID(p.Device, p.Num)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get partition UUID for ephemeral volume: %v", err)
-		}
-	}
-
-	p.Name, err = d.GetPartitionNameByUUID(p.Device, p.PartUUID)
-	if err != nil {
+	// obtain partition name
+	p.Name = d.SearchPartName(p.Device, p.PartUUID)
+	if p.Name == "" {
 		return nil, fmt.Errorf("unable to determine partition name after it being created: %v", err)
 	}
 
