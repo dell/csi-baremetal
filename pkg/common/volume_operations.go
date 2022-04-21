@@ -47,8 +47,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// VolumeOperations is the interface that unites common Volume CRs operations. It is designed for inline volume support
-// without code duplication
+// VolumeOperations is the interface that unites common Volume CRs operations
 type VolumeOperations interface {
 	CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error)
 	DeleteVolume(ctx context.Context, volumeID string) error
@@ -206,12 +205,10 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		locationType = apiV1.LocationTypeDrive
 	}
 
-	if !v.Ephemeral {
-		claimLabels, err = vo.getPersistentVolumeClaimLabels(ctx, reservationName, podNamespace)
-		if err != nil {
-			log.Errorf("Unable to get related PVC, error: %v", err)
-			return nil, status.Errorf(codes.Internal, "unable to get related PVC")
-		}
+	claimLabels, err = vo.getPersistentVolumeClaimLabels(ctx, reservationName, podNamespace)
+	if err != nil {
+		log.Errorf("Unable to get related PVC, error: %v", err)
+		return nil, status.Errorf(codes.Internal, "unable to get related PVC")
 	}
 
 	// create volume CR
@@ -367,26 +364,20 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 		return err
 	}
 
-	if !volumeCR.Spec.Ephemeral {
-		switch volumeCR.Spec.CSIStatus {
-		case apiV1.Created:
-		case apiV1.Failed:
-			return status.Error(codes.Internal, "volume has reached failed status")
-		case apiV1.Removed:
-			ll.Debug("Volume has Removed status")
-			return nil
-		case apiV1.Removing:
-			ll.Debug("Volume has Removing status")
-			return nil
-		default:
-			return status.Errorf(codes.FailedPrecondition,
-				"Volume CR status hadn't been set to %s, current status - %s, expected - %s",
-				apiV1.Removing, volumeCR.Spec.CSIStatus, apiV1.Created)
-		}
-	} else if volumeCR.Spec.CSIStatus != apiV1.Published { // expect Published status for ephemeral volume
+	switch volumeCR.Spec.CSIStatus {
+	case apiV1.Created:
+	case apiV1.Failed:
+		return status.Error(codes.Internal, "volume has reached failed status")
+	case apiV1.Removed:
+		ll.Debug("Volume has Removed status")
+		return nil
+	case apiV1.Removing:
+		ll.Debug("Volume has Removing status")
+		return nil
+	default:
 		return status.Errorf(codes.FailedPrecondition,
-			"CSIStatus for ephemeral volume hadn't been set to %s, current status - %s, expected - %s",
-			apiV1.Removing, volumeCR.Spec.CSIStatus, apiV1.Published)
+			"Volume CR status hadn't been set to %s, current status - %s, expected - %s",
+			apiV1.Removing, volumeCR.Spec.CSIStatus, apiV1.Created)
 	}
 
 	volumeCR.Spec.CSIStatus = apiV1.Removing

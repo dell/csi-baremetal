@@ -44,7 +44,6 @@ var (
 		TableType: partitionhelper.PartitionGPT,
 		Label:     DefaultPartitionLabel,
 		PartUUID:  testPartUUID1,
-		Ephemeral: false,
 	}
 )
 
@@ -87,7 +86,7 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 		Return(false, nil).Twice()
 	mockPH.On("CreatePartitionTable", testPart1.Device, testPart1.TableType).
 		Return(nil).Twice()
-	mockPH.On("CreatePartition", testPart1.Device, testPart1.Label, testPart1.PartUUID, !testPart1.Ephemeral).
+	mockPH.On("CreatePartition", testPart1.Device, testPart1.Label, testPart1.PartUUID).
 		Return(nil).Twice()
 	// if volume Ephemeral
 	var partUUIDForEphemeral = "uuid-eeee"
@@ -106,22 +105,6 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	p.Name = partName
 	assert.Equal(t, p, *currentPPtr)
 	mockPH.AssertNotCalled(t, "GetPartitionUUID", testPart1.Device, testPart1.Num)
-	mockPH.Calls = []mock.Call{} // flush mock call records
-
-	// ephemeral
-	mockPH.On("GetPartitionNameByUUID", testPart1.Device, partUUIDForEphemeral).
-		Return(partName, nil).Once()
-	pE := testPart1
-	pE.Ephemeral = true
-	mockPH.On("CreatePartition", pE.Device, pE.Label, pE.PartUUID, !pE.Ephemeral).
-		Return(nil).Twice()
-
-	currentPPtr, err = partOps.PreparePartition(pE)
-	assert.Nil(t, err)
-	pE.Name = partName
-	pE.PartUUID = partUUIDForEphemeral
-	assert.Equal(t, pE, *currentPPtr)
-	mockPH.AssertCalled(t, "GetPartitionUUID", testPart1.Device, testPart1.Num)
 }
 
 func TestDriveProvisioner_PreparePartition_Failed(t *testing.T) {
@@ -179,27 +162,13 @@ func TestDriveProvisioner_PreparePartition_Failed(t *testing.T) {
 		Return(nil)
 
 	// CreatePartition failed
-	mockPH.On("CreatePartition", testPart1.Device, testPart1.Label, testPart1.PartUUID, !testPart1.Ephemeral).
+	mockPH.On("CreatePartition", testPart1.Device, testPart1.Label, testPart1.PartUUID).
 		Return(expectedErr).Once()
 
 	currentPPtr, err = partOps.PreparePartition(testPart1)
 	assert.Nil(t, currentPPtr)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "unable to create partition")
-	// GetPartitionUUID failed for ephemeral
-	mockPH.On("GetPartitionUUID", testPart1.Device, testPart1.Num).
-		Return("", expectedErr).Once()
-
-	pE := testPart1
-	pE.Ephemeral = true
-	mockPH.On("CreatePartition", pE.Device, pE.Label, pE.PartUUID, !pE.Ephemeral).
-		Return(nil).Once()
-	mockPH.On("SyncPartitionTable", pE.Device).Return(nil)
-
-	currentPPtr, err = partOps.PreparePartition(pE)
-	assert.Nil(t, currentPPtr)
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "unable to get partition UUID for ephemeral volume")
 }
 
 func TestDriveProvisioner_ReleasePartition_Success(t *testing.T) {
