@@ -62,31 +62,6 @@ func NewVolumeInfo(parameters map[string]string) (*VolumeInfo, error) {
 	return &VolumeInfo{claimNamespace, claimName}, nil
 }
 
-// NewInlineVolumeInfo receives parameters from NodePublishRequest and returns new VolumeInfo
-func NewInlineVolumeInfo(mountPath string, parameters map[string]string) (*VolumeInfo, error) {
-	volumeNamespace, ok := parameters[PodNamespaceKey]
-	if !ok {
-		return nil, errors.New("inline volume namespace is not set in request")
-	}
-	// Extract inline volume name from target mount path.
-	// For example - /var/lib/kubelet/pods/<uuid>/volumes/kubernetes.io~csi/<volume name>/mount
-	// this is hack and we might need to ask user to set volume name in csi.volumeAttributes in addition to
-	// spec.volumes[].volume.name
-	pathSplit := strings.Split(mountPath, "/")
-	length := len(pathSplit)
-	if length < 2 {
-		return nil, errors.New("unable to parse inline volume name")
-	}
-	// get pod name
-	podName, ok := parameters[PodNameKey]
-	if !ok {
-		return nil, errors.New("inline volume namespace is not set in request")
-	}
-	// inline volume name
-	volumeName := podName + "-" + pathSplit[length-2]
-	return &VolumeInfo{volumeNamespace, volumeName}, nil
-}
-
 // IsDefaultNamespace returns true when namespace is not defined and false otherwise
 func (v *VolumeInfo) IsDefaultNamespace() bool {
 	return v.Namespace == ""

@@ -61,8 +61,8 @@ func (m *MockWrapPartition) CreatePartitionTable(device, partTableType string) (
 }
 
 // CreatePartition is a mock implementations
-func (m *MockWrapPartition) CreatePartition(device, label, partUUID string, setUUID bool) (err error) {
-	args := m.Mock.Called(device, label, partUUID, setUUID)
+func (m *MockWrapPartition) CreatePartition(device, label, partUUID string) (err error) {
+	args := m.Mock.Called(device, label, partUUID)
 
 	return args.Error(0)
 }

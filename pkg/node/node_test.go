@@ -34,10 +34,8 @@ import (
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -47,7 +45,6 @@ import (
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
-	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 
 var (
@@ -599,104 +596,6 @@ var _ = Describe("CSINodeService Check()", func() {
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.Status).To(Equal(grpc_health_v1.HealthCheckResponse_NOT_SERVING))
-	})
-})
-
-var _ = Describe("CSINodeService InlineVolumes", func() {
-	BeforeEach(func() {
-		setVariables()
-	})
-
-	Context("Volume Context with inline volumes", func() {
-		It("Fail to parse volume context", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.StagingTargetPath = ""
-			req.VolumeContext[EphemeralKey] = "true1"
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-
-		// TODO refactor UT - https://github.com/dell/csi-baremetal/issues/371
-		/*It("Should create inline volume", func() {
-			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			req.VolumeContext[base.SizeKey] = "50Gi"
-			req.VolumeContext[util.PodNameKey] = testPodName
-			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
-			Expect(err).To(BeNil())
-
-			var (
-				createdVolCR = testVolumeCR1
-				srcPath      = "/some/path"
-			)
-
-			createdVolCR.Spec.CSIStatus = apiV1.Created
-			err = node.k8sClient.UpdateCR(testCtx, &createdVolCR)
-			Expect(err).To(BeNil())
-
-			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
-			prov.On("GetVolumePath", createdVolCR.Spec).Return(srcPath, nil)
-			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false, true).Return(nil)
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-			// check volume CR status and owners
-			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, createdVolCR.Name, "", volumeCR)
-			Expect(err).To(BeNil())
-
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
-			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
-		})*/
-		It("Should fail to create inline volume in CreateVolume step", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			req.VolumeContext[base.SizeKey] = "50Gi"
-
-			var emptyVol *api.Volume
-			volOps.On("CreateVolume", mock.Anything, mock.Anything).
-				Return(emptyVol, errors.New("error"))
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-		It("Should fail to create inline volume in GetVolumePath step", func() {
-			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			req.VolumeContext[base.SizeKey] = "50Gi"
-			req.VolumeContext[util.PodNameKey] = testPodName
-			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
-			Expect(err).To(BeNil())
-
-			var (
-				createdVolCR = &vcrd.Volume{}
-				srcPath      = "/some/path"
-			)
-
-			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", createdVolCR)
-			Expect(err).To(BeNil())
-			createdVolCR.Spec.CSIStatus = apiV1.Created
-			err = node.k8sClient.UpdateCR(testCtx, createdVolCR)
-			Expect(err).To(BeNil())
-
-			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
-			prov.On("GetVolumePath", &createdVolCR.Spec).Return(srcPath, errors.New("error"))
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-
-		It("Should fail with missing size", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
 	})
 })
 

@@ -41,6 +41,7 @@ message Volume {
     string OperationalStatus = 11;
     string CSIStatus = 12;
     string Usage = 13;
+    // inline volumes are not support anymore. need to remove field in the next version
     bool Ephemeral = 14;
 }
 
