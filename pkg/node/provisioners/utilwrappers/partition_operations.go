@@ -181,7 +181,6 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string
 		ll.Debugf("unable to find part name: %v", err)
 	}
 
-
 	ll.Debugf("Got partition number %s", partName)
 	return partName
 }

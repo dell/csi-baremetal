@@ -117,6 +117,7 @@ func TestSyncPartitionTable(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+// todo TestSyncPartitionTableFail takes 15 seconds. need to refactor - https://github.com/dell/csi-baremetal/issues/825
 func TestSyncPartitionTableFail(t *testing.T) {
 	err := testPartitioner.SyncPartitionTable("/dev/sdXXXX")
 	assert.NotNil(t, err)

@@ -263,7 +263,7 @@ func (p *WrapPartitionImpl) SyncPartitionTable(device string) (err error) {
 	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
 		// sync partition table
 		p.opMutex.Lock()
-		_, _, err := p.e.RunCmd(cmd, command.UseMetrics(true),
+		_, _, err = p.e.RunCmd(cmd, command.UseMetrics(true),
 			command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
 		p.opMutex.Unlock()
 		if err == nil {
