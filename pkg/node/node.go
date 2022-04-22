@@ -22,9 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"strconv"
-	"strings"
-	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -32,7 +29,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/keymutex"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -64,8 +60,7 @@ const (
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
-	svc   common.VolumeOperations
-	reqMu sync.Mutex
+	svc common.VolumeOperations
 
 	log           *logrus.Entry
 	livenessCheck LivenessHelper
@@ -80,8 +75,6 @@ type CSINodeService struct {
 const (
 	// UnknownPodName is used when pod name isn't provided in request
 	UnknownPodName = "UNKNOWN"
-	// EphemeralKey in volume context means that in node publish request we need to create ephemeral volume
-	EphemeralKey = "csi.storage.k8s.io/ephemeral"
 )
 
 // NewCSINodeService is the constructor for CSINodeService struct
@@ -387,7 +380,6 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, "Target Path missing in request")
 	}
 	var (
-		inline       bool
 		err          error
 		mountOptions []string
 	)
@@ -396,36 +388,13 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		mountOptions = mountoptions.FilterWithType(mountoptions.PublishCmdOpt, accessType.Mount.GetMountFlags())
 	}
 
-	if req.GetVolumeContext() != nil {
-		val, ok := req.GetVolumeContext()[EphemeralKey]
-		if ok {
-			inline, err = strconv.ParseBool(val)
-			if err != nil {
-				ll.Errorf("Failed to parse bool: %v", err)
-				return nil, status.Error(codes.Internal, "failed to determine whether volume ephemeral or no")
-			}
-		}
-	}
-
 	var (
 		volumeID = req.GetVolumeId()
 		srcPath  = getStagingPath(ll, req.GetStagingTargetPath())
 		dstPath  = req.GetTargetPath()
 	)
-	// Inline volume has the same cycle as usual volume,
-	// but k8s calls only Publish/Unpulish methods so we need to call CreateVolume before publish it
-	if inline {
-		vol, err := s.createInlineVolume(ctx, volumeID, req)
-		if err != nil {
-			ll.Errorf("Failed to create inline volume: %v", err)
-			return nil, status.Error(codes.Internal, "unable to create inline volume")
-		}
-		srcPath, err = s.getProvisionerForVolume(vol).GetVolumePath(vol)
-		if err != nil {
-			ll.Errorf("failed to get partition for volume %v: %v", vol, err)
-			return nil, status.Error(codes.Internal, "failed to publish inline volume: partition error")
-		}
-	} else if len(srcPath) == 0 {
+
+	if len(srcPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Staging Path missing in request")
 	}
 
@@ -435,8 +404,8 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	// if currStatus not in [VolumeReady, Published], but for inline volume we expect Created status
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published && !inline {
+	// if currStatus not in [VolumeReady, Published]
+	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)
@@ -483,71 +452,6 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: update volume CR error")
 	}
 	return resp, errToReturn
-}
-
-// createInlineVolume encapsulate logic for creating inline volumes
-func (s *CSINodeService) createInlineVolume(ctx context.Context, volumeID string, req *csi.NodePublishVolumeRequest) (*api.Volume, error) {
-	ll := s.log.WithFields(logrus.Fields{
-		"method":   "createInlineVolume",
-		"volumeID": volumeID,
-	})
-
-	var (
-		volumeContext = req.GetVolumeContext() // verified in NodePublishVolume method
-		bytesStr      = volumeContext[base.SizeKey]
-		fsType        = ""
-		mode          string
-		scl           string
-		bytes         int64
-		err           error
-	)
-	// kubernetes specifics
-	volumeInfo, err := util.NewInlineVolumeInfo(req.TargetPath, volumeContext)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	ctxValue := context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
-
-	if bytes, err = util.StrToBytes(bytesStr); err != nil {
-		return nil, err
-	}
-
-	if accessType, ok := req.GetVolumeCapability().AccessType.(*csi.VolumeCapability_Mount); ok {
-		fsType = strings.ToLower(accessType.Mount.FsType)
-		if fsType == "" {
-			fsType = base.DefaultFsType
-			ll.Infof("FS type wasn't provide. Will use %s as a default value", fsType)
-		}
-		mode = apiV1.ModeFS
-	}
-
-	scl = util.ConvertStorageClass(volumeContext[base.StorageTypeKey])
-	if scl == apiV1.StorageClassAny {
-		scl = apiV1.StorageClassHDD // do not use sc ANY for inline volumes
-	}
-
-	s.reqMu.Lock()
-	vol, err := s.svc.CreateVolume(ctxValue, api.Volume{
-		Id:           volumeID,
-		StorageClass: scl,
-		NodeId:       s.nodeID,
-		Size:         bytes,
-		Ephemeral:    true,
-		Mode:         mode,
-		Type:         fsType,
-	})
-	s.reqMu.Unlock()
-	if err != nil {
-		return nil, err
-	}
-
-	if vol.CSIStatus == apiV1.Creating {
-		if err = s.svc.WaitStatus(ctx, vol.Id, apiV1.Failed, apiV1.Created); err != nil {
-			return nil, err
-		}
-	}
-
-	return vol, nil
 }
 
 // NodeUnpublishVolume is the implementation of CSI Spec NodePublishVolume. Performs each time pod stops consume a volume.
@@ -605,34 +509,10 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	}
 
 	volumeCR.Spec.Owners = nil
-	// k8s doesn't call DeleteVolume for inline volumes, so we perform DeleteVolume operation in Unpublish request
-	if volumeCR.Spec.Ephemeral {
-		s.reqMu.Lock()
-		err := s.svc.DeleteVolume(ctxWithID, req.GetVolumeId())
-		s.reqMu.Unlock()
-
-		if err != nil {
-			if k8sError.IsNotFound(err) {
-				ll.Infof("Volume doesn't exist")
-				return &csi.NodeUnpublishVolumeResponse{}, nil
-			}
-			ll.Errorf("Unable to delete volume: %v", err)
-			return nil, err
-		}
-
-		if err = s.svc.WaitStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed); err != nil {
-			ll.Warn("Status wasn't reached")
-			return nil, status.Error(codes.Internal, "Unable to delete volume")
-		}
-		s.reqMu.Lock()
-		s.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
-		s.reqMu.Unlock()
-	} else {
-		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
-		if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
-			ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
-			return nil, status.Error(codes.Internal, updateErr.Error())
-		}
+	volumeCR.Spec.CSIStatus = apiV1.VolumeReady
+	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
+		ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
+		return nil, status.Error(codes.Internal, updateErr.Error())
 	}
 
 	ll.Debugf("Unpublished successfully")

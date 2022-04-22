@@ -17,7 +17,6 @@ Features
 - [Dynamic provisioning](https://kubernetes-csi.github.io/docs/external-provisioner.html): Volumes are created dynamically when `PersistentVolumeClaim` objects are created.
 - Volume binding modes
   - WaitForFirstConsumer 
-- Inline (ephemeral) volumes
 - Generic ephemeral volumes (k8s v1.21+)
 - LVM support
 - Storage classes for the different drive types: HDD, SSD, NVMe

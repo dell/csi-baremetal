@@ -114,7 +114,6 @@ func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 		Label:     DefaultPartitionLabel,
 		Num:       DefaultPartitionNumber,
 		PartUUID:  volUUID,
-		Ephemeral: vol.Ephemeral,
 	}
 
 	ll.Infof("Create partition %v on device %s and set UUID", part, device)
@@ -129,7 +128,7 @@ func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 		return nil
 	}
 
-	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath(), volUUID, vol.Ephemeral)
+	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath(), volUUID)
 }
 
 // ReleaseVolume remove FS and partition based on vol attributes.
@@ -156,15 +155,6 @@ func (d *DriveProvisioner) ReleaseVolume(vol *api.Volume, drive *api.Drive) erro
 			PartUUID: partUUID,
 		}
 	)
-
-	// TODO: temporary solution because of ephemeral volumes volume id - https://github.com/dell/csi-baremetal/issues/87
-	if vol.Ephemeral {
-		part.PartUUID, err = d.partOps.GetPartitionUUID(device, DefaultPartitionNumber)
-		if err != nil {
-			return d.wipeDevice(device,
-				fmt.Errorf("unable to determine partition UUID for ephemeral volume: %v", err), ll)
-		}
-	}
 
 	part.Name = d.partOps.SearchPartName(device, part.PartUUID)
 	if part.Name == "" {
@@ -229,13 +219,6 @@ func (d *DriveProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 	ll.Debugf("Got device %s", device)
 
 	var volumeUUID = vol.Id
-	// TODO: temporary solution because of ephemeral volumes volume id - https://github.com/dell/csi-baremetal/issues/87
-	if vol.Ephemeral {
-		volumeUUID, err = d.partOps.GetPartitionUUID(device, DefaultPartitionNumber)
-		if err != nil {
-			return "", fmt.Errorf("unable to determine partition UUID: %v", err)
-		}
-	}
 	if vol.Mode == apiV1.ModeRAW {
 		return device, nil
 	}

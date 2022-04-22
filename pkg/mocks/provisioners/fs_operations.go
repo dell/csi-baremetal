@@ -48,8 +48,8 @@ func (m *MockFsOpts) UnmountWithCheck(path string) error {
 }
 
 // CreateFSIfNotExist is a mock implementation
-func (m *MockFsOpts) CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string, ephemeral bool) error {
-	args := m.Mock.Called(fsType, device, uuid, ephemeral)
+func (m *MockFsOpts) CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error {
+	args := m.Mock.Called(fsType, device, uuid)
 
 	return args.Error(0)
 }

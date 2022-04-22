@@ -18,8 +18,6 @@ package node
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -33,7 +31,6 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
@@ -52,32 +49,10 @@ var (
 	stagePath   = "/tmp/stagePath"
 	testPodName = "pod-1"
 
-	testLogger  = getTestLogger()
-	testCtx     = context.Background()
-	disk1       = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID, Path: "/dev/sda"}
-	disk2       = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID, Path: "/dev/sda"}
-	testAC1Name = fmt.Sprintf("%s-%s", nodeID, strings.ToLower(disk1.UUID))
-	testAC1     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC1Name, Namespace: testNs},
-		Spec: api.AvailableCapacity{
-			Size:         1024 * 1024 * 1024 * 1024,
-			StorageClass: apiV1.StorageClassHDD,
-			Location:     disk1.UUID,
-			NodeId:       nodeID,
-		},
-	}
-	testAC2Name = fmt.Sprintf("%s-%s", nodeID, strings.ToLower(disk2.UUID))
-	testAC2     = accrd.AvailableCapacity{
-		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNs},
-		Spec: api.AvailableCapacity{
-			Size:         1024 * 1024 * 1024,
-			StorageClass: apiV1.StorageClassHDD,
-			Location:     disk2.UUID,
-			NodeId:       nodeID,
-		},
-	}
+	testLogger = getTestLogger()
+	testCtx    = context.Background()
+	disk1      = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID, Path: "/dev/sda"}
+	disk2      = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID, Path: "/dev/sda"}
 	// volumes
 	testV1ID = "volume-1-id"
 	testV2ID = "volume-2-id"
