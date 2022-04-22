@@ -416,7 +416,6 @@ func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 	svc = setupVOOperationsTest(t)
 	svc.cache.Set(volumeCR.Name, volumeCR.Namespace)
 	volumeCR = *testVolume1.DeepCopy()
-	volumeCR.Spec.Ephemeral = true
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
 
 	err = svc.DeleteVolume(testCtx, volumeCR.Name)

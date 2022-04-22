@@ -35,7 +35,7 @@ type WrapPartition interface {
 	IsPartitionExists(device, partNum string) (exists bool, err error)
 	GetPartitionTableType(device string) (ptType string, err error)
 	CreatePartitionTable(device, partTableType string) (err error)
-	CreatePartition(device, label, partUUID string, setUUID bool) (err error)
+	CreatePartition(device, label, partUUID string) (err error)
 	DeletePartition(device, partNum string) (err error)
 	GetPartitionUUID(device, partNum string) (string, error)
 	SyncPartitionTable(device string) error
@@ -174,11 +174,8 @@ func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error)
 // CreatePartition creates partition with name partName on a device
 // Receives device path to create a partition
 // Returns error if something went wrong
-func (p *WrapPartitionImpl) CreatePartition(device, label, partUUID string, setUUID bool) error {
-	cmd := fmt.Sprintf(CreatePartitionCmdTmpl, label, device)
-	if setUUID {
-		cmd = fmt.Sprintf(CreatePartitionCmdWithUUIDTmpl, label, partUUID, device)
-	}
+func (p *WrapPartitionImpl) CreatePartition(device, label, partUUID string) error {
+	cmd := fmt.Sprintf(CreatePartitionCmdWithUUIDTmpl, label, partUUID, device)
 
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd,

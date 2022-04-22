@@ -239,18 +239,6 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 	for _, v := range pod.Spec.Volumes {
 		ll.Debugf("Volume %s details: %+v", v.Name, v)
 		// check whether volume Ephemeral or not
-		if v.CSI != nil {
-			if v.CSI.Driver == e.provisioner {
-				// TODO we shouldn't request reservation for inline volumes which already provisioned
-				request, err := e.createCapacityRequest(ctx, pod.Name, v)
-				if err != nil {
-					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
-				}
-				// need to apply any result for getting at leas amount of requests
-				requests = append(requests, request)
-			}
-			continue
-		}
 		if v.Ephemeral != nil {
 			claimSpec := v.Ephemeral.VolumeClaimTemplate.Spec
 			if claimSpec.StorageClassName == nil {
