@@ -1,6 +1,6 @@
 # Proposal:  K3s Kubernetes distribution 
 
-Last updated: 20.04.22
+Last updated: 22.04.22
 
 
 ## Abstract
@@ -33,7 +33,17 @@ clientConnection:
 ```
 After that there are two ways:
 1. If you haven't started the service yet, run service creation command with the following flag `k3s server --kube-scheduler-arg=config=/var/lib/rancher/k3s/agent/pod-manifests/scheduler/config.yaml`
-2. If you already have a running service, modify  `/etc/systemd/system/k3s.service`. Add at the option `ExecStart` (end of the file) next string `--kube-scheduler-arg=config=/var/lib/rancher/k3s/agent/pod-manifests/scheduler/config.yaml` and manually run the command for reloading daemon `systemctl daemon-reload && systemctl restart k3s`. Don't worry about installation `systemctl` because k3s doesn't work without that and install it by default.   
+2. If you already have a running service, modify  `/etc/systemd/system/k3s.service`. Add at the option `ExecStart` (end of the file) next string `--kube-scheduler-arg=config=/var/lib/rancher/k3s/agent/pod-manifests/scheduler/config.yaml`. Service unit will look like this:
+```  
+[Service]
+. . .
+ExecStartPre=/bin/sh -xc '! /usr/bin/systemctl is-enabled --quiet nm-cloud-setup.service'
+ExecStartPre=-/sbin/modprobe br_netfilter
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/local/k3s start \  
+    --kube-scheduler-arg=config=/var/lib/rancher/k3s/agent/pod-manifests/scheduler/config.yaml 
+```
+After that manually run the command for reloading daemon `systemctl daemon-reload && systemctl restart k3s`. Don't worry about installation `systemctl` because k3s doesn't work without that and install it by default.   
 
 It's suggested to use the second method to automatically patch scheduller. We will pass `k3s.service` to patcher, change `ExecStart` parameter and remember what we add. We cann't save the state of the entire file, because this file refers to the operation of the entire service (components inscribed in it). And how this file is changed by us, it can also be changed by other people. After that user used to reload systemd manager configuration and k3s service manually.  
 
