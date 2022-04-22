@@ -96,7 +96,7 @@ func TestCRHelper_GetVolumeByID(t *testing.T) {
 	assert.Nil(t, volume)
 }
 
-func TestCRHelper_GetDriveCRAndLVGCRByVolume_LVG(t *testing.T) {
+func TestCRHelper_GetDriveCRAndLVGCRByVolume(t *testing.T) {
 	var (
 		volume = testVolumeCR.DeepCopy()
 		lvg    = testLVGCR.DeepCopy()
@@ -139,6 +139,40 @@ func TestCRHelper_GetDriveCRAndLVGCRByVolume_LVG(t *testing.T) {
 	driveNew, lvgNew, err = ch.GetDriveCRAndLVGCRByVolume(volume)
 	assert.NotNil(t, driveNew)
 	assert.Nil(t, lvgNew)
+	assert.Nil(t, err)
+
+}
+func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
+	var (
+		volume = testVolumeCR.DeepCopy()
+		lvg    = testLVGCR.DeepCopy()
+		drive  = testDriveCR.DeepCopy()
+	)
+
+	// Positive case: volume point to lvg
+	volume.Spec.Location = lvg.Name
+	volume.Spec.LocationType = v1.LocationTypeLVM
+	lvg.Spec.Locations = []string{drive.Name}
+
+	ch := setup()
+	err := ch.k8sClient.CreateCR(testCtx, volume.Name, volume)
+	assert.Nil(t, err)
+	err = ch.k8sClient.CreateCR(testCtx, lvg.Name, lvg)
+	assert.Nil(t, err)
+	err = ch.k8sClient.CreateCR(testCtx, drive.Name, drive)
+	assert.Nil(t, err)
+	driveNew, err := ch.GetDriveCRByVolume(volume)
+	assert.NotNil(t, driveNew)
+	assert.Nil(t, err)
+
+	// Positive case: volume point to drive
+	volume.Spec.Location = drive.Name
+	volume.Spec.LocationType = v1.LocationTypeDrive
+	err = ch.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+
+	driveNew, err = ch.GetDriveCRByVolume(volume)
+	assert.NotNil(t, driveNew)
 	assert.Nil(t, err)
 
 }
