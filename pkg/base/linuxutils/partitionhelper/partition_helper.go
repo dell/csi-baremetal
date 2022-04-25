@@ -317,8 +317,8 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 
 	// try to find partition name
 	for _, id := range blockdevices[0].Children {
-		// ignore cases
 		p.log.Infof("parition name: %s, UUID: %s", id.Name, id.PartUUID)
+		// ignore cases
 		if strings.EqualFold(partUUID, id.PartUUID) {
 			// partition name not detected
 			if id.Name == "" {

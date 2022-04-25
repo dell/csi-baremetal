@@ -18,6 +18,7 @@ package utilwrappers
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -25,6 +26,13 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 	"github.com/dell/csi-baremetal/pkg/metrics"
+)
+
+const (
+	// NumberOfRetriesToObtainPartName how many retries to obtain partition name
+	NumberOfRetriesToObtainPartName = 5
+	// SleepBetweenRetriesToObtainPartName default timeout between retries to obtain partition name
+	SleepBetweenRetriesToObtainPartName = 3 * time.Second
 )
 
 // PartitionOperations is a high-level interface
@@ -168,9 +176,26 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 	)
 
 	// get partition name
-	partName, err = d.GetPartitionNameByUUID(device, partUUID)
-	if err != nil {
-		ll.Errorf("unable to find part name: %v", err)
+	for i := 0; i < NumberOfRetriesToObtainPartName; i++ {
+		// sync partition table
+		err = d.SyncPartitionTable(device)
+		if err != nil {
+			// log and ignore error
+			ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
+			return "", err
+		}
+		partName, err = d.GetPartitionNameByUUID(device, partUUID)
+		if err != nil {
+			ll.Warningf("Unable to find part name: %v. Sleep and retry...", err)
+			time.Sleep(SleepBetweenRetriesToObtainPartName)
+			continue
+		}
+		break
+	}
+
+	// partition not found
+	if partName == "" {
+		ll.Errorf("Partition not found: %v", err)
 		return "", err
 	}
 
