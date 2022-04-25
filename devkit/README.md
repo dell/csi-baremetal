@@ -13,7 +13,7 @@ to build [csi-baremetal](https://github.com/dell/csi-baremetal).
 ### Usage
 - Set environment variables:
   - If you pulled the image from registry:
-    - `export DEVKIT_DOCKER_IMAGE_REPO="asdrepo.isus.emc.com:8085/emcecs/fabric/devkit"`
+    - `export DEVKIT_DOCKER_IMAGE_REPO="ACTUAL_DOCKER_REGISTRY"`
   - `export DEVKIT_WORKSPACE_HOST_DIR_PATH=<path to your workspace on the host>`
 - `./devkit` (if installed: `devkit`)  
 
