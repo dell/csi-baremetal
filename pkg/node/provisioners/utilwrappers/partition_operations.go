@@ -35,7 +35,7 @@ type PartitionOperations interface {
 	// ReleasePartition is fully release resources that had consumed by partition on node
 	ReleasePartition(p Partition) error
 	// SearchPartName returns partition name
-	SearchPartName(device, partUUID string) string
+	SearchPartName(device, partUUID string) (string, error)
 	ph.WrapPartition
 }
 
@@ -101,8 +101,8 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 		}
 		if currUUID == p.PartUUID {
 			ll.Infof("Partition has already prepared.")
-			p.Name = d.SearchPartName(p.Device, p.PartUUID)
-			if p.Name == "" {
+			p.Name, err = d.SearchPartName(p.Device, p.PartUUID)
+			if err != nil {
 				return nil, fmt.Errorf("unable to determine partition name after it being created: %w", err)
 			}
 			return &p, nil
@@ -126,9 +126,9 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 	}
 
 	// obtain partition name
-	p.Name = d.SearchPartName(p.Device, p.PartUUID)
-	if p.Name == "" {
-		return nil, fmt.Errorf("unable to determine partition name after it being created: %v", err)
+	p.Name, err = d.SearchPartName(p.Device, p.PartUUID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine partition name after it being created: %w", err)
 	}
 
 	return &p, nil
@@ -154,7 +154,7 @@ func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
 
 // SearchPartName search (with retries) partition with UUID partUUID on device and returns partition name
 // e.g. "1" for /dev/sda1, "p1n1" for /dev/loopbackp1n1
-func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string {
+func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (string, error) {
 	defer d.metrics.EvaluateDurationForMethod("SearchPartName")()
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "SearchPartName",
@@ -170,9 +170,10 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string
 	// get partition name
 	partName, err = d.GetPartitionNameByUUID(device, partUUID)
 	if err != nil {
-		ll.Debugf("unable to find part name: %v", err)
+		ll.Errorf("unable to find part name: %v", err)
+		return "", err
 	}
 
 	ll.Debugf("Got partition number %s", partName)
-	return partName
+	return partName, nil
 }

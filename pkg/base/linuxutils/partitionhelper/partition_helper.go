@@ -94,6 +94,7 @@ type WrapPartitionImpl struct {
 	opMutex                            sync.Mutex
 	numberOfRetriesToSyncPartTable     int
 	sleepBetweenRetriesToSyncPartTable time.Duration
+	log                                *logrus.Logger
 }
 
 // NewWrapPartitionImpl is a constructor for WrapPartitionImpl instance
@@ -103,6 +104,7 @@ func NewWrapPartitionImpl(e command.CmdExecutor, log *logrus.Logger) *WrapPartit
 		lsblkUtil:                          lsblk.NewLSBLK(log),
 		numberOfRetriesToSyncPartTable:     NumberOfRetriesToSyncPartTable,
 		sleepBetweenRetriesToSyncPartTable: SleepBetweenRetriesToSyncPartTable,
+		log:                                log,
 	}
 }
 
@@ -114,6 +116,7 @@ func NewWrapPartitionImplWithParameters(e command.CmdExecutor, log *logrus.Logge
 		lsblkUtil:                          lsblk.NewLSBLK(log),
 		numberOfRetriesToSyncPartTable:     numberOfRetriesToSyncPartTable,
 		sleepBetweenRetriesToSyncPartTable: sleepBetweenRetriesToSyncPartTable,
+		log:                                log,
 	}
 }
 
@@ -315,6 +318,7 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 	// try to find partition name
 	for _, id := range blockdevices[0].Children {
 		// ignore cases
+		p.log.Infof("parition name: %s, UUID: %s", id.Name, id.PartUUID)
 		if strings.EqualFold(partUUID, id.PartUUID) {
 			// partition name not detected
 			if id.Name == "" {
