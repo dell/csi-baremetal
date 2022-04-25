@@ -6,9 +6,26 @@ Last updated: 20.04.22
 
 ## Abstract
 
-Helm is unable to handle the lifecycle of a CustomResourceDefinition.
-If CRD was already installed helm will not upgrade it with plain `helm install\upgrade` routine.
-We need a mechanism for CRD upgrades.
+### Custom Resource Definitions (CRDs)
+
+Kubernetes provides a mechanism for declaring new types of Kubernetes objects. Using CustomResourceDefinitions (CRDs), Kubernetes developers can declare custom resource types.
+
+In Helm 3, CRDs are treated as a special kind of object. They are installed before the rest of the chart, and are subject to some limitations.
+
+CRD YAML files should be placed in the crds/ directory inside of a chart. Multiple CRDs (separated by YAML start and end markers) may be placed in the same file. Helm will attempt to load all of the files in the CRD directory into Kubernetes.
+
+CRD files cannot be templated. They must be plain YAML documents.
+
+When Helm installs a new chart, it will upload the CRDs, pause until the CRDs are made available by the API server, and then start the template engine, render the rest of the chart, and upload it to Kubernetes. Because of this ordering, CRD information is available in the .Capabilities object in Helm templates, and Helm templates may create new instances of objects that were declared in CRDs.
+
+### Limitations on CRDs
+Unlike most objects in Kubernetes, CRDs are installed globally. For that reason, Helm takes a very cautious approach in managing CRDs. CRDs are subject to the following limitations:
+
+CRDs are never reinstalled. If Helm determines that the CRDs in the crds/ directory are already present (regardless of version), Helm will not attempt to install or upgrade.
+CRDs are never installed on upgrade or rollback. Helm will only create CRDs on installation operations.
+CRDs are never deleted. Deleting a CRD automatically deletes all of the CRD's contents across all namespaces in the cluster. Consequently, Helm will not delete CRDs.
+
+**Operators who want to upgrade or delete CRDs are encouraged to do this manually and with great care**.
 
 ## Background
 
@@ -73,15 +90,17 @@ spec:
     spec:
       restartPolicy: Never
       containers:
-      - name: pre-upgrade-job
-        image: "alpine:3.3"
-        command: ["/bin/sleep","{{ default "10" .Values.sleepyTime }}"]
+       - name: pre-upgrade-job
+        image: "{{ .Values.hooks.registry }}/{{.Values.hooks.repository }}:{{ .Values.hooks.tag }}"
+        command: ["kubectl", "-n", "{{ .Release.Namespace }}", "patch", "<crd>", "-p", '-f <crd filename.yaml']
 ```
 
 It is possible to define policies that determine when to delete corresponding hook resources. This will be helpful to choose `hook-succeeded` or `hook-failed`
+Deployment process must involve a special image with new version of CRDs, those image built at release step and integrated in the CSI upgrade routine. 
+
 
 ## Open issues (if applicable)
 
 | ID      | Name | Descriptions | Status | Comments |
 |---------|------|--------------|--------|----------|
-| ISSUE-1 |      |              |        |          |   
+| ISSUE-1 | Deliver CRD to container     | Need to test how we pass in the filename for the crd for the patch              | Open |          |   
