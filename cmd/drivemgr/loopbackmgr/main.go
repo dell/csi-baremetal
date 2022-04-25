@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
@@ -30,7 +31,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 )
 
@@ -66,9 +66,10 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 
-	nodeID, err := annotations.GetNodeIDByName(k8SClient, nodeName, *nodeIDAnnotation, "", featureConf)
+	// we need to obtain node ID first before proceeding with the initialization
+	nodeID, err := util.ObtainNodeIDWithRetries(k8SClient, featureConf, nodeName, *nodeIDAnnotation, logger)
 	if err != nil {
-		logger.Fatalf("fail to get nodeID, error: %v", err)
+		logger.Fatalf("Unable to obtain node ID: %v", err)
 	}
 
 	// Server is insecure for now because credentials are nil
