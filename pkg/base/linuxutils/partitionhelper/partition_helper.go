@@ -317,7 +317,7 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 
 	// try to find partition name
 	for _, id := range blockdevices[0].Children {
-		p.log.Infof("parition name: %s, UUID: %s", id.Name, id.PartUUID)
+		p.log.Debugf("Parition info: %v", id)
 		// ignore cases
 		if strings.EqualFold(partUUID, id.PartUUID) {
 			// partition name not detected
@@ -329,8 +329,7 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 		}
 	}
 
-	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s. number of partitions: %d",
-		partUUID, device, len(blockdevices[0].Children))
+	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s", partUUID, device)
 }
 
 // DeviceHasPartitionTable calls parted  and determine if device has partition table from output
