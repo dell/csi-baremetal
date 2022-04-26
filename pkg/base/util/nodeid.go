@@ -2,11 +2,13 @@ package util
 
 import (
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
+
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 const (
@@ -14,6 +16,7 @@ const (
 	delayBeforeRetry = 5
 )
 
+// ObtainNodeIDWithRetries obtains Node ID with retries
 func ObtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.FeatureChecker,
 	nodeName string, nodeIDAnnotation string, logger *logrus.Logger) (nodeID string, err error) {
 	// try to obtain node ID

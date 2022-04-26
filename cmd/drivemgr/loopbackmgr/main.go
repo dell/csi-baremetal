@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
@@ -31,6 +30,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 )
 

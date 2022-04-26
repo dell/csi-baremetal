@@ -128,11 +128,6 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 		return nil, fmt.Errorf("unable to create partition: %v", err)
 	}
 
-	// sync partition table
-	if err = d.SyncPartitionTable(p.Device); err != nil {
-		return nil, fmt.Errorf("unable to sync partition table: %v", err)
-	}
-
 	// obtain partition name
 	p.Name, err = d.SearchPartName(p.Device, p.PartUUID)
 	if err != nil {
@@ -184,10 +179,11 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 			ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
 			return "", err
 		}
+		// sleep first to avoid issues with lsblk caching
+		time.Sleep(SleepBetweenRetriesToObtainPartName)
 		partName, err = d.GetPartitionNameByUUID(device, partUUID)
 		if err != nil {
 			ll.Warningf("Unable to find part name: %v. Sleep and retry...", err)
-			time.Sleep(SleepBetweenRetriesToObtainPartName)
 			continue
 		}
 		break
