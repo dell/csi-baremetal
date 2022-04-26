@@ -525,47 +525,78 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 
 func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	var (
-		err       error
-		svc       = setupVOOperationsTest(t)
-		volumeOne = testVolume1.DeepCopy()
-		lvgOne    = testLVG.DeepCopy()
+		err        error
+		svc        = setupVOOperationsTest(t)
+		volumeHDD  = testVolume1.DeepCopy()
+		volume1    = testVolumeLVG1.DeepCopy()
+		volume2    = testVolumeLVG1.DeepCopy()
+		lvg        = testLVG.DeepCopy()
+		lvgUpdated = &lvgcrd.LogicalVolumeGroup{}
+		ACUpdated  = &accrd.AvailableCapacity{}
 	)
 
-	// volume with HDDLVG SC, corresponding AC should be increased, volume CR should be removed
-	volumeOne.ObjectMeta.ResourceVersion = ""
-	err = svc.k8sClient.CreateCR(testCtx, volumeOne.Name, volumeOne)
+	// Test Case 1: volume with HDD SC, removed
+	volume1.ObjectMeta.ResourceVersion = ""
+	err = svc.k8sClient.CreateCR(testCtx, volumeHDD.Name, volumeHDD)
 	assert.Nil(t, err)
-	svc.cache.Set(volumeOne.Name, volumeOne.Namespace)
-	svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeOne.Name)
+	svc.cache.Set(volumeHDD.Name, volume1.Namespace)
+	svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
 
-	err = svc.k8sClient.ReadCR(testCtx, volumeOne.Name, volumeOne.Namespace, &volumecrd.Volume{})
+	err = svc.k8sClient.ReadCR(testCtx, volumeHDD.Name, volumeHDD.Namespace, &volumecrd.Volume{})
 	assert.NotNil(t, err)
 	assert.True(t, k8sError.IsNotFound(err))
 
-	// create AC, LVG and Volume
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testAC4Name, &testAC4))
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testLVGName, lvgOne))
-	volumeOne.ObjectMeta.ResourceVersion = ""
-	volumeOne.Spec.StorageClass = apiV1.StorageClassHDDLVG
-	volumeOne.Spec.Location = lvgOne.Name
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeOne.Name, volumeOne))
-	lvgOne.ObjectMeta.ResourceVersion = ""
-	lvgOne.Namespace = ""
-	lvgOne.Spec.Locations = []string{lvgOne.Spec.Name}
-	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, lvgOne.Name, lvgOne))
+	// Test Case 2: volumes with HDDLVG SC
+	// create AC, LVG and Volumes with LVG
+	volume2.Name = testVolumeLVG2Name
+	volume2.Spec.Id = testVolumeLVG2Name
+
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testAC4.Name, &testAC4))
+	lvg.Spec.VolumeRefs = []string{volume1.Name, volume2.Name}
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, lvg.Name, lvg))
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, testDriveCR4.Name, &testDriveCR4))
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volume1.Name, volume1))
+	svc.cache.Set(volume1.Name, volume1.Namespace)
+	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volume2.Name, volume2))
+	svc.cache.Set(volume2.Name, volume2.Namespace)
+
+	// remove one volume from two
+	svc.UpdateCRsAfterVolumeDeletion(testCtx, volume1.Name)
 
 	// check that Volume was removed
-	svc.cache.Set(volumeOne.Name, volumeOne.Namespace)
-	svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeOne.Name)
-	err = svc.k8sClient.ReadCR(testCtx, volumeOne.Name, volumeOne.Namespace, &volumecrd.Volume{})
+	err = svc.k8sClient.ReadCR(testCtx, volume1.Name, volume1.Namespace, &volumecrd.Volume{})
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
+
+	// check that decreased LVG VolumeRefs
+	err = svc.k8sClient.ReadCR(testCtx, testLVGName, "", lvgUpdated)
+	assert.Nil(t, err)
+	assert.Equal(t, len(lvgUpdated.Spec.VolumeRefs), 1)
+	// check that AC size was increased
+	err = svc.k8sClient.ReadCR(testCtx, testAC4Name, "", ACUpdated)
+	assert.Nil(t, err)
+	assert.Equal(t, ACUpdated.Spec.Size, testAC4.Spec.Size+volume1.Spec.Size)
+
+	// remove last volume from two
+	svc.UpdateCRsAfterVolumeDeletion(testCtx, volume2.Name)
+
+	// check that Volume was removed
+	err = svc.k8sClient.ReadCR(testCtx, volume2.Name, volume2.Namespace, &volumecrd.Volume{})
+	assert.NotNil(t, err)
+	assert.True(t, k8sError.IsNotFound(err))
+
+	// check that LVG was removed
+	err = svc.k8sClient.ReadCR(testCtx, lvg.Name, "", &lvgcrd.LogicalVolumeGroup{})
 	assert.NotNil(t, err)
 	assert.True(t, k8sError.IsNotFound(err))
 
 	// check that AC size was increased
-	var updatedAC = &accrd.AvailableCapacity{}
-	err = svc.k8sClient.ReadCR(testCtx, testAC4Name, "", updatedAC)
+	err = svc.k8sClient.ReadCR(testCtx, testAC4Name, "", ACUpdated)
 	assert.Nil(t, err)
-	assert.Equal(t, testAC4.Spec.Size+volumeOne.Spec.Size, updatedAC.Spec.Size)
+	assert.Equal(t, testAC4.Spec.Size+volume1.Spec.Size+volume2.Spec.Size, ACUpdated.Spec.Size)
+	// check that AC convert from LVG to Drive
+	assert.Equal(t, ACUpdated.Spec.Location, testDriveCR4.Name)
+	assert.Equal(t, ACUpdated.Spec.StorageClass, util.ConvertDriveTypeToStorageClass(testDriveCR4.Spec.Type))
 }
 
 func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
@@ -728,45 +759,6 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, volumeCR)
 	assert.Nil(t, err)
 	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
-}
-
-func TestVolumeOperationsImpl_deleteLVGIfVolumesNotExistOrUpdate(t *testing.T) {
-	svc := setupVOOperationsTest(t)
-	volumeID := "volumeID"
-	volumeID1 := "volumeID1"
-
-	// CR not found error
-	testLVG.Spec.VolumeRefs = []string{volumeID, volumeID1}
-	isDeleted, err := svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
-	assert.False(t, isDeleted)
-	assert.NotNil(t, err)
-	assert.True(t, k8sError.IsNotFound(err))
-
-	err = svc.k8sClient.CreateCR(context.Background(), testDriveCR4.Name, &testDriveCR4)
-	assert.Nil(t, err)
-	testLVG.ObjectMeta.ResourceVersion = ""
-	err = svc.k8sClient.CreateCR(context.Background(), testLVG.Name, &testLVG)
-	assert.Nil(t, err)
-	testAC4.ObjectMeta.ResourceVersion = ""
-	err = svc.k8sClient.CreateCR(context.Background(), testAC4.Name, &testAC4)
-	assert.Nil(t, err)
-
-	// test deletion
-	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
-	assert.True(t, isDeleted)
-	assert.Nil(t, err)
-	lvg := &lvgcrd.LogicalVolumeGroup{}
-	err = svc.k8sClient.ReadCR(context.Background(), testLVG.Name, "", lvg)
-	assert.True(t, k8sError.IsNotFound(err))
-
-	ac := &accrd.AvailableCapacity{}
-	err = svc.k8sClient.ReadCR(context.Background(), testAC4.Name, "", ac)
-	assert.True(t, k8sError.IsNotFound(err))
-
-	// try to remove again
-	isDeleted, err = svc.deleteLVGIfVolumesNotExistOrUpdate(&testLVG, volumeID, &testAC4)
-	assert.False(t, isDeleted)
-	assert.True(t, k8sError.IsNotFound(err))
 }
 
 func getTestACR(size int64, sc, name, podNamespace string,

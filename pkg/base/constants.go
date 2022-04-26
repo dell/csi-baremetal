@@ -51,6 +51,9 @@ const (
 	// DefaultTimeoutForVolumeOperations is the timeout in which we expect that any operation with volume should be finished
 	DefaultTimeoutForVolumeOperations = 10 * time.Minute
 
+	// DefaultTimeoutForVolumeUpdate is the timeout in which we expect that any update with volume
+	DefaultTimeoutForVolumeUpdate = 30 * time.Second
+
 	// DefaultRequeueForVolume is the interval for volume reconcile
 	DefaultRequeueForVolume = 5 * time.Second
 
