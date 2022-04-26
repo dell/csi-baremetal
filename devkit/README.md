@@ -83,7 +83,6 @@ export DEVKIT_SSH_HOST_DIR_PATH=/home/admin/.ssh
 export DEVKIT_SSH_SHARED_BOOL=true
 export DEVKIT_DOCKER_PSEUDO_TTY_BOOL=false
 export DEVKIT_LOG_STDOUT_ENABLED_BOOL=false
-cat ./my_jenkins_groovy_script | devkit --hal no --docker no --cmd "groovy"
 ...
 ```
 
