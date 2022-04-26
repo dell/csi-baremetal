@@ -79,7 +79,7 @@ func (cs *CRHelper) GetACByLocation(location string) (*accrd.AvailableCapacity, 
 		}
 	}
 
-	ll.Warn("Can't find AC assigned to provided location")
+	ll.Warn("Can't find AC assigned to provided location: ", location)
 
 	return nil, errTypes.ErrorNotFound
 }
@@ -344,6 +344,12 @@ func (cs *CRHelper) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) 
 
 // GetDriveCRByVolume reads drive CRs and returns CR for drive on which volume is located
 func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, error) {
+	drive, _, err := cs.GetDriveCRAndLVGCRByVolume(volume)
+	return drive, err
+}
+
+// GetDriveCRAndLVGCRByVolume reads drive CRs and returns CR for drive and CR for lvg (if exist) on which volume is located
+func (cs *CRHelper) GetDriveCRAndLVGCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, *lvgcrd.LogicalVolumeGroup, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method": "GetDriveCRByVolume",
 		"volume": volume.Name,
@@ -352,29 +358,31 @@ func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Driv
 	var (
 		dUUID = volume.Spec.Location
 		drive = &drivecrd.Drive{}
+		lvg   = &lvgcrd.LogicalVolumeGroup{}
 		ctx   = context.Background()
 	)
 
 	if volume.Spec.LocationType == apiV1.LocationTypeLVM {
-		lvgObj := &lvgcrd.LogicalVolumeGroup{}
-		err := cs.reader.ReadCR(ctx, volume.Spec.Location, "", lvgObj)
+		err := cs.reader.ReadCR(ctx, volume.Spec.Location, "", lvg)
 		if err != nil {
 			ll.Errorf("failed to read LogicalVolumeGroup CR: %s", err.Error())
-			return nil, err
+			return nil, nil, err
 		}
-		if len(lvgObj.Spec.Locations) == 0 {
-			return nil, errors.New("no drives in LogicalVolumeGroup CR")
+		if len(lvg.Spec.Locations) == 0 {
+			return nil, nil, errors.New("no drives in LogicalVolumeGroup CR")
 		}
-		dUUID = lvgObj.Spec.Locations[0]
+		dUUID = lvg.Spec.Locations[0]
+	} else {
+		lvg = nil
 	}
 
 	err := cs.reader.ReadCR(ctx, dUUID, "", drive)
 	if err != nil {
 		ll.Errorf("failed to read Drive CR: %v", err)
-		return nil, err
+		return nil, lvg, err
 	}
 
-	return drive, err
+	return drive, lvg, err
 }
 
 // GetVGNameByLVGCRName read LogicalVolumeGroup CR with name lvgCRName and returns LogicalVolumeGroup CR.Spec.Name

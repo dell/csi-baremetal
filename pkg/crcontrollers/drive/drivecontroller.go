@@ -38,6 +38,7 @@ const (
 	ignore uint8 = 0
 	update uint8 = 1
 	remove uint8 = 2
+	wait   uint8 = 3
 )
 
 const (
@@ -131,6 +132,8 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			log.Errorf("Failed to delete Drive %s CR", driveName)
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
+	case wait:
+		return ctrl.Result{RequeueAfter: base.DefaultTimeoutForVolumeUpdate}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -262,6 +265,15 @@ func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Driv
 	return nil
 }
 
+func (c *Controller) getVolsStatuses(volumes []*volumecrd.Volume) map[string]string {
+	statuses := map[string]string{}
+
+	for _, vol := range volumes {
+		statuses[vol.Name] = vol.Spec.CSIStatus
+	}
+	return statuses
+}
+
 func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
 	for _, vol := range volumes {
 		if vol.Spec.CSIStatus != apiV1.Removed {
@@ -307,13 +319,26 @@ func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 }
 
 func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	// wait all volumes have REMOVED status
 	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
 	if err != nil {
 		return ignore, err
 	}
 	if !c.checkAllVolsRemoved(volumes) {
-		return ignore, nil
+		log.Debugf("Waiting all volumes in REMOVED status, current statuses: %v", c.getVolsStatuses(volumes))
+		return wait, nil
 	}
+
+	// wait lvg is removed if exist
+	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
+	if err != nil && err != errTypes.ErrorNotFound {
+		return ignore, err
+	}
+	if lvg != nil {
+		log.Debugf("Waiting LVG %s remove", lvg.Name)
+		return wait, nil
+	}
+
 	drive.Spec.Usage = apiV1.DriveUsageRemoved
 	if drive.Spec.Status == apiV1.DriveStatusOnline {
 		c.locateDriveLED(ctx, log, drive)
@@ -321,8 +346,8 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 		// We can not set locate for missing disks, try to locate Node instead
 		log.Infof("Try to locate node LED %s", drive.Spec.NodeId)
 		if _, locateErr := c.driveMgrClient.LocateNode(ctx, &api.NodeLocateRequest{Action: apiV1.LocateStart}); locateErr != nil {
-			log.Errorf("Failed to start node locate: %s", err.Error())
-			return ignore, err
+			log.Errorf("Failed to start node locate: %s", locateErr.Error())
+			return ignore, locateErr
 		}
 	}
 	return update, nil

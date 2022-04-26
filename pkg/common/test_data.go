@@ -96,7 +96,7 @@ var (
 	testLVGName = "lvg-1"
 	testLVG     = lvgcrd.LogicalVolumeGroup{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "LogicalVolumeGroup", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: testNS},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: ""},
 		Spec: api.LogicalVolumeGroup{
 			Name:      testLVGName,
 			Node:      testNode2Name,
@@ -128,6 +128,30 @@ var (
 			Usage:             apiV1.VolumeUsageInUse,
 		},
 	}
+
+	testVolumeLVG1Name = "aaaa-lvg-1111"
+	testVolumeLVG1     = vcrd.Volume{
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testVolumeLVG1Name,
+			Namespace:         testNS,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
+		},
+		Spec: api.Volume{
+			Id:                testVolumeLVG1Name,
+			Location:          testAC4.Spec.Location,
+			StorageClass:      testAC4.Spec.StorageClass,
+			NodeId:            testAC4.Spec.NodeId,
+			Size:              testAC4.Spec.Size / 2,
+			CSIStatus:         apiV1.Creating,
+			Health:            apiV1.HealthGood,
+			LocationType:      apiV1.LocationTypeLVM,
+			OperationalStatus: apiV1.OperationalStatusOperative,
+			Usage:             apiV1.VolumeUsageInUse,
+		},
+	}
+
+	testVolumeLVG2Name = "aaaa-lvg-2222"
 
 	// PVC variables
 	testPVC1 = &corev1.PersistentVolumeClaim{
