@@ -69,8 +69,8 @@ user@devkit:~/Workspace> exit
 
 #### Networking
 **Requirements:**  
-IP Forwarding must be enabled in Jenkins nodes and agents for correct use of Devkit.  
-When IP forwarding is disabled, we can get access to network only with *--net=host*. But there is a conflict with *--hostname* option in the Docker version less than 1.11.0 (in 2.1.3 version Devkit can avoid this problem)  
+When IP forwarding is disabled, we can get access to network only with *--net=host*. 
+But there is a conflict with *--hostname* option in the Docker version less than 1.11.0 (in 2.1.3 version Devkit can avoid this problem)  
 When IP forwarding is enabled, we can get access to network without any changes in Devkit.
 
 ```
