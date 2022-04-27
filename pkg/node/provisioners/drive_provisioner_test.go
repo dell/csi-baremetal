@@ -259,7 +259,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 
 	// SearchPartName returns empty string and GetBlockDevices return error
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
-		Return("").Once()
+		Return("", errTest).Once()
 	mockLsblk.On("GetBlockDevices", deviceFile).
 		Return(nil, errTest)
 
@@ -270,7 +270,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	// next scenarios rely on SearchPartName passes
 	var partName = "p1n1"
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
-		Return(partName)
+		Return(partName, nil)
 
 	// WipeFS failed
 	mockFS.On("WipeFS", deviceFile+partName).Return(errTest).Once()
@@ -349,7 +349,7 @@ func TestDriveProvisioner_GetVolumePath_Fail(t *testing.T) {
 	mockLsblk.On("SearchDrivePath", mock.Anything).
 		Return(deviceFile, nil).Once()
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
-		Return("").Once()
+		Return("", errTest).Once()
 
 	fullPath, err = dp.GetVolumePath(&testVolume2)
 	assert.Error(t, err)

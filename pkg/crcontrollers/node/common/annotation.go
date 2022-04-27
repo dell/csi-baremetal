@@ -20,12 +20,38 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 )
+
+const (
+	// NumberOfRetries to obtain Node ID
+	NumberOfRetries = 20
+	// DelayBetweenRetries to obtain Node ID
+	DelayBetweenRetries = 3
+)
+
+// ObtainNodeIDWithRetries obtains Node ID with retries
+func ObtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.FeatureChecker, nodeName string,
+	nodeIDAnnotation string, logger *logrus.Logger, retries int, delay time.Duration) (nodeID string, err error) {
+	// try to obtain node ID
+	for i := 0; i < retries; i++ {
+		logger.Info("Obtaining node ID...")
+		if nodeID, err = GetNodeIDByName(client, nodeName, nodeIDAnnotation, "", featureConf); err == nil {
+			logger.Infof("Node ID is %s", nodeID)
+			return nodeID, nil
+		}
+		logger.Warningf("Unable to get node ID due to %v, sleep and retry...", err)
+		time.Sleep(delay * time.Second)
+	}
+	// return empty node ID and error
+	return "", fmt.Errorf("number of retries %d exceeded", retries)
+}
 
 // GetNodeIDByName return special id for k8sNode with nodeName
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
