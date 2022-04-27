@@ -51,6 +51,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
@@ -117,7 +118,8 @@ func main() {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
 	// we need to obtain node ID first before proceeding with the initialization
-	nodeID, err := util.ObtainNodeIDWithRetries(k8SClient, featureConf, *nodeName, *nodeIDAnnotation, logger)
+	nodeID, err := annotations.ObtainNodeIDWithRetries(k8SClient, featureConf, *nodeName, *nodeIDAnnotation,
+		logger, annotations.NumberOfRetries, annotations.DelayBetweenRetries)
 	if err != nil {
 		logger.Fatalf("Unable to obtain node ID: %v", err)
 	}

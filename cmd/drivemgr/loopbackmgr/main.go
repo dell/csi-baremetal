@@ -30,7 +30,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
-	"github.com/dell/csi-baremetal/pkg/base/util"
+	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 )
 
@@ -67,7 +67,8 @@ func main() {
 	}
 
 	// we need to obtain node ID first before proceeding with the initialization
-	nodeID, err := util.ObtainNodeIDWithRetries(k8SClient, featureConf, nodeName, *nodeIDAnnotation, logger)
+	nodeID, err := annotations.ObtainNodeIDWithRetries(k8SClient, featureConf, nodeName, *nodeIDAnnotation,
+		logger, annotations.NumberOfRetries, annotations.DelayBetweenRetries)
 	if err != nil {
 		logger.Fatalf("Unable to obtain node ID: %v", err)
 	}

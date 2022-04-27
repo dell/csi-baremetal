@@ -34,6 +34,39 @@ var (
 	annotationValue = "1111-2222-3333-4444"
 )
 
+func TestObtainNodeIDWithRetries(t *testing.T) {
+	t.Run("Not found", func(t *testing.T) {
+		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+		assert.Nil(t, err)
+
+		featureConf := fc.NewFeatureConfig()
+
+		nodeID, err := ObtainNodeIDWithRetries(k8sClient, featureConf, nodeName, "app=baremetal-csi",
+			testLogger, 1, 0)
+		assert.NotNil(t, err)
+		assert.Equal(t, nodeID, "")
+	})
+
+	t.Run("Obtained", func(t *testing.T) {
+		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+		assert.Nil(t, err)
+
+		featureConf := fc.NewFeatureConfig()
+		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
+		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
+
+		node := testNode.DeepCopy()
+		node.Annotations[annotationKey] = annotationValue
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
+
+		assert.Nil(t, k8sClient.Create(testCtx, node))
+
+		nodeID, err := ObtainNodeIDWithRetries(k8sClient, featureConf, nodeName, annotationKey, testLogger, 1, 0)
+		assert.Equal(t, annotationValue, nodeID)
+		assert.Nil(t, err)
+	})
+}
+
 func TestGetNodeID(t *testing.T) {
 	t.Run("All features disabled", func(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
