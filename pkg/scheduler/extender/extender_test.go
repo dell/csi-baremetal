@@ -39,8 +39,8 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
@@ -281,7 +281,7 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 		Name:         "-",
 		StorageClass: util.ConvertStorageClass(testStorageType),
 		Size:         expectedSize,
-		//Ephemeral:    true,
+		// Ephemeral:    true,
 	}
 
 	volume := coreV1.Volume{
@@ -290,7 +290,6 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 	curr, err := e.createCapacityRequest(testCtx, "", volume)
 	assert.Nil(t, err)
 	assert.Equal(t, request, curr)
-
 }
 
 func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
@@ -799,14 +798,15 @@ func Test_nodePrioritize(t *testing.T) {
 		args  args
 		want  map[string]int64
 		want1 int64
-	}{{
-		name: "Zero volumes",
-		args: args{
-			nodeMapping: map[string][]volcrd.Volume{"node1": nil, "node2": nil},
+	}{
+		{
+			name: "Zero volumes",
+			args: args{
+				nodeMapping: map[string][]volcrd.Volume{"node1": nil, "node2": nil},
+			},
+			want:  map[string]int64{"node1": 0, "node2": 0},
+			want1: 0,
 		},
-		want:  map[string]int64{"node1": 0, "node2": 0},
-		want1: 0,
-	},
 		{
 			name: "2 volumes with equal number of volumes",
 			args: args{
@@ -855,7 +855,6 @@ func Test_reservationName(t *testing.T) {
 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: ""}}
 	name = getReservationName(pod)
 	assert.Equal(t, "default-"+podName, name)
-
 }
 
 func Test_createReservation(t *testing.T) {

@@ -40,7 +40,7 @@ func TestExecutorFromStrWithoutError(t *testing.T) {
 		return
 	}
 
-	var cmdPass = []cmdAndResult{
+	cmdPass := []cmdAndResult{
 		{"echo", "\n", "", nil},
 		{"echo 123", "123\n", "", nil},
 		{"echo 123 asd", "123 asd\n", "", nil},
@@ -63,7 +63,7 @@ func TestExecutorFromStrAndExpectError(t *testing.T) {
 		return
 	}
 
-	var cmdErr = []cmdAndResult{
+	cmdErr := []cmdAndResult{
 		{"false", "", "", errors.New("exit status 1")},
 		{2, "", "", errors.New("could not interpret command from 2")},
 	}

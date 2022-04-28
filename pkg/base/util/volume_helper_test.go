@@ -17,8 +17,9 @@ limitations under the License.
 package util
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 func Test_GetVolumeUUID(t *testing.T) {

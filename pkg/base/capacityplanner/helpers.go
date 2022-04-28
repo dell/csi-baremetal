@@ -32,7 +32,8 @@ import (
 
 // NewReservationHelper returns new instance of ReservationHelper
 func NewReservationHelper(logger *logrus.Entry, client *k8s.KubeClient,
-	capReader CapacityReader) *ReservationHelper {
+	capReader CapacityReader,
+) *ReservationHelper {
 	return &ReservationHelper{
 		logger:    logger,
 		client:    client,
@@ -52,7 +53,8 @@ type ReservationHelper struct {
 
 // UpdateReservation updates reservation CR
 func (rh *ReservationHelper) UpdateReservation(ctx context.Context, placingPlan *VolumesPlacingPlan,
-	nodes []string, reservation *acrcrd.AvailableCapacityReservation) error {
+	nodes []string, reservation *acrcrd.AvailableCapacityReservation,
+) error {
 	defer rh.metric.EvaluateDurationForMethod("UpdateReservation")()
 	logger := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.UpdateReservation")
 
@@ -83,7 +85,8 @@ func (rh *ReservationHelper) UpdateReservation(ctx context.Context, placingPlan 
 
 // ReleaseReservation removes AC from ACR or ACR completely when one volume requested or left
 func (rh *ReservationHelper) ReleaseReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
-	requestNum int) error {
+	requestNum int,
+) error {
 	// logging customization
 	log := util.AddCommonFields(ctx, rh.logger, "ReservationHelper.ReleaseReservation")
 	// need to remove found reservation from the list
@@ -156,7 +159,8 @@ type ReservationFilter struct{}
 
 // FilterByReservation returns AC which are reserved if reserved == true, or not reserved otherwise
 func (rf *ReservationFilter) FilterByReservation(reserved bool, acs []accrd.AvailableCapacity,
-	acrs []acrcrd.AvailableCapacityReservation) []accrd.AvailableCapacity {
+	acrs []acrcrd.AvailableCapacityReservation,
+) []accrd.AvailableCapacity {
 	acInACR := buildACInACRMap(acrs)
 	return FilterACList(acs, func(ac accrd.AvailableCapacity) bool {
 		_, acIsReserved := acInACR[ac.Name]
@@ -169,22 +173,10 @@ func (rf *ReservationFilter) FilterByReservation(reserved bool, acs []accrd.Avai
 	})
 }
 
-// FilterACRList filter for ACR list
-func FilterACRList(
-	acrs []acrcrd.AvailableCapacityReservation,
-	filter func(acr acrcrd.AvailableCapacityReservation) bool) []acrcrd.AvailableCapacityReservation {
-	var result []acrcrd.AvailableCapacityReservation
-	for _, acr := range acrs {
-		if filter(acr) {
-			result = append(result, acr)
-		}
-	}
-	return result
-}
-
 // FilterACList filter for AC list
 func FilterACList(
-	acs []accrd.AvailableCapacity, filter func(ac accrd.AvailableCapacity) bool) []accrd.AvailableCapacity {
+	acs []accrd.AvailableCapacity, filter func(ac accrd.AvailableCapacity) bool,
+) []accrd.AvailableCapacity {
 	var result []accrd.AvailableCapacity
 	for _, ac := range acs {
 		if filter(ac) {

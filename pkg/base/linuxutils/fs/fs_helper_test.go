@@ -27,9 +27,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
-var (
-	testError = errors.New("error")
-)
+var testError = errors.New("error")
 
 func TestFindMountPoint(t *testing.T) {
 	var (

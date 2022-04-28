@@ -58,7 +58,7 @@ type DriveList struct {
 	Items           []Drive `json:"items"`
 }
 
-//Need to declare this method because api.Volume doesn't have DeepCopyInto
+// Need to declare this method because api.Volume doesn't have DeepCopyInto
 func (in *Drive) DeepCopyInto(out *Drive) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta

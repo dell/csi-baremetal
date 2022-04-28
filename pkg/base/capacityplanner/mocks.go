@@ -63,7 +63,7 @@ type PlannerMock struct {
 }
 
 // PlanVolumesPlacing mock implementation of PlanVolumesPlacing
-func (cr *PlannerMock) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, nodes []string) (*VolumesPlacingPlan, error) {
+func (cr *PlannerMock) PlanVolumesPlacing(ctx context.Context, volumes []*genV1.Volume, _ []string) (*VolumesPlacingPlan, error) {
 	args := cr.Mock.Called(ctx, volumes)
 
 	volIDToVol := make(map[string]*genV1.Volume, len(volumes))
@@ -93,14 +93,16 @@ type MockCapacityManagerBuilder struct {
 }
 
 // GetCapacityManager returns mock implementation of CapacityManager
-func (mcb *MockCapacityManagerBuilder) GetCapacityManager(logger *logrus.Entry, capReader CapacityReader,
-	resReader ReservationReader) CapacityPlaner {
+func (mcb *MockCapacityManagerBuilder) GetCapacityManager(_ *logrus.Entry, _ CapacityReader,
+	_ ReservationReader,
+) CapacityPlaner {
 	return mcb.Manager
 }
 
 // GetReservedCapacityManager returns mock implementation of ReservedCapacityManager
-func (mcb *MockCapacityManagerBuilder) GetReservedCapacityManager(logger *logrus.Entry,
-	capReader CapacityReader, resReader ReservationReader) CapacityPlaner {
+func (mcb *MockCapacityManagerBuilder) GetReservedCapacityManager(_ *logrus.Entry,
+	_ CapacityReader, _ ReservationReader,
+) CapacityPlaner {
 	return mcb.Manager
 }
 

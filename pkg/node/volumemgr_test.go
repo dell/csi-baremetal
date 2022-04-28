@@ -174,7 +174,8 @@ var (
 			Size:         drive1.Size,
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     "drive-uuid",
-			NodeId:       drive1.NodeId},
+			NodeId:       drive1.NodeId,
+		},
 	}
 )
 
@@ -206,7 +207,7 @@ func TestVolumeManager_NewVolumeManager(t *testing.T) {
 }
 
 func TestReconcile_MultipleRequest(t *testing.T) {
-	//Try to create volume multiple time in go routine, expect that CSI status Created and volume was created without error
+	// Try to create volume multiple time in go routine, expect that CSI status Created and volume was created without error
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
@@ -433,12 +434,12 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	err = vm.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
-	//successfully add finalizer
+	// successfully add finalizer
 	res, err := vm.Reconcile(testCtx, req)
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 
-	//successfully remove finalizer
+	// successfully remove finalizer
 	err = vm.k8sClient.ReadCR(testCtx, newVolumeCR.Name, newVolumeCR.Namespace, newVolumeCR)
 	assert.Nil(t, err)
 	newVolumeCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
@@ -721,7 +722,6 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 }
 
 func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
-
 	t.Run("happy path", func(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
@@ -967,7 +967,6 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(lvgList.Items))
 	assert.Equal(t, lvgCR.Spec, lvgList.Items[0].Spec)
-
 }
 
 func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
@@ -1095,7 +1094,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		upd := &driveUpdates{
 			Updated: []updatedDrive{{
 				PreviousState: drive1CR,
-				CurrentState:  modifiedDrive}},
+				CurrentState:  modifiedDrive,
+			}},
 		}
 		mgr.createEventsForDriveUpdates(upd)
 		assert.True(t, expectEvent(drive1CR, eventing.DriveStatusOffline))
@@ -1111,7 +1111,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		upd := &driveUpdates{
 			Updated: []updatedDrive{{
 				PreviousState: drive1CR,
-				CurrentState:  modifiedDrive}},
+				CurrentState:  modifiedDrive,
+			}},
 		}
 		mgr.createEventsForDriveUpdates(upd)
 		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthOverridden))
@@ -1128,7 +1129,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		upd := &driveUpdates{
 			Updated: []updatedDrive{{
 				PreviousState: drive1CR,
-				CurrentState:  modifiedDrive}},
+				CurrentState:  modifiedDrive,
+			}},
 		}
 		mgr.createEventsForDriveUpdates(upd)
 		assert.True(t, expectEvent(drive1CR, eventing.DriveSuccessfullyRemoved))
@@ -1147,7 +1149,6 @@ func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 
 	vol.Spec.NodeId = ""
 	assert.False(t, vm.isCorrespondedToNodePredicate(vol))
-
 }
 
 func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
@@ -1340,7 +1341,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 			testDrive        = testDriveCR.DeepCopy()
 			wbtValue  uint32 = 0
 			mockWbt          = &mocklu.MockWrapWbt{}
-			device           = "sda" //testDrive.Spec.Path = "/dev/sda"
+			device           = "sda" // testDrive.Spec.Path = "/dev/sda"
 		)
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtOps = mockWbt
@@ -1375,7 +1376,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 			testDrive        = testDriveCR.DeepCopy()
 			wbtValue  uint32 = 0
 			mockWbt          = &mocklu.MockWrapWbt{}
-			device           = "sda" //testDrive.Spec.Path = "/dev/sda"
+			device           = "sda" // testDrive.Spec.Path = "/dev/sda"
 			mockErr          = fmt.Errorf("some error")
 		)
 		vm := prepareSuccessVolumeManager(t)
@@ -1398,7 +1399,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 			testVol   = volCR.DeepCopy()
 			testDrive = testDriveCR.DeepCopy()
 			mockWbt   = &mocklu.MockWrapWbt{}
-			device    = "sda" //testDrive.Spec.Path = "/dev/sda"
+			device    = "sda" // testDrive.Spec.Path = "/dev/sda"
 		)
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtOps = mockWbt
@@ -1431,7 +1432,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 			testVol   = volCR.DeepCopy()
 			testDrive = testDriveCR.DeepCopy()
 			mockWbt   = &mocklu.MockWrapWbt{}
-			device    = "sda" //testDrive.Spec.Path = "/dev/sda"
+			device    = "sda" // testDrive.Spec.Path = "/dev/sda"
 			mockErr   = fmt.Errorf("some error")
 		)
 		vm := prepareSuccessVolumeManager(t)
@@ -1474,9 +1475,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		assert.True(t, result)
 	})
 	t.Run("checkWbtChangingEnable: wbtConf is nil", func(t *testing.T) {
-		var (
-			testVol = volCR.DeepCopy()
-		)
+		testVol := volCR.DeepCopy()
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = nil
 
@@ -1579,7 +1578,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		var (
 			testVol        = volCR.DeepCopy()
 			testDrive      = testDriveCR.DeepCopy()
-			expectedDevice = "sda" //testDrive.Spec.Path = "/dev/sda"
+			expectedDevice = "sda" // testDrive.Spec.Path = "/dev/sda"
 		)
 		vm := prepareSuccessVolumeManager(t)
 
@@ -1591,9 +1590,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		assert.Equal(t, expectedDevice, device)
 	})
 	t.Run("findDeviceName: GetDriveCRByVolume failed", func(t *testing.T) {
-		var (
-			testVol = volCR.DeepCopy()
-		)
+		testVol := volCR.DeepCopy()
 		vm := prepareSuccessVolumeManager(t)
 
 		testVol.Spec.LocationType = apiV1.LocationTypeLVM
@@ -1603,9 +1600,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		assert.Equal(t, "", device)
 	})
 	t.Run("findDeviceName: GetDriveCRByVolume failed", func(t *testing.T) {
-		var (
-			testVol = volCR.DeepCopy()
-		)
+		testVol := volCR.DeepCopy()
 		vm := prepareSuccessVolumeManager(t)
 
 		device, err := vm.findDeviceName(testVol)

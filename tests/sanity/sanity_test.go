@@ -52,8 +52,6 @@ import (
 var (
 	controllerEndpoint = "unix:///tmp/controller.sock"
 	nodeEndpoint       = "unix:///tmp/node.sock"
-	targetSanityPath   = os.TempDir() + "/csi-mount/target"
-	stagingSanityPath  = os.TempDir() + "/csi-staging"
 	driverName         = "csi-baremetal-driver"
 	version            = "test"
 	testNs             = "default"
@@ -157,7 +155,7 @@ func newNodeSvc(kubeClient *k8s.KubeClient, nodeReady chan<- bool) {
 				for _, d := range drives.Items {
 					name := uuid.New().String()
 					location := d.Name
-					var ac = accrd.AvailableCapacity{}
+					ac := accrd.AvailableCapacity{}
 					err = kubeClient.ReadCR(context.Background(), location, "", &ac)
 					if k8serrors.IsNotFound(err) {
 						acCR := kubeClient.ConstructACCR(name, api.AvailableCapacity{

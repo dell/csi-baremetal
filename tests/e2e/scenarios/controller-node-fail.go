@@ -39,7 +39,6 @@ import (
 
 const (
 	ControllerName = "csi-baremetal-controller"
-	ContextTimeout = 20 * time.Minute
 )
 
 func DefineControllerNodeFailTestSuite(driver storageframework.TestDriver) {
@@ -58,7 +57,7 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 		executor      = common.GetExecutor()
 		driverCleanup func()
 		ctx           context.Context
-		//cancel		  func()
+		// cancel		  func()
 		nodeName string
 		ns       string
 		f        = framework.NewDefaultFramework("controller-node-fail")
@@ -74,7 +73,7 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 
 		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
-		//ctx, cancel = context.WithTimeout(context.Background(), ContextTimeout)
+		// ctx, cancel = context.WithTimeout(context.Background(), ContextTimeout)
 		ctx = context.Background()
 		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
@@ -94,7 +93,7 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 
 	ginkgo.It("controller should keep handle request after node fails", func() {
 		init()
-		//defer cancel()
+		// defer cancel()
 		defer cleanup()
 
 		deployment, err := f.ClientSet.AppsV1().Deployments(ns).Get(ctx, ControllerName, metav1.GetOptions{})

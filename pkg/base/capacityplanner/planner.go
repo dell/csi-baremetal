@@ -27,7 +27,7 @@ import (
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
@@ -91,7 +91,8 @@ type DefaultCapacityManagerBuilder struct {
 
 // GetCapacityManager returns default implementation of CapacityManager
 func (dcmb *DefaultCapacityManagerBuilder) GetCapacityManager(
-	logger *logrus.Entry, capReader CapacityReader, resReader ReservationReader) CapacityPlaner {
+	logger *logrus.Entry, capReader CapacityReader, resReader ReservationReader,
+) CapacityPlaner {
 	return NewCapacityManager(logger, capReader, resReader, dcmb.SequentialLVGReservation)
 }
 
@@ -104,7 +105,8 @@ func (dcmb *DefaultCapacityManagerBuilder) GetReservedCapacityManager(
 
 // NewCapacityManager return new instance of CapacityManager
 func NewCapacityManager(logger *logrus.Entry, capReader CapacityReader,
-	resReader ReservationReader, sequentialLVGReservation bool) *CapacityManager {
+	resReader ReservationReader, sequentialLVGReservation bool,
+) *CapacityManager {
 	return &CapacityManager{
 		logger:                   logger,
 		capReader:                capReader,

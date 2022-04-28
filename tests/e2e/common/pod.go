@@ -73,7 +73,7 @@ func MakePod(ns string, nodeSelector map[string]string, pvclaims []*v1.Persisten
 					Name:            "write-pod",
 					Image:           "centos",
 					ImagePullPolicy: v1.PullIfNotPresent,
-					//Image:   framework.BusyBoxImage,
+					// Image:   framework.BusyBoxImage,
 					Command: []string{"/bin/sh"},
 					Args:    []string{"-c", command},
 					SecurityContext: &v1.SecurityContext{
@@ -86,7 +86,7 @@ func MakePod(ns string, nodeSelector map[string]string, pvclaims []*v1.Persisten
 	}
 	var volumeMounts []v1.VolumeMount
 	var volumeDevices []v1.VolumeDevice
-	var volumes = make([]v1.Volume, len(pvclaims))
+	volumes := make([]v1.Volume, len(pvclaims))
 	for index, pvclaim := range pvclaims {
 		volumename := fmt.Sprintf("volume%v", index+1)
 		if pvcIsBlock(pvclaim) {

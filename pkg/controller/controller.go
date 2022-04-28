@@ -79,7 +79,8 @@ type CSIControllerService struct {
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of CSIControllerService
 func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
-	featureConf featureconfig.FeatureChecker) *CSIControllerService {
+	featureConf featureconfig.FeatureChecker,
+) *CSIControllerService {
 	c := &CSIControllerService{
 		k8sclient:                k8sClient,
 		log:                      logger.WithField("component", "CSIControllerService"),
@@ -295,13 +296,15 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 
 // ControllerPublishVolume is not implemented yet
 func (c *CSIControllerService) ControllerPublishVolume(_ context.Context,
-	_ *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+	_ *csi.ControllerPublishVolumeRequest,
+) (*csi.ControllerPublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
 // ControllerUnpublishVolume is not implemented yet
 func (c *CSIControllerService) ControllerUnpublishVolume(_ context.Context,
-	_ *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	_ *csi.ControllerUnpublishVolumeRequest,
+) (*csi.ControllerUnpublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
@@ -372,7 +375,7 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 }
 
 // ControllerGetVolume is not implemented yet
-func (c *CSIControllerService) ControllerGetVolume(ctx context.Context, request *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+func (c *CSIControllerService) ControllerGetVolume(_ context.Context, _ *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 
@@ -400,7 +403,6 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 	}
 
 	volume, err := c.crHelper.GetVolumeByID(volID)
-
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "Volume doesn't exist")
 	}

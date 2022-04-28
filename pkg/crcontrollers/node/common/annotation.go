@@ -33,12 +33,13 @@ const (
 	// NumberOfRetries to obtain Node ID
 	NumberOfRetries = 20
 	// DelayBetweenRetries to obtain Node ID
-	DelayBetweenRetries = 3
+	DelayBetweenRetries = 3 * time.Second
 )
 
 // ObtainNodeIDWithRetries obtains Node ID with retries
 func ObtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.FeatureChecker, nodeName string,
-	nodeIDAnnotation string, logger *logrus.Logger, retries int, delay time.Duration) (nodeID string, err error) {
+	nodeIDAnnotation string, logger *logrus.Logger, retries int, delay time.Duration,
+) (nodeID string, err error) {
 	// try to obtain node ID
 	for i := 0; i < retries; i++ {
 		logger.Info("Obtaining node ID...")
@@ -47,7 +48,7 @@ func ObtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.
 			return nodeID, nil
 		}
 		logger.Warningf("Unable to get node ID due to %v, sleep and retry...", err)
-		time.Sleep(delay * time.Second)
+		time.Sleep(delay)
 	}
 	// return empty node ID and error
 	return "", fmt.Errorf("number of retries %d exceeded", retries)

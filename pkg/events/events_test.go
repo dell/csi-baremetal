@@ -17,8 +17,9 @@ limitations under the License.
 package events
 
 import (
-	"github.com/dell/csi-baremetal/pkg/eventing"
 	"testing"
+
+	"github.com/dell/csi-baremetal/pkg/eventing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
@@ -77,9 +78,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestRecorder_Eventf(t *testing.T) {
-	var (
-		eventManager = &eventing.EventManager{}
-	)
+	eventManager := &eventing.EventManager{}
 	type fields struct {
 		eventRecorder *mocks.EventRecorder
 		eventManager  *eventing.EventManager
@@ -130,7 +129,7 @@ func TestRecorder_Eventf(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			//setup mocks
+			// setup mocks
 			tt.fields.eventRecorder.On(tt.funcCalled, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
 			r := &Recorder{
 				eventRecorder: tt.fields.eventRecorder,

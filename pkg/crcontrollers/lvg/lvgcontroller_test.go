@@ -203,7 +203,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 }
 
 func TestReconcile_LVGHealthBad(t *testing.T) {
-	var fLVG = lvgCR1.DeepCopy()
+	fLVG := lvgCR1.DeepCopy()
 	fLVG.Spec.Status = apiV1.Created
 	fLVG.Spec.Health = apiV1.HealthBad
 	fLVG.Finalizers = []string{lvgFinalizer}

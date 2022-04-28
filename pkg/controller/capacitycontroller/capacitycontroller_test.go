@@ -451,6 +451,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
 	})
 }
+
 func TestController_ReconcileResourcesNotFound(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
 	assert.Nil(t, err)

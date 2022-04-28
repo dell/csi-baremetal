@@ -160,7 +160,6 @@ func TestGetPartitionNameByUUIDSuccess(t *testing.T) {
 	res, err := p.GetPartitionNameByUUID(device, partUUID)
 	assert.Nil(t, err)
 	assert.Equal(t, partName, res)
-
 }
 
 func TestGetPartitionNameByUUIDFail(t *testing.T) {

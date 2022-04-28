@@ -22,46 +22,85 @@ linters:
   # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
   disable-all: true
   enable:
+    - asciicheck
+    - bidichk
     - bodyclose
+    # - contextcheck TODO - https://github.com/dell/csi-baremetal/issues/703
+    # - cyclop TODO - https://github.com/dell/csi-baremetal/issues/832
     - deadcode
     - depguard
     - dogsled
+    - dupl
+    - durationcheck
     - errcheck
+    # - errname
+    # - errorlint
+    - exhaustive
+    # - exhaustivestruct
+    - exportloopref
+    - forbidigo
+    # - forcetypeassert
     - funlen
+    # - gci
+    # - gochecknoglobals - TODO https://github.com/dell/csi-baremetal/issues/474
     - gochecknoinits
     - gocognit
     - goconst
     - gocritic
     - gocyclo
+    # - godot No need
+    # - godox CSI now has a lot TODOs in source code
+    # - goerr113
     - gofmt
+    - gofumpt
+    - goheader
     - goimports
-    - golint
+    # - gomnd - TODO https://github.com/dell/csi-baremetal/issues/836
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    # - gosec Because CSI uses lsblk servers for now
     - gosimple
     - govet
+    # - ifshort
+    - importas
     - ineffassign
+    # - ireturn
     - lll
-    - megacheck
+    - makezero
     - misspell
     - nakedret
-    - scopelint
+    # - nestif - TODO https://github.com/dell/csi-baremetal/issues/837
+    # - nilerr
+    # - nilnil
+    # - nlreturn
+    # - noctx
+    - nolintlint
+    - paralleltest
+    - prealloc
+    # - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
     - staticcheck
     - structcheck
+    # - stylecheck
+    # - tagliatelle - TODO https://github.com/dell/csi-baremetal/issues/834
+    - tenv
+    - testpackage
+    - thelper
+    - tparallel
     - typecheck
     - unconvert
     - unparam
     - unused
     - varcheck
+    # - varnamelen No need
+    - wastedassign
     - whitespace
-    - maligned
-    - prealloc
-    - dupl
-
-  # don't enable:
-  # - gosec Because CSI uses lsblk servers for now
-  # - gochecknoglobals Because of NodeAllocatedDisks map
-  # - godox CSI now has a lot TODOs in source code
-  # - wsl
-  # - stylecheck because it is similar to golint and there is conflict between them
+    # - wrapcheck - TODO https://github.com/dell/csi-baremetal/issues/833
+    # - wsl
 
 run:
   deadline: 15m

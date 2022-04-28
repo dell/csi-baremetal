@@ -26,8 +26,8 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
@@ -62,7 +62,8 @@ type DriveProvisioner struct {
 func NewDriveProvisioner(
 	e command.CmdExecutor,
 	k *k8s.KubeClient,
-	log *logrus.Logger) *DriveProvisioner {
+	log *logrus.Logger,
+) *DriveProvisioner {
 	return &DriveProvisioner{
 		listBlk:   lsblk.NewLSBLK(log),
 		fsOps:     uw.NewFSOperationsImpl(e, log),
@@ -218,7 +219,7 @@ func (d *DriveProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 	}
 	ll.Debugf("Got device %s", device)
 
-	var volumeUUID = vol.Id
+	volumeUUID := vol.Id
 	if vol.Mode == apiV1.ModeRAW {
 		return device, nil
 	}

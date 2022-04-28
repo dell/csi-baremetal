@@ -164,7 +164,7 @@ func (h *WrapFSImpl) MkFile(src string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create parrent dir")
 		}
-		file, err := os.OpenFile(src, os.O_CREATE, 0600)
+		file, err := os.OpenFile(src, os.O_CREATE, 0o600)
 		if err != nil {
 			return err
 		}

@@ -247,7 +247,7 @@ func (c *Controller) createSystemLVG(lvg *lvgcrd.LogicalVolumeGroup) (locations 
 	})
 	ll.Info("Processing ...")
 
-	var deviceFiles = make([]string, 0) // device files of each drive in LogicalVolumeGroup
+	deviceFiles := make([]string, 0) // device files of each drive in LogicalVolumeGroup
 	for _, driveUUID := range lvg.Spec.Locations {
 		drive := &drivecrd.Drive{}
 		// TODO - Remove context.Background() usage - https://github.com/dell/csi-baremetal/issues/703

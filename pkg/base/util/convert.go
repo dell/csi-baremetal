@@ -45,7 +45,7 @@ const (
 // Receives string value of information size with literal
 // Returns provided size in bytes or error if something went wrong
 func StrToBytes(str string) (int64, error) {
-	var matches = sizeStrFmt.FindAllStringSubmatch(str, -1)
+	matches := sizeStrFmt.FindAllStringSubmatch(str, -1)
 	if matches == nil {
 		return 0, fmt.Errorf("unparseable size definition: %v", str)
 	}
@@ -72,10 +72,10 @@ func StrToBytes(str string) (int64, error) {
 // Receives size as value, 'from' as provided size unit and 'to' as size unit to convert
 // Returns error if conversion leads to precision loss.
 func ToSizeUnit(value int64, from SizeUnit, to SizeUnit) (int64, error) {
-	var fromMod = int64(from)
-	var toMod = int64(to)
-	var byteValue = fromMod * value
-	var res = byteValue / toMod
+	fromMod := int64(from)
+	toMod := int64(to)
+	byteValue := fromMod * value
+	res := byteValue / toMod
 	if byteValue%toMod != 0 {
 		// The error can be ignored, if precision loss is OK for you
 		return res, fmt.Errorf("precision loss prohibited in conversion from value %d with unit size %d to unit with size %d", value, fromMod, toMod)

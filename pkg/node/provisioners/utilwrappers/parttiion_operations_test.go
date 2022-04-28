@@ -81,7 +81,7 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	mockPH.Calls = []mock.Call{} // flush mock call records
 
 	// setup mocks for scenarios when partition is created and volume whether ephemeral and no
-	var partName = "p1"
+	partName := "p1"
 	mockPH.On("IsPartitionExists", testPart1.Device, testPart1.Num).
 		Return(false, nil).Twice()
 	mockPH.On("CreatePartitionTable", testPart1.Device, testPart1.TableType).
@@ -89,7 +89,7 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	mockPH.On("CreatePartition", testPart1.Device, testPart1.Label, testPart1.PartUUID).
 		Return(nil).Twice()
 	// if volume Ephemeral
-	var partUUIDForEphemeral = "uuid-eeee"
+	partUUIDForEphemeral := "uuid-eeee"
 	mockPH.On("GetPartitionUUID", testPart1.Device, testPart1.Num).
 		Return(partUUIDForEphemeral, nil).Once()
 

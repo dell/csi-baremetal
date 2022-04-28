@@ -60,7 +60,7 @@ func collectPodLogs(f *framework.Framework) func() {
 	to := podlogs.LogOutput{
 		LogPathPrefix: dirname + "/",
 	}
-	eventsLogs, err := os.OpenFile(path.Join(dirname, "events.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	eventsLogs, err := os.OpenFile(path.Join(dirname, "events.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
@@ -186,7 +186,8 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	cleanup := func() {
 		defer cancel()
 		if BMDriverTestContext.CompleteUninstall {
-			CleanupLoopbackDevices(ctx, f)
+			err := CleanupLoopbackDevices(ctx, f)
+			e2elog.Logf("Failed to cleanup loopback devices: %v", err)
 			// delete resources with finalizers and wait until node- and lvgcontroller reconcile requests
 			removeCRs(ctx, f, CsibmnodeGVR, LVGGVR)
 			deadline := time.Now().Add(30 * time.Second)

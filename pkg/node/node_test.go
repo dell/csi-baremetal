@@ -19,7 +19,6 @@ package node
 import (
 	"errors"
 	"fmt"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"path"
 	"testing"
 	"time"
@@ -36,6 +35,7 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -377,7 +377,6 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 		//	Expect(err).To(BeNil())
 		//	Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 		//})
-
 	})
 
 	Context("NodeUnPublish() failure", func() {
@@ -429,6 +428,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 		})
 	})
 })
+
 var _ = Describe("CSINodeService NodeUnStage()", func() {
 	BeforeEach(func() {
 		setVariables()
@@ -548,6 +548,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 		})
 	})
 })
+
 var _ = Describe("CSINodeService NodeGetInfo()", func() {
 	It("Should return topology key with Node ID", func() {
 		node := newNodeService()
@@ -782,7 +783,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 					},
 				}
 				wbtValue uint32 = 0
-				device          = "sda" //testDrive.Spec.Path = "/dev/sda"
+				device          = "sda" // testDrive.Spec.Path = "/dev/sda"
 			)
 			node.SetWbtConfig(wbtConf)
 			wbtOps.On("SetValue", device, wbtValue).Return(nil)
@@ -823,7 +824,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 					},
 				}
 				wbtValue uint32 = 0
-				device          = "sda" //testDrive.Spec.Path = "/dev/sda"
+				device          = "sda" // testDrive.Spec.Path = "/dev/sda"
 				someErr         = fmt.Errorf("some err")
 			)
 			node.SetWbtConfig(wbtConf)
@@ -862,9 +863,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
-			var (
-				device = "sda" //testDrive.Spec.Path = "/dev/sda"
-			)
+			device := "sda" // testDrive.Spec.Path = "/dev/sda"
 			wbtOps.On("RestoreDefault", device).Return(nil)
 
 			resp, err := node.NodeUnstageVolume(testCtx, req)
@@ -892,7 +891,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			Expect(err).To(BeNil())
 
 			var (
-				device  = "sda" //testDrive.Spec.Path = "/dev/sda"
+				device  = "sda" // testDrive.Spec.Path = "/dev/sda"
 				someErr = fmt.Errorf("some err")
 			)
 			wbtOps.On("RestoreDefault", device).Return(someErr)

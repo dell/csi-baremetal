@@ -145,7 +145,7 @@ func TestConvertDriveTypeToStorageClass(t *testing.T) {
 }
 
 func TestContainsString(t *testing.T) {
-	var containsStringScenarios = []struct {
+	containsStringScenarios := []struct {
 		slice  []string
 		str    string
 		result bool
@@ -165,7 +165,7 @@ func TestContainsString(t *testing.T) {
 }
 
 func TestRemoveString(t *testing.T) {
-	var removeStringScenarios = []struct {
+	removeStringScenarios := []struct {
 		slice  []string
 		str    string
 		result []string
@@ -185,7 +185,7 @@ func TestRemoveString(t *testing.T) {
 }
 
 func TestSplitAndTrimSpace(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		str    string
 		sep    string
 		result []string

@@ -45,7 +45,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/base/logger"
+	baselogger "github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -84,8 +84,8 @@ var (
 		"Whether node svc should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
-	logLevel = flag.String("loglevel", logger.InfoLevel,
-		fmt.Sprintf("Log level, support values are %s, %s, %s", logger.InfoLevel, logger.DebugLevel, logger.TraceLevel))
+	logLevel = flag.String("loglevel", baselogger.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", baselogger.InfoLevel, baselogger.DebugLevel, baselogger.TraceLevel))
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
@@ -104,7 +104,7 @@ func main() {
 		enableMetrics = true
 	}
 
-	logger, err := logger.InitLogger(*logPath, *logLevel)
+	logger, err := baselogger.InitLogger(*logPath, *logLevel)
 	if err != nil {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
@@ -157,7 +157,17 @@ func main() {
 	csiNodeService := node.NewCSINodeService(
 		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
-	mgr := prepareCRDControllerManagers(
+	scheme := prepareSchemeWithCSIRes(logger)
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		logger.Fatalf("Unable to create new CRD Controller Manager: %v", err)
+	}
+
+	prepareCRDControllerManagers(
+		mgr,
 		csiNodeService,
 		lvg.NewController(wrappedK8SClient, nodeID, logger),
 		drive.NewController(wrappedK8SClient, nodeID, clientToDriveMgr, eventRecorder, logger),
@@ -254,11 +264,9 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	}
 }
 
-// prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources
-func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.Controller,
-	driveCtrl *drive.Controller, logger *logrus.Logger) manager.Manager {
+// prepareSchemeWithCSIRes prepares Scheme to work with CSI custom resources
+func prepareSchemeWithCSIRes(logger *logrus.Logger) *runtime.Scheme {
 	var (
-		ll     = logger.WithField("method", "prepareCRDControllerManagers")
 		scheme = runtime.NewScheme()
 		err    error
 	)
@@ -280,11 +288,33 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 		logrus.Fatal(err)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		ll.Fatalf("Unable to create new CRD Controller Manager: %v", err)
+	return scheme
+}
+
+// prepareCRDControllerManagers prepares CRD ControllerManagers to work with CSI custom resources
+func prepareCRDControllerManagers(mgr manager.Manager, volumeCtrl *node.CSINodeService, lvgCtrl *lvg.Controller,
+	driveCtrl *drive.Controller, logger *logrus.Logger,
+) {
+	var (
+		scheme = runtime.NewScheme()
+		err    error
+	)
+
+	if err = clientgoscheme.AddToScheme(scheme); err != nil {
+		logger.Fatal(err)
+	}
+	// register volume crd
+	if err = volumecrd.AddToScheme(scheme); err != nil {
+		logger.Fatal(err)
+	}
+	// register LogicalVolumeGroup crd
+	if err = lvgcrd.AddToSchemeLVG(scheme); err != nil {
+		logrus.Fatal(err)
+	}
+
+	// register Drive crd
+	if err = drivecrd.AddToSchemeDrive(scheme); err != nil {
+		logrus.Fatal(err)
 	}
 
 	// bind CSINodeService's VolumeManager to K8s Controller Manager as a controller for Volume CR
@@ -300,8 +330,6 @@ func prepareCRDControllerManagers(volumeCtrl *node.CSINodeService, lvgCtrl *lvg.
 	if err = driveCtrl.SetupWithManager(mgr); err != nil {
 		logger.Fatalf("unable to create controller for LogicalVolumeGroup: %v", err)
 	}
-
-	return mgr
 }
 
 // prepareEventRecorder helper which makes all the work to get EventRecorder

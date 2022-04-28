@@ -39,8 +39,8 @@ import (
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	volcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -65,7 +65,8 @@ type Extender struct {
 
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
-	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey, nodeselector string) (*Extender, error) {
+	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey, nodeselector string,
+) (*Extender, error) {
 	return &Extender{
 		k8sClient:              kubeClient,
 		k8sCache:               kubeCache,
@@ -159,9 +160,7 @@ func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	resp := json.NewEncoder(w)
 
-	var (
-		extenderArgs schedulerapi.ExtenderArgs
-	)
+	var extenderArgs schedulerapi.ExtenderArgs
 
 	if err := json.NewDecoder(req.Body).Decode(&extenderArgs); err != nil {
 		ll.Errorf("Unable to decode request body: %v", err)
@@ -360,7 +359,8 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
-	filteredNodes schedulerapi.FailedNodesMap, err error) {
+	filteredNodes schedulerapi.FailedNodesMap, err error,
+) {
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil
@@ -399,7 +399,8 @@ func getReservationName(pod *coreV1.Pod) string {
 }
 
 func (e *Extender) createReservation(ctx context.Context, namespace string, name string, nodes []coreV1.Node,
-	capacities []*genV1.CapacityRequest) error {
+	capacities []*genV1.CapacityRequest,
+) error {
 	// ACR CRD
 	reservation := genV1.AvailableCapacityReservation{
 		Namespace: namespace,
@@ -456,7 +457,8 @@ func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
 }
 
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
-	nodes []coreV1.Node) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
+	nodes []coreV1.Node,
+) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
 	// handle reservation status
 	switch reservation.Spec.Status {
 	case v1.ReservationRequested:
@@ -506,7 +508,8 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 }
 
 func (e *Extender) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
-	nodes []coreV1.Node) error {
+	nodes []coreV1.Node,
+) error {
 	reservation.Spec.Status = v1.ReservationRequested
 	// update nodes
 	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
@@ -531,7 +534,7 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 		"method": "score",
 	})
 
-	var volumeList = &volcrd.VolumeList{}
+	volumeList := &volcrd.VolumeList{}
 	if err := e.k8sCache.ReadList(context.Background(), volumeList); err != nil {
 		err = fmt.Errorf("unable to read volumes list: %v", err)
 		return nil, err

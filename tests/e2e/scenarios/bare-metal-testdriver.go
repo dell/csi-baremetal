@@ -82,9 +82,11 @@ func initBaremetalDriver() *baremetalDriver {
 	}
 }
 
-var _ storageframework.TestDriver = &baremetalDriver{}
-var _ storageframework.DynamicPVTestDriver = &baremetalDriver{}
-var _ storageframework.PreprovisionedPVTestDriver = &baremetalDriver{}
+var (
+	_ storageframework.TestDriver                 = &baremetalDriver{}
+	_ storageframework.DynamicPVTestDriver        = &baremetalDriver{}
+	_ storageframework.PreprovisionedPVTestDriver = &baremetalDriver{}
+)
 
 // GetDriverInfo is implementation of TestDriver interface method
 func (d *baremetalDriver) GetDriverInfo() *storageframework.DriverInfo {
@@ -187,7 +189,8 @@ func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*storageframework
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method
 func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *storageframework.PerTestConfig,
-	fsType string) *storagev1.StorageClass {
+	fsType string,
+) *storagev1.StorageClass {
 	var scFsType string
 	switch strings.ToLower(fsType) {
 	case "", xfsFs:
@@ -201,7 +204,7 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *storageframewo
 	}
 	ns := config.Framework.Namespace.Name
 	provisioner := d.driverInfo.Name
-	//suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
+	// suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
 	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
 		"storageType": storageType,
@@ -213,10 +216,11 @@ func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *storageframewo
 
 // GetStorageClassWithStorageType allows to create SC with different storageType
 func (d *baremetalDriver) GetStorageClassWithStorageType(config *storageframework.PerTestConfig,
-	storageType string) *storagev1.StorageClass {
+	storageType string,
+) *storagev1.StorageClass {
 	ns := config.Framework.Namespace.Name
 	provisioner := d.driverInfo.Name
-	//suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
+	// suffix := fmt.Sprintf("%s-sc", d.driverInfo.Name)
 	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 	scParams := map[string]string{
 		"storageType": storageType,
@@ -233,8 +237,9 @@ func (d *baremetalDriver) GetClaimSize() string {
 var _ storageframework.EphemeralTestDriver = &baremetalDriver{}
 
 // GetVolume is implementation of EphemeralTestDriver interface method
-func (d *baremetalDriver) GetVolume(config *storageframework.PerTestConfig,
-	volumeNumber int) (attributes map[string]string, shared bool, readOnly bool) {
+func (d *baremetalDriver) GetVolume(_ *storageframework.PerTestConfig,
+	_ int,
+) (attributes map[string]string, shared bool, readOnly bool) {
 	attributes = make(map[string]string)
 	attributes["size"] = d.GetClaimSize()
 	attributes["storageType"] = hddStorageType
@@ -242,17 +247,17 @@ func (d *baremetalDriver) GetVolume(config *storageframework.PerTestConfig,
 }
 
 // GetCSIDriverName is implementation of EphemeralTestDriver interface method
-func (d *baremetalDriver) GetCSIDriverName(config *storageframework.PerTestConfig) string {
+func (d *baremetalDriver) GetCSIDriverName(_ *storageframework.PerTestConfig) string {
 	return d.GetDriverInfo().Name
 }
 
 // CreateVolume is implementation of PreprovisionedPVTestDriver interface method
-func (d *baremetalDriver) CreateVolume(config *storageframework.PerTestConfig, volumeType storageframework.TestVolType) storageframework.TestVolume {
+func (d *baremetalDriver) CreateVolume(_ *storageframework.PerTestConfig, _ storageframework.TestVolType) storageframework.TestVolume {
 	panic("implement me")
 }
 
 // GetPersistentVolumeSource is implementation of PreprovisionedPVTestDriver interface method
-func (d *baremetalDriver) GetPersistentVolumeSource(readOnly bool, fsType string, testVolume storageframework.TestVolume) (*corev1.PersistentVolumeSource, *corev1.VolumeNodeAffinity) {
+func (d *baremetalDriver) GetPersistentVolumeSource(_ bool, _ string, _ storageframework.TestVolume) (*corev1.PersistentVolumeSource, *corev1.VolumeNodeAffinity) {
 	panic("implement me")
 }
 

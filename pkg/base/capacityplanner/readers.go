@@ -131,16 +131,6 @@ func (acr *ACRReader) ReadReservation(ctx context.Context, name string) (*acrcrd
 	return acrList.Items, nil*/
 }
 
-// NewUnreservedACReader returns instance of UnreservedACReader
-func NewUnreservedACReader(logger *logrus.Entry, capReader CapacityReader,
-	resReader ReservationReader) *UnreservedACReader {
-	return &UnreservedACReader{
-		capReader: capReader,
-		resReader: resReader,
-		logger:    logger,
-	}
-}
-
 // UnreservedACReader capReader which returns ACs reserved in ACR
 type UnreservedACReader struct {
 	capReader CapacityReader

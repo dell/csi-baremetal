@@ -28,5 +28,6 @@ import (
 func AddCommonFields(ctx context.Context, logger *logrus.Entry, method string) *logrus.Entry {
 	return logger.WithFields(logrus.Fields{
 		"volumeID": ctx.Value(base.RequestUUID),
-		"method":   method})
+		"method":   method,
+	})
 }

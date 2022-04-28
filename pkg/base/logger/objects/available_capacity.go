@@ -1,3 +1,4 @@
+// Package objects contains logger implementation for CSI CRs
 package objects
 
 import (

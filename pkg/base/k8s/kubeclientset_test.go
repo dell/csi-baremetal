@@ -17,8 +17,9 @@ limitations under the License.
 package k8s
 
 import (
-	"k8s.io/client-go/rest"
 	"testing"
+
+	"k8s.io/client-go/rest"
 )
 
 // Since we run test not in k8s, it will always fail

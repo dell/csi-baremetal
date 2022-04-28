@@ -1,4 +1,4 @@
-package error
+package baseerr
 
 import k8sError "k8s.io/apimachinery/pkg/api/errors"
 

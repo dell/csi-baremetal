@@ -15,8 +15,8 @@ import (
 	v1api "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	metrics "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
@@ -99,7 +99,8 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.Entry,
-	reservation *acrcrd.AvailableCapacityReservation) (ctrl.Result, error) {
+	reservation *acrcrd.AvailableCapacityReservation,
+) (ctrl.Result, error) {
 	reservationSpec := &reservation.Spec
 	// check status
 	status := reservationSpec.Status

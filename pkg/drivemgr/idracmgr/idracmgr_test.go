@@ -99,7 +99,7 @@ func Test_getDrivesURL(t *testing.T) {
 	assert.Equal(t, "https://127.0.0.1/redfish/v1/Systems/System.Embedded.1/Storage/Drives/Disk.Bay.0:Enclosure.Internal.0-1:NonRAID.Integrated.1-1", drivesURL[0])
 
 	server = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		//Error in json
+		// Error in json
 		rw.WriteHeader(200)
 		rw.Write([]byte(`{"Drive": [{"@odata.id":"/redfish/v1/Systems/System.Embedded.1/Storage/Drives/Disk.Bay.0:Enclosure.Internal.0-1:NonRAID.Integrated.1-1}]"`))
 	}))
@@ -109,7 +109,7 @@ func Test_getDrivesURL(t *testing.T) {
 	assert.Empty(t, drivesURL)
 
 	server = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		//No Drive field
+		// No Drive field
 		rw.WriteHeader(200)
 		rw.Write([]byte(`{"Id": "string"}`))
 	}))
@@ -130,7 +130,7 @@ func Test_getDrive(t *testing.T) {
 	assert.Equal(t, "serialNumber", drive.SerialNumber)
 
 	server = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		//Error in Json
+		// Error in Json
 		rw.WriteHeader(200)
 		rw.Write([]byte(`{"SerialNumber": "serialNumber"`))
 	}))

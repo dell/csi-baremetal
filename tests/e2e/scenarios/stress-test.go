@@ -107,7 +107,7 @@ func driveStressTest(driver *baremetalDriver) {
 		pvcList, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).List(context.TODO(), metav1.ListOptions{})
 		framework.ExpectNoError(err)
 		pvcPointersList := make([]*corev1.PersistentVolumeClaim, len(pvcList.Items))
-		for i, _ := range pvcList.Items {
+		for i := range pvcList.Items {
 			pvcPointersList[i] = &pvcList.Items[i]
 		}
 
@@ -133,13 +133,14 @@ func driveStressTest(driver *baremetalDriver) {
 // size of PVCs.
 // Returns instance of appsv1.StatefulSet
 func CreateStressTestStatefulSet(ns string, amountOfReplicas int32, volumesPerReplica int, scName string,
-	claimSize string) *appsv1.StatefulSet {
+	claimSize string,
+) *appsv1.StatefulSet {
 	pvcs := make([]corev1.PersistentVolumeClaim, volumesPerReplica)
 	vms := make([]corev1.VolumeMount, volumesPerReplica)
 	pvcPrefix := "volume%d"
 	dataPath := "/data/%s"
 
-	for i, _ := range pvcs {
+	for i := range pvcs {
 		pvcs[i] = corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf(pvcPrefix, i),

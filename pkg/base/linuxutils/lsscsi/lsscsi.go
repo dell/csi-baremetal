@@ -101,7 +101,7 @@ func (la *LSSCSI) getSCSIDevicesBasicInfo() ([]*SCSIDevice, error) {
 		return nil, errors.New("unable to get devices basic info")
 	}
 	split := strings.Split(strOut, "\n")
-	var re = regexp.MustCompile(`(\s+)`)
+	re := regexp.MustCompile(`(\s+)`)
 	for j := 0; j < len(split); j++ {
 		s := re.ReplaceAllString(strings.TrimSpace(split[j]), " ")
 		output := strings.Split(s, " ")
@@ -126,7 +126,7 @@ func (la *LSSCSI) fillDeviceSize(device *SCSIDevice) error {
 	if err != nil {
 		return errors.New("unable to fill devices info")
 	}
-	var re = regexp.MustCompile(`(\s+)`)
+	re := regexp.MustCompile(`(\s+)`)
 	s := re.ReplaceAllString(strings.TrimSpace(strOut), " ")
 	output := strings.Split(s, " ")
 	bytes, err := util.StrToBytes(output[len(output)-1])
@@ -152,7 +152,7 @@ func (la *LSSCSI) fillDeviceInfo(device *SCSIDevice) error {
 		return errors.New("unable to get devices info")
 	}
 	split := strings.Split(strOut, "\n")
-	var re = regexp.MustCompile(`(\s+)`)
+	re := regexp.MustCompile(`(\s+)`)
 	for _, line := range split {
 		s := re.ReplaceAllString(strings.TrimSpace(line), " ")
 		if strings.Contains(line, "Vendor:") {

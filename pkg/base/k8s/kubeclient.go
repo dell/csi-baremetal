@@ -233,7 +233,8 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 // Receives a name for k8s ObjectMeta and an instance of api.Volume struct
 // Returns an instance of Volume CR struct
 func (k *KubeClient) ConstructVolumeCR(name, namespace string, labels map[string]string,
-	apiVolume api.Volume) *volumecrd.Volume {
+	apiVolume api.Volume,
+) *volumecrd.Volume {
 	return &volumecrd.Volume{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.VolumeKind,

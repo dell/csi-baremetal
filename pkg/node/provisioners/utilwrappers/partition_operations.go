@@ -71,7 +71,7 @@ type PartitionOperationsImpl struct {
 
 // NewPartitionOperationsImpl constructor for PartitionOperationsImpl and returns pointer on it
 func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *PartitionOperationsImpl {
-	var partMetrics = metrics.NewMetrics(prometheus.HistogramOpts{
+	partMetrics := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "partition_operations_duration",
 		Help:    "partition operations methods duration",
 		Buckets: metrics.ExtendedDefBuckets,

@@ -9,13 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/dell/csi-baremetal/pkg/base/logger"
+	baselogger "github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver/common"
 )
 
-var (
-	reader *mockYamlReader
-)
+var reader *mockYamlReader
 
 func TestExtenderHealthServerCheck(t *testing.T) {
 	t.Run("Check_Ready", func(t *testing.T) {
@@ -25,7 +23,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 			statuses      = &common.ReadinessStatusList{
 				Items: []common.ReadinessStatus{
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: true},
-				}}
+				},
+			}
 		)
 
 		server, err := prepareExtenderHealthServer(nodeName)
@@ -45,7 +44,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 			statuses      = &common.ReadinessStatusList{
 				Items: []common.ReadinessStatus{
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: false},
-				}}
+				},
+			}
 		)
 
 		server, err := prepareExtenderHealthServer(nodeName)
@@ -67,7 +67,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 					{NodeName: nodeName + "1", KubeScheduler: schedulerName, Restarted: true},
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: true},
 					{NodeName: nodeName + "2", KubeScheduler: schedulerName, Restarted: true},
-				}}
+				},
+			}
 		)
 
 		server, err := prepareExtenderHealthServer(nodeName)
@@ -87,7 +88,8 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 			statuses      = &common.ReadinessStatusList{
 				Items: []common.ReadinessStatus{
 					{NodeName: nodeName, KubeScheduler: schedulerName, Restarted: true},
-				}}
+				},
+			}
 		)
 
 		server, err := prepareExtenderHealthServer(nodeName)
@@ -120,7 +122,7 @@ func TestExtenderHealthServerCheck(t *testing.T) {
 }
 
 func prepareExtenderHealthServer(nodeName string) (*ExtenderHealthServer, error) {
-	logger, err := logger.InitLogger("", "DEBUG")
+	logger, err := baselogger.InitLogger("", "DEBUG")
 	if err != nil {
 		return nil, err
 	}

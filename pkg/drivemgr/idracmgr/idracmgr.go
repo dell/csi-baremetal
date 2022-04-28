@@ -18,6 +18,7 @@ limitations under the License.
 package idracmgr
 
 import "C"
+
 import (
 	"crypto/tls"
 	"encoding/json"
@@ -125,12 +126,12 @@ func (mgr *IDRACManager) GetDrivesList() ([]*api.Drive, error) {
 }
 
 // Locate implements Locate method of DriveManager interface
-func (mgr *IDRACManager) Locate(serialNumber string, action int32) (int32, error) {
+func (mgr *IDRACManager) Locate(_ string, _ int32) (int32, error) {
 	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
 }
 
 // LocateNode implements LocateNode method of DriveManager interface
-func (mgr *IDRACManager) LocateNode(action int32) error {
+func (mgr *IDRACManager) LocateNode(_ int32) error {
 	// not implemented
 	return status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
 }

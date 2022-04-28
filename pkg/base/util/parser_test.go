@@ -17,24 +17,26 @@ limitations under the License.
 package util
 
 import (
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
+
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 )
 
 func TestGetOSNameAndVersion(t *testing.T) {
 	name, version, err := GetOSNameAndVersion("")
-	assert.Equal(t, errTypes.ErrorEmptyParameter, err)
+	assert.Equal(t, baseerr.ErrorEmptyParameter, err)
 	assert.Equal(t, name, "")
 	assert.Equal(t, version, "")
 
 	name, version, err = GetOSNameAndVersion("Wrong OS")
-	assert.Equal(t, err, errTypes.ErrorFailedParsing)
+	assert.Equal(t, err, baseerr.ErrorFailedParsing)
 	assert.Equal(t, name, "")
 	assert.Equal(t, version, "")
 
 	name, version, err = GetOSNameAndVersion("12.04")
-	assert.Equal(t, err, errTypes.ErrorFailedParsing)
+	assert.Equal(t, err, baseerr.ErrorFailedParsing)
 	assert.Equal(t, name, "")
 	assert.Equal(t, version, "")
 
@@ -57,11 +59,11 @@ func TestGetOSNameAndVersion(t *testing.T) {
 
 func TestGetKernelVersion(t *testing.T) {
 	version, err := GetKernelVersion("")
-	assert.Equal(t, errTypes.ErrorEmptyParameter, err)
+	assert.Equal(t, baseerr.ErrorEmptyParameter, err)
 	assert.Equal(t, version, "")
 
 	version, err = GetKernelVersion("bla-bla")
-	assert.Equal(t, errTypes.ErrorFailedParsing, err)
+	assert.Equal(t, baseerr.ErrorFailedParsing, err)
 	assert.Equal(t, version, "")
 
 	// ubuntu 19

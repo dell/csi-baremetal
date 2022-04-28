@@ -25,7 +25,6 @@ import (
 )
 
 func TestNodeLivenessCheck(t *testing.T) {
-
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 
