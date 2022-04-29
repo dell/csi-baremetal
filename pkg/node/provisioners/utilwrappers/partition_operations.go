@@ -28,6 +28,13 @@ import (
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
+const (
+	// NumberOfRetriesToObtainPartName how many retries to obtain partition name
+	NumberOfRetriesToObtainPartName = 5
+	// SleepBetweenRetriesToObtainPartName default timeout between retries to obtain partition name
+	SleepBetweenRetriesToObtainPartName = 3 * time.Second
+)
+
 // PartitionOperations is a high-level interface
 // that encapsulates all low-level operations with partitions on node
 type PartitionOperations interface {
@@ -36,16 +43,9 @@ type PartitionOperations interface {
 	// ReleasePartition is fully release resources that had consumed by partition on node
 	ReleasePartition(p Partition) error
 	// SearchPartName returns partition name
-	SearchPartName(device, partUUID string) string
+	SearchPartName(device, partUUID string) (string, error)
 	ph.WrapPartition
 }
-
-const (
-	// NumberOfRetriesToSyncPartTable how many times to sync fs tab
-	NumberOfRetriesToSyncPartTable = 3
-	// SleepBetweenRetriesToSyncPartTable default timeout between fs tab sync attempt
-	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
-)
 
 // Partition is hold all attributes of partition on block device
 type Partition struct {
@@ -109,8 +109,8 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 		}
 		if currUUID == p.PartUUID {
 			ll.Infof("Partition has already prepared.")
-			p.Name = d.SearchPartName(p.Device, p.PartUUID)
-			if p.Name == "" {
+			p.Name, err = d.SearchPartName(p.Device, p.PartUUID)
+			if err != nil {
 				return nil, fmt.Errorf("unable to determine partition name after it being created: %w", err)
 			}
 			return &p, nil
@@ -127,11 +127,11 @@ func (d *PartitionOperationsImpl) PreparePartition(p Partition) (*Partition, err
 	if err = d.CreatePartition(p.Device, p.Label, p.PartUUID); err != nil {
 		return nil, fmt.Errorf("unable to create partition: %v", err)
 	}
-	_ = d.SyncPartitionTable(p.Device)
 
-	p.Name = d.SearchPartName(p.Device, p.PartUUID)
-	if p.Name == "" {
-		return nil, fmt.Errorf("unable to determine partition name after it being created: %v", err)
+	// obtain partition name
+	p.Name, err = d.SearchPartName(p.Device, p.PartUUID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine partition name after it being created: %w", err)
 	}
 
 	return &p, nil
@@ -157,7 +157,7 @@ func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
 
 // SearchPartName search (with retries) partition with UUID partUUID on device and returns partition name
 // e.g. "1" for /dev/sda1, "p1n1" for /dev/loopbackp1n1
-func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string {
+func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (string, error) {
 	defer d.metrics.EvaluateDurationForMethod("SearchPartName")()
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "SearchPartName",
@@ -171,22 +171,30 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) string
 	)
 
 	// get partition name
-	for i := 0; i < NumberOfRetriesToSyncPartTable; i++ {
+	for i := 0; i < NumberOfRetriesToObtainPartName; i++ {
 		// sync partition table
 		err = d.SyncPartitionTable(device)
 		if err != nil {
 			// log and ignore error
-			ll.Warningf("Unable to sync partition table for device %s", device)
+			ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
+			return "", err
 		}
-		time.Sleep(SleepBetweenRetriesToSyncPartTable)
+		// sleep first to avoid issues with lsblk caching
+		time.Sleep(SleepBetweenRetriesToObtainPartName)
 		partName, err = d.GetPartitionNameByUUID(device, partUUID)
 		if err != nil {
-			ll.Debugf("unable to find part name: %v", err)
+			ll.Warningf("Unable to find part name: %v. Sleep and retry...", err)
 			continue
 		}
 		break
 	}
 
+	// partition not found
+	if partName == "" {
+		ll.Errorf("Partition not found: %v", err)
+		return "", err
+	}
+
 	ll.Debugf("Got partition number %s", partName)
-	return partName
+	return partName, nil
 }

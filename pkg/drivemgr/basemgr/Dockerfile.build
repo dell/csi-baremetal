@@ -1,7 +1,7 @@
-FROM    ubuntu:21.04
+FROM    ubuntu:22.04
 
 # Remove bash packet to get rid of related CVEs
 RUN     apt update --no-install-recommends -y -q \
-&&	apt remove --no-install-recommends -y --allow-remove-essential -q bash \
+&&	    apt remove --no-install-recommends -y --allow-remove-essential -q bash \
 &&      apt install --no-install-recommends -y -q lsscsi smartmontools \
 &&      apt-get install -y nvme-cli
