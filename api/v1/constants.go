@@ -132,6 +132,4 @@ const (
 	LocateStatusOff          = int32(0)
 	LocateStatusOn           = int32(1)
 	LocateStatusNotAvailable = int32(2)
-
-	DockerImageKernelVersion = "5.4"
 )

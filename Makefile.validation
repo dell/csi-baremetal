@@ -79,7 +79,6 @@ kind-load-operator-image:
 kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
-	docker pull ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
@@ -109,7 +108,6 @@ kind-tag-images:
 	docker tag ${REGISTRY}/e2e-test-images/busybox:1.29-1 k8s.gcr.io/e2e-test-images/busybox:1.29-1
 	docker tag ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG} ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${PROJECT}-${NODE}:${TAG}
-	docker tag ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG} ${PROJECT}-${NODE}-kernel-5.4:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${PROJECT}-${CONTROLLER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
@@ -128,7 +126,6 @@ kind-load-images:
 	$(KIND) load docker-image k8s.gcr.io/e2e-test-images/busybox:1.29-1
 	$(KIND) load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${NODE}:${TAG}
-	$(KIND) load docker-image ${PROJECT}-${NODE}-kernel-5.4:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${CONTROLLER}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
