@@ -21,12 +21,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/dell/csi-baremetal/pkg/base/tracing"
 	"net"
 	"net/http"
 	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/dell/csi-baremetal/pkg/base/tracing"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

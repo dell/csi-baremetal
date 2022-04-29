@@ -2,6 +2,9 @@ package tracing
 
 import (
 	"context"
+	"io"
+	"os"
+
 	"github.com/coreos/rkt/tests/testutils/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -9,10 +12,9 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
-	"io"
-	"os"
 )
 
+// NewTracer exports traces to file
 func NewTracer(serviceName string) func() {
 	// tracing
 	f, err := os.Create("/tmp/traces.txt")
@@ -47,7 +49,7 @@ func newExporter(w io.Writer) (trace.SpanExporter, error) {
 		// Use human-readable output.
 		stdouttrace.WithPrettyPrint(),
 		// Do not print timestamps for the demo.
-		//stdouttrace.WithoutTimestamps(),
+		// stdouttrace.WithoutTimestamps(),
 	)
 }
 

@@ -21,11 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"net/http"
 	"strings"
 	"sync"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -116,7 +117,7 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	defer span.End()
 
 	ll.Info("Filtering")
-	//ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
+	// ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
 	pod := extenderArgs.Pod
 	requests, err := e.gatherCapacityRequestsByProvisioner(ctxWithVal, pod)
 	if err != nil {

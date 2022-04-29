@@ -19,13 +19,14 @@ package node
 import (
 	"context"
 	"fmt"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"

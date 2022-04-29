@@ -21,9 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"path"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"

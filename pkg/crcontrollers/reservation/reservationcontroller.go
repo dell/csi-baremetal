@@ -2,11 +2,12 @@ package reservation
 
 import (
 	"context"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"os"
 	"strconv"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
