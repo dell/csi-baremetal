@@ -44,8 +44,8 @@ func (m *MockPartitionOps) ReleasePartition(p utilwrappers.Partition) error {
 }
 
 // SearchPartName is a mock implementation
-func (m *MockPartitionOps) SearchPartName(device, partUUID string) string {
+func (m *MockPartitionOps) SearchPartName(device, partUUID string) (string, error) {
 	args := m.Mock.Called(device, partUUID)
 
-	return args.String(0)
+	return args.String(0), args.Error(1)
 }
