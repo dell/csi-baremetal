@@ -191,7 +191,7 @@ func (cm *CapacityManager) selectCapacityOnNode(ctx context.Context, node string
 	nodeCap := cm.nodesCapacity[node]
 	// capacity might not exists
 	if nodeCap == nil {
-		logger.Tracef("No AC found on node %s", node)
+		logger.Debugf("No AC found on node %s", node)
 		return nil
 	}
 
@@ -200,10 +200,10 @@ func (cm *CapacityManager) selectCapacityOnNode(ctx context.Context, node string
 	for _, vol := range volumes {
 		ac := nodeCap.selectACForVolume(vol)
 		if ac == nil {
-			logger.Tracef("AC for vol: %s not found on node %s", vol.Id, node)
+			logger.Debugf("AC for vol: %s not found on node %s", vol.Id, node)
 			return nil
 		}
-		logger.Tracef("AC %v selected for vol: %s found on node %s", ac, vol.Id, node)
+		logger.Debugf("AC %s selected for vol: %s found on node %s", ac.Name, vol.Id, node)
 		result[vol] = ac
 	}
 	logger.Debugf("AC for all volumes found on node %s", node)

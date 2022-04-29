@@ -1,10 +1,10 @@
 # project name
 PROJECT          := csi-baremetal
+PROJECT_PATH     := ${PWD}
 
 ### common path
 CSI_OPERATOR_PATH=../csi-baremetal-operator
 CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
-CONTROLLER_GEN_BIN=./bin/controller-gen
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 ### version
@@ -22,10 +22,10 @@ TAG              := ${FULL_VERSION}
 BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 
 ### third-party components version
-CSI_PROVISIONER_TAG := v3.0.0
-CSI_RESIZER_TAG     := v1.1.0
-CSI_REGISTRAR_TAG   := v1.3.0
-LIVENESS_PROBE_TAG  := v2.1.0
+CSI_PROVISIONER_TAG := v3.1.0
+CSI_RESIZER_TAG     := v1.4.0
+CSI_REGISTRAR_TAG   := v2.5.0
+LIVENESS_PROBE_TAG  := v2.6.0
 BUSYBOX_TAG         := 1.29
 
 ### PATH
@@ -74,16 +74,18 @@ PROTOC_GEN_GO_VER  := v1.3.2
 CLIENT_GO_VER      := v0.22.5
 
 ### Ingest information to the binary at the compile time
-METRICS_PACKAGE := github.com/dell/csi-baremetal/pkg/metrics
-LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH}"
+PACKAGE_NAME := github.com/dell/csi-baremetal
+METRICS_PACKAGE := ${PACKAGE_NAME}/pkg/metrics
+BASE_PACKAGE := ${PACKAGE_NAME}/pkg/base
+LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_PACKAGE}.Branch=${BRANCH} -X ${BASE_PACKAGE}.PluginVersion=${PRODUCT_VERSION} -X ${BASE_PACKAGE}.ProjectPath=${PROJECT_PATH}"
 
 ### Kind
-KIND_DIR := test/kind
-KIND     := ${KIND_DIR}/kind
-KIND_VER := 0.11.1
-KIND_CONFIG := kind.yaml
-KIND_IMAGE_VERSION := v1.19.11
-KIND_WAIT := 30s 
+KIND_BUILD_DIR		:= ${PWD}/devkit/kind
+KIND_CONFIG_DIR		:= tests/kind
+KIND				:= ${KIND_BUILD_DIR}/kind
+KIND_CONFIG			:= kind.yaml
+KIND_IMAGE_VERSION	:= v1.19.11
+KIND_WAIT			:= 30s
 
 ### ci vars
 # timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)

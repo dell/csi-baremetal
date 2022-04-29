@@ -11,12 +11,12 @@ coverage:
 	go tool cover -html=coverage.out -o coverage.html
 
 test:
-	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr | grep pkg` -race -cover -coverprofile=coverage.out -covermode=atomic
+	${GO_ENV_VARS} go test ${LDFLAGS} `go list ./... | grep -v halmgr | grep pkg` -race -cover -coverprofile=coverage.out -covermode=atomic
 
 # Run tests for pr-validation with writing output to log file
 # Test are different (ginkgo, go testing, etc.) so can't use native ginkgo methods to print junit output.
 test-pr-validation:
-	${GO_ENV_VARS} go test `go list ./... | grep -v halmgr` -v -race -cover -coverprofile=coverage.out > log.txt
+	${GO_ENV_VARS} go test ${LDFLAGS} `go list ./... | grep -v halmgr` -v -race -cover -coverprofile=coverage.out > log.txt
 
 install-junit-report:
 	${GO_ENV_VARS} go get -u github.com/jstemmer/go-junit-report
@@ -31,14 +31,14 @@ pr-validation-junit:
 # Run e2e tests for CI. All of these tests use ginkgo so we can use native ginkgo methods to print junit output.
 # Also go test doesn't provide functionnality to save test's log into the file. Use > to archieve artifatcs.
 test-ci:
-	${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -all-tests -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
+	cd tests && ${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test ${LDFLAGS} -v e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -all-tests -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
 
 # Run e2e tests and run community tests only.
 test-short-ci:
-	${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -ginkgo.failFast -timeout-short-ci=${SHORT_CI_TIMEOUT} -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
+	cd tests && ${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test ${LDFLAGS} -v e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -ginkgo.failFast -timeout-short-ci=${SHORT_CI_TIMEOUT} -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} -timeout 0 > log.txt
 
 test-sanity-ci:
-	${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -timeout 0 -ginkgo.focus="$(strip $(subst ',, ${SANITY_TEST}))" -ginkgo.v -ginkgo.progress -all-tests  -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} > log.txt
+	cd tests && ${GO_ENV_VARS} CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test ${LDFLAGS} -v e2e/baremetal_e2e_test.go -timeout 0 -ginkgo.focus="$(strip $(subst ',, ${SANITY_TEST}))" -ginkgo.v -ginkgo.progress -all-tests  -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR} > log.txt
 
 # Run commnity sanity tests for CSI. TODO https://github.com/dell/csi-baremetal/issues/298 Make sanity test work for expansion
 # TODO enable tests back - https://github.com/dell/csi-baremetal/issues/371
@@ -49,6 +49,19 @@ test-sanity:
 #	should fail when the node does not exist|\
 #	should fail when requesting to create a volume with already existing name and different capacity|\
 #	should not fail when requesting to create a volume with already existing name and same capacity" -ginkgo.v -timeout=0
+
+### Workflows
+
+prepare-env:
+	go install github.com/rhysd/actionlint/cmd/actionlint@latest
+	go install github.com/nektos/act@latest
+
+workflows-lint:
+	actionlint
+
+test-release-workflow:
+	act release -e .github/workflows/tests/release.json --secret-file .github/workflows/tests/wf.secrets
+	act release -e .github/workflows/tests/pre-release.json --secret-file .github/workflows/tests/wf.secrets
 
 load-operator-image: pull-operator-image \
 kind-tag-operator-image \
@@ -81,6 +94,8 @@ kind-pull-sidecar-images:
 	docker pull ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker pull ${REGISTRY}/library/nginx:1.14-alpine
 	docker pull ${REGISTRY}/library/centos:latest
+	docker pull ${REGISTRY}/e2e-test-images/nginx:1.14-1
+	docker pull ${REGISTRY}/e2e-test-images/busybox:1.29-1
 
 kind-tag-images:
 	docker tag ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -90,6 +105,8 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG} ${BUSYBOX}:${BUSYBOX_TAG}
 	docker tag ${REGISTRY}/library/nginx:1.14-alpine docker.io/library/nginx:1.14-alpine
 	docker tag ${REGISTRY}/library/centos:latest docker.io/library/centos:latest
+	docker tag ${REGISTRY}/e2e-test-images/nginx:1.14-1 k8s.gcr.io/e2e-test-images/nginx:1.14-1
+	docker tag ${REGISTRY}/e2e-test-images/busybox:1.29-1 k8s.gcr.io/e2e-test-images/busybox:1.29-1
 	docker tag ${REGISTRY}/${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG} ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${PROJECT}-${NODE}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG} ${PROJECT}-${NODE}-kernel-5.4:${TAG}
@@ -107,6 +124,8 @@ kind-load-images:
 	$(KIND) load docker-image ${BUSYBOX}:${BUSYBOX_TAG}
 	$(KIND) load docker-image docker.io/library/nginx:1.14-alpine
 	$(KIND) load docker-image docker.io/library/centos:latest
+	$(KIND) load docker-image k8s.gcr.io/e2e-test-images/nginx:1.14-1
+	$(KIND) load docker-image k8s.gcr.io/e2e-test-images/busybox:1.29-1
 	$(KIND) load docker-image ${PROJECT}-${LOOPBACK_DRIVE_MGR}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${NODE}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${NODE}-kernel-5.4:${TAG}
@@ -117,26 +136,8 @@ kind-load-images:
 	$(KIND) load docker-image ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-build:
-	# Get kind sources
-	wget -O kind-src https://codeload.github.com/kubernetes-sigs/kind/tar.gz/refs/tags/v$(KIND_VER)
-	tar -xzvf kind-src
-
-	# Add "--ipc=host" docker option and build binary
-	patch -p0 < $(KIND_DIR)/kind-$(KIND_VER).patch
-	cd kind-$(KIND_VER) && make build
-
-	# Copy file
-	cp kind-$(KIND_VER)/bin/kind $(KIND_DIR)
-
-	# Make executive
-	chmod +x $(KIND)
-
-	# Check
-	$(KIND) version
-
-	# Clean workdir
-	rm -rf kind-$(KIND_VER)
-	rm -f kind-src
+	chmod +x $(KIND_BUILD_DIR)/kind-build.sh
+	$(KIND_BUILD_DIR)/kind-build.sh $(KIND_BUILD_DIR)
 
 kind-install: kind-build
 	# Delete actual
@@ -149,28 +150,32 @@ kind-install: kind-build
 	kind version
 
 kind-create-cluster:
-	$(KIND) create cluster --config $(KIND_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
+	$(KIND) create cluster --config $(KIND_CONFIG_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
 
 kind-delete-cluster:
 	$(KIND) delete cluster
 
 deps-docker-pull:
 	docker pull k8s.gcr.io/sig-storage/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
-	docker pull quay.io/k8scsi/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker pull k8s.gcr.io/sig-storage/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
 	docker pull k8s.gcr.io/sig-storage/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker pull k8s.gcr.io/sig-storage/${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker pull ${BUSYBOX}:${BUSYBOX_TAG}
 	docker pull nginx:1.14-alpine
 	docker pull centos:latest
+	docker pull k8s.gcr.io/e2e-test-images/nginx:1.14-1
+	docker pull k8s.gcr.io/e2e-test-images/busybox:1.29-1
 
 deps-docker-tag:
 	docker tag k8s.gcr.io/sig-storage/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG} ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
-	docker tag quay.io/k8scsi/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG} ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
+	docker tag k8s.gcr.io/sig-storage/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG} ${REGISTRY}/${CSI_REGISTRAR}:${CSI_REGISTRAR_TAG}
 	docker tag k8s.gcr.io/sig-storage/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG} ${REGISTRY}/${LIVENESS_PROBE}:${LIVENESS_PROBE_TAG}
 	docker tag k8s.gcr.io/sig-storage/${CSI_RESIZER}:${CSI_RESIZER_TAG} ${REGISTRY}/${CSI_RESIZER}:${CSI_RESIZER_TAG}
 	docker tag ${BUSYBOX}:${BUSYBOX_TAG} ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker tag nginx:1.14-alpine ${REGISTRY}/library/nginx:1.14-alpine
 	docker tag centos:latest ${REGISTRY}/library/centos:latest
+	docker tag k8s.gcr.io/e2e-test-images/nginx:1.14-1 ${REGISTRY}/e2e-test-images/nginx:1.14-1
+	docker tag k8s.gcr.io/e2e-test-images/busybox:1.29-1 ${REGISTRY}/e2e-test-images/busybox:1.29-1
 
 deps-docker-push:
 	docker push ${REGISTRY}/${CSI_PROVISIONER}:${CSI_PROVISIONER_TAG}
@@ -180,3 +185,5 @@ deps-docker-push:
 	docker push ${REGISTRY}/${BUSYBOX}:${BUSYBOX_TAG}
 	docker push ${REGISTRY}/library/nginx:1.14-alpine
 	docker push ${REGISTRY}/library/centos:latest
+	docker push ${REGISTRY}/e2e-test-images/nginx:1.14-1
+	docker push ${REGISTRY}/e2e-test-images/busybox:1.29-1

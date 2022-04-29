@@ -96,50 +96,97 @@ func TestCRHelper_GetVolumeByID(t *testing.T) {
 	assert.Nil(t, volume)
 }
 
-func TestCRHelper_GetDriveCRByUUID(t *testing.T) {
+func TestCRHelper_GetDriveCRAndLVGCRByVolume(t *testing.T) {
+	var (
+		volume = testVolumeCR.DeepCopy()
+		lvg    = testLVGCR.DeepCopy()
+		drive  = testDriveCR.DeepCopy()
+	)
+
+	// Positive case: volume point to lvg
+	volume.Spec.Location = lvg.Name
+	volume.Spec.LocationType = v1.LocationTypeLVM
+	lvg.Spec.Locations = []string{drive.Name}
+
 	ch := setup()
-	expectedD := testDriveCR.DeepCopy()
-	err := ch.k8sClient.CreateCR(testCtx, expectedD.Name, expectedD)
+	err := ch.k8sClient.CreateCR(testCtx, volume.Name, volume)
+	assert.Nil(t, err)
+	err = ch.k8sClient.CreateCR(testCtx, lvg.Name, lvg)
+	assert.Nil(t, err)
+	err = ch.k8sClient.CreateCR(testCtx, drive.Name, drive)
+	assert.Nil(t, err)
+	driveNew, lvgNew, err := ch.GetDriveCRAndLVGCRByVolume(volume)
+	assert.NotNil(t, driveNew)
+	assert.NotNil(t, lvgNew)
 	assert.Nil(t, err)
 
-	currentD := ch.GetDriveCRByUUID(expectedD.Spec.UUID)
-	assert.NotNil(t, currentD)
-	assert.Equal(t, expectedD.Spec, currentD.Spec)
+	// Negative case, lvg.Spec.Locations is empty
+	lvg.Spec.Locations = []string{}
+	err = ch.k8sClient.UpdateCR(testCtx, lvg)
+	assert.Nil(t, err)
 
-	// expected nil because of empty string as a ID
-	assert.Nil(t, ch.GetDriveCRByUUID(""))
+	driveNew, lvgNew, err = ch.GetDriveCRAndLVGCRByVolume(volume)
+	assert.Nil(t, driveNew)
+	assert.Nil(t, lvgNew)
+	assert.NotNil(t, err)
+
+	// Positive case: volume point to drive
+	volume.Spec.Location = drive.Name
+	volume.Spec.LocationType = v1.LocationTypeDrive
+	err = ch.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+
+	driveNew, lvgNew, err = ch.GetDriveCRAndLVGCRByVolume(volume)
+	assert.NotNil(t, driveNew)
+	assert.Nil(t, lvgNew)
+	assert.Nil(t, err)
+
 }
-
 func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
+	var (
+		volume = testVolumeCR.DeepCopy()
+		lvg    = testLVGCR.DeepCopy()
+		drive  = testDriveCR.DeepCopy()
+	)
+
+	// Positive case: volume point to lvg
+	volume.Spec.Location = lvg.Name
+	volume.Spec.LocationType = v1.LocationTypeLVM
+	lvg.Spec.Locations = []string{drive.Name}
+
 	ch := setup()
-	expectedV := testVolumeCR.DeepCopy()
-	expectedV.Spec.Location = testLVGCR.Name
-	expectedV.Spec.LocationType = v1.LocationTypeLVM
-	err := ch.k8sClient.CreateCR(testCtx, expectedV.Name, expectedV)
+	err := ch.k8sClient.CreateCR(testCtx, volume.Name, volume)
 	assert.Nil(t, err)
-	// test LVG
-	expectedLVG := testLVGCR.DeepCopy()
-	expectedLVG.Spec.Locations = []string{testDriveCR.Name}
-	err = ch.k8sClient.CreateCR(testCtx, expectedLVG.Name, expectedLVG)
+	err = ch.k8sClient.CreateCR(testCtx, lvg.Name, lvg)
 	assert.Nil(t, err)
-	testDriveCR1 := testDriveCR.DeepCopy()
-	err = ch.k8sClient.CreateCR(testCtx, testDriveCR1.Name, testDriveCR1)
+	err = ch.k8sClient.CreateCR(testCtx, drive.Name, drive)
 	assert.Nil(t, err)
-	drive, err := ch.GetDriveCRByVolume(expectedV)
-	assert.NotNil(t, drive)
+	driveNew, err := ch.GetDriveCRByVolume(volume)
+	assert.NotNil(t, driveNew)
 	assert.Nil(t, err)
+
+	// Positive case: volume point to drive
+	volume.Spec.Location = drive.Name
+	volume.Spec.LocationType = v1.LocationTypeDrive
+	err = ch.k8sClient.UpdateCR(testCtx, volume)
+	assert.Nil(t, err)
+
+	driveNew, err = ch.GetDriveCRByVolume(volume)
+	assert.NotNil(t, driveNew)
+	assert.Nil(t, err)
+
 }
 
 func TestCRHelper_GetVolumeCRs(t *testing.T) {
 	ch := setup()
-	v1 := testVolumeCR
-	v2 := testVolumeCR
-	v2.Name = "anotherName"
-	v2.Spec.NodeId = "anotherNode"
+	vol1 := testVolumeCR.DeepCopy()
+	vol2 := testVolumeCR.DeepCopy()
+	vol2.Name = "anotherName"
+	vol2.Spec.NodeId = "anotherNode"
 
-	err := ch.k8sClient.CreateCR(testCtx, v1.Name, &v1)
+	err := ch.k8sClient.CreateCR(testCtx, vol1.Name, vol1)
 	assert.Nil(t, err)
-	err = ch.k8sClient.CreateCR(testCtx, v2.Name, &v2)
+	err = ch.k8sClient.CreateCR(testCtx, vol2.Name, vol2)
 	assert.Nil(t, err)
 
 	// node as empty string - expected all volumes
@@ -148,10 +195,10 @@ func TestCRHelper_GetVolumeCRs(t *testing.T) {
 	assert.Equal(t, 2, len(currentVs))
 
 	// expected one volume
-	currentVs, _ = ch.GetVolumeCRs(v1.Spec.NodeId)
+	currentVs, _ = ch.GetVolumeCRs(vol1.Spec.NodeId)
 	assert.NotNil(t, currentVs)
 	assert.Equal(t, 1, len(currentVs))
-	assert.Equal(t, v1.Spec, currentVs[0].Spec)
+	assert.Equal(t, vol1.Spec, currentVs[0].Spec)
 }
 
 func TestCRHelper_GetDriveCRs(t *testing.T) {
@@ -215,8 +262,10 @@ func TestCRHelper_UpdateDrivesStatusOnNode(t *testing.T) {
 	err = mock.UpdateDrivesStatusOnNode(testDriveCRCopy.Spec.NodeId, v1.DriveStatusOffline)
 	assert.Nil(t, err)
 
-	drive := mock.GetDriveCRByUUID(testDriveCRCopy.Name)
-	assert.Equal(t, drive.Spec.Status, v1.DriveStatusOffline)
+	drives, err := mock.GetDriveCRs(testDriveCRCopy.Spec.NodeId)
+	assert.Nil(t, err)
+	assert.Len(t, drives, 1)
+	assert.Equal(t, drives[0].Spec.Status, v1.DriveStatusOffline)
 }
 
 // test Volume operational status update

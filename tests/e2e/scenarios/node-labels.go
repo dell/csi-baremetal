@@ -30,7 +30,7 @@ import (
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 )
 
 const (

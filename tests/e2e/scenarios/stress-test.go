@@ -19,9 +19,10 @@ package scenarios
 import (
 	"context"
 	"fmt"
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"sync"
 	"time"
+
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
 	"github.com/onsi/ginkgo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,7 +35,7 @@ import (
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 )
 
 var stsName = "stress-test-sts"

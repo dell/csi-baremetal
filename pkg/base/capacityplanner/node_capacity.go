@@ -32,6 +32,11 @@ type reservedCapacity struct {
 	StorageClass string
 }
 
+// String is pretty print function for reservedCapacity
+func (rc *reservedCapacity) String() string {
+	return fmt.Sprintf("{size: %d, SC: %s}", rc.Size, rc.StorageClass)
+}
+
 type reservedACs map[string]*reservedCapacity
 
 type scToACOrder map[string][]string
@@ -48,7 +53,13 @@ type nodeCapacity struct {
 
 // String is pretty print function for nodeCapacity
 func (nc *nodeCapacity) String() string {
-	return fmt.Sprintf("ACs: %+v", nc.acsOrder)
+	acListStr := ""
+	for k, v := range nc.acs {
+		acListStr += fmt.Sprintf("%s: {size: %d, SC: %s}, ", k, v.Spec.Size, v.Spec.StorageClass)
+	}
+	acListStr = fmt.Sprintf("[%s]", acListStr)
+
+	return fmt.Sprintf("node %s capacity:{all ACs:%s, reserved ACs:%+v}", nc.node, acListStr, nc.reservedACs)
 }
 
 func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.AvailableCapacityReservation) *nodeCapacity {

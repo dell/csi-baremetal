@@ -26,8 +26,8 @@ import (
 	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/test/e2e/framework"
 
-	"github.com/dell/csi-baremetal/test/e2e/common"
-	_ "github.com/dell/csi-baremetal/test/e2e/scenarios"
+	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
+	_ "github.com/dell/csi-baremetal-e2e-tests/e2e/scenarios"
 )
 
 // Use env to skip this test during go test ./...

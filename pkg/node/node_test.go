@@ -19,6 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"path"
 	"testing"
 	"time"
@@ -33,10 +34,8 @@ import (
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -46,7 +45,6 @@ import (
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
-	"github.com/dell/csi-baremetal/pkg/testutils"
 )
 
 var (
@@ -206,7 +204,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			// testVolume2 has Create status
 			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
+			prov.On("GetVolumePath", &testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(nil)
@@ -227,7 +225,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			err := node.k8sClient.UpdateCR(testCtx, vol1)
 
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+			prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(nil)
@@ -281,7 +279,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		})
 		It("Should fail because partition path wasn't found", func() {
 			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
-			prov.On("GetVolumePath", testVolume1).
+			prov.On("GetVolumePath", &testVolume1).
 				Return("", errors.New("GetVolumePath error"))
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -293,7 +291,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		It("Failed because PrepareAndPerformMount had failed", func() {
 			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
+			prov.On("GetVolumePath", &testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(errors.New("PrepareAndPerformMount error"))
@@ -310,7 +308,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			err := node.k8sClient.UpdateCR(testCtx, vol1)
 
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+			prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(errors.New("mount error"))
@@ -319,6 +317,24 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("mount error"))
+		})
+		It("disk not found", func() {
+			// testVolume2 need to have Create status
+			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
+			volumeCR := &vcrd.Volume{}
+			_ = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
+			volumeCR.Spec.CSIStatus = apiV1.Created
+			err := node.k8sClient.UpdateCR(testCtx, volumeCR)
+
+			prov.On("GetVolumePath", &testVolume2).Return("", baseerr.ErrorGetDriveFailed)
+
+			resp, err := node.NodeStageVolume(testCtx, req)
+			Expect(err).NotTo(BeNil())
+			Expect(resp).To(BeNil())
+			// check volume CR status
+			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 	})
 })
@@ -402,6 +418,15 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(status.Code(err)).To(Equal(codes.NotFound))
 		})
+		It("Update Volume CR failed", func() {
+			req := getNodeUnpublishRequest(testV1ID, targetPath)
+
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
+
+			_, err := node.NodeUnpublishVolume(k8s.UpdateFailCtx, req)
+			Expect(err).NotTo(BeNil())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+		})
 	})
 })
 var _ = Describe("CSINodeService NodeUnStage()", func() {
@@ -427,7 +452,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 		})
 	})
 
-	Context("NodeUnPublish() failure", func() {
+	Context("NodeUnStage() failure", func() {
 		It("Should fail with missing VolumeId", func() {
 			req := &csi.NodeUnstageVolumeRequest{
 				StagingTargetPath: stagePath,
@@ -574,104 +599,6 @@ var _ = Describe("CSINodeService Check()", func() {
 	})
 })
 
-var _ = Describe("CSINodeService InlineVolumes", func() {
-	BeforeEach(func() {
-		setVariables()
-	})
-
-	Context("Volume Context with inline volumes", func() {
-		It("Fail to parse volume context", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.StagingTargetPath = ""
-			req.VolumeContext[EphemeralKey] = "true1"
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-
-		// TODO refactor UT - https://github.com/dell/csi-baremetal/issues/371
-		/*It("Should create inline volume", func() {
-			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			req.VolumeContext[base.SizeKey] = "50Gi"
-			req.VolumeContext[util.PodNameKey] = testPodName
-			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
-			Expect(err).To(BeNil())
-
-			var (
-				createdVolCR = testVolumeCR1
-				srcPath      = "/some/path"
-			)
-
-			createdVolCR.Spec.CSIStatus = apiV1.Created
-			err = node.k8sClient.UpdateCR(testCtx, &createdVolCR)
-			Expect(err).To(BeNil())
-
-			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
-			prov.On("GetVolumePath", createdVolCR.Spec).Return(srcPath, nil)
-			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false, true).Return(nil)
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).NotTo(BeNil())
-			Expect(err).To(BeNil())
-			// check volume CR status and owners
-			volumeCR := &vcrd.Volume{}
-			err = node.k8sClient.ReadCR(testCtx, createdVolCR.Name, "", volumeCR)
-			Expect(err).To(BeNil())
-
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
-			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
-		})*/
-		It("Should fail to create inline volume in CreateVolume step", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			req.VolumeContext[base.SizeKey] = "50Gi"
-
-			var emptyVol *api.Volume
-			volOps.On("CreateVolume", mock.Anything, mock.Anything).
-				Return(emptyVol, errors.New("error"))
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-		It("Should fail to create inline volume in GetVolumePath step", func() {
-			req := getNodePublishRequest(testVolume1.Id, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			req.VolumeContext[base.SizeKey] = "50Gi"
-			req.VolumeContext[util.PodNameKey] = testPodName
-			err := testutils.AddAC(node.k8sClient, &testAC1, &testAC2)
-			Expect(err).To(BeNil())
-
-			var (
-				createdVolCR = &vcrd.Volume{}
-				srcPath      = "/some/path"
-			)
-
-			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", createdVolCR)
-			Expect(err).To(BeNil())
-			createdVolCR.Spec.CSIStatus = apiV1.Created
-			err = node.k8sClient.UpdateCR(testCtx, createdVolCR)
-			Expect(err).To(BeNil())
-
-			volOps.On("CreateVolume", mock.Anything, mock.Anything).Return(&createdVolCR.Spec, nil)
-			prov.On("GetVolumePath", createdVolCR.Spec).Return(srcPath, errors.New("error"))
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-
-		It("Should fail with missing size", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[EphemeralKey] = "true"
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-		})
-	})
-})
-
 var _ = Describe("CSINodeService Probe()", func() {
 	It("Should success", func() {
 		node := newNodeService()
@@ -725,7 +652,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		Expect(err).To(BeNil())
 
 		partitionPath := "/partition/path/for/volume1"
-		prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
 		fsOps.On("PrepareAndPerformMount",
 			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 			Return(errors.New("mount error"))
@@ -792,7 +719,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		Expect(err).To(BeNil())
 
 		partitionPath := "/partition/path/for/volume1"
-		prov.On("GetVolumePath", vol1.Spec).Return(partitionPath, nil)
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
 		fsOps.On("PrepareAndPerformMount",
 			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 			Return(nil)
@@ -839,7 +766,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			// testVolume2 has Create status
 			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
+			prov.On("GetVolumePath", &testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(nil)
@@ -880,7 +807,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			// testVolume2 has Create status
 			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
 			partitionPath := "/partition/path/for/volume1"
-			prov.On("GetVolumePath", testVolume2).Return(partitionPath, nil)
+			prov.On("GetVolumePath", &testVolume2).Return(partitionPath, nil)
 			fsOps.On("PrepareAndPerformMount",
 				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
 				Return(nil)

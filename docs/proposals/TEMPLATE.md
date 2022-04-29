@@ -1,4 +1,5 @@
 [This is a template for CSI-Baremetal's changes proposal. ]
+<!-- If you need to draw a diagram, use https://app.diagrams.net/. Export drawing in svg format.-->
 # Proposal: [Title]
 
 Last updated: [Date]
@@ -30,13 +31,12 @@ Last updated: [Date]
 
 ## Assumptions (if applicable)
 
-ID | Name | Descriptions | Comments
----| -----| -------------| --------
-ASSUM-1 |   |   |
-
+| ID      | Name | Descriptions | Comments |
+|---------|------|--------------|----------|
+| ASSUM-1 |      |              |          |
 
 ## Open issues (if applicable)
 
-ID | Name | Descriptions | Status | Comments
----| -----| -------------| ------ | --------
-ISSUE-1 |   |   |   |   
+| ID      | Name | Descriptions | Status | Comments |
+|---------|------|--------------|--------|----------|
+| ISSUE-1 |      |              |        |          |   

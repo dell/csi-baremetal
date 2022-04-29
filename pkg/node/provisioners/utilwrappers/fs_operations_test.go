@@ -223,15 +223,17 @@ func TestFSOperationsImpl_CreateFSIfNotExist_NoFS(t *testing.T) {
 		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
 		wrapFS = &mocklu.MockWrapFS{}
 		path   = "/some/path"
+		uuid   = "test-uuid"
 		fsType = "xfs"
 		err    error
 	)
 	fsOps.WrapFS = wrapFS
 
 	wrapFS.On("GetFSType", path).Return("", nil).Once()
-	wrapFS.On("CreateFS", fs.FileSystem(fsType), path).Return(nil).Once()
+	wrapFS.On("GetFSUUID", path).Return("", nil).Once()
+	wrapFS.On("CreateFS", fs.FileSystem(fsType), path, uuid).Return(nil).Once()
 
-	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
 	assert.Nil(t, err)
 }
 
@@ -241,13 +243,15 @@ func TestFSOperationsImpl_CreateFSIfNotExist_FSExists(t *testing.T) {
 		wrapFS = &mocklu.MockWrapFS{}
 		path   = "/some/path"
 		fsType = "xfs"
+		uuid   = "test-uuid"
 		err    error
 	)
 	fsOps.WrapFS = wrapFS
 
 	wrapFS.On("GetFSType", path).Return(fsType, nil).Once()
+	wrapFS.On("GetFSUUID", path).Return(uuid, nil).Once()
 
-	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
 	assert.Nil(t, err)
 }
 
@@ -256,14 +260,34 @@ func TestFSOperationsImpl_CreateFSIfNotExist_OtherFS(t *testing.T) {
 		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
 		wrapFS = &mocklu.MockWrapFS{}
 		path   = "/some/path"
+		uuid   = "test-uuid"
 		fsType = "xfs"
 		err    error
 	)
 	fsOps.WrapFS = wrapFS
 
 	wrapFS.On("GetFSType", path).Return("other_FS", nil).Once()
+	wrapFS.On("GetFSUUID", path).Return(uuid, nil).Once()
 
-	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
+	assert.NotNil(t, err)
+}
+
+func TestFSOperationsImpl_CreateFSIfNotExist_OtherUUID(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		uuid   = "test-uuid"
+		fsType = "xfs"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	wrapFS.On("GetFSType", path).Return(fsType, nil).Once()
+	wrapFS.On("GetFSUUID", path).Return("other_UUID", nil).Once()
+
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
 	assert.NotNil(t, err)
 }
 
@@ -272,6 +296,7 @@ func TestFSOperationsImpl_CreateFSIfNotExist_CheckError(t *testing.T) {
 		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
 		wrapFS = &mocklu.MockWrapFS{}
 		path   = "/some/path"
+		uuid   = "test-uuid"
 		fsType = "xfs"
 		err    error
 	)
@@ -279,7 +304,25 @@ func TestFSOperationsImpl_CreateFSIfNotExist_CheckError(t *testing.T) {
 
 	wrapFS.On("GetFSType", path).Return("", errors.New("some_error")).Once()
 
-	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
+	assert.NotNil(t, err)
+}
+
+func TestFSOperationsImpl_CreateFSIfNotExist_CheckUUIDError(t *testing.T) {
+	var (
+		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS = &mocklu.MockWrapFS{}
+		path   = "/some/path"
+		uuid   = "test-uuid"
+		fsType = "xfs"
+		err    error
+	)
+	fsOps.WrapFS = wrapFS
+
+	wrapFS.On("GetFSType", path).Return("", nil).Once()
+	wrapFS.On("GetFSUUID", path).Return("", errors.New("some_error")).Once()
+
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
 	assert.NotNil(t, err)
 }
 
@@ -288,14 +331,16 @@ func TestFSOperationsImpl_CreateFSIfNotExist_CreateError(t *testing.T) {
 		fsOps  = NewFSOperationsImpl(&command.Executor{}, logrus.New())
 		wrapFS = &mocklu.MockWrapFS{}
 		path   = "/some/path"
+		uuid   = "test-uuid"
 		fsType = "xfs"
 		err    error
 	)
 	fsOps.WrapFS = wrapFS
 
 	wrapFS.On("GetFSType", path).Return("", nil).Once()
-	wrapFS.On("CreateFS", fs.FileSystem(fsType), path).Return(errors.New("some_error")).Once()
+	wrapFS.On("GetFSUUID", path).Return("", nil).Once()
+	wrapFS.On("CreateFS", fs.FileSystem(fsType), path, uuid).Return(errors.New("some_error")).Once()
 
-	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path)
+	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
 	assert.NotNil(t, err)
 }

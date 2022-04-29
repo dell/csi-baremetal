@@ -18,7 +18,6 @@ package provisioners
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -28,6 +27,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/lsblk"
@@ -75,12 +75,12 @@ func NewDriveProvisioner(
 
 // PrepareVolume create partition and FS based on vol attributes.
 // After that partition is ready for mount operations
-func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
+func (d *DriveProvisioner) PrepareVolume(vol *api.Volume) error {
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "PrepareVolume",
 		"volumeID": vol.Id,
 	})
-	ll.Infof("Processing for volume %v", vol)
+	ll.Infof("Processing for volume %+v", *vol)
 
 	var (
 		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, vol.Id)
@@ -90,11 +90,11 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 
 	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
 	if err = d.k8sClient.ReadCR(ctxWithID, vol.Location, "", drive); err != nil {
-		return fmt.Errorf("failed to read drive CR with name %s, error %v", vol.Location, err)
+		return fmt.Errorf("failed to read drive CR with name %s, error %w", vol.Location, err)
 	}
 
 	ll.Infof("Search device file for drive with S/N %s", drive.Spec.SerialNumber)
-	device, err := d.listBlk.SearchDrivePath(drive)
+	device, err := d.listBlk.SearchDrivePath(&drive.Spec)
 	if err != nil {
 		return err
 	}
@@ -103,14 +103,17 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 		return nil
 	}
 
-	partUUID, _ := util.GetVolumeUUID(vol.Id)
+	volUUID, err := util.GetVolumeUUID(vol.Id)
+	if err != nil {
+		return fmt.Errorf("failed to get volume UUID %s: %w", vol.Id, err)
+	}
+
 	part := uw.Partition{
 		Device:    device,
 		TableType: partitionhelper.PartitionGPT,
 		Label:     DefaultPartitionLabel,
 		Num:       DefaultPartitionNumber,
-		PartUUID:  partUUID,
-		Ephemeral: vol.Ephemeral,
+		PartUUID:  volUUID,
 	}
 
 	ll.Infof("Create partition %v on device %s and set UUID", part, device)
@@ -125,24 +128,17 @@ func (d *DriveProvisioner) PrepareVolume(vol api.Volume) error {
 		return nil
 	}
 
-	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath())
+	return d.fsOps.CreateFSIfNotExist(fs.FileSystem(vol.Type), partPtr.GetFullPath(), volUUID)
 }
 
 // ReleaseVolume remove FS and partition based on vol attributes.
 // After that partition is completely removed
-func (d *DriveProvisioner) ReleaseVolume(vol api.Volume) error {
+func (d *DriveProvisioner) ReleaseVolume(vol *api.Volume, drive *api.Drive) error {
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "ReleaseVolume",
 		"volumeID": vol.Id,
 	})
-	ll.Infof("Processing for volume %v", vol)
-
-	drive := d.crHelper.GetDriveCRByUUID(vol.Location)
-
-	if drive == nil {
-		return errors.New("unable to find drive by vol location")
-	}
-	ll.Debugf("Got drive %v", drive)
+	ll.Infof("Processing for volume %+v", *vol)
 
 	// get deviceFile path
 	device, err := d.listBlk.SearchDrivePath(drive)
@@ -159,15 +155,6 @@ func (d *DriveProvisioner) ReleaseVolume(vol api.Volume) error {
 			PartUUID: partUUID,
 		}
 	)
-
-	// TODO: temporary solution because of ephemeral volumes volume id - https://github.com/dell/csi-baremetal/issues/87
-	if vol.Ephemeral {
-		part.PartUUID, err = d.partOps.GetPartitionUUID(device, DefaultPartitionNumber)
-		if err != nil {
-			return d.wipeDevice(device,
-				fmt.Errorf("unable to determine partition UUID for ephemeral volume: %v", err), ll)
-		}
-	}
 
 	part.Name = d.partOps.SearchPartName(device, part.PartUUID)
 	if part.Name == "" {
@@ -203,34 +190,35 @@ func (d *DriveProvisioner) wipeDevice(device string, err error, ll *logrus.Entry
 }
 
 // GetVolumePath constructs full partition path - /dev/DEVICE_NAME+PARTITION_NAME
-func (d *DriveProvisioner) GetVolumePath(vol api.Volume) (string, error) {
+func (d *DriveProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 	ll := d.log.WithFields(logrus.Fields{
 		"method":   "GetVolumePath",
 		"volumeID": vol.Id,
 	})
 
-	drive := d.crHelper.GetDriveCRByUUID(vol.Location)
+	var (
+		ctxWithID = context.WithValue(context.Background(), base.RequestUUID, vol.Id)
+		drive     = &drivecrd.Drive{}
+	)
 
-	if drive == nil {
-		return "", fmt.Errorf("unable to find drive by location %s", vol.Location)
+	// read Drive CR based on Volume.Location (vol.Location == Drive.UUID == Drive.Name)
+	if err := d.k8sClient.ReadCR(ctxWithID, vol.Location, "", drive); err != nil {
+		ll.Errorf("failed to get drive CR %s: %v", vol.Location, err)
+		if baseerr.IsSafeReturnError(err) {
+			return "", baseerr.ErrorGetDriveFailed
+		}
+		return "", err
 	}
-	ll.Debugf("Got drive %v", drive)
+	ll.Debugf("Got drive %+v", drive)
 
 	// get deviceFile path
-	device, err := d.listBlk.SearchDrivePath(drive)
+	device, err := d.listBlk.SearchDrivePath(&drive.Spec)
 	if err != nil {
 		return "", fmt.Errorf("unable to find device for drive with S/N %s: %v", vol.Location, err)
 	}
 	ll.Debugf("Got device %s", device)
 
 	var volumeUUID = vol.Id
-	// TODO: temporary solution because of ephemeral volumes volume id - https://github.com/dell/csi-baremetal/issues/87
-	if vol.Ephemeral {
-		volumeUUID, err = d.partOps.GetPartitionUUID(device, DefaultPartitionNumber)
-		if err != nil {
-			return "", fmt.Errorf("unable to determine partition UUID: %v", err)
-		}
-	}
 	if vol.Mode == apiV1.ModeRAW {
 		return device, nil
 	}

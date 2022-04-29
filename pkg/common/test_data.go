@@ -38,7 +38,6 @@ import (
 )
 
 var (
-	// TODO - refactor UTs https://github.com/dell/csi-baremetal/issues/371
 	testNS     = "default"
 	testLogger = logrus.New()
 
@@ -51,7 +50,6 @@ var (
 	// Drives variables
 	testDrive1UUID = "drive1-uuid"
 	testDrive2UUID = "drive2-uuid"
-	// testDrive3UUID = "drive3-uuid"
 	testDrive4UUID = "drive4-uuid"
 
 	testAPIDrive4 = api.Drive{
@@ -82,28 +80,6 @@ var (
 		},
 	}
 
-	/*	testAC2Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive2UUID))
-		testAC2     = accrd.AvailableCapacity{
-			TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-			ObjectMeta: k8smetav1.ObjectMeta{Name: testAC2Name, Namespace: testNS},
-			Spec: api.AvailableCapacity{
-				Size:         int64(util.GBYTE) * 100,
-				StorageClass: apiV1.StorageClassHDD,
-				Location:     testDrive2UUID,
-				NodeId:       testNode2Name,
-			},
-		}
-		testAC3Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive3UUID))
-		testAC3     = accrd.AvailableCapacity{
-			TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
-			ObjectMeta: k8smetav1.ObjectMeta{Name: testAC3Name, Namespace: testNS},
-			Spec: api.AvailableCapacity{
-				Size:         int64(util.TBYTE),
-				StorageClass: apiV1.StorageClassHDD,
-				Location:     testDrive3UUID,
-				NodeId:       testNode2Name,
-			},
-		} */
 	testAC4Name = fmt.Sprintf("%s-%s", testNode2Name, strings.ToLower(testDrive4UUID))
 	testAC4     = accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
@@ -120,7 +96,7 @@ var (
 	testLVGName = "lvg-1"
 	testLVG     = lvgcrd.LogicalVolumeGroup{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "LogicalVolumeGroup", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: testNS},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: testLVGName, Namespace: ""},
 		Spec: api.LogicalVolumeGroup{
 			Name:      testLVGName,
 			Node:      testNode2Name,
@@ -152,6 +128,30 @@ var (
 			Usage:             apiV1.VolumeUsageInUse,
 		},
 	}
+
+	testVolumeLVG1Name = "aaaa-lvg-1111"
+	testVolumeLVG1     = vcrd.Volume{
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testVolumeLVG1Name,
+			Namespace:         testNS,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
+		},
+		Spec: api.Volume{
+			Id:                testVolumeLVG1Name,
+			Location:          testAC4.Spec.Location,
+			StorageClass:      testAC4.Spec.StorageClass,
+			NodeId:            testAC4.Spec.NodeId,
+			Size:              testAC4.Spec.Size / 2,
+			CSIStatus:         apiV1.Creating,
+			Health:            apiV1.HealthGood,
+			LocationType:      apiV1.LocationTypeLVM,
+			OperationalStatus: apiV1.OperationalStatusOperative,
+			Usage:             apiV1.VolumeUsageInUse,
+		},
+	}
+
+	testVolumeLVG2Name = "aaaa-lvg-2222"
 
 	// PVC variables
 	testPVC1 = &corev1.PersistentVolumeClaim{

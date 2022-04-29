@@ -59,6 +59,7 @@ type Extender struct {
 	provisioner    string
 	featureChecker fc.FeatureChecker
 	annotationKey  string
+	nodeSelector   string
 	sync.Mutex
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
@@ -66,13 +67,14 @@ type Extender struct {
 
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
-	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey string) (*Extender, error) {
+	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey, nodeselector string) (*Extender, error) {
 	return &Extender{
 		k8sClient:              kubeClient,
 		k8sCache:               kubeCache,
 		provisioner:            provisioner,
 		featureChecker:         featureConf,
 		annotationKey:          annotationKey,
+		nodeSelector:           nodeselector,
 		logger:                 logger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}, nil
@@ -238,43 +240,41 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 		"pod":         pod.Name,
 	})
 
-	scs, err := e.scNameStorageTypeMapping(ctx)
+	scs, err := e.buildSCChecker(ctx, ll)
 	if err != nil {
 		ll.Errorf("Unable to collect storage classes: %v", err)
 		return nil, err
 	}
 
-	ll.Debugf("SC map: %+v", scs)
-
 	requests := make([]*genV1.CapacityRequest, 0)
+	// TODO - refactor repeatable code - https://github.com/dell/csi-baremetal/issues/760
 	for _, v := range pod.Spec.Volumes {
 		ll.Debugf("Volume %s details: %+v", v.Name, v)
 		// check whether volume Ephemeral or not
-		if v.CSI != nil {
-			if v.CSI.Driver == e.provisioner {
-				// TODO we shouldn't request reservation for inline volumes which already provisioned
-				request, err := e.createCapacityRequest(ctx, pod.Name, v)
-				if err != nil {
-					ll.Errorf("Unable to construct API Volume for Ephemeral volume: %v", err)
-				}
-				// need to apply any result for getting at leas amount of requests
-				requests = append(requests, request)
-			}
-			continue
-		}
 		if v.Ephemeral != nil {
 			claimSpec := v.Ephemeral.VolumeClaimTemplate.Spec
-			if storageType, ok := scs[*claimSpec.StorageClassName]; ok {
-				storageReq, ok := claimSpec.Resources.Requests[coreV1.ResourceStorage]
-				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", v.Name)
-					storageReq = resource.Quantity{}
-				}
-				requests = append(requests, &genV1.CapacityRequest{
-					Name:         generateEphemeralVolumeName(pod.GetName(), v.Name),
-					StorageClass: util.ConvertStorageClass(storageType),
-					Size:         storageReq.Value(),
-				})
+			if claimSpec.StorageClassName == nil {
+				ll.Warningf("PVC %s skipped due to empty StorageClass", v.Ephemeral.VolumeClaimTemplate.Name)
+				continue
+			}
+
+			storageType, scType := scs.check(*claimSpec.StorageClassName)
+			switch scType {
+			case unknown:
+				ll.Warningf("SC %s is not found in cache, wait until update", *claimSpec.StorageClassName)
+				return nil, baseerr.ErrorNotFound
+			case unmanagedSC:
+				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip this volume", *claimSpec.StorageClassName)
+				continue
+			case managedSC:
+				requests = append(requests, createRequestFromPVCSpec(
+					generateEphemeralVolumeName(pod.GetName(), v.Name),
+					storageType,
+					claimSpec.Resources,
+					ll,
+				))
+			default:
+				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
 		}
 		if v.PersistentVolumeClaim != nil {
@@ -308,20 +308,23 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 			// Workaround is realized in CSI Operator ACRValidator. It checks all ACR and removed ones for
 			// Running pods.
 
-			if storageType, ok := scs[*pvc.Spec.StorageClassName]; ok {
-				storageReq, ok := pvc.Spec.Resources.Requests[coreV1.ResourceStorage]
-				if !ok {
-					ll.Errorf("There is no key for storage resource for PVC %s", pvc.Name)
-					storageReq = resource.Quantity{}
-				}
-
-				requests = append(requests, &genV1.CapacityRequest{
-					Name:         pvc.Name,
-					StorageClass: util.ConvertStorageClass(storageType),
-					Size:         storageReq.Value(),
-				})
-			} else {
-				ll.Infof("PVC %s skipped due to storage class is not provisioned", pvc.Name)
+			storageType, scType := scs.check(*pvc.Spec.StorageClassName)
+			switch scType {
+			case unknown:
+				ll.Warningf("SC %s is not found in cache, wait until update", *pvc.Spec.StorageClassName)
+				return nil, baseerr.ErrorNotFound
+			case unmanagedSC:
+				ll.Infof("SC %s is not provisioned by CSI Baremetal driver, skip PVC %s", *pvc.Spec.StorageClassName, pvc.Name)
+				continue
+			case managedSC:
+				requests = append(requests, createRequestFromPVCSpec(
+					pvc.Name,
+					storageType,
+					pvc.Spec.Resources,
+					ll,
+				))
+			default:
+				return nil, fmt.Errorf("scChecker return code is unfound: %d", scType)
 			}
 		}
 	}
@@ -423,10 +426,9 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 
 	// fill in node requests
 	reservation.NodeRequests = &genV1.NodeRequests{}
-	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
-		reservation.NodeRequests.Requested = nodes
-	} else {
-		return err
+	reservation.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	if len(reservation.NodeRequests.Requested) == 0 {
+		return nil
 	}
 
 	// create new reservation
@@ -446,20 +448,23 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	return nil
 }
 
-func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) ([]string, error) {
-	requestedNodes := make([]string, len(nodes))
+func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
+	requestedNodes := []string{}
 
-	for i, node := range nodes {
-		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+	for _, node := range nodes {
+		n := node
+		nodeID, err := annotations.GetNodeID(&n, e.annotationKey, e.nodeSelector, e.featureChecker)
 		if err != nil {
-			e.logger.Errorf("failed to get NodeID: %s", err)
-			return nil, err
+			e.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
+			continue
 		}
-		requestedNodes[i] = nodeID
+		if nodeID == "" {
+			continue
+		}
+		requestedNodes = append(requestedNodes, nodeID)
 	}
 
-	return requestedNodes, nil
+	return requestedNodes
 }
 
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
@@ -476,9 +481,12 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 			isFound := false
 			// node ID
 			node := requestedNode
-			nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+			nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.nodeSelector, e.featureChecker)
 			if err != nil {
 				e.logger.Errorf("failed to get NodeID: %s", err)
+				continue
+			}
+			if nodeID == "" {
 				continue
 			}
 			for _, node := range reservation.Spec.NodeRequests.Reserved {
@@ -513,12 +521,10 @@ func (e *Extender) resendReservationRequest(ctx context.Context, reservation *ac
 	nodes []coreV1.Node) error {
 	reservation.Spec.Status = v1.ReservationRequested
 	// update nodes
-	if nodes, err := e.prepareListOfRequestedNodes(nodes); err == nil {
-		reservation.Spec.NodeRequests.Requested = nodes
-	} else {
-		return err
+	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	if len(reservation.Spec.NodeRequests.Requested) == 0 {
+		return nil
 	}
-
 	// remove reservations if any
 	for i := range reservation.Spec.ReservationRequests {
 		reservation.Spec.ReservationRequests[i].Reservations = nil
@@ -556,9 +562,14 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 		rank := maxVolumeCount
 
 		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.featureChecker)
+		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.nodeSelector, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("failed to get NodeID: %s", err)
+			continue
+		}
+
+		if nodeID == "" {
+			continue
 		}
 
 		if r, ok := priorityFromVolumes[nodeID]; ok {
@@ -601,27 +612,82 @@ func nodePrioritize(nodeMapping map[string][]volcrd.Volume) (map[string]int64, i
 	return nrank, maxCount
 }
 
-// scNameStorageTypeMapping reads k8s storage class resources and collect map with key storage class name
-// and value .parameters.storageType for that sc, collect only sc that have provisioner e.provisioner
-func (e *Extender) scNameStorageTypeMapping(ctx context.Context) (map[string]string, error) {
-	scs := storageV1.StorageClassList{}
+func generateEphemeralVolumeName(podName, volumeName string) string {
+	return podName + "-" + volumeName
+}
+
+func createRequestFromPVCSpec(volumeName, storageType string, resourceRequirements coreV1.ResourceRequirements, log *logrus.Entry) *genV1.CapacityRequest {
+	storageReq, ok := resourceRequirements.Requests[coreV1.ResourceStorage]
+	if !ok {
+		log.Errorf("There is no key for storage resource for PVC %s", volumeName)
+		storageReq = resource.Quantity{}
+	}
+	return &genV1.CapacityRequest{
+		Name:         volumeName,
+		StorageClass: util.ConvertStorageClass(storageType),
+		Size:         storageReq.Value(),
+	}
+}
+
+// scChecker keeps info about the related SCs (provisioned by CSI Baremetal) and
+// the unrelated ones (prvisioned by other CSI drivers)
+type scChecker struct {
+	managedSCs   map[string]string
+	unmanagedSCs map[string]bool
+}
+
+// buildSCChecker creates an instance of scChecker
+func (e *Extender) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scChecker, error) {
+	ll := log.WithFields(logrus.Fields{
+		"method": "buildSCChecker",
+	})
+
+	var (
+		result = &scChecker{managedSCs: map[string]string{}, unmanagedSCs: map[string]bool{}}
+		scs    = storageV1.StorageClassList{}
+	)
 
 	if err := e.k8sCache.ReadList(ctx, &scs); err != nil {
 		return nil, err
 	}
 
-	scNameTypeMap := map[string]string{}
 	for _, sc := range scs.Items {
 		if sc.Provisioner == e.provisioner {
-			scNameTypeMap[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+			result.managedSCs[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
+		} else {
+			result.unmanagedSCs[sc.Name] = true
 		}
 	}
-	if len(scNameTypeMap) == 0 {
+
+	ll.Debugf("related SCs: %+v", result.managedSCs)
+	ll.Debugf("unrelated SCs: %+v", result.unmanagedSCs)
+
+	if len(result.managedSCs) == 0 {
 		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
 	}
-	return scNameTypeMap, nil
+
+	return result, nil
 }
 
-func generateEphemeralVolumeName(podName, volumeName string) string {
-	return podName + "-" + volumeName
+// scChecker.check return codes
+const (
+	managedSC = iota
+	unmanagedSC
+	unknown
+)
+
+// check returns storageType and scType, return codes:
+// relatedSC - SC is provisioned by CSI baremetal
+// unrelatedSC - SC is provisioned by another CSI driver
+// unknown - SC is not found in cache
+func (ch *scChecker) check(name string) (string, int) {
+	if storageType, ok := ch.managedSCs[name]; ok {
+		return storageType, managedSC
+	}
+
+	if _, ok := ch.unmanagedSCs[name]; ok {
+		return "", unmanagedSC
+	}
+
+	return "", unknown
 }

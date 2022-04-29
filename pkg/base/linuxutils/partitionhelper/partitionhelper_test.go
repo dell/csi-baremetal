@@ -76,18 +76,12 @@ func TestCreatePartitionTableFail(t *testing.T) {
 }
 
 func TestCreatePartition(t *testing.T) {
-	err := testPartitioner.CreatePartition("/dev/sde", testCSILabel, testPartUUID, true)
-	assert.Nil(t, err)
-
-	err = testPartitioner.CreatePartition("/dev/sde", testCSILabel, "", false)
+	err := testPartitioner.CreatePartition("/dev/sde", testCSILabel, testPartUUID)
 	assert.Nil(t, err)
 }
 
 func TestCreatePartitionFail(t *testing.T) {
-	err := testPartitioner.CreatePartition("/dev/sdf", testCSILabel, testPartUUID, true)
-	assert.NotNil(t, err)
-
-	err = testPartitioner.CreatePartition("/dev/sdww", testCSILabel, testPartUUID, true)
+	err := testPartitioner.CreatePartition("/dev/sdf", testCSILabel, testPartUUID)
 	assert.NotNil(t, err)
 }
 
