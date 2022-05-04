@@ -42,18 +42,24 @@ Currently we're researching upgrade a minor chart version change (like from v1.0
 
 ## Implementation
 
-Upgrading an existing Release to a new minor version:
+```helm upgrade [RELEASE_NAME] [CHART] --install```
+
+See [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/) for command documentation.
+
+Upgrading an existing Release to a new minor version (like from v1.0.x to v1.1.x):
 
 * Note about Upgrade
   > There is no support at this time for upgrading or deleting CRDs using [Helm](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/).
 
-  In order to upgrade CRD use `kubectl patch -f ...` command. chart crd's must be downloaded from actual source.
+  In order to upgrade CRD use `kubectl patch crd -p <crd resource>` command. chart crd's must be downloaded from the actual source.
 
   ```bash
-  export CSI_OPERATOR_VERSION=VERSION WITH PATH
-  wget http://artifactory/csi-operator/$CSI_OPERATOR_VERSION/csi-baremetal-operator-$CSI_OPERATOR_VERSION.tgz
+  export CSI_OPERATOR_VERSION=v1.1.0
+  # this is an example how to download charts from remote registry
+  export ARTIFACTORY_SOURCE_PATH="http://artifactory/" 
+  wget "$ARTIRACTRY_SOURCE_PATH/$CSI_OPERATOR_VERSION/csi-baremetal-operator-$CSI_OPERATOR_VERSION.tgz"
   tar -xzvf csi-baremetal-operator-$CSI_OPERATOR_VERSION.tgz
-  kubectl apply -f csi-baremetal-operator/crds/
+  kubectl patch crd -p csi-baremetal-operator/crds/
   ```
 
 ## Open issues (if applicable)

@@ -7,8 +7,6 @@ nodes:
   # the two workers
   - role: worker
     extraMounts:
-      - containerPath: /usr/local/share/ca-certificates
-        hostPath: /usr/local/share/ca-certificates
       - hostPath: /dev
         containerPath: /dev
       - hostPath: /run/udev
@@ -19,8 +17,6 @@ nodes:
         containerPath: /run/lock
   - role: worker
     extraMounts:
-      - containerPath: /usr/local/share/ca-certificates
-        hostPath: /usr/local/share/ca-certificates
       - hostPath: /dev
         containerPath: /dev
       - hostPath: /run/udev
@@ -31,8 +27,6 @@ nodes:
         containerPath: /run/lock
   - role: worker
     extraMounts:
-      - containerPath: /usr/local/share/ca-certificates
-        hostPath: /usr/local/share/ca-certificates
       - hostPath: /dev
         containerPath: /dev
       - hostPath: /run/udev
