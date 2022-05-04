@@ -1,7 +1,6 @@
-[This is a template for CSI-Baremetal's changes proposal. ]
 # Proposal: Lifecycle of a CRD (CustomResourceDefinition)
 
-Last updated: 20.04.22
+Last updated: 4.05.22
 
 
 ## Abstract
