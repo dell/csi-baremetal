@@ -60,7 +60,6 @@ Devkit follows the semantic versioning approach ([semver.org](http://semver.org/
 #### Developer Opens an Interactive Bash Session
 ```
 user@emc:~> devkit
-DEVKIT: viprhal and viprhal-devel....[+]
 DEVKIT: docker daemon................[+]
 DEVKIT: bash session.................[+]
 user@devkit:~/Workspace> # Work hard! 
