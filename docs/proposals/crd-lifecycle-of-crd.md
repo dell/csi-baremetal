@@ -36,71 +36,28 @@ If the CRD was managed as part of the chart it would fix a lot of confusion **re
 
 ## Proposal
 
-In this proposal we're research a way to use [`helm` chart hooks](https://helm.sh/docs/topics/charts_hooks/) in order to update CRDs.
+During helm upgrade upgrade the new CRDs will be applied manually with a shell command running `kubectl patch ...` of the crd.
 
-## Rationale
-
-Pros:
-
- - CRDs managed by helm
- - CRDs can be installed/updated at any point in the charts lifecycle
-
-Cons:
-
- - Issues with hooks are harder for a user to detect/debug
- - The developer needs to have a good understanding of how all the helm hooks work
-
-
-## Compatibility
-
-Currently we're researching upgrade from 1.0.x to 1.1.x.
+Currently we're researching upgrade a minor chart version change (like from v1.0.x to v1.1.x) indicates that there is no incompatible breaking change needing.
 
 ## Implementation
 
-Hooks are just Kubernetes manifest files with special annotations in the metadata section. Because they are template files, you can use all of the normal template features, including reading `.Values`, `.Release`, and `.Template`.
+Upgrading an existing Release to a new minor version:
 
- - `pre-upgrade` - 	Executes on an upgrade request after templates are rendered, but before any resources are updated
+* Note about Upgrade
+  > There is no support at this time for upgrading or deleting CRDs using [Helm](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/).
 
-This template for example, stored in `templates/pre-upgrade-job.yaml`, declares a job to be run on pre-upgrade
+  In order to upgrade CRD use `kubectl patch -f ...` command. chart crd's must be downloaded from actual source.
 
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: "{{ .Release.Name }}"
-  labels:
-    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
-    app.kubernetes.io/instance: {{ .Release.Name | quote }}
-    app.kubernetes.io/version: {{ .Chart.AppVersion }}
-    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-  annotations:
-    # This is what defines this resource as a hook. Without this line, the
-    # job is considered part of the release.
-    "helm.sh/hook": pre-upgrade
-    # "helm.sh/hook-weight": "-5"
-    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
-spec:
-  template:
-    metadata:
-      name: "{{ .Release.Name }}"
-      labels:
-        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
-        app.kubernetes.io/instance: {{ .Release.Name | quote }}
-        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    spec:
-      restartPolicy: Never
-      containers:
-       - name: pre-upgrade-job
-        image: "{{ .Values.hooks.registry }}/{{.Values.hooks.repository }}:{{ .Values.hooks.tag }}"
-        command: ["kubectl", "-n", "{{ .Release.Namespace }}", "patch", "<crd>", "-p", '-f <crd filename.yaml']
-```
-
-It is possible to define policies that determine when to delete corresponding hook resources. This will be helpful to choose `hook-succeeded` or `hook-failed`
-Deployment process must involve a special image with new version of CRDs, those image built at release step and integrated in the CSI upgrade routine. 
-
+  ```bash
+  export CSI_OPERATOR_VERSION=VERSION WITH PATH
+  wget http://artifactory/csi-operator/$CSI_OPERATOR_VERSION/csi-baremetal-operator-$CSI_OPERATOR_VERSION.tgz
+  tar -xzvf csi-baremetal-operator-$CSI_OPERATOR_VERSION.tgz
+  kubectl apply -f csi-baremetal-operator/crds/
+  ```
 
 ## Open issues (if applicable)
 
 | ID      | Name | Descriptions | Status | Comments |
 |---------|------|--------------|--------|----------|
-| ISSUE-1 | Deliver CRD to container     | Need to test how we pass in the filename for the crd for the patch              | Open |          |   
+| ISSUE-1 | Deliver CRD      |         | Open | How to update CRD if no there is no access to chart files |   
