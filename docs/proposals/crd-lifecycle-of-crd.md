@@ -1,6 +1,6 @@
 # Proposal: Lifecycle of a CRD (CustomResourceDefinition)
 
-Last updated: 4.05.22
+Last updated: 13.05.22
 
 
 ## Abstract
