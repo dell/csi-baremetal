@@ -263,7 +263,7 @@ specified drive you can set `removed` field as true (See the example above). Thi
 ```
 # Install test app
 cd ${CSI_BAREMETAL_DIR}
-kubectl apply -f test/app/nginx.yaml
+kubectl apply -f tests/app/nginx.yaml
 
 # Check all pods are Running and Ready
 kubectl get pods
