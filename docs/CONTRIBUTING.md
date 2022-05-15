@@ -197,7 +197,8 @@ make deps-docker-tag
 # Retag CSI images and load them to kind
 make kind-tag-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
 make kind-load-images TAG=${CSI_VERSION} REGISTRY=${REGISTRY}
-make load-operator-image OPERATOR_VERSION=${CSI_OPERATOR_VERSION} REGISTRY=${REGISTRY}
+make kind-tag-operator-image OPERATOR_VERSION=${CSI_OPERATOR_VERSION} REGISTRY=${REGISTRY}
+make kind-load-operator-image OPERATOR_VERSION=${CSI_OPERATOR_VERSION} REGISTRY=${REGISTRY}
 ```
 
 ##### Install on kind
