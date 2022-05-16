@@ -98,7 +98,7 @@ You have to commit the changes to go.mod, go.sum and before submitting the pull 
 
 #### Use devkit
 
-[This guide is intended](devkit/README.md) as a quickstart on how to use devkit for CSI development env. 
+[This guide is intended](/devkit/README.md) as a quickstart on how to use devkit for CSI development env. 
 
 #### Requirements
 - go v1.17
