@@ -978,7 +978,8 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
 			ll.Infof("Scan volume group %s for IO errors", name)
 			m.recorder.Eventf(lvg, eventing.VolumeGroupScanInvolved, "Check for IO errors")
-			if ok, err := m.lvmOps.VGScan(name); err != nil { //nolint:gocritic
+			ok, err := m.checkVGErrors(lvg, cur.Path)
+			if err != nil { //nolint:gocritic
 				ll.Errorf("Failed to scan volume group %s for IO errors: %v", name, err)
 				m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
 			} else if ok {
@@ -1035,6 +1036,29 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 	// Handle resources with LogicalVolumeGroup
 	// This is not work for the current moment because HAL doesn't monitor disks with LVM
 	// TODO: Handle disk health which are used by LVGs - https://github.com/dell/csi-baremetal/issues/88
+}
+
+func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath string) (bool, error) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "checkVGErrors",
+		"LVG":    lvg.Name,
+	})
+
+	ok, err := m.lvmOps.VGScan(lvg.Name)
+	if err != nil {
+		return true, err
+	}
+	if !ok {
+		return true, nil
+	}
+
+	blockDevices, err := m.listBlk.GetBlockDevices(drivePath)
+	ll.Infof("BLOCK:::::%+v", blockDevices)
+	if err != nil {
+		return true, err
+	}
+
+	return false, nil
 }
 
 // drivesAreTheSame check whether two drive represent same node drive or no
