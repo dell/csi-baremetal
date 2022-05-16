@@ -174,7 +174,7 @@ var (
 	}
 
 	VolumeGroupScanInvolved = &EventDescription{
-		reason:      "VolumeGroupScanNoErrors",
+		reason:      "VolumeGroupScanInvolved",
 		severity:    NormalType,
 		symptomCode: NoneSymptomCode,
 	}

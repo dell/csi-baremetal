@@ -1038,7 +1038,7 @@ func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath 
 		m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
 		return
 	}
-	if !ok {
+	if ok {
 		ll.Errorf("IO errors detected for volume group %s", lvg.Name)
 		m.recorder.Eventf(lvg, eventing.VolumeGroupScanErrorsFound, "vgscan found input/output errors")
 		return
@@ -1050,6 +1050,7 @@ func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath 
 		m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
 		return
 	}
+	ll.Debugf("Block devices on %s: %+v", drivePath, blockDevices)
 	for _, v := range lvg.Spec.VolumeRefs {
 		volumeFound := false
 		for _, block := range blockDevices {
