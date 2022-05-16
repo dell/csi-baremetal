@@ -1050,10 +1050,9 @@ func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath 
 		m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
 		return
 	}
-	ll.Debugf("Block devices on %s: %+v", drivePath, blockDevices)
 	for _, v := range lvg.Spec.VolumeRefs {
 		volumeFound := false
-		for _, block := range blockDevices {
+		for _, block := range blockDevices[0].Children {
 			if strings.Contains(block.Name, v) {
 				volumeFound = true
 				break
