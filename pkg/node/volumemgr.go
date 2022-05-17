@@ -1060,9 +1060,9 @@ func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath 
 		}
 
 		if !volumeFound {
-			ll.Errorf("Volume %s was not found for drive %s with LVG %s", v, drivePath, lvg.Name)
+			ll.Errorf("Volume %s was not found on drive %s with LVG %s", v, drivePath, lvg.Name)
 			ll.Debugf("Block devices on %s: %+v", drivePath, blockDevices)
-			m.recorder.Eventf(lvg, eventing.VolumeGroupScanErrorsFound, "Volume %s was not found for drive %s", v, drivePath)
+			m.recorder.Eventf(lvg, eventing.VolumeGroupScanErrorsFound, "Volume %s was not found on drive %s", v, drivePath)
 			return
 		}
 	}
@@ -1077,9 +1077,9 @@ func (m *VolumeManager) reactivateVG(lvg *lvgcrd.LogicalVolumeGroup) {
 		"LVG":    lvg.Name,
 	})
 
-	ll.Errorf("IO errors detected for volume group %s", lvg.Name)
+	ll.Infof("Trying to re-activate volume group %s", lvg.Name)
 	m.recorder.Eventf(lvg, eventing.VolumeGroupReactivateInvolved,
-		"IO errors detected")
+		"Trying to re-activate volume group")
 
 	if err := m.lvmOps.VGReactivate(lvg.Name); err != nil {
 		// need to send an event if operation failed
