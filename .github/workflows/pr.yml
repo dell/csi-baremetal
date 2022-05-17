@@ -69,6 +69,7 @@ jobs:
       with:
         file: ./coverage.out
         flags: unittests
+        verbose: true
       
     - name: Build binaries
       run: |

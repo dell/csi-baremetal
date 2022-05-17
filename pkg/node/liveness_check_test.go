@@ -16,7 +16,15 @@ limitations under the License.
 
 package node
 
-/*func TestNodeLivenessCheck(t *testing.T) {
+import (
+	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNodeLivenessCheck(t *testing.T) {
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
@@ -63,4 +71,4 @@ package node
 		check.OK()
 		assert.True(t, check.Check())
 	})
-}*/
+}
