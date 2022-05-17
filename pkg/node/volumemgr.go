@@ -1053,6 +1053,9 @@ func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath 
 	for _, v := range lvg.Spec.VolumeRefs {
 		volumeFound := false
 		for _, block := range blockDevices[0].Children {
+			ll.Infof("BLOCK::::%s", block.Name)
+			ll.Infof("V::::%s", v)
+			ll.Infof("BOOL::::%v", strings.Contains(block.Name, v))
 			if strings.Contains(block.Name, v) {
 				volumeFound = true
 				break
