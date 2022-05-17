@@ -1840,8 +1840,8 @@ func TestVolumeManager_checkVGErrors(t *testing.T) {
 			Spec: api.LogicalVolumeGroup{
 				Name: lvgName,
 				VolumeRefs: []string{
-					"pvc--db79c049--7003--4998--b63f--12c200cefc1d",
-					"pvc--28b3d196--e268--402c--bae6--a00dd01964af",
+					"pvc-db79c049-7003-4998-b63f-12c200cefc1d",
+					"pvc-28b3d196-e268-402c-bae6-a00dd01964af",
 				},
 			},
 		}

@@ -977,7 +977,6 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 
 		// check for missing disk and re-activate volume group
 		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
-			m.checkVGErrors(lvg, cur.Path)
 			m.reactivateVG(lvg)
 			m.checkVGErrors(lvg, cur.Path)
 		}
@@ -1053,10 +1052,8 @@ func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath 
 	for _, v := range lvg.Spec.VolumeRefs {
 		volumeFound := false
 		for _, block := range blockDevices[0].Children {
-			ll.Infof("BLOCK::::%s", block.Name)
-			ll.Infof("V::::%s", v)
-			ll.Infof("BOOL::::%v", strings.Contains(block.Name, v))
-			if strings.Contains(block.Name, v) {
+			trimmedDashesName := strings.ReplaceAll(block.Name, "--", "-")
+			if strings.Contains(trimmedDashesName, v) {
 				volumeFound = true
 				break
 			}
