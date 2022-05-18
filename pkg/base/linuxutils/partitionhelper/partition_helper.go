@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -77,11 +76,6 @@ const (
 
 	// GetPartitionUUIDCmdTmpl command for read GUID of the first partition, fill device and part number
 	GetPartitionUUIDCmdTmpl = sgdisk + "%s --info=%s"
-
-	// NumberOfRetriesToSyncPartTable how many times to sync fs tab
-	NumberOfRetriesToSyncPartTable = 5
-	// SleepBetweenRetriesToSyncPartTable default timeout between fs tab sync attempt
-	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
 )
 
 // supportedTypes list of supported partition table types
@@ -89,34 +83,16 @@ var supportedTypes = []string{PartitionGPT}
 
 // WrapPartitionImpl is the basic implementation of WrapPartition interface
 type WrapPartitionImpl struct {
-	e                                  command.CmdExecutor
-	lsblkUtil                          lsblk.WrapLsblk
-	opMutex                            sync.Mutex
-	numberOfRetriesToSyncPartTable     int
-	sleepBetweenRetriesToSyncPartTable time.Duration
-	log                                *logrus.Logger
+	e         command.CmdExecutor
+	lsblkUtil lsblk.WrapLsblk
+	opMutex   sync.Mutex
 }
 
 // NewWrapPartitionImpl is a constructor for WrapPartitionImpl instance
 func NewWrapPartitionImpl(e command.CmdExecutor, log *logrus.Logger) *WrapPartitionImpl {
 	return &WrapPartitionImpl{
-		e:                                  e,
-		lsblkUtil:                          lsblk.NewLSBLK(log),
-		numberOfRetriesToSyncPartTable:     NumberOfRetriesToSyncPartTable,
-		sleepBetweenRetriesToSyncPartTable: SleepBetweenRetriesToSyncPartTable,
-		log:                                log,
-	}
-}
-
-// NewWrapPartitionImplWithParameters is a constructor for WrapPartitionImpl instance
-func NewWrapPartitionImplWithParameters(e command.CmdExecutor, log *logrus.Logger, numberOfRetriesToSyncPartTable int,
-	sleepBetweenRetriesToSyncPartTable time.Duration) *WrapPartitionImpl {
-	return &WrapPartitionImpl{
-		e:                                  e,
-		lsblkUtil:                          lsblk.NewLSBLK(log),
-		numberOfRetriesToSyncPartTable:     numberOfRetriesToSyncPartTable,
-		sleepBetweenRetriesToSyncPartTable: sleepBetweenRetriesToSyncPartTable,
-		log:                                log,
+		e:         e,
+		lsblkUtil: lsblk.NewLSBLK(log),
 	}
 }
 
@@ -275,22 +251,20 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 // SyncPartitionTable syncs partition table for specific device
 // Receives device path to sync with partprobe, device could be an empty string (sync for all devices in the system)
 // Returns error if something went wrong
-func (p *WrapPartitionImpl) SyncPartitionTable(device string) (err error) {
+func (p *WrapPartitionImpl) SyncPartitionTable(device string) error {
 	cmd := fmt.Sprintf(BlockdevCmdTmpl, device)
 
-	for i := 0; i < p.numberOfRetriesToSyncPartTable; i++ {
-		// sync partition table
-		p.opMutex.Lock()
-		_, _, err = p.e.RunCmd(cmd, command.UseMetrics(true),
-			command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
-		p.opMutex.Unlock()
-		if err == nil {
-			return nil
-		}
-		time.Sleep(p.sleepBetweenRetriesToSyncPartTable)
+	p.opMutex.Lock()
+	_, _, err := p.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
+	p.opMutex.Unlock()
+
+	if err != nil {
+		return err
 	}
 
-	return
+	return nil
 }
 
 // GetPartitionNameByUUID gets partition name by it's UUID
@@ -317,7 +291,6 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 
 	// try to find partition name
 	for _, id := range blockdevices[0].Children {
-		p.log.Debugf("Parition info: %v", id)
 		// ignore cases
 		if strings.EqualFold(partUUID, id.PartUUID) {
 			// partition name not detected
@@ -329,7 +302,8 @@ func (p *WrapPartitionImpl) GetPartitionNameByUUID(device, partUUID string) (str
 		}
 	}
 
-	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s", partUUID, device)
+	return "", fmt.Errorf("unable to find partition name by UUID %s for device %s within %v",
+		partUUID, device, blockdevices)
 }
 
 // DeviceHasPartitionTable calls parted  and determine if device has partition table from output
