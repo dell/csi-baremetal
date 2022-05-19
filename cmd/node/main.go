@@ -102,7 +102,7 @@ func main() {
 	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
 
 	// tracing
-	f := tracing.NewTracer("node")
+	f := tracing.NewTracer("csi-baremetal")
 	defer f()
 
 	var enableMetrics bool

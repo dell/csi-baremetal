@@ -90,7 +90,7 @@ func main() {
 	logger.Info("Starting controller ...")
 
 	// tracing
-	f := tracing.NewTracer("controller")
+	f := tracing.NewTracer("csi-baremetal")
 	defer f()
 
 	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, enableMetrics, logger)

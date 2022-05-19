@@ -75,7 +75,7 @@ func main() {
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
 
 	// tracing
-	f := tracing.NewTracer("extender")
+	f := tracing.NewTracer("csi-baremetal")
 	defer f()
 
 	stopCH := ctrl.SetupSignalHandler()
