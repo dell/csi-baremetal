@@ -65,12 +65,11 @@ jobs:
         path: ./coverage.html
 
     - name: Upload coverage report to codecov
-      uses: codecov/codecov-action@v1.0.2
-      continue-on-error: false # comment this line as workaround for codecov-action on validation of PR from forked repo
+      uses: codecov/codecov-action@v3
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.out
         flags: unittests
+        verbose: true
       
     - name: Build binaries
       run: |
