@@ -1031,13 +1031,13 @@ func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath 
 	ll.Infof("Scan volume group %s for IO errors", lvg.Name)
 	m.recorder.Eventf(lvg, eventing.VolumeGroupScanInvolved, "Check for IO errors")
 
-	ok, err := m.lvmOps.VGScan(lvg.Name)
+	isIOErrors, err := m.lvmOps.VGScan(lvg.Name)
 	if err != nil {
 		ll.Errorf("Failed to scan volume group %s for IO errors: %v", lvg.Name, err)
 		m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
 		return
 	}
-	if ok {
+	if isIOErrors {
 		ll.Errorf("IO errors detected for volume group %s", lvg.Name)
 		m.recorder.Eventf(lvg, eventing.VolumeGroupScanErrorsFound, "vgscan found input/output errors")
 		return
