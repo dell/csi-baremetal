@@ -2,12 +2,14 @@ package tracing
 
 import (
 	"context"
+	"go.opentelemetry.io/otel/propagation"
 	"io"
-	"os"
+	//"os"
 
 	"github.com/coreos/rkt/tests/testutils/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -17,11 +19,14 @@ import (
 // NewTracer exports traces to file
 func NewTracer(serviceName string) func() {
 	// tracing
-	f, err := os.Create("/tmp/traces.txt")
+/*	f, err := os.Create("/tmp/traces.txt")
 	if err != nil {
 		logger.Fatal(err)
 	}
 	exp, err := newExporter(f)
+	*/
+
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint("http://10.52.216.165:14268/api/traces")))
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -30,15 +35,19 @@ func NewTracer(serviceName string) func() {
 		trace.WithBatcher(exp),
 		trace.WithResource(newResource(serviceName)),
 	)
+
 	otel.SetTracerProvider(tp)
+	// set trace propagation
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
 
 	return func() {
 		if err := tp.Shutdown(context.Background()); err != nil {
 			logger.Fatal(err)
 		}
-		if err := f.Close(); err != nil {
+		/*if err := f.Close(); err != nil {
 			logger.Fatal(err)
-		}
+		}*/
 	}
 }
 
