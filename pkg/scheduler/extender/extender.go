@@ -25,6 +25,9 @@ import (
 	"strings"
 	"sync"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
@@ -108,8 +111,13 @@ func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 		"pod": extenderArgs.Pod.Name,
 	})
 
+	// add tracing
+	ctxWithVal, span := otel.Tracer("extender").Start(req.Context(), "FilterHandler")
+	span.SetAttributes(attribute.String("pod", extenderArgs.Pod.Name))
+	defer span.End()
+
 	ll.Info("Filtering")
-	ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
+	// ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
 	pod := extenderArgs.Pod
 	requests, err := e.gatherCapacityRequestsByProvisioner(ctxWithVal, pod)
 	if err != nil {
@@ -167,6 +175,11 @@ func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
 		ll.Errorf("Unable to decode request body: %v", err)
 		return
 	}
+
+	// need to create unique span ID for every <namespace>-<pod>
+	_, span := otel.Tracer("extender").Start(req.Context(), "PrioritizeHandler")
+	span.SetAttributes(attribute.String("pod", extenderArgs.Pod.Name))
+	defer span.End()
 
 	ll.Info("Scoring")
 

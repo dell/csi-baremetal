@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -35,6 +34,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
+	"github.com/dell/csi-baremetal/pkg/base/tracing"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
 	"github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver"
@@ -73,6 +73,10 @@ func main() {
 	flag.Parse()
 	logger, _ := logger.InitLogger("", *logLevel)
 	logger.Info("Starting scheduler extender for CSI-Baremetal ...")
+
+	// tracing
+	f := tracing.NewTracer("csi-baremetal")
+	defer f()
 
 	stopCH := ctrl.SetupSignalHandler()
 
@@ -147,5 +151,4 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	os.Exit(0)
 }

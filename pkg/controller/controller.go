@@ -23,6 +23,9 @@ import (
 	"strings"
 	"sync"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
@@ -181,6 +184,12 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		vol      *api.Volume
 		ctxValue = context.WithValue(ctx, util.VolumeInfoKey, volumeInfo)
 	)
+
+	// need to create unique span ID for every <namespace>-<pod>
+	_, span := otel.Tracer("controller").Start(ctxValue, "CreateVolume")
+	span.SetAttributes(attribute.String(util.ClaimNameKey, volumeInfo.Name),
+		attribute.String("volumeID", req.GetName()))
+	defer span.End()
 
 	if len(req.GetVolumeCapabilities()) == 0 {
 		err = fmt.Errorf("volume capabilities are empty: %+v", req.GetVolumeCapabilities())

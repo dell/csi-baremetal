@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dell/csi-baremetal/pkg/base/tracing"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	corev1 "k8s.io/api/core/v1"
@@ -98,6 +100,10 @@ func main() {
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, *useNodeAnnotation)
 	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
+
+	// tracing
+	f := tracing.NewTracer("csi-baremetal")
+	defer f()
 
 	var enableMetrics bool
 	if *metricspath != "" {

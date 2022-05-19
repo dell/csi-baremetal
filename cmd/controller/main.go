@@ -26,6 +26,7 @@ import (
 	"strconv"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/dell/csi-baremetal/pkg/base/tracing"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -87,6 +88,10 @@ func main() {
 	}
 
 	logger.Info("Starting controller ...")
+
+	// tracing
+	f := tracing.NewTracer("csi-baremetal")
+	defer f()
 
 	csiControllerServer := rpc.NewServerRunner(nil, *endpoint, enableMetrics, logger)
 

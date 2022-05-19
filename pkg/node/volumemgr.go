@@ -25,6 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -262,6 +265,11 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		"method":   "Reconcile",
 		"volumeID": req.Name,
 	})
+
+	_, span := otel.Tracer("controller").Start(ctx, "ReconcileVolume")
+	span.SetAttributes(attribute.String("name", req.Name))
+	defer span.End()
+
 	defer func() {
 		err := m.volMu.UnlockKey(req.Name)
 		if err != nil {
