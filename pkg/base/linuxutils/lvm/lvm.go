@@ -197,7 +197,6 @@ func (l *LVM) VGScan(name string) (bool, error) {
 // Receives name of VG to re-activate
 // Returns error if something went wrong
 func (l *LVM) VGReactivate(name string) error {
-	l.log.Infof("Trying to re-activate volume group %s", name)
 	// re-activate related LVs
 	if _, _, err := l.e.RunCmd(fmt.Sprintf(VGRefreshCmdTmpl, name), command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(VGRefreshCmdTmpl, "")))); err != nil {
