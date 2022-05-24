@@ -16,7 +16,7 @@ if [[ ! -x $START_SCRIPT ]]; then
     exit 1
 fi
 
-$START_SCRIPT #&>/dev/null &
+$START_SCRIPT &>/dev/null &
 
 # sleep for a while to give a process a chance to start
 # if something is wrong, process will start and exit but we want it to start and work
