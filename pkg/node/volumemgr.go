@@ -1176,6 +1176,7 @@ func (m *VolumeManager) createEventForDriveHealthOverridden(
 	m.sendEventForDrive(drive, event,
 		msgTemplate, overriddenHealth, realHealth)
 }
+
 // createEventForMissingDriveReplacementInitiated creates MissingDriveReplacementInitiated with Normal severity
 func (m *VolumeManager) createEventForMissingDriveReplacementInitiated(drive *drivecrd.Drive) {
 	msgTemplate := "Drive replacement process for missing disk initiated."
