@@ -32,7 +32,7 @@ import (
 
 var (
 	testLogger      = logrus.New()
-	testPartitioner = NewWrapPartitionImpl(mocks.NewMockExecutor(mocks.DiskCommands), testLogger)
+	testPartitioner = NewWrapPartitionImplWithParameters(mocks.NewMockExecutor(mocks.DiskCommands), testLogger, 1, 1)
 	testPartNum     = "1"
 	testCSILabel    = "CSI"
 	testPartUUID    = "64be631b-62a5-11e9-a756-00505680d67f"
