@@ -93,12 +93,10 @@ jobs:
         result-encoding: string
         script: |
           const { OPERATOR_BRANCH, CHECKOUT_BRANCH_OUTCOME } = process.env
-          if (`${CHECKOUT_BRANCH_OUTCOME}` === 'failure'){
-            if (`${OPERATOR_BRANCH}` !== 'keyword'){
-              return "Branch doesn't exist"
-            } else {
-              return "Keyword error"
-            }
+          if (`${OPERATOR_BRANCH}` === 'keyword'){
+            return "Keyword error"
+          } else if (`${CHECKOUT_BRANCH_OUTCOME}` === 'failure'){
+            return "Branch doesn't exist"
           }
           return "Start CI"
 
