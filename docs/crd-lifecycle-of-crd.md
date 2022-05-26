@@ -31,7 +31,7 @@ CRDs are never deleted. Deleting a CRD automatically deletes all of the CRD's co
 Helm provides a hook mechanism to allow chart developers to intervene at certain points in a release's life cycle.
 Hooks work like regular templates, but they have special annotations that cause Helm to utilize them differently.
 The main focus of these proposal is to turn the CRD into a managed part of the chart and not just an item that is added at install time and then forgotten.
-If the CRD was managed as part of the chart it would fix a lot of confusion **realted to CRDs not being updated when there are changes** and not being deleted with the chart
+If the CRD was managed as part of the chart it would fix a lot of confusion **related to CRDs not being updated when there are changes** and not being deleted with the chart
 
 ## Proposal
 
