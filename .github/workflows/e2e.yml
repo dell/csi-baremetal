@@ -22,7 +22,7 @@ jobs:
     steps:
     - name: Get operator branch 
       uses: actions/github-script@v5
-      id: set-branch
+      id: operator_branch
       env:
         COMMENT_BODY: ${{ github.event.comment.body }}
         KEY: "operator_branch="
@@ -35,7 +35,7 @@ jobs:
           if (branch){
             if (branch.search(key) !== -1){
               return branch.split(key)[1]
-            }else {
+            } else {
               return 'keyword'
             }
           }
@@ -71,30 +71,51 @@ jobs:
       if: github.event.issue.pull_request == false
       uses: actions/checkout@v2
       
-    - name: Add csi-baremetal-operator
+    - name: Checkout csi-baremetal-operator repo
       id: checkout_branch
       uses: actions/checkout@v2
+      env:
+        OPERATOR_BRANCH: ${{ steps.operator_branch.outputs.result }}
       with:
         repository: dell/csi-baremetal-operator 
-        ref: '${{steps.set-branch.outputs.result}}'
+        ref: ${{ env.OPERATOR_BRANCH }}
         path: ./csi-baremetal-operator 
       continue-on-error: true 
     
     - name: Create answer body
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
       uses: actions/github-script@v5
       id: set-answer
+      env:
+        OPERATOR_BRANCH: ${{ steps.operator_branch.outputs.result }}
+        CHECKOUT_BRANCH_OUTCOME: ${{ steps.checkout_branch.outcome }}
       with:
         result-encoding: string
         script: |
-          var body = "Start CI"
-          if ('${{steps.checkout_branch.outcome}}' === 'failure'){
-            if ('${{steps.set-branch.outputs.result}}' !== 'keyword'){
-              body = 'Branch doesnt exist'
-            }else{
-              body = 'Keyword error'
-            }
+          const { OPERATOR_BRANCH, CHECKOUT_BRANCH_OUTCOME } = process.env
+          if (`${OPERATOR_BRANCH}` === 'keyword'){
+            return "Keyword error"
+          } else if (`${CHECKOUT_BRANCH_OUTCOME}` === 'failure'){
+            return "Branch doesn't exist"
           }
-          return body
+          return "Start CI"
+
+    - name: Send CI details
+      # don't send on push to master
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+      uses: actions-ecosystem/action-create-comment@v1
+      env:
+        OPERATOR_BRANCH: ${{ steps.operator_branch.outputs.result }}
+        ANSWER: ${{ steps.set-answer.outputs.result }}
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          @${{ github.actor }} ${{ env.ANSWER }}.
+          Operator branch: ${{ env.OPERATOR_BRANCH }}
+          Go Version: ${{ env.go_version }}
+          GoLangCI Version: ${{ env.golangci_version }}
+          Helm Version: ${{ env.helm_version }}
+          Kubectl Version: ${{ env.kubectl_version }}
 
     - name: Check on failures
       if: steps.checkout_branch.outcome != 'success'
@@ -105,28 +126,44 @@ jobs:
         echo "CSI_BAREMETAL_DIR=$RUNNER_WORKSPACE/csi-baremetal/" >> $GITHUB_ENV
         echo "CSI_BAREMETAL_OPERATOR_DIR=$RUNNER_WORKSPACE/csi-baremetal/csi-baremetal-operator" >> $GITHUB_ENV
 
+    - name: Set CSI_VERSION
+      run: |
+        cd ${{ env.CSI_BAREMETAL_DIR }}
+        echo "CSI_VERSION=`make version`" >> $GITHUB_ENV
+
+    - name: Set CSI_OPERATOR_VERSION
+      run: |
+        cd ${{ env.CSI_BAREMETAL_OPERATOR_DIR }}
+        echo "CSI_OPERATOR_VERSION=`make version`" >> $GITHUB_ENV
+
+    - name: Send tested versions
+      # don't send on push to master
+      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
+      uses: actions-ecosystem/action-create-comment@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          Versions using in CI
+          CSI Version: ${{ env.CSI_VERSION }}
+          OPERATOR Version: ${{ env.CSI_OPERATOR_VERSION }}
+
     - name: LVM2 install
       run: sudo apt-get install -y lvm2
 
     - name: Prepare Golang 
       uses: actions/setup-go@v2
       with:
-        go-version: ${{env.go_version}}
+        go-version: ${{ env.go_version }}
 
     - name: Install helm
       uses: azure/setup-helm@v1
       with:
-        version: ${{env.helm_version}}
+        version: ${{ env.helm_version }}
           
     - name: Kubectl install
       uses: azure/setup-kubectl@v1
       with:
-        version: ${{env.kubectl_version}} 
-
-    - name: add CSI_VERSION
-      run: |
-        cd ${{env.CSI_BAREMETAL_DIR}}
-        echo "CSI_VERSION=`make version`" >> $GITHUB_ENV
+        version: ${{ env.kubectl_version }}
 
     - name: Get dependencies
       run: make dependency
@@ -148,10 +185,9 @@ jobs:
         make images REGISTRY=${{ env.REGISTRY }}
         make DRIVE_MANAGER_TYPE=loopbackmgr image-drivemgr REGISTRY=${{ env.REGISTRY }}
     
-    - name: docker-build operators 
+    - name: Build Operator docker image
       run: |
         cd ${{env.CSI_BAREMETAL_OPERATOR_DIR}}
-        echo "CSI_OPERATOR_VERSION=`make version`" >> $GITHUB_ENV
         make docker-build REGISTRY=${{ env.REGISTRY }}
 
     - name: Kind preparation
@@ -176,22 +212,6 @@ jobs:
         make kind-load-images TAG=$CSI_VERSION REGISTRY=${{ env.REGISTRY }}
         make kind-tag-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION REGISTRY=${{ env.REGISTRY }}
         make kind-load-operator-image OPERATOR_VERSION=$CSI_OPERATOR_VERSION 
-
-    - name: Send message
-      # don't send on push to master
-      if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ci')
-      uses: actions-ecosystem/action-create-comment@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        body: |
-          @${{ github.actor }} ${{steps.set-answer.outputs.result}}.
-          Parameters: operator_branch='${{steps.set-branch.outputs.result}}'
-          Go Version: ${{env.go_version}}
-          GoLangCI Version: ${{env.golangci_version}}
-          Helm Version: ${{env.helm_version}}
-          Kubectl Version: ${{env.kubectl_version}}
-          CSI Version: ${{env.CSI_VERSION}}
-          OPERATOR Version: ${{env.CSI_OPERATOR_VERSION}}
 
     - name: Make test
       continue-on-error: true
@@ -235,29 +255,28 @@ jobs:
   result_job:
     needs: e2e
     # answer must be posted on PR with /ci comment only
-    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ci')
+    if: always() && github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ci')
     runs-on: ubuntu-20.04
     steps:
     - name: Create answer body 
       uses: actions/github-script@v5
       id: set-answer
+      env:
+        TEST_RESULT: ${{ needs.e2e.result }}
       with:
         result-encoding: string
         script: |
-          var body
-          if ('${{needs.e2e.result}}' === 'failure' ){
-            body = 'CI tests failed'
-          }else if ('${{needs.e2e.result}}' === 'success'){
-            body = 'CI tests passed'
-          }else{
-            body = 'CI tests canceled'
+          const { TEST_RESULT } = process.env
+          if (`${TEST_RESULT}` === 'failure' ){
+            return "CI tests failed"
+          } else if (`${TEST_RESULT}` === 'success'){
+            return "CI tests passed"
           }
-          return body
+          return "CI tests canceled"
 
     - name: answer
       uses: actions-ecosystem/action-create-comment@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         body: |
-          @${{ github.actor }}, ${{steps.set-answer.outputs.result}} Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
+          @${{ github.actor }}, ${{ steps.set-answer.outputs.result }} Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
