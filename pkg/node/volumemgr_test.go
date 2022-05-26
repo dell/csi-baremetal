@@ -1760,3 +1760,258 @@ func TestVolumeManager_isDriveSystem(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, isSystem, false)
 }
+
+func TestVolumeManager_checkVGErrors(t *testing.T) {
+	var (
+		blockDeviceWithNoLV = []lsblk.BlockDevice{
+			{
+				Name:       "/dev/sdz",
+				Type:       "disk",
+				Size:       lsblk.CustomInt64{Int64: 8001563222016},
+				Rota:       lsblk.CustomBool{Bool: true},
+				Serial:     "VDH1AAND",
+				WWN:        "0x5000cca0bbceb2b4",
+				Vendor:     "ATA     ",
+				Model:      "LVM PV gVhS8Z-IYdr-nVxF-jVd7-wnfv-ob2d-PZVkHM on /dev/sdz",
+				Rev:        "RT04",
+				MountPoint: "",
+				FSType:     "LVM2_member",
+				PartUUID:   "",
+				Children:   []lsblk.BlockDevice{},
+			},
+		}
+		blockDeviceWithLVs = []lsblk.BlockDevice{
+			{
+				Name:       "/dev/sdz",
+				Type:       "disk",
+				Size:       lsblk.CustomInt64{Int64: 8001563222016},
+				Rota:       lsblk.CustomBool{Bool: true},
+				Serial:     "VDH1AAND",
+				WWN:        "0x5000cca0bbceb2b4",
+				Vendor:     "ATA     ",
+				Model:      "LVM PV gVhS8Z-IYdr-nVxF-jVd7-wnfv-ob2d-PZVkHM on /dev/sdz",
+				Rev:        "RT04",
+				MountPoint: "",
+				FSType:     "LVM2_member",
+				PartUUID:   "",
+				Children: []lsblk.BlockDevice{
+					{
+						Name:       "/dev/mapper/a525d62e--746f--4e3d--ab1f--4931de511b51-pvc--db79c049--7003--4998--b63f--12c200cefc1d",
+						Type:       "lvm",
+						Size:       lsblk.CustomInt64{Int64: 1002438656},
+						Rota:       lsblk.CustomBool{Bool: true},
+						Serial:     "",
+						WWN:        "",
+						Vendor:     "",
+						Model:      "",
+						Rev:        "",
+						MountPoint: "/var/lib/kubelet/pods/0f38c332-f906-4227-ae79-8f91f8aa6970/volumes/kubernetes.io~csi/pvc-db79c049-7003-4998-b63f-12c200cefc1d/mount",
+						FSType:     "xfs",
+						PartUUID:   "",
+						Children:   []lsblk.BlockDevice{},
+					},
+					{
+						Name:       "/dev/mapper/a525d62e--746f--4e3d--ab1f--4931de511b51-pvc--28b3d196--e268--402c--bae6--a00dd01964af",
+						Type:       "lvm",
+						Size:       lsblk.CustomInt64{Int64: 1002438656},
+						Rota:       lsblk.CustomBool{Bool: true},
+						Serial:     "",
+						WWN:        "",
+						Vendor:     "",
+						Model:      "",
+						Rev:        "",
+						MountPoint: "/var/lib/kubelet/pods/0f38c332-f906-4227-ae79-8f91f8aa6970/volumes/kubernetes.io~csi/pvc-db79c049-7003-4998-b63f-12c200cefc1d/mount",
+						FSType:     "xfs",
+						PartUUID:   "",
+						Children:   []lsblk.BlockDevice{},
+					},
+				},
+			},
+		}
+		lvgName = "lvg1"
+		lvg     = &lvgcrd.LogicalVolumeGroup{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "LVG",
+				APIVersion: apiV1.APIV1Version,
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Name: lvgName,
+			},
+			Spec: api.LogicalVolumeGroup{
+				Name: lvgName,
+				VolumeRefs: []string{
+					"pvc-db79c049-7003-4998-b63f-12c200cefc1d",
+					"pvc-28b3d196-e268-402c-bae6-a00dd01964af",
+				},
+			},
+		}
+		drivePath = "/dev/sdh"
+	)
+
+	t.Run("No errors found", func(t *testing.T) {
+		var (
+			vm           = prepareSuccessVolumeManager(t)
+			lvmMock      = &mocklu.MockWrapLVM{}
+			lsblkMock    = &mocklu.MockWrapLsblk{}
+			recorderMock = &mocks.NoOpRecorder{}
+		)
+
+		vm.lvmOps = lvmMock
+		vm.listBlk = lsblkMock
+		vm.recorder = recorderMock
+
+		lvmMock.On("VGScan", lvg.GetName()).Return(false, nil).Once()
+		lsblkMock.On("GetBlockDevices", drivePath).Return(blockDeviceWithLVs, nil).Once()
+
+		vm.checkVGErrors(lvg, drivePath)
+
+		assert.Equal(t, 2, len(recorderMock.Calls))
+		assert.Equal(t, eventing.VolumeGroupScanInvolved, recorderMock.Calls[0].Event)
+		assert.Equal(t, eventing.VolumeGroupScanNoErrors, recorderMock.Calls[1].Event)
+	})
+
+	t.Run("vgscan failed", func(t *testing.T) {
+		var (
+			vm           = prepareSuccessVolumeManager(t)
+			lvmMock      = &mocklu.MockWrapLVM{}
+			lsblkMock    = &mocklu.MockWrapLsblk{}
+			recorderMock = &mocks.NoOpRecorder{}
+		)
+
+		vm.lvmOps = lvmMock
+		vm.listBlk = lsblkMock
+		vm.recorder = recorderMock
+
+		lvmMock.On("VGScan", lvg.GetName()).Return(true, errors.New("failed")).Once()
+
+		vm.checkVGErrors(lvg, drivePath)
+
+		assert.Equal(t, 2, len(recorderMock.Calls))
+		assert.Equal(t, eventing.VolumeGroupScanInvolved, recorderMock.Calls[0].Event)
+		assert.Equal(t, eventing.VolumeGroupScanFailed, recorderMock.Calls[1].Event)
+	})
+
+	t.Run("vgscan return io error", func(t *testing.T) {
+		var (
+			vm           = prepareSuccessVolumeManager(t)
+			lvmMock      = &mocklu.MockWrapLVM{}
+			lsblkMock    = &mocklu.MockWrapLsblk{}
+			recorderMock = &mocks.NoOpRecorder{}
+		)
+
+		vm.lvmOps = lvmMock
+		vm.listBlk = lsblkMock
+		vm.recorder = recorderMock
+
+		lvmMock.On("VGScan", lvg.GetName()).Return(true, nil).Once()
+
+		vm.checkVGErrors(lvg, drivePath)
+
+		assert.Equal(t, 2, len(recorderMock.Calls))
+		assert.Equal(t, eventing.VolumeGroupScanInvolved, recorderMock.Calls[0].Event)
+		assert.Equal(t, eventing.VolumeGroupScanErrorsFound, recorderMock.Calls[1].Event)
+	})
+
+	t.Run("get volumes via lsblk failed", func(t *testing.T) {
+		var (
+			vm           = prepareSuccessVolumeManager(t)
+			lvmMock      = &mocklu.MockWrapLVM{}
+			lsblkMock    = &mocklu.MockWrapLsblk{}
+			recorderMock = &mocks.NoOpRecorder{}
+		)
+
+		vm.lvmOps = lvmMock
+		vm.listBlk = lsblkMock
+		vm.recorder = recorderMock
+
+		lvmMock.On("VGScan", lvg.GetName()).Return(false, nil).Once()
+		lsblkMock.On("GetBlockDevices", drivePath).Return(nil, errors.New("failed")).Once()
+
+		vm.checkVGErrors(lvg, drivePath)
+
+		assert.Equal(t, 2, len(recorderMock.Calls))
+		assert.Equal(t, eventing.VolumeGroupScanInvolved, recorderMock.Calls[0].Event)
+		assert.Equal(t, eventing.VolumeGroupScanFailed, recorderMock.Calls[1].Event)
+	})
+
+	t.Run("volumes not found", func(t *testing.T) {
+		var (
+			vm           = prepareSuccessVolumeManager(t)
+			lvmMock      = &mocklu.MockWrapLVM{}
+			lsblkMock    = &mocklu.MockWrapLsblk{}
+			recorderMock = &mocks.NoOpRecorder{}
+		)
+
+		vm.lvmOps = lvmMock
+		vm.listBlk = lsblkMock
+		vm.recorder = recorderMock
+
+		lvmMock.On("VGScan", lvg.GetName()).Return(false, nil).Once()
+		lsblkMock.On("GetBlockDevices", drivePath).Return(blockDeviceWithNoLV, nil).Once()
+
+		vm.checkVGErrors(lvg, drivePath)
+
+		assert.Equal(t, 2, len(recorderMock.Calls))
+		assert.Equal(t, eventing.VolumeGroupScanInvolved, recorderMock.Calls[0].Event)
+		assert.Equal(t, eventing.VolumeGroupScanErrorsFound, recorderMock.Calls[1].Event)
+	})
+}
+
+func TestVolumeManager_reactivateVG(t *testing.T) {
+	var (
+		lvgName = "lvg1"
+		lvg     = &lvgcrd.LogicalVolumeGroup{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "LVG",
+				APIVersion: apiV1.APIV1Version,
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Name: lvgName,
+			},
+			Spec: api.LogicalVolumeGroup{
+				Name: lvgName,
+				VolumeRefs: []string{
+					"pvc--db79c049--7003--4998--b63f--12c200cefc1d",
+					"pvc--28b3d196--e268--402c--bae6--a00dd01964af",
+				},
+			},
+		}
+	)
+
+	t.Run("success", func(t *testing.T) {
+		var (
+			vm           = prepareSuccessVolumeManager(t)
+			lvmMock      = &mocklu.MockWrapLVM{}
+			recorderMock = &mocks.NoOpRecorder{}
+		)
+
+		vm.lvmOps = lvmMock
+		vm.recorder = recorderMock
+
+		lvmMock.On("VGReactivate", lvg.GetName()).Return(nil).Once()
+
+		vm.reactivateVG(lvg)
+
+		assert.Equal(t, 1, len(recorderMock.Calls))
+		assert.Equal(t, eventing.VolumeGroupReactivateInvolved, recorderMock.Calls[0].Event)
+	})
+
+	t.Run("failed", func(t *testing.T) {
+		var (
+			vm           = prepareSuccessVolumeManager(t)
+			lvmMock      = &mocklu.MockWrapLVM{}
+			recorderMock = &mocks.NoOpRecorder{}
+		)
+
+		vm.lvmOps = lvmMock
+		vm.recorder = recorderMock
+
+		lvmMock.On("VGReactivate", lvg.GetName()).Return(errors.New("failed")).Once()
+
+		vm.reactivateVG(lvg)
+
+		assert.Equal(t, 2, len(recorderMock.Calls))
+		assert.Equal(t, eventing.VolumeGroupReactivateInvolved, recorderMock.Calls[0].Event)
+		assert.Equal(t, eventing.VolumeGroupReactivateFailed, recorderMock.Calls[1].Event)
+	})
+}

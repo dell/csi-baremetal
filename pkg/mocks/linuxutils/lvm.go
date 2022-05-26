@@ -57,7 +57,7 @@ func (m *MockWrapLVM) VGCreate(name string, pvs ...string) error {
 func (m *MockWrapLVM) VGScan(name string) (bool, error) {
 	args := m.Mock.Called(name)
 
-	return args.Bool(0), args.Error(0)
+	return args.Bool(0), args.Error(1)
 }
 
 // VGReactivate is a mock implementation
