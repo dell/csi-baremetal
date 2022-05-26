@@ -172,6 +172,11 @@ var (
 		severity:    WarningType,
 		symptomCode: NoneSymptomCode,
 	}
+	MissingDriveReplacementInitiated = &EventDescription{
+		reason:      "MissingDriveReplacementInitiated",
+		severity:    NormalType,
+		symptomCode: DriveStatusChangedSymptomCode,
+	}
 
 	VolumeGroupScanInvolved = &EventDescription{
 		reason:      "VolumeGroupScanInvolved",

@@ -1102,7 +1102,7 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthUnknown))
 	})
 
-	t.Run("Drive health overriden", func(t *testing.T) {
+	t.Run("Drive health overridden", func(t *testing.T) {
 		init()
 		modifiedDrive := drive1CR.DeepCopy()
 		modifiedDrive.Annotations = map[string]string{"health": "bad"}
@@ -1115,6 +1115,26 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		}
 		mgr.createEventsForDriveUpdates(upd)
 		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthOverridden))
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthFailure))
+	})
+
+	// disk is offline
+	// health=bad annotation placed - DR initiated
+	t.Run("Missing disk replacement", func(t *testing.T) {
+		init()
+		modifiedDrive := drive1CR.DeepCopy()
+		modifiedDrive.Annotations = map[string]string{"health": "bad"}
+		modifiedDrive.Spec.Health = apiV1.HealthBad
+		modifiedDrive.Spec.Status = apiV1.DriveStatusOffline
+
+		upd := &driveUpdates{
+			Updated: []updatedDrive{{
+				PreviousState: drive1CR,
+				CurrentState:  modifiedDrive}},
+		}
+		mgr.createEventsForDriveUpdates(upd)
+		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthOverridden))
+		assert.True(t, expectEvent(drive1CR, eventing.MissingDriveReplacementInitiated))
 		assert.True(t, expectEvent(drive1CR, eventing.DriveHealthFailure))
 	})
 
