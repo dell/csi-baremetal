@@ -289,11 +289,16 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			}
 		}
 	} else {
+		// need to handle volume CR delete request
 		switch volume.Spec.CSIStatus {
 		case apiV1.Created:
 			volume.Spec.CSIStatus = apiV1.Removing
 			ll.Debug("Change volume status from Created to Removing")
 		case apiV1.Removing:
+		// Failed drive shouldn't be cleaned up - might cause DU
+		case apiV1.Failed:
+			// remove finalizer only
+			return m.removeFinalizer(ctx, volume)
 		case apiV1.Removed:
 			// we need to update annotation on related drive CRD
 			// todo can we do polling instead?
@@ -311,16 +316,7 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				ll.Errorf("Unable to obtain drive for volume %s", volume.Name)
 			}
 
-			// remove finalizer
-			if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
-				volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
-				ll.Debug("Remove finalizer for volume")
-				if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
-					ll.Errorf("Unable to update Volume's finalizers")
-				}
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil
+			return m.removeFinalizer(ctx, volume)
 		default:
 			ll.Warnf("Volume wasn't deleted, because it has CSI status %s", volume.Spec.CSIStatus)
 			return ctrl.Result{}, nil
@@ -1415,4 +1411,17 @@ func (m *VolumeManager) SetWbtConfig(conf *wbtconf.WbtConfig) {
 		m.log.Infof("Wbt config changed: %+v", *conf)
 		m.wbtConfig = conf
 	}
+}
+
+// remove volume CR finalizer
+func (m *VolumeManager) removeFinalizer(ctx context.Context, volume *volumecrd.Volume) (ctrl.Result, error) {
+	if util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) {
+		volume.ObjectMeta.Finalizers = util.RemoveString(volume.ObjectMeta.Finalizers, volumeFinalizer)
+		m.log.Debug("Remove finalizer for volume")
+		if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
+			m.log.Errorf("Unable to update Volume's finalizers")
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
