@@ -37,15 +37,7 @@ If the CRD was managed as part of the chart it would fix a lot of confusion **re
 
 Note about upgrading an existing Release to a new minor version (like from v1.0.x to v1.1.x).
 
-The command `helm upgrade ...` MUST trigger a hook with a special docker container for patching CRDs. 
-The hook MUST be customized through `values.yaml` and contains next options:
-
-```yaml
-preUpgradeCRDsHooks:
-  repository: csi-baremetal-pre-upgrade-crds
-  version: XXX
-```
-
+The command `helm upgrade ...` MUST trigger a hook with a special docker container for patching CRDs.
 MUST have a way to build a new version by running `REGISTRY=docker-registry-goes-here make build-pre-upgrade-crds-image`.
 The build image MUST contains `kubectl` executable in order to perform CRDs pathing.
 Customize kubectl image with `KUBECTL_IMAGE=bitnami/kubectl:1.23.6 REGISTRY=docker-registry-goes-here make build-pre-upgrade-crds-image`
@@ -54,7 +46,7 @@ In high level design the plain use case is next:
 
 1. The command `helm upgrade ...` will trigger a hook.
 2. Hook will create all resources.
-3. Hook complete patching.
+3. Hook complete replacing.
 4. Hook perform cleanup after upgrade.
 
 All related information is present in the [`csi-baremetal-operator`](https://github.com/dell/csi-baremetal-operator#upgrade-process) repository. 
@@ -64,7 +56,6 @@ All related information is present in the [`csi-baremetal-operator`](https://git
 In order to deliver new CRDs, next things MUST be implemented:
 
 * A hook template with all resources and the job [pre-upgrade-crds.yaml](https://github.com/dell/csi-baremetal-operator/blob/master/charts/csi-baremetal-operator/templates/pre-upgrade-crds.yaml)
-* A hook for cleanup routine [post-delete-hook.yaml](https://github.com/dell/csi-baremetal-operator/blob/master/charts/csi-baremetal-operator/templates/post-delete-hook.yaml) 
 * A new make target for build container with `kubectl` and CRDs files.
 * A new make target for push container this container to remote docker registry.
 
