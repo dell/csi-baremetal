@@ -418,12 +418,20 @@ func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
 }
 
 func TestReconcile_SuccessDeleteVolume(t *testing.T) {
+	removeVolume(t, apiV1.Removed)
+}
+
+func TestReconcile_DeleteFailedVolume(t *testing.T) {
+	removeVolume(t, apiV1.Failed)
+}
+
+func removeVolume(t *testing.T, status string) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	newVolumeCR := volCR.DeepCopy()
-	newVolumeCR.Spec.CSIStatus = apiV1.Removed
+	newVolumeCR.Spec.CSIStatus = status
 	err = vm.k8sClient.CreateCR(testCtx, newVolumeCR.Name, newVolumeCR)
 	assert.Nil(t, err)
 
@@ -2034,4 +2042,15 @@ func TestVolumeManager_reactivateVG(t *testing.T) {
 		assert.Equal(t, eventing.VolumeGroupReactivateInvolved, recorderMock.Calls[0].Event)
 		assert.Equal(t, eventing.VolumeGroupReactivateFailed, recorderMock.Calls[1].Event)
 	})
+}
+
+func TestVolumeManager_failedToRemoveFinalizer(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
+	volumeCR := volCR.DeepCopy()
+	volumeCR.ObjectMeta.Finalizers = append(volumeCR.ObjectMeta.Finalizers, volumeFinalizer)
+	// not found error
+	_, err = vm.removeFinalizer(context.TODO(), volumeCR)
+	assert.NotNil(t, err)
 }
