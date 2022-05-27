@@ -54,9 +54,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-export CSI_VERSION=`make version`
-export CSI_OPERATOR_VERSION=$OPERATOR_VERSION
-export SHORT_CI_TIMEOUT=20m
-export CHARTS_DIR=../csi-baremetal-operator/charts
+echo export CSI_VERSION=`make version`
+echo export CSI_OPERATOR_VERSION=$OPERATOR_VERSION
+#export SHORT_CI_TIMEOUT=20m
+echo export CSI_CHARTS_PATH=../csi-baremetal-operator/charts
 
 #CI=true CSI_VERSION=${CSI_VERSION} OPERATOR_VERSION=${OPERATOR_VERSION} go test -v test/e2e/baremetal_e2e_test.go -ginkgo.v -ginkgo.progress -ginkgo.failFast -all-tests -kubeconfig=${HOME}/.kube/config -chartsDir ${CHARTS_DIR}
