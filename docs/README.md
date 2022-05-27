@@ -47,6 +47,11 @@ Installation process
 
 Installation process is documented in [Bare-metal CSI Operator](https://github.com/dell/csi-baremetal-operator)
 
+Upgdare process
+--------------------
+
+Upgrade process is documented in [Bare-metal CSI Operator](https://github.com/dell/csi-baremetal-operator)
+
 High level architecture
 -----------------------
 
