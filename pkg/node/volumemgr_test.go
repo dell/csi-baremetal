@@ -2043,3 +2043,14 @@ func TestVolumeManager_reactivateVG(t *testing.T) {
 		assert.Equal(t, eventing.VolumeGroupReactivateFailed, recorderMock.Calls[1].Event)
 	})
 }
+
+func TestVolumeManager_failedToRemoveFinalizer(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
+	volumeCR := volCR.DeepCopy()
+	volumeCR.ObjectMeta.Finalizers = append(volumeCR.ObjectMeta.Finalizers, volumeFinalizer)
+	// not found error
+	_, err = vm.removeFinalizer(context.TODO(), volumeCR)
+	assert.NotNil(t, err)
+}
