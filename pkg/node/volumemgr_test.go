@@ -418,12 +418,20 @@ func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
 }
 
 func TestReconcile_SuccessDeleteVolume(t *testing.T) {
+	removeVolume(t, apiV1.Removed)
+}
+
+func TestReconcile_DeleteFailedVolume(t *testing.T) {
+	removeVolume(t, apiV1.Failed)
+}
+
+func removeVolume(t *testing.T, status string) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	newVolumeCR := volCR.DeepCopy()
-	newVolumeCR.Spec.CSIStatus = apiV1.Removed
+	newVolumeCR.Spec.CSIStatus = status
 	err = vm.k8sClient.CreateCR(testCtx, newVolumeCR.Name, newVolumeCR)
 	assert.Nil(t, err)
 
@@ -448,39 +456,6 @@ func TestReconcile_SuccessDeleteVolume(t *testing.T) {
 	res, err = vm.Reconcile(testCtx, req)
 	assert.NotNil(t, k8sError.IsNotFound(err))
 	assert.Equal(t, res, ctrl.Result{})
-}
-
-func TestReconcile_DeleteFailedVolume(t *testing.T) {
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: volCR.Name}}
-	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
-	assert.Nil(t, err)
-	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
-	newVolumeCR := volCR.DeepCopy()
-	newVolumeCR.Spec.CSIStatus = apiV1.Failed
-	err = vm.k8sClient.CreateCR(testCtx, newVolumeCR.Name, newVolumeCR)
-
-	// add finalizer
-	res, err := vm.Reconcile(testCtx, req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-	// check finalizer
-	err = vm.k8sClient.ReadCR(testCtx, newVolumeCR.Name, newVolumeCR.Namespace, newVolumeCR)
-	assert.Nil(t, err)
-	assert.Contains(t, newVolumeCR.ObjectMeta.Finalizers, volumeFinalizer)
-
-	// set deletion timestamp
-	timeNow := v1.NewTime(time.Now())
-	newVolumeCR.ObjectMeta.SetDeletionTimestamp(&timeNow)
-	err = vm.k8sClient.UpdateCR(testCtx, newVolumeCR)
-	assert.Nil(t, err)
-
-	res, err = vm.Reconcile(testCtx, req)
-	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
-
-	// check that CR is removed
-	err = vm.k8sClient.ReadCR(testCtx, newVolumeCR.Name, newVolumeCR.Namespace, newVolumeCR)
-	assert.NotNil(t, err)
 }
 
 func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {

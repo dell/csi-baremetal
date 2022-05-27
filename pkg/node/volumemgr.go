@@ -295,11 +295,8 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			volume.Spec.CSIStatus = apiV1.Removing
 			ll.Debug("Change volume status from Created to Removing")
 		case apiV1.Removing:
-		// Failed drive shouldn't be cleaned up - might cause DU
-		case apiV1.Failed:
-			// remove finalizer only
-			return m.removeFinalizer(ctx, volume)
-		case apiV1.Removed:
+		// Failed drive shouldn't be cleaned up - to avoid data loss
+		case apiV1.Removed, apiV1.Failed:
 			// we need to update annotation on related drive CRD
 			// todo can we do polling instead?
 			ll.Infof("Volume %s is removed. Updating related", volume.Name)
