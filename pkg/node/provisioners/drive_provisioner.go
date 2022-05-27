@@ -156,10 +156,10 @@ func (d *DriveProvisioner) ReleaseVolume(vol *api.Volume, drive *api.Drive) erro
 		}
 	)
 
-	part.Name = d.partOps.SearchPartName(device, part.PartUUID)
-	if part.Name == "" {
+	part.Name, err = d.partOps.SearchPartName(device, part.PartUUID)
+	if err != nil {
 		return d.wipeDevice(device,
-			fmt.Errorf("unable to find partition name for volume %s", vol.Id), ll)
+			fmt.Errorf("unable to find partition name for volume %s: %w", vol.Id, err), ll)
 	}
 
 	// wipe FS on partition
@@ -224,10 +224,10 @@ func (d *DriveProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 	}
 	volumeUUID, _ = util.GetVolumeUUID(volumeUUID)
 
-	partNum := d.partOps.SearchPartName(device, volumeUUID)
-	if partNum == "" {
+	partNum, err := d.partOps.SearchPartName(device, volumeUUID)
+	if err != nil {
 		// on device disconnect or node reboot device name might change and we need to re-sync drive info
-		return "", fmt.Errorf("unable to find part name for device %s by uuid %s", device, volumeUUID)
+		return "", fmt.Errorf("unable to find part name for device %s by uuid %s: %w", device, volumeUUID, err)
 	}
 	return device + partNum, nil
 }

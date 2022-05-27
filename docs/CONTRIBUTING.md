@@ -276,5 +276,9 @@ kubectl get pvc
 
 TODO - add information about CI after https://github.com/dell/csi-baremetal/issues/562
 
+##  Adding new fields to the Kubernetes CRD
+
+Follow CRDs generation article https://github.com/dell/csi-baremetal/blob/master/docs/crds-generation.md#crds-generation-routine
+
 ## Contacts
 If you have any questions, please, open [GitHub issue](https://github.com/dell/csi-baremetal/issues/new) in this repository with the ***question*** label.

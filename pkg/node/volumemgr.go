@@ -974,26 +974,11 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
 			ll.Errorf("Failed to update lvg CR's %s health status: %v", name, err)
 		}
-		// check for missing disk and re-activate volume group if needed
+
+		// check for missing disk and re-activate volume group
 		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
-			ll.Infof("Scan volume group %s for IO errors", name)
-			m.recorder.Eventf(lvg, eventing.VolumeGroupScanInvolved, "Check for IO errors")
-			if ok, err := m.lvmOps.VGScan(name); err != nil { //nolint:gocritic
-				ll.Errorf("Failed to scan volume group %s for IO errors: %v", name, err)
-				m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
-			} else if ok {
-				// IO errors detected. Need to re-activate volume group
-				ll.Errorf("IO errors detected for volume group %s", name)
-				m.recorder.Eventf(lvg, eventing.VolumeGroupReactivateInvolved,
-					"IO errors detected")
-				if err := m.lvmOps.VGReactivate(name); err != nil {
-					// need to send an event if operation failed
-					ll.Errorf("Failed to re-activate volume group %s: %v", name, err)
-					m.recorder.Eventf(lvg, eventing.VolumeGroupReactivateFailed, err.Error())
-				}
-			} else {
-				ll.Infof("No IO errors detected for volume group %s", name)
-			}
+			m.reactivateVG(lvg)
+			m.checkVGErrors(lvg, cur.Path)
 		}
 	} else {
 		errMsg := "Failed get LogicalVolumeGroup CR"
@@ -1037,6 +1022,72 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 	// TODO: Handle disk health which are used by LVGs - https://github.com/dell/csi-baremetal/issues/88
 }
 
+func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath string) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "checkVGErrors",
+		"LVG":    lvg.Name,
+	})
+
+	ll.Infof("Scan volume group %s for IO errors", lvg.Name)
+	m.recorder.Eventf(lvg, eventing.VolumeGroupScanInvolved, "Check for IO errors")
+
+	isIOErrors, err := m.lvmOps.VGScan(lvg.Name)
+	if err != nil {
+		ll.Errorf("Failed to scan volume group %s for IO errors: %v", lvg.Name, err)
+		m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
+		return
+	}
+	if isIOErrors {
+		ll.Errorf("IO errors detected for volume group %s", lvg.Name)
+		m.recorder.Eventf(lvg, eventing.VolumeGroupScanErrorsFound, "vgscan found input/output errors")
+		return
+	}
+
+	blockDevices, err := m.listBlk.GetBlockDevices(drivePath)
+	if err != nil {
+		ll.Errorf("Failed to check volumes with lsblk for %s: %v", drivePath, err)
+		m.recorder.Eventf(lvg, eventing.VolumeGroupScanFailed, err.Error())
+		return
+	}
+	for _, v := range lvg.Spec.VolumeRefs {
+		volumeFound := false
+		for _, block := range blockDevices[0].Children {
+			trimmedDashesName := strings.ReplaceAll(block.Name, "--", "-")
+			if strings.Contains(trimmedDashesName, v) {
+				volumeFound = true
+				break
+			}
+		}
+
+		if !volumeFound {
+			ll.Errorf("Volume %s was not found on drive %s with LVG %s", v, drivePath, lvg.Name)
+			ll.Debugf("Block devices on %s: %+v", drivePath, blockDevices)
+			m.recorder.Eventf(lvg, eventing.VolumeGroupScanErrorsFound, "Volume %s was not found on drive %s", v, drivePath)
+			return
+		}
+	}
+
+	ll.Infof("No IO errors detected for volume group %s", lvg.Name)
+	m.recorder.Eventf(lvg, eventing.VolumeGroupScanNoErrors, "No errors was found")
+}
+
+func (m *VolumeManager) reactivateVG(lvg *lvgcrd.LogicalVolumeGroup) {
+	ll := m.log.WithFields(logrus.Fields{
+		"method": "reactivateVG",
+		"LVG":    lvg.Name,
+	})
+
+	ll.Infof("Trying to re-activate volume group %s", lvg.Name)
+	m.recorder.Eventf(lvg, eventing.VolumeGroupReactivateInvolved,
+		"Trying to re-activate volume group")
+
+	if err := m.lvmOps.VGReactivate(lvg.Name); err != nil {
+		// need to send an event if operation failed
+		ll.Errorf("Failed to re-activate volume group %s: %v", lvg.Name, err)
+		m.recorder.Eventf(lvg, eventing.VolumeGroupReactivateFailed, err.Error())
+	}
+}
+
 // drivesAreTheSame check whether two drive represent same node drive or no
 // method is rely on that each drive could be uniquely identified by it VID/PID/Serial Number
 func (m *VolumeManager) drivesAreTheSame(drive1, drive2 *api.Drive) bool {
@@ -1059,10 +1110,16 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
 		}
-		if updDrive.CurrentState.Spec.Health != updDrive.PreviousState.Spec.Health {
+		currentHealth := updDrive.CurrentState.Spec.Health
+		if currentHealth != updDrive.PreviousState.Spec.Health {
 			if _, ok := updDrive.CurrentState.Annotations[driveHealthOverrideAnnotation]; ok {
 				m.createEventForDriveHealthOverridden(
-					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
+					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, currentHealth)
+				// check for missing disk replacement to clear disk missing issue
+				if (currentHealth == apiV1.HealthBad || currentHealth == apiV1.HealthSuspect) &&
+					updDrive.CurrentState.Spec.Status == apiV1.DriveStatusOffline {
+					m.createEventForMissingDriveReplacementInitiated(updDrive.CurrentState)
+				}
 			}
 			m.createEventForDriveHealthChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Health, updDrive.CurrentState.Spec.Health)
@@ -1118,6 +1175,13 @@ func (m *VolumeManager) createEventForDriveHealthOverridden(
 	event := eventing.DriveHealthOverridden
 	m.sendEventForDrive(drive, event,
 		msgTemplate, overriddenHealth, realHealth)
+}
+
+// createEventForMissingDriveReplacementInitiated creates MissingDriveReplacementInitiated with Normal severity
+func (m *VolumeManager) createEventForMissingDriveReplacementInitiated(drive *drivecrd.Drive) {
+	msgTemplate := "Drive replacement process for missing disk initiated."
+	event := eventing.MissingDriveReplacementInitiated
+	m.sendEventForDrive(drive, event, msgTemplate)
 }
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, event *eventing.EventDescription,

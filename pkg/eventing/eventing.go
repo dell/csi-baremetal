@@ -172,15 +172,30 @@ var (
 		severity:    WarningType,
 		symptomCode: NoneSymptomCode,
 	}
+	MissingDriveReplacementInitiated = &EventDescription{
+		reason:      "MissingDriveReplacementInitiated",
+		severity:    NormalType,
+		symptomCode: DriveStatusChangedSymptomCode,
+	}
 
+	VolumeGroupScanInvolved = &EventDescription{
+		reason:      "VolumeGroupScanInvolved",
+		severity:    NormalType,
+		symptomCode: NoneSymptomCode,
+	}
 	VolumeGroupScanFailed = &EventDescription{
 		reason:      "VolumeGroupScanFailed",
 		severity:    ErrorType,
 		symptomCode: NoneSymptomCode,
 	}
-	VolumeGroupScanInvolved = &EventDescription{
-		reason:      "VolumeGroupScanInvolved",
+	VolumeGroupScanNoErrors = &EventDescription{
+		reason:      "VolumeGroupScanNoErrors",
 		severity:    NormalType,
+		symptomCode: NoneSymptomCode,
+	}
+	VolumeGroupScanErrorsFound = &EventDescription{
+		reason:      "VolumeGroupScanErrorsFound",
+		severity:    WarningType,
 		symptomCode: NoneSymptomCode,
 	}
 	VolumeGroupReactivateInvolved = &EventDescription{
