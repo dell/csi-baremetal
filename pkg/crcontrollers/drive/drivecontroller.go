@@ -215,6 +215,22 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return c.handleDriveUsageRemoved(ctx, log, drive)
 	case apiV1.DriveUsageFailed:
 		if c.checkAndPlaceStatusInUse(drive) {
+			volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
+			if err != nil {
+				return ignore, err
+			}
+			for _, vol := range volumes {
+				value, found := vol.GetAnnotations()[apiV1.VolumeAnnotationRelease]
+				if found && value == apiV1.VolumeAnnotationReleaseFailed {
+					vol.Spec.Usage = apiV1.VolumeUsageInUse
+					delete(vol.Annotations, apiV1.VolumeAnnotationRelease)
+					if err := c.client.UpdateCR(ctx, vol); err != nil {
+						log.Errorf("Unable to change volume %s usage status to %s, error: %v.",
+							vol.Name, vol.Spec.Usage, err)
+						return ignore, err
+					}
+				}
+			}
 			toUpdate = true
 			break
 		}
