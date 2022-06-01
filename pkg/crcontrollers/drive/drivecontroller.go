@@ -215,21 +215,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return c.handleDriveUsageRemoved(ctx, log, drive)
 	case apiV1.DriveUsageFailed:
 		if c.checkAndPlaceStatusInUse(drive) {
-			volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
-			if err != nil {
+			if err := c.changeVolumeUsageAfterActionAnnotation(ctx, log, drive); err != nil{
 				return ignore, err
-			}
-			for _, vol := range volumes {
-				value, found := vol.GetAnnotations()[apiV1.VolumeAnnotationRelease]
-				if found && value == apiV1.VolumeAnnotationReleaseFailed {
-					vol.Spec.Usage = apiV1.VolumeUsageInUse
-					delete(vol.Annotations, apiV1.VolumeAnnotationRelease)
-					if err := c.client.UpdateCR(ctx, vol); err != nil {
-						log.Errorf("Unable to change volume %s usage status to %s, error: %v.",
-							vol.Name, vol.Spec.Usage, err)
-						return ignore, err
-					}
-				}
 			}
 			toUpdate = true
 			break
@@ -253,6 +240,29 @@ func getDriveAnnotationRemoval(annotations map[string]string) (string, bool) {
 		status, found = annotations[apiV1.DriveAnnotationReplacement]
 	}
 	return status, found
+}
+
+func (c *Controller) changeVolumeUsageAfterActionAnnotation(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) error {
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.GetUUID())
+	if err != nil {
+		return err
+	}
+	for _, vol := range volumes {
+		value, found := vol.GetAnnotations()[apiV1.VolumeAnnotationRelease]
+		if found && value == apiV1.VolumeAnnotationReleaseFailed {
+			prevUsage := vol.Spec.Usage
+			vol.Spec.Usage = apiV1.VolumeUsageInUse
+			annotations := vol.GetAnnotations()
+			delete(annotations, apiV1.VolumeAnnotationRelease)
+			vol.SetAnnotations(annotations)
+			if err := c.client.UpdateCR(ctx, vol); err != nil {
+				log.Errorf("Unable to change volume %s usage status from %s to %s, error: %v.",
+					vol.Name, prevUsage, vol.Spec.Usage, err)
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Drive) error {
