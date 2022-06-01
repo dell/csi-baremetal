@@ -215,7 +215,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return c.handleDriveUsageRemoved(ctx, log, drive)
 	case apiV1.DriveUsageFailed:
 		if c.checkAndPlaceStatusInUse(drive) {
-			if err := c.changeVolumeUsageAfterActionAnnotation(ctx, log, drive); err != nil{
+			if err := c.changeVolumeUsageAfterActionAnnotation(ctx, log, drive); err != nil {
+				log.Errorf("Failed to update volume on drive %s, error: %v", drive.Name, err)
 				return ignore, err
 			}
 			toUpdate = true
