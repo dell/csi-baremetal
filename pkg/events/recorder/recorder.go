@@ -20,6 +20,7 @@ package recorder
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -67,7 +68,12 @@ func (sr *SimpleRecorder) makeEvent(ref *v1.ObjectReference, labels map[string]s
 	t := metav1.NewTime(now)
 	namespace := ref.Namespace
 	if namespace == "" {
-		namespace = metav1.NamespaceDefault
+		if key := os.Getenv("NAMESPACE"); key != "" {
+			namespace = os.Getenv("NAMESPACE")
+			ref.Namespace = namespace
+		} else {
+			namespace = metav1.NamespaceDefault
+		}
 	}
 	return &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
