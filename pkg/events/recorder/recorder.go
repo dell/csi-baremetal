@@ -70,6 +70,7 @@ func (sr *SimpleRecorder) makeEvent(ref *v1.ObjectReference, labels map[string]s
 	if namespace == "" {
 		if key := os.Getenv("NAMESPACE"); key != "" {
 			namespace = os.Getenv("NAMESPACE")
+			ref.Namespace = namespace
 		} else {
 			namespace = metav1.NamespaceDefault
 		}

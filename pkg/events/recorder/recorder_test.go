@@ -155,7 +155,7 @@ func TestSimpleRecorder_Eventf(t *testing.T) {
 				InvolvedObject: v1.ObjectReference{
 					Kind:       "Drive",
 					Name:       "drive1-uuid",
-					Namespace:  "",
+					Namespace:  "atlantic",
 					APIVersion: "csi-baremetal.dell.com/v1",
 				},
 				FirstTimestamp: metaFixedtime,
