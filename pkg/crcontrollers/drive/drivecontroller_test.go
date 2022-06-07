@@ -23,7 +23,7 @@ var (
 	testNs = "default"
 	testID =  "someID"
 	nodeID = "node-uuid"
-	
+
 	testLogger = logrus.New()
 	testCtx = context.Background()
 	driveUUID = uuid.New().String()
@@ -99,14 +99,26 @@ func TestDriveController_ChangeVolumeUsageAfterActionAnnotation(t *testing.T){
 	err := dc.client.CreateCR(testCtx, expectedV.Name, expectedV)
 	assert.Nil(t, err)
 
-	err = dc.changeVolumeUsageAfterActionAnnotation(testCtx, dc.log, expectedD)
-	assert.Nil(t, err) 
-	
-	resultVolume, err := dc.crHelper.GetVolumesByLocation(testCtx, driveUUID)
-	assert.Nil(t, err)
-	assert.NotNil(t, resultVolume)
-	assert.NotNil(t, resultVolume[0].Spec)
-	assert.Empty(t, resultVolume[0].Annotations)
-	assert.NotEqual(t, failedVolCR.Spec, resultVolume[0].Spec)
-	assert.Equal(t, resultVolume[0].Spec.Usage, apiV1.DriveUsageInUse)
+	t.Run("Success Volume Usage change", func(t *testing.T) {
+		err = dc.changeVolumeUsageAfterActionAnnotation(testCtx, dc.log, expectedD)
+		assert.Nil(t, err) 
+		
+		resultVolume, err := dc.crHelper.GetVolumesByLocation(testCtx, driveUUID)
+		assert.Nil(t, err)
+		assert.NotNil(t, resultVolume)
+		assert.NotNil(t, resultVolume[0].Spec)
+		assert.Empty(t, resultVolume[0].Annotations)
+		assert.NotEqual(t, failedVolCR.Spec, resultVolume[0].Spec)
+		assert.Equal(t, resultVolume[0].Spec.Usage, apiV1.DriveUsageInUse)
+	})
+	t.Run("Fail update", func(t *testing.T) {
+		err = dc.changeVolumeUsageAfterActionAnnotation(k8s.UpdateFailCtx, dc.log, expectedD)
+		assert.NotNil(t, err) 
+
+		resultVolume, err := dc.crHelper.GetVolumesByLocation(testCtx, driveUUID)
+		assert.Nil(t, err)
+		assert.NotNil(t, resultVolume)
+		assert.NotNil(t, resultVolume[0].Spec)
+		assert.NotEmpty(t, resultVolume[0].Annotations)
+	})
 }
