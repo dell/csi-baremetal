@@ -1,5 +1,7 @@
 ### How to build and deploy scheduler extender
 
+1.1
+
  1. Build binary and push image (if you don't change extender' code you don't have to rebuild
  binary and image):
     ```
