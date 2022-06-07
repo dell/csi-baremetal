@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -49,7 +48,6 @@ var (
 
 func main() {
 	flag.Parse()
-	time.Sleep(time.Minute * 2)
 
 	// TODO: refactor this after https://github.com/dell/csi-baremetal/issues/83 will be closed
 	err := os.Setenv("LOG_FORMAT", *logFormat)

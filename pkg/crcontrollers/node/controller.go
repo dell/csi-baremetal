@@ -372,7 +372,6 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 			k8sNodeNotFound = true
 		} else {
 			k8sNodes = []coreV1.Node{*k8sNode}
-			ll.Infof("k8s nodes: %+v", k8sNodes)
 		}
 	}
 
