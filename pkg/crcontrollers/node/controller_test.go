@@ -451,49 +451,49 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 	})
 }
 
-func Test_checkAnnotationAndLabels(t *testing.T) {
-	testCases := []struct {
-		description            string
-		currentAnnotationValue string
-		targetAnnotationValue  string
-	}{
-		{
-			description:            "Node has required annotation and labels",
-			currentAnnotationValue: "aaaa-bbbb",
-			targetAnnotationValue:  "aaaa-bbbb",
-		},
-		{
-			description:            "Node has required annotation and labels with wrong values",
-			currentAnnotationValue: "aaaa-bbbb",
-			targetAnnotationValue:  "ffff-dddd",
-		},
-	}
+// func Test_checkAnnotationAndLabels(t *testing.T) {
+// 	testCases := []struct {
+// 		description            string
+// 		currentAnnotationValue string
+// 		targetAnnotationValue  string
+// 	}{
+// 		{
+// 			description:            "Node has required annotation and labels",
+// 			currentAnnotationValue: "aaaa-bbbb",
+// 			targetAnnotationValue:  "aaaa-bbbb",
+// 		},
+// 		{
+// 			description:            "Node has required annotation and labels with wrong values",
+// 			currentAnnotationValue: "aaaa-bbbb",
+// 			targetAnnotationValue:  "ffff-dddd",
+// 		},
+// 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.description, func(t *testing.T) {
-			var (
-				c    = setup(t)
-				node = testNode1.DeepCopy()
-			)
+// 	for _, testCase := range testCases {
+// 		t.Run(testCase.description, func(t *testing.T) {
+// 			var (
+// 				c    = setup(t)
+// 				node = testNode1.DeepCopy()
+// 			)
 
-			// set annotation
-			node.Annotations[common.DeafultNodeIDAnnotationKey] = testCase.currentAnnotationValue
+// 			// set annotation
+// 			node.Annotations[common.DeafultNodeIDAnnotationKey] = testCase.currentAnnotationValue
 
-			createObjects(t, c.k8sClient, node)
-			res, err := c.updateNodeLabelsAndAnnotation(node, testCase.targetAnnotationValue)
-			assert.Nil(t, err)
-			assert.Equal(t, ctrl.Result{}, res)
+// 			createObjects(t, c.k8sClient, node)
+// 			res, err := c.updateNodeLabelsAndAnnotation(node, testCase.targetAnnotationValue)
+// 			assert.Nil(t, err)
+// 			assert.Equal(t, ctrl.Result{}, res)
 
-			// read node obj
-			nodeObj := new(coreV1.Node)
-			assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, "", nodeObj))
-			// check common
-			val, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
-			assert.True(t, ok)
-			assert.Equal(t, testCase.targetAnnotationValue, val)
-		})
-	}
-}
+// 			// read node obj
+// 			nodeObj := new(coreV1.Node)
+// 			assert.Nil(t, c.k8sClient.ReadCR(testCtx, node.Name, "", nodeObj))
+// 			// check common
+// 			val, ok := nodeObj.GetAnnotations()[common.DeafultNodeIDAnnotationKey]
+// 			assert.True(t, ok)
+// 			assert.Equal(t, testCase.targetAnnotationValue, val)
+// 		})
+// 	}
+// }
 
 func Test_constructAddresses(t *testing.T) {
 	t.Run("Empty addresses", func(t *testing.T) {
