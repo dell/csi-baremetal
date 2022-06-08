@@ -167,6 +167,43 @@ func TestSimpleRecorder_Eventf(t *testing.T) {
 				Type:           "Health",
 			},
 		},
+		{
+			name: "drive event when namespace ENV is not setting in csi pod",
+			fields: fields{
+				sink:   new(mocks.EventSink),
+				scheme: runtime.NewScheme(),
+				source: v1.EventSource{
+					Component: "eventTest",
+				},
+				lg: logrus.New(),
+			},
+			args: args{
+				object:     testDriveCR,
+				eventtype:  "Health",
+				reason:     "Failed",
+				messageFmt: "some verbose message: %s",
+				args:       []interface{}{"this is argument"},
+			},
+			expectedEvent: &v1.Event{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("drive1-uuid.%x", fixedtime.UnixNano()),
+					Namespace: "default",
+				},
+				InvolvedObject: v1.ObjectReference{
+					Kind:       "Drive",
+					Name:       "drive1-uuid",
+					Namespace:  "",
+					APIVersion: "csi-baremetal.dell.com/v1",
+				},
+				FirstTimestamp: metaFixedtime,
+				LastTimestamp:  metaFixedtime,
+				Reason:         "Failed",
+				Message:        "some verbose message: this is argument",
+				Source:         v1.EventSource{Component: "eventTest"},
+				Count:          1,
+				Type:           "Health",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -175,8 +212,13 @@ func TestSimpleRecorder_Eventf(t *testing.T) {
 			sr.fixedTime = &fixedtime
 
 			if tt.args.object.GetObjectKind().GroupVersionKind().Kind == "Drive" {
-				os.Setenv("NAMESPACE","atlantic")
-				t.Log("csi is installed in namespace: atlantic")
+				if tt.name == "drive event when namespace ENV is not setting in csi pod" {
+					os.Clearenv()
+					t.Log("It is corner case that namespace ENV is not setting in csi pod")
+				} else {
+					os.Setenv("NAMESPACE","atlantic")
+					t.Log("csi is installed in namespace: atlantic")
+				}
 			}
 			sr.Eventf(tt.args.object, tt.args.eventtype, tt.args.reason, tt.args.messageFmt, tt.args.args...)
 			sr.Wait()

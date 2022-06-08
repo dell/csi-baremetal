@@ -67,11 +67,15 @@ func (sr *SimpleRecorder) makeEvent(ref *v1.ObjectReference, labels map[string]s
 	}
 	t := metav1.NewTime(now)
 	namespace := ref.Namespace
-	if namespace == "" {
+	if ref.Kind == "Drive" {
 		if key := os.Getenv("NAMESPACE"); key != "" {
-			namespace = os.Getenv("NAMESPACE")
+			namespace = key
 			ref.Namespace = namespace
 		} else {
+			namespace = metav1.NamespaceDefault
+		}
+	} else {
+		if namespace == "" {
 			namespace = metav1.NamespaceDefault
 		}
 	}
