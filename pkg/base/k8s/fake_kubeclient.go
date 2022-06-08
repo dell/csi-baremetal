@@ -38,11 +38,14 @@ type contextKey string
 const (
 	updateFailCtxKey   = contextKey("updateFail")
 	updateFailCtxValue = "yes"
+	listFailCtxKey = contextKey("listFail")
+	listFailCtxValue = "yes"
 )
 
 var (
 	// UpdateFailCtx raises an error on fakeClient.Update
 	UpdateFailCtx = context.WithValue(context.Background(), updateFailCtxKey, updateFailCtxValue)
+	ListFailCtx = context.WithValue(context.Background(), listFailCtxKey, listFailCtxValue)
 )
 
 // NewFakeClientWrapper return new instance of FakeClientWrapper
@@ -70,6 +73,9 @@ func (fkw *FakeClientWrapper) Get(ctx context.Context, key k8sCl.ObjectKey, obj 
 
 // List is a wrapper around List method
 func (fkw *FakeClientWrapper) List(ctx context.Context, list k8sCl.ObjectList, opts ...k8sCl.ListOption) error {
+	if ctx.Value(listFailCtxKey) == listFailCtxValue {
+		return errors.New("raise list error")
+	}
 	if fkw.shouldPatchNS(list) {
 		opts = fkw.removeNSFromListOptions(opts)
 	}

@@ -109,6 +109,16 @@ func TestDriveController_ChangeVolumeUsageAfterActionAnnotation(t *testing.T){
 		assert.NotNil(t, resultVolume[0].Spec)
 		assert.NotEmpty(t, resultVolume[0].Annotations)
 	})
+	t.Run("Fail in GetVolumesByLocation",func(t *testing.T) {
+		err = dc.changeVolumeUsageAfterActionAnnotation(k8s.ListFailCtx, dc.log, expectedD)
+		assert.NotNil(t, err) 
+
+		resultVolume, err := dc.crHelper.GetVolumesByLocation(testCtx, driveUUID)
+		assert.Nil(t, err)
+		assert.NotNil(t, resultVolume)
+		assert.NotNil(t, resultVolume[0].Spec)
+		assert.NotEmpty(t, resultVolume[0].Annotations)
+	} )
 	t.Run("Success Volume Usage change", func(t *testing.T) {
 		err = dc.changeVolumeUsageAfterActionAnnotation(testCtx, dc.log, expectedD)
 		assert.Nil(t, err) 
