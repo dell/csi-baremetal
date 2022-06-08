@@ -110,7 +110,8 @@ func NewWrapPartitionImpl(e command.CmdExecutor, log *logrus.Logger) *WrapPartit
 
 // NewWrapPartitionImplWithParameters is a constructor for WrapPartitionImpl instance
 func NewWrapPartitionImplWithParameters(e command.CmdExecutor, log *logrus.Logger, numberOfRetriesToSyncPartTable int,
-	sleepBetweenRetriesToSyncPartTable time.Duration) *WrapPartitionImpl {
+	sleepBetweenRetriesToSyncPartTable time.Duration,
+) *WrapPartitionImpl {
 	return &WrapPartitionImpl{
 		e:                                  e,
 		lsblkUtil:                          lsblk.NewLSBLK(log),
@@ -165,7 +166,6 @@ func (p *WrapPartitionImpl) CreatePartitionTable(device, partTableType string) e
 	_, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(CreatePartitionTableCmdTmpl, ""))))
-
 	if err != nil {
 		return fmt.Errorf("unable to create partition table for device %s", device)
 	}
@@ -182,7 +182,6 @@ func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error)
 	stdout, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(PartprobeDeviceCmdTmpl, ""))))
-
 	if err != nil {
 		return "", fmt.Errorf("unable to get partition table for device %s", device)
 	}
@@ -255,7 +254,6 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 	stdout, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(GetPartitionUUIDCmdTmpl, "", ""))))
-
 	if err != nil {
 		return "", err
 	}

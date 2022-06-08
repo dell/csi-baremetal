@@ -72,12 +72,12 @@ const (
 	DriveAnnotationReplacement = "replacement"
 
 	// Volume operational status
-	OperationalStatusOperative   = "OPERATIVE"
-	OperationalStatusInoperative = "INOPERATIVE"
-	OperationalStatusStaging     = "STAGING"
-	OperationalStatusMissing     = "MISSING"
-	OperationalStatusMaintenance = "MAINTENANCE"
-	OperationalStatusUnknown     = "UNKNOWN"
+	OperationalStatusOperative = "OPERATIVE"
+	// OperationalStatusInoperative = "INOPERATIVE"
+	// OperationalStatusStaging     = "STAGING"
+	OperationalStatusMissing = "MISSING"
+	// OperationalStatusMaintenance = "MAINTENANCE"
+	// OperationalStatusUnknown     = "UNKNOWN"
 
 	// Volume Usage status
 	VolumeUsageInUse     = DriveUsageInUse
@@ -91,7 +91,7 @@ const (
 	VolumeAnnotationReleaseFailed = "failed"
 	VolumeAnnotationReleaseStatus = "status"
 
-	//Volume expansion annotations
+	// Volume expansion annotations
 	VolumePreviousStatus   = "expansion/previous-status"
 	VolumePreviousCapacity = "expansion/previous-capacity"
 	// TODO Mount status?
@@ -100,13 +100,13 @@ const (
 	ModeRAWPART = "RAW_PART"
 	ModeFS      = "FS"
 
-	//LVG annotations
+	// LVG annotations
 	LVGFreeSpaceAnnotation = "lvg/free-space"
 
 	// Volume location type
 	LocationTypeDrive = "DRIVE"
 	LocationTypeLVM   = "LVM"
-	LocationTypeNVMe  = "NVME"
+	// LocationTypeNVMe  = "NVME"
 
 	// Available Capacity Reservation statuses
 	ReservationRequested = "REQUESTED"
@@ -133,5 +133,5 @@ const (
 	LocateStatusOn           = int32(1)
 	LocateStatusNotAvailable = int32(2)
 
-	DockerImageKernelVersion = "5.4"
+	// DockerImageKernelVersion = "5.4"
 )

@@ -106,7 +106,8 @@ func (nc *nodesMapping) remove(k8sNodeName, bmNodeName string) {
 
 // NewController returns instance of Controller
 func NewController(nodeSelector string, useExternalAnnotaion bool, nodeAnnotaion string,
-	k8sClient *k8s.KubeClient, logger *logrus.Logger) (*Controller, error) {
+	k8sClient *k8s.KubeClient, logger *logrus.Logger,
+) (*Controller, error) {
 	c := &Controller{
 		k8sClient: k8sClient,
 		cache: nodesMapping{

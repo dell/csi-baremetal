@@ -30,18 +30,16 @@ const (
 	noatimeOpt = "noatime"
 )
 
-var (
-	// supportedMountOption contains all supported options
-	// map[optName]{optArg, optType}
-	// optName - passed from SC
-	// optArg - cmd string
-	supportedMountOption = map[string]MountOption{
-		noatimeOpt: {
-			arg:       noatimeOpt,
-			mountType: PublishCmdOpt,
-		},
-	}
-)
+// supportedMountOption contains all supported options
+// map[optName]{optArg, optType}
+// optName - passed from SC
+// optArg - cmd string
+var supportedMountOption = map[string]MountOption{
+	noatimeOpt: {
+		arg:       noatimeOpt,
+		mountType: PublishCmdOpt,
+	},
+}
 
 // IsOptionSupported returns true if option in supportedMountOption
 func IsOptionSupported(option string) bool {

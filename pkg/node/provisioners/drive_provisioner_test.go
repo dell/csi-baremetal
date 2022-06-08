@@ -38,7 +38,8 @@ import (
 func setupTestDriveProvisioner() (dp *DriveProvisioner,
 	mockLsblk *mocklu.MockWrapLsblk,
 	mockPH *mockProv.MockPartitionOps,
-	mockFS *mockProv.MockFsOpts) {
+	mockFS *mockProv.MockFsOpts,
+) {
 	fakeK8s, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	if err != nil {
 		panic(err)
@@ -103,9 +104,7 @@ func TestDriveProvisioner_PrepareVolume_Block_Success(t *testing.T) {
 	err = dp.k8sClient.CreateCR(testCtx, testDriveCR.Name, testDriveCR.DeepCopy())
 	assert.Nil(t, err)
 
-	var (
-		device = "/some/device"
-	)
+	device := "/some/device"
 
 	mockLsblk.On("SearchDrivePath", &testDriveCR.Spec).Return(device, nil)
 
@@ -253,7 +252,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	assert.Contains(t, err.Error(), "unable to find device for drive with S/N")
 
 	// next scenarios rely on SearchDrivePath passes
-	var deviceFile = "/dev/sdw"
+	deviceFile := "/dev/sdw"
 	mockLsblk.On("SearchDrivePath", mock.Anything).
 		Return(deviceFile, nil)
 
@@ -268,7 +267,7 @@ func TestDriveProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	assert.Contains(t, err.Error(), "unable to find partition name")
 
 	// next scenarios rely on SearchPartName passes
-	var partName = "p1n1"
+	partName := "p1n1"
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).
 		Return(partName, nil)
 
@@ -345,7 +344,7 @@ func TestDriveProvisioner_GetVolumePath_Fail(t *testing.T) {
 	assert.Contains(t, err.Error(), "unable to find device for drive with S/N")
 
 	// SearchPartName failed
-	var deviceFile = "/dev/sdw"
+	deviceFile := "/dev/sdw"
 	mockLsblk.On("SearchDrivePath", mock.Anything).
 		Return(deviceFile, nil).Once()
 	mockPH.On("SearchPartName", deviceFile, testVolume2.Id).

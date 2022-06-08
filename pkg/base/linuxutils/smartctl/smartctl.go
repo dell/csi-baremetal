@@ -63,7 +63,7 @@ func (sa *SMARTCTL) GetDriveInfoByPath(path string) (*DeviceSMARTInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var deviceInfo = &DeviceSMARTInfo{}
+	deviceInfo := &DeviceSMARTInfo{}
 	bytes := []byte(strOut)
 	err = json.Unmarshal(bytes, deviceInfo)
 	if err != nil {

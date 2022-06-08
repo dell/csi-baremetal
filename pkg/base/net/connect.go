@@ -35,7 +35,7 @@ func IsTCPPortOpen(endpoint string) (bool, error) {
 // try to connect to provided endpoint with 4 attempts with 0.5 sec timeout
 func isPortOpen(network, endpoint string) (bool, error) {
 	// todo check network type and endpoint
-	var err error = nil
+	var err error
 	var conn net.Conn
 
 	for i := 0; i < numberOfRetries; i++ {

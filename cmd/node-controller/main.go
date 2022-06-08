@@ -28,7 +28,7 @@ import (
 
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
-	"github.com/dell/csi-baremetal/pkg/base/logger"
+	baselogger "github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/node"
 )
@@ -40,25 +40,26 @@ var (
 		"Whether operator should read id from external annotation. It should exist before deployment. Use if \"usenodeannotation\" is True")
 	nodeIDAnnotation = flag.String("nodeidannotation", "",
 		"Custom node annotation name. Use if \"useexternalannotation\" is True")
-	logLevel = flag.String("loglevel", logger.InfoLevel,
-		fmt.Sprintf("Log level, support values are %s, %s, %s", logger.InfoLevel, logger.DebugLevel, logger.TraceLevel))
-	logFormat = flag.String("logformat", logger.LogFormatText,
-		fmt.Sprintf("Log level, supported value is %s. Json format is used by default", logger.LogFormatText))
+	logLevel = flag.String("loglevel", baselogger.InfoLevel,
+		fmt.Sprintf("Log level, support values are %s, %s, %s", baselogger.InfoLevel, baselogger.DebugLevel, baselogger.TraceLevel))
+	logFormat = flag.String("logformat", baselogger.LogFormatText,
+		fmt.Sprintf("Log level, supported value is %s. Json format is used by default", baselogger.LogFormatText))
 )
 
 func main() {
 	flag.Parse()
 
 	// TODO: refactor this after https://github.com/dell/csi-baremetal/issues/83 will be closed
+	logPath := ""
 	err := os.Setenv("LOG_FORMAT", *logFormat)
 	if err != nil {
+		//nolint:forbidigo
 		fmt.Printf("Unable to set LOG_FORMAT env: %v\n", err)
 	}
 
-	logger, _ := logger.InitLogger("", *logLevel)
-	if logger == nil {
-		fmt.Println("Unable to initialize logger")
-		os.Exit(1)
+	logger, err := baselogger.InitLogger("", *logLevel)
+	if err != nil {
+		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", logPath)
 	}
 
 	k8sClient, err := k8s.GetK8SClient()
@@ -107,7 +108,6 @@ func prepareK8sRuntimeManager() (ctrl.Manager, error) {
 		Scheme:    scheme,
 		Namespace: *namespace,
 	})
-
 	if err != nil {
 		return nil, err
 	}

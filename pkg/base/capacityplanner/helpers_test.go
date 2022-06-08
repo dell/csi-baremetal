@@ -145,8 +145,9 @@ func checkACRNotExist(t *testing.T, client *k8s.KubeClient, acr *acrcrd.Availabl
 	assert.True(t, k8serrors.IsNotFound(err))
 }
 
-func createReservationHelper(t *testing.T, logger *logrus.Entry, capReader CapacityReader,
-	client *k8s.KubeClient) *ReservationHelper {
+func createReservationHelper(_ *testing.T, logger *logrus.Entry, capReader CapacityReader,
+	client *k8s.KubeClient,
+) *ReservationHelper {
 	return NewReservationHelper(logger, client, capReader)
 }
 

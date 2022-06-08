@@ -19,19 +19,17 @@ package lvm
 import (
 	"errors"
 	"fmt"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
-var (
-	testLogger = logrus.New()
-)
+var testLogger = logrus.New()
 
 func TestLinuxUtils_PVCreate(t *testing.T) {
 	var (
@@ -96,6 +94,7 @@ func TestLinuxUtils_VGCreate(t *testing.T) {
 	err = l.VGCreate(vg, dev1, dev2)
 	assert.Equal(t, expectedErr, err)
 }
+
 func TestLinuxUtils_VGScan(t *testing.T) {
 	var (
 		e           = &mocks.GoMockExecutor{}
@@ -110,7 +109,7 @@ func TestLinuxUtils_VGScan(t *testing.T) {
 	// error not found
 	e.OnCommand(cmd).Return("", "", nil).Times(1)
 	ok, err = l.VGScan(vg)
-	assert.Equal(t, err, errTypes.ErrorNotFound)
+	assert.Equal(t, err, baseerr.ErrorNotFound)
 	assert.False(t, ok)
 
 	// error - expected

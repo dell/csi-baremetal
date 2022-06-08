@@ -50,7 +50,8 @@ type LoopBackManagerConfig struct {
 
 // BuildLoopBackManagerConfigMap returns ConfigMap with configuration for loopback manager
 func BuildLoopBackManagerConfigMap(namespace string, name string,
-	config LoopBackManagerConfig) (*corev1.ConfigMap, error) {
+	config LoopBackManagerConfig,
+) (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

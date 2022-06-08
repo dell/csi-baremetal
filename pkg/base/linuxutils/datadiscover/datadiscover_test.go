@@ -53,7 +53,6 @@ func Test_DiscoverData(t *testing.T) {
 		discoverResult, err := discoverData.DiscoverData(device, serialNumber)
 		assert.Nil(t, err)
 		assert.True(t, discoverResult.HasData)
-
 	})
 	t.Run("Device is clean", func(t *testing.T) {
 		var (

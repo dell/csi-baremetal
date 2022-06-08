@@ -1,7 +1,8 @@
 package common
 
 // WbtConfig is a part of WBT ConfigMap
-// contains changing value and options to select acceptable volume
+// contains changing value and options
+// to select acceptable volume
 type WbtConfig struct {
 	Enable        bool          `yaml:"enable"`
 	Value         uint32        `yaml:"wbt_lat_usec_value"`

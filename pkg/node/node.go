@@ -34,9 +34,9 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -88,7 +88,8 @@ func NewCSINodeService(client api.DriveServiceClient,
 	k8sClient *k8s.KubeClient,
 	k8sCache k8s.CRReader,
 	recorder eventRecorder,
-	featureConf featureconfig.FeatureChecker) *CSINodeService {
+	featureConf featureconfig.FeatureChecker,
+) *CSINodeService {
 	e := command.NewExecutor(logger)
 	s := &CSINodeService{
 		VolumeManager:  *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID, nodeName),
@@ -534,14 +535,16 @@ func (s *CSINodeService) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVo
 // Receives golang context and CSI Spec NodeGetCapabilitiesRequest
 // Returns CSI Spec NodeGetCapabilitiesResponse and nil error
 func (s *CSINodeService) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	return &csi.NodeGetCapabilitiesResponse{Capabilities: []*csi.NodeServiceCapability{
-		{
-			Type: &csi.NodeServiceCapability_Rpc{
-				Rpc: &csi.NodeServiceCapability_RPC{
-					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+	return &csi.NodeGetCapabilitiesResponse{
+		Capabilities: []*csi.NodeServiceCapability{
+			{
+				Type: &csi.NodeServiceCapability_Rpc{
+					Rpc: &csi.NodeServiceCapability_RPC{
+						Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+					},
 				},
 			},
-		}},
+		},
 	}, nil
 }
 

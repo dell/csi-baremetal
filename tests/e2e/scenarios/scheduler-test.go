@@ -69,8 +69,10 @@ func schedulingTest(driver *baremetalDriver) {
 		driverCleanup func()
 		ns            string
 		f             = framework.NewDefaultFramework("scheduling-test")
-		availableSC   = []string{storageClassAny, storageClassHDD, storageClassSSD,
-			storageClassNVMe, storageClassHDDLVG, storageClassSSDLVG}
+		availableSC   = []string{
+			storageClassAny, storageClassHDD, storageClassSSD,
+			storageClassNVMe, storageClassHDDLVG, storageClassSSDLVG,
+		}
 		storageClasses = make(map[string]*storagev1.StorageClass)
 	)
 
@@ -159,7 +161,8 @@ func schedulingTest(driver *baremetalDriver) {
 			Nodes: []common.LoopBackManagerConfigNode{
 				{
 					NodeID:     &nodeWithDisksID,
-					DriveCount: &nodeWithDisksDriveCount},
+					DriveCount: &nodeWithDisksDriveCount,
+				},
 			},
 		}
 		init(lmConfig)
@@ -180,11 +183,13 @@ func schedulingTest(driver *baremetalDriver) {
 			lmNodes = append(lmNodes,
 				common.LoopBackManagerConfigNode{
 					NodeID:     &nodeName,
-					DriveCount: &nodeDriveCount})
+					DriveCount: &nodeDriveCount,
+				})
 		}
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
-			Nodes:             lmNodes}
+			Nodes:             lmNodes,
+		}
 		init(lmConfig)
 		defer cleanup()
 		createTestPods(testPodsCount, testPodsDisksPerPod)
@@ -200,12 +205,16 @@ func schedulingTest(driver *baremetalDriver) {
 			DefaultDriveCount: &defaultDriveCount,
 			Nodes: []common.LoopBackManagerConfigNode{
 				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeSSD}}),
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeSSD},
+				}),
 				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeNVMe}, {DriveType: &driveTypeHDD}}),
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeNVMe}, {DriveType: &driveTypeHDD},
+				}),
 				*buildLMDrivesConfig(node3, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeHDD}}),
-			}}
+					{DriveType: &driveTypeHDD}, {DriveType: &driveTypeHDD},
+				}),
+			},
+		}
 		init(lmConfig)
 		defer cleanup()
 
@@ -224,10 +233,13 @@ func schedulingTest(driver *baremetalDriver) {
 			DefaultDriveCount: &defaultDriveCount,
 			Nodes: []common.LoopBackManagerConfigNode{
 				*buildLMDrivesConfig(node1, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeHDD, Size: &driveSize}}),
+					{DriveType: &driveTypeHDD, Size: &driveSize},
+				}),
 				*buildLMDrivesConfig(node2, []common.LoopBackManagerConfigDevice{
-					{DriveType: &driveTypeSSD, Size: &driveSize}}),
-			}}
+					{DriveType: &driveTypeSSD, Size: &driveSize},
+				}),
+			},
+		}
 		init(lmConfig)
 		defer cleanup()
 
@@ -251,11 +263,13 @@ func schedulingTest(driver *baremetalDriver) {
 			lmNodes = append(lmNodes,
 				common.LoopBackManagerConfigNode{
 					NodeID:     &nodeName,
-					DriveCount: &nodeDriveCount})
+					DriveCount: &nodeDriveCount,
+				})
 		}
 		lmConfig := &common.LoopBackManagerConfig{
 			DefaultDriveCount: &defaultDriveCount,
-			Nodes:             lmNodes}
+			Nodes:             lmNodes,
+		}
 		init(lmConfig)
 		defer cleanup()
 

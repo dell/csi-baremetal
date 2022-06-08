@@ -262,7 +262,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Size:      1024 * 60,
 					NodeId:    testNode1Name,
 					CSIStatus: apiV1.Creating,
-				}})
+				},
+			})
 			Expect(err).To(BeNil())
 
 			resp, err := controller.CreateVolume(context.Background(), req)
@@ -367,7 +368,8 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 					Size:      1024 * 60,
 					NodeId:    testNode1Name,
 					CSIStatus: apiV1.Created,
-				}})
+				},
+			})
 			Expect(err).To(BeNil())
 
 			resp, err := controller.CreateVolume(context.Background(), req)
@@ -427,7 +429,8 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Spec: api.Volume{
 				Id:     uuid,
 				NodeId: node,
-			}})
+			},
+		})
 		Expect(err).To(BeNil())
 		println("DONE")
 	})
@@ -437,7 +440,6 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 	})
 
 	Context("Fail scenarios", func() {
-
 		It("Request doesn't contain volume ID", func() {
 			dreq := &csi.DeleteVolumeRequest{}
 			resp, err := controller.DeleteVolume(context.Background(), dreq)
@@ -451,8 +453,10 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 				err       error
 			)
 			// create volume crd to delete
-			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testAppLabels, api.Volume{Id: volumeID,
-				CSIStatus: apiV1.Created})
+			volumeCrd = controller.k8sclient.ConstructVolumeCR(volumeID, testNs, testAppLabels, api.Volume{
+				Id:        volumeID,
+				CSIStatus: apiV1.Created,
+			})
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeID, testNs)
@@ -657,7 +661,7 @@ var _ = Describe("CSIControllerService health check", func() {
 	})
 	It("Should success health check", func() {
 		svc := newSvc()
-		//To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
+		// To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
 		err := svc.k8sclient.Create(testCtx,
 			&v1.Node{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -684,7 +688,8 @@ var _ = Describe("CSIControllerService health check", func() {
 			Spec: v1.PodSpec{NodeName: testNode1Name},
 			Status: v1.PodStatus{
 				ContainerStatuses: []v1.ContainerStatus{{Ready: true}},
-			}})
+			},
+		})
 
 		Expect(err).To(BeNil())
 		check, err := svc.Check(testCtx, &grpc_health_v1.HealthCheckRequest{})
@@ -693,7 +698,7 @@ var _ = Describe("CSIControllerService health check", func() {
 	})
 	It("Should failed health check, pod is unready", func() {
 		svc := newSvc()
-		//To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
+		// To avoid error with state monitor getPodToNodeList function, because state monitor works in background of controller service
 		err := svc.k8sclient.Create(testCtx,
 			&v1.Node{
 				ObjectMeta: k8smetav1.ObjectMeta{
@@ -719,7 +724,8 @@ var _ = Describe("CSIControllerService health check", func() {
 			Spec: v1.PodSpec{NodeName: testNode1Name},
 			Status: v1.PodStatus{
 				ContainerStatuses: []v1.ContainerStatus{{Ready: false}},
-			}})
+			},
+		})
 		Expect(err).To(BeNil())
 
 		check, err := svc.Check(testCtx, &grpc_health_v1.HealthCheckRequest{})
@@ -753,7 +759,8 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 				Size:         1000,
 				StorageClass: apiV1.StorageClassHDDLVG,
 				Location:     testAC1.Spec.Location,
-			}})
+			},
+		})
 		Expect(err).To(BeNil())
 	})
 
@@ -819,7 +826,6 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-
 		})
 		It("WaitStatus failed", func() {
 			var (
@@ -846,7 +852,6 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
-
 		})
 	})
 
@@ -894,13 +899,11 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 			Expect(resp).ToNot(BeNil())
 			Expect(err).To(BeNil())
 			Expect(resp.CapacityBytes).To(Equal(capacityplanner.AlignSizeByPE(capacity)))
-
 		})
 	})
 })
 
 func TestController_UnimplementedMethods(t *testing.T) {
-
 	controller := newSvc()
 	expected := codes.Unimplemented.String()
 

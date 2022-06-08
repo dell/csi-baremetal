@@ -344,7 +344,6 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err).To(BeNil())
 			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
 		})
-
 	})
 
 	Context("Update CR instance", func() {
@@ -426,7 +425,6 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err).To(BeNil())
 			Expect(len(driveList.Items)).To(Equal(0))
 		})
-
 	})
 	Context("GetSystemDriveUUIDs", func() {
 		It("Success", func() {

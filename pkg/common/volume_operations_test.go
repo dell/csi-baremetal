@@ -45,9 +45,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
-var (
-	namespace = "my-namespace"
-)
+var namespace = "my-namespace"
 
 // creates fake k8s client and creates AC CRs based on provided acs
 // returns instance of ACOperationsImpl based on created k8s client
@@ -78,8 +76,10 @@ func Test_getPersistentVolumeClaimLabels(t *testing.T) {
 			k8s.AppLabelKey:     appName,
 			k8s.ReleaseLabelKey: releaseName,
 		}
-		pvc = &v1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: namespace,
-			Labels: pvcLabels}}
+		pvc = &v1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
+			Name: pvcName, Namespace: namespace,
+			Labels: pvcLabels,
+		}}
 	)
 	err = svc.k8sClient.Create(ctx, pvc)
 	assert.Nil(t, err)
@@ -226,7 +226,8 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 							Size:         requiredBytes,
 							Name:         volumeID,
 						},
-						Reservations: []string{acName}},
+						Reservations: []string{acName},
+					},
 				},
 			},
 		}
@@ -332,7 +333,8 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 							Size:         requiredBytes,
 							Name:         volumeID,
 						},
-						Reservations: []string{acName}},
+						Reservations: []string{acName},
+					},
 				},
 			},
 		}
@@ -762,25 +764,30 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 }
 
 func getTestACR(size int64, sc, name, podNamespace string,
-	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
+	acList []*accrd.AvailableCapacity,
+) *acrcrd.AvailableCapacityReservation {
 	acNames := make([]string, len(acList))
 	for i, ac := range acList {
 		acNames[i] = ac.Name
 	}
 	return &acrcrd.AvailableCapacityReservation{
 		TypeMeta: k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(),
-			CreationTimestamp: k8smetav1.NewTime(time.Now())},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              uuid.New().String(),
+			CreationTimestamp: k8smetav1.NewTime(time.Now()),
+		},
 		Spec: api.AvailableCapacityReservation{
 			Namespace: podNamespace,
 			Status:    apiV1.ReservationConfirmed,
 			ReservationRequests: []*api.ReservationRequest{
-				{CapacityRequest: &api.CapacityRequest{
-					StorageClass: sc,
-					Size:         size,
-					Name:         name,
+				{
+					CapacityRequest: &api.CapacityRequest{
+						StorageClass: sc,
+						Size:         size,
+						Name:         name,
+					},
+					Reservations: acNames,
 				},
-					Reservations: acNames},
 			},
 		},
 	}

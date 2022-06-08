@@ -132,7 +132,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 		e2elog.Logf("All pods are ready after node restart")
 
 		// check that pod consume same pvc
-		var boundAgain = false
+		boundAgain := false
 		pods, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
 		framework.ExpectNoError(err)
 

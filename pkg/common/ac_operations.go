@@ -57,7 +57,8 @@ func NewACOperationsImpl(k8sClient *k8s.KubeClient, l *logrus.Logger) *ACOperati
 // Receives newSC as string (e.g. HDDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
 func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string,
-	acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
+	acs ...accrd.AvailableCapacity,
+) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":   "RecreateACToLVGSC",
 		"volumeID": ctx.Value(base.RequestUUID),

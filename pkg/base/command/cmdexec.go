@@ -182,7 +182,8 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 	e.log.WithFields(logrus.Fields{
 		"cmd":         strings.Join(cmd.Args, " "),
 		"duration":    cmdDuration.String(),
-		"duration_ns": cmdDuration.Nanoseconds()}).
+		"duration_ns": cmdDuration.Nanoseconds(),
+	}).
 		Logf(level, "stdout: %s%s%s", outStr, stdErrPart, errPart)
 	return outStr, errStr, err
 }

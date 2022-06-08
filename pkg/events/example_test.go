@@ -17,8 +17,9 @@ limitations under the License.
 package events_test
 
 import (
-	"github.com/dell/csi-baremetal/pkg/eventing"
 	"log"
+
+	"github.com/dell/csi-baremetal/pkg/eventing"
 
 	"github.com/sirupsen/logrus"
 

@@ -11,7 +11,6 @@ import (
 )
 
 func TestWbt_SetValue(t *testing.T) {
-
 	t.Run("success", func(t *testing.T) {
 		var (
 			output          = "75000"
@@ -103,7 +102,6 @@ func TestWbt_SetValue(t *testing.T) {
 }
 
 func TestWbt_RestoreDefault(t *testing.T) {
-
 	t.Run("success", func(t *testing.T) {
 		var (
 			emptyErr = ""

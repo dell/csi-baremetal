@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/keymutex"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	crevent "sigs.k8s.io/controller-runtime/pkg/event"
@@ -157,7 +156,8 @@ func (du *driveUpdates) AddNotChanged(drive *drivecrd.Drive) {
 
 func (du *driveUpdates) AddUpdated(previousState, currentState *drivecrd.Drive) {
 	du.Updated = append(du.Updated, updatedDrive{
-		PreviousState: previousState, CurrentState: currentState})
+		PreviousState: previousState, CurrentState: currentState,
+	})
 }
 
 // updatedDrive holds previous and current state for updated drive
@@ -187,12 +187,14 @@ func NewVolumeManager(
 	k8sCache k8s.CRReader,
 	recorder eventRecorder,
 	nodeID string,
-	nodeName string) *VolumeManager {
+	nodeName string,
+) *VolumeManager {
 	driveMgrDuration := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "discovery_duration_seconds",
 		Help:    "duration of the discovery method for the drive manager",
 		Buckets: metrics.ExtendedDefBuckets,
 	})
+	//nolint:promlinter // TODO  https://github.com/dell/csi-baremetal/issues/835
 	driveMgrCount := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "discovery_drive_count",
 		Help: "last drive count discovered",
@@ -277,7 +279,7 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	err := m.k8sClient.ReadCR(ctx, req.Name, req.Namespace, volume)
 	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, k8sCl.IgnoreNotFound(err)
 	}
 	if volume.DeletionTimestamp.IsZero() {
 		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) && volume.Spec.CSIStatus != apiV1.Empty {
@@ -354,7 +356,8 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, volume *volumecrd.Volume,
-	volumeStatus, driveStatus string) (ctrl.Result, error) {
+	volumeStatus, driveStatus string,
+) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":       "updateVolumeAndDriveUsageStatus",
 		"volumeID":     volume.Name,
@@ -625,8 +628,8 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 	}
 	firstIteration = len(driveCRs) == 0
 
-	var updates = new(driveUpdates)
-	var searchSystemDrives = len(m.systemDrivesUUIDs) == 0
+	updates := new(driveUpdates)
+	searchSystemDrives := len(m.systemDrivesUUIDs) == 0
 	// Try to find not existing CR for discovered drives
 	for _, drivePtr := range drivesFromMgr {
 		exist := false
@@ -857,7 +860,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	}
 
 	// 2. check whether there is LogicalVolumeGroup configuration on the system drive or not
-	var driveCR = new(drivecrd.Drive)
+	driveCR := new(drivecrd.Drive)
 	// TODO: handle situation when there is more then one system drive
 	if err = m.k8sCache.ReadCR(context.Background(), m.systemDrivesUUIDs[0], "", driveCR); err != nil {
 		return err
@@ -1121,7 +1124,8 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 }
 
 func (m *VolumeManager) createEventForDriveHealthChange(
-	drive *drivecrd.Drive, prevHealth, currentHealth string) {
+	drive *drivecrd.Drive, prevHealth, currentHealth string,
+) {
 	healthMsgTemplate := "Drive health is: %s, previous state: %s."
 	var event *eventing.EventDescription
 	switch currentHealth {
@@ -1141,7 +1145,8 @@ func (m *VolumeManager) createEventForDriveHealthChange(
 }
 
 func (m *VolumeManager) createEventForDriveStatusChange(
-	drive *drivecrd.Drive, prevStatus, currentStatus string) {
+	drive *drivecrd.Drive, prevStatus, currentStatus string,
+) {
 	statusMsgTemplate := "Drive status is: %s, previous status: %s."
 	var event *eventing.EventDescription
 	switch currentStatus {
@@ -1163,7 +1168,8 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 
 // createEventForDriveHealthOverridden creates DriveHealthOverridden with Warning type
 func (m *VolumeManager) createEventForDriveHealthOverridden(
-	drive *drivecrd.Drive, realHealth, overriddenHealth string) {
+	drive *drivecrd.Drive, realHealth, overriddenHealth string,
+) {
 	msgTemplate := "Drive health is overridden with: %s, real state: %s."
 	event := eventing.DriveHealthOverridden
 	m.sendEventForDrive(drive, event,
@@ -1178,7 +1184,8 @@ func (m *VolumeManager) createEventForMissingDriveReplacementInitiated(drive *dr
 }
 
 func (m *VolumeManager) sendEventForDrive(drive *drivecrd.Drive, event *eventing.EventDescription,
-	messageFmt string, args ...interface{}) {
+	messageFmt string, args ...interface{},
+) {
 	messageFmt += " " + drive.GetDriveDescription() + fmt.Sprintf(", NodeName='%s'", m.nodeName)
 	m.recorder.Eventf(drive, event, messageFmt, args...)
 }
@@ -1358,10 +1365,9 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 		return false
 	}
 
-	volumeID := vol.Name
 	pv := &corev1.PersistentVolume{}
-	if err := m.k8sClient.Get(ctx, k8sCl.ObjectKey{Name: volumeID}, pv); err != nil {
-		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
+	if err := m.k8sClient.Get(ctx, k8sCl.ObjectKey{Name: vol.Name}, pv); err != nil {
+		m.log.Errorf("Failed to get Persistent Volume %s: %v", vol.Name, err)
 		return false
 	}
 	volSC := pv.Spec.StorageClassName

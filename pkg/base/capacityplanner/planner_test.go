@@ -31,7 +31,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	baseerrors "github.com/dell/csi-baremetal/pkg/base/error"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 )
 
 var (
@@ -66,23 +66,28 @@ func getTestAC(nodeID string, size int64, sc string) *accrd.AvailableCapacity {
 }
 
 func getTestACR(size int64, sc string,
-	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
+	acList []*accrd.AvailableCapacity,
+) *acrcrd.AvailableCapacityReservation {
 	acNames := make([]string, len(acList))
 	for i, ac := range acList {
 		acNames[i] = ac.Name
 	}
 	return &acrcrd.AvailableCapacityReservation{
 		TypeMeta: k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
-		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS,
-			CreationTimestamp: k8smetav1.NewTime(time.Now())},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: uuid.New().String(), Namespace: testNS,
+			CreationTimestamp: k8smetav1.NewTime(time.Now()),
+		},
 		Spec: genV1.AvailableCapacityReservation{
 			Status: apiV1.ReservationConfirmed,
 			ReservationRequests: []*genV1.ReservationRequest{
-				{CapacityRequest: &genV1.CapacityRequest{
-					StorageClass: sc,
-					Size:         size,
+				{
+					CapacityRequest: &genV1.CapacityRequest{
+						StorageClass: sc,
+						Size:         size,
+					},
+					Reservations: acNames,
 				},
-					Reservations: acNames},
 			},
 		},
 	}
@@ -93,7 +98,8 @@ func TestCapacityManager(t *testing.T) {
 	ctx := context.Background()
 
 	callPlanVolumesPlacing := func(capRead CapacityReader, resReader ReservationReader, volumes []*genV1.Volume,
-		nodes []string) (*VolumesPlacingPlan, error) {
+		nodes []string,
+	) (*VolumesPlacingPlan, error) {
 		capManager := NewCapacityManager(logger, capRead, resReader, true)
 		return capManager.PlanVolumesPlacing(ctx, volumes, nodes)
 	}
@@ -282,7 +288,7 @@ func TestCapacityManager(t *testing.T) {
 		}
 		plan, err := callPlanVolumesPlacing(getCapReaderMock(testACS, nil), getResReaderMock(testACRs, nil), testVols, []string{testNode1})
 		assert.Nil(t, plan)
-		assert.Equal(t, err, baseerrors.ErrorRejectReservationRequest)
+		assert.Equal(t, err, baseerr.ErrorRejectReservationRequest)
 	})
 }
 

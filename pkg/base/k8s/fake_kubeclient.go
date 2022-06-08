@@ -40,10 +40,8 @@ const (
 	updateFailCtxValue = "yes"
 )
 
-var (
-	// UpdateFailCtx raises an error on fakeClient.Update
-	UpdateFailCtx = context.WithValue(context.Background(), updateFailCtxKey, updateFailCtxValue)
-)
+// UpdateFailCtx raises an error on fakeClient.Update
+var UpdateFailCtx = context.WithValue(context.Background(), updateFailCtxKey, updateFailCtxValue)
 
 // NewFakeClientWrapper return new instance of FakeClientWrapper
 func NewFakeClientWrapper(client k8sCl.Client, scheme *runtime.Scheme) *FakeClientWrapper {
@@ -96,7 +94,8 @@ func (fkw *FakeClientWrapper) Update(ctx context.Context, obj k8sCl.Object, opts
 
 // Patch is a wrapper around Patch method
 func (fkw *FakeClientWrapper) Patch(ctx context.Context, obj k8sCl.Object,
-	patch k8sCl.Patch, opts ...k8sCl.PatchOption) error {
+	patch k8sCl.Patch, opts ...k8sCl.PatchOption,
+) error {
 	return fkw.client.Patch(ctx, obj, patch, opts...)
 }
 

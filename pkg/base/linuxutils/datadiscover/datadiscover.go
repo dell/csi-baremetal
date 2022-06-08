@@ -36,7 +36,8 @@ type WrapDataDiscoverImpl struct {
 // NewDataDiscover is a constructor for WrapDataDiscoverImpl
 func NewDataDiscover(fs fs.WrapFS,
 	part partitionhelper.WrapPartition,
-	lvm lvm.WrapLVM) *WrapDataDiscoverImpl {
+	lvm lvm.WrapLVM,
+) *WrapDataDiscoverImpl {
 	return &WrapDataDiscoverImpl{fsHelper: fs, partHelper: part, lvmHelper: lvm}
 }
 

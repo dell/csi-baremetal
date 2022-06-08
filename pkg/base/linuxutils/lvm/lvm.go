@@ -28,8 +28,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/command"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
@@ -45,7 +45,8 @@ const (
 	// PVsInVGCmdTmpl print PVs in VG cmd
 	PVsInVGCmdTmpl = lvmPath + "pvs --select vg_name=%s -o pv_name --noheadings" // add VG name
 	// PVsListCmdTmpl print all PVs name on node
-	PVsListCmdTmpl = lvmPath + "pvdisplay --short"
+	// PVsListCmdTmpl = lvmPath + "pvdisplay --short"
+
 	// VGCreateCmdTmpl create VG on provided PVs cmd
 	VGCreateCmdTmpl = lvmPath + "vgcreate --yes %s %s" // add VG name and PV names
 	// VGScanCmdTmpl searches for all VGs
@@ -177,7 +178,7 @@ func (l *LVM) VGScan(name string) (bool, error) {
 	}
 	// empty stdout is not expected. It must also contain VG name
 	if stdout == "" || !strings.Contains(stdout, name) {
-		return false, errTypes.ErrorNotFound
+		return false, baseerr.ErrorNotFound
 	}
 	// find target volume group and check for IO errors
 	if exp, err = regexp.Compile(".*" + name + ".*\n*"); err != nil {

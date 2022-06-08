@@ -115,6 +115,7 @@ var (
 )
 
 func getDriveCRsListItems(t *testing.T, k8sClient *k8s.KubeClient) []drivecrd.Drive {
+	t.Helper()
 	dList := &drivecrd.DriveList{}
 	assert.Nil(t, k8sClient.ReadList(testCtx, dList))
 	return dList.Items

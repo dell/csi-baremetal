@@ -17,7 +17,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/events"
@@ -331,7 +331,7 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 
 	// wait lvg is removed if exist
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
-	if err != nil && err != errTypes.ErrorNotFound {
+	if err != nil && err != baseerr.ErrorNotFound {
 		return ignore, err
 	}
 	if lvg != nil {
@@ -412,11 +412,11 @@ func (c *Controller) stopLocateNodeLED(ctx context.Context, log *logrus.Entry, c
 
 func (c *Controller) removeRelatedAC(ctx context.Context, log *logrus.Entry, curDrive *drivecrd.Drive) error {
 	ac, err := c.crHelper.GetACByLocation(curDrive.GetName())
-	if err != nil && err != errTypes.ErrorNotFound {
+	if err != nil && err != baseerr.ErrorNotFound {
 		log.Errorf("Failed to get AC for Drive %s: %s", curDrive.GetName(), err.Error())
 		return err
 	}
-	if err == errTypes.ErrorNotFound {
+	if err == baseerr.ErrorNotFound {
 		log.Warnf("AC for Drive %s is not found", curDrive.GetName())
 		return nil
 	}

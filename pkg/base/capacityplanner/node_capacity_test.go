@@ -230,14 +230,14 @@ func TestSelectACForVolume(t *testing.T) {
 	var (
 		testACHDD1 = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassHDD)
 		testACHDD2 = *getTestAC(nodeName, testLargeSize, apiV1.StorageClassHDD)
-		//testACHDD3 = *getTestAC(nodeName+"-incorrect", testSmallSize, apiV1.StorageClassHDD)
+		// testACHDD3 = *getTestAC(nodeName+"-incorrect", testSmallSize, apiV1.StorageClassHDD)
 		testACHDDLVG1 = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassHDDLVG)
 		testACSSD1    = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassSSD)
 		testACNVMe1   = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassNVMe)
 
 		testACRHDD1    = *getTestACR(testSmallSize, apiV1.StorageClassHDD, []*accrd.AvailableCapacity{&testACHDD1})
 		testACRHDDLVG1 = *getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, []*accrd.AvailableCapacity{&testACHDD2})
-		//testACRHDDLVG2 = *getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, []*accrd.AvailableCapacity{&testACHDDLVG1})
+		// testACRHDDLVG2 = *getTestACR(testSmallSize, apiV1.StorageClassHDDLVG, []*accrd.AvailableCapacity{&testACHDDLVG1})
 	)
 
 	tests := []struct {

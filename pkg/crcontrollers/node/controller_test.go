@@ -60,14 +60,12 @@ var (
 		},
 	}
 
-	osName        = "ubuntu"
-	osVersion     = "18.04"
-	kernelVersion = "4.15"
-	testNode1     = coreV1.Node{
+	testNode1 = coreV1.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-1",
 			Annotations: map[string]string{},
-			Labels:      map[string]string{}},
+			Labels:      map[string]string{},
+		},
 		Status: coreV1.NodeStatus{
 			Addresses: convertCSIBMNodeAddrsToK8sNodeAddrs(testCSIBMNode1.Spec.Addresses),
 		},
@@ -76,10 +74,11 @@ var (
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        "node-2",
 			Annotations: map[string]string{},
-			Labels:      map[string]string{}},
+			Labels:      map[string]string{},
+		},
 		Status: coreV1.NodeStatus{
 			Addresses: convertCSIBMNodeAddrsToK8sNodeAddrs(testCSIBMNode2.Spec.Addresses),
-			//NodeInfo: coreV1.NodeSystemInfo{OSImage: "Ubuntu 19.10"},
+			// NodeInfo: coreV1.NodeSystemInfo{OSImage: "Ubuntu 19.10"},
 		},
 	}
 )
@@ -93,7 +92,6 @@ func TestNewCSIBMController(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Nil(t, c.nodeSelector)
 		assert.NotNil(t, c)
-		assert.NotNil(t, c.cache)
 		assert.NotNil(t, c.cache.bmToK8sNode)
 		assert.NotNil(t, c.cache.k8sToBMNode)
 	})
@@ -107,7 +105,6 @@ func TestNewCSIBMController(t *testing.T) {
 		c, err := NewController("key:value", false, "", k8sClient, testLogger)
 		assert.Nil(t, err)
 		assert.NotNil(t, c)
-		assert.NotNil(t, c.cache)
 		assert.NotNil(t, c.cache.bmToK8sNode)
 		assert.NotNil(t, c.cache.k8sToBMNode)
 		assert.NotNil(t, c.nodeSelector)
@@ -119,7 +116,6 @@ func TestNewCSIBMController(t *testing.T) {
 		assert.Nil(t, c)
 		assert.NotNil(t, err)
 	})
-
 }
 
 func Test_nodesCache(t *testing.T) {
@@ -291,15 +287,14 @@ func Test_reconcileForK8sNode(t *testing.T) {
 
 	t.Run("Node was created with external ID", func(t *testing.T) {
 		var (
-			useExternalAnnotaionTest = true
-			nodeAnnotaionTest        = "example/uuid"
-			nodeID                   = "aaaa-bbbb-cccc-dddd"
-			k8sNode                  = testNode1.DeepCopy()
+			nodeAnnotaionTest = "example/uuid"
+			nodeID            = "aaaa-bbbb-cccc-dddd"
+			k8sNode           = testNode1.DeepCopy()
 		)
 
 		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 		assert.Nil(t, err)
-		c, err := NewController("", useExternalAnnotaionTest, nodeAnnotaionTest, k8sClient, testLogger)
+		c, err := NewController("", true, nodeAnnotaionTest, k8sClient, testLogger)
 		assert.Nil(t, err)
 
 		k8sNode.Annotations[nodeAnnotaionTest] = nodeID

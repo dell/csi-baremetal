@@ -45,9 +45,7 @@ const (
 	driveStateChangeTimeout = time.Minute * 3
 )
 
-var (
-	pvcName = "baremetal-csi-pvc"
-)
+var pvcName = "baremetal-csi-pvc"
 
 // DefineDriveHealthChangeTestSuite defines custom csi-baremetal e2e tests
 func DefineDriveHealthChangeTestSuite(driver *baremetalDriver) {
@@ -123,10 +121,13 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		// Append bad-health drive to this config and update config on the cluster side
 		conf.Nodes = []common.LoopBackManagerConfigNode{{
 			NodeID: &nodeNameOfAC,
-			Drives: []common.LoopBackManagerConfigDevice{{
-				SerialNumber: &targetDriveSN,
-				Health:       &targetDriveNewHealth},
-			}}}
+			Drives: []common.LoopBackManagerConfigDevice{
+				{
+					SerialNumber: &targetDriveSN,
+					Health:       &targetDriveNewHealth,
+				},
+			},
+		}}
 		applyLMConfig(f, conf)
 
 		// wait for drive health change
@@ -190,10 +191,13 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		// Append bad-health drive to this config and update config on the cluster side
 		conf.Nodes = []common.LoopBackManagerConfigNode{{
 			NodeID: &nodeNameOfVolume,
-			Drives: []common.LoopBackManagerConfigDevice{{
-				SerialNumber: &targetDriveSN,
-				Health:       &targetDriveNewHealth},
-			}}}
+			Drives: []common.LoopBackManagerConfigDevice{
+				{
+					SerialNumber: &targetDriveSN,
+					Health:       &targetDriveNewHealth,
+				},
+			},
+		}}
 		applyLMConfig(f, conf)
 
 		// wait for volume health change
@@ -356,7 +360,7 @@ func filterDrivesCRsForNode(nodeID string, drives *unstructured.UnstructuredList
 }
 
 func getUObjList(f *framework.Framework, resource schema.GroupVersionResource) *unstructured.UnstructuredList {
-	var namespace = ""
+	namespace := ""
 	if resource == common.VolumeGVR {
 		namespace = f.Namespace.Name
 	}
@@ -366,7 +370,7 @@ func getUObjList(f *framework.Framework, resource schema.GroupVersionResource) *
 }
 
 func getUObj(f *framework.Framework, resource schema.GroupVersionResource, name string) (*unstructured.Unstructured, bool) {
-	var namespace = ""
+	namespace := ""
 	if resource == common.VolumeGVR {
 		namespace = f.Namespace.Name
 	}
@@ -381,8 +385,8 @@ func getUObj(f *framework.Framework, resource schema.GroupVersionResource, name 
 }
 
 func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionResource, name string,
-	timeout time.Duration, expectedValue string, fields ...string) {
-
+	timeout time.Duration, expectedValue string, fields ...string,
+) {
 	deadline := time.Now().Add(timeout)
 	for {
 		drive, found := getUObj(f, resource, name)
@@ -410,7 +414,8 @@ func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionR
 }
 
 func checkExpectedEventsExistWithRetry(f *framework.Framework, object runtime.Object,
-	eventsReasons []string, timeout time.Duration) {
+	eventsReasons []string, timeout time.Duration,
+) {
 	deadline := time.Now().Add(timeout)
 	for {
 		if time.Now().After(deadline) {

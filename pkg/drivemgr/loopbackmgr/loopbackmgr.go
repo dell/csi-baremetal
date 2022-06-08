@@ -535,7 +535,7 @@ func (mgr *LoopBackManager) Locate(serialNumber string, action int32) (int32, er
 }
 
 // LocateNode implements LocateNode method of DriveManager interface
-func (mgr *LoopBackManager) LocateNode(action int32) error {
+func (mgr *LoopBackManager) LocateNode(_ int32) error {
 	// not implemented
 	return nil
 }
@@ -606,6 +606,8 @@ func (mgr *LoopBackManager) UpdateOnConfigChange(watcher *fsnotify.Watcher) {
 			if err != nil {
 				ll.Fatalf("can't add config to file watcher %s", err)
 			}
+		case fsnotify.Create, fsnotify.Rename, fsnotify.Write:
+			ll.Warnf("file event %s", event.Op)
 		default:
 			ll.Warnf("file event %s", event.Op)
 		}

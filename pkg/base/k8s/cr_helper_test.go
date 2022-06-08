@@ -25,7 +25,7 @@ import (
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 )
 
 func setup() *CRHelper {
@@ -48,7 +48,7 @@ func TestCRHelper_GetACByLocation(t *testing.T) {
 
 	// expected nil because of empty string as a location
 	currentAC, err = ch.GetACByLocation("")
-	assert.Equal(t, err, errTypes.ErrorNotFound)
+	assert.Equal(t, err, baseerr.ErrorNotFound)
 }
 
 func TestCRHelper_GetVolumeByLocation(t *testing.T) {
@@ -140,8 +140,8 @@ func TestCRHelper_GetDriveCRAndLVGCRByVolume(t *testing.T) {
 	assert.NotNil(t, driveNew)
 	assert.Nil(t, lvgNew)
 	assert.Nil(t, err)
-
 }
+
 func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 	var (
 		volume = testVolumeCR.DeepCopy()
@@ -174,7 +174,6 @@ func TestCRHelper_GetDriveCRByVolume(t *testing.T) {
 	driveNew, err = ch.GetDriveCRByVolume(volume)
 	assert.NotNil(t, driveNew)
 	assert.Nil(t, err)
-
 }
 
 func TestCRHelper_GetVolumeCRs(t *testing.T) {

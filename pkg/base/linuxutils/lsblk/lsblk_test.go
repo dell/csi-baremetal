@@ -53,7 +53,6 @@ func TestLSBLK_GetBlockDevices_Success(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, out)
 	assert.Equal(t, 2, len(out))
-
 }
 
 func TestLSBLK_GetBlockDevices_Fail(t *testing.T) {
@@ -126,7 +125,7 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 	assert.Equal(t, "", res)
 	assert.NotNil(t, err)
 
-	//different VID and PID
+	// different VID and PID
 	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	sn = "hdd1" // from mocks.LsblkTwoDevicesStr
 	dCR.Spec.SerialNumber = sn

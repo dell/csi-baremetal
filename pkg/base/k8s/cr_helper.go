@@ -33,7 +33,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 )
 
 // CRHelper is able to collect different CRs by different criteria
@@ -81,7 +81,7 @@ func (cs *CRHelper) GetACByLocation(location string) (*accrd.AvailableCapacity, 
 
 	ll.Warn("Can't find AC assigned to provided location: ", location)
 
-	return nil, errTypes.ErrorNotFound
+	return nil, baseerr.ErrorNotFound
 }
 
 // DeleteACsByNodeID deletes AC CRs for specific node ID

@@ -78,7 +78,8 @@ const (
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of VolumeOperationsImpl
 func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, cache cache.Interface,
-	featureConf fc.FeatureChecker) *VolumeOperationsImpl {
+	featureConf fc.FeatureChecker,
+) *VolumeOperationsImpl {
 	volumeMetrics := metrics.NewMetrics(prometheus.HistogramOpts{
 		Name:    "volume_operations_duration",
 		Help:    "Volume operations methods duration",
@@ -150,7 +151,8 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 }
 
 func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *logrus.Entry, v api.Volume,
-	podNamespace string, reservationName string) (*api.Volume, error) {
+	podNamespace string, reservationName string,
+) (*api.Volume, error) {
 	// read volume reservation
 	podReservation, volumeReservationNum, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName)
 	if err != nil {
@@ -253,7 +255,8 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 }
 
 func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log *logrus.Entry, volumeCR *volumecrd.Volume,
-	podNamespace string, reservationName string) (*api.Volume, error) {
+	podNamespace string, reservationName string,
+) (*api.Volume, error) {
 	log.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
 	// release reservation if it was requested by scheduler again
 	if reservation, number, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName); err == nil {
@@ -288,7 +291,8 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 }
 
 func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *logrus.Entry, namespace string,
-	name string) (*acrcrd.AvailableCapacityReservation, int, error) {
+	name string,
+) (*acrcrd.AvailableCapacityReservation, int, error) {
 	resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, false)
 	reservations, err := resReader.ReadReservations(ctx)
 	if err != nil {
@@ -330,7 +334,8 @@ func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *l
 }
 
 func (vo *VolumeOperationsImpl) deleteVolumeReservation(ctx context.Context,
-	reservation *acrcrd.AvailableCapacityReservation, number int) error {
+	reservation *acrcrd.AvailableCapacityReservation, number int,
+) error {
 	// release reservation if exists
 	if reservation != nil {
 		capReader := capacityplanner.NewACReader(vo.k8sClient, vo.log, true)
@@ -473,7 +478,8 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 // DoAction do UpdateCR or DeleteCR with CR
 // return error if k8sClient action done with err
 func (vo *VolumeOperationsImpl) DoAction(ctx context.Context, log *logrus.Entry, obj k8sCl.Object, action uint8,
-	typeCR string) error {
+	typeCR string,
+) error {
 	switch action {
 	case update:
 		if err := vo.k8sClient.UpdateCR(ctx, obj); err != nil {
@@ -665,7 +671,8 @@ func (vo *VolumeOperationsImpl) fillCache() {
 
 // VolumeOperationsImpl returns PVC labels: release, app.kubernetes.io/name and adds short app label
 func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Context, pvcName, pvcNamespace string) (
-	map[string]string, error) {
+	map[string]string, error,
+) {
 	ll := vo.log.WithFields(logrus.Fields{
 		"method": "getVolumeAppLabel",
 	})

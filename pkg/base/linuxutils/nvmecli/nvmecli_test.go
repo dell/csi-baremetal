@@ -164,6 +164,7 @@ func TestNVMECLI_getNVMDeviceHealthBad(t *testing.T) {
 	deviceHealth := l.getNVMDeviceHealth(testPath)
 	assert.Equal(t, apiV1.HealthBad, deviceHealth)
 }
+
 func TestNVMECLI_getNVMDeviceHealthSuspect(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
@@ -191,7 +192,7 @@ func TestNVMECLI_getNVMDeviceHealthGood(t *testing.T) {
 func TestNVMECLI_getNVMDeviceHealthUnmarshallError(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewNVMECLI(e, testLogger)
-	//unmarshall error
+	// unmarshall error
 	health := `{
   		"critical_warning" : "5"
 	}

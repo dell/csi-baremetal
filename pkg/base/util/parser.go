@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 )
 
 // GetOSNameAndVersion receives string with the OS information in th following format:
@@ -29,19 +29,19 @@ import (
 func GetOSNameAndVersion(osInfo string) (name, version string, err error) {
 	// check input parameter
 	if len(osInfo) == 0 {
-		return "", "", errTypes.ErrorEmptyParameter
+		return "", "", baseerr.ErrorEmptyParameter
 	}
 
 	// extract OS name
 	name = regexp.MustCompile(`^[A-Za-z]+`).FindString(osInfo)
 	if len(name) == 0 {
-		return "", "", errTypes.ErrorFailedParsing
+		return "", "", baseerr.ErrorFailedParsing
 	}
 
 	// extract OS version
 	version = regexp.MustCompile(`[0-9]+\.[0-9]+`).FindString(osInfo)
 	if len(version) == 0 {
-		return "", "", errTypes.ErrorFailedParsing
+		return "", "", baseerr.ErrorFailedParsing
 	}
 
 	return strings.ToLower(name), version, nil
@@ -53,13 +53,13 @@ func GetOSNameAndVersion(osInfo string) (name, version string, err error) {
 func GetKernelVersion(kernelVersion string) (version string, err error) {
 	// check input parameter
 	if len(kernelVersion) == 0 {
-		return "", errTypes.ErrorEmptyParameter
+		return "", baseerr.ErrorEmptyParameter
 	}
 
 	// extract kernel version - x.y.z
 	version = regexp.MustCompile(`^[0-9]+\.[0-9]+`).FindString(kernelVersion)
 	if len(version) == 0 {
-		return "", errTypes.ErrorFailedParsing
+		return "", baseerr.ErrorFailedParsing
 	}
 
 	return version, nil

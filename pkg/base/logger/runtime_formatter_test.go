@@ -95,8 +95,7 @@ func TestFunctionInFunctionFormatter(t *testing.T) {
 
 	funcInFunc()
 
-	expectFunction(t, decoder, currentDirectory+"/"+currentFile+":121", "baz")
-
+	expectFunction(t, decoder, currentDirectory+"/"+currentFile+":120", "baz")
 }
 
 func expectFunction(t *testing.T, decoder *json.Decoder, expectedFile, expectedFunction string) {

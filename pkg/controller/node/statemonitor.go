@@ -220,7 +220,7 @@ func (n *ServicesStateMonitor) getPodToNodeList() (map[string]stateComponents, e
 				// match pod to node by host name
 				if address.Type == coreV1.NodeHostName {
 					if address.Address == pod.Spec.NodeName {
-						// nolint: scopelint
+						// nolint: exportloopref
 						podNode = &node
 						break
 					}
@@ -248,7 +248,8 @@ func (n *ServicesStateMonitor) getPodToNodeList() (map[string]stateComponents, e
 
 // calculate pod status based on current, previous state and timestamp
 func calculatePodStatus(name string, isReady bool, status int, timePassed float64,
-	startupProtection bool, logger *logrus.Entry) int {
+	startupProtection bool, logger *logrus.Entry,
+) int {
 	log := logger.WithFields(logrus.Fields{"method": "calculatePodStatus"})
 	if isReady {
 		// return to Ready state right away

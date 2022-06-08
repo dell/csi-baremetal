@@ -34,7 +34,7 @@ func TestStrToBytesIncorrect(t *testing.T) {
 
 // Test byte value parsing from string with unknown size unit. Error expected.
 func TestStrToBytesWrongUnit(t *testing.T) {
-	var unit = "Cm"
+	unit := "Cm"
 	got, err := StrToBytes("15" + unit)
 	if err == nil {
 		t.Errorf("No error got when trying to parse value with incorrect unit \"%s\". Returned value: %d", unit, got)

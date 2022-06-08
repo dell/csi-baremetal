@@ -22,8 +22,8 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/baseerr"
 	"github.com/dell/csi-baremetal/pkg/base/capacityplanner"
-	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
@@ -111,7 +111,7 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 	size, err := getFreeSpaceFromLVGAnnotation(lvg.Annotations)
 	if err != nil {
 		log.Errorf("Failed to get free space from LVG %v, err: %v", lvg, err)
-		if err == errTypes.ErrorNotFound {
+		if err == baseerr.ErrorNotFound {
 			err = nil
 		}
 		return ctrl.Result{}, err
@@ -159,7 +159,7 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 			}
 		}
 		return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
-	case err == errTypes.ErrorNotFound:
+	case err == baseerr.ErrorNotFound:
 		name := uuid.New().String()
 		if lvg, err := d.crHelper.GetLVGByDrive(ctx, driveUUID); err != nil || lvg != nil {
 			return ctrl.Result{}, err
@@ -197,7 +197,7 @@ func (d *Controller) handleInaccessibleDrive(ctx context.Context, drive api.Driv
 			log.Errorf("Failed to update unhealthy available capacity CR: %v", err)
 			return ctrl.Result{}, err
 		}
-	case err != errTypes.ErrorNotFound:
+	case err != baseerr.ErrorNotFound:
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
@@ -227,14 +227,14 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 			}
 		}
 		return nil
-	case err == errTypes.ErrorNotFound:
+	case err == baseerr.ErrorNotFound:
 		if size > capacityplanner.AcSizeMinThresholdBytes {
 			ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
-			if err != nil && err != errTypes.ErrorNotFound {
+			if err != nil && err != baseerr.ErrorNotFound {
 				ll.Infof("Failed to get drive AC by UUID %s, err: %v", driveUUID, err)
 				return err
 			}
-			if err == errTypes.ErrorNotFound {
+			if err == baseerr.ErrorNotFound {
 				ll.Infof("Creating SYSLVG AC for lvg %s", location)
 				name := uuid.New().String()
 				capacity := &api.AvailableCapacity{
@@ -271,7 +271,7 @@ func (d *Controller) resetACSizeOfLVG(lvgName string) error {
 	// read AC
 	ac, err := d.cachedCrHelper.GetACByLocation(lvgName)
 	if err != nil {
-		if err == errTypes.ErrorNotFound {
+		if err == baseerr.ErrorNotFound {
 			// non re-triable error
 			d.log.Errorf("AC CR for LogicalVolumeGroup %s not found", lvgName)
 			return nil
@@ -346,7 +346,7 @@ func checkLVGAnnotation(oldAnnotation, newAnnotation map[string]string) bool {
 	// Controller performs reconcile if both lvg have different VG space, for example old lvg doesn't have annotation
 	// new lvg have annotation. In this case oldSize = 0 and newSize equals size from annotation. This logic is used
 	// when lvg is already presented on a machine, but doesn't have AC
-	if errOld != nil && errOld != errTypes.ErrorNotFound {
+	if errOld != nil && errOld != baseerr.ErrorNotFound {
 		return false
 	}
 
@@ -367,5 +367,5 @@ func getFreeSpaceFromLVGAnnotation(annotation map[string]string) (int64, error) 
 		}
 	}
 
-	return 0, errTypes.ErrorNotFound
+	return 0, baseerr.ErrorNotFound
 }

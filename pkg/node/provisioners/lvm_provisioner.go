@@ -150,7 +150,7 @@ func (l *LVMProvisioner) GetVolumePath(vol *api.Volume) (string, error) {
 }
 
 func (l *LVMProvisioner) getVGName(vol *api.Volume) (string, error) {
-	var vgName = vol.Location
+	vgName := vol.Location
 
 	// Volume.Location is an LVG CR name, LVG CR name in general is the same as a real VG name on node,
 	// however for LVG based on system disk LVG CR name is not the same as a VG name
