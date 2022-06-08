@@ -38,13 +38,14 @@ type contextKey string
 const (
 	updateFailCtxKey   = contextKey("updateFail")
 	updateFailCtxValue = "yes"
-	listFailCtxKey = contextKey("listFail")
-	listFailCtxValue = "yes"
+	listFailCtxKey     = contextKey("listFail")
+	listFailCtxValue   = "yes"
 )
 
 var (
 	// UpdateFailCtx raises an error on fakeClient.Update
 	UpdateFailCtx = context.WithValue(context.Background(), updateFailCtxKey, updateFailCtxValue)
+	// ListFailCtx raises an error on fakeClient.List
 	ListFailCtx = context.WithValue(context.Background(), listFailCtxKey, listFailCtxValue)
 )
 
