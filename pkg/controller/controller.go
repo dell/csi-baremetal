@@ -270,7 +270,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
-	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.VolumeId)
+	ctxWithID := context.WithValue(ctx, base.RequestUUID, req.VolumeId)
 
 	// try to acquire lock until context is valid. otherwise provisioner will send new request for the same volume
 	if ok := c.reqLock.TryLockWithContext(ctxWithID); !ok {
@@ -405,7 +405,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 	ll.Infof("Processing request: %v", req)
 	var (
 		volID         = req.GetVolumeId()
-		ctxWithID     = context.WithValue(context.Background(), base.RequestUUID, volID)
+		ctxWithID     = context.WithValue(ctx, base.RequestUUID, volID)
 		requiredBytes = capacityplanner.AlignSizeByPE(req.GetCapacityRange().GetRequiredBytes())
 	)
 
@@ -430,7 +430,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		ll.Warningf("Context canceled or timed out")
 		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
 	}
-	err = c.svc.ExpandVolume(ctx, volume, requiredBytes)
+	err = c.svc.ExpandVolume(ctxWithID, volume, requiredBytes)
 	c.reqLock.Unlock()
 
 	if err != nil {
@@ -444,7 +444,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		ll.Warningf("Context canceled or timed out")
 		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
 	}
-	c.svc.UpdateCRsAfterVolumeExpansion(ctx, volID, requiredBytes)
+	c.svc.UpdateCRsAfterVolumeExpansion(ctxWithID, volID, requiredBytes)
 	c.reqLock.Unlock()
 
 	if err != nil {

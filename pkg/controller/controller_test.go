@@ -273,6 +273,37 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(err).To(BeNil())
 			Expect(v.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
+		It("Context cancelled", func() {
+			uuid := "uuid-1234"
+			capacity := int64(1024 * 42)
+			ctx, cancel := context.WithTimeout(context.Background(), 1)
+
+			req := getCreateVolumeRequest(uuid, capacity, testNode4Name, testPVC1Name, false, false)
+
+			err := controller.k8sclient.CreateCR(ctx, req.GetName(), &vcrd.Volume{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:              uuid,
+					Namespace:         "default",
+					CreationTimestamp: k8smetav1.Time{Time: time.Now().Add(time.Duration(-100) * time.Minute)},
+				},
+				Spec: api.Volume{
+					Id:        req.GetName(),
+					Size:      capacity,
+					NodeId:    testNode1Name,
+					CSIStatus: apiV1.Creating,
+				}})
+			Expect(err).To(BeNil())
+
+			// lock mutex
+			controller.reqLock.Lock()
+			defer controller.reqLock.Unlock()
+			// cancel context
+			cancel()
+			// try to create volume
+			resp, err := controller.CreateVolume(ctx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).ToNot(BeNil())
+		})
 	})
 
 	Context("Success scenarios", func() {
@@ -484,6 +515,18 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			resp, err := controller.CreateVolume(context.Background(), req)
 			Expect(err).ToNot(BeNil())
 			Expect(resp).To(BeNil())
+		})
+		It("Context cancelled", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 1)
+			req := &csi.DeleteVolumeRequest{VolumeId: "volumeID"}
+			// lock mutex
+			controller.reqLock.Lock()
+			defer controller.reqLock.Unlock()
+			// cancel context
+			cancel()
+			resp, err := controller.DeleteVolume(ctx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).ToNot(BeNil())
 		})
 	})
 
@@ -847,6 +890,30 @@ var _ = Describe("CSIControllerService ControllerExpandVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 
+		})
+		It("Context cancelled", func() {
+			var (
+				volumeCrd = &vcrd.Volume{}
+				err       error
+				capacity  = int64(1024)
+			)
+			err = controller.k8sclient.ReadCR(testCtx, uuid, testNs, volumeCrd)
+			Expect(err).To(BeNil())
+
+			ctx, cancel := context.WithTimeout(context.Background(), 1)
+			req := &csi.ControllerExpandVolumeRequest{
+				VolumeId:         uuid,
+				VolumeCapability: &csi.VolumeCapability{},
+				CapacityRange:    &csi.CapacityRange{RequiredBytes: capacity},
+			}
+			// lock mutex
+			controller.reqLock.Lock()
+			defer controller.reqLock.Unlock()
+			// cancel context
+			cancel()
+			resp, err := controller.ControllerExpandVolume(ctx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).ToNot(BeNil())
 		})
 	})
 
