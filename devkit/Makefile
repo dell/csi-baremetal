@@ -25,7 +25,7 @@ REPO ?= csi-baremetal-devkit
 TAG  ?= $(major).$(minor).$(patch)-$(git_rev)
 IMAGE_REPO_TAG := $(REPO):$(TAG)
 
-DOCKER_VERSION ?= 20.10.9_ce
+DOCKER_VERSION ?= 20.10.14_ce
 GO_VERSION ?= 1.17.7
 GOLANGCI_VERSION ?= 1.44.0
 PROTOBUF_VERSION ?= 3.11.0
