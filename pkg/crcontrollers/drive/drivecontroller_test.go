@@ -2,6 +2,7 @@ package drive
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -167,10 +168,23 @@ func TestDriveController_Reconcile(t *testing.T) {
 		assert.NotNil(t, err)
 
 	})
-	t.Run("Get Update request from handleDriveUpdate", func(t *testing.T) {
-		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: failedVolCR.Name}}
+	t.Run("Get err from handleDriveUpdate", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageReleasing
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: expectedD.Name}}
 		assert.NotNil(t, req)
 
+		res, err := dc.Reconcile(k8s.ListFailCtx, req)
+		assert.NotNil(t, res)
+		assert.NotNil(t, err)
+		assert.Equal(t, res, ctrl.Result{RequeueAfter: base.DefaultRequeueForVolume})
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
+	t.Run("Get Update request from handleDriveUpdate", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageReleased
@@ -182,9 +196,36 @@ func TestDriveController_Reconcile(t *testing.T) {
 		expectedV.Annotations = map[string]string{"removal": "ready"}
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
 
+		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: expectedD.Name}}
+		assert.NotNil(t, req)
+
 		res, err := dc.Reconcile(testCtx, req)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+	})
+	t.Run("Get Update request from handleDriveUpdate - ctx fail ", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageReleased
+		expectedD.Annotations = map[string]string{"removal": "ready"}
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		expectedV := failedVolCR.DeepCopy()
+		assert.NotNil(t, expectedV)
+		expectedV.Annotations = map[string]string{"removal": "ready"}
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
+		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: expectedD.Name}}
+		assert.NotNil(t, req)
+
+		res, err := dc.Reconcile(k8s.UpdateFailCtx, req)
+		assert.NotNil(t, res)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
@@ -273,6 +314,7 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		res, err := dc.handleDriveUpdate(k8s.ListFailCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)
+		assert.Equal(t, err, errors.New("raise list error"))
 		assert.Equal(t, res, ignore)
 		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageReleasing)
 
@@ -287,6 +329,7 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		res, err := dc.handleDriveUpdate(k8s.ListFailCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)
+		assert.Equal(t, err, errors.New("raise list error"))
 		assert.Equal(t, res, ignore)
 		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageReleased)
 
@@ -436,6 +479,20 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+	})
+	t.Run("FailedUsage - fail - invalid annotation value", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Annotations = map[string]string{"action": "test-remove"}
+		expectedD.Spec.Usage = apiV1.DriveUsageFailed
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, ignore)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 	})
 }
 
