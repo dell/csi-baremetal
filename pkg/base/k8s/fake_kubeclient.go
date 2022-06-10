@@ -40,6 +40,10 @@ const (
 	updateFailCtxValue = "yes"
 	listFailCtxKey     = contextKey("listFail")
 	listFailCtxValue   = "yes"
+	getFailCtxKey      = contextKey("getFail")
+	getFailCtxValue    = "yes"
+	deleteFailCtxKey   = contextKey("deleteFail")
+	deleteFailCtxValue = "yes"
 )
 
 var (
@@ -47,6 +51,10 @@ var (
 	UpdateFailCtx = context.WithValue(context.Background(), updateFailCtxKey, updateFailCtxValue)
 	// ListFailCtx raises an error on fakeClient.List
 	ListFailCtx = context.WithValue(context.Background(), listFailCtxKey, listFailCtxValue)
+	// GetFailCtx raises an error on fakeClient.Get
+	GetFailCtx = context.WithValue(context.Background(), getFailCtxKey, getFailCtxValue)
+	// DeleteFailCtx raises an error on fakeClient.Get
+	DeleteFailCtx = context.WithValue(context.Background(), deleteFailCtxKey, deleteFailCtxValue)
 )
 
 // NewFakeClientWrapper return new instance of FakeClientWrapper
@@ -66,6 +74,9 @@ type FakeClientWrapper struct {
 
 // Get is a wrapper around Get method
 func (fkw *FakeClientWrapper) Get(ctx context.Context, key k8sCl.ObjectKey, obj k8sCl.Object) error {
+	if ctx.Value(getFailCtxKey) == getFailCtxValue {
+		return errors.New("raise error in get")
+	}
 	if fkw.shouldPatchNS(obj) {
 		key = fkw.removeNSFromObjKey(key)
 	}
@@ -90,6 +101,9 @@ func (fkw *FakeClientWrapper) Create(ctx context.Context, obj k8sCl.Object, opts
 
 // Delete is a wrapper around Delete method
 func (fkw *FakeClientWrapper) Delete(ctx context.Context, obj k8sCl.Object, opts ...k8sCl.DeleteOption) error {
+	if ctx.Value(deleteFailCtxKey) == updateFailCtxValue {
+		return errors.New("raise delete error")
+	}
 	return fkw.client.Delete(ctx, obj, opts...)
 }
 
