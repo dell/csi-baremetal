@@ -309,7 +309,11 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageReleasing
-		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+		assert.Nil(t, dc.client.CreateCR(k8s.ListFailCtx, expectedD.Name, expectedD))
+
+		expectedV := failedVolCR.DeepCopy()
+		assert.NotNil(t, expectedV)
+		assert.Nil(t, dc.client.CreateCR(k8s.ListFailCtx, expectedV.Name, expectedV))
 
 		res, err := dc.handleDriveUpdate(k8s.ListFailCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
@@ -318,13 +322,18 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Equal(t, res, ignore)
 		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageReleasing)
 
-		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedV))
 	})
 	t.Run("ReleasedUsage - fail in GetVolumesByLocation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageReleased
-		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+		assert.Nil(t, dc.client.CreateCR(k8s.ListFailCtx, expectedD.Name, expectedD))
+
+		expectedV := failedVolCR.DeepCopy()
+		assert.NotNil(t, expectedV)
+		assert.Nil(t, dc.client.CreateCR(k8s.ListFailCtx, expectedV.Name, expectedV))
 
 		res, err := dc.handleDriveUpdate(k8s.ListFailCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
@@ -333,7 +342,8 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Equal(t, res, ignore)
 		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageReleased)
 
-		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedV))
 	})
 	t.Run("ReleasedUsage - has drive removalReady annotation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
@@ -355,6 +365,22 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+	})
+	t.Run("ReleasedUsage - has drive actionAdd annotation", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageReleased
+		expectedD.Annotations = map[string]string{"action": "add"}
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, update)
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageInUse)
+		assert.Empty(t, expectedD.Annotations)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 	})
 	t.Run("ReleasedUsage - update drive annotations", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
