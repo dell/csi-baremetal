@@ -388,7 +388,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 	return vo.k8sClient.UpdateCR(ctx, volumeCR)
 }
 
-// UpdateCRsAfterVolumeDeletion should considered as a second step in DeleteVolume,
+// UpdateCRsAfterVolumeDeletion should be considered as a second step in DeleteVolume,
 // remove Volume CR and if volume was in LogicalVolumeGroup SC - update corresponding AC CR
 // does not return anything because that method does not change real drive on the node
 func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {

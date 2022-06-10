@@ -21,11 +21,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
+	lock "github.com/viney-shih/go-lock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
@@ -58,9 +58,10 @@ const (
 type CSIControllerService struct {
 	k8sclient *k8s.KubeClient
 
-	// mutex for csi request
-	reqMu sync.Mutex
-	log   *logrus.Entry
+	// mutex for csi requests
+	reqLock *lock.CASMutex
+
+	log *logrus.Entry
 
 	svc common.VolumeOperations
 
@@ -87,6 +88,7 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
 		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),
 		crHelper:                 k8s.NewCRHelper(k8sClient, logger),
+		reqLock:                  lock.NewCASMutex(),
 	}
 
 	// run health monitor
@@ -211,7 +213,11 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		mode = apiV1.ModeRAWPART
 	}
 
-	c.reqMu.Lock()
+	// try to acquire lock until context is valid. otherwise provisioner will send new request for the same volume
+	if ok := c.reqLock.TryLockWithContext(ctxValue); !ok {
+		ll.Warningf("Context canceled or timed out")
+		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
+	}
 	vol, err = c.svc.CreateVolume(ctxValue, api.Volume{
 		Id:           req.Name,
 		StorageClass: util.ConvertStorageClass(req.Parameters[base.StorageTypeKey]),
@@ -220,7 +226,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		Mode:         mode,
 		Type:         fsType,
 	})
-	c.reqMu.Unlock()
+	c.reqLock.Unlock()
 
 	if err != nil {
 		ll.Errorf("Failed to create volume: %v", err)
@@ -264,11 +270,15 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
-	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.VolumeId)
+	ctxWithID := context.WithValue(ctx, base.RequestUUID, req.VolumeId)
 
-	c.reqMu.Lock()
+	// try to acquire lock until context is valid. otherwise provisioner will send new request for the same volume
+	if ok := c.reqLock.TryLockWithContext(ctxWithID); !ok {
+		ll.Warningf("Context canceled or timed out")
+		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
+	}
 	err := c.svc.DeleteVolume(ctxWithID, req.GetVolumeId())
-	c.reqMu.Unlock()
+	c.reqLock.Unlock()
 
 	if err != nil {
 		if k8sError.IsNotFound(err) || (status.Code(err) == codes.NotFound) {
@@ -279,14 +289,18 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		return nil, err
 	}
 
-	if err = c.svc.WaitStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed); err != nil {
+	if err = c.svc.WaitStatus(ctxWithID, req.VolumeId, apiV1.Failed, apiV1.Removed); err != nil {
 		// we might not get DeleteVolume request again. Volume CR will have to be removed manually in this case
 		return nil, status.Error(codes.Internal, "Unable to delete volume")
 	}
 
-	c.reqMu.Lock()
+	// try to acquire lock until context is valid. otherwise provisioner will send new request for the same volume
+	if ok := c.reqLock.TryLockWithContext(ctxWithID); !ok {
+		ll.Warningf("Context canceled or timed out")
+		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
+	}
 	c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
-	c.reqMu.Unlock()
+	c.reqLock.Unlock()
 
 	ll.Debug("Volume was successfully deleted")
 
@@ -391,7 +405,7 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 	ll.Infof("Processing request: %v", req)
 	var (
 		volID         = req.GetVolumeId()
-		ctxWithID     = context.WithValue(context.Background(), base.RequestUUID, volID)
+		ctxWithID     = context.WithValue(ctx, base.RequestUUID, volID)
 		requiredBytes = capacityplanner.AlignSizeByPE(req.GetCapacityRange().GetRequiredBytes())
 	)
 
@@ -411,9 +425,13 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 		}, nil
 	}
 
-	c.reqMu.Lock()
-	err = c.svc.ExpandVolume(ctx, volume, requiredBytes)
-	c.reqMu.Unlock()
+	// try to acquire lock until context is valid. otherwise provisioner will send new request for the same volume
+	if ok := c.reqLock.TryLockWithContext(ctxWithID); !ok {
+		ll.Warningf("Context canceled or timed out")
+		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
+	}
+	err = c.svc.ExpandVolume(ctxWithID, volume, requiredBytes)
+	c.reqLock.Unlock()
 
 	if err != nil {
 		return nil, err
@@ -421,9 +439,13 @@ func (c *CSIControllerService) ControllerExpandVolume(ctx context.Context, req *
 
 	err = c.svc.WaitStatus(ctxWithID, volID, apiV1.Failed, apiV1.Resized)
 
-	c.reqMu.Lock()
-	c.svc.UpdateCRsAfterVolumeExpansion(ctx, volID, requiredBytes)
-	c.reqMu.Unlock()
+	// try to acquire lock until context is valid. otherwise provisioner will send new request for the same volume
+	if ok := c.reqLock.TryLockWithContext(ctxWithID); !ok {
+		ll.Warningf("Context canceled or timed out")
+		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
+	}
+	c.svc.UpdateCRsAfterVolumeExpansion(ctxWithID, volID, requiredBytes)
+	c.reqLock.Unlock()
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Unable to expand volume")
