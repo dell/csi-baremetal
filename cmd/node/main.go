@@ -117,12 +117,6 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-	// we need to obtain node ID first before proceeding with the initialization
-	nodeID, err := annotations.ObtainNodeIDWithRetries(k8SClient, featureConf, *nodeName, *nodeIDAnnotation,
-		logger, annotations.NumberOfRetries, annotations.DelayBetweenRetries)
-	if err != nil {
-		logger.Fatalf("Unable to obtain node ID: %v", err)
-	}
 
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
@@ -154,6 +148,12 @@ func main() {
 	defer eventRecorder.Wait()
 
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
+	// we need to obtain node ID first before proceeding with the initialization
+	nodeID, err := annotations.ObtainNodeIDWithRetries(wrappedK8SClient, featureConf, *nodeName, *nodeIDAnnotation,
+		logger, annotations.NumberOfRetries, annotations.DelayBetweenRetries)
+	if err != nil {
+		logger.Fatalf("Unable to obtain node ID: %v", err)
+	}
 	csiNodeService := node.NewCSINodeService(
 		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
 
