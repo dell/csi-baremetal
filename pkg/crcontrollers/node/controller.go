@@ -453,14 +453,6 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 	if !bmc.externalAnnotation && ok {
 		if val == nodeUUID {
 			ll.Tracef("%s value for node %s is already %s", bmc.annotationKey, k8sNode.Name, nodeUUID)
-		}
-		// Use old UUID from the annotations
-		if val != nodeUUID {
-			if _, err := uuid.Parse(val); err == nil {
-				ll.Warnf("%s value for node %s is %s, going to use %s annotation's value.", bmc.annotationKey, k8sNode.Name, val, val)
-				k8sNode.ObjectMeta.Annotations[bmc.annotationKey] = val
-				toUpdate = true
-			}
 		} else {
 			ll.Warnf("%s value for node %s is %s, however should have (according to corresponding Node's UUID) %s, going to update annotation's value.",
 				bmc.annotationKey, k8sNode.Name, val, nodeUUID)

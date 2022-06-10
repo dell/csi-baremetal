@@ -462,6 +462,11 @@ func Test_checkAnnotationAndLabels(t *testing.T) {
 			currentAnnotationValue: "aaaa-bbbb",
 			targetAnnotationValue:  "aaaa-bbbb",
 		},
+		{
+			description:            "Node has required annotation and labels with wrong values",
+			currentAnnotationValue: "aaaa-bbbb",
+			targetAnnotationValue:  "ffff-dddd",
+		},
 	}
 
 	for _, testCase := range testCases {

@@ -6,10 +6,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 )
@@ -21,7 +21,7 @@ var (
 
 	nodeName = "node"
 	nodeUID  = "11-22"
-	testNode = coreV1.Node{
+	bmNode   = nodecrd.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        nodeName,
 			UID:         types.UID(nodeUID),
@@ -55,7 +55,7 @@ func TestObtainNodeIDWithRetries(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 
-		node := testNode.DeepCopy()
+		node := bmNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
@@ -71,7 +71,7 @@ func TestGetNodeID(t *testing.T) {
 	t.Run("All features disabled", func(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
 
-		nodeID, err := GetNodeID(&testNode, annotationKey, "", featureConf)
+		nodeID, err := GetNodeID(&bmNode, annotationKey, "", featureConf)
 		assert.Equal(t, nodeUID, nodeID)
 		assert.Nil(t, err)
 	})
@@ -80,7 +80,7 @@ func TestGetNodeID(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 
-		node := testNode.DeepCopy()
+		node := bmNode.DeepCopy()
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 		node.Annotations[DeafultNodeIDAnnotationKey] = annotationValue
 
@@ -93,7 +93,7 @@ func TestGetNodeID(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 
-		node := testNode.DeepCopy()
+		node := bmNode.DeepCopy()
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 		node.Annotations[DeafultNodeIDAnnotationKey] = annotationValue
 
@@ -107,7 +107,7 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 
-		node := testNode.DeepCopy()
+		node := bmNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
@@ -121,7 +121,7 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 
-		node := testNode.DeepCopy()
+		node := bmNode.DeepCopy()
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
 		_, err := GetNodeID(node, annotationKey, "app=baremetal-csi", featureConf)
@@ -133,7 +133,7 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 
-		node := testNode.DeepCopy()
+		node := bmNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
@@ -151,7 +151,7 @@ func TestGetNodeIDByName(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 
-		node := testNode.DeepCopy()
+		node := bmNode.DeepCopy()
 		node.Annotations[annotationKey] = annotationValue
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 

@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -56,22 +56,22 @@ func ObtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.
 // GetNodeIDByName return special id for k8sNode with nodeName
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
 func GetNodeIDByName(client k8sClient.Client, nodeName, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
-	k8sNode := corev1.Node{}
-	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &k8sNode); err != nil {
+	bmNode := nodecrd.Node{}
+	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, &bmNode); err != nil {
 		return "", err
 	}
 
-	return GetNodeID(&k8sNode, annotationKey, nodeSelector, featureChecker)
+	return GetNodeID(&bmNode, annotationKey, nodeSelector, featureChecker)
 }
 
-// GetNodeID return special id for k8sNode
+// GetNodeID return special id for bmNode
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func GetNodeID(k8sNode *corev1.Node, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
-	name := k8sNode.Name
+func GetNodeID(bmNode *nodecrd.Node, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
+	name := bmNode.Name
 	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
 		if nodeSelector != "" {
 			key, value := labelStringToKV(nodeSelector)
-			if val, ok := k8sNode.GetLabels()[key]; !ok || val != value {
+			if val, ok := bmNode.GetLabels()[key]; !ok || val != value {
 				return "", nil
 			}
 		}
@@ -80,14 +80,14 @@ func GetNodeID(k8sNode *corev1.Node, annotationKey, nodeSelector string, feature
 			return "", err
 		}
 
-		if val, ok := k8sNode.GetAnnotations()[akey]; ok {
+		if val, ok := bmNode.GetAnnotations()[akey]; ok {
 			return val, nil
 		}
 		return "", fmt.Errorf("annotation %s hadn't been set for node %s", akey, name)
 	}
 
 	// use standard UID if uniq nodeID usage isn't enabled
-	id := string(k8sNode.UID)
+	id := string(bmNode.UID)
 	if id == "" {
 		return "", fmt.Errorf("uid for node %s is not set", name)
 	}
