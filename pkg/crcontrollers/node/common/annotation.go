@@ -79,7 +79,7 @@ func GetNodeIDFromK8s(client k8sClient.Client, nodeName, annotationKey, nodeSele
 	return GetNodeID(k8sNode, annotationKey, nodeSelector, featureChecker)
 }
 
-// GetNodeID return special id for bmNode
+// GetNodeID return special id for node either from nodecrd.Node and corev1.Node
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
 func GetNodeID(node interface{}, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	nodeName, id := "", ""
