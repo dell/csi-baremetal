@@ -436,12 +436,10 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	return nil
 }
 
-func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
-	requestedNodes := []string{}
-
+func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) (nodeNames []string) {
 	for _, node := range nodes {
 		n := node
-		nodeID, err := annotations.GetNodeID(&n, e.annotationKey, e.nodeSelector, e.featureChecker)
+		nodeID, err := annotations.GetNodeID(n, e.annotationKey, e.nodeSelector, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
 			continue
@@ -449,10 +447,10 @@ func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
 		if nodeID == "" {
 			continue
 		}
-		requestedNodes = append(requestedNodes, nodeID)
+		nodeNames = append(nodeNames, nodeID)
 	}
 
-	return requestedNodes
+	return nodeNames
 }
 
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,

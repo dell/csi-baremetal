@@ -6,6 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -21,7 +22,15 @@ var (
 
 	nodeName = "node"
 	nodeUID  = "11-22"
-	bmNode   = nodecrd.Node{
+	testNode = coreV1.Node{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:        nodeName,
+			UID:         types.UID(nodeUID),
+			Namespace:   testNS,
+			Annotations: map[string]string{},
+		},
+	}
+	bmNode = nodecrd.Node{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        nodeName,
 			UID:         types.UID(nodeUID),
@@ -142,7 +151,7 @@ func TestGetNodeID(t *testing.T) {
 	})
 }
 
-func TestGetNodeIDByName(t *testing.T) {
+func TestGetNodeIDFromCRD(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 		assert.Nil(t, err)
@@ -157,7 +166,7 @@ func TestGetNodeIDByName(t *testing.T) {
 
 		assert.Nil(t, k8sClient.Create(testCtx, node))
 
-		nodeID, err := GetNodeIDByName(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
+		nodeID, err := GetNodeIDFromCRD(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
 		assert.Equal(t, annotationValue, nodeID)
 		assert.Nil(t, err)
 	})
@@ -168,7 +177,38 @@ func TestGetNodeIDByName(t *testing.T) {
 
 		featureConf := fc.NewFeatureConfig()
 
-		_, err = GetNodeIDByName(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
+		_, err = GetNodeIDFromCRD(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
+		assert.NotNil(t, err)
+	})
+}
+
+func TestGetNodeIDFromK8s(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+		assert.Nil(t, err)
+
+		featureConf := fc.NewFeatureConfig()
+		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
+		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
+
+		node := testNode.DeepCopy()
+		node.Annotations[annotationKey] = annotationValue
+		node.SetLabels(map[string]string{"app": "baremetal-csi"})
+
+		assert.Nil(t, k8sClient.Create(testCtx, node))
+
+		nodeID, err := GetNodeIDFromK8s(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
+		assert.Equal(t, annotationValue, nodeID)
+		assert.Nil(t, err)
+	})
+
+	t.Run("Node is not exist", func(t *testing.T) {
+		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+		assert.Nil(t, err)
+
+		featureConf := fc.NewFeatureConfig()
+
+		_, err = GetNodeIDFromK8s(k8sClient, nodeName, annotationKey, "app=baremetal-csi", featureConf)
 		assert.NotNil(t, err)
 	})
 }
