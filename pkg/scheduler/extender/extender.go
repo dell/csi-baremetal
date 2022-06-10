@@ -437,9 +437,10 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 }
 
 func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) (nodeNames []string) {
+	nodeNames = []string{}
 	for _, node := range nodes {
 		n := node
-		nodeID, err := annotations.GetNodeID(n, e.annotationKey, e.nodeSelector, e.featureChecker)
+		nodeID, err := annotations.GetNodeID(&n, e.annotationKey, e.nodeSelector, e.featureChecker)
 		if err != nil {
 			e.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
 			continue
