@@ -405,6 +405,7 @@ func (bmc *Controller) reconcileForCSIBMNode(bmNode *nodecrd.Node) (ctrl.Result,
 			bmc.cleanNodeFromCache(bmNode.Name, k8sNodeName)
 		} else {
 			bmc.disableForNode(k8sNode.Name)
+			bmc.cache.remove(bmNode.Name, k8sNodeName)
 			if err := bmc.removeLabelsAndAnnotation(k8sNode); err != nil {
 				ll.Errorf("Unable to remove annotations or labels from node %s: %v", k8sNode.Name, err)
 				bmc.enableForNode(k8sNode.Name)
