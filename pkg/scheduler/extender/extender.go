@@ -54,12 +54,11 @@ type Extender struct {
 	k8sClient *k8s.KubeClient
 	k8sCache  *k8s.KubeCache
 	// namespace in which Extender will be search Available Capacity
-	namespace      string
-	provisioner    string
-	featureChecker fc.FeatureChecker
-	annotation     annotation.NodeAnnotation
-	annotationKey  string
-	nodeSelector   string
+	namespace     string
+	provisioner   string
+	annotation    annotation.NodeAnnotation
+	annotationKey string
+	nodeSelector  string
 	sync.Mutex
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
@@ -70,8 +69,8 @@ func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey, nodeselector string) (*Extender, error) {
 	annotationSrv := annotation.New(
 		kubeClient,
-		featureConf,
 		logger,
+		annotation.WithFeatureConfig(featureConf),
 		annotation.WithRetryDelay(3*time.Second),
 		annotation.WithRetryNumber(20),
 	)

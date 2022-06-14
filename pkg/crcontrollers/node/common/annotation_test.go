@@ -50,8 +50,8 @@ func TestObtainNodeIDWithRetries(t *testing.T) {
 		assert.Nil(t, err)
 		annotationSrv := New(
 			k8sClient,
-			fc.NewFeatureConfig(),
 			testLogger,
+			WithFeatureConfig(fc.NewFeatureConfig()),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -68,8 +68,8 @@ func TestObtainNodeIDWithRetries(t *testing.T) {
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -91,8 +91,8 @@ func TestGetNodeID(t *testing.T) {
 		assert.Nil(t, err)
 		annotationSrv := New(
 			k8sClient,
-			fc.NewFeatureConfig(),
 			testLogger,
+			WithFeatureConfig(fc.NewFeatureConfig()),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -109,8 +109,8 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -131,8 +131,8 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -154,8 +154,8 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -177,8 +177,8 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -197,8 +197,8 @@ func TestGetNodeID(t *testing.T) {
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -221,8 +221,8 @@ func TestGetNodeIDFromCRD(t *testing.T) {
 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -243,8 +243,8 @@ func TestGetNodeIDFromCRD(t *testing.T) {
 		assert.Nil(t, err)
 		annotationSrv := New(
 			k8sClient,
-			fc.NewFeatureConfig(),
 			testLogger,
+			WithFeatureConfig(fc.NewFeatureConfig()),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -265,8 +265,8 @@ func TestGetNodeIDFromK8s(t *testing.T) {
 
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
@@ -288,8 +288,8 @@ func TestGetNodeIDFromK8s(t *testing.T) {
 		featureConf := fc.NewFeatureConfig()
 		annotationSrv := New(
 			k8sClient,
-			featureConf,
 			testLogger,
+			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)

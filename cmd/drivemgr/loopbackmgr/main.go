@@ -68,8 +68,8 @@ func main() {
 	}
 	annotationSrv := annotation.New(
 		k8sClient,
-		featureConf,
 		logger,
+		annotation.WithFeatureConfig(featureConf),
 		annotation.WithRetryDelay(3*time.Second),
 		annotation.WithRetryNumber(20),
 	)

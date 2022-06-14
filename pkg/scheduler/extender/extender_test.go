@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -45,7 +46,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 // todo review all tests. some might not be relevant
@@ -660,11 +661,18 @@ func setup(t *testing.T) *Extender {
 	featureConf := fc.NewFeatureConfig()
 	kubeClient := k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs)
 	kubeCache := k8s.NewKubeCache(k, testLogger)
+	annotationSrv := annotation.New(
+		k,
+		testLogger,
+		annotation.WithFeatureConfig(featureConf),
+		annotation.WithRetryDelay(1*time.Second),
+		annotation.WithRetryNumber(1),
+	)
 	return &Extender{
 		k8sClient:              kubeClient,
 		k8sCache:               kubeCache,
-		featureChecker:         featureConf,
 		namespace:              testNs,
+		annotation:             annotationSrv,
 		provisioner:            testProvisioner,
 		logger:                 testLogger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
@@ -685,14 +693,14 @@ func Test_prepareListOfNodes(t *testing.T) {
 					ObjectMeta: metaV1.ObjectMeta{
 						UID:         types.UID("1111-2222"),
 						Name:        "node-1",
-						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+						Annotations: map[string]string{annotation.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
 					},
 				},
 				{
 					ObjectMeta: metaV1.ObjectMeta{
 						UID:         types.UID(""),
 						Name:        "node-1",
-						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+						Annotations: map[string]string{annotation.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
 					},
 				},
 			},
@@ -705,14 +713,14 @@ func Test_prepareListOfNodes(t *testing.T) {
 					ObjectMeta: metaV1.ObjectMeta{
 						UID:         types.UID("1111-2222"),
 						Name:        "node-1",
-						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+						Annotations: map[string]string{annotation.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
 					},
 				},
 				{
 					ObjectMeta: metaV1.ObjectMeta{
 						UID:         types.UID("1111-3333"),
 						Name:        "node-1",
-						Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
+						Annotations: map[string]string{annotation.DeafultNodeIDAnnotationKey: "aaaa-bbbb"},
 					},
 				},
 			},
@@ -738,7 +746,7 @@ func Test_Score(t *testing.T) {
 			ObjectMeta: metaV1.ObjectMeta{
 				UID:         types.UID(uid),
 				Name:        "node-1",
-				Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: val},
+				Annotations: map[string]string{annotation.DeafultNodeIDAnnotationKey: val},
 				Labels:      map[string]string{"app": "baremetal-csi"},
 			},
 		},
@@ -757,7 +765,7 @@ func Test_getNodeId(t *testing.T) {
 			ObjectMeta: metaV1.ObjectMeta{
 				UID:         types.UID(uid),
 				Name:        "node-1",
-				Annotations: map[string]string{annotations.DeafultNodeIDAnnotationKey: val},
+				Annotations: map[string]string{annotation.DeafultNodeIDAnnotationKey: val},
 				Labels:      map[string]string{"app": "baremetal-csi"},
 			},
 		}
@@ -766,20 +774,19 @@ func Test_getNodeId(t *testing.T) {
 	)
 
 	featureConf := fc.NewFeatureConfig()
-
-	res, err := annotations.GetNodeID(&node, annotationKey, "", featureConf)
+	res, err := e.annotation.GetNodeID(&node, annotationKey, "")
 	assert.Equal(t, uid, res)
 	assert.Nil(t, err)
 
 	featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
-	e.featureChecker = featureConf
+	e.annotation.SetFeatureConfig(featureConf)
 
-	res, err = annotations.GetNodeID(&node, annotationKey, "app=baremetal-csi", featureConf)
+	res, err = e.annotation.GetNodeID(&node, annotationKey, "app=baremetal-csi")
 	assert.Equal(t, val, res)
 	assert.Nil(t, err)
 
 	node.Annotations = nil
-	res, err = annotations.GetNodeID(&node, annotationKey, "app=baremetal-csi", featureConf)
+	res, err = e.annotation.GetNodeID(&node, annotationKey, "app=baremetal-csi")
 	assert.Equal(t, "", res)
 	assert.NotNil(t, err)
 }

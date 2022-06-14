@@ -44,19 +44,28 @@ type NodeAnnotation interface {
 	GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error)
 	GetNodeIDFromK8s(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
 	GetNodeIDFromCRD(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
+	SetFeatureConfig(featureConf featureconfig.FeatureChecker)
 }
 
 // New return NodeAnnotation service
-func New(client k8sClient.Client, featureConf featureconfig.FeatureChecker, log *logrus.Logger, options ...func(*service)) NodeAnnotation {
-	srv := &service{
-		client:        client,
-		featureConfig: featureConf,
-		log:           log,
-	}
+func New(client k8sClient.Client, log *logrus.Logger, options ...func(*service)) NodeAnnotation {
+	srv := &service{client: client, log: log}
 	for _, o := range options {
 		o(srv)
 	}
 	return srv
+}
+
+// SetFeatureConfig set feature config for service
+func (srv *service) SetFeatureConfig(featureConf featureconfig.FeatureChecker) {
+	srv.featureConfig = featureConf
+}
+
+// WithFeatureConfig set feature config for service
+func WithFeatureConfig(featureConf featureconfig.FeatureChecker) func(*service) {
+	return func(s *service) {
+		s.featureConfig = featureConf
+	}
 }
 
 // WithRetryNumber declare number of retries for ObtainNodeID
