@@ -38,6 +38,7 @@ type service struct {
 	numberOfRetry     int
 }
 
+// NodeAnnotation represent annotation service
 type NodeAnnotation interface {
 	ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error)
 	GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error)
@@ -45,6 +46,7 @@ type NodeAnnotation interface {
 	GetNodeIDFromCRD(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
 }
 
+// New return NodeAnnotation service
 func New(client k8sClient.Client, featureConf featureconfig.FeatureChecker, log *logrus.Logger, options ...func(*service)) NodeAnnotation {
 	srv := &service{
 		client:        client,
@@ -57,12 +59,14 @@ func New(client k8sClient.Client, featureConf featureconfig.FeatureChecker, log 
 	return srv
 }
 
+// WithRetryNumber declare number of retries for ObtainNodeID
 func WithRetryNumber(count int) func(*service) {
 	return func(s *service) {
 		s.numberOfRetry = count
 	}
 }
 
+// WithRetryDelay declare delay between retries for ObtainNodeID
 func WithRetryDelay(delay time.Duration) func(*service) {
 	return func(s *service) {
 		s.delayBetweenRetry = delay
