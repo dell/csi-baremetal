@@ -30,6 +30,8 @@ import (
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
@@ -42,14 +44,13 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/metrics"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations
 type VolumeOperations interface {
 	CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error)
 	DeleteVolume(ctx context.Context, volumeID string) error
-	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string)
+	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) error
 	WaitStatus(ctx context.Context, volumeID string, statuses ...string) error
 	ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) error
 	UpdateCRsAfterVolumeExpansion(ctx context.Context, volID string, requiredBytes int64)
@@ -241,7 +242,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	// decrease AC size
 	ac.Spec.Size -= allocatedBytes
-	if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
+	if err = vo.k8sClient.UpdateCR(ctx, ac); err != nil {
 		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 	}
 	// release reservation
@@ -277,7 +278,7 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 			log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
 			volumeCR.Spec.CSIStatus = apiV1.Failed
 			// todo don't ignore error here
-			_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
+			_ = vo.k8sClient.UpdateCR(ctx, volumeCR)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
 		return &volumeCR.Spec, nil
@@ -391,7 +392,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 // UpdateCRsAfterVolumeDeletion should be considered as a second step in DeleteVolume,
 // remove Volume CR and if volume was in LogicalVolumeGroup SC - update corresponding AC CR
 // does not return anything because that method does not change real drive on the node
-func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
+func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) error {
 	defer vo.metrics.EvaluateDurationForMethod("UpdateCRsAfterVolumeDeletion")()
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "UpdateCRsAfterVolumeDeletion",
@@ -408,32 +409,26 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	namespace, err := vo.cache.Get(volumeID)
 	if err != nil {
 		ll.Errorf("Unable to get volume namespace: %v", err)
-		return
+		// volume CR was removed, no need to return error
+		return nil
 	}
 
 	if err = vo.k8sClient.ReadCR(ctx, volumeID, namespace, &volumeCR); err != nil {
-		if !k8sError.IsNotFound(err) {
-			ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
+		if k8sError.IsNotFound(err) {
+			// volume CR was removed, no need to return error
+			return nil
 		}
-		return
+		return fmt.Errorf("unable to read volume CR %s: %w. Volume CR will not be removed", volumeID, err)
 	}
-
-	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
-		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
-	}
-
-	vo.cache.Delete(volumeID)
 
 	// Update AC and LVG after volume deletion
 	acCR, err := vo.crHelper.GetACByLocation(volumeCR.Spec.Location)
 	if err != nil {
-		ll.Errorf("AC not found for Volume %s by location %s: %v", volumeCR.Name, volumeCR.Spec.Location, err)
-		return
+		return fmt.Errorf("AC not found for Volume %s by location %s: %w", volumeCR.Name, volumeCR.Spec.Location, err)
 	}
 	driveCR, lvgCR, err := vo.crHelper.GetDriveCRAndLVGCRByVolume(&volumeCR)
 	if err != nil {
-		ll.Errorf("Unable to read Drive CR for Volume %s : %v", volumeCR.Name, err)
-		return
+		return fmt.Errorf("unable to read Drive CR for Volume %s : %w", volumeCR.Name, err)
 	}
 
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
@@ -462,12 +457,19 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	}
 
 	if err = vo.DoAction(ctx, ll, acCR, acAction, "AC"); err != nil {
-		return
+		return fmt.Errorf("unable to update AC CR %s: %w", acCR.Name, err)
 	}
 
 	if err = vo.DoAction(ctx, ll, lvgCR, lvgAction, "LVG"); err != nil {
-		return
+		return fmt.Errorf("unable to update LVG CR %s: %w", lvgCR.Name, err)
 	}
+
+	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
+		return fmt.Errorf("unable to delete volume CR %s: %w", volumeID, err)
+	}
+
+	vo.cache.Delete(volumeID)
+	return nil
 }
 
 // DoAction do UpdateCR or DeleteCR with CR
@@ -568,7 +570,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 				fmt.Sprintf("Not enough capacity to expand volume: requested - %d, available - %d", requiredBytes, capacity.Spec.Size))
 		}
 		capacity.Spec.Size -= acSize
-		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, capacity, 5); err != nil {
+		if err := vo.k8sClient.UpdateCR(ctx, capacity); err != nil {
 			ll.Errorf("Failed to update AC, error: %v", err)
 			return status.Error(codes.Internal, "Unable to reserve AC")
 		}
@@ -581,7 +583,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 		volume.Spec.CSIStatus = apiV1.Resizing
 		volume.Spec.Size = requiredBytes
 
-		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+		if err := vo.k8sClient.UpdateCR(ctx, volume); err != nil {
 			ll.Errorf("Failed to update volume, error: %v", err)
 			return status.Error(codes.Internal, "Unable to update volume")
 		}
@@ -628,7 +630,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeExpansion(ctx context.Contex
 		} else {
 			acSize := requiredBytes - volume.Spec.Size
 			ac.Spec.Size += acSize
-			if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
+			if err = vo.k8sClient.UpdateCR(ctx, ac); err != nil {
 				ll.Errorf("Failed to update AC: %v", err)
 			}
 		}

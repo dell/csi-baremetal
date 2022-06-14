@@ -204,6 +204,10 @@ function setup_bashrc() {
     fi
 
     chmod a+x $USER_HOME_DIR/.bashrc
+    
+    echo "export PATH=$PATH" >> $USER_HOME_DIR/.bashrc
+    echo "source /etc/bash_completion.d/git.sh" >> $USER_HOME_DIR/.bashrc
+    kubectl completion bash >/etc/bash_completion.d/kubectl 
 
     return $?
 }

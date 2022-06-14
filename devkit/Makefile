@@ -33,7 +33,7 @@ PROTOC_GEN_GO_VER ?= v1.3.2
 KUBECTL_VERSION ?= 1.23.4
 HELM_VERSION ?= 3.8.1
 KIND_BUILDER ?= golang:1.16
-
+PYTHON_VERSION ?= 3.6.15
 
 #
 # docker arguments
@@ -49,6 +49,7 @@ DOCKER_BUILD_ARGS = --tag ${IMAGE_REPO_TAG} \
               --build-arg arg_kubectl_ver=${KUBECTL_VERSION} \
 	      --build-arg arg_helm_ver=${HELM_VERSION} \
 	      --build-arg KIND_BUILDER=${KIND_BUILDER} \
+		  --build-arg arg_python_ver=${PYTHON_VERSION} \
               ${PWD}
 
 ifdef CACHE_IMAGE

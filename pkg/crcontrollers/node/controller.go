@@ -247,6 +247,8 @@ func (bmc *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			ll.Errorf("Unable to read node object: %v", err)
 			return ctrl.Result{Requeue: true}, err
 		}
+		// k8sNode not found, i.e. deleted, need to clean k8sNode from cache if mapped bmNode also deleted
+		bmc.cleanDeletedK8sNodeFromCacheIfNeeded(req.Name)
 	}
 
 	// try to read Node
@@ -263,6 +265,21 @@ func (bmc *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	ll.Warnf("unable to detect for which object (%s) that reconcile is. The object may have been deleted", req.String())
 	return ctrl.Result{}, nil
+}
+
+// Clean deleted k8sNode from cache if its cache entry exists and mapped bmNode has also been deleted
+func (bmc *Controller) cleanDeletedK8sNodeFromCacheIfNeeded(k8sNodeName string) {
+	ll := bmc.log.WithFields(logrus.Fields{
+		"method": "cleanDeletedK8sNodeFromCacheIfNeeded",
+		"name":   k8sNodeName,
+	})
+	if bmNodeName, bmNodeFromCache := bmc.cache.getCSIBMNodeName(k8sNodeName); bmNodeFromCache {
+		err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, "", &nodecrd.Node{})
+		if err != nil && k8sError.IsNotFound(err) {
+			ll.Infof("Both k8sNode %s and bmNode %s removed, need clean from cache", k8sNodeName, bmNodeName)
+			bmc.cleanNodeFromCache(bmNodeName, k8sNodeName)
+		}
+	}
 }
 
 func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, error) {
@@ -448,7 +465,13 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 	// check for annotations
 	val, ok := k8sNode.GetAnnotations()[bmc.annotationKey]
 	if bmc.externalAnnotation && !ok {
-		ll.Errorf("external annotation %s is not accessible on node %s", bmc.annotationKey, k8sNode)
+		ll.Errorf(
+			"external annotation %s is not accessible on node:%s labels:%+v annotations:%+v",
+			bmc.annotationKey,
+			k8sNode.Name,
+			k8sNode.GetLabels(),
+			k8sNode.GetAnnotations(),
+		)
 	}
 	if !bmc.externalAnnotation && ok {
 		if val == nodeUUID {
@@ -461,7 +484,13 @@ func (bmc *Controller) updateNodeLabelsAndAnnotation(k8sNode *coreV1.Node, nodeU
 		}
 	}
 	if !bmc.externalAnnotation && !ok {
-		ll.Errorf("annotation %s is not accessible on node %s", bmc.annotationKey, k8sNode)
+		ll.Errorf(
+			"annotation %s is not accessible on node:%s labels:%+v annotations:%+v",
+			bmc.annotationKey,
+			k8sNode.Name,
+			k8sNode.GetLabels(),
+			k8sNode.GetAnnotations(),
+		)
 		if k8sNode.ObjectMeta.Annotations == nil {
 			k8sNode.ObjectMeta.Annotations = make(map[string]string, 1)
 		}

@@ -18,6 +18,8 @@ package utilwrappers
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,6 +27,7 @@ import (
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
@@ -155,6 +158,25 @@ func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
 	return nil
 }
 
+// isMounted judge if device like /dev/sda is mounted or not
+func isMounted(device string) bool {
+	// remove the prefix /dev as the mountinfo only contains suffix.
+	device = strings.Trim(device, "/dev")
+	procMounts, err := util.ConsistentRead("/proc/self/mountinfo", 5, time.Millisecond)
+	if err != nil || len(procMounts) == 0 {
+		return false
+	}
+
+	// parse /proc/mounts content and search path entry
+	for _, line := range strings.Split(string(procMounts), "\n") {
+		if strings.Contains(line, device) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // SearchPartName search (with retries) partition with UUID partUUID on device and returns partition name
 // e.g. "1" for /dev/sda1, "p1n1" for /dev/loopbackp1n1
 func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (string, error) {
@@ -175,9 +197,15 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 		// sync partition table
 		err = d.SyncPartitionTable(device)
 		if err != nil {
-			// log and ignore error
-			ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
-			return "", err
+			if exitError, ok := err.(*exec.ExitError); ok &&
+				strings.Contains(string(exitError.Stderr), "Device or resource busy") &&
+				isMounted(device) {
+				ll.Errorf("Unable to sync partition table for device %s: %v due to device is mounted already", device, err)
+			} else {
+				// log and ignore error
+				ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
+				return "", err
+			}
 		}
 		// sleep first to avoid issues with lsblk caching
 		time.Sleep(SleepBetweenRetriesToObtainPartName)
