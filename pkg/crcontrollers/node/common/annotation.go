@@ -30,12 +30,44 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 )
 
-const (
-	// NumberOfRetries to obtain Node ID
-	NumberOfRetries = 20
-	// DelayBetweenRetries to obtain Node ID
-	DelayBetweenRetries = 3
-)
+type service struct {
+	client            k8sClient.Client
+	log               *logrus.Logger
+	featureConfig     featureconfig.FeatureChecker
+	delayBetweenRetry time.Duration
+	numberOfRetry     int
+}
+
+type NodeAnnotation interface {
+	ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error)
+	GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error)
+	GetNodeIDFromK8s(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
+	GetNodeIDFromCRD(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
+}
+
+func New(client k8sClient.Client, featureConf featureconfig.FeatureChecker, log *logrus.Logger, options ...func(*service)) NodeAnnotation {
+	srv := &service{
+		client:        client,
+		featureConfig: featureConf,
+		log:           log,
+	}
+	for _, o := range options {
+		o(srv)
+	}
+	return srv
+}
+
+func WithRetryNumber(count int) func(*service) {
+	return func(s *service) {
+		s.numberOfRetry = count
+	}
+}
+
+func WithRetryDelay(delay time.Duration) func(*service) {
+	return func(s *service) {
+		s.delayBetweenRetry = delay
+	}
+}
 
 // A node interface with common methods
 type abstractNode interface {
@@ -43,50 +75,45 @@ type abstractNode interface {
 	GetAnnotations() map[string]string
 }
 
-// An abstract interface of k8s client
-// type k8sClient interface {
-// 	Get(context.Context, string, string) error
-// }
-
-// ObtainNodeIDWithRetries obtains Node ID with retries
-func ObtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.FeatureChecker, nodeName string,
-	nodeIDAnnotation string, logger *logrus.Logger, retries int, delay time.Duration) (nodeID string, err error) {
+// ObtainNodeID obtains Node ID with retries
+func (srv *service) ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error) {
+	ctx := context.Background()
 	// try to obtain node ID
-	for i := 0; i < retries; i++ {
-		logger.Info("Obtaining node ID...")
-		if nodeID, err = GetNodeIDFromCRD(client, nodeName, nodeIDAnnotation, "", featureConf); err == nil {
-			logger.Infof("Node ID is %s", nodeID)
+	for i := 0; i < srv.numberOfRetry; i++ {
+		srv.log.Info("Obtaining node ID...")
+		if nodeID, err = srv.GetNodeIDFromCRD(ctx, nodeName, nodeIDAnnotation, ""); err == nil {
+			srv.log.Infof("Node ID is %s", nodeID)
 			return nodeID, nil
 		}
-		logger.Warningf("Unable to get node ID name:%s annotation:%s due to %v, sleep and retry...", nodeName, nodeIDAnnotation, err)
-		time.Sleep(delay * time.Second)
+		srv.log.Warningf("Unable to get node ID name:%s annotation:%s due to %v, sleep and retry...", nodeName, nodeIDAnnotation, err)
+		time.Sleep(srv.delayBetweenRetry)
 	}
 	// return empty node ID and error
-	return "", fmt.Errorf("number of retries %d exceeded", retries)
+	return "", fmt.Errorf("number of retries %d exceeded", srv.numberOfRetry)
 }
 
 // GetNodeIDFromCRD return special id for node from nodecrd.Node
-func GetNodeIDFromCRD(client k8sClient.Client, nodeName, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func (srv *service) GetNodeIDFromCRD(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error) {
 	bmNode := &nodecrd.Node{}
-	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, bmNode); err != nil {
+	if err := srv.client.Get(ctx, k8sClient.ObjectKeyFromObject(bmNode), bmNode); err != nil {
 		return "", err
 	}
-	return GetNodeID(bmNode, annotationKey, nodeSelector, featureChecker)
+	return srv.GetNodeID(bmNode, annotationKey, nodeSelector)
 }
 
 // GetNodeIDFromK8s return special id for k8sNode with nodeName
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func GetNodeIDFromK8s(client k8sClient.Client, nodeName, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func (srv *service) GetNodeIDFromK8s(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error) {
 	k8sNode := &corev1.Node{}
-	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, k8sNode); err != nil {
+	if err := srv.client.Get(ctx, k8sClient.ObjectKey{Name: nodeName}, k8sNode); err != nil {
 		return "", err
 	}
-	return GetNodeID(k8sNode, annotationKey, nodeSelector, featureChecker)
+	return srv.GetNodeID(k8sNode, annotationKey, nodeSelector)
 }
 
 // GetNodeID return special id for node either from nodecrd.Node and corev1.Node
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func GetNodeID(node interface{}, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func (srv *service) GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error) {
 	nodeName, id := "", ""
 	switch v := node.(type) {
 	case *corev1.Node:
@@ -96,14 +123,14 @@ func GetNodeID(node interface{}, annotationKey, nodeSelector string, featureChec
 	default:
 		return "", fmt.Errorf("unknown type of node:%T", node)
 	}
-	if featureChecker.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
+	if srv.featureConfig.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
 		if nodeSelector != "" {
 			key, value := labelStringToKV(nodeSelector)
 			if val, ok := node.(abstractNode).GetLabels()[key]; !ok || val != value {
 				return "", nil
 			}
 		}
-		akey, err := chooseAnnotationKey(annotationKey, featureChecker)
+		akey, err := srv.chooseAnnotationKey(annotationKey)
 		if err != nil {
 			return "", err
 		}
@@ -119,8 +146,8 @@ func GetNodeID(node interface{}, annotationKey, nodeSelector string, featureChec
 	return id, nil
 }
 
-func chooseAnnotationKey(annotationKey string, featureChecker featureconfig.FeatureChecker) (string, error) {
-	if featureChecker.IsEnabled(featureconfig.FeatureExternalAnnotationForNode) {
+func (srv *service) chooseAnnotationKey(annotationKey string) (string, error) {
+	if srv.featureConfig.IsEnabled(featureconfig.FeatureExternalAnnotationForNode) {
 		if annotationKey == "" {
 			return "", fmt.Errorf("%s is set as True but annotation keys is empty", featureconfig.FeatureExternalAnnotationForNode)
 		}

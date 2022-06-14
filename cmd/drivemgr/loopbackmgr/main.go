@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -30,7 +31,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/rpc"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/drivemgr/loopbackmgr"
 )
 
@@ -61,14 +62,19 @@ func main() {
 		logger.Warnf("Can't set logger's output to %s. Using stdout instead.\n", *logPath)
 	}
 
-	k8SClient, err := k8s.GetK8SClient()
+	k8sClient, err := k8s.GetK8SClient()
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
-
+	annotationSrv := annotation.New(
+		k8sClient,
+		featureConf,
+		logger,
+		annotation.WithRetryDelay(3*time.Second),
+		annotation.WithRetryNumber(20),
+	)
 	// we need to obtain node ID first before proceeding with the initialization
-	nodeID, err := annotations.ObtainNodeIDWithRetries(k8SClient, featureConf, nodeName, *nodeIDAnnotation,
-		logger, annotations.NumberOfRetries, annotations.DelayBetweenRetries)
+	nodeID, err := annotationSrv.ObtainNodeID(nodeName, *nodeIDAnnotation)
 	if err != nil {
 		logger.Fatalf("Unable to obtain node ID: %v", err)
 	}
