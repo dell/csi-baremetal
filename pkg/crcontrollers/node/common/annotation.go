@@ -23,10 +23,8 @@ import (
 	"time"
 
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
-	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -45,8 +43,13 @@ type abstractNode interface {
 	GetAnnotations() map[string]string
 }
 
+// An abstract interface of k8s client
+// type k8sClient interface {
+// 	Get(context.Context, string, string) error
+// }
+
 // ObtainNodeIDWithRetries obtains Node ID with retries
-func ObtainNodeIDWithRetries(client *k8s.KubeClient, featureConf featureconfig.FeatureChecker, nodeName string,
+func ObtainNodeIDWithRetries(client k8sClient.Client, featureConf featureconfig.FeatureChecker, nodeName string,
 	nodeIDAnnotation string, logger *logrus.Logger, retries int, delay time.Duration) (nodeID string, err error) {
 	// try to obtain node ID
 	for i := 0; i < retries; i++ {
@@ -55,7 +58,7 @@ func ObtainNodeIDWithRetries(client *k8s.KubeClient, featureConf featureconfig.F
 			logger.Infof("Node ID is %s", nodeID)
 			return nodeID, nil
 		}
-		logger.Warningf("Unable to get node ID due to %v, sleep and retry...", err)
+		logger.Warningf("Unable to get node ID name:%s annotation:%s due to %v, sleep and retry...", nodeName, nodeIDAnnotation, err)
 		time.Sleep(delay * time.Second)
 	}
 	// return empty node ID and error
@@ -63,10 +66,9 @@ func ObtainNodeIDWithRetries(client *k8s.KubeClient, featureConf featureconfig.F
 }
 
 // GetNodeIDFromCRD return special id for node from nodecrd.Node
-func GetNodeIDFromCRD(client *k8s.KubeClient, nodeName, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
+func GetNodeIDFromCRD(client k8sClient.Client, nodeName, annotationKey, nodeSelector string, featureChecker featureconfig.FeatureChecker) (string, error) {
 	bmNode := &nodecrd.Node{}
-	err := client.ReadCR(context.Background(), nodeName, "", bmNode)
-	if err != nil && !k8sError.IsNotFound(err) {
+	if err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, bmNode); err != nil {
 		return "", err
 	}
 	return GetNodeID(bmNode, annotationKey, nodeSelector, featureChecker)
