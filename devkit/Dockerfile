@@ -19,6 +19,7 @@ ARG           arg_kubectl_ver
 ARG           arg_helm_ver
 ARG           arg_protobuf_ver
 ARG           arg_protoc_gen_go_ver
+ARG           arg_python_ver
 
 ENV           GOPATH="/usr/share/go"
 ENV           GOROOT="/usr/local/go"
@@ -48,7 +49,9 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               MozillaFirefox \
               libasound2 \
               libgbm1 \
-              libxshmfence1
+              libxshmfence1 \
+              python3-devel-${arg_python_ver} \
+              bash-completion
 # install go
 RUN           wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
@@ -75,6 +78,8 @@ RUN           curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar
 &&            mv linux-amd64/helm /usr/local/bin/helm \
 &&            rm helm-v${arg_helm_ver}-linux-amd64.tar.gz \
 &&            rm -rf linux-amd64
+
+RUN           ln --symbolic /usr/bin/python3 /usr/bin/python
 
 # copy kind from builder
 COPY          --from=builder /kind/kind /usr/local/bin
