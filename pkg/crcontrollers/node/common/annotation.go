@@ -40,7 +40,7 @@ type service struct {
 
 // NodeAnnotation represent annotation service
 type NodeAnnotation interface {
-	ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error)
+	ObtainNodeID(nodeName string) (nodeID string, err error)
 	GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error)
 	SetFeatureConfig(featureConf featureconfig.FeatureChecker)
 }
@@ -87,7 +87,7 @@ func WithRetryDelay(delay time.Duration) func(*service) {
 }
 
 // ObtainNodeID obtains Node ID with retries
-func (srv *service) ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error) {
+func (srv *service) ObtainNodeID(nodeName string) (nodeID string, err error) {
 	ctx := context.Background()
 	retryCount := 0
 	for {
@@ -104,13 +104,14 @@ func (srv *service) ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID stri
 				nodeID = node.Spec.UUID
 			}
 		}
-		if nodeID != "" || retryCount >= srv.numberOfRetry {
+		if nodeID != "" {
+			return nodeID, nil
+		}
+		if retryCount > srv.numberOfRetry {
 			break
 		}
-		srv.log.Warningf("Unable to get node ID name:%s annotation:%s due to %v, sleep:%s and retry:%d...",
+		srv.log.Warningf("Unable to get node ID name:%s from bmnodes, sleep:%s and retry:%d...",
 			nodeName,
-			nodeIDAnnotation,
-			err,
 			srv.delayBetweenRetry,
 			retryCount)
 		time.Sleep(srv.delayBetweenRetry)

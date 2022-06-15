@@ -50,6 +50,8 @@ var (
 
 func main() {
 	nodeName := os.Getenv("KUBE_NODE_NAME")
+	// Depricated
+	_ = *nodeIDAnnotation
 
 	flag.Parse()
 
@@ -74,7 +76,7 @@ func main() {
 		annotation.WithRetryNumber(20),
 	)
 	// we need to obtain node ID first before proceeding with the initialization
-	nodeID, err := annotationSrv.ObtainNodeID(nodeName, *nodeIDAnnotation)
+	nodeID, err := annotationSrv.ObtainNodeID(nodeName)
 	if err != nil {
 		logger.Fatalf("Unable to obtain node ID: %v", err)
 	}

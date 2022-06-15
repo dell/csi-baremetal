@@ -11,6 +11,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -32,6 +33,10 @@ var (
 		},
 	}
 	bmNode = nodecrd.Node{
+		Spec: api.Node{
+			UUID:      nodeUID,
+			Addresses: map[string]string{"Hostname": nodeName},
+		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        nodeName,
 			UID:         types.UID(nodeUID),
@@ -55,7 +60,7 @@ func TestObtainNodeIDWithRetries(t *testing.T) {
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
-		nodeID, err := annotationSrv.ObtainNodeID(nodeName, "app=baremetal-csi")
+		nodeID, err := annotationSrv.ObtainNodeID(nodeName)
 		assert.NotNil(t, err)
 		assert.Equal(t, nodeID, "")
 	})
@@ -71,16 +76,16 @@ func TestObtainNodeIDWithRetries(t *testing.T) {
 			testLogger,
 			WithFeatureConfig(featureConf),
 			WithRetryDelay(1*time.Second),
-			WithRetryNumber(1),
+			WithRetryNumber(5),
 		)
 		node := testNode.DeepCopy()
-		node.Annotations[annotationKey] = annotationValue
-		node.SetLabels(map[string]string{"app": "baremetal-csi"})
+		bmnode := bmNode.DeepCopy()
 
 		assert.Nil(t, k8sClient.Create(testCtx, node))
+		assert.Nil(t, k8sClient.Create(testCtx, bmnode))
 
-		nodeID, err := annotationSrv.ObtainNodeID(nodeName, annotationKey)
-		assert.Equal(t, annotationValue, nodeID)
+		nodeID, err := annotationSrv.ObtainNodeID(nodeName)
+		assert.Equal(t, nodeUID, nodeID)
 		assert.Nil(t, err)
 	})
 }
