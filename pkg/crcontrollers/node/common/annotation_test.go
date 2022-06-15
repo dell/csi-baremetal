@@ -212,47 +212,47 @@ func TestGetNodeID(t *testing.T) {
 	})
 }
 
-func TestGetNodeIDFromCRD(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
-		assert.Nil(t, err)
-		featureConf := fc.NewFeatureConfig()
-		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
-		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
-		annotationSrv := New(
-			k8sClient,
-			testLogger,
-			WithFeatureConfig(featureConf),
-			WithRetryDelay(1*time.Second),
-			WithRetryNumber(1),
-		)
+// func TestGetNodeIDFromCRD(t *testing.T) {
+// 	t.Run("Success", func(t *testing.T) {
+// 		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+// 		assert.Nil(t, err)
+// 		featureConf := fc.NewFeatureConfig()
+// 		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
+// 		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
+// 		annotationSrv := New(
+// 			k8sClient,
+// 			testLogger,
+// 			WithFeatureConfig(featureConf),
+// 			WithRetryDelay(1*time.Second),
+// 			WithRetryNumber(1),
+// 		)
 
-		node := bmNode.DeepCopy()
-		node.Annotations[annotationKey] = annotationValue
-		node.SetLabels(map[string]string{"app": "baremetal-csi"})
+// 		node := bmNode.DeepCopy()
+// 		node.Annotations[annotationKey] = annotationValue
+// 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		assert.Nil(t, k8sClient.Create(testCtx, node))
+// 		assert.Nil(t, k8sClient.Create(testCtx, node))
 
-		nodeID, err := annotationSrv.GetNodeIDFromCRD(testCtx, nodeName, annotationKey, "app=baremetal-csi")
-		assert.Equal(t, annotationValue, nodeID)
-		assert.Nil(t, err)
-	})
+// 		nodeID, err := annotationSrv.GetNodeIDFromCRD(testCtx, nodeName, annotationKey, "app=baremetal-csi")
+// 		assert.Equal(t, annotationValue, nodeID)
+// 		assert.Nil(t, err)
+// 	})
 
-	t.Run("Node is not exist", func(t *testing.T) {
-		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
-		assert.Nil(t, err)
-		annotationSrv := New(
-			k8sClient,
-			testLogger,
-			WithFeatureConfig(fc.NewFeatureConfig()),
-			WithRetryDelay(1*time.Second),
-			WithRetryNumber(1),
-		)
+// 	t.Run("Node is not exist", func(t *testing.T) {
+// 		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+// 		assert.Nil(t, err)
+// 		annotationSrv := New(
+// 			k8sClient,
+// 			testLogger,
+// 			WithFeatureConfig(fc.NewFeatureConfig()),
+// 			WithRetryDelay(1*time.Second),
+// 			WithRetryNumber(1),
+// 		)
 
-		_, err = annotationSrv.GetNodeIDFromCRD(testCtx, nodeName, annotationKey, "app=baremetal-csi")
-		assert.NotNil(t, err)
-	})
-}
+// 		_, err = annotationSrv.GetNodeIDFromCRD(testCtx, nodeName, annotationKey, "app=baremetal-csi")
+// 		assert.NotNil(t, err)
+// 	})
+// }
 
 func TestGetNodeIDFromK8s(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
