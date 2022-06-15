@@ -146,7 +146,6 @@ func (srv *service) chooseAnnotationKey(annotationKey string) (string, error) {
 		if annotationKey == "" {
 			return "", fmt.Errorf("%s is set as True but annotation keys is empty", featureconfig.FeatureExternalAnnotationForNode)
 		}
-
 		return annotationKey, nil
 	}
 

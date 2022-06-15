@@ -174,6 +174,24 @@ func TestGetNodeID(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
+	t.Run("Annotation is not set, nodeID empty", func(t *testing.T) {
+		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+		assert.Nil(t, err)
+		featureConf := fc.NewFeatureConfig()
+		annotationSrv := New(
+			k8sClient,
+			testLogger,
+			WithRetryDelay(1*time.Second),
+			WithRetryNumber(1),
+		)
+		annotationSrv.SetFeatureConfig(featureConf)
+		node := testNode.DeepCopy()
+		node.UID = ""
+
+		_, err = annotationSrv.GetNodeID(node, "", "")
+		assert.NotNil(t, err)
+	})
+
 	t.Run("Annotation is not set", func(t *testing.T) {
 		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
 		assert.Nil(t, err)
@@ -188,10 +206,9 @@ func TestGetNodeID(t *testing.T) {
 			WithRetryNumber(1),
 		)
 		node := testNode.DeepCopy()
-		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		_, err = annotationSrv.GetNodeID(&testNode, annotationKey, "app=baremetal-csi")
-		assert.Equal(t, nil, err)
+		_, err = annotationSrv.GetNodeID(node, "", "")
+		assert.NotNil(t, err)
 	})
 
 	t.Run("Custom annotation feature is enabled, but annotationKey is empty", func(t *testing.T) {
