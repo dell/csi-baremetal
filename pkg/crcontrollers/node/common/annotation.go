@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,7 +43,6 @@ type service struct {
 type NodeAnnotation interface {
 	ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error)
 	GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error)
-	GetNodeIDFromK8s(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
 	SetFeatureConfig(featureConf featureconfig.FeatureChecker)
 }
 
@@ -90,28 +90,33 @@ func WithRetryDelay(delay time.Duration) func(*service) {
 // ObtainNodeID obtains Node ID with retries
 func (srv *service) ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error) {
 	ctx := context.Background()
-	// try to obtain node ID
-	for i := 0; i < srv.numberOfRetry; i++ {
+	nodes := nodecrd.NodeList{}
+	if err := srv.client.List(ctx, &nodes); err != nil {
+		err = errors.Wrapf(err, "obtain node id for node: %s failed", nodeName)
+		return "", err
+	}
+	retryCount := 0
+	for {
 		srv.log.Info("Obtaining node ID...")
-		if nodeID, err = srv.GetNodeIDFromK8s(ctx, nodeName, nodeIDAnnotation, ""); err == nil {
-			srv.log.Infof("Node ID is %s", nodeID)
-			return nodeID, nil
+		retryCount++
+		for _, node := range nodes.Items {
+			if node.Spec.Addresses["Hostname"] == nodeName {
+				nodeID = node.Spec.UUID
+			}
 		}
-		srv.log.Warningf("Unable to get node ID name:%s annotation:%s due to %v, sleep and retry...", nodeName, nodeIDAnnotation, err)
+		if nodeID != "" || retryCount >= srv.numberOfRetry {
+			break
+		}
+		srv.log.Warningf("Unable to get node ID name:%s annotation:%s due to %v, sleep:%s and retry:%d...",
+			nodeName,
+			nodeIDAnnotation,
+			err,
+			srv.delayBetweenRetry,
+			retryCount)
 		time.Sleep(srv.delayBetweenRetry)
 	}
 	// return empty node ID and error
 	return "", fmt.Errorf("number of retries %d exceeded", srv.numberOfRetry)
-}
-
-// GetNodeIDFromK8s return special id for k8sNode with nodeName
-// depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func (srv *service) GetNodeIDFromK8s(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error) {
-	k8sNode := &corev1.Node{}
-	if err := srv.client.Get(ctx, k8sClient.ObjectKey{Name: nodeName}, k8sNode); err != nil {
-		return "", err
-	}
-	return srv.GetNodeID(k8sNode, annotationKey, nodeSelector)
 }
 
 // GetNodeID return special id for node either from nodecrd.Node and corev1.Node
