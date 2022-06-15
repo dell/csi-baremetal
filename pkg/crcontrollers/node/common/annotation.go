@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,15 +89,16 @@ func WithRetryDelay(delay time.Duration) func(*service) {
 // ObtainNodeID obtains Node ID with retries
 func (srv *service) ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error) {
 	ctx := context.Background()
-	nodes := nodecrd.NodeList{}
-	if err := srv.client.List(ctx, &nodes); err != nil {
-		err = errors.Wrapf(err, "obtain node id for node: %s failed", nodeName)
-		return "", err
-	}
 	retryCount := 0
 	for {
 		srv.log.Info("Obtaining node ID...")
 		retryCount++
+		nodes := nodecrd.NodeList{}
+		if err := srv.client.List(ctx, &nodes); err != nil {
+			srv.log.Errorf("obtain node id for node: %s failed err: %s", nodeName, err)
+			time.Sleep(srv.delayBetweenRetry)
+			continue
+		}
 		for _, node := range nodes.Items {
 			if node.Spec.Addresses["Hostname"] == nodeName {
 				nodeID = node.Spec.UUID
