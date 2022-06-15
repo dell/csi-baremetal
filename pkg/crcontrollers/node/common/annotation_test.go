@@ -60,29 +60,29 @@ func TestObtainNodeIDWithRetries(t *testing.T) {
 		assert.Equal(t, nodeID, "")
 	})
 
-	t.Run("Obtained", func(t *testing.T) {
-		k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
-		assert.Nil(t, err)
-		featureConf := fc.NewFeatureConfig()
-		featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
-		featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
-		annotationSrv := New(
-			k8sClient,
-			testLogger,
-			WithFeatureConfig(featureConf),
-			WithRetryDelay(1*time.Second),
-			WithRetryNumber(1),
-		)
-		node := bmNode.DeepCopy()
-		node.Annotations[annotationKey] = annotationValue
-		node.SetLabels(map[string]string{"app": "baremetal-csi"})
+	// t.Run("Obtained", func(t *testing.T) {
+	// 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+	// 	assert.Nil(t, err)
+	// 	featureConf := fc.NewFeatureConfig()
+	// 	featureConf.Update(fc.FeatureNodeIDFromAnnotation, true)
+	// 	featureConf.Update(fc.FeatureExternalAnnotationForNode, true)
+	// 	annotationSrv := New(
+	// 		k8sClient,
+	// 		testLogger,
+	// 		WithFeatureConfig(featureConf),
+	// 		WithRetryDelay(1*time.Second),
+	// 		WithRetryNumber(1),
+	// 	)
+	// 	node := bmNode.DeepCopy()
+	// 	node.Annotations[annotationKey] = annotationValue
+	// 	node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		assert.Nil(t, k8sClient.Create(testCtx, node))
+	// 	assert.Nil(t, k8sClient.Create(testCtx, node))
 
-		nodeID, err := annotationSrv.ObtainNodeID(nodeName, annotationKey)
-		assert.Equal(t, annotationValue, nodeID)
-		assert.Nil(t, err)
-	})
+	// 	nodeID, err := annotationSrv.ObtainNodeID(nodeName, annotationKey)
+	// 	assert.Equal(t, annotationValue, nodeID)
+	// 	assert.Nil(t, err)
+	// })
 }
 
 func TestGetNodeID(t *testing.T) {
