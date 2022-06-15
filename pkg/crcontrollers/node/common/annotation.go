@@ -22,20 +22,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 )
 
 type service struct {
 	client            k8sClient.Client
-	log               *logrus.Logger
 	featureConfig     featureconfig.FeatureChecker
 	delayBetweenRetry time.Duration
 	numberOfRetry     int
+	log               *logrus.Logger
 }
 
 // NodeAnnotation represent annotation service
