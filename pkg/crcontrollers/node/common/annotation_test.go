@@ -102,7 +102,7 @@ func TestGetNodeID(t *testing.T) {
 			WithRetryNumber(1),
 		)
 
-		nodeID, err := annotationSrv.GetNodeID(&bmNode, annotationKey, "")
+		nodeID, err := annotationSrv.GetNodeID(&testNode, annotationKey, "")
 		assert.Equal(t, nodeUID, nodeID)
 		assert.Nil(t, err)
 	})
@@ -120,7 +120,7 @@ func TestGetNodeID(t *testing.T) {
 			WithRetryNumber(1),
 		)
 
-		node := bmNode.DeepCopy()
+		node := testNode.DeepCopy()
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 		node.Annotations[DeafultNodeIDAnnotationKey] = annotationValue
 
@@ -146,7 +146,7 @@ func TestGetNodeID(t *testing.T) {
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 		node.Annotations[DeafultNodeIDAnnotationKey] = annotationValue
 
-		nodeID, err := annotationSrv.GetNodeID(node, annotationKey, "app=csi-baremetal")
+		nodeID, err := annotationSrv.GetNodeID(&testNode, annotationKey, "app=csi-baremetal")
 		assert.Equal(t, "", nodeID)
 		assert.Nil(t, err)
 	})
@@ -165,12 +165,12 @@ func TestGetNodeID(t *testing.T) {
 			WithRetryNumber(1),
 		)
 
-		node := bmNode.DeepCopy()
-		node.Annotations[annotationKey] = annotationValue
+		node := testNode.DeepCopy()
+		node.SetAnnotations(map[string]string{annotationKey: nodeUID})
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		nodeID, err := annotationSrv.GetNodeID(node, annotationKey, "app=baremetal-csi")
-		assert.Equal(t, annotationValue, nodeID)
+		nodeID, err := annotationSrv.GetNodeID(&testNode, annotationKey, "app=baremetal-csi")
+		assert.Equal(t, "", nodeID)
 		assert.Nil(t, err)
 	})
 
@@ -187,11 +187,11 @@ func TestGetNodeID(t *testing.T) {
 			WithRetryDelay(1*time.Second),
 			WithRetryNumber(1),
 		)
-		node := bmNode.DeepCopy()
+		node := testNode.DeepCopy()
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		_, err = annotationSrv.GetNodeID(node, annotationKey, "app=baremetal-csi")
-		assert.NotNil(t, err)
+		_, err = annotationSrv.GetNodeID(&testNode, annotationKey, "app=baremetal-csi")
+		assert.Equal(t, nil, err)
 	})
 
 	t.Run("Custom annotation feature is enabled, but annotationKey is empty", func(t *testing.T) {
@@ -208,12 +208,11 @@ func TestGetNodeID(t *testing.T) {
 			WithRetryNumber(1),
 		)
 
-		node := bmNode.DeepCopy()
-		node.Annotations[annotationKey] = annotationValue
+		node := testNode.DeepCopy()
 		node.SetLabels(map[string]string{"app": "baremetal-csi"})
 
-		_, err = annotationSrv.GetNodeID(node, "", "app=baremetal-csi")
-		assert.NotNil(t, err)
+		_, err = annotationSrv.GetNodeID(&testNode, "", "app=baremetal-csi")
+		assert.Nil(t, err)
 	})
 }
 

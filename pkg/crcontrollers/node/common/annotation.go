@@ -41,14 +41,8 @@ type service struct {
 // NodeAnnotation represent annotation service
 type NodeAnnotation interface {
 	ObtainNodeID(nodeName string) (nodeID string, err error)
-	GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error)
+	GetNodeID(node *corev1.Node, annotationKey, nodeSelector string) (string, error)
 	SetFeatureConfig(featureConf featureconfig.FeatureChecker)
-}
-
-// A node interface with common methods
-type abstractNode interface {
-	GetLabels() map[string]string
-	GetAnnotations() map[string]string
 }
 
 // New return NodeAnnotation service
@@ -120,22 +114,14 @@ func (srv *service) ObtainNodeID(nodeName string) (nodeID string, err error) {
 	return "", fmt.Errorf("number of retries %d exceeded", srv.numberOfRetry)
 }
 
-// GetNodeID return special id for node either from nodecrd.Node and corev1.Node
+// GetNodeID return special id for node corev1.Node
 // depends on NodeIdFromAnnotation and ExternalNodeAnnotation features
-func (srv *service) GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error) {
-	nodeName, id := "", ""
-	switch v := node.(type) {
-	case *corev1.Node:
-		nodeName, id = v.Name, string(v.UID)
-	case *nodecrd.Node:
-		nodeName, id = v.Name, string(v.UID)
-	default:
-		return "", fmt.Errorf("unknown type of node:%T", node)
-	}
+func (srv *service) GetNodeID(node *corev1.Node, annotationKey, nodeSelector string) (string, error) {
+	nodeName, id := node.Name, string(node.UID)
 	if srv.featureConfig.IsEnabled(featureconfig.FeatureNodeIDFromAnnotation) {
 		if nodeSelector != "" {
 			key, value := labelStringToKV(nodeSelector)
-			if val, ok := node.(abstractNode).GetLabels()[key]; !ok || val != value {
+			if val, ok := node.GetLabels()[key]; !ok || val != value {
 				return "", nil
 			}
 		}
@@ -144,7 +130,7 @@ func (srv *service) GetNodeID(node interface{}, annotationKey, nodeSelector stri
 			return "", err
 		}
 
-		if val, ok := node.(abstractNode).GetAnnotations()[akey]; ok {
+		if val, ok := node.GetAnnotations()[akey]; ok {
 			return val, nil
 		}
 		return "", fmt.Errorf("annotation %s hadn't been set for node %s", akey, nodeName)
