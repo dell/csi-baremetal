@@ -67,6 +67,9 @@ type Extender struct {
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey, nodeselector string) (*Extender, error) {
+	// TODO refactor annotation service
+	// initialize with annotationKey and nodeselector
+	// and use those params in the all related function
 	annotationSrv := annotation.New(
 		kubeClient,
 		logger,

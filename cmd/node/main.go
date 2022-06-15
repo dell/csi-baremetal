@@ -93,6 +93,8 @@ var (
 
 func main() {
 	flag.Parse()
+	// TODO Depricated, get rid of cli params
+	_ = *nodeIDAnnotation
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
@@ -125,7 +127,7 @@ func main() {
 		annotation.WithRetryNumber(20),
 	)
 	// we need to obtain node ID first before proceeding with the initialization
-	nodeID, err := annotationSrv.ObtainNodeID(*nodeName, *nodeIDAnnotation)
+	nodeID, err := annotationSrv.ObtainNodeID(*nodeName)
 	if err != nil {
 		logger.Fatalf("Unable to obtain node ID: %v", err)
 	}

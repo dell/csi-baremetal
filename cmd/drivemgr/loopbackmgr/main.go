@@ -50,7 +50,7 @@ var (
 
 func main() {
 	nodeName := os.Getenv("KUBE_NODE_NAME")
-	// Depricated
+	// TODO Depricated, get rid of cli params
 	_ = *nodeIDAnnotation
 
 	flag.Parse()
