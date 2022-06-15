@@ -862,7 +862,6 @@ func Test_reservationName(t *testing.T) {
 	pod = &coreV1.Pod{ObjectMeta: metaV1.ObjectMeta{Name: podName, Namespace: ""}}
 	name = getReservationName(pod)
 	assert.Equal(t, "default-"+podName, name)
-
 }
 
 func Test_createReservation(t *testing.T) {

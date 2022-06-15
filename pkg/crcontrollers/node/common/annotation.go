@@ -43,8 +43,13 @@ type NodeAnnotation interface {
 	ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error)
 	GetNodeID(node interface{}, annotationKey, nodeSelector string) (string, error)
 	GetNodeIDFromK8s(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
-	GetNodeIDFromCRD(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error)
 	SetFeatureConfig(featureConf featureconfig.FeatureChecker)
+}
+
+// A node interface with common methods
+type abstractNode interface {
+	GetLabels() map[string]string
+	GetAnnotations() map[string]string
 }
 
 // New return NodeAnnotation service
@@ -82,19 +87,13 @@ func WithRetryDelay(delay time.Duration) func(*service) {
 	}
 }
 
-// A node interface with common methods
-type abstractNode interface {
-	GetLabels() map[string]string
-	GetAnnotations() map[string]string
-}
-
 // ObtainNodeID obtains Node ID with retries
 func (srv *service) ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID string, err error) {
 	ctx := context.Background()
 	// try to obtain node ID
 	for i := 0; i < srv.numberOfRetry; i++ {
 		srv.log.Info("Obtaining node ID...")
-		if nodeID, err = srv.GetNodeIDFromCRD(ctx, nodeName, nodeIDAnnotation, ""); err == nil {
+		if nodeID, err = srv.GetNodeIDFromK8s(ctx, nodeName, nodeIDAnnotation, ""); err == nil {
 			srv.log.Infof("Node ID is %s", nodeID)
 			return nodeID, nil
 		}
@@ -103,15 +102,6 @@ func (srv *service) ObtainNodeID(nodeName, nodeIDAnnotation string) (nodeID stri
 	}
 	// return empty node ID and error
 	return "", fmt.Errorf("number of retries %d exceeded", srv.numberOfRetry)
-}
-
-// GetNodeIDFromCRD return special id for node from nodecrd.Node
-func (srv *service) GetNodeIDFromCRD(ctx context.Context, nodeName, annotationKey, nodeSelector string) (string, error) {
-	bmNode := &nodecrd.Node{}
-	if err := srv.client.Get(ctx, k8sClient.ObjectKeyFromObject(bmNode), bmNode); err != nil {
-		return "", err
-	}
-	return srv.GetNodeID(bmNode, annotationKey, nodeSelector)
 }
 
 // GetNodeIDFromK8s return special id for k8sNode with nodeName
