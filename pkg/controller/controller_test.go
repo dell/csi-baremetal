@@ -301,6 +301,38 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
 		})
+		It("Volume is not deleted, AC unavailable", func() {
+			var (
+				namespace = controller.k8sclient.Namespace
+				volumeID  = "volume-id-1111"
+				volumeCrd = &vcrd.Volume{
+					TypeMeta: k8smetav1.TypeMeta{
+						Kind:       "Volume",
+						APIVersion: apiV1.APIV1Version,
+					},
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Name:      volumeID,
+						Namespace: namespace,
+					},
+					Spec: api.Volume{
+						Id:        volumeID,
+						NodeId:    testNode1Name,
+						Location:  testDriveLocation1,
+						CSIStatus: apiV1.Created,
+					},
+				}
+				err error
+			)
+			// create volume crd to delete
+			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
+			Expect(err).To(BeNil())
+
+			fillCache(controller, volumeCrd.Spec.Id, namespace)
+
+			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, namespace, apiV1.Removed)
+			_, err = controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
+			Expect(err).To(Not(BeNil()))
+		})
 	})
 
 	Context("Success scenarios", func() {
