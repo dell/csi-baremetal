@@ -301,7 +301,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 	}
 	if err := c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId); err != nil {
 		ll.Errorf("Unable to update CRs after volume deletion: %s", err.Error())
-		return nil, status.Error(codes.DeadlineExceeded, "Unable to update CRs after volume deletion")
+		return nil, status.Error(codes.Internal, "Unable to update CRs after volume deletion")
 	}
 	c.reqLock.Unlock()
 
