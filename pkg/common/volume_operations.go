@@ -408,14 +408,16 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	namespace, err := vo.cache.Get(volumeID)
 	if err != nil {
 		ll.Errorf("Unable to get volume namespace: %v", err)
+		// volume CR was removed, no need to return error
 		return nil
 	}
 
 	if err = vo.k8sClient.ReadCR(ctx, volumeID, namespace, &volumeCR); err != nil {
-		if !k8sError.IsNotFound(err) {
-			ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
+		if k8sError.IsNotFound(err) {
+			// volume CR was removed, no need to return error
 			return nil
 		}
+		ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
 		return err
 	}
 

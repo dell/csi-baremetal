@@ -19,7 +19,6 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"strings"
 	"testing"
 	"time"
@@ -41,6 +40,7 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
