@@ -43,6 +43,8 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/executor"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
@@ -55,7 +57,11 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
-	"github.com/dell/csi-baremetal/pkg/node/wbt"
+	volumeActions "github.com/dell/csi-baremetal/pkg/node/actions/volume"
+	"github.com/dell/csi-baremetal/pkg/node/processor"
+	"github.com/dell/csi-baremetal/pkg/node/processor/volume"
+	"github.com/dell/csi-baremetal/pkg/node/processor/wbt"
+	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -145,17 +151,14 @@ func main() {
 		logger.Fatalf("fail to prepare event recorder: %v", err)
 	}
 
-	wbtWatcher, err := prepareWbtWatcher(k8SClient, eventRecorder, *nodeName, logger)
-	if err != nil {
-		logger.Fatalf("fail to prepare wbt watcher: %v", err)
-	}
-
 	// Wait till all events are sent/handled
 	defer eventRecorder.Wait()
 
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
-	csiNodeService := node.NewCSINodeService(
-		clientToDriveMgr, nodeID, *nodeName, logger, wrappedK8SClient, kubeCache, eventRecorder, featureConf)
+	e := command.NewExecutor(logger)
+	volumeManager := node.NewVolumeManager(clientToDriveMgr, e, logger, wrappedK8SClient, kubeCache, eventRecorder, nodeID, *nodeName)
+	volumeFactory := volumeActions.NewVolumeFactory(volumeManager, utilwrappers.NewFSOperationsImpl(e, logger))
+	csiNodeService := node.NewCSINodeService(logger, wrappedK8SClient, volumeManager, volumeFactory, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
@@ -201,8 +204,20 @@ func main() {
 	// wait for readiness
 	waitForVolumeManagerReadiness(csiNodeService, logger)
 
+	wbtWatcher, err := prepareWbtWatcher(k8SClient, csiNodeService, *nodeName, eventRecorder, logger)
+	if err != nil {
+		logger.Fatalf("fail to prepare wbt watcher: %v", err)
+	}
+
+	// start to actualize volumes
+	go executor.NewTimer(60*time.Second).Start(context.Background(),
+		volume.NewVolumeActualizer(k8SClient, volumeFactory, nodeID,
+			logger.WithField("component", "VolumeActualizer"),
+		).Handle,
+	)
+
 	// start to updating Wbt Config
-	wbtWatcher.StartWatch(csiNodeService)
+	go executor.NewTimer(60*time.Second).Start(context.Background(), wbtWatcher.Handle)
 
 	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
@@ -327,7 +342,10 @@ func prepareEventRecorder(nodeName string, logger *logrus.Logger) (*events.Recor
 	return eventRecorder, nil
 }
 
-func prepareWbtWatcher(client k8sClient.Client, eventsRecorder *events.Recorder, nodeName string, logger *logrus.Logger) (*wbt.ConfWatcher, error) {
+func prepareWbtWatcher(client k8sClient.Client,
+	cns *node.CSINodeService, nodeName string,
+	eventsRecorder *events.Recorder, logger *logrus.Logger,
+) (processor.Processor, error) {
 	k8sNode := &corev1.Node{}
 	err := client.Get(context.Background(), k8sClient.ObjectKey{Name: nodeName}, k8sNode)
 	if err != nil {
@@ -337,5 +355,5 @@ func prepareWbtWatcher(client k8sClient.Client, eventsRecorder *events.Recorder,
 	nodeKernel := k8sNode.Status.NodeInfo.KernelVersion
 	ll := logger.WithField("componentName", "WbtWatcher")
 
-	return wbt.NewConfWatcher(client, eventsRecorder, ll, nodeKernel), nil
+	return wbt.NewConfWatcher(client, cns, nodeKernel, eventsRecorder, ll), nil
 }

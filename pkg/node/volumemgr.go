@@ -57,10 +57,10 @@ import (
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
+	wbtconf "github.com/dell/csi-baremetal/pkg/node/processor/wbt/common"
+	wbtops "github.com/dell/csi-baremetal/pkg/node/processor/wbt/operations"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
-	wbtconf "github.com/dell/csi-baremetal/pkg/node/wbt/common"
-	wbtops "github.com/dell/csi-baremetal/pkg/node/wbt/operations"
 )
 
 const (
@@ -1309,7 +1309,7 @@ func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, 
 	}
 }
 
-func (m *VolumeManager) setWbtValue(vol *volumecrd.Volume) error {
+func (m *VolumeManager) SetWbtValue(vol *volumecrd.Volume) error {
 	device, err := m.findDeviceName(vol)
 	if err != nil {
 		return err
@@ -1323,7 +1323,7 @@ func (m *VolumeManager) setWbtValue(vol *volumecrd.Volume) error {
 	return nil
 }
 
-func (m *VolumeManager) restoreWbtValue(vol *volumecrd.Volume) error {
+func (m *VolumeManager) RestoreWbtValue(vol *volumecrd.Volume) error {
 	device, err := m.findDeviceName(vol)
 	if err != nil {
 		return err
@@ -1337,7 +1337,7 @@ func (m *VolumeManager) restoreWbtValue(vol *volumecrd.Volume) error {
 	return nil
 }
 
-func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
+func (m *VolumeManager) CheckWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
 	if m.wbtConfig == nil {
 		return false
 	}

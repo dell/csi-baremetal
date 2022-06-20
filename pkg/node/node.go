@@ -31,11 +31,10 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/utils/keymutex"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -45,6 +44,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/controller/mountoptions"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
+	"github.com/dell/csi-baremetal/pkg/node/actions"
+	errors2 "github.com/dell/csi-baremetal/pkg/node/actions/volume/unstage/errors"
 )
 
 const (
@@ -57,6 +58,10 @@ const (
 	wbtChangedVolumeKey        = "yes"
 )
 
+type unstageVolumeActionsFactory interface {
+	CreateUnstageVolumeActions(volume *volumecrd.Volume, stagingTargetPath string) actions.Actions
+}
+
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
@@ -67,6 +72,8 @@ type CSINodeService struct {
 	VolumeManager
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
+
+	unstageVolumeActionsFactory unstageVolumeActionsFactory
 
 	// used for locking requests on each volume
 	volMu keymutex.KeyMutex
@@ -81,21 +88,19 @@ const (
 // Receives an instance of DriveServiceClient to interact with DriveManager, ID of a node where it works, logrus logger
 // and base.KubeClient
 // Returns an instance of CSINodeService
-func NewCSINodeService(client api.DriveServiceClient,
-	nodeID string,
-	nodeName string,
+func NewCSINodeService(
 	logger *logrus.Logger,
 	k8sClient *k8s.KubeClient,
-	k8sCache k8s.CRReader,
-	recorder eventRecorder,
+	volumeManager *VolumeManager,
+	unstageVolumeActionsFactory unstageVolumeActionsFactory,
 	featureConf featureconfig.FeatureChecker) *CSINodeService {
-	e := command.NewExecutor(logger)
 	s := &CSINodeService{
-		VolumeManager:  *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID, nodeName),
-		svc:            common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
-		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
-		volMu:          keymutex.NewHashed(0),
-		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
+		svc:                         common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
+		livenessCheck:               NewLivenessCheckHelper(logger, nil, nil),
+		VolumeManager:               *volumeManager,
+		IdentityServer:              controller.NewIdentityServer(base.PluginName, base.PluginVersion),
+		unstageVolumeActionsFactory: unstageVolumeActionsFactory,
+		volMu:                       keymutex.NewHashed(0),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -238,8 +243,8 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
-	if newStatus == apiV1.VolumeReady && s.VolumeManager.checkWbtChangingEnable(ctx, volumeCR) {
-		if err := s.VolumeManager.setWbtValue(volumeCR); err != nil {
+	if newStatus == apiV1.VolumeReady && s.VolumeManager.CheckWbtChangingEnable(ctx, volumeCR) {
+		if err := s.VolumeManager.SetWbtValue(volumeCR); err != nil {
 			ll.Errorf("Unable to set custom WBT value for volume %s: %v", volumeCR.Name, err)
 			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
 				"Unable to set custom WBT value for volume %s", volumeCR.Name)
@@ -250,6 +255,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
+		volumeCR.Spec.GlobalMountPath = targetPath
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
@@ -315,30 +321,29 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		errToReturn error
 	)
 
-	if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
-		targetPath := getStagingPath(ll, req.GetStagingTargetPath())
-		errToReturn = s.fsOps.UnmountWithCheck(targetPath)
-		if errToReturn == nil {
-			errToReturn = s.fsOps.RmDir(targetPath)
-		}
+	switch err = s.unstageVolumeActionsFactory.CreateUnstageVolumeActions(volumeCR,
+		getStagingPath(ll, req.GetStagingTargetPath()),
+	).Apply(ctx); err.(type) {
+	case nil:
+		break
 
-		if errToReturn != nil {
-			volumeCR.Spec.CSIStatus = apiV1.Failed
-			resp = nil
-		}
+	case errors2.UnmountVolumeError:
+		volumeCR.Spec.CSIStatus = apiV1.Failed
+		resp = nil
+		errToReturn = err
+
+	case errors2.RestoreWBTError:
+		ll.Errorf("Unable to restore WBT value for volume %s: %v", volumeCR.Name, err)
+		s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
+			"Unable to restore WBT value for volume %s", volumeCR.Name)
+
+	default:
+		ll.Errorf("Unknown error occurred during volume unstage actions appliance %s: %v", volumeCR.Name, err)
 	}
 
-	if val, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]; ok && val == wbtChangedVolumeKey {
-		delete(volumeCR.Annotations, wbtChangedVolumeAnnotation)
-		if err := s.VolumeManager.restoreWbtValue(volumeCR); err != nil {
-			ll.Errorf("Unable to restore WBT value for volume %s: %v", volumeCR.Name, err)
-			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
-				"Unable to restore WBT value for volume %s", volumeCR.Name)
-		}
-	}
-
-	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
-	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
+	if updateErr := s.k8sClient.UpdateCR(
+		context.WithValue(ctx, base.RequestUUID, req.GetVolumeId()), volumeCR,
+	); updateErr != nil {
 		ll.Errorf("Unable to update volume CR: %v", updateErr)
 		resp, errToReturn = nil, fmt.Errorf("failed to unstage volume: update volume CR error")
 	}

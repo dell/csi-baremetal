@@ -19,7 +19,6 @@ package node
 import (
 	"errors"
 	"fmt"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"path"
 	"testing"
 	"time"
@@ -36,6 +35,8 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/command"
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -43,8 +44,10 @@ import (
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
+	volumeActions "github.com/dell/csi-baremetal/pkg/node/actions/volume"
+	wbtcommon "github.com/dell/csi-baremetal/pkg/node/processor/wbt/common"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
-	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
+	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 )
 
 var (
@@ -949,8 +952,10 @@ func newNodeService() *CSINodeService {
 	if err != nil {
 		panic(err)
 	}
-	node := NewCSINodeService(client, nodeID, nodeName, testLogger, kubeClient, kubeClient,
-		new(mocks.NoOpRecorder), featureconfig.NewFeatureConfig())
+	e := command.NewExecutor(testLogger)
+	volumeManager := NewVolumeManager(client, e, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
+	volumeFactory := volumeActions.NewVolumeFactory(volumeManager, utilwrappers.NewFSOperationsImpl(e, testLogger))
+	node := NewCSINodeService(testLogger, kubeClient, volumeManager, volumeFactory, featureconfig.NewFeatureConfig())
 
 	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)
 	driveCR2 := node.k8sClient.ConstructDriveCR(disk2.UUID, disk2)

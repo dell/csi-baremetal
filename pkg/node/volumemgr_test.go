@@ -52,8 +52,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
+	wbtcommon "github.com/dell/csi-baremetal/pkg/node/processor/wbt/common"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
-	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 )
 
 // TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
