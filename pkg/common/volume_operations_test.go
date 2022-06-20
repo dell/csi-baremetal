@@ -530,17 +530,23 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		volumeHDD  = testVolume1.DeepCopy()
 		volume1    = testVolumeLVG1.DeepCopy()
 		volume2    = testVolumeLVG1.DeepCopy()
+		ac         = testAC1.DeepCopy()
+		drive      = testDriveCR1.DeepCopy()
 		lvg        = testLVG.DeepCopy()
 		lvgUpdated = &lvgcrd.LogicalVolumeGroup{}
 		ACUpdated  = &accrd.AvailableCapacity{}
 	)
 
 	// Test Case 1: volume with HDD SC, removed
-	volume1.ObjectMeta.ResourceVersion = ""
 	err = svc.k8sClient.CreateCR(testCtx, volumeHDD.Name, volumeHDD)
 	assert.Nil(t, err)
-	svc.cache.Set(volumeHDD.Name, volume1.Namespace)
-	svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
+	err = svc.k8sClient.CreateCR(testCtx, ac.Name, ac)
+	assert.Nil(t, err)
+	err = svc.k8sClient.CreateCR(testCtx, drive.Name, drive)
+	assert.Nil(t, err)
+	svc.cache.Set(volumeHDD.Name, volumeHDD.Namespace)
+	err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
+	assert.Nil(t, err)
 
 	err = svc.k8sClient.ReadCR(testCtx, volumeHDD.Name, volumeHDD.Namespace, &volumecrd.Volume{})
 	assert.NotNil(t, err)
@@ -561,7 +567,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	svc.cache.Set(volume2.Name, volume2.Namespace)
 
 	// remove one volume from two
-	svc.UpdateCRsAfterVolumeDeletion(testCtx, volume1.Name)
+	err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volume1.Name)
+	assert.Nil(t, err)
 
 	// check that Volume was removed
 	err = svc.k8sClient.ReadCR(testCtx, volume1.Name, volume1.Namespace, &volumecrd.Volume{})
@@ -578,7 +585,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	assert.Equal(t, ACUpdated.Spec.Size, testAC4.Spec.Size+volume1.Spec.Size)
 
 	// remove last volume from two
-	svc.UpdateCRsAfterVolumeDeletion(testCtx, volume2.Name)
+	err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volume2.Name)
+	assert.Nil(t, err)
 
 	// check that Volume was removed
 	err = svc.k8sClient.ReadCR(testCtx, volume2.Name, volume2.Namespace, &volumecrd.Volume{})
