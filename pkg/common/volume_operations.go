@@ -417,20 +417,17 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 			// volume CR was removed, no need to return error
 			return nil
 		}
-		ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
-		return err
+		return fmt.Errorf("unable to read volume CR %s: %w. Volume CR will not be removed", volumeID, err)
 	}
 
 	// Update AC and LVG after volume deletion
 	acCR, err := vo.crHelper.GetACByLocation(volumeCR.Spec.Location)
 	if err != nil {
-		ll.Errorf("AC not found for Volume %s by location %s: %v", volumeCR.Name, volumeCR.Spec.Location, err)
-		return err
+		return fmt.Errorf("AC not found for Volume %s by location %s: %w", volumeCR.Name, volumeCR.Spec.Location, err)
 	}
 	driveCR, lvgCR, err := vo.crHelper.GetDriveCRAndLVGCRByVolume(&volumeCR)
 	if err != nil {
-		ll.Errorf("Unable to read Drive CR for Volume %s : %v", volumeCR.Name, err)
-		return err
+		return fmt.Errorf("unable to read Drive CR for Volume %s : %w", volumeCR.Name, err)
 	}
 
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
@@ -459,16 +456,15 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	}
 
 	if err = vo.DoAction(ctx, ll, acCR, acAction, "AC"); err != nil {
-		return err
+		return fmt.Errorf("unable to update AC CR %s: %w", acCR.Name, err)
 	}
 
 	if err = vo.DoAction(ctx, ll, lvgCR, lvgAction, "LVG"); err != nil {
-		return err
+		return fmt.Errorf("unable to update LVG CR %s: %w", lvgCR.Name, err)
 	}
 
 	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
-		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
-		return err
+		return fmt.Errorf("unable to delete volume CR %s: %w", volumeID, err)
 	}
 
 	vo.cache.Delete(volumeID)
