@@ -37,6 +37,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -56,10 +61,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
 	"github.com/dell/csi-baremetal/pkg/node/wbt"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -93,7 +94,8 @@ var (
 
 func main() {
 	flag.Parse()
-	// TODO Depricated, get rid of cli params
+	// TODO Depricated https://github.com/dell/csi-baremetal/issues/896
+	// get rid of cli params
 	_ = *nodeIDAnnotation
 
 	featureConf := featureconfig.NewFeatureConfig()

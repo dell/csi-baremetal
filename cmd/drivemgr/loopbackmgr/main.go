@@ -50,7 +50,8 @@ var (
 
 func main() {
 	nodeName := os.Getenv("KUBE_NODE_NAME")
-	// TODO Depricated, get rid of cli params
+	// TODO Depricated https://github.com/dell/csi-baremetal/issues/896
+	// get rid of cli params
 	_ = *nodeIDAnnotation
 
 	flag.Parse()
