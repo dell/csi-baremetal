@@ -247,6 +247,8 @@ func (bmc *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			ll.Errorf("Unable to read node object: %v", err)
 			return ctrl.Result{Requeue: true}, err
 		}
+		// k8sNode not found, i.e. deleted, need to clean k8sNode from cache if mapped bmNode also deleted
+		bmc.cleanDeletedK8sNodeFromCacheIfNeeded(req.Name)
 	}
 
 	// try to read Node
@@ -263,6 +265,21 @@ func (bmc *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	ll.Warnf("unable to detect for which object (%s) that reconcile is. The object may have been deleted", req.String())
 	return ctrl.Result{}, nil
+}
+
+// Clean deleted k8sNode from cache if mapped bmNode exists in cache and actually has also been deleted
+func (bmc *Controller) cleanDeletedK8sNodeFromCacheIfNeeded(k8sNodeName string) {
+	ll := bmc.log.WithFields(logrus.Fields{
+		"method": "cleanDeletedK8sNodeFromCacheIfNeeded",
+		"name":   k8sNodeName,
+	})
+	if bmNodeName, bmNodeFromCache := bmc.cache.getCSIBMNodeName(k8sNodeName); bmNodeFromCache {
+		err := bmc.k8sClient.ReadCR(context.Background(), bmNodeName, "", &nodecrd.Node{})
+		if err != nil && k8sError.IsNotFound(err) {
+			ll.Infof("Both k8sNode %s and bmNode %s removed, need clean from cache", k8sNodeName, bmNodeName)
+			bmc.cleanNodeFromCache(bmNodeName, k8sNodeName)
+		}
+	}
 }
 
 func (bmc *Controller) reconcileForK8sNode(k8sNode *coreV1.Node) (ctrl.Result, error) {
