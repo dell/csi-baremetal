@@ -267,7 +267,7 @@ func (bmc *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-// Clean deleted k8sNode from cache if mapped bmNode exists in cache and actually has also been deleted
+// Clean deleted k8sNode from cache if its cache entry exists and mapped bmNode has also been deleted
 func (bmc *Controller) cleanDeletedK8sNodeFromCacheIfNeeded(k8sNodeName string) {
 	ll := bmc.log.WithFields(logrus.Fields{
 		"method": "cleanDeletedK8sNodeFromCacheIfNeeded",
