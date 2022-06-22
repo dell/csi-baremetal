@@ -68,7 +68,7 @@ run:
   timeout:  15m
 
   skip-dirs:
-    - test/
+    - tests/
     - vendor/
     - api/
   skip-files:
