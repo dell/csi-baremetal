@@ -299,11 +299,13 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		ll.Warningf("Context canceled or timed out")
 		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
 	}
-	if err := c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId); err != nil {
+	err = c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
+	c.reqLock.Unlock()
+
+	if err != nil {
 		ll.Errorf("Unable to update CRs after volume deletion: %s", err)
 		return nil, status.Error(codes.Internal, "Unable to update CRs after volume deletion")
 	}
-	c.reqLock.Unlock()
 
 	ll.Debug("Volume was successfully deleted")
 
