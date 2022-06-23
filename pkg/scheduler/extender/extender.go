@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -44,7 +45,7 @@ import (
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -53,11 +54,11 @@ type Extender struct {
 	k8sClient *k8s.KubeClient
 	k8sCache  *k8s.KubeCache
 	// namespace in which Extender will be search Available Capacity
-	namespace      string
-	provisioner    string
-	featureChecker fc.FeatureChecker
-	annotationKey  string
-	nodeSelector   string
+	namespace     string
+	provisioner   string
+	annotation    annotation.NodeAnnotation
+	annotationKey string
+	nodeSelector  string
 	sync.Mutex
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
@@ -66,11 +67,21 @@ type Extender struct {
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	kubeCache *k8s.KubeCache, provisioner string, featureConf fc.FeatureChecker, annotationKey, nodeselector string) (*Extender, error) {
+	// TODO refactor annotation service
+	// initialize with annotationKey and nodeselector
+	// and use those params in the all related function
+	annotationSrv := annotation.New(
+		kubeClient,
+		logger,
+		annotation.WithFeatureConfig(featureConf),
+		annotation.WithRetryDelay(3*time.Second),
+		annotation.WithRetryNumber(20),
+	)
 	return &Extender{
 		k8sClient:              kubeClient,
 		k8sCache:               kubeCache,
 		provisioner:            provisioner,
-		featureChecker:         featureConf,
+		annotation:             annotationSrv,
 		annotationKey:          annotationKey,
 		nodeSelector:           nodeselector,
 		logger:                 logger.WithField("component", "Extender"),
@@ -436,12 +447,11 @@ func (e *Extender) createReservation(ctx context.Context, namespace string, name
 	return nil
 }
 
-func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
-	requestedNodes := []string{}
-
+func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) (nodeNames []string) {
+	nodeNames = []string{}
 	for _, node := range nodes {
 		n := node
-		nodeID, err := annotations.GetNodeID(&n, e.annotationKey, e.nodeSelector, e.featureChecker)
+		nodeID, err := e.annotation.GetNodeID(&n, e.annotationKey, e.nodeSelector)
 		if err != nil {
 			e.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
 			continue
@@ -449,10 +459,10 @@ func (e *Extender) prepareListOfRequestedNodes(nodes []coreV1.Node) []string {
 		if nodeID == "" {
 			continue
 		}
-		requestedNodes = append(requestedNodes, nodeID)
+		nodeNames = append(nodeNames, nodeID)
 	}
 
-	return requestedNodes
+	return nodeNames
 }
 
 func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
@@ -469,7 +479,7 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 			isFound := false
 			// node ID
 			node := requestedNode
-			nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.nodeSelector, e.featureChecker)
+			nodeID, err := e.annotation.GetNodeID(&node, e.annotationKey, e.nodeSelector)
 			if err != nil {
 				e.logger.Errorf("failed to get NodeID: %s", err)
 				continue
@@ -550,7 +560,7 @@ func (e *Extender) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, erro
 		rank := maxVolumeCount
 
 		node := node
-		nodeID, err := annotations.GetNodeID(&node, e.annotationKey, e.nodeSelector, e.featureChecker)
+		nodeID, err := e.annotation.GetNodeID(&node, e.annotationKey, e.nodeSelector)
 		if err != nil {
 			e.logger.Errorf("failed to get NodeID: %s", err)
 			continue
