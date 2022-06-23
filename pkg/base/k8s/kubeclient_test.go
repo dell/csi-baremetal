@@ -338,10 +338,11 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should create and read drive CR with attempts", func() {
-			err := k8sclient.CreateCR(testCtx, testUUID, testDriveCR.DeepCopy())
+			testObj := testDriveCR.DeepCopy()
+			err := k8sclient.CreateCR(testCtx, testUUID, testObj)
 			Expect(err).To(BeNil())
 			rdrive := &drivecrd.Drive{}
-			err = k8sclient.ReadCR(context.Background(), "", "", rdrive)
+			err = k8sclient.ReadCR(context.Background(), testObj.Name, "", rdrive)
 			Expect(err).To(BeNil())
 			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
 		})
