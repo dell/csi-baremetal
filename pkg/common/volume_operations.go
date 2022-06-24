@@ -49,7 +49,7 @@ import (
 type VolumeOperations interface {
 	CreateVolume(ctx context.Context, v api.Volume) (*api.Volume, error)
 	DeleteVolume(ctx context.Context, volumeID string) error
-	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) error
+	UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string)
 	WaitStatus(ctx context.Context, volumeID string, statuses ...string) error
 	ExpandVolume(ctx context.Context, volume *volumecrd.Volume, requiredBytes int64) error
 	UpdateCRsAfterVolumeExpansion(ctx context.Context, volID string, requiredBytes int64)
@@ -391,7 +391,7 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 // UpdateCRsAfterVolumeDeletion should be considered as a second step in DeleteVolume,
 // remove Volume CR and if volume was in LogicalVolumeGroup SC - update corresponding AC CR
 // does not return anything because that method does not change real drive on the node
-func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) error {
+func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
 	defer vo.metrics.EvaluateDurationForMethod("UpdateCRsAfterVolumeDeletion")()
 	ll := vo.log.WithFields(logrus.Fields{
 		"method":   "UpdateCRsAfterVolumeDeletion",
@@ -408,26 +408,32 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	namespace, err := vo.cache.Get(volumeID)
 	if err != nil {
 		ll.Errorf("Unable to get volume namespace: %v", err)
-		// volume CR was removed, no need to return error
-		return nil
+		return
 	}
 
 	if err = vo.k8sClient.ReadCR(ctx, volumeID, namespace, &volumeCR); err != nil {
-		if k8sError.IsNotFound(err) {
-			// volume CR was removed, no need to return error
-			return nil
+		if !k8sError.IsNotFound(err) {
+			ll.Errorf("Unable to read volume CR %s: %v. Volume CR will not be removed", volumeID, err)
 		}
-		return fmt.Errorf("unable to read volume CR %s: %w. Volume CR will not be removed", volumeID, err)
+		return
 	}
+
+	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
+		ll.Errorf("unable to delete volume CR %s: %v", volumeID, err)
+	}
+
+	vo.cache.Delete(volumeID)
 
 	// Update AC and LVG after volume deletion
 	acCR, err := vo.crHelper.GetACByLocation(volumeCR.Spec.Location)
 	if err != nil {
-		return fmt.Errorf("AC not found for Volume %s by location %s: %w", volumeCR.Name, volumeCR.Spec.Location, err)
+		ll.Errorf("AC not found for Volume %s by location %s: %v", volumeCR.Name, volumeCR.Spec.Location, err)
+		return
 	}
 	driveCR, lvgCR, err := vo.crHelper.GetDriveCRAndLVGCRByVolume(&volumeCR)
 	if err != nil {
-		return fmt.Errorf("unable to read Drive CR for Volume %s : %w", volumeCR.Name, err)
+		ll.Errorf("Unable to read Drive CR for Volume %s : %v", volumeCR.Name, err)
+		return
 	}
 
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
@@ -456,19 +462,12 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 	}
 
 	if err = vo.DoAction(ctx, ll, acCR, acAction, "AC"); err != nil {
-		return fmt.Errorf("unable to update AC CR %s: %w", acCR.Name, err)
+		return
 	}
 
 	if err = vo.DoAction(ctx, ll, lvgCR, lvgAction, "LVG"); err != nil {
-		return fmt.Errorf("unable to update LVG CR %s: %w", lvgCR.Name, err)
+		return
 	}
-
-	if err = vo.k8sClient.DeleteCR(ctx, &volumeCR); err != nil {
-		return fmt.Errorf("unable to delete volume CR %s: %w", volumeID, err)
-	}
-
-	vo.cache.Delete(volumeID)
-	return nil
 }
 
 // DoAction do UpdateCR or DeleteCR with CR

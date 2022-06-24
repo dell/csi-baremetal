@@ -50,10 +50,8 @@ func (vo *VolumeOperationsMock) DeleteVolume(ctx context.Context, volumeID strin
 }
 
 // UpdateCRsAfterVolumeDeletion is the mock implementation of UpdateCRsAfterVolumeDeletion
-func (vo *VolumeOperationsMock) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) error {
-	args := vo.Mock.Called(ctx, volumeID)
+func (vo *VolumeOperationsMock) UpdateCRsAfterVolumeDeletion(ctx context.Context, volumeID string) {
 
-	return args.Error(0)
 }
 
 // WaitStatus is the mock implementation of WaitStatus. Simulates waiting of Volume to be reached one of provided

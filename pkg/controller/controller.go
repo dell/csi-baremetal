@@ -299,13 +299,8 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 		ll.Warningf("Context canceled or timed out")
 		return nil, status.Error(codes.DeadlineExceeded, "Context canceled or timed out")
 	}
-	err = c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
+	c.svc.UpdateCRsAfterVolumeDeletion(ctxWithID, req.VolumeId)
 	c.reqLock.Unlock()
-
-	if err != nil {
-		ll.Errorf("Unable to update CRs after volume deletion: %s", err)
-		return nil, status.Error(codes.Internal, "Unable to update CRs after volume deletion")
-	}
 
 	ll.Debug("Volume was successfully deleted")
 
@@ -391,7 +386,7 @@ func (c *CSIControllerService) ListSnapshots(context.Context, *csi.ListSnapshots
 }
 
 // ControllerGetVolume is not implemented yet
-func (c *CSIControllerService) ControllerGetVolume(_ context.Context, _ *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+func (c *CSIControllerService) ControllerGetVolume(ctx context.Context, request *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented yet")
 }
 

@@ -40,7 +40,6 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
-	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
@@ -57,6 +56,7 @@ import (
 
 var (
 	testLogger    = logrus.New()
+	testID        = "someID"
 	testNs        = "default"
 	testApp       = "app"
 	testAppLabels = map[string]string{}
@@ -69,6 +69,23 @@ var (
 	testDriveLocation2 = "drive2-sn"
 	testDriveLocation4 = "drive4-sn"
 	testNode4Name      = "preferredNode"
+
+	testVolume = vcrd.Volume{
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testID,
+			Namespace:         testNs,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
+		},
+		Spec: api.Volume{
+			Id:       testID,
+			NodeId:   "pod",
+			Size:     1000,
+			Type:     string(fs.XFS),
+			Location: "location",
+			Mode:     apiV1.ModeFS,
+		},
+	}
 
 	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDriveLocation1))
 	testAC1     = accrd.AvailableCapacity{
@@ -152,20 +169,6 @@ var (
 			StorageClass: apiV1.StorageClassHDDLVG,
 			Location:     testDriveLocation4,
 			NodeId:       testNode2Name,
-		},
-	}
-
-	testDrive1 = drivecrd.Drive{
-		TypeMeta: k8smetav1.TypeMeta{
-			Kind:       "Drive",
-			APIVersion: apiV1.APIV1Version,
-		},
-		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: testDriveLocation1,
-		},
-		Spec: api.Drive{
-			Size:   1024 * 1024 * 1024,
-			NodeId: testNode1Name,
 		},
 	}
 )
@@ -300,38 +303,6 @@ var _ = Describe("CSIControllerService CreateVolume", func() {
 			resp, err := controller.CreateVolume(ctx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).ToNot(BeNil())
-		})
-		It("Volume is not deleted, AC unavailable", func() {
-			var (
-				namespace = controller.k8sclient.Namespace
-				volumeID  = "volume-id-1111"
-				volumeCrd = &vcrd.Volume{
-					TypeMeta: k8smetav1.TypeMeta{
-						Kind:       "Volume",
-						APIVersion: apiV1.APIV1Version,
-					},
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      volumeID,
-						Namespace: namespace,
-					},
-					Spec: api.Volume{
-						Id:        volumeID,
-						NodeId:    testNode1Name,
-						Location:  testDriveLocation1,
-						CSIStatus: apiV1.Created,
-					},
-				}
-				err error
-			)
-			// create volume crd to delete
-			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
-			Expect(err).To(BeNil())
-
-			fillCache(controller, volumeCrd.Spec.Id, namespace)
-
-			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, namespace, apiV1.Removed)
-			_, err = controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
-			Expect(err).To(Not(BeNil()))
 		})
 	})
 
@@ -594,15 +565,6 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.CreateCR(testCtx, volumeID, volumeCrd)
 			Expect(err).To(BeNil())
 
-			ac := testAC1.DeepCopy()
-			ac.Spec.Size = 0
-			err = controller.k8sclient.CreateCR(testCtx, testAC1Name, ac)
-			Expect(err).To(BeNil())
-
-			drive := testDrive1.DeepCopy()
-			err = controller.k8sclient.CreateCR(testCtx, testDriveLocation1, drive)
-			Expect(err).To(BeNil())
-
 			fillCache(controller, volumeCrd.Spec.Id, namespace)
 
 			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, namespace, apiV1.Removed)
@@ -619,90 +581,44 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err := testutils.AddAC(controller.k8sclient, &testAC3) // create AC CR, expect that size of that AC will be increased
 			Expect(err).To(BeNil())
 			var (
-				capacity   = int64(1024 * 101)
-				capacityV  = int64(1024 * 50)
-				volumeName = "test-volume"
-				lvgName    = "test-lvg"
-				driveName  = "test-drive"
-				ACName     = "test-ac"
-				volume     = api.Volume{
-					Id:           volumeName,
+				capacity = int64(1024 * 101)
+				volume   = api.Volume{
+					Id:           uuid,
 					NodeId:       testNode2Name,
-					Location:     lvgName, // testAC4
-					Size:         capacityV,
+					Location:     testDriveLocation4, // testAC4
+					Size:         capacity,
 					StorageClass: apiV1.StorageClassHDDLVG,
 					CSIStatus:    apiV1.Created,
-					LocationType: apiV1.LocationTypeLVM,
 				}
 				volumeCrd = vcrd.Volume{
 					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      volumeName,
+						Name:      uuid,
 						Namespace: controller.k8sclient.Namespace,
 					},
 					Spec: volume,
 				}
 				logicalVolumeGroup = api.LogicalVolumeGroup{
-					Name:       lvgName,
+					Name:       testDriveLocation4,
 					Node:       testNode2Name,
-					Locations:  []string{driveName},
-					VolumeRefs: []string{volumeName},
+					Locations:  []string{testDriveLocation4},
+					VolumeRefs: []string{uuid},
 					Status:     apiV1.Creating,
 					Size:       capacity,
 				}
 				lvgCR = lvgcrd.LogicalVolumeGroup{
-					TypeMeta: k8smetav1.TypeMeta{
-						Kind:       "LogicalVolumeGroup",
-						APIVersion: apiV1.APIV1Version,
-					},
 					ObjectMeta: k8smetav1.ObjectMeta{
-						Name: lvgName,
+						Name:      testDriveLocation4,
+						Namespace: controller.k8sclient.Namespace,
 					},
 					Spec: logicalVolumeGroup,
 				}
-				driveCrd = drivecrd.Drive{
-					TypeMeta: k8smetav1.TypeMeta{
-						Kind:       "Drive",
-						APIVersion: apiV1.APIV1Version,
-					},
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name: driveName,
-					},
-					Spec: api.Drive{
-						Size:   capacity,
-						NodeId: testNode2Name,
-					},
-				}
-				acCrd = accrd.AvailableCapacity{
-					TypeMeta: k8smetav1.TypeMeta{
-						Kind:       "AvailableCapacity",
-						APIVersion: apiV1.APIV1Version,
-					},
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      ACName,
-						Namespace: controller.k8sclient.Namespace,
-					},
-					Spec: api.AvailableCapacity{
-						Size:         capacity - capacityV,
-						StorageClass: apiV1.StorageClassHDDLVG,
-						Location:     lvgName,
-						NodeId:       testNode2Name,
-					},
-				}
 			)
 			// create volume CR that should be deleted (created in BeforeEach)
-			err = controller.k8sclient.CreateCR(testCtx, volumeName, &volumeCrd)
+			err = controller.k8sclient.CreateCR(testCtx, uuid, &volumeCrd)
 			Expect(err).To(BeNil())
 
 			// create LogicalVolumeGroup CR
-			err = controller.k8sclient.CreateCR(testCtx, lvgName, &lvgCR)
-			Expect(err).To(BeNil())
-
-			// create drive CR
-			err = controller.k8sclient.CreateCR(testCtx, driveName, &driveCrd)
-			Expect(err).To(BeNil())
-
-			// create ac CR
-			err = controller.k8sclient.CreateCR(testCtx, ACName, &acCrd)
+			err = controller.k8sclient.CreateCR(testCtx, uuid, &lvgCR)
 			Expect(err).To(BeNil())
 
 			lvgCRs := &lvgcrd.LogicalVolumeGroupList{}
@@ -710,7 +626,7 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			Expect(err).To(BeNil())
 			fillCache(controller, volumeCrd.Spec.Id, volumeCrd.Namespace)
 			go testutils.VolumeReconcileImitation(controller.k8sclient, volumeCrd.Spec.Id, volumeCrd.Namespace, apiV1.Removed)
-			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: volumeCrd.Spec.Id})
+			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: uuid})
 			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
 			Expect(err).To(BeNil())
 
@@ -719,6 +635,33 @@ var _ = Describe("CSIControllerService DeleteVolume", func() {
 			err = controller.k8sclient.ReadList(testCtx, &vList)
 			Expect(err).To(BeNil())
 			Expect(len(vList.Items)).To(Equal(0))
+		})
+		It("Volume is deleted successful, LogicalVolumeGroup AC recreated", func() {
+			removeAllCrds(controller.k8sclient) // remove CRs that was created in BeforeEach()
+			fullLVGsizeVolume := testVolume
+			fullLVGsizeVolume.Spec.StorageClass = apiV1.StorageClassHDDLVG
+			fullLVGsizeVolume.Spec.CSIStatus = apiV1.Created
+
+			// create volume CR that should be deleted
+			err := controller.k8sclient.CreateCR(testCtx, testID, &fullLVGsizeVolume)
+			Expect(err).To(BeNil())
+
+			fillCache(controller, fullLVGsizeVolume.Spec.Id, fullLVGsizeVolume.Namespace)
+			go testutils.VolumeReconcileImitation(controller.k8sclient, fullLVGsizeVolume.Spec.Id, fullLVGsizeVolume.Namespace, apiV1.Removed)
+			resp, err := controller.DeleteVolume(context.Background(), &csi.DeleteVolumeRequest{VolumeId: testID})
+			Expect(resp).To(Equal(&csi.DeleteVolumeResponse{}))
+			Expect(err).To(BeNil())
+
+			// check that there are no any volume CR (was removed)
+			vList := vcrd.VolumeList{}
+			err = controller.k8sclient.ReadList(testCtx, &vList)
+			Expect(err).To(BeNil())
+			Expect(len(vList.Items)).To(Equal(0))
+			// check that AC size still not exist
+			acList := accrd.AvailableCapacityList{}
+			err = controller.k8sclient.ReadList(context.Background(), &acList)
+			Expect(err).To(BeNil())
+			Expect(len(acList.Items)).To(Equal(0))
 		})
 	})
 })

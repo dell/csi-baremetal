@@ -66,17 +66,6 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testDrive4UUID},
 		Spec:       testAPIDrive4,
 	}
-	testDriveCR1 = drivecrd.Drive{
-		TypeMeta:   testDriveTypeMeta,
-		ObjectMeta: k8smetav1.ObjectMeta{Name: testDrive1UUID},
-		Spec: api.Drive{
-			UUID:     testDrive1UUID,
-			Type:     apiV1.DriveTypeHDD,
-			Size:     int64(util.GBYTE) * 42,
-			IsSystem: false,
-			NodeId:   testNode1Name,
-		},
-	}
 
 	// Available Capacity variables
 	testAC1Name = fmt.Sprintf("%s-%s", testNode1Name, strings.ToLower(testDrive2UUID))
