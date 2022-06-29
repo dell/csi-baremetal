@@ -250,7 +250,7 @@ func (c *CSIControllerService) DeleteVolume(ctx context.Context, req *csi.Delete
 
 	if err = c.svc.WaitStatus(ctx, req.VolumeId, apiV1.Failed, apiV1.Removed); err != nil {
 		// we might not get DeleteVolume request again. Volume CR will have to be removed manually in this case
-		return nil, status.Error(codes.Internal, "Unable to delete volume")
+		return nil, status.Error(codes.Internal, "Unable to delete volume1")
 	}
 
 	c.reqMu.Lock()
