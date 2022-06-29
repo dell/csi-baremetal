@@ -238,7 +238,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 	}
 	vo.cache.Set(v.Id, podNamespace)
 
-	// decrease AC size
+	// decrease AC   size
 	ac.Spec.Size -= allocatedBytes
 	if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
 		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
