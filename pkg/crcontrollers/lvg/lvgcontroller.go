@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,7 +43,10 @@ import (
 	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
-const lvgFinalizer = "dell.emc.csi/lvg-cleanup"
+const (
+	lvgFinalizer            = "dell.emc.csi/lvg-cleanup"
+	lvgDeletionRetryTimeout = 1 * time.Second
+)
 
 // Controller is the LogicalVolumeGroup custom resource Controller for serving VG operations on Node side in Reconcile loop
 type Controller struct {
@@ -181,17 +185,13 @@ func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Res
 		ll.Errorf("Unable to read volume list: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
+
 	// If Kubernetes has volumes with location of LogicalVolumeGroup, which is needed to be deleted,
 	// we prevent removing, because this LogicalVolumeGroup is still used.
 	for _, item := range volumes.Items {
 		if item.Spec.Location == lvg.Name && item.DeletionTimestamp.IsZero() {
-			// update AC size that point on that LogicalVolumeGroup
-			if err := c.setNewVGSize(lvg, lvg.Spec.Size); err != nil {
-				ll.Errorf("Unable to update LVG: %v", err)
-				return ctrl.Result{}, err
-			}
 			ll.Debugf("There are volume %v with LogicalVolumeGroup location, stop LogicalVolumeGroup deletion", item)
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: lvgDeletionRetryTimeout}, nil
 		}
 	}
 
@@ -200,7 +200,7 @@ func (c *Controller) handleLVGRemoving(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Res
 		// cleanup LVM artifacts
 		if err := c.removeLVGArtifacts(lvg.Name); err != nil {
 			ll.Errorf("Unable to cleanup LVM artifacts: %v", err)
-			return ctrl.Result{}, err
+			return ctrl.Result{Requeue: true}, err
 		}
 	}
 
