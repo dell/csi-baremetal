@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
+Copyright © 2022 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,8 +26,11 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
@@ -51,7 +54,6 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		driverCleanup func()
 		ns            string
 		taintNodeName string
-		ctx           context.Context
 		f             = framework.NewDefaultFramework("node-remove-test")
 	)
 
@@ -61,7 +63,6 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
-		ctx = context.Background()
 		perTestConf, driverCleanup = driver.PrepareTest(f)
 		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
@@ -72,8 +73,23 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		e2elog.Logf("Starting cleanup for test NodeRemoval")
 
 		if taintNodeName != "" {
-			_, _, err := executor.RunCmd(fmt.Sprintf("docker start %s", taintNodeName))
+			podsBefore, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
 			framework.ExpectNoError(err)
+
+			_, _, err = executor.RunCmd(fmt.Sprintf("docker stop %s", taintNodeName))
+			framework.ExpectNoError(err)
+			_, _, err = executor.RunCmd(fmt.Sprintf("docker start %s", taintNodeName))
+			framework.ExpectNoError(err)
+
+			if !e2enode.WaitForNodeToBeReady(f.ClientSet, taintNodeName, time.Minute*5) {
+				framework.Failf("Node %s is not ready", taintNodeName)
+			}
+
+			pods, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
+			framework.ExpectNoError(err)
+
+			framework.ExpectEqual(f, len(podsBefore) < len(pods), true)
+			e2elog.Logf("Count of pods before test was %s, after - %s", len(podsBefore), len(pods))
 		}
 		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
@@ -98,7 +114,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 
 		taint := corev1.Taint{
 			Key:    "node.dell.com/drain",
-			Value:  "drain:NoSchedule",
+			Value:  "drain",
 			Effect: "NoSchedule",
 		}
 
@@ -107,7 +123,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		framework.ExpectNoError(err)
 
 		// taint node
-		cmd := fmt.Sprintf("kubectl taint node %s %s=%s", taintNodeName, taint.Key, taint.Value)
+		cmd := fmt.Sprintf("kubectl taint node %s %s=%s:%s", taintNodeName, taint.Key, taint.Value, taint.Effect)
 		_, _, err = executor.RunCmd(cmd)
 		framework.ExpectNoError(err)
 
@@ -120,9 +136,9 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		_, _, err = executor.RunCmd(cmd)
 		framework.ExpectNoError(err)
 
-		e2elog.Logf("Waiting for all drives to be removed from node...")
+		e2elog.Logf("Waiting for csibmnode to be deleted...")
 		for start := time.Now(); time.Since(start) < time.Minute*10; time.Sleep(time.Second * 30) {
-			if !isDriveExist(f, taintedNodeId) {
+			if !isNodeExist(f, taintedNodeId) {
 				break
 			}
 		}
@@ -133,9 +149,10 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		framework.ExpectNoError(err)
 
 		// time end or deleted
-		framework.ExpectEqual(isDriveExist(f, taintedNodeId), false)
-		framework.ExpectEqual(isACExist(f, taintedNodeId), false)
 		framework.ExpectEqual(isNodeExist(f, taintedNodeId), false)
+		framework.ExpectEqual(isRecourseExistOnNode(f, common.DriveGVR, taintedNodeId), false)
+		framework.ExpectEqual(isRecourseExistOnNode(f, common.ACGVR, taintedNodeId), false)
+		framework.ExpectEqual(isRecourseExistOnNode(f, common.VolumeGVR, taintedNodeId), false)
 	})
 }
 
@@ -162,51 +179,29 @@ func foundCsibmnodeByNodeName(f *framework.Framework, nodeName string) (string, 
 	return taintedCsibmnode, nil
 }
 
-func isDriveExist(f *framework.Framework, nodeID string) bool {
-	allDrives := getUObjList(f, common.DriveGVR)
-	exist := false
-
-	for _, drive := range allDrives.Items {
-		specNodeID, _, err := unstructured.NestedString(drive.UnstructuredContent(), "spec", "NodeId")
-		framework.ExpectNoError(err)
-		if specNodeID == nodeID {
-			e2elog.Logf("On taintedNode %s exist drive %s", nodeID, drive)
-			exist = true
-			break
-		}
-	}
-	return exist
-}
-
 func isNodeExist(f *framework.Framework, nodeID string) bool {
 	allNodes := getUObjList(f, common.CsibmnodeGVR)
-	exist := false
 
 	for _, node := range allNodes.Items {
 		nodeUUID, _, err := unstructured.NestedString(node.UnstructuredContent(), "spec", "UUID")
 		framework.ExpectNoError(err)
 		if nodeUUID == nodeID {
 			e2elog.Logf("Node %s exist", nodeID)
-			exist = true
-			break
+			return true
 		}
 	}
-	return exist
+	return false
 }
 
-func isACExist(f *framework.Framework, nodeID string) bool {
-	allACs := getUObjList(f, common.ACGVR)
-	exist := false
-
-	for _, ac := range allACs.Items {
-		nodeUUID, _, err := unstructured.NestedString(ac.UnstructuredContent(), "spec", "NodeId")
+func isRecourseExistOnNode(f *framework.Framework, resource schema.GroupVersionResource, nodeID string) bool {
+	list := getUObjList(f, resource)
+	for _, el := range list.Items {
+		specNodeID, _, err := unstructured.NestedString(el.UnstructuredContent(), "spec", "NodeId")
 		framework.ExpectNoError(err)
-		if nodeUUID == nodeID {
-			e2elog.Logf("AC %s on node %s exist", ac, nodeID)
-			exist = true
-			break
+		if specNodeID == nodeID {
+			e2elog.Logf("On taintedNode %s exist %s", nodeID, resource)
+			return true
 		}
 	}
-	return exist
+	return false
 }
-
