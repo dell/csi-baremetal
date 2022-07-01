@@ -79,8 +79,6 @@ RUN           curl -LO https://get.helm.sh/helm-v${arg_helm_ver}-linux-amd64.tar
 &&            rm helm-v${arg_helm_ver}-linux-amd64.tar.gz \
 &&            rm -rf linux-amd64
 
-RUN           ln --symbolic /usr/bin/python3 /usr/bin/python
-
 # copy kind from builder
 COPY          --from=builder /kind/kind /usr/local/bin
 RUN           chmod +x /usr/local/bin/kind
