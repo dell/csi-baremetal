@@ -256,6 +256,11 @@ func (m *VolumeManager) GetFSOps() utilwrappers.FSOperations {
 	return m.fsOps
 }
 
+// SetFSOps sets FSOps instance
+func (m *VolumeManager) SetFSOps(fs utilwrappers.FSOperations) {
+	m.fsOps = fs
+}
+
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
 // VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
 // Volume.Spec.CSIStatus is Removing.

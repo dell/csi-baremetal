@@ -424,20 +424,41 @@ func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 }
 
 func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
-	var (
-		svc = setupVOOperationsTest(t)
-		v   = testVolume1.DeepCopy()
-		err error
-	)
 
-	svc.cache.Set(v.Name, v.Namespace)
-	v.Spec.CSIStatus = apiV1.Failed
-	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, v)
-	assert.Nil(t, err)
+	t.Run("failed status", func(t *testing.T) {
+		var (
+			svc = setupVOOperationsTest(t)
+			v   = testVolume1.DeepCopy()
+			err error
+		)
 
-	err = svc.DeleteVolume(testCtx, testVolume1Name)
-	assert.NotNil(t, err)
-	assert.Equal(t, status.Error(codes.Internal, "volume has reached failed status"), err)
+		svc.cache.Set(v.Name, v.Namespace)
+		v.Spec.CSIStatus = apiV1.Failed
+		err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, v)
+		assert.Nil(t, err)
+
+		err = svc.DeleteVolume(testCtx, testVolume1Name)
+		assert.NotNil(t, err)
+		assert.Equal(t, status.Error(codes.Internal, "volume has reached failed status"), err)
+	})
+
+	t.Run("volume mounted", func(t *testing.T) {
+		var (
+			svc = setupVOOperationsTest(t)
+			v   = testVolume1.DeepCopy()
+			err error
+		)
+
+		svc.cache.Set(v.Name, v.Namespace)
+		v.Spec.CSIStatus = apiV1.Published
+		v.Spec.Mounted = true
+		err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, v)
+		assert.Nil(t, err)
+
+		err = svc.DeleteVolume(testCtx, testVolume1Name)
+		assert.NotNil(t, err)
+		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+	})
 }
 
 // volume has status Removed or Removing
@@ -460,24 +481,71 @@ func TestVolumeOperationsImpl_DeleteVolume(t *testing.T) {
 }
 
 func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
-	var (
-		svc        = setupVOOperationsTest(t)
-		v          = testVolume1.DeepCopy()
-		updatedVol = volumecrd.Volume{}
-		err        error
-	)
 
-	v.Spec.CSIStatus = apiV1.Created
-	svc.cache.Set(v.Name, v.Namespace)
-	err = svc.k8sClient.CreateCR(testCtx, v.Name, v)
-	assert.Nil(t, err)
+	t.Run("created status", func(t *testing.T) {
+		var (
+			svc        = setupVOOperationsTest(t)
+			v          = testVolume1.DeepCopy()
+			updatedVol = volumecrd.Volume{}
+			err        error
+		)
 
-	err = svc.DeleteVolume(testCtx, v.Name)
-	assert.Nil(t, err)
+		v.Spec.CSIStatus = apiV1.Created
+		svc.cache.Set(v.Name, v.Namespace)
+		err = svc.k8sClient.CreateCR(testCtx, v.Name, v)
+		assert.Nil(t, err)
 
-	err = svc.k8sClient.ReadCR(testCtx, v.Name, v.Namespace, &updatedVol)
-	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Removing, updatedVol.Spec.CSIStatus)
+		err = svc.DeleteVolume(testCtx, v.Name)
+		assert.Nil(t, err)
+
+		err = svc.k8sClient.ReadCR(testCtx, v.Name, v.Namespace, &updatedVol)
+		assert.Nil(t, err)
+		assert.Equal(t, apiV1.Removing, updatedVol.Spec.CSIStatus)
+	})
+
+	t.Run("volume ready status", func(t *testing.T) {
+		var (
+			svc        = setupVOOperationsTest(t)
+			v          = testVolume1.DeepCopy()
+			updatedVol = volumecrd.Volume{}
+			err        error
+		)
+
+		v.Spec.CSIStatus = apiV1.VolumeReady
+		v.Spec.Mounted = false
+		svc.cache.Set(v.Name, v.Namespace)
+		err = svc.k8sClient.CreateCR(testCtx, v.Name, v)
+		assert.Nil(t, err)
+
+		err = svc.DeleteVolume(testCtx, v.Name)
+		assert.Nil(t, err)
+
+		err = svc.k8sClient.ReadCR(testCtx, v.Name, v.Namespace, &updatedVol)
+		assert.Nil(t, err)
+		assert.Equal(t, apiV1.Removing, updatedVol.Spec.CSIStatus)
+	})
+
+	t.Run("volume ready status", func(t *testing.T) {
+		var (
+			svc        = setupVOOperationsTest(t)
+			v          = testVolume1.DeepCopy()
+			updatedVol = volumecrd.Volume{}
+			err        error
+		)
+
+		v.Spec.CSIStatus = apiV1.Published
+		v.Spec.Mounted = false
+		svc.cache.Set(v.Name, v.Namespace)
+		err = svc.k8sClient.CreateCR(testCtx, v.Name, v)
+		assert.Nil(t, err)
+
+		err = svc.DeleteVolume(testCtx, v.Name)
+		assert.Nil(t, err)
+
+		err = svc.k8sClient.ReadCR(testCtx, v.Name, v.Namespace, &updatedVol)
+		assert.Nil(t, err)
+		assert.Equal(t, apiV1.Removing, updatedVol.Spec.CSIStatus)
+	})
 }
 
 func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
