@@ -304,6 +304,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	}
 
 	volumeCR.Spec.CSIStatus = apiV1.Created
+	volumeCR.Spec.Mounted = false
 
 	var (
 		resp        = &csi.NodeUnstageVolumeResponse{}
@@ -319,6 +320,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 
 		if errToReturn != nil {
 			volumeCR.Spec.CSIStatus = apiV1.Failed
+			volumeCR.Spec.Mounted = true
 			resp = nil
 		}
 	}
