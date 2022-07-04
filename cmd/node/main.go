@@ -37,6 +37,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -53,7 +58,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/drive"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/lvg"
-	annotations "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
@@ -97,6 +102,9 @@ var (
 
 func main() {
 	flag.Parse()
+	// TODO Depricated https://github.com/dell/csi-baremetal/issues/896
+	// get rid of cli params
+	_ = *nodeIDAnnotation
 
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureACReservation, *useACRs)
@@ -121,13 +129,18 @@ func main() {
 	if err != nil {
 		logger.Fatalf("fail to create kubernetes client, error: %v", err)
 	}
+	annotationSrv := annotation.New(
+		k8SClient,
+		logger,
+		annotation.WithFeatureConfig(featureConf),
+		annotation.WithRetryDelay(3*time.Second),
+		annotation.WithRetryNumber(20),
+	)
 	// we need to obtain node ID first before proceeding with the initialization
-	nodeID, err := annotations.ObtainNodeIDWithRetries(k8SClient, featureConf, *nodeName, *nodeIDAnnotation,
-		logger, annotations.NumberOfRetries, annotations.DelayBetweenRetries)
+	nodeID, err := annotationSrv.ObtainNodeID(*nodeName)
 	if err != nil {
 		logger.Fatalf("Unable to obtain node ID: %v", err)
 	}
-
 	// gRPC client for communication with DriveMgr via TCP socket
 	gRPCClient, err := rpc.NewClient(nil, *driveMgrEndpoint, enableMetrics, logger)
 	if err != nil {
