@@ -2,6 +2,14 @@ package volume
 
 import (
 	"context"
+	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -13,12 +21,6 @@ import (
 	mockprov "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	"github.com/dell/csi-baremetal/pkg/node"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	coreV1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 var (
