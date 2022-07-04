@@ -1314,6 +1314,7 @@ func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, 
 	}
 }
 
+// SetWbtValue sets WBT settings for the devices related with the passed volume
 func (m *VolumeManager) SetWbtValue(vol *volumecrd.Volume) error {
 	device, err := m.findDeviceName(vol)
 	if err != nil {
@@ -1328,6 +1329,7 @@ func (m *VolumeManager) SetWbtValue(vol *volumecrd.Volume) error {
 	return nil
 }
 
+// RestoreWbtValue restores WBT settings for the devices related with the passed volume
 func (m *VolumeManager) RestoreWbtValue(vol *volumecrd.Volume) error {
 	device, err := m.findDeviceName(vol)
 	if err != nil {
@@ -1342,6 +1344,7 @@ func (m *VolumeManager) RestoreWbtValue(vol *volumecrd.Volume) error {
 	return nil
 }
 
+// CheckWbtChangingEnable checks do we need to enable WBT for the passed volume
 func (m *VolumeManager) CheckWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
 	if m.wbtConfig == nil {
 		return false

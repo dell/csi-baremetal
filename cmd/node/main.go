@@ -65,10 +65,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/node/processor"
 	"github.com/dell/csi-baremetal/pkg/node/processor/volume"
 	"github.com/dell/csi-baremetal/pkg/node/processor/wbt"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 )
 
 const (

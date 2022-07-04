@@ -28,6 +28,11 @@ import (
 	simple "github.com/dell/csi-baremetal/pkg/events/recorder"
 )
 
+// CustomEventRecorder is interface to use in another packages
+type CustomEventRecorder interface {
+	Eventf(object runtime.Object, event *eventing.EventDescription, messageFmt string, args ...interface{})
+}
+
 // EventRecorder knows how to record events on behalf of an EventSource
 type EventRecorder interface {
 	Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{})

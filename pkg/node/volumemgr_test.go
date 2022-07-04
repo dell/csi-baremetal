@@ -1379,7 +1379,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 
 		mockWbt.On("SetValue", device, wbtValue).Return(nil)
 
-		err = vm.setWbtValue(testVol)
+		err = vm.SetWbtValue(testVol)
 		assert.Nil(t, err)
 	})
 	t.Run("setWbtValue: findDeviceName failed", func(t *testing.T) {
@@ -1394,7 +1394,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
 		assert.Nil(t, err)
 
-		err = vm.setWbtValue(testVol)
+		err = vm.SetWbtValue(testVol)
 		assert.NotNil(t, err)
 	})
 	t.Run("setWbtValue: wbtOps.SetValue failed", func(t *testing.T) {
@@ -1415,7 +1415,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 
 		mockWbt.On("SetValue", device, wbtValue).Return(mockErr)
 
-		err = vm.setWbtValue(testVol)
+		err = vm.SetWbtValue(testVol)
 		assert.NotNil(t, err)
 		assert.Equal(t, mockErr, err)
 	})
@@ -1436,7 +1436,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 
 		mockWbt.On("RestoreDefault", device).Return(nil)
 
-		err = vm.restoreWbtValue(testVol)
+		err = vm.RestoreWbtValue(testVol)
 		assert.Nil(t, err)
 	})
 	t.Run("restoreWbtValue: findDeviceName failed", func(t *testing.T) {
@@ -1451,7 +1451,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		err := vm.k8sClient.CreateCR(testCtx, testDrive.Name, testDrive)
 		assert.Nil(t, err)
 
-		err = vm.restoreWbtValue(testVol)
+		err = vm.RestoreWbtValue(testVol)
 		assert.NotNil(t, err)
 	})
 	t.Run("restoreWbtValue: wbtOps.RestoreDefault failed", func(t *testing.T) {
@@ -1470,7 +1470,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 
 		mockWbt.On("RestoreDefault", device).Return(mockErr)
 
-		err = vm.restoreWbtValue(testVol)
+		err = vm.RestoreWbtValue(testVol)
 		assert.NotNil(t, err)
 		assert.Equal(t, mockErr, err)
 	})
@@ -1498,7 +1498,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		err := vm.k8sClient.Create(testCtx, pv)
 		assert.Nil(t, err)
 
-		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		result := vm.CheckWbtChangingEnable(testCtx, testVol)
 		assert.True(t, result)
 	})
 	t.Run("checkWbtChangingEnable: wbtConf is nil", func(t *testing.T) {
@@ -1508,7 +1508,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = nil
 
-		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		result := vm.CheckWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
 	t.Run("checkWbtChangingEnable: wbt disabled", func(t *testing.T) {
@@ -1527,7 +1527,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = wbtConf
 
-		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		result := vm.CheckWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
 	t.Run("checkWbtChangingEnable: wrong Mode", func(t *testing.T) {
@@ -1546,7 +1546,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		vm.wbtConfig = wbtConf
 
-		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		result := vm.CheckWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
 	t.Run("checkWbtChangingEnable: wrong SC", func(t *testing.T) {
@@ -1572,7 +1572,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		err := vm.k8sClient.Create(testCtx, pv)
 		assert.Nil(t, err)
 
-		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		result := vm.CheckWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
 	t.Run("checkWbtChangingEnable: PV not found", func(t *testing.T) {
@@ -1598,7 +1598,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		err := vm.k8sClient.Create(testCtx, pv)
 		assert.Nil(t, err)
 
-		result := vm.checkWbtChangingEnable(testCtx, testVol)
+		result := vm.CheckWbtChangingEnable(testCtx, testVol)
 		assert.False(t, result)
 	})
 

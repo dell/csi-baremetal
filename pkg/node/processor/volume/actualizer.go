@@ -11,7 +11,9 @@ import (
 
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/eventing"
+	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/node"
+	"github.com/dell/csi-baremetal/pkg/node/processor"
 )
 
 const ctxTimeout = 30 * time.Second
@@ -20,7 +22,7 @@ type actualizer struct {
 	client client.Client
 	// kubernetes node ID
 	nodeID        string
-	eventRecorder eventRecorder
+	eventRecorder events.CustomEventRecorder
 	vmgr          *node.VolumeManager
 	log           *logrus.Entry
 }
@@ -98,8 +100,8 @@ func (a *actualizer) ownerPodsAreRemoved(ctx context.Context, volume *volumecrd.
 }
 
 // NewVolumeActualizer creates new Volume actualizer
-func NewVolumeActualizer(client client.Client, nodeID string, eventRecorder eventRecorder,
-	vmgr *node.VolumeManager, log *logrus.Entry) processor {
+func NewVolumeActualizer(client client.Client, nodeID string, eventRecorder events.CustomEventRecorder,
+	vmgr *node.VolumeManager, log *logrus.Entry) processor.Processor {
 	return &actualizer{
 		client:        client,
 		nodeID:        nodeID,

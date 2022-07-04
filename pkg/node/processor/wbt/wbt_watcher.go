@@ -2,18 +2,19 @@ package wbt
 
 import (
 	"context"
-	"github.com/dell/csi-baremetal/pkg/node/processor"
-	"github.com/dell/csi-baremetal/pkg/node/processor/wbt/common"
+	"io/ioutil"
+	"os"
+
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
-	"os"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/node"
+	"github.com/dell/csi-baremetal/pkg/node/processor"
+	"github.com/dell/csi-baremetal/pkg/node/processor/wbt/common"
 )
 
 const (
@@ -29,7 +30,7 @@ type confWatcher struct {
 	client            k8sClient.Client
 	cns               *node.CSINodeService
 	nodeKernelVersion string
-	eventsRecorder    *events.Recorder
+	eventsRecorder    events.CustomEventRecorder
 	log               *logrus.Entry
 }
 
@@ -100,7 +101,7 @@ func (w *confWatcher) sendErrorConfigmapEvent(ctx context.Context) {
 // NewConfWatcher create new WBT Config Watcher with node kernel version
 func NewConfWatcher(client k8sClient.Client,
 	cns *node.CSINodeService, nodeKernelVersion string,
-	eventsRecorder *events.Recorder, log *logrus.Entry,
+	eventsRecorder events.CustomEventRecorder, log *logrus.Entry,
 ) processor.Processor {
 	return &confWatcher{
 		client:            client,
