@@ -2,6 +2,7 @@ package volume
 
 import (
 	"context"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -40,6 +41,11 @@ func (a *actualizer) Handle(ctx context.Context) {
 	for i := 0; i < len(volumes.Items); i++ {
 		if volumes.Items[i].Spec.NodeId != a.nodeID {
 			// if volume belongs to another node - then just skip it
+			continue
+		}
+
+		// perform only for volumes in PUBLISHED or VOLUME_READY state
+		if volumes.Items[i].Spec.CSIStatus != apiV1.Published || volumes.Items[i].Spec.CSIStatus != apiV1.VolumeReady {
 			continue
 		}
 
