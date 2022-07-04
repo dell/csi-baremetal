@@ -251,6 +251,11 @@ func (m *VolumeManager) SetListBlk(listBlk lsblk.WrapLsblk) {
 	m.listBlk = listBlk
 }
 
+// GetFSOps returns FSOps instance
+func (m *VolumeManager) GetFSOps() utilwrappers.FSOperations {
+	return m.fsOps
+}
+
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
 // VolumeManagers's node if Volume.Spec.CSIStatus is Creating. Also this loop handles volume deletion on the node if
 // Volume.Spec.CSIStatus is Removing.
@@ -458,7 +463,7 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 
 	newStatus := apiV1.Created
 
-	err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(&volume.Spec)
+	err := m.GetProvisionerForVolume(&volume.Spec).PrepareVolume(&volume.Spec)
 	if err != nil {
 		ll.Errorf("Unable to create volume size of %d bytes: %v. Set volume status to Failed", volume.Spec.Size, err)
 		newStatus = apiV1.Failed
@@ -515,7 +520,7 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 	}
 	ll.Debugf("Got drive %+v", drive)
 
-	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
+	if err := m.GetProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		drive.Spec.Usage = apiV1.DriveUsageFailed
 		if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
@@ -934,8 +939,8 @@ func (m *VolumeManager) updateLVGAnnotation(lvg *lvgcrd.LogicalVolumeGroup, vgFr
 	}
 }
 
-// getProvisionerForVolume returns appropriate Provisioner implementation for volume
-func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
+// GetProvisionerForVolume returns appropriate Provisioner implementation for volume
+func (m *VolumeManager) GetProvisionerForVolume(vol *api.Volume) p.Provisioner {
 	if util.IsStorageClassLVG(vol.StorageClass) {
 		return m.provisioners[p.LVMBasedVolumeType]
 	}

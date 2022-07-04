@@ -2,7 +2,6 @@ package volume
 
 import (
 	"context"
-	"github.com/dell/csi-baremetal/pkg/node/actions/volume/unstage/errors"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -10,19 +9,19 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/eventing"
+	"github.com/dell/csi-baremetal/pkg/node"
 )
 
 const ctxTimeout = 30 * time.Second
 
 type actualizer struct {
-	client                      client.Client
-	unstageVolumeActionsFactory unstageVolumeActionsFactory
+	client client.Client
 	// kubernetes node ID
 	nodeID        string
 	eventRecorder eventRecorder
+	vmgr          *node.VolumeManager
 	log           *logrus.Entry
 }
 
@@ -42,40 +41,35 @@ func (a *actualizer) Handle(ctx context.Context) {
 			continue
 		}
 
-		// If volume is published and all of its owner pods are removed - then this volume becomes orphaned.
-		// This situation is possible in case of CSI driver is unregistered within kubelet before pod is terminated:
-		// in this case kubelet manage physical volume mounts by itself and skip volume stage/publish operations over CSI drivers.
-		// So in this case volume CR should be actualized by ourselves.
-		if volumes.Items[i].Spec.CSIStatus == v1.Published && a.ownerPodsAreRemoved(ctx, &volumes.Items[i]) {
-			// performing volume unstage actions appliance
-			switch err := a.unstageVolumeActionsFactory.CreateUnstageVolumeActions(&volumes.Items[i],
-				volumes.Items[i].Spec.GlobalMountPath,
-			).Apply(ctx); err.(type) {
-			case nil:
-				volumes.Items[i].Spec.CSIStatus = v1.Created
-				break
-
-			case errors.UnmountVolumeError:
-				a.log.Errorf("failed to unmount Volume '%s', error: '%v'", volumes.Items[i].GetName(), err)
-				continue
-
-			case errors.RestoreWBTError:
-				a.log.Errorf("Unable to restore WBT value for volume %s: %v", volumes.Items[i].Name, err)
-				a.eventRecorder.Eventf(&volumes.Items[i], eventing.WBTValueSetFailed,
-					"Unable to restore WBT value for volume %s", volumes.Items[i].Name)
-				continue
-
-			default:
-				a.log.Errorf("Unknown error occurred during volume unstage actions appliance %s: %v", volumes.Items[i].Name, err)
-				continue
-			}
-
-			if err := a.client.Update(ctx, &volumes.Items[i]); err != nil {
-				a.log.Errorf("failed to actualize Volume %s: %s", volumes.Items[i].GetName(), err.Error())
-				continue
-			}
-			a.log.Infof("Volume %s was successfully actualized", volumes.Items[i].GetName())
+		path, err := a.vmgr.GetProvisionerForVolume(&volumes.Items[i].Spec).GetVolumePath(&volumes.Items[i].Spec)
+		if err != nil {
+			a.log.Errorf("failed to get volume path: %s", err.Error())
+			return
 		}
+
+		isMounted, err := a.vmgr.GetFSOps().IsMounted(path)
+		if err != nil {
+			a.log.Errorf("failed to check mounttt point: %s", err.Error())
+			return
+		}
+
+		if volumes.Items[i].Spec.Mounted == isMounted {
+			continue
+		}
+
+		isRemoved := a.ownerPodsAreRemoved(ctx, &volumes.Items[i])
+
+		a.eventRecorder.Eventf(&volumes.Items[i], eventing.VolumeUnexpectedMount,
+			"Volume mount status is unexpected. Status: %t. Real: %t. Owner pod removed: %t",
+			volumes.Items[i].Spec.Mounted, isMounted, isRemoved)
+
+		volumes.Items[i].Spec.Mounted = isMounted
+
+		if err := a.client.Update(ctx, &volumes.Items[i]); err != nil {
+			a.log.Errorf("failed to actualize Volume %s: %s", volumes.Items[i].GetName(), err.Error())
+			continue
+		}
+		a.log.Debugf("Volume %s was successfully actualized", volumes.Items[i].GetName())
 	}
 }
 
@@ -104,13 +98,13 @@ func (a *actualizer) ownerPodsAreRemoved(ctx context.Context, volume *volumecrd.
 }
 
 // NewVolumeActualizer creates new Volume actualizer
-func NewVolumeActualizer(client client.Client, unstageVolumeActionsFactory unstageVolumeActionsFactory,
-	nodeID string, log *logrus.Entry,
-) processor {
+func NewVolumeActualizer(client client.Client, nodeID string, eventRecorder eventRecorder,
+	vmgr *node.VolumeManager, log *logrus.Entry) processor {
 	return &actualizer{
-		client:                      client,
-		unstageVolumeActionsFactory: unstageVolumeActionsFactory,
-		nodeID:                      nodeID,
-		log:                         log,
+		client:        client,
+		nodeID:        nodeID,
+		eventRecorder: eventRecorder,
+		vmgr:          vmgr,
+		log:           log,
 	}
 }

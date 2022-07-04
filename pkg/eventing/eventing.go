@@ -224,4 +224,10 @@ var (
 		severity:    WarningType,
 		symptomCode: NoneSymptomCode,
 	}
+
+	VolumeUnexpectedMount = &EventDescription{
+		reason:      "VolumeUnexpectedMount",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
 )

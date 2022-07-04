@@ -57,11 +57,9 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
-	volumeActions "github.com/dell/csi-baremetal/pkg/node/actions/volume"
 	"github.com/dell/csi-baremetal/pkg/node/processor"
 	"github.com/dell/csi-baremetal/pkg/node/processor/volume"
 	"github.com/dell/csi-baremetal/pkg/node/processor/wbt"
-	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -157,8 +155,7 @@ func main() {
 	wrappedK8SClient := k8s.NewKubeClient(k8SClient, logger, objects.NewObjectLogger(), *namespace)
 	e := command.NewExecutor(logger)
 	volumeManager := node.NewVolumeManager(clientToDriveMgr, e, logger, wrappedK8SClient, kubeCache, eventRecorder, nodeID, *nodeName)
-	volumeFactory := volumeActions.NewVolumeFactory(volumeManager, utilwrappers.NewFSOperationsImpl(e, logger))
-	csiNodeService := node.NewCSINodeService(logger, wrappedK8SClient, volumeManager, volumeFactory, featureConf)
+	csiNodeService := node.NewCSINodeService(logger, wrappedK8SClient, volumeManager, featureConf)
 
 	mgr := prepareCRDControllerManagers(
 		csiNodeService,
@@ -211,7 +208,7 @@ func main() {
 
 	// start to actualize volumes
 	go executor.NewTimer(60*time.Second).Start(context.Background(),
-		volume.NewVolumeActualizer(k8SClient, volumeFactory, nodeID,
+		volume.NewVolumeActualizer(k8SClient, nodeID, eventRecorder, volumeManager,
 			logger.WithField("component", "VolumeActualizer"),
 		).Handle,
 	)

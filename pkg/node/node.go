@@ -32,7 +32,6 @@ import (
 	"k8s.io/utils/keymutex"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
-	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
@@ -44,8 +43,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/controller/mountoptions"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
-	"github.com/dell/csi-baremetal/pkg/node/actions"
-	errors2 "github.com/dell/csi-baremetal/pkg/node/actions/volume/unstage/errors"
 )
 
 const (
@@ -58,10 +55,6 @@ const (
 	wbtChangedVolumeKey        = "yes"
 )
 
-type unstageVolumeActionsFactory interface {
-	CreateUnstageVolumeActions(volume *volumecrd.Volume, stagingTargetPath string) actions.Actions
-}
-
 // CSINodeService is the implementation of NodeServer interface from GO CSI specification.
 // Contains VolumeManager in a such way that it is a single instance in the driver
 type CSINodeService struct {
@@ -72,8 +65,6 @@ type CSINodeService struct {
 	VolumeManager
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
-
-	unstageVolumeActionsFactory unstageVolumeActionsFactory
 
 	// used for locking requests on each volume
 	volMu keymutex.KeyMutex
@@ -92,15 +83,13 @@ func NewCSINodeService(
 	logger *logrus.Logger,
 	k8sClient *k8s.KubeClient,
 	volumeManager *VolumeManager,
-	unstageVolumeActionsFactory unstageVolumeActionsFactory,
 	featureConf featureconfig.FeatureChecker) *CSINodeService {
 	s := &CSINodeService{
-		svc:                         common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
-		livenessCheck:               NewLivenessCheckHelper(logger, nil, nil),
-		VolumeManager:               *volumeManager,
-		IdentityServer:              controller.NewIdentityServer(base.PluginName, base.PluginVersion),
-		unstageVolumeActionsFactory: unstageVolumeActionsFactory,
-		volMu:                       keymutex.NewHashed(0),
+		svc:            common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
+		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
+		VolumeManager:  *volumeManager,
+		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
+		volMu:          keymutex.NewHashed(0),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -214,7 +203,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 	}
 
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(&volumeCR.Spec)
+	partition, err := s.GetProvisionerForVolume(&volumeCR.Spec).GetVolumePath(&volumeCR.Spec)
 	if err != nil {
 		if err == baseerr.ErrorGetDriveFailed {
 			return nil, err
@@ -255,7 +244,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
-		volumeCR.Spec.GlobalMountPath = targetPath
+		volumeCR.Spec.Mounted = true
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
@@ -321,29 +310,30 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		errToReturn error
 	)
 
-	switch err = s.unstageVolumeActionsFactory.CreateUnstageVolumeActions(volumeCR,
-		getStagingPath(ll, req.GetStagingTargetPath()),
-	).Apply(ctx); err.(type) {
-	case nil:
-		break
+	if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
+		targetPath := getStagingPath(ll, req.GetStagingTargetPath())
+		errToReturn = s.fsOps.UnmountWithCheck(targetPath)
+		if errToReturn == nil {
+			errToReturn = s.fsOps.RmDir(targetPath)
+		}
 
-	case errors2.UnmountVolumeError:
-		volumeCR.Spec.CSIStatus = apiV1.Failed
-		resp = nil
-		errToReturn = err
-
-	case errors2.RestoreWBTError:
-		ll.Errorf("Unable to restore WBT value for volume %s: %v", volumeCR.Name, err)
-		s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
-			"Unable to restore WBT value for volume %s", volumeCR.Name)
-
-	default:
-		ll.Errorf("Unknown error occurred during volume unstage actions appliance %s: %v", volumeCR.Name, err)
+		if errToReturn != nil {
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			resp = nil
+		}
 	}
 
-	if updateErr := s.k8sClient.UpdateCR(
-		context.WithValue(ctx, base.RequestUUID, req.GetVolumeId()), volumeCR,
-	); updateErr != nil {
+	if val, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]; ok && val == wbtChangedVolumeKey {
+		delete(volumeCR.Annotations, wbtChangedVolumeAnnotation)
+		if err := s.VolumeManager.RestoreWbtValue(volumeCR); err != nil {
+			ll.Errorf("Unable to restore WBT value for volume %s: %v", volumeCR.Name, err)
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
+				"Unable to restore WBT value for volume %s", volumeCR.Name)
+		}
+	}
+
+	ctxWithID := context.WithValue(context.Background(), base.RequestUUID, req.GetVolumeId())
+	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 		ll.Errorf("Unable to update volume CR: %v", updateErr)
 		resp, errToReturn = nil, fmt.Errorf("failed to unstage volume: update volume CR error")
 	}

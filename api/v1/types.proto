@@ -43,7 +43,7 @@ message Volume {
     string Usage = 13;
     // inline volumes are not support anymore. need to remove field in the next version
     bool Ephemeral = 14;
-    string GlobalMountPath = 15;
+    bool Mounted = 15;
 }
 
 message AvailableCapacity {
