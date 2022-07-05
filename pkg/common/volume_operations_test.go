@@ -547,8 +547,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		err = svc.k8sClient.CreateCR(testCtx, drive.Name, drive)
 		assert.Nil(t, err)
 		svc.cache.Set(volumeHDD.Name, volumeHDD.Namespace)
-		svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
-		//assert.Nil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
+		assert.Nil(t, err)
 
 		err = svc.k8sClient.ReadCR(testCtx, volumeHDD.Name, volumeHDD.Namespace, &volumecrd.Volume{})
 		assert.NotNil(t, err)
@@ -569,8 +569,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		svc.cache.Set(volume2.Name, volume2.Namespace)
 
 		// remove one volume from two
-		svc.UpdateCRsAfterVolumeDeletion(testCtx, volume1.Name)
-		//assert.Nil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volume1.Name)
+		assert.Nil(t, err)
 
 		// check that Volume was removed
 		err = svc.k8sClient.ReadCR(testCtx, volume1.Name, volume1.Namespace, &volumecrd.Volume{})
@@ -587,8 +587,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		assert.Equal(t, ACUpdated.Spec.Size, testAC4.Spec.Size+volume1.Spec.Size)
 
 		// remove last volume from two
-		svc.UpdateCRsAfterVolumeDeletion(testCtx, volume2.Name)
-		//assert.Nil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volume2.Name)
+		assert.Nil(t, err)
 
 		// check that Volume was removed
 		err = svc.k8sClient.ReadCR(testCtx, volume2.Name, volume2.Namespace, &volumecrd.Volume{})
@@ -612,8 +612,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 	t.Run("volume not in cache", func(t *testing.T) {
 		svc = setupVOOperationsTest(t)
 
-		svc.UpdateCRsAfterVolumeDeletion(testCtx, "some-name")
-		//assert.Nil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(testCtx, "some-name")
+		assert.Nil(t, err)
 	})
 
 	t.Run("volume not found", func(t *testing.T) {
@@ -621,8 +621,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 
 		svc.cache.Set("some-name", "some-ns")
 
-		svc.UpdateCRsAfterVolumeDeletion(testCtx, "some-name")
-		//assert.Nil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(testCtx, "some-name")
+		assert.Nil(t, err)
 	})
 
 	t.Run("volume get error", func(t *testing.T) {
@@ -630,8 +630,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 
 		svc.cache.Set("some-name", "some-ns")
 
-		svc.UpdateCRsAfterVolumeDeletion(k8s.GetFailCtx, "some-name")
-		//assert.NotNil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(k8s.GetFailCtx, "some-name")
+		assert.NotNil(t, err)
 	})
 
 	t.Run("ac not found", func(t *testing.T) {
@@ -642,8 +642,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		err = svc.k8sClient.CreateCR(testCtx, volumeHDD.Name, volumeHDD)
 		assert.Nil(t, err)
 
-		svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
-		//assert.NotNil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
+		assert.NotNil(t, err)
 	})
 
 	t.Run("drive not found", func(t *testing.T) {
@@ -658,8 +658,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		err = svc.k8sClient.CreateCR(testCtx, ac.Name, ac)
 		assert.Nil(t, err)
 
-		svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
-		//assert.NotNil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(testCtx, volumeHDD.Name)
+		assert.NotNil(t, err)
 	})
 
 	t.Run("ac update failed", func(t *testing.T) {
@@ -678,8 +678,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		err = svc.k8sClient.CreateCR(testCtx, drive.Name, drive)
 		assert.Nil(t, err)
 
-		svc.UpdateCRsAfterVolumeDeletion(k8s.UpdateFailCtx, volumeHDD.Name)
-		//assert.NotNil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(k8s.UpdateFailCtx, volumeHDD.Name)
+		assert.NotNil(t, err)
 	})
 
 	t.Run("volume deletion failed", func(t *testing.T) {
@@ -698,8 +698,8 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeDeletion(t *testing.T) {
 		err = svc.k8sClient.CreateCR(testCtx, drive.Name, drive)
 		assert.Nil(t, err)
 
-		svc.UpdateCRsAfterVolumeDeletion(k8s.DeleteFailCtx, volumeHDD.Name)
-		//assert.NotNil(t, err)
+		err = svc.UpdateCRsAfterVolumeDeletion(k8s.DeleteFailCtx, volumeHDD.Name)
+		assert.NotNil(t, err)
 	})
 }
 

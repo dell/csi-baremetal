@@ -259,7 +259,7 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 
 	res, err := c.Reconcile(tCtx, req)
 	assert.Nil(t, err)
-	assert.Equal(t, res, ctrl.Result{})
+	assert.Equal(t, res, ctrl.Result{RequeueAfter: lvgDeletionRetryTimeout})
 
 	lvg := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, lvgToDell.Name, "", lvg)
@@ -286,7 +286,7 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 	res, err := c.Reconcile(tCtx, req)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "there are LVs in LogicalVolumeGroup")
-	assert.Equal(t, res, ctrl.Result{})
+	assert.Equal(t, res, ctrl.Result{Requeue: true})
 }
 
 func TestReconcile_FailedNoPVs(t *testing.T) {
