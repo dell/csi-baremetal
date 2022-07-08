@@ -31,6 +31,9 @@ Disadvantages:
 - Storage Capacity objects require more memory in etcd. In contrast, ACR are deleted after volume creation
 - The feature doesn't solve races issues, two pods still may reserve same disk
 
+Another option is to implement custom scheduler, which can increase performance even more and provide
+a way for users to describe storage load requirements more precise, for example set disk affinity/anti-affinity requirement for application.
+
 ## Compatibility
 
 ACR can be used with CSIStorageCapacity. Scheduler uses CSIStorageCapacities at the filter stage and filters out all nodes that have not enough capacity. Custom extension points work only after default ones, so 
