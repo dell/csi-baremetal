@@ -16,7 +16,7 @@ This algorithm has some disadvantages:
 
 ## Proposal
 
-Implement GetCapacity, support Storage Capacity Feature, remove Extender, remove ACR resource.
+Implement GetCapacity, support Storage Capacity Feature, make an extra option for users to remove Extender and ACR resource.
 
 ## Rationale
 
