@@ -1,6 +1,6 @@
 # Proposal: Implement storage capacity feature
 
-Last updated: 07.07.2022
+Last updated: 08.07.2022
 
 ## Abstract
 
