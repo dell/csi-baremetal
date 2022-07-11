@@ -129,4 +129,4 @@ to pick node for pod, but drive selection algorithm must be implemented by devel
 
 | ID      | Name | Descriptions | Status | Comments |
 |---------|------|--------------|--------|----------|
-| ISSUE-1 |      |              |        |          |   
+| ISSUE-1 |    Scheduling can fail permanently if Pod uses multiple volumes  | If Pod uses multiple volumes, one volume can be created in a topology segment which then does not have enough capacity left for another volume. This requires manual intervention.   |    Open    |    https://kubernetes.io/docs/concepts/storage/storage-capacity/#limitations      |   
