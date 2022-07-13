@@ -29,14 +29,15 @@ import (
 	"github.com/sirupsen/logrus"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	coreV1 "k8s.io/api/core/v1"
+	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
-	coreV1 "k8s.io/api/core/v1"
-	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -337,10 +338,11 @@ var _ = Describe("Working with CRD", func() {
 		})
 
 		It("Should create and read drive CR with attempts", func() {
-			err := k8sclient.CreateCR(testCtx, testUUID, testDriveCR.DeepCopy())
+			testObj := testDriveCR.DeepCopy()
+			err := k8sclient.CreateCR(testCtx, testUUID, testObj)
 			Expect(err).To(BeNil())
 			rdrive := &drivecrd.Drive{}
-			err = k8sclient.ReadCRWithAttempts(testUUID, "", rdrive, attempts)
+			err = k8sclient.ReadCR(context.Background(), testObj.Name, "", rdrive)
 			Expect(err).To(BeNil())
 			Expect(rdrive.ObjectMeta.Name).To(Equal(testUUID))
 		})
@@ -387,7 +389,7 @@ var _ = Describe("Working with CRD", func() {
 			Expect(err).To(BeNil())
 			driveCRUpdate.Spec.Health = apiV1.HealthBad
 
-			err = k8sclient.UpdateCRWithAttempts(testCtx, driveCRUpdate, attempts)
+			err = k8sclient.UpdateCR(testCtx, driveCRUpdate)
 			Expect(err).To(BeNil())
 			Expect(driveCRUpdate.Spec.Health).To(Equal(apiV1.HealthBad))
 		})
