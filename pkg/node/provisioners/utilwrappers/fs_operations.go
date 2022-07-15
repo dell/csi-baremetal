@@ -175,8 +175,8 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 			return err
 		}
 	}
-
-	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,ro")
+	// rw option is used as workaround for issue-906
+	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,rw")
 }
 
 // CreateFSIfNotExist checks FS and creates one if not exist
