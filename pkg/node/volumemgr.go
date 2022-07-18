@@ -465,7 +465,7 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 	}
 
 	volume.Spec.CSIStatus = newStatus
-	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); updateErr != nil {
+	if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
 		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
 		return ctrl.Result{Requeue: true}, updateErr
 	}
@@ -488,7 +488,7 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	}
 
 	volume.Spec.CSIStatus = newStatus
-	if updateErr := m.k8sClient.UpdateCRWithAttempts(ctx, volume, 10); updateErr != nil {
+	if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
 		return ctrl.Result{Requeue: true}, updateErr
 	}
@@ -518,7 +518,7 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		drive.Spec.Usage = apiV1.DriveUsageFailed
-		if err := m.k8sClient.UpdateCRWithAttempts(ctx, drive, 5); err != nil {
+		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
 				drive.Name, drive.Spec.Usage, err)
 			return "", err

@@ -49,19 +49,16 @@ func AddAC(k8sClient *k8s.KubeClient, acs ...*accrd.AvailableCapacity) error {
 
 // ReadVolumeAndChangeStatus returns error if something went wrong
 func ReadVolumeAndChangeStatus(k8sClient *k8s.KubeClient, volumeID string, namespace string, newStatus string) error {
-	var (
-		v        = &volumecrd.Volume{}
-		attempts = 10
-		ctx      = context.WithValue(context.Background(), base.RequestUUID, volumeID)
-	)
+	v := &volumecrd.Volume{}
+	ctx := context.WithValue(context.Background(), base.RequestUUID, volumeID)
 
-	if err := k8sClient.ReadCRWithAttempts(volumeID, namespace, v, attempts); err != nil {
+	if err := k8sClient.ReadCR(ctx, volumeID, namespace, v); err != nil {
 		return err
 	}
 
 	// change status
 	v.Spec.CSIStatus = newStatus
-	if err := k8sClient.UpdateCRWithAttempts(ctx, v, attempts); err != nil {
+	if err := k8sClient.UpdateCR(ctx, v); err != nil {
 		return err
 	}
 	return nil
