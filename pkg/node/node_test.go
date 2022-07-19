@@ -473,13 +473,12 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Stage Path missing in request"))
 		})
-		It("Should fail because Volume CR wasn't found", func() {
+		It("Shouldn't fail if Volume CR wasn't found", func() {
 			req := getNodeUnstageRequest("sone-none-existing-UUID", stagePath)
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			Expect(err).To(BeNil())
+			Expect(resp).To(Equal(&csi.NodeUnstageVolumeResponse{}))
 		})
 		It("Should fail with UnmountWithCheck() error", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)

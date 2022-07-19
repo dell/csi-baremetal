@@ -19,7 +19,6 @@ package k8s
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -226,7 +225,7 @@ func (cs *CRHelper) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
 		"method":   "GetVolumeByID",
 		"volumeID": volID,
 	}).Infof("Volume CR not found")
-	return nil, fmt.Errorf("volume wasn't found")
+	return nil, errTypes.ErrorNotFound
 }
 
 // GetVolumeCRs collect volume CRs that locate on node, use just node[0] element
