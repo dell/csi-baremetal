@@ -30,6 +30,8 @@ import (
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
@@ -42,7 +44,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/metrics"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // VolumeOperations is the interface that unites common Volume CRs operations
@@ -241,7 +242,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	// decrease AC size
 	ac.Spec.Size -= allocatedBytes
-	if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
+	if err = vo.k8sClient.UpdateCR(ctx, ac); err != nil {
 		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
 	}
 	// release reservation
@@ -277,7 +278,7 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 			log.Errorf("Timeout of %s for volume creation exceeded.", base.DefaultTimeoutForVolumeOperations)
 			volumeCR.Spec.CSIStatus = apiV1.Failed
 			// todo don't ignore error here
-			_ = vo.k8sClient.UpdateCRWithAttempts(ctx, volumeCR, 5)
+			_ = vo.k8sClient.UpdateCR(ctx, volumeCR)
 			return nil, status.Error(codes.Internal, "Unable to create volume in allocated time")
 		}
 		return &volumeCR.Spec, nil
@@ -569,7 +570,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 				fmt.Sprintf("Not enough capacity to expand volume: requested - %d, available - %d", requiredBytes, capacity.Spec.Size))
 		}
 		capacity.Spec.Size -= acSize
-		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, capacity, 5); err != nil {
+		if err := vo.k8sClient.UpdateCR(ctx, capacity); err != nil {
 			ll.Errorf("Failed to update AC, error: %v", err)
 			return status.Error(codes.Internal, "Unable to reserve AC")
 		}
@@ -582,7 +583,7 @@ func (vo *VolumeOperationsImpl) ExpandVolume(ctx context.Context, volume *volume
 		volume.Spec.CSIStatus = apiV1.Resizing
 		volume.Spec.Size = requiredBytes
 
-		if err := vo.k8sClient.UpdateCRWithAttempts(ctx, volume, 5); err != nil {
+		if err := vo.k8sClient.UpdateCR(ctx, volume); err != nil {
 			ll.Errorf("Failed to update volume, error: %v", err)
 			return status.Error(codes.Internal, "Unable to update volume")
 		}
@@ -629,7 +630,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeExpansion(ctx context.Contex
 		} else {
 			acSize := requiredBytes - volume.Spec.Size
 			ac.Spec.Size += acSize
-			if err = vo.k8sClient.UpdateCRWithAttempts(ctx, ac, 5); err != nil {
+			if err = vo.k8sClient.UpdateCR(ctx, ac); err != nil {
 				ll.Errorf("Failed to update AC: %v", err)
 			}
 		}
