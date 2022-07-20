@@ -344,3 +344,40 @@ func TestFSOperationsImpl_CreateFSIfNotExist_CreateError(t *testing.T) {
 	err = fsOps.CreateFSIfNotExist(fs.FileSystem(fsType), path, uuid)
 	assert.NotNil(t, err)
 }
+
+func TestFSOperationsImpl_MountFakeTmpfs(t *testing.T) {
+	var (
+		fsOps      = NewFSOperationsImpl(&command.Executor{}, logrus.New())
+		wrapFS     = &mocklu.MockWrapFS{}
+		dst        = "~/some/unusual/name"
+		src        = "/tmp"
+		bindOption = []string{"-t tmpfs -o size=1M,rw"} // for bind == false and empty mount opts
+		mkDirError = errors.New("MkDir error")
+		mountError = errors.New("Mount error")
+		err        error
+	)
+	fsOps.WrapFS = wrapFS
+
+	// dst isn't exist and Mount success
+	wrapFS.On("MkDir", dst).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, bindOption).Return(nil).Once()
+
+	err = fsOps.MountFakeTmpfs(src, dst)
+	assert.Nil(t, err)
+
+	// MkDir is failed
+	wrapFS.On("MkDir", dst).Return(mkDirError).Once()
+
+	err = fsOps.MountFakeTmpfs(src, dst)
+	assert.NotNil(t, err)
+	assert.Equal(t, mkDirError, err)
+	wrapFS.AssertNotCalled(t, "Mount", dst)
+
+	// Mount is failed
+	wrapFS.On("MkDir", dst).Return(nil).Once()
+	wrapFS.On("Mount", src, dst, bindOption).Return(mountError).Once()
+
+	err = fsOps.MountFakeTmpfs(src, dst)
+	assert.NotNil(t, err)
+	assert.Equal(t, mountError, err)
+}
