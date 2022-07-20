@@ -351,7 +351,7 @@ func TestFSOperationsImpl_MountFakeTmpfs(t *testing.T) {
 		wrapFS     = &mocklu.MockWrapFS{}
 		dst        = "~/some/unusual/name"
 		src        = "/tmp"
-		bindOption = []string{"-t tmpfs -o size=1M,rw"} // for bind == false and empty mount opts
+		bindOption = []string{"-t tmpfs -o size=1M,rw"}
 		mkDirError = errors.New("MkDir error")
 		mountError = errors.New("Mount error")
 		err        error
