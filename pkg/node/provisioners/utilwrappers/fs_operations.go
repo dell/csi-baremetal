@@ -158,7 +158,7 @@ func (fsOp *FSOperationsImpl) UnmountWithCheck(path string) error {
 func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 	/*
 		CMD example:
-			mount -t tmpfs -o size=1M,ro <volumeID> <dst>
+			mount -t tmpfs -o size=1M,rw <volumeID> <dst>
 	*/
 	ll := fsOp.log.WithFields(logrus.Fields{
 		"method": "MountFakeTmpfs",
