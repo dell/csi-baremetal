@@ -24,10 +24,12 @@ import (
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
@@ -49,7 +51,10 @@ var (
 	ext3Fs                    = "ext3"
 	hddStorageType            = "HDD"
 	// default value for expansion is hardcoded to 1Gi in e2e test framework
-	maxDriveSize = "2.1Gi"
+	maxDriveSize  = "2.1Gi"
+	defaultACSize = int64(1024 * 1024 * 101)
+	namespace     = "volume"
+	volName       = "vol-name"
 )
 
 func initBaremetalDriverInfo(name string) storageframework.DriverInfo {
@@ -134,9 +139,8 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		e2eskipper.Skipf("Baremetal Driver does not support block volume mode with volume expansion - skipping")
 	}
 
-	// TODO https://github.com/dell/csi-baremetal/issues/666 - add test coverage
-	if pattern.VolType == storageframework.PreprovisionedPV {
-		e2eskipper.Skipf("Baremetal Driver does not have PreprovisionedPV test suite implemented yet -- skipping")
+	if pattern.VolType == storageframework.PreprovisionedPV && pattern.FsType != ext4Fs{
+		e2eskipper.Skipf("Run PreprovisionedPV tests only for ext4  -- skipping")
 	}
 }
 
@@ -246,14 +250,136 @@ func (d *baremetalDriver) GetCSIDriverName(config *storageframework.PerTestConfi
 	return d.GetDriverInfo().Name
 }
 
+type CSIVolume struct {
+	volName string
+	f       *framework.Framework
+}
+
+func (v *CSIVolume) DeleteVolume() {
+	framework.Logf("Delete volume %s", v.volName)
+	err := v.f.DynamicClient.Resource(common.VolumeGVR).Namespace(v.f.Namespace.Name).Delete(context.TODO(), v.volName, metav1.DeleteOptions{})
+	framework.ExpectNoError(err)
+}
+
 // CreateVolume is implementation of PreprovisionedPVTestDriver interface method
 func (d *baremetalDriver) CreateVolume(config *storageframework.PerTestConfig, volumeType storageframework.TestVolType) storageframework.TestVolume {
-	panic("implement me")
+	f := config.Framework
+	ns := f.Namespace.Name
+
+	driveUUID, driveNodeID, volumeSize := foundAvailableDrive(f)
+	vol, err := config.Framework.DynamicClient.Resource(common.VolumeGVR).Namespace(ns).Create(context.TODO(),
+		constructVolume(volumeSize, driveUUID, driveNodeID, ns), metav1.CreateOptions{})
+	framework.ExpectNoError(err)
+
+	name, _, _ := unstructured.NestedString(vol.UnstructuredContent(), "metadata", "name")
+	volName = name
+	namespace = ns
+
+	if !waitCreatedVolumeStatus(f, name) {
+		framework.Failf("The volume didn't receive the CREATED status")
+	}
+
+	return &CSIVolume{
+		volName: name,
+		f:       f,
+	}
+}
+
+func constructVolume(size int64, driveUUID, driveNode, ns string) *unstructured.Unstructured {
+	volUUID := fmt.Sprintf("pvc-%s", uuid.New().String())
+	testVol := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "csi-baremetal.dell.com/v1",
+			"kind":       "Volume",
+			"metadata": map[string]interface{}{
+				"finalizers": []string{"dell.emc.csi/volume-cleanup"},
+				"name":       volUUID,
+				"namespace":  ns,
+			},
+			"spec": map[string]interface{}{
+				"CSIStatus":         "CREATING",
+				"Health":            "GOOD",
+				"Id":                volUUID,
+				"Location":          driveUUID,
+				"LocationType":      "DRIVE",
+				"Mode":              "FS",
+				"NodeId":            driveNode,
+				"OperationalStatus": "OPERATIVE",
+				"Size":              size,
+				"StorageClass":      hddStorageType,
+				"Type":              ext4Fs,
+				"Usage":             "IN_USE",
+			},
+		},
+	}
+	return &testVol
+}
+
+func waitCreatedVolumeStatus(f *framework.Framework, name string) bool {
+	var csiStatus string
+	for start := time.Now(); time.Since(start) < time.Minute*5; time.Sleep(time.Second * 2) {
+		vols := getUObjList(f, common.VolumeGVR)
+		for _, el := range vols.Items {
+			testName, _, _ := unstructured.NestedString(el.UnstructuredContent(), "metadata", "name")
+			if testName == name {
+				csiStatus, _, _ = unstructured.NestedString(el.UnstructuredContent(), "spec", "CSIStatus")
+				break
+			}
+		}
+		framework.Logf("Volume status is %s, need - CREATED", csiStatus)
+		if csiStatus == "CREATED" {
+			return true
+		}
+	}
+	return false
+}
+
+func foundAvailableDrive(f *framework.Framework) (string, string, int64) {
+	var driveUUID, driveNodeID string
+	var volumeSize int64
+
+	list := getUObjList(f, common.ACGVR)
+	for _, el := range list.Items {
+		acLocation, _, _ := unstructured.NestedString(el.UnstructuredContent(), "spec", "Location")
+		acSize, _, _ := unstructured.NestedInt64(el.UnstructuredContent(), "spec", "Size")
+		if acSize >= defaultACSize {
+			framework.Logf("Found available capacity: Location - %s, Size - %d", acLocation, acSize)
+			driveUUID = acLocation
+			volumeSize = acSize
+			break
+		}
+	}
+
+	drives := getUObjList(f, common.DriveGVR)
+	for _, el := range drives.Items {
+		tempDriveUUID, _, _ := unstructured.NestedString(el.UnstructuredContent(), "spec", "UUID")
+		driveNode, _, _ := unstructured.NestedString(el.UnstructuredContent(), "spec", "NodeId")
+		if tempDriveUUID == driveUUID {
+			framework.Logf("Drive %s is located on %s node", tempDriveUUID, driveNode)
+			driveNodeID = driveNode
+			break
+		}
+	}
+	return driveUUID, driveNodeID, volumeSize
 }
 
 // GetPersistentVolumeSource is implementation of PreprovisionedPVTestDriver interface method
 func (d *baremetalDriver) GetPersistentVolumeSource(readOnly bool, fsType string, testVolume storageframework.TestVolume) (*corev1.PersistentVolumeSource, *corev1.VolumeNodeAffinity) {
-	panic("implement me")
+	pvSource := corev1.PersistentVolumeSource{
+		CSI: &corev1.CSIPersistentVolumeSource{
+			Driver:       d.GetDriverInfo().Name,
+			ReadOnly:     readOnly,
+			VolumeHandle: volName,
+			VolumeAttributes: map[string]string{
+				"csi.storage.k8s.io/pv/name":       volName,
+				"csi.storage.k8s.io/pvc/namespace": namespace,
+				"fsType":                           ext4Fs,
+				"storageType":                      hddStorageType,
+			},
+			FSType: fsType,
+		},
+	}
+	return &pvSource, nil
 }
 
 // constructDefaultLoopbackConfig constructs default ConfigMap for LoopBackManager
