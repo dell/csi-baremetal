@@ -139,14 +139,8 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		e2eskipper.Skipf("Baremetal Driver does not support block volume mode with volume expansion - skipping")
 	}
 
-	if pattern.VolType == storageframework.PreprovisionedPV {
-		if pattern.FsType == xfsFs || pattern.FsType == "" || pattern.FsType == ext3Fs {
-			e2eskipper.Skipf("Run PreprovisionedPV tests only for ext4  -- skipping")
-		}
-	}
-
-	if pattern.VolType == storageframework.DynamicPV {
-		e2eskipper.Skipf("Skip tests for dynamicPV -- skipping")
+	if pattern.VolType == storageframework.PreprovisionedPV && pattern.FsType != ext4Fs{
+		e2eskipper.Skipf("Run PreprovisionedPV tests only for ext4  -- skipping")
 	}
 }
 
