@@ -15,7 +15,7 @@ Thus single volume failure might prevent service to run and cause data unavailab
 ## Proposal
 
 If a volume is inaccessible when a Pod is being restarted, the BM CSI will fake the attach temporary volume in
-read-only mode.
+read-write mode.
 
 ## Rationale
 
@@ -43,9 +43,11 @@ Event FakeAttachInvolved generated when `fake-attach: yes` annotation is setting
 Event FakeAttachCleared generated when `fake-attach: yes` annotation is deleting.
 
 ### NodePublishVolume 
-CSI must check `fake-attach` annotation and mount tmpfs volume in read-only mode.
+CSI must check `fake-attach` annotation and mount tmpfs volume in read-write mode.
 
-Command to mount tmpfs volume: `mount -t tmpfs -o size=1M,ro <volumeID> <destination folder>`
+Command to mount tmpfs volume: `mount -t tmpfs -o size=1M,rw <volumeID> <destination folder>`
+
+rw option is used as workaround for issue-906 (OpenShift 4.8)
 
 ### NodeUnpublishVolume 
 tmpfs volume must be unmounted usually.
