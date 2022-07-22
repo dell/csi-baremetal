@@ -78,7 +78,7 @@ env:
     resources: ["replicasets"]
     verbs: ["get"]
 ```
-To enable using these object during scheduling `storageCapacity: true` must be added to CSIDriver spec.
+To enable using these object during scheduling `storageCapacity: true` must be added to CSIDriver spec. This field was immutable in Kubernetes <= 1.22 and mutable since 1.23. For versions <= 1.22 user can't enable/disable this feature without deleting CSI.
 
 To implement `GetCapacity` it is possible to use AC. `GetCapacity` types look like this
 
