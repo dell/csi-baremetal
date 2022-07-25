@@ -192,6 +192,44 @@ func TestReconcile(t *testing.T) {
 	})
 }
 
+func Test_cleanDeletedK8sNodeFromCacheIfNeeded(t *testing.T) {
+	t.Run("Clean cache if mapped bmNode deleted", func(t *testing.T) {
+		var (
+			c           = setup(t)
+			k8sNodeName = "k8s-node"
+			bmNode      = testCSIBMNode1.DeepCopy()
+		)
+
+		c.cache.put(k8sNodeName, bmNode.Name)
+		c.cleanDeletedK8sNodeFromCacheIfNeeded(k8sNodeName)
+
+		_, ok := c.cache.bmToK8sNode[bmNode.Name]
+		assert.False(t, ok)
+		_, ok = c.cache.k8sToBMNode[k8sNodeName]
+		assert.False(t, ok)
+	})
+
+	t.Run("Do nothing if mapped bmNode exists", func(t *testing.T) {
+		var (
+			c           = setup(t)
+			k8sNodeName = "k8s-node"
+			bmNode      = testCSIBMNode1.DeepCopy()
+		)
+
+		c.cache.put(k8sNodeName, bmNode.Name)
+
+		createObjects(t, c.k8sClient, bmNode)
+		c.cleanDeletedK8sNodeFromCacheIfNeeded(k8sNodeName)
+
+		tknn, ok1 := c.cache.bmToK8sNode[bmNode.Name]
+		assert.True(t, ok1)
+		assert.Equal(t, tknn, k8sNodeName)
+		tbnn, ok2 := c.cache.k8sToBMNode[k8sNodeName]
+		assert.True(t, ok2)
+		assert.Equal(t, tbnn, bmNode.Name)
+	})
+}
+
 func Test_reconcileForK8sNode(t *testing.T) {
 	t.Run("Node was created and annotation was set", func(t *testing.T) {
 		var (
