@@ -4,7 +4,6 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -14,56 +13,41 @@ import (
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/node"
-	"github.com/dell/csi-baremetal/pkg/node/wbt/common"
+	"github.com/dell/csi-baremetal/pkg/node/processor"
+	"github.com/dell/csi-baremetal/pkg/node/processor/wbt/common"
 )
 
 const (
 	confPath    = "/etc/node_config/wbt-config.yaml"
 	kernelsPath = "/etc/node_config/wbt-acceptable_kernels.yaml"
 
-	watchTimeout = 60 * time.Second
-
 	podNameEnv      = "POD_NAME"
 	podNamespaceEnv = "NAMESPACE"
 )
 
-// ConfWatcher is watcher to update WBT changing configuration in VolumeManager
-type ConfWatcher struct {
+// confWatcher is watcher to update WBT changing configuration in VolumeManager
+type confWatcher struct {
 	client            k8sClient.Client
-	eventsRecorder    *events.Recorder
-	log               *logrus.Entry
+	cns               *node.CSINodeService
 	nodeKernelVersion string
+	eventsRecorder    events.CustomEventRecorder
+	log               *logrus.Entry
 }
 
-// NewConfWatcher create new WBT Config Watcher with node kernel version
-func NewConfWatcher(client k8sClient.Client, eventsRecorder *events.Recorder, log *logrus.Entry, nodeKernelVersion string) *ConfWatcher {
-	return &ConfWatcher{
-		client:            client,
-		eventsRecorder:    eventsRecorder,
-		log:               log,
-		nodeKernelVersion: nodeKernelVersion,
+// Handle tries to read Config for WBT changing from ConfigMap
+// Set conf in VolumeManager if success
+func (w *confWatcher) Handle(ctx context.Context) {
+	wbtConf, err := w.readConfig()
+	if err != nil {
+		w.log.Errorf("unable to read WBT config: %+v", err)
+		w.sendErrorConfigmapEvent(ctx)
+		w.cns.SetWbtConfig(&common.WbtConfig{Enable: false})
+	} else {
+		w.cns.SetWbtConfig(wbtConf)
 	}
 }
 
-// StartWatch tries to read Config for WBT changing from ConfigMap
-// Set conf in VolumeManager if success
-func (w *ConfWatcher) StartWatch(cns *node.CSINodeService) {
-	go func() {
-		for {
-			wbtConf, err := w.readConfig()
-			if err != nil {
-				w.log.Errorf("unable to read WBT config: %+v", err)
-				w.sendErrorConfigmapEvent()
-				cns.SetWbtConfig(&common.WbtConfig{Enable: false})
-			} else {
-				cns.SetWbtConfig(wbtConf)
-			}
-			time.Sleep(watchTimeout)
-		}
-	}()
-}
-
-func (w *ConfWatcher) readConfig() (*common.WbtConfig, error) {
+func (w *confWatcher) readConfig() (*common.WbtConfig, error) {
 	kernels := &common.AcceptableKernelsConfig{}
 	kernelsFile, err := ioutil.ReadFile(kernelsPath)
 	if err != nil {
@@ -100,11 +84,9 @@ func (w *ConfWatcher) readConfig() (*common.WbtConfig, error) {
 	return conf, nil
 }
 
-func (w *ConfWatcher) sendErrorConfigmapEvent() {
+func (w *confWatcher) sendErrorConfigmapEvent(ctx context.Context) {
 	podName := os.Getenv(podNameEnv)
 	podNamespace := os.Getenv(podNamespaceEnv)
-
-	ctx := context.Background()
 
 	pod := &corev1.Pod{}
 	if err := w.client.Get(ctx, k8sClient.ObjectKey{Name: podName, Namespace: podNamespace}, pod); err != nil {
@@ -114,4 +96,18 @@ func (w *ConfWatcher) sendErrorConfigmapEvent() {
 
 	w.eventsRecorder.Eventf(pod, eventing.WBTConfigMapUpdateFailed,
 		"Failed to get info from Node ConfigMap")
+}
+
+// NewConfWatcher create new WBT Config Watcher with node kernel version
+func NewConfWatcher(client k8sClient.Client,
+	cns *node.CSINodeService, nodeKernelVersion string,
+	eventsRecorder events.CustomEventRecorder, log *logrus.Entry,
+) processor.Processor {
+	return &confWatcher{
+		client:            client,
+		cns:               cns,
+		nodeKernelVersion: nodeKernelVersion,
+		eventsRecorder:    eventsRecorder,
+		log:               log,
+	}
 }

@@ -57,10 +57,10 @@ import (
 	"github.com/dell/csi-baremetal/pkg/eventing"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	metricsC "github.com/dell/csi-baremetal/pkg/metrics/common"
+	wbtconf "github.com/dell/csi-baremetal/pkg/node/processor/wbt/common"
+	wbtops "github.com/dell/csi-baremetal/pkg/node/processor/wbt/operations"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
-	wbtconf "github.com/dell/csi-baremetal/pkg/node/wbt/common"
-	wbtops "github.com/dell/csi-baremetal/pkg/node/wbt/operations"
 )
 
 const (
@@ -249,6 +249,16 @@ func (m *VolumeManager) SetProvisioners(provs map[p.VolumeType]p.Provisioner) {
 // uses in Sanity testing
 func (m *VolumeManager) SetListBlk(listBlk lsblk.WrapLsblk) {
 	m.listBlk = listBlk
+}
+
+// GetFSOps returns FSOps instance
+func (m *VolumeManager) GetFSOps() utilwrappers.FSOperations {
+	return m.fsOps
+}
+
+// SetFSOps sets FSOps instance
+func (m *VolumeManager) SetFSOps(fs utilwrappers.FSOperations) {
+	m.fsOps = fs
 }
 
 // Reconcile is the main Reconcile loop of VolumeManager. This loop handles creation of volumes matched to Volume CR on
@@ -458,7 +468,7 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 
 	newStatus := apiV1.Created
 
-	err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(&volume.Spec)
+	err := m.GetProvisionerForVolume(&volume.Spec).PrepareVolume(&volume.Spec)
 	if err != nil {
 		ll.Errorf("Unable to create volume size of %d bytes: %v. Set volume status to Failed", volume.Spec.Size, err)
 		newStatus = apiV1.Failed
@@ -515,7 +525,7 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 	}
 	ll.Debugf("Got drive %+v", drive)
 
-	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
+	if err := m.GetProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
 		drive.Spec.Usage = apiV1.DriveUsageFailed
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
@@ -934,8 +944,8 @@ func (m *VolumeManager) updateLVGAnnotation(lvg *lvgcrd.LogicalVolumeGroup, vgFr
 	}
 }
 
-// getProvisionerForVolume returns appropriate Provisioner implementation for volume
-func (m *VolumeManager) getProvisionerForVolume(vol *api.Volume) p.Provisioner {
+// GetProvisionerForVolume returns appropriate Provisioner implementation for volume
+func (m *VolumeManager) GetProvisionerForVolume(vol *api.Volume) p.Provisioner {
 	if util.IsStorageClassLVG(vol.StorageClass) {
 		return m.provisioners[p.LVMBasedVolumeType]
 	}
@@ -1309,7 +1319,8 @@ func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, 
 	}
 }
 
-func (m *VolumeManager) setWbtValue(vol *volumecrd.Volume) error {
+// SetWbtValue sets WBT settings for the devices related with the passed volume
+func (m *VolumeManager) SetWbtValue(vol *volumecrd.Volume) error {
 	device, err := m.findDeviceName(vol)
 	if err != nil {
 		return err
@@ -1323,7 +1334,8 @@ func (m *VolumeManager) setWbtValue(vol *volumecrd.Volume) error {
 	return nil
 }
 
-func (m *VolumeManager) restoreWbtValue(vol *volumecrd.Volume) error {
+// RestoreWbtValue restores WBT settings for the devices related with the passed volume
+func (m *VolumeManager) RestoreWbtValue(vol *volumecrd.Volume) error {
 	device, err := m.findDeviceName(vol)
 	if err != nil {
 		return err
@@ -1337,7 +1349,8 @@ func (m *VolumeManager) restoreWbtValue(vol *volumecrd.Volume) error {
 	return nil
 }
 
-func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
+// CheckWbtChangingEnable checks do we need to enable WBT for the passed volume
+func (m *VolumeManager) CheckWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
 	if m.wbtConfig == nil {
 		return false
 	}

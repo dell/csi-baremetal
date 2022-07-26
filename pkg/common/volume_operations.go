@@ -371,6 +371,12 @@ func (vo *VolumeOperationsImpl) DeleteVolume(ctx context.Context, volumeID strin
 
 	switch volumeCR.Spec.CSIStatus {
 	case apiV1.Created:
+	case apiV1.VolumeReady, apiV1.Published:
+		if volumeCR.Spec.Mounted {
+			return status.Errorf(codes.FailedPrecondition,
+				"Volume CR status is %s and mountpoint wasn't clean, expected - %s",
+				volumeCR.Spec.CSIStatus, apiV1.Created)
+		}
 	case apiV1.Failed:
 		return status.Error(codes.Internal, "volume has reached failed status")
 	case apiV1.Removed:

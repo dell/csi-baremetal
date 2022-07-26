@@ -31,11 +31,9 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/utils/keymutex"
 
-	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
-	"github.com/dell/csi-baremetal/pkg/base/command"
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -81,21 +79,17 @@ const (
 // Receives an instance of DriveServiceClient to interact with DriveManager, ID of a node where it works, logrus logger
 // and base.KubeClient
 // Returns an instance of CSINodeService
-func NewCSINodeService(client api.DriveServiceClient,
-	nodeID string,
-	nodeName string,
+func NewCSINodeService(
 	logger *logrus.Logger,
 	k8sClient *k8s.KubeClient,
-	k8sCache k8s.CRReader,
-	recorder eventRecorder,
+	volumeManager *VolumeManager,
 	featureConf featureconfig.FeatureChecker) *CSINodeService {
-	e := command.NewExecutor(logger)
 	s := &CSINodeService{
-		VolumeManager:  *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID, nodeName),
 		svc:            common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
+		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
+		VolumeManager:  *volumeManager,
 		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
 		volMu:          keymutex.NewHashed(0),
-		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -209,7 +203,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 	}
 
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(&volumeCR.Spec)
+	partition, err := s.GetProvisionerForVolume(&volumeCR.Spec).GetVolumePath(&volumeCR.Spec)
 	if err != nil {
 		if err == baseerr.ErrorGetDriveFailed {
 			return nil, err
@@ -238,8 +232,8 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
-	if newStatus == apiV1.VolumeReady && s.VolumeManager.checkWbtChangingEnable(ctx, volumeCR) {
-		if err := s.VolumeManager.setWbtValue(volumeCR); err != nil {
+	if newStatus == apiV1.VolumeReady && s.VolumeManager.CheckWbtChangingEnable(ctx, volumeCR) {
+		if err := s.VolumeManager.SetWbtValue(volumeCR); err != nil {
 			ll.Errorf("Unable to set custom WBT value for volume %s: %v", volumeCR.Name, err)
 			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
 				"Unable to set custom WBT value for volume %s", volumeCR.Name)
@@ -250,6 +244,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
+		volumeCR.Spec.Mounted = true
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
 			ll.Errorf("Unable to set volume status to %s: %v", newStatus, err)
 			resp, errToReturn = nil, fmt.Errorf("failed to stage volume: update volume CR error")
@@ -309,6 +304,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	}
 
 	volumeCR.Spec.CSIStatus = apiV1.Created
+	volumeCR.Spec.Mounted = false
 
 	var (
 		resp        = &csi.NodeUnstageVolumeResponse{}
@@ -324,13 +320,14 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 
 		if errToReturn != nil {
 			volumeCR.Spec.CSIStatus = apiV1.Failed
+			volumeCR.Spec.Mounted = true
 			resp = nil
 		}
 	}
 
 	if val, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]; ok && val == wbtChangedVolumeKey {
 		delete(volumeCR.Annotations, wbtChangedVolumeAnnotation)
-		if err := s.VolumeManager.restoreWbtValue(volumeCR); err != nil {
+		if err := s.VolumeManager.RestoreWbtValue(volumeCR); err != nil {
 			ll.Errorf("Unable to restore WBT value for volume %s: %v", volumeCR.Name, err)
 			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
 				"Unable to restore WBT value for volume %s", volumeCR.Name)
