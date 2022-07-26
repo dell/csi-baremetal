@@ -220,3 +220,10 @@ func TestDriveProvisioner_ReleasePartition_Fail(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
 }
+
+func TestIsMounted(t *testing.T) {
+	// mock a failure case
+	assert.Equal(t, isMounted("/dev/nvme50n1"), false)
+	// mock a success case
+	assert.Equal(t, isMounted("/proc"), true)
+}
