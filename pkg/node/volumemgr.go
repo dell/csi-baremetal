@@ -138,7 +138,7 @@ type VolumeManager struct {
 	// discover data on drive
 	dataDiscover types.WrapDataDiscover
 
-	//map to reduce logs
+	// map to reduce logs
 	driveLogs map[string]string
 }
 
