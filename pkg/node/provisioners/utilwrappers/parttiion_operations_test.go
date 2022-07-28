@@ -18,6 +18,7 @@ package utilwrappers
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -221,9 +222,29 @@ func TestDriveProvisioner_ReleasePartition_Fail(t *testing.T) {
 	assert.Equal(t, expectedErr, err)
 }
 
-func TestIsMounted(t *testing.T) {
-	// mock a failure case
-	assert.Equal(t, isMounted("/dev/nvme50n1"), false)
-	// mock a success case
-	assert.Equal(t, isMounted("/proc"), true)
+func TestSearchPartNameSuccess(t *testing.T) {
+	var (
+		partOps, mockPH = setupTestPartitioner()
+		err             error
+	)
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return(nil).Once()
+	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
+		Return(testPart1.Name, nil).Once()
+	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
+	assert.Nil(t, err)
+}
+
+func TestSearchPartNameFail(t *testing.T) {
+	var (
+		partOps, mockPH = setupTestPartitioner()
+		expectedErr     = fmt.Errorf("fail")
+		err             error
+	)
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return(fmt.Errorf("fail")).Once()
+	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
+		Return(testPart1.Name, nil).Once()
+	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
+	assert.Error(t, expectedErr, err)
 }

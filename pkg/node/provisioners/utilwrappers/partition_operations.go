@@ -26,8 +26,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
-	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
@@ -68,6 +68,7 @@ func (p *Partition) GetFullPath() string {
 // PartitionOperationsImpl is a base implementation for PartitionOperations interface
 type PartitionOperationsImpl struct {
 	ph.WrapPartition
+	fs.WrapFS
 	log     *logrus.Entry
 	metrics metrics.Statistic
 }
@@ -85,6 +86,7 @@ func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *Part
 	}
 	return &PartitionOperationsImpl{
 		WrapPartition: ph.NewWrapPartitionImpl(e, log),
+		WrapFS:        fs.NewFSImpl(e),
 		log:           log.WithField("component", "PartitionOperations"),
 		metrics:       partMetrics,
 	}
@@ -158,25 +160,6 @@ func (d *PartitionOperationsImpl) ReleasePartition(p Partition) error {
 	return nil
 }
 
-// isMounted judge if device like /dev/sda is mounted or not
-func isMounted(device string) bool {
-	// remove the prefix /dev as the mountinfo only contains suffix.
-	device = strings.Trim(device, "/dev")
-	procMounts, err := util.ConsistentRead("/proc/self/mountinfo", 5, time.Millisecond)
-	if err != nil || len(procMounts) == 0 {
-		return false
-	}
-
-	// parse /proc/mounts content and search path entry
-	for _, line := range strings.Split(string(procMounts), "\n") {
-		if strings.Contains(line, device) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // SearchPartName search (with retries) partition with UUID partUUID on device and returns partition name
 // e.g. "1" for /dev/sda1, "p1n1" for /dev/loopbackp1n1
 func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (string, error) {
@@ -197,9 +180,10 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 		// sync partition table
 		err = d.SyncPartitionTable(device)
 		if err != nil {
+			isMounted, _ := d.IsMounted(strings.Trim(device, "/dev"))
 			if exitError, ok := err.(*exec.ExitError); ok &&
 				strings.Contains(string(exitError.Stderr), "Device or resource busy") &&
-				isMounted(device) {
+				isMounted {
 				ll.Errorf("Unable to sync partition table for device %s: %v due to device is mounted already", device, err)
 			} else {
 				// log and ignore error
