@@ -19,6 +19,7 @@ package utilwrappers
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -72,7 +73,7 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	mockPH.On("GetPartitionUUID", testPart1.Device, testPart1.Num).
 		Return(testPart1.PartUUID, nil).Once()
 	mockPH.On("SyncPartitionTable", testPart1.Device).
-		Return(nil).Once()
+		Return("", "", nil).Once()
 	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
 		Return(testPart1.Name, nil).Once()
 
@@ -95,7 +96,7 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 		Return(partUUIDForEphemeral, nil).Once()
 
 	// for each test scenario
-	mockPH.On("SyncPartitionTable", mock.Anything).Return(nil)
+	mockPH.On("SyncPartitionTable", mock.Anything).Return("", "", nil)
 
 	// not ephemeral
 	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
@@ -228,7 +229,7 @@ func TestSearchPartNameSuccess(t *testing.T) {
 		err             error
 	)
 	mockPH.On("SyncPartitionTable", testPart1.Device).
-		Return(nil).Once()
+		Return("", "", nil).Once()
 	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
 		Return(testPart1.Name, nil).Once()
 	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
@@ -242,9 +243,14 @@ func TestSearchPartNameFail(t *testing.T) {
 		err             error
 	)
 	mockPH.On("SyncPartitionTable", testPart1.Device).
-		Return(fmt.Errorf("fail")).Once()
+		Return("", "Device or resource busy", new(exec.ExitError)).Once()
 	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
 		Return(testPart1.Name, nil).Once()
+	partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
+
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return("", "", fmt.Errorf("fail")).Once()
+	//mock another error
 	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
 	assert.Error(t, expectedErr, err)
 }
