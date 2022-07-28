@@ -212,8 +212,8 @@ func NewVolumeManager(
 	vm := &VolumeManager{
 		k8sClient:      k8sClient,
 		k8sCache:       k8sCache,
-		crHelper:       k8s.NewCRHelper(k8sClient, logger),
-		cachedCrHelper: k8s.NewCRHelper(k8sClient, logger).SetReader(k8sCache),
+		crHelper:       k8s.NewCRHelperImpl(k8sClient, logger),
+		cachedCrHelper: k8s.NewCRHelperImpl(k8sClient, logger).SetReader(k8sCache),
 		driveMgrClient: client,
 		acProvider:     common.NewACOperationsImpl(k8sClient, logger),
 		provisioners: map[p.VolumeType]p.Provisioner{

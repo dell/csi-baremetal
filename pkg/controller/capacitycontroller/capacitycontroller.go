@@ -47,8 +47,8 @@ type Controller struct {
 func NewCapacityController(client *k8s.KubeClient, k8sCache k8s.CRReader, log *logrus.Logger) *Controller {
 	return &Controller{
 		client:         client,
-		crHelper:       k8s.NewCRHelper(client, log),
-		cachedCrHelper: k8s.NewCRHelper(client, log).SetReader(k8sCache),
+		crHelper:       k8s.NewCRHelperImpl(client, log),
+		cachedCrHelper: k8s.NewCRHelperImpl(client, log).SetReader(k8sCache),
 		log:            log.WithField("component", "Controller"),
 	}
 }

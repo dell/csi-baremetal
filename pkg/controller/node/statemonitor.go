@@ -87,7 +87,7 @@ func NewNodeServicesStateMonitor(client *k8s.KubeClient, logger *logrus.Logger) 
 	return &ServicesStateMonitor{
 		client:        client,
 		log:           logger.WithField("component", "ServicesStateMonitor"),
-		crHelper:      k8s.NewCRHelper(client, logger),
+		crHelper:      k8s.NewCRHelperImpl(client, logger),
 		nodeHealthMap: make(map[string]*serviceState),
 		lock:          &sync.RWMutex{},
 	}

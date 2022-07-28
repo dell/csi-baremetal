@@ -87,7 +87,7 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 		svc:                      common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
 		nodeServicesStateMonitor: node.NewNodeServicesStateMonitor(k8sClient, logger),
 		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),
-		crHelper:                 k8s.NewCRHelper(k8sClient, logger),
+		crHelper:                 k8s.NewCRHelperImplImpl(k8sClient, logger),
 		reqLock:                  lock.NewCASMutex(),
 	}
 

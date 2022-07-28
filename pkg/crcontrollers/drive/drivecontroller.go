@@ -57,7 +57,7 @@ const (
 func NewController(client *k8s.KubeClient, nodeID string, serviceClient api.DriveServiceClient, eventRecorder *events.Recorder, log *logrus.Logger) *Controller {
 	return &Controller{
 		client:         client,
-		crHelper:       k8s.NewCRHelper(client, log),
+		crHelper:       k8s.NewCRHelperImpl(client, log),
 		nodeID:         nodeID,
 		driveMgrClient: serviceClient,
 		eventRecorder:  eventRecorder,

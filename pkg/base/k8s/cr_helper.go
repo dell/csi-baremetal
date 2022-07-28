@@ -35,16 +35,38 @@ import (
 	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 )
 
-// CRHelper is able to collect different CRs by different criteria
-type CRHelper struct {
+// CRHelper is holds idempotent methods that consists of WrapFS methods
+type CRHelper interface {
+	SetReader(reader CRReader) *CRHelperImpl
+	GetACByLocation(location string) (*accrd.AvailableCapacity, error)
+	DeleteACsByNodeID(nodeID string) error
+	GetVolumesByLocation(ctx context.Context, location string) ([]*volumecrd.Volume, error)
+	GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcrd.LogicalVolumeGroup, error)
+	UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error
+	GetVolumeByID(volID string) (*volumecrd.Volume, error)
+	GetVolumeCRs(node ...string) ([]volumecrd.Volume, error)
+	UpdateDrivesStatusOnNode(nodeID, status string) error
+	GetDriveCRs(node ...string) ([]drivecrd.Drive, error)
+	GetACCRs(node ...string) ([]accrd.AvailableCapacity, error)
+	GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, error)
+	GetDriveCRAndLVGCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, *lvgcrd.LogicalVolumeGroup, error)
+	GetVGNameByLVGCRName(lvgCRName string) (string, error)
+	GetLVGCRs(node ...string) ([]lvgcrd.LogicalVolumeGroup, error)
+	UpdateVolumeCRSpec(volName string, namespace string, newSpec api.Volume) error
+	DeleteObjectByName(ctx context.Context, name string, namespace string, obj k8sCl.Object) error
+	UpdateVolumeOpStatus(ctx context.Context, volume *volumecrd.Volume, opStatus string) error
+}
+
+// CRHelperImpl is implementation of CRHelper
+type CRHelperImpl struct {
 	k8sClient *KubeClient
 	reader    CRReader
 	log       *logrus.Entry
 }
 
-// NewCRHelper is a constructor for CRHelper instance
-func NewCRHelper(k *KubeClient, logger *logrus.Logger) *CRHelper {
-	return &CRHelper{
+// NewCRHelperImpl is a constructor for CRHelperImpl instance
+func NewCRHelperImpl(k *KubeClient, logger *logrus.Logger) *CRHelperImpl {
+	return &CRHelperImpl{
 		k8sClient: k,
 		reader:    k,
 		log:       logger.WithField("component", "CRHelper"),
@@ -52,7 +74,7 @@ func NewCRHelper(k *KubeClient, logger *logrus.Logger) *CRHelper {
 }
 
 // SetReader allow to set separate CRReader for CRHelper, by default k8sClient will be used
-func (cs *CRHelper) SetReader(reader CRReader) *CRHelper {
+func (cs *CRHelperImpl) SetReader(reader CRReader) *CRHelperImpl {
 	cs.reader = reader
 	return cs
 }
@@ -60,7 +82,7 @@ func (cs *CRHelper) SetReader(reader CRReader) *CRHelper {
 // GetACByLocation reads the whole list of AC CRs from a cluster and searches the AC with provided location
 // Receive context and location name which should be equal to AvailableCapacity.Spec.Location
 // Returns a pointer to the instance of accrd.AvailableCapacity or nil
-func (cs *CRHelper) GetACByLocation(location string) (*accrd.AvailableCapacity, error) {
+func (cs *CRHelperImpl) GetACByLocation(location string) (*accrd.AvailableCapacity, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method":   "GetACByLocation",
 		"location": location,
@@ -86,7 +108,7 @@ func (cs *CRHelper) GetACByLocation(location string) (*accrd.AvailableCapacity, 
 // DeleteACsByNodeID deletes AC CRs for specific node ID
 // Receives unique identifier of the node
 // Returns error or nil
-func (cs *CRHelper) DeleteACsByNodeID(nodeID string) error {
+func (cs *CRHelperImpl) DeleteACsByNodeID(nodeID string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "DeleteACsByNodeID", "nodeID": nodeID})
 
 	acList := &accrd.AvailableCapacityList{}
@@ -118,7 +140,7 @@ func (cs *CRHelper) DeleteACsByNodeID(nodeID string) error {
 // GetVolumesByLocation reads the whole list of Volume CRs from a cluster and searches the volume with provided location
 // Receives golang context and location name which should be equal to Volume.Spec.Location
 // Returns a list of a pointers to volumes which are belong to the location and error
-func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) ([]*volumecrd.Volume, error) {
+func (cs *CRHelperImpl) GetVolumesByLocation(ctx context.Context, location string) ([]*volumecrd.Volume, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method":   "GetVolumesByLocation",
 		"location": location,
@@ -159,7 +181,7 @@ func (cs *CRHelper) GetVolumesByLocation(ctx context.Context, location string) (
 // GetLVGByDrive reads list of LogicalVolumeGroup CRs from a cluster and searches the lvg with provided location
 // Receives golang context and drive uuid
 // Returns found lvg and error
-func (cs *CRHelper) GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcrd.LogicalVolumeGroup, error) {
+func (cs *CRHelperImpl) GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcrd.LogicalVolumeGroup, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method":    "GetLVGByDrive",
 		"driveUUID": driveUUID,
@@ -180,7 +202,7 @@ func (cs *CRHelper) GetLVGByDrive(ctx context.Context, driveUUID string) (*lvgcr
 // UpdateVolumesOpStatusOnNode updates operational status of volumes on a node without taking into account current state
 // Receives unique identifier of the node and operational status to be set
 // Returns error or nil
-func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
+func (cs *CRHelperImpl) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateVolumesOpStatus", "nodeID": nodeID})
 	// TODO: check that operational status is valid https://github.com/dell/csi-baremetal/issues/80
 	volumes, err := cs.GetVolumeCRs(nodeID)
@@ -210,7 +232,7 @@ func (cs *CRHelper) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) error {
 }
 
 // GetVolumeByID reads volume CRs and returns volumes CR if it .Spec.Id == volId
-func (cs *CRHelper) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
+func (cs *CRHelperImpl) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
 	volumeCRs, err := cs.GetVolumeCRs()
 	if err != nil {
 		return nil, err
@@ -231,7 +253,7 @@ func (cs *CRHelper) GetVolumeByID(volID string) (*volumecrd.Volume, error) {
 // GetVolumeCRs collect volume CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
 // if error occurs - return nil and error
-func (cs *CRHelper) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
+func (cs *CRHelperImpl) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
 	var (
 		vList = &volumecrd.VolumeList{}
 		err   error
@@ -258,7 +280,7 @@ func (cs *CRHelper) GetVolumeCRs(node ...string) ([]volumecrd.Volume, error) {
 // UpdateDrivesStatusOnNode updates status of drives on a node without taking into account current state
 // Receives unique identifier of the node and status to be set
 // Returns error or nil
-func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
+func (cs *CRHelperImpl) UpdateDrivesStatusOnNode(nodeID, status string) error {
 	ll := cs.log.WithFields(logrus.Fields{"method": "UpdateDrivesStatusOnNode", "nodeID": nodeID})
 	// TODO: check that drive status is valid - https://github.com/dell/csi-baremetal/issues/80
 	drives, _ := cs.GetDriveCRs(nodeID)
@@ -290,7 +312,7 @@ func (cs *CRHelper) UpdateDrivesStatusOnNode(nodeID, status string) error {
 // GetDriveCRs collect Drives CR that locate on node, use just node[0] element
 // if node isn't provided - return all Drives CR
 // if error occurs - return nil and error
-func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
+func (cs *CRHelperImpl) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 	var (
 		dList = &drivecrd.DriveList{}
 		err   error
@@ -317,7 +339,7 @@ func (cs *CRHelper) GetDriveCRs(node ...string) ([]drivecrd.Drive, error) {
 // GetACCRs collect ACs CR that locate on node, use just node[0] element
 // if node isn't provided - return all ACs CR
 // if error occurs - return nil and error
-func (cs *CRHelper) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) {
+func (cs *CRHelperImpl) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) {
 	var (
 		acsList = &accrd.AvailableCapacityList{}
 		err     error
@@ -342,13 +364,13 @@ func (cs *CRHelper) GetACCRs(node ...string) ([]accrd.AvailableCapacity, error) 
 }
 
 // GetDriveCRByVolume reads drive CRs and returns CR for drive on which volume is located
-func (cs *CRHelper) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, error) {
+func (cs *CRHelperImpl) GetDriveCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, error) {
 	drive, _, err := cs.GetDriveCRAndLVGCRByVolume(volume)
 	return drive, err
 }
 
 // GetDriveCRAndLVGCRByVolume reads drive CRs and returns CR for drive and CR for lvg (if exist) on which volume is located
-func (cs *CRHelper) GetDriveCRAndLVGCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, *lvgcrd.LogicalVolumeGroup, error) {
+func (cs *CRHelperImpl) GetDriveCRAndLVGCRByVolume(volume *volumecrd.Volume) (*drivecrd.Drive, *lvgcrd.LogicalVolumeGroup, error) {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method": "GetDriveCRByVolume",
 		"volume": volume.Name,
@@ -387,7 +409,7 @@ func (cs *CRHelper) GetDriveCRAndLVGCRByVolume(volume *volumecrd.Volume) (*drive
 // GetVGNameByLVGCRName read LogicalVolumeGroup CR with name lvgCRName and returns LogicalVolumeGroup CR.Spec.Name
 // method is used for LogicalVolumeGroup based on system VG because system VG name != LogicalVolumeGroup CR name
 // in case of error returns empty string and error
-func (cs *CRHelper) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
+func (cs *CRHelperImpl) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
 	lvgCR := lvgcrd.LogicalVolumeGroup{}
 	if err := cs.reader.ReadCR(context.Background(), lvgCRName, "", &lvgCR); err != nil {
 		return "", err
@@ -398,7 +420,7 @@ func (cs *CRHelper) GetVGNameByLVGCRName(lvgCRName string) (string, error) {
 // GetLVGCRs collect LogicalVolumeGroup CRs that locate on node, use just node[0] element
 // if node isn't provided - return all volume CRs
 // if error occurs - return nil
-func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LogicalVolumeGroup, error) {
+func (cs *CRHelperImpl) GetLVGCRs(node ...string) ([]lvgcrd.LogicalVolumeGroup, error) {
 	var (
 		lvgList = &lvgcrd.LogicalVolumeGroupList{}
 		err     error
@@ -424,7 +446,7 @@ func (cs *CRHelper) GetLVGCRs(node ...string) ([]lvgcrd.LogicalVolumeGroup, erro
 
 // UpdateVolumeCRSpec reads volume CR with name volName and update it's spec to newSpec
 // returns nil or error in case of error
-func (cs *CRHelper) UpdateVolumeCRSpec(volName string, namespace string, newSpec api.Volume) error {
+func (cs *CRHelperImpl) UpdateVolumeCRSpec(volName string, namespace string, newSpec api.Volume) error {
 	var (
 		volumeCR = &volumecrd.Volume{}
 		err      error
@@ -440,7 +462,7 @@ func (cs *CRHelper) UpdateVolumeCRSpec(volName string, namespace string, newSpec
 }
 
 // DeleteObjectByName read runtime.Object by its name and then delete it
-func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespace string, obj k8sCl.Object) error {
+func (cs *CRHelperImpl) DeleteObjectByName(ctx context.Context, name string, namespace string, obj k8sCl.Object) error {
 	if err := cs.reader.ReadCR(ctx, name, namespace, obj); err != nil {
 		if k8sError.IsNotFound(err) {
 			return nil
@@ -453,7 +475,7 @@ func (cs *CRHelper) DeleteObjectByName(ctx context.Context, name string, namespa
 
 // UpdateVolumeOpStatus Update volume Operational status to opStatus
 // returns nil or error in case of error
-func (cs *CRHelper) UpdateVolumeOpStatus(ctx context.Context, volume *volumecrd.Volume, opStatus string) error {
+func (cs *CRHelperImpl) UpdateVolumeOpStatus(ctx context.Context, volume *volumecrd.Volume, opStatus string) error {
 	ll := cs.log.WithFields(logrus.Fields{
 		"method":   "UpdateVolumeOpStatus",
 		"volume":   volume.Name,

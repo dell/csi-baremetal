@@ -68,7 +68,7 @@ func NewDriveProvisioner(
 		fsOps:     uw.NewFSOperationsImpl(e, log),
 		partOps:   uw.NewPartitionOperationsImpl(e, log),
 		k8sClient: k,
-		crHelper:  k8s.NewCRHelper(k, log),
+		crHelper:  k8s.NewCRHelperImpl(k, log),
 		log:       log.WithField("component", "DriveProvisioner"),
 	}
 }
