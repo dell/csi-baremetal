@@ -61,7 +61,7 @@ type VolumeOperationsImpl struct {
 	acProvider             AvailableCapacityOperations
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
-	crHelper               *k8s.CRHelperImpl
+	crHelper               k8s.CRHelper
 
 	metrics        metrics.Statistic
 	cache          cache.Interface

@@ -48,19 +48,17 @@ import (
 )
 
 var (
-	node     *CSINodeService
-	prov     *mockProv.MockProvisioner
-	fsOps    *mockProv.MockFsOpts
-	crHelper *mocks.MockCRHelper
-	volOps   *mocks.VolumeOperationsMock
-	wbtOps   *mocklu.MockWrapWbt
+	node   *CSINodeService
+	prov   *mockProv.MockProvisioner
+	fsOps  *mockProv.MockFsOpts
+	volOps *mocks.VolumeOperationsMock
+	wbtOps *mocklu.MockWrapWbt
 )
 
 func setVariables() {
 	node = newNodeService()
 	prov = &mockProv.MockProvisioner{}
 	fsOps = &mockProv.MockFsOpts{}
-	crHelper = &mocks.MockCRHelper{}
 	volOps = &mocks.VolumeOperationsMock{}
 	wbtOps = &mocklu.MockWrapWbt{}
 	node.provisioners = map[p.VolumeType]p.Provisioner{
@@ -68,7 +66,6 @@ func setVariables() {
 		p.LVMBasedVolumeType:   prov,
 	}
 	node.fsOps = fsOps
-	node.crHelper = crHelper
 	node.svc = volOps
 	node.wbtOps = wbtOps
 }
@@ -484,6 +481,8 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(resp).To(Equal(&csi.NodeUnstageVolumeResponse{}))
 		})
 		It("Should fail if Volume CR is unavailable by internal error", func() {
+			crHelper := &mocks.CRHelper{}
+			node.crHelper = crHelper
 			crHelper.On("GetVolumeByID", "internal-error-UUID").
 				Return(nil, errors.New("internal-error"))
 

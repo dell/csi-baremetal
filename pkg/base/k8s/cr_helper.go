@@ -37,7 +37,7 @@ import (
 
 // CRHelper is holds idempotent methods that consists of WrapFS methods
 type CRHelper interface {
-	SetReader(reader CRReader) *CRHelperImpl
+	SetReader(reader CRReader) CRHelper
 	GetACByLocation(location string) (*accrd.AvailableCapacity, error)
 	DeleteACsByNodeID(nodeID string) error
 	GetVolumesByLocation(ctx context.Context, location string) ([]*volumecrd.Volume, error)
@@ -74,7 +74,7 @@ func NewCRHelperImpl(k *KubeClient, logger *logrus.Logger) *CRHelperImpl {
 }
 
 // SetReader allow to set separate CRReader for CRHelper, by default k8sClient will be used
-func (cs *CRHelperImpl) SetReader(reader CRReader) *CRHelperImpl {
+func (cs *CRHelperImpl) SetReader(reader CRReader) CRHelper {
 	cs.reader = reader
 	return cs
 }

@@ -88,9 +88,9 @@ type VolumeManager struct {
 	// cache for kubernetes resources
 	k8sCache k8s.CRReader
 	// help to read/update particular CR
-	crHelper *k8s.CRHelper
+	crHelper k8s.CRHelper
 	// CRHelper instance which reads from cache
-	cachedCrHelper *k8s.CRHelper
+	cachedCrHelper k8s.CRHelper
 
 	// uses for communicating with hardware manager
 	driveMgrClient api.DriveServiceClient

@@ -51,7 +51,7 @@ const (
 // Controller is the LogicalVolumeGroup custom resource Controller for serving VG operations on Node side in Reconcile loop
 type Controller struct {
 	k8sClient *k8s.KubeClient
-	crHelper  *k8s.CRHelper
+	crHelper  k8s.CRHelper
 
 	listBlk lsblk.WrapLsblk
 	lvmOps  lvm.WrapLVM

@@ -53,7 +53,7 @@ type DriveProvisioner struct {
 	partOps uw.PartitionOperations
 
 	k8sClient *k8s.KubeClient
-	crHelper  *k8s.CRHelper
+	crHelper  k8s.CRHelper
 
 	log *logrus.Entry
 }

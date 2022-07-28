@@ -35,9 +35,9 @@ const RequeueDriveTime = time.Second * 30
 // Controller reconciles drive custom resource
 type Controller struct {
 	client   *k8s.KubeClient
-	crHelper *k8s.CRHelper
+	crHelper k8s.CRHelper
 	// CRHelper instance which reads from cache
-	cachedCrHelper *k8s.CRHelper
+	cachedCrHelper k8s.CRHelper
 	log            *logrus.Entry
 }
 

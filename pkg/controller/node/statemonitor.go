@@ -62,7 +62,7 @@ type ServicesStateMonitor struct {
 	// logger. Can't we initialize it inside?
 	log *logrus.Entry
 	// helper to work with custom resource definition
-	crHelper *k8s.CRHelper
+	crHelper k8s.CRHelper
 	// nodeX ID -> <Ready/Unready/PermanentDown>
 	nodeHealthMap map[string]*serviceState
 	// mutex to protect map access
