@@ -49,22 +49,24 @@ var (
 	}
 )
 
-func setupTestPartitioner() (partOps *PartitionOperationsImpl, mockPH *mocklu.MockWrapPartition) {
+func setupTestPartitioner() (partOps *PartitionOperationsImpl, mockPH *mocklu.MockWrapPartition, wrapFS *mocklu.MockWrapFS) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	partOps = NewPartitionOperationsImpl(&command.Executor{}, logger)
 	mockPH = &mocklu.MockWrapPartition{}
+	wrapFS = &mocklu.MockWrapFS{}
 
 	partOps.WrapPartition = mockPH
+	partOps.WrapFS = wrapFS
 
 	return
 }
 
 func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		currentPPtr     *Partition
-		err             error
+		partOps, mockPH, _ = setupTestPartitioner()
+		currentPPtr        *Partition
+		err                error
 	)
 
 	// partition exist and have right UUID
@@ -111,10 +113,10 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 
 func TestDriveProvisioner_PreparePartition_Failed(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		expectedErr     = errors.New("prepare failed")
-		currentPPtr     *Partition
-		err             error
+		partOps, mockPH, _ = setupTestPartitioner()
+		expectedErr        = errors.New("prepare failed")
+		currentPPtr        *Partition
+		err                error
 	)
 
 	// IsPartitionExists failed
@@ -175,8 +177,8 @@ func TestDriveProvisioner_PreparePartition_Failed(t *testing.T) {
 
 func TestDriveProvisioner_ReleasePartition_Success(t *testing.T) {
 	var (
-		err             error
-		partOps, mockPH = setupTestPartitioner()
+		err                error
+		partOps, mockPH, _ = setupTestPartitioner()
 	)
 
 	// partition isn't exist
@@ -199,9 +201,9 @@ func TestDriveProvisioner_ReleasePartition_Success(t *testing.T) {
 
 func TestDriveProvisioner_ReleasePartition_Fail(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		expectedErr     = errors.New("release error")
-		err             error
+		partOps, mockPH, _ = setupTestPartitioner()
+		expectedErr        = errors.New("release error")
+		err                error
 	)
 
 	// IsPartitionExists failed
@@ -225,8 +227,8 @@ func TestDriveProvisioner_ReleasePartition_Fail(t *testing.T) {
 
 func TestSearchPartNameSuccess(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		err             error
+		partOps, mockPH, _ = setupTestPartitioner()
+		err                error
 	)
 	mockPH.On("SyncPartitionTable", testPart1.Device).
 		Return("", "", nil).Once()
@@ -238,18 +240,21 @@ func TestSearchPartNameSuccess(t *testing.T) {
 
 func TestSearchPartNameFail(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		expectedErr     = fmt.Errorf("fail")
-		err             error
+		partOps, mockPH, wrapFS = setupTestPartitioner()
+		expectedErr             = fmt.Errorf("fail")
+		err                     error
 	)
 	mockPH.On("SyncPartitionTable", testPart1.Device).
 		Return("", "Device or resource busy", new(exec.ExitError)).Once()
 	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
 		Return(testPart1.Name, nil).Once()
+	wrapFS.On("IsMounted", "sda").Return(true, nil).Once()
+	partOps.WrapFS = wrapFS
 	partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
 
 	mockPH.On("SyncPartitionTable", testPart1.Device).
 		Return("", "", fmt.Errorf("fail")).Once()
+	wrapFS.On("IsMounted", "sda").Return(false, nil).Once()
 	//mock another error
 	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
 	assert.Error(t, expectedErr, err)
