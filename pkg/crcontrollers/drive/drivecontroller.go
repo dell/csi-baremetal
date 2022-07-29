@@ -27,7 +27,7 @@ import (
 // Controller to reconcile drive custom resource
 type Controller struct {
 	client         *k8s.KubeClient
-	crHelper       *k8s.CRHelper
+	crHelper       k8s.CRHelper
 	nodeID         string
 	driveMgrClient api.DriveServiceClient
 	eventRecorder  *events.Recorder
@@ -57,7 +57,7 @@ const (
 func NewController(client *k8s.KubeClient, nodeID string, serviceClient api.DriveServiceClient, eventRecorder *events.Recorder, log *logrus.Logger) *Controller {
 	return &Controller{
 		client:         client,
-		crHelper:       k8s.NewCRHelper(client, log),
+		crHelper:       k8s.NewCRHelperImpl(client, log),
 		nodeID:         nodeID,
 		driveMgrClient: serviceClient,
 		eventRecorder:  eventRecorder,
