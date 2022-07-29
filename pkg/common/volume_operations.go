@@ -61,7 +61,7 @@ type VolumeOperationsImpl struct {
 	acProvider             AvailableCapacityOperations
 	k8sClient              *k8s.KubeClient
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
-	crHelper               *k8s.CRHelper
+	crHelper               k8s.CRHelper
 
 	metrics        metrics.Statistic
 	cache          cache.Interface
@@ -91,7 +91,7 @@ func NewVolumeOperationsImpl(k8sClient *k8s.KubeClient, logger *logrus.Logger, c
 	}
 	vo := &VolumeOperationsImpl{
 		k8sClient:              k8sClient,
-		crHelper:               k8s.NewCRHelper(k8sClient, logger),
+		crHelper:               k8s.NewCRHelperImpl(k8sClient, logger),
 		acProvider:             NewACOperationsImpl(k8sClient, logger),
 		log:                    logger.WithField("component", "VolumeOperationsImpl"),
 		featureChecker:         featureConf,

@@ -37,7 +37,7 @@ import (
 type LVMProvisioner struct {
 	lvmOps   lvm.WrapLVM
 	fsOps    uw.FSOperations
-	crHelper *k8s.CRHelper
+	crHelper k8s.CRHelper
 	log      *logrus.Entry
 }
 
@@ -46,7 +46,7 @@ func NewLVMProvisioner(e command.CmdExecutor, k *k8s.KubeClient, log *logrus.Log
 	return &LVMProvisioner{
 		lvmOps:   lvm.NewLVM(e, log),
 		fsOps:    uw.NewFSOperationsImpl(e, log),
-		crHelper: k8s.NewCRHelper(k, log),
+		crHelper: k8s.NewCRHelperImpl(k, log),
 		log:      log.WithField("component", "LVMProvisioner"),
 	}
 }

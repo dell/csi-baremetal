@@ -53,7 +53,7 @@ type DriveProvisioner struct {
 	partOps uw.PartitionOperations
 
 	k8sClient *k8s.KubeClient
-	crHelper  *k8s.CRHelper
+	crHelper  k8s.CRHelper
 
 	log *logrus.Entry
 }
@@ -68,7 +68,7 @@ func NewDriveProvisioner(
 		fsOps:     uw.NewFSOperationsImpl(e, log),
 		partOps:   uw.NewPartitionOperationsImpl(e, log),
 		k8sClient: k,
-		crHelper:  k8s.NewCRHelper(k, log),
+		crHelper:  k8s.NewCRHelperImpl(k, log),
 		log:       log.WithField("component", "DriveProvisioner"),
 	}
 }

@@ -292,9 +292,13 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	volumeID := req.GetVolumeId()
 	volumeCR, err := s.crHelper.GetVolumeByID(volumeID)
 	if err != nil {
-		message := fmt.Sprintf("Unable to find volume with ID %s", volumeID)
-		ll.Error(message)
-		return nil, status.Error(codes.NotFound, message)
+		// If NodeUnstageVolume return error for not found Volume CR
+		// kubelet will be call NodeUnstageVolume again, it means infinity calls
+		if err == baseerr.ErrorNotFound {
+			return &csi.NodeUnstageVolumeResponse{}, nil
+		}
+		message := fmt.Sprintf("Unable to find volume with ID %s: %s", volumeID, err.Error())
+		return nil, status.Error(codes.Internal, message)
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
