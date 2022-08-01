@@ -137,9 +137,6 @@ type VolumeManager struct {
 
 	// discover data on drive
 	dataDiscover types.WrapDataDiscover
-
-	// map to reduce logs
-	driveLogs map[string]string
 }
 
 // driveStates internal struct, holds info about drive updates
@@ -238,7 +235,6 @@ func NewVolumeManager(
 		metricDriveMgrDuration: driveMgrDuration,
 		metricDriveMgrCount:    driveMgrCount,
 		dataDiscover:           datadiscover.NewDataDiscover(fsOps, partImpl, lvmOps),
-		driveLogs:              map[string]string{},
 	}
 	return vm
 }
@@ -807,14 +803,10 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 				m.sendEventForDrive(&drive, eventing.DriveHasData, discoverResult.Message)
 				m.changeDriveIsCleanField(&drive, false)
 			}
-			ll.Info(discoverResult.Message)
 			continue
 		}
 
-		if m.isLogChange(discoverResult.Message, drive.Spec.UUID) {
-			m.driveLogs[drive.Spec.UUID] = discoverResult.Message
-			ll.Info(discoverResult.Message)
-		}
+		ll.Debug(discoverResult.Message)
 
 		if !drive.Spec.IsClean {
 			m.sendEventForDrive(&drive, eventing.DriveClean, discoverResult.Message)
@@ -824,12 +816,6 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 	return nil
 }
 
-func (m *VolumeManager) isLogChange(logMessage, driveID string) bool {
-	if message, ok := m.driveLogs[driveID]; ok {
-		return message != logMessage
-	}
-	return true
-}
 
 // discoverLVGOnSystemDrive discovers LogicalVolumeGroup configuration on system SSD drive and creates LogicalVolumeGroup CR and AC CR,
 // return nil in case of success. If system drive is not SSD or LogicalVolumeGroup CR that points in system VG is exists - return nil.
