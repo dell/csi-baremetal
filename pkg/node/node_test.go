@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
+	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	"path"
 	"testing"
 	"time"
@@ -42,7 +43,6 @@ import (
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 	mocklu "github.com/dell/csi-baremetal/pkg/mocks/linuxutils"
-	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 )
@@ -473,13 +473,24 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Stage Path missing in request"))
 		})
-		It("Should fail because Volume CR wasn't found", func() {
+		It("Shouldn't fail if Volume CR wasn't found", func() {
 			req := getNodeUnstageRequest("sone-none-existing-UUID", stagePath)
 			resp, err := node.NodeUnstageVolume(testCtx, req)
 
-			Expect(resp).To(BeNil())
+			Expect(err).To(BeNil())
+			Expect(resp).To(Equal(&csi.NodeUnstageVolumeResponse{}))
+		})
+		It("Should fail if Volume CR is unavailable by internal error", func() {
+			crHelper := &mocks.CRHelper{}
+			node.crHelper = crHelper
+			crHelper.On("GetVolumeByID", "internal-error-UUID").
+				Return(nil, errors.New("internal-error"))
+
+			req := getNodeUnstageRequest("internal-error-UUID", stagePath)
+			resp, err := node.NodeUnstageVolume(testCtx, req)
+
 			Expect(err).NotTo(BeNil())
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			Expect(resp).To(BeNil())
 		})
 		It("Should fail with UnmountWithCheck() error", func() {
 			req := getNodeUnstageRequest(testV1ID, stagePath)
