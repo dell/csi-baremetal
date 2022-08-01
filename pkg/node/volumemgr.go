@@ -816,7 +816,6 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 	return nil
 }
 
-
 // discoverLVGOnSystemDrive discovers LogicalVolumeGroup configuration on system SSD drive and creates LogicalVolumeGroup CR and AC CR,
 // return nil in case of success. If system drive is not SSD or LogicalVolumeGroup CR that points in system VG is exists - return nil.
 // If system VG free space is less then threshold - AC CR will not be created but LogicalVolumeGroup will.
