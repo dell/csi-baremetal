@@ -51,7 +51,7 @@ const (
 // Controller is the LogicalVolumeGroup custom resource Controller for serving VG operations on Node side in Reconcile loop
 type Controller struct {
 	k8sClient *k8s.KubeClient
-	crHelper  *k8s.CRHelper
+	crHelper  k8s.CRHelper
 
 	listBlk lsblk.WrapLsblk
 	lvmOps  lvm.WrapLVM
@@ -68,7 +68,7 @@ func NewController(k8sClient *k8s.KubeClient, nodeID string, log *logrus.Logger)
 	e := command.NewExecutor(log)
 	return &Controller{
 		k8sClient: k8sClient,
-		crHelper:  k8s.NewCRHelper(k8sClient, log),
+		crHelper:  k8s.NewCRHelperImpl(k8sClient, log),
 		node:      nodeID,
 		log:       log.WithField("component", "Controller"),
 		e:         e,
