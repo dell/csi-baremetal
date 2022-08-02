@@ -18,6 +18,8 @@ package utilwrappers
 
 import (
 	"errors"
+	"fmt"
+	"os/exec"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -47,22 +49,24 @@ var (
 	}
 )
 
-func setupTestPartitioner() (partOps *PartitionOperationsImpl, mockPH *mocklu.MockWrapPartition) {
+func setupTestPartitioner() (partOps *PartitionOperationsImpl, mockPH *mocklu.MockWrapPartition, wrapFS *mocklu.MockWrapFS) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	partOps = NewPartitionOperationsImpl(&command.Executor{}, logger)
 	mockPH = &mocklu.MockWrapPartition{}
+	wrapFS = &mocklu.MockWrapFS{}
 
 	partOps.WrapPartition = mockPH
+	partOps.WrapFS = wrapFS
 
 	return
 }
 
 func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		currentPPtr     *Partition
-		err             error
+		partOps, mockPH, _ = setupTestPartitioner()
+		currentPPtr        *Partition
+		err                error
 	)
 
 	// partition exist and have right UUID
@@ -71,7 +75,7 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 	mockPH.On("GetPartitionUUID", testPart1.Device, testPart1.Num).
 		Return(testPart1.PartUUID, nil).Once()
 	mockPH.On("SyncPartitionTable", testPart1.Device).
-		Return(nil).Once()
+		Return("", "", nil).Once()
 	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
 		Return(testPart1.Name, nil).Once()
 
@@ -94,7 +98,7 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 		Return(partUUIDForEphemeral, nil).Once()
 
 	// for each test scenario
-	mockPH.On("SyncPartitionTable", mock.Anything).Return(nil)
+	mockPH.On("SyncPartitionTable", mock.Anything).Return("", "", nil)
 
 	// not ephemeral
 	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
@@ -109,10 +113,10 @@ func TestDriveProvisioner_PreparePartition_Success(t *testing.T) {
 
 func TestDriveProvisioner_PreparePartition_Failed(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		expectedErr     = errors.New("prepare failed")
-		currentPPtr     *Partition
-		err             error
+		partOps, mockPH, _ = setupTestPartitioner()
+		expectedErr        = errors.New("prepare failed")
+		currentPPtr        *Partition
+		err                error
 	)
 
 	// IsPartitionExists failed
@@ -173,8 +177,8 @@ func TestDriveProvisioner_PreparePartition_Failed(t *testing.T) {
 
 func TestDriveProvisioner_ReleasePartition_Success(t *testing.T) {
 	var (
-		err             error
-		partOps, mockPH = setupTestPartitioner()
+		err                error
+		partOps, mockPH, _ = setupTestPartitioner()
 	)
 
 	// partition isn't exist
@@ -197,9 +201,9 @@ func TestDriveProvisioner_ReleasePartition_Success(t *testing.T) {
 
 func TestDriveProvisioner_ReleasePartition_Fail(t *testing.T) {
 	var (
-		partOps, mockPH = setupTestPartitioner()
-		expectedErr     = errors.New("release error")
-		err             error
+		partOps, mockPH, _ = setupTestPartitioner()
+		expectedErr        = errors.New("release error")
+		err                error
 	)
 
 	// IsPartitionExists failed
@@ -219,4 +223,39 @@ func TestDriveProvisioner_ReleasePartition_Fail(t *testing.T) {
 	err = partOps.ReleasePartition(testPart1)
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
+}
+
+func TestSearchPartNameSuccess(t *testing.T) {
+	var (
+		partOps, mockPH, _ = setupTestPartitioner()
+		err                error
+	)
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return("", "", nil).Once()
+	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
+		Return(testPart1.Name, nil).Once()
+	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
+	assert.Nil(t, err)
+}
+
+func TestSearchPartNameFail(t *testing.T) {
+	var (
+		partOps, mockPH, wrapFS = setupTestPartitioner()
+		expectedErr             = fmt.Errorf("fail")
+		err                     error
+	)
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return("", "Device or resource busy", new(exec.ExitError)).Once()
+	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
+		Return(testPart1.Name, nil).Once()
+	wrapFS.On("IsMounted", "sda").Return(true, nil).Once()
+	partOps.WrapFS = wrapFS
+	partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
+
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return("", "", fmt.Errorf("fail")).Once()
+	wrapFS.On("IsMounted", "sda").Return(false, nil).Once()
+	//mock another error
+	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
+	assert.Error(t, expectedErr, err)
 }

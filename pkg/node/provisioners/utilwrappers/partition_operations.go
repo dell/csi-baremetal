@@ -18,12 +18,15 @@ package utilwrappers
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
@@ -65,6 +68,7 @@ func (p *Partition) GetFullPath() string {
 // PartitionOperationsImpl is a base implementation for PartitionOperations interface
 type PartitionOperationsImpl struct {
 	ph.WrapPartition
+	fs.WrapFS
 	log     *logrus.Entry
 	metrics metrics.Statistic
 }
@@ -82,6 +86,7 @@ func NewPartitionOperationsImpl(e command.CmdExecutor, log *logrus.Logger) *Part
 	}
 	return &PartitionOperationsImpl{
 		WrapPartition: ph.NewWrapPartitionImpl(e, log),
+		WrapFS:        fs.NewFSImpl(e),
 		log:           log.WithField("component", "PartitionOperations"),
 		metrics:       partMetrics,
 	}
@@ -173,11 +178,18 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 	// get partition name
 	for i := 0; i < NumberOfRetriesToObtainPartName; i++ {
 		// sync partition table
-		err = d.SyncPartitionTable(device)
+		_, errStr, err := d.SyncPartitionTable(device)
 		if err != nil {
-			// log and ignore error
-			ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
-			return "", err
+			isMounted, _ := d.IsMounted(strings.Trim(device, "/dev"))
+			if _, ok := err.(*exec.ExitError); ok &&
+				strings.Contains(errStr, "Device or resource busy") &&
+				isMounted {
+				ll.Errorf("Unable to sync partition table for device %s: %v due to device is mounted already", device, err)
+			} else {
+				// log and ignore error
+				ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
+				return "", err
+			}
 		}
 		// sleep first to avoid issues with lsblk caching
 		time.Sleep(SleepBetweenRetriesToObtainPartName)
