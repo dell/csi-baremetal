@@ -1,5 +1,7 @@
 FROM    ubuntu:21.04
 
+RUN     sed -i -re 's/([a-z]{2}\.)?archive.ubuntu.com|security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+RUN     sed -i -re 's/deb|deb-src/& \[trusted=yes\]/' /etc/apt/sources.list
 # Remove bash packet to get rid of related CVEs
 RUN     apt update --no-install-recommends -y -q && apt remove --no-install-recommends -y --allow-remove-essential -q bash
 
