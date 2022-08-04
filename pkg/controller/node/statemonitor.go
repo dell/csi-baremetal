@@ -62,7 +62,7 @@ type ServicesStateMonitor struct {
 	// logger. Can't we initialize it inside?
 	log *logrus.Entry
 	// helper to work with custom resource definition
-	crHelper *k8s.CRHelper
+	crHelper k8s.CRHelper
 	// nodeX ID -> <Ready/Unready/PermanentDown>
 	nodeHealthMap map[string]*serviceState
 	// mutex to protect map access
@@ -87,7 +87,7 @@ func NewNodeServicesStateMonitor(client *k8s.KubeClient, logger *logrus.Logger) 
 	return &ServicesStateMonitor{
 		client:        client,
 		log:           logger.WithField("component", "ServicesStateMonitor"),
-		crHelper:      k8s.NewCRHelper(client, logger),
+		crHelper:      k8s.NewCRHelperImpl(client, logger),
 		nodeHealthMap: make(map[string]*serviceState),
 		lock:          &sync.RWMutex{},
 	}
