@@ -39,7 +39,7 @@ type WrapPartition interface {
 	CreatePartition(device, label, partUUID string) (err error)
 	DeletePartition(device, partNum string) (err error)
 	GetPartitionUUID(device, partNum string) (string, error)
-	SyncPartitionTable(device string) error
+	SyncPartitionTable(device string) (string, string, error)
 	GetPartitionNameByUUID(device, partUUID string) (string, error)
 	DeviceHasPartitionTable(device string) (bool, error)
 	DeviceHasPartitions(device string) (bool, error)
@@ -275,17 +275,17 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 // SyncPartitionTable syncs partition table for specific device
 // Receives device path to sync with partprobe, device could be an empty string (sync for all devices in the system)
 // Returns error if something went wrong
-func (p *WrapPartitionImpl) SyncPartitionTable(device string) (err error) {
+func (p *WrapPartitionImpl) SyncPartitionTable(device string) (outStr string, errStr string, err error) {
 	cmd := fmt.Sprintf(BlockdevCmdTmpl, device)
 
 	for i := 0; i < p.numberOfRetriesToSyncPartTable; i++ {
 		// sync partition table
 		p.opMutex.Lock()
-		_, _, err = p.e.RunCmd(cmd, command.UseMetrics(true),
+		outStr, errStr, err = p.e.RunCmd(cmd, command.UseMetrics(true),
 			command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
 		p.opMutex.Unlock()
 		if err == nil {
-			return nil
+			return
 		}
 		time.Sleep(p.sleepBetweenRetriesToSyncPartTable)
 	}
