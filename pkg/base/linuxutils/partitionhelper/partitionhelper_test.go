@@ -113,12 +113,12 @@ func TestGetPartitionUUIDFail(t *testing.T) {
 }
 
 func TestSyncPartitionTable(t *testing.T) {
-	err := testPartitioner.SyncPartitionTable("/dev/sde")
+	_, _, err := testPartitioner.SyncPartitionTable("/dev/sde")
 	assert.Nil(t, err)
 }
 
 func TestSyncPartitionTableFail(t *testing.T) {
-	err := testPartitioner.SyncPartitionTable("/dev/sdXXXX")
+	_, _, err := testPartitioner.SyncPartitionTable("/dev/sdXXXX")
 	assert.NotNil(t, err)
 }
 

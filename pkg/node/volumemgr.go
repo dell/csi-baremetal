@@ -88,9 +88,9 @@ type VolumeManager struct {
 	// cache for kubernetes resources
 	k8sCache k8s.CRReader
 	// help to read/update particular CR
-	crHelper *k8s.CRHelper
+	crHelper k8s.CRHelper
 	// CRHelper instance which reads from cache
-	cachedCrHelper *k8s.CRHelper
+	cachedCrHelper k8s.CRHelper
 
 	// uses for communicating with hardware manager
 	driveMgrClient api.DriveServiceClient
@@ -212,8 +212,8 @@ func NewVolumeManager(
 	vm := &VolumeManager{
 		k8sClient:      k8sClient,
 		k8sCache:       k8sCache,
-		crHelper:       k8s.NewCRHelper(k8sClient, logger),
-		cachedCrHelper: k8s.NewCRHelper(k8sClient, logger).SetReader(k8sCache),
+		crHelper:       k8s.NewCRHelperImpl(k8sClient, logger),
+		cachedCrHelper: k8s.NewCRHelperImpl(k8sClient, logger).SetReader(k8sCache),
 		driveMgrClient: client,
 		acProvider:     common.NewACOperationsImpl(k8sClient, logger),
 		provisioners: map[p.VolumeType]p.Provisioner{
@@ -805,7 +805,9 @@ func (m *VolumeManager) discoverDataOnDrives() error {
 			}
 			continue
 		}
-		ll.Info(discoverResult.Message)
+
+		ll.Debug(discoverResult.Message)
+
 		if !drive.Spec.IsClean {
 			m.sendEventForDrive(&drive, eventing.DriveClean, discoverResult.Message)
 			m.changeDriveIsCleanField(&drive, true)

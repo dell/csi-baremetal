@@ -28,12 +28,12 @@ import (
 	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 )
 
-func setup() *CRHelper {
+func setup() *CRHelperImpl {
 	k, err := GetFakeKubeClient(testNs, testLogger)
 	if err != nil {
 		panic(err)
 	}
-	return NewCRHelper(k, testLogger)
+	return NewCRHelperImpl(k, testLogger)
 }
 
 func TestCRHelper_GetACByLocation(t *testing.T) {

@@ -82,10 +82,10 @@ func (m *MockWrapPartition) GetPartitionUUID(device, partNum string) (string, er
 }
 
 // SyncPartitionTable is a mock implementations
-func (m *MockWrapPartition) SyncPartitionTable(device string) error {
+func (m *MockWrapPartition) SyncPartitionTable(device string) (string, string, error) {
 	args := m.Mock.Called(device)
 
-	return args.Error(0)
+	return args.String(0), args.String(1), args.Error(2)
 }
 
 // GetPartitionNameByUUID is a mock implementations
