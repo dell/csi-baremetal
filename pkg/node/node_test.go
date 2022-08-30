@@ -22,6 +22,7 @@ import (
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	"path"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 	"time"
 
@@ -810,6 +811,53 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			// check volume CR status
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testVolume2.Id, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+			Expect(volumeCR.Annotations[wbtChangedVolumeAnnotation]).To(Equal(wbtChangedVolumeKey))
+		})
+		It("success for PUBLISHED volume", func() {
+			volume := &vcrd.Volume{}
+			err := node.k8sClient.Get(testCtx, client.ObjectKey{Name: testVolumeCR2.Name, Namespace: testVolumeCR2.Namespace}, volume)
+			Expect(err).To(BeNil())
+			volume.Spec.CSIStatus = apiV1.Published
+			err = node.k8sClient.UpdateCR(testCtx, volume)
+			Expect(err).To(BeNil())
+
+			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
+			partitionPath := "/partition/path/for/volume1"
+			prov.On("GetVolumePath", &volume.Spec).Return(partitionPath, nil)
+			fsOps.On("PrepareAndPerformMount",
+				partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+				Return(nil)
+
+			var (
+				volumeMode = ""
+				volumeSC   = "csi-baremetal-sc-hdd"
+				wbtConf    = &wbtcommon.WbtConfig{
+					Enable: true,
+					VolumeOptions: wbtcommon.VolumeOptions{
+						Modes:          []string{volumeMode},
+						StorageClasses: []string{volumeSC},
+					},
+				}
+				wbtValue uint32 = 0
+				device          = "sda" //testDrive.Spec.Path = "/dev/sda"
+			)
+			node.SetWbtConfig(wbtConf)
+			wbtOps.On("SetValue", device, wbtValue).Return(nil)
+
+			pv := &corev1.PersistentVolume{}
+			pv.Name = testVolume2.Id
+			pv.Spec.StorageClassName = volumeSC
+			err = node.k8sClient.Create(testCtx, pv)
+			Expect(err).To(BeNil())
+
+			resp, err := node.NodeStageVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+			// check volume CR status
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.Get(testCtx, client.ObjectKey{Name: testVolumeCR2.Name, Namespace: testVolumeCR2.Namespace}, volumeCR)
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 			Expect(volumeCR.Annotations[wbtChangedVolumeAnnotation]).To(Equal(wbtChangedVolumeKey))
