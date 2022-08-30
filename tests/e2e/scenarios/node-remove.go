@@ -89,7 +89,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 			framework.ExpectNoError(err)
 
 			e2elog.Logf("Count of pods before test was %d, after - %d", len(podsBefore), len(pods))
-			if len(pods) - len(podsBefore) <= 0 {
+			if len(pods)-len(podsBefore) <= 0 {
 				framework.Failf("Csi-baremetal-node not ready")
 			}
 		}
@@ -132,6 +132,14 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		// check taint
 		_, err = framework.NodeHasTaint(f.ClientSet, taintNodeName, &taint)
 		framework.ExpectNoError(err)
+
+		// wait until csibmnode labeled with node.dell.com/drain=drain
+		for start := time.Now(); time.Since(start) < time.Minute*10; time.Sleep(time.Second * 10) {
+			if csibmnodeHasLabel(f, taintedNodeId, &taint) {
+				break
+			}
+		}
+		e2elog.Logf("csibmnode %s labeled with %s=%s", taintedNodeId, taint.Key, taint.Value)
 
 		// delete node
 		cmd = fmt.Sprintf("kubectl delete node %s", taintNodeName)
@@ -179,6 +187,22 @@ func foundCsibmnodeByNodeName(f *framework.Framework, nodeName string) (string, 
 		}
 	}
 	return taintedCsibmnode, nil
+}
+
+func csibmnodeHasLabel(f *framework.Framework, nodeID string, taint *corev1.Taint) bool {
+	allNodes := getUObjList(f, common.CsibmnodeGVR)
+
+	for _, node := range allNodes.Items {
+		nodeUUID, _, err := unstructured.NestedString(node.UnstructuredContent(), "spec", "UUID")
+		framework.ExpectNoError(err)
+		if nodeUUID == nodeID {
+			labels, _, error := unstructured.NestedStringMap(node.UnstructuredContent(), "metadata", "labels")
+			framework.ExpectNoError(error)
+			value, ok := labels[taint.Key]
+			return ok && value == taint.Value
+		}
+	}
+	return false
 }
 
 func isNodeExist(f *framework.Framework, nodeID string) bool {
