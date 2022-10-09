@@ -509,7 +509,8 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 	case v1.ReservationRejected:
 		// no available capacity
 		// request reservation again
-		return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
+		//return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
+		return nodes, schedulerapi.FailedNodesMap{}, nil
 	}
 
 	return nil, nil, errors.New("unsupported reservation status: " + reservation.Spec.Status)
