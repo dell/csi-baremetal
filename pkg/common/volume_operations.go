@@ -232,6 +232,9 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		Mode:              v.Mode,
 		Type:              v.Type,
 	}
+	if value, ok := ac.Labels["fake"]; ok && value == "yes" {
+		claimLabels["fake"] = "yes"
+	}
 	volumeCR := vo.k8sClient.ConstructVolumeCR(v.Id, podNamespace, claimLabels, apiVolume)
 
 	if err = vo.k8sClient.CreateCR(ctx, v.Id, volumeCR); err != nil {

@@ -458,10 +458,13 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 
 	newStatus := apiV1.Created
 
-	err := m.getProvisionerForVolume(&volume.Spec).PrepareVolume(&volume.Spec)
-	if err != nil {
-		ll.Errorf("Unable to create volume size of %d bytes: %v. Set volume status to Failed", volume.Spec.Size, err)
-		newStatus = apiV1.Failed
+	var err error
+	if value, ok := volume.Labels["fake"]; !ok || value != "yes" {
+		err = m.getProvisionerForVolume(&volume.Spec).PrepareVolume(&volume.Spec)
+		if err != nil {
+			ll.Errorf("Unable to create volume size of %d bytes: %v. Set volume status to Failed", volume.Spec.Size, err)
+			newStatus = apiV1.Failed
+		}
 	}
 
 	volume.Spec.CSIStatus = newStatus
