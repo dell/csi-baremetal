@@ -171,6 +171,9 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 			NodeId:       drive.GetNodeId(),
 		}
 		newAC := d.client.ConstructACCR(name, *capacity)
+		if drive.GetPath() == "fake" {
+			newAC.Labels["fake"] = "yes"
+		}
 		if err := d.client.CreateCR(context.WithValue(ctx, base.RequestUUID, name), name, newAC); err != nil {
 			log.Errorf("Error during create AvailableCapacity request to k8s: %v, error: %v",
 				capacity, err)
