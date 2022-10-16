@@ -209,18 +209,22 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 	}
 
-	partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(&volumeCR.Spec)
-	if err != nil {
-		if err == baseerr.ErrorGetDriveFailed {
-			return nil, err
-		}
-		ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
+	if value, ok := volumeCR.Labels["fake"]; ok || value == "yes" {
 		ignoreErrorIfFakeAttach(err)
 	} else {
-		ll.Infof("Partition to stage: %s", partition)
-		if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
-			ll.Errorf("Unable to stage volume: %v", err)
+		partition, err := s.getProvisionerForVolume(&volumeCR.Spec).GetVolumePath(&volumeCR.Spec)
+		if err != nil {
+			if err == baseerr.ErrorGetDriveFailed {
+				return nil, err
+			}
+			ll.Errorf("failed to get partition for volume %v: %v", volumeCR.Spec, err)
 			ignoreErrorIfFakeAttach(err)
+		} else {
+			ll.Infof("Partition to stage: %s", partition)
+			if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
+				ll.Errorf("Unable to stage volume: %v", err)
+				ignoreErrorIfFakeAttach(err)
+			}
 		}
 	}
 
