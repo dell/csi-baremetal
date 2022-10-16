@@ -710,7 +710,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			}
 		}
 
-		if !wasDiscovered {
+		if !wasDiscovered && d.Spec.Path != "fake" {
 			ll.Warnf("Set status %s for drive %v", apiV1.DriveStatusOffline, d.Spec)
 			previousState := d.DeepCopy()
 			toUpdate := d
