@@ -518,16 +518,18 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 	}
 	ll.Debugf("Got drive %+v", drive)
 
-	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
-		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
-		drive.Spec.Usage = apiV1.DriveUsageFailed
-		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
-			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
-				drive.Name, drive.Spec.Usage, err)
-			return "", err
+	if value, ok := volume.Labels["fake"]; !ok || value != "yes" {
+		if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
+			ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
+			drive.Spec.Usage = apiV1.DriveUsageFailed
+			if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+				ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
+					drive.Name, drive.Spec.Usage, err)
+				return "", err
+			}
+			m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
+			return apiV1.Failed, err
 		}
-		m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
-		return apiV1.Failed, err
 	}
 
 	ll.Infof("Volume - %s was successfully removed. Set status to Removed", volume.Spec.Id)
