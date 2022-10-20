@@ -244,9 +244,11 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 	vo.cache.Set(v.Id, podNamespace)
 
 	// decrease AC size
-	ac.Spec.Size -= allocatedBytes
-	if err = vo.k8sClient.UpdateCR(ctx, ac); err != nil {
-		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
+	if value, ok := ac.Labels["fake"]; !ok || value != "yes" {
+		ac.Spec.Size -= allocatedBytes
+		if err = vo.k8sClient.UpdateCR(ctx, ac); err != nil {
+			log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
+		}
 	}
 	// release reservation
 	if err := vo.deleteVolumeReservation(ctx, podReservation, volumeReservationNum); err != nil {
@@ -459,8 +461,10 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		acAction = update
 	}
 
-	if err = vo.DoAction(ctx, ll, acCR, acAction, "AC"); err != nil {
-		return fmt.Errorf("unable to update AC CR %s: %w", acCR.Name, err)
+	if value, ok := acCR.Labels["fake"]; !ok || value != "yes" {
+		if err = vo.DoAction(ctx, ll, acCR, acAction, "AC"); err != nil {
+			return fmt.Errorf("unable to update AC CR %s: %w", acCR.Name, err)
+		}
 	}
 
 	if err = vo.DoAction(ctx, ll, lvgCR, lvgAction, "LVG"); err != nil {

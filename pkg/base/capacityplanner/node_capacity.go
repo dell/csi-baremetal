@@ -18,13 +18,13 @@ package capacityplanner
 
 import (
 	"fmt"
-	"sort"
-
 	genV1 "github.com/dell/csi-baremetal/api/generated/v1"
 	v1 "github.com/dell/csi-baremetal/api/v1"
 	acrcrd "github.com/dell/csi-baremetal/api/v1/acreservationcrd"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"sort"
+	"strings"
 )
 
 type reservedCapacity struct {
@@ -75,6 +75,13 @@ func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.A
 
 	// Sort AC to have the persistent order for each reservation
 	sort.Slice(acs, func(i, j int) bool {
+		// Place fake AC at last
+		if value, ok := acs[j].Labels["fake"]; ok && value == "yes" {
+			return true
+		}
+		if value, ok := acs[i].Labels["fake"]; ok && value == "yes" {
+			return false
+		}
 		// By size (the smallest first)
 		if acs[i].Spec.Size < acs[j].Spec.Size {
 			return true
@@ -174,6 +181,19 @@ func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCap
 			if reservation.Size+requiredSize <= nc.acs[ac].Spec.Size {
 				foundAC := nc.acs[ac]
 				nc.reservedACs[foundAC.Name].Size += requiredSize
+				return foundAC
+			}
+		}
+	}
+
+	if strings.HasPrefix(vol.StorageClass, "SSD") {
+		for _, ac := range nc.acsOrder[vol.StorageClass] {
+			if value, ok := nc.acs[ac].Labels["fake"]; ok && value == "yes" {
+				foundAC := nc.acs[ac]
+				nc.reservedACs[foundAC.Name] = &reservedCapacity{
+					Size:         vol.Size,
+					StorageClass: vol.StorageClass,
+				}
 				return foundAC
 			}
 		}
