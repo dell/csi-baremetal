@@ -39,7 +39,7 @@ const (
 var _ framework.FilterPlugin = &CSISchedulerPlugin{}
 
 // Score plugin
-var _ framework.ScorePlugin = &CSISchedulerPlugin{}
+//var _ framework.ScorePlugin = &CSISchedulerPlugin{}
 
 // Reserve plugin
 //var _ framework.ReservePlugin = &CSISchedulerPlugin{}
@@ -64,14 +64,14 @@ func (c CSISchedulerPlugin) Filter(ctx context.Context, state *framework.CycleSt
 }
 
 // Score does balancing across the nodes for better performance. Nodes with more ACs should have highest scores
-func (c CSISchedulerPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
-	panic("implement me")
-}
+//func (c CSISchedulerPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
+//	panic("implement me")
+//}
 
-// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not.
-func (c CSISchedulerPlugin) ScoreExtensions() framework.ScoreExtensions {
-	panic("implement me")
-}
+//// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not.
+//func (c CSISchedulerPlugin) ScoreExtensions() framework.ScoreExtensions {
+//	panic("implement me")
+//}
 
 // Reserve does reservation of ACs
 //func (c CSISchedulerPlugin) Reserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
