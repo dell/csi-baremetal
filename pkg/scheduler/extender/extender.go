@@ -89,6 +89,25 @@ func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	}, nil
 }
 
+func (e *Extender) FilterPlugin(ctx context.Context, pod *coreV1.Pod, node *coreV1.Node) bool {
+	ll := e.logger.WithFields(logrus.Fields{
+		"method": "FilterPlugin",
+	})
+	requests, err := e.gatherCapacityRequestsByProvisioner(ctx, pod)
+	if err != nil {
+		return false
+	}
+	ll.Debugf("Required capacity: %v", requests)
+
+	matchedNodes, _, err := e.filter(ctx, pod, []coreV1.Node{*node}, requests)
+
+	if len(matchedNodes) == 0 {
+		return false
+	}
+
+	return true
+}
+
 // FilterHandler extracts ExtenderArgs struct from req and writes ExtenderFilterResult to the w
 func (e *Extender) FilterHandler(w http.ResponseWriter, req *http.Request) {
 	sessionUUID := uuid.New().String()
