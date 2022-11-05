@@ -23,7 +23,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
-	"github.com/dell/csi-baremetal/pkg/scheduler/extender"
+	"github.com/dell/csi-baremetal/pkg/scheduler/util"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
 	"k8s.io/klog/v2"
@@ -37,7 +37,7 @@ import (
 // CSISchedulerPlugin is a plugin that does placement decision based on information in AC CRD
 type CSISchedulerPlugin struct {
 	frameworkHandle framework.Handle
-	extender        *extender.Extender
+	schedulerUtils  *util.SchedulerUtils
 }
 
 const (
@@ -79,13 +79,13 @@ func New(configuration runtime.Object, handle framework.Handle) (framework.Plugi
 	featureConf := featureconfig.NewFeatureConfig()
 	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, true)
 	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, false)
-	newExtender, err := extender.NewExtender(logger, kubeClient, kubeCache, "csi-baremetal", featureConf, "", "")
-	if err != nil {
+	schedulerUtils, error := util.NewSchedulerUtils(logger, kubeClient, kubeCache, "csi-baremetal", featureConf, "", "")
+	if error != nil {
 		logger.Fatalf("Fail to create extender: %v", err)
 	}
 	sp := &CSISchedulerPlugin{
 		frameworkHandle: handle,
-		extender:        newExtender,
+		schedulerUtils:  schedulerUtils,
 	}
 	return sp, nil
 }
@@ -93,7 +93,7 @@ func New(configuration runtime.Object, handle framework.Handle) (framework.Plugi
 // Filter filters out nodes which don't have ACs match to PVCs
 func (c *CSISchedulerPlugin) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
 	klog.V(2).Infof("CSISchedulerPlugin Filer")
-	if !c.extender.FilterPlugin(ctx, pod, nodeInfo.Node()) {
+	if !c.schedulerUtils.FilterPlugin(ctx, pod, nodeInfo.Node()) {
 		framework.NewStatus(framework.UnschedulableAndUnresolvable, "inadequate storage capacity")
 	}
 	return nil
