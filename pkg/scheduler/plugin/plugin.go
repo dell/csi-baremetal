@@ -93,9 +93,18 @@ func New(configuration runtime.Object, handle framework.Handle) (framework.Plugi
 // Filter filters out nodes which don't have ACs match to PVCs
 func (c *CSISchedulerPlugin) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
 	klog.V(2).Infof("CSISchedulerPlugin Filer")
-	if !c.schedulerUtils.FilterPlugin(ctx, pod, nodeInfo.Node()) {
-		framework.NewStatus(framework.UnschedulableAndUnresolvable, "inadequate storage capacity")
+	requests, err := c.schedulerUtils.GatherCapacityRequestsByProvisioner(ctx, pod)
+	if err != nil {
+		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "GatherCapacityRequests Error")
 	}
+	klog.V(2).Infof("Required capacity: %v", requests)
+
+	matchedNodes, err := c.schedulerUtils.Filter(ctx, pod, []coreV1.Node{*nodeInfo.Node()}, requests)
+
+	if len(matchedNodes) == 0 {
+		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "no mathed nodes")
+	}
+
 	return nil
 }
 

@@ -89,24 +89,24 @@ func NewSchedulerUtils(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	}, nil
 }
 
-func (e *SchedulerUtils) FilterPlugin(ctx context.Context, pod *coreV1.Pod, node *coreV1.Node) bool {
-	ll := e.logger.WithFields(logrus.Fields{
-		"method": "FilterPlugin",
-	})
-	requests, err := e.gatherCapacityRequestsByProvisioner(ctx, pod)
-	if err != nil {
-		return false
-	}
-	ll.Debugf("Required capacity: %v", requests)
-
-	matchedNodes, _, err := e.filter(ctx, pod, []coreV1.Node{*node}, requests)
-
-	if len(matchedNodes) == 0 {
-		return false
-	}
-
-	return true
-}
+//func (e *SchedulerUtils) FilterPlugin(ctx context.Context, pod *coreV1.Pod, node *coreV1.Node) bool {
+//	ll := e.logger.WithFields(logrus.Fields{
+//		"method": "FilterPlugin",
+//	})
+//	requests, err := e.gatherCapacityRequestsByProvisioner(ctx, pod)
+//	if err != nil {
+//		return false
+//	}
+//	ll.Debugf("Required capacity: %v", requests)
+//
+//	matchedNodes, _, err := e.filter(ctx, pod, []coreV1.Node{*node}, requests)
+//
+//	if len(matchedNodes) == 0 {
+//		return false
+//	}
+//
+//	return true
+//}
 
 // FilterHandler extracts ExtenderArgs struct from req and writes ExtenderFilterResult to the w
 func (e *SchedulerUtils) FilterHandler(w http.ResponseWriter, req *http.Request) {
@@ -249,6 +249,10 @@ func (e *SchedulerUtils) BindHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (e *SchedulerUtils) GatherCapacityRequestsByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.CapacityRequest, error) {
+	return e.gatherCapacityRequestsByProvisioner(ctx, pod)
+}
+
 // gatherCapacityRequestsByProvisioner search all volumes in pod' spec that should be provisioned
 // by provisioner e.provisioner and construct genV1.Volume struct for each of such volume
 func (e *SchedulerUtils) gatherCapacityRequestsByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.CapacityRequest, error) {
@@ -383,6 +387,12 @@ func (e *SchedulerUtils) createCapacityRequest(ctx context.Context, podName stri
 	ll.Debugf("Request %s with %s SC and %d size created", request.Name, request.StorageClass, request.Size)
 
 	return request, nil
+}
+
+func (e *SchedulerUtils) Filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
+	err error) {
+	matchedNodes, _, err = e.filter(ctx, pod, nodes, capacities)
+	return matchedNodes, err
 }
 
 // filter is an algorithm for defining whether requested volumes could be provisioned on particular node or no
