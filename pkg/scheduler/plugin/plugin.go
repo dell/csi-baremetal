@@ -87,24 +87,26 @@ func New(configuration runtime.Object, handle framework.Handle) (framework.Plugi
 		frameworkHandle: handle,
 		schedulerUtils:  schedulerUtils,
 	}
+	klog.V(2).Infof("CSISchedulerPlugin Instance Created")
 	return sp, nil
 }
 
 // Filter filters out nodes which don't have ACs match to PVCs
 func (c *CSISchedulerPlugin) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
-	klog.V(2).Infof("CSISchedulerPlugin Filer")
+	klog.V(2).Infof("CSISchedulerPlugin Filter on %s", nodeInfo.Node().Name)
 	requests, err := c.schedulerUtils.GatherCapacityRequestsByProvisioner(ctx, pod)
 	if err != nil {
-		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "GatherCapacityRequests Error")
+		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "Gather CapacityRequests Error")
 	}
 	klog.V(2).Infof("Required capacity: %v", requests)
 
-	matchedNodes, err := c.schedulerUtils.Filter(ctx, pod, []coreV1.Node{*nodeInfo.Node()}, requests)
+	potentialMatchedNodes, err := c.schedulerUtils.Filter(ctx, pod, []coreV1.Node{*nodeInfo.Node()}, requests)
 
-	if len(matchedNodes) == 0 {
-		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "no mathed nodes")
+	if len(potentialMatchedNodes) == 0 {
+		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "no matched nodes yet")
 	}
 
+	klog.V(2).Infof("%s pass the CSISchedulerPlugin Filter", nodeInfo.Node().Name)
 	return nil
 }
 
