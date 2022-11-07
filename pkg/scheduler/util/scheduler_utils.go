@@ -361,6 +361,7 @@ func (su *SchedulerUtils) handleReservation(ctx context.Context, reservation *ac
 			if !isRequested {
 				su.logger.Debugf("Add node %s to the requests list of ACR %s", node.Name, reservation.Name)
 				reservation.Spec.NodeRequests.Requested = append(reservation.Spec.NodeRequests.Requested, nodeID)
+				nodeRequestsChanged = true
 			}
 		}
 		if !nodeRequestsChanged {
