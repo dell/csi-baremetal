@@ -59,7 +59,7 @@ var _ framework.FilterPlugin = &CSISchedulerPlugin{}
 //var _ framework.UnreservePlugin = &CSISchedulerPlugin{}
 
 // Name returns name of plugin
-func (c CSISchedulerPlugin) Name() string {
+func (c *CSISchedulerPlugin) Name() string {
 	return Name
 }
 
@@ -109,21 +109,21 @@ func (c *CSISchedulerPlugin) Filter(ctx context.Context, state *framework.CycleS
 }
 
 // Score does balancing across the nodes for better performance. Nodes with more ACs should have highest scores
-//func (c CSISchedulerPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
+//func (c *CSISchedulerPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
 //	panic("implement me")
 //}
 
 //// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not.
-//func (c CSISchedulerPlugin) ScoreExtensions() framework.ScoreExtensions {
+//func (c *CSISchedulerPlugin) ScoreExtensions() framework.ScoreExtensions {
 //	panic("implement me")
 //}
 
 // Reserve does reservation of ACs
-//func (c CSISchedulerPlugin) Reserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
+//func (c *CSISchedulerPlugin) Reserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
 //	panic("implement me")
 //}
 
 // Unreserve un-reserver ACs
-//func (c CSISchedulerPlugin) Unreserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) {
+//func (c *CSISchedulerPlugin) Unreserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) {
 //	panic("implement me")
 //}
