@@ -18,15 +18,12 @@ package util
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
@@ -89,180 +86,16 @@ func NewSchedulerUtils(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	}, nil
 }
 
-//func (e *SchedulerUtils) FilterPlugin(ctx context.Context, pod *coreV1.Pod, node *coreV1.Node) bool {
-//	ll := e.logger.WithFields(logrus.Fields{
-//		"method": "FilterPlugin",
-//	})
-//	requests, err := e.gatherCapacityRequestsByProvisioner(ctx, pod)
-//	if err != nil {
-//		return false
-//	}
-//	ll.Debugf("Required capacity: %v", requests)
-//
-//	matchedNodes, _, err := e.filter(ctx, pod, []coreV1.Node{*node}, requests)
-//
-//	if len(matchedNodes) == 0 {
-//		return false
-//	}
-//
-//	return true
-//}
-
-// FilterHandler extracts ExtenderArgs struct from req and writes ExtenderFilterResult to the w
-func (e *SchedulerUtils) FilterHandler(w http.ResponseWriter, req *http.Request) {
-	sessionUUID := uuid.New().String()
-	ll := e.logger.WithFields(logrus.Fields{
-		"sessionUUID": sessionUUID,
-		"method":      "FilterHandler",
-	})
-	ll.Infof("Processing request: %v", req)
-
-	w.Header().Set("Content-Type", "application/json")
-	resp := json.NewEncoder(w)
-
-	var (
-		extenderArgs schedulerapi.ExtenderArgs
-		extenderRes  = &schedulerapi.ExtenderFilterResult{}
-	)
-
-	if err := json.NewDecoder(req.Body).Decode(&extenderArgs); err != nil {
-		ll.Errorf("Unable to decode request body: %v", err)
-		extenderRes.Error = err.Error()
-		if err := resp.Encode(extenderRes); err != nil {
-			ll.Errorf("Unable to write response %v: %v", extenderRes, err)
-		}
-		return
-	}
-
-	ll = ll.WithFields(logrus.Fields{
-		"pod": extenderArgs.Pod.Name,
-	})
-
-	ll.Info("Filtering")
-	ctxWithVal := context.WithValue(req.Context(), base.RequestUUID, sessionUUID)
-	pod := extenderArgs.Pod
-	requests, err := e.gatherCapacityRequestsByProvisioner(ctxWithVal, pod)
-	if err != nil {
-		// not found error is re-triable
-		if err != baseerr.ErrorNotFound {
-			extenderRes.Error = err.Error()
-		}
-		if err := resp.Encode(extenderRes); err != nil {
-			ll.Errorf("Unable to write response %v: %v", extenderRes, err)
-		}
-		return
-	}
-	ll.Debugf("Required capacity: %v", requests)
-
-	matchedNodes, failedNodes, err := e.filter(ctxWithVal, pod, extenderArgs.Nodes.Items, requests)
-
-	if err != nil {
-		ll.Errorf("filter finished with error: %v", err)
-		extenderRes.Error = err.Error()
-	} else {
-		ll.Infof("Construct response. Get %d nodes in request. Among them suitable nodes count is %d. Filtered out nodes - %v",
-			len(extenderArgs.Nodes.Items), len(matchedNodes), failedNodes)
-	}
-
-	extenderRes.Nodes = &coreV1.NodeList{
-		TypeMeta: extenderArgs.Nodes.TypeMeta,
-		Items:    matchedNodes,
-	}
-	extenderRes.FailedNodes = failedNodes
-
-	if err := resp.Encode(extenderRes); err != nil {
-		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
-	}
-}
-
-// PrioritizeHandler helps with even distribution of the volumes across the nodes.
-// It will set priority based on the formula:
-// rank of node X = max number of volumes - number of volume on node X.
-func (e *SchedulerUtils) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
-	sessionUUID := uuid.New().String()
-	ll := e.logger.WithFields(logrus.Fields{
-		"sessionUUID": sessionUUID,
-		"method":      "PrioritizeHandler",
-	})
-	ll.Infof("Processing request: %v", req)
-
-	w.Header().Set("Content-Type", "application/json")
-	resp := json.NewEncoder(w)
-
-	var (
-		extenderArgs schedulerapi.ExtenderArgs
-	)
-
-	if err := json.NewDecoder(req.Body).Decode(&extenderArgs); err != nil {
-		ll.Errorf("Unable to decode request body: %v", err)
-		return
-	}
-
-	ll.Info("Scoring")
-
-	e.Lock()
-	defer e.Unlock()
-
-	hostPriority, err := e.score(extenderArgs.Nodes.Items)
-	if err != nil {
-		ll.Errorf("Unable to score %v", err)
-		return
-	}
-	ll.Infof("Score results: %v", hostPriority)
-	extenderRes := (schedulerapi.HostPriorityList)(hostPriority)
-
-	if err := resp.Encode(&extenderRes); err != nil {
-		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
-	}
-}
-
-// BindHandler does bind of a pod to specific node
-// todo - not implemented. Was used for testing purposes ONLY (fault injection)!
-func (e *SchedulerUtils) BindHandler(w http.ResponseWriter, req *http.Request) {
-	sessionUUID := uuid.New().String()
-	ll := e.logger.WithFields(logrus.Fields{
-		"sessionUUID": sessionUUID,
-		"method":      "BindHandler",
-	})
-	ll.Infof("Processing request: %v", req)
-
-	w.Header().Set("Content-Type", "application/json")
-	resp := json.NewEncoder(w)
-
-	var (
-		extenderBindingArgs schedulerapi.ExtenderBindingArgs
-		extenderBindingRes  = &schedulerapi.ExtenderBindingResult{}
-	)
-
-	if err := json.NewDecoder(req.Body).Decode(&extenderBindingArgs); err != nil {
-		ll.Errorf("Unable to decode request body: %v", err)
-		extenderBindingRes.Error = err.Error()
-		if err := resp.Encode(extenderBindingRes); err != nil {
-			ll.Errorf("Unable to write response %v: %v", extenderBindingRes, err)
-		}
-		return
-	}
-
-	extenderBindingRes.Error = "don't know how to use bind API"
-	if err := resp.Encode(extenderBindingRes); err != nil {
-		ll.Errorf("Unable to write response %v: %v", extenderBindingRes, err)
-	}
-}
-
-func (e *SchedulerUtils) GatherCapacityRequestsByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.CapacityRequest, error) {
-	return e.gatherCapacityRequestsByProvisioner(ctx, pod)
-}
-
 // gatherCapacityRequestsByProvisioner search all volumes in pod' spec that should be provisioned
 // by provisioner e.provisioner and construct genV1.Volume struct for each of such volume
-func (e *SchedulerUtils) gatherCapacityRequestsByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.CapacityRequest, error) {
-	ll := e.logger.WithFields(logrus.Fields{
+func (su *SchedulerUtils) GatherCapacityRequestsByProvisioner(ctx context.Context, pod *coreV1.Pod) ([]*genV1.CapacityRequest, error) {
+	ll := su.logger.WithFields(logrus.Fields{
 		"sessionUUID": ctx.Value(base.RequestUUID),
 		"method":      "gatherCapacityRequestsByProvisioner",
 		"pod":         pod.Name,
 	})
 
-	scs, err := e.buildSCChecker(ctx, ll)
+	scs, err := su.buildSCChecker(ctx, ll)
 	if err != nil {
 		ll.Errorf("Unable to collect storage classes: %v", err)
 		return nil, err
@@ -301,7 +134,7 @@ func (e *SchedulerUtils) gatherCapacityRequestsByProvisioner(ctx context.Context
 		}
 		if v.PersistentVolumeClaim != nil {
 			pvc := &coreV1.PersistentVolumeClaim{}
-			err := e.k8sCache.ReadCR(ctx, v.PersistentVolumeClaim.ClaimName, pod.Namespace, pvc)
+			err := su.k8sCache.ReadCR(ctx, v.PersistentVolumeClaim.ClaimName, pod.Namespace, pvc)
 			if err != nil {
 				ll.Errorf("Unable to read PVC %s in NS %s: %v. ", v.PersistentVolumeClaim.ClaimName, pod.Namespace, err)
 				// PVC can be created later. csi-provisioner repeat request if not error.
@@ -354,8 +187,8 @@ func (e *SchedulerUtils) gatherCapacityRequestsByProvisioner(ctx context.Context
 }
 
 // createCapacityRequest constructs genV1.CapacityRequest based on coreV1.Volume.Name and fields from coreV1.Volume.CSI
-func (e *SchedulerUtils) createCapacityRequest(ctx context.Context, podName string, volume coreV1.Volume) (request *genV1.CapacityRequest, err error) {
-	ll := e.logger.WithFields(logrus.Fields{
+func (su *SchedulerUtils) createCapacityRequest(ctx context.Context, podName string, volume coreV1.Volume) (request *genV1.CapacityRequest, err error) {
+	ll := su.logger.WithFields(logrus.Fields{
 		"sessionUUID": ctx.Value(base.RequestUUID),
 		"method":      "gatherCapacityRequestsByProvisioner",
 		"pod":         podName,
@@ -389,9 +222,9 @@ func (e *SchedulerUtils) createCapacityRequest(ctx context.Context, podName stri
 	return request, nil
 }
 
-func (e *SchedulerUtils) Filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
+func (su *SchedulerUtils) Filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	err error) {
-	matchedNodes, _, err = e.filter(ctx, pod, nodes, capacities)
+	matchedNodes, _, err = su.filter(ctx, pod, nodes, capacities)
 	return matchedNodes, err
 }
 
@@ -399,7 +232,7 @@ func (e *SchedulerUtils) Filter(ctx context.Context, pod *coreV1.Pod, nodes []co
 // nodes - list of node candidate, volumes - requested volumes
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
-func (e *SchedulerUtils) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
+func (su *SchedulerUtils) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	filteredNodes schedulerapi.FailedNodesMap, err error) {
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
@@ -410,11 +243,11 @@ func (e *SchedulerUtils) filter(ctx context.Context, pod *coreV1.Pod, nodes []co
 	reservationName := getReservationName(pod)
 	// read reservation
 	reservation := &acrcrd.AvailableCapacityReservation{}
-	err = e.k8sClient.ReadCR(ctx, reservationName, "", reservation)
+	err = su.k8sClient.ReadCR(ctx, reservationName, "", reservation)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// create new reservation
-			if err := e.createReservation(ctx, pod.Namespace, reservationName, nodes, capacities); err != nil {
+			if err := su.createReservation(ctx, pod.Namespace, reservationName, nodes, capacities); err != nil {
 				// cannot create reservation
 				return nil, nil, err
 			}
@@ -426,7 +259,7 @@ func (e *SchedulerUtils) filter(ctx context.Context, pod *coreV1.Pod, nodes []co
 	}
 
 	// reservation found
-	return e.handleReservation(ctx, reservation, nodes)
+	return su.handleReservation(ctx, reservation, nodes)
 }
 
 func getReservationName(pod *coreV1.Pod) string {
@@ -438,7 +271,7 @@ func getReservationName(pod *coreV1.Pod) string {
 	return namespace + "-" + pod.Name
 }
 
-func (e *SchedulerUtils) createReservation(ctx context.Context, namespace string, name string, nodes []coreV1.Node,
+func (su *SchedulerUtils) createReservation(ctx context.Context, namespace string, name string, nodes []coreV1.Node,
 	capacities []*genV1.CapacityRequest) error {
 	// ACR CRD
 	reservation := genV1.AvailableCapacityReservation{
@@ -454,7 +287,7 @@ func (e *SchedulerUtils) createReservation(ctx context.Context, namespace string
 
 	// fill in node requests
 	reservation.NodeRequests = &genV1.NodeRequests{}
-	reservation.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	reservation.NodeRequests.Requested = su.prepareListOfRequestedNodes(nodes)
 	if len(reservation.NodeRequests.Requested) == 0 {
 		return nil
 	}
@@ -469,20 +302,20 @@ func (e *SchedulerUtils) createReservation(ctx context.Context, namespace string
 		Spec:       reservation,
 	}
 
-	if err := e.k8sClient.CreateCR(ctx, name, reservationResource); err != nil {
+	if err := su.k8sClient.CreateCR(ctx, name, reservationResource); err != nil {
 		// cannot create reservation
 		return err
 	}
 	return nil
 }
 
-func (e *SchedulerUtils) prepareListOfRequestedNodes(nodes []coreV1.Node) (nodeNames []string) {
+func (su *SchedulerUtils) prepareListOfRequestedNodes(nodes []coreV1.Node) (nodeNames []string) {
 	nodeNames = []string{}
 	for _, node := range nodes {
 		n := node
-		nodeID, err := e.annotation.GetNodeID(&n, e.annotationKey, e.nodeSelector)
+		nodeID, err := su.annotation.GetNodeID(&n, su.annotationKey, su.nodeSelector)
 		if err != nil {
-			e.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
+			su.logger.Errorf("node:%s cant get NodeID error: %s", n.Name, err)
 			continue
 		}
 		if nodeID == "" {
@@ -494,7 +327,7 @@ func (e *SchedulerUtils) prepareListOfRequestedNodes(nodes []coreV1.Node) (nodeN
 	return nodeNames
 }
 
-func (e *SchedulerUtils) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
+func (su *SchedulerUtils) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
 	nodes []coreV1.Node) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
 	// handle reservation status
 	switch reservation.Spec.Status {
@@ -508,9 +341,9 @@ func (e *SchedulerUtils) handleReservation(ctx context.Context, reservation *acr
 			isFound := false
 			// node ID
 			node := requestedNode
-			nodeID, err := e.annotation.GetNodeID(&node, e.annotationKey, e.nodeSelector)
+			nodeID, err := su.annotation.GetNodeID(&node, su.annotationKey, su.nodeSelector)
 			if err != nil {
-				e.logger.Errorf("failed to get NodeID: %s", err)
+				su.logger.Errorf("failed to get NodeID: %s", err)
 				continue
 			}
 			if nodeID == "" {
@@ -531,24 +364,24 @@ func (e *SchedulerUtils) handleReservation(ctx context.Context, reservation *acr
 		}
 		// requested nodes has changed. need to update reservation with the new list of nodes
 		if len(matchedNodes) == 0 {
-			return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
+			return nil, nil, su.resendReservationRequest(ctx, reservation, nodes)
 		}
 
 		return matchedNodes, filteredNodes, nil
 	case v1.ReservationRejected:
 		// no available capacity
 		// request reservation again
-		return nil, nil, e.resendReservationRequest(ctx, reservation, nodes)
+		return nil, nil, su.resendReservationRequest(ctx, reservation, nodes)
 	}
 
 	return nil, nil, errors.New("unsupported reservation status: " + reservation.Spec.Status)
 }
 
-func (e *SchedulerUtils) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
+func (su *SchedulerUtils) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
 	nodes []coreV1.Node) error {
 	reservation.Spec.Status = v1.ReservationRequested
 	// update nodes
-	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
+	reservation.Spec.NodeRequests.Requested = su.prepareListOfRequestedNodes(nodes)
 	if len(reservation.Spec.NodeRequests.Requested) == 0 {
 		return nil
 	}
@@ -557,7 +390,7 @@ func (e *SchedulerUtils) resendReservationRequest(ctx context.Context, reservati
 		reservation.Spec.ReservationRequests[i].Reservations = nil
 	}
 
-	if err := e.k8sClient.UpdateCR(ctx, reservation); err != nil {
+	if err := su.k8sClient.UpdateCR(ctx, reservation); err != nil {
 		// cannot update reservation
 		return err
 	}
@@ -565,13 +398,13 @@ func (e *SchedulerUtils) resendReservationRequest(ctx context.Context, reservati
 	return nil
 }
 
-func (e *SchedulerUtils) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {
-	ll := e.logger.WithFields(logrus.Fields{
+func (su *SchedulerUtils) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority, error) {
+	ll := su.logger.WithFields(logrus.Fields{
 		"method": "score",
 	})
 
 	var volumeList = &volcrd.VolumeList{}
-	if err := e.k8sCache.ReadList(context.Background(), volumeList); err != nil {
+	if err := su.k8sCache.ReadList(context.Background(), volumeList); err != nil {
 		err = fmt.Errorf("unable to read volumes list: %v", err)
 		return nil, err
 	}
@@ -589,9 +422,9 @@ func (e *SchedulerUtils) score(nodes []coreV1.Node) ([]schedulerapi.HostPriority
 		rank := maxVolumeCount
 
 		node := node
-		nodeID, err := e.annotation.GetNodeID(&node, e.annotationKey, e.nodeSelector)
+		nodeID, err := su.annotation.GetNodeID(&node, su.annotationKey, su.nodeSelector)
 		if err != nil {
-			e.logger.Errorf("failed to get NodeID: %s", err)
+			su.logger.Errorf("failed to get NodeID: %s", err)
 			continue
 		}
 
@@ -664,7 +497,7 @@ type scChecker struct {
 }
 
 // buildSCChecker creates an instance of scChecker
-func (e *SchedulerUtils) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scChecker, error) {
+func (su *SchedulerUtils) buildSCChecker(ctx context.Context, log *logrus.Entry) (*scChecker, error) {
 	ll := log.WithFields(logrus.Fields{
 		"method": "buildSCChecker",
 	})
@@ -674,12 +507,12 @@ func (e *SchedulerUtils) buildSCChecker(ctx context.Context, log *logrus.Entry) 
 		scs    = storageV1.StorageClassList{}
 	)
 
-	if err := e.k8sCache.ReadList(ctx, &scs); err != nil {
+	if err := su.k8sCache.ReadList(ctx, &scs); err != nil {
 		return nil, err
 	}
 
 	for _, sc := range scs.Items {
-		if sc.Provisioner == e.provisioner {
+		if sc.Provisioner == su.provisioner {
 			result.managedSCs[sc.Name] = strings.ToUpper(sc.Parameters[base.StorageTypeKey])
 		} else {
 			result.unmanagedSCs[sc.Name] = true
@@ -690,7 +523,7 @@ func (e *SchedulerUtils) buildSCChecker(ctx context.Context, log *logrus.Entry) 
 	ll.Debugf("unrelated SCs: %+v", result.unmanagedSCs)
 
 	if len(result.managedSCs) == 0 {
-		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", e.provisioner)
+		return nil, fmt.Errorf("there are no any storage classes with provisioner %s", su.provisioner)
 	}
 
 	return result, nil
