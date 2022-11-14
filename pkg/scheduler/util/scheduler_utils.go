@@ -56,6 +56,7 @@ type SchedulerUtils struct {
 	annotationKey string
 	nodeSelector  string
 	sync.Mutex
+	isSchedulerPlugin      bool
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 }
@@ -80,6 +81,7 @@ func NewSchedulerUtils(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 		annotation:             annotationSrv,
 		annotationKey:          annotationKey,
 		nodeSelector:           nodeselector,
+		isSchedulerPlugin:      true,
 		logger:                 logger.WithField("component", "SchedulerUtils"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}, nil
