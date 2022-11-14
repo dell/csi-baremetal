@@ -18,7 +18,6 @@ package util
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -242,6 +241,9 @@ func (su *SchedulerUtils) filter(ctx context.Context, pod *coreV1.Pod, nodes []c
 
 	// construct ACR name
 	reservationName := getReservationName(pod)
+	if su.isSchedulerPlugin {
+		reservationName = reservationName + "-" + nodes[0].Name
+	}
 	// read reservation
 	reservation := &acrcrd.AvailableCapacityReservation{}
 	err = su.k8sClient.ReadCR(ctx, reservationName, "", reservation)
@@ -284,6 +286,17 @@ func (su *SchedulerUtils) createReservation(ctx context.Context, namespace strin
 	reservation.ReservationRequests = make([]*genV1.ReservationRequest, len(capacities))
 	for i, capacity := range capacities {
 		reservation.ReservationRequests[i] = &genV1.ReservationRequest{CapacityRequest: capacity}
+	}
+	if su.isSchedulerPlugin {
+		node := nodes[0]
+		nodeID, err := su.annotation.GetNodeID(&node, su.annotationKey, su.nodeSelector)
+		if err != nil {
+			su.logger.Errorf("failed to get NodeID: %s", err)
+		} else {
+			for _, request := range reservation.ReservationRequests {
+				request.CapacityRequest.Name = request.CapacityRequest.Name + "-" + nodeID
+			}
+		}
 	}
 
 	// fill in node requests
@@ -330,52 +343,77 @@ func (su *SchedulerUtils) prepareListOfRequestedNodes(nodes []coreV1.Node) (node
 
 func (su *SchedulerUtils) handleReservation(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
 	nodes []coreV1.Node) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
-	// handle reservation status
-	switch reservation.Spec.Status {
-	case v1.ReservationRequested:
-		// not an error - reservation requested. need to retry
-		return nil, nil, nil
-	case v1.ReservationConfirmed:
-		// need to filter nodes here
-		filteredNodes = schedulerapi.FailedNodesMap{}
-		for _, requestedNode := range nodes {
-			isFound := false
-			// node ID
-			node := requestedNode
-			nodeID, err := su.annotation.GetNodeID(&node, su.annotationKey, su.nodeSelector)
-			if err != nil {
-				su.logger.Errorf("failed to get NodeID: %s", err)
-				continue
-			}
-			if nodeID == "" {
-				continue
-			}
-			for _, node := range reservation.Spec.NodeRequests.Reserved {
-				if node == nodeID {
-					matchedNodes = append(matchedNodes, requestedNode)
-					isFound = true
-					break
+	ll := su.logger.WithFields(logrus.Fields{
+		"method":      "handleReservation",
+		"reservation": reservation.Name,
+	})
+
+	ll.Infof("Pulling reservation status")
+
+	var (
+		res                 = &acrcrd.AvailableCapacityReservation{}
+		timeoutBetweenCheck = time.Second
+	)
+	for {
+		select {
+		case <-ctx.Done():
+			ll.Warnf("Context is done but ACR still not reach RESERVED or REJECTED status")
+			return nil, nil, fmt.Errorf("volume context is done")
+		case <-time.After(timeoutBetweenCheck):
+			if err = su.k8sClient.ReadCR(ctx, reservation.Name, "", res); err != nil {
+				ll.Errorf("Unable to read ACR: %v", err)
+				if k8serrors.IsNotFound(err) {
+					ll.Error("ACR doesn't exist")
+					return nil, nil, fmt.Errorf("volume isn't found")
 				}
+				continue
 			}
-			// node name
-			name := requestedNode.Name
-			if !isFound {
-				filteredNodes[name] = fmt.Sprintf("No available capacity found on the node %s", name)
-			}
-		}
-		// requested nodes has changed. need to update reservation with the new list of nodes
-		if len(matchedNodes) == 0 {
-			return nil, nil, su.resendReservationRequest(ctx, reservation, nodes)
-		}
+			if res.Spec.Status == v1.ReservationRejected {
+				if err := su.resendReservationRequest(ctx, res, nodes); err != nil {
+					// cannot resend reservation
+					return nil, nil, err
+				}
+			} else if res.Spec.Status == v1.ReservationConfirmed {
+				// need to filter nodes here
+				filteredNodes = schedulerapi.FailedNodesMap{}
+				for _, requestedNode := range nodes {
+					isFound := false
+					// node ID
+					node := requestedNode
+					nodeID, err := su.annotation.GetNodeID(&node, su.annotationKey, su.nodeSelector)
+					if err != nil {
+						su.logger.Errorf("failed to get NodeID: %s", err)
+						continue
+					}
+					if nodeID == "" {
+						continue
+					}
+					for _, node := range res.Spec.NodeRequests.Reserved {
+						if node == nodeID {
+							matchedNodes = append(matchedNodes, requestedNode)
+							isFound = true
+							break
+						}
+					}
+					// node name
+					name := requestedNode.Name
+					if !isFound {
+						filteredNodes[name] = fmt.Sprintf("No available capacity found on the node %s", name)
+					}
+				}
+				// requested nodes has changed. need to update reservation with the new list of nodes
+				if len(matchedNodes) == 0 {
+					if err := su.resendReservationRequest(ctx, res, nodes); err != nil {
+						// cannot resend reservation
+						return nil, nil, err
+					}
+					continue
+				}
 
-		return matchedNodes, filteredNodes, nil
-	case v1.ReservationRejected:
-		// no available capacity
-		// request reservation again
-		return nil, nil, su.resendReservationRequest(ctx, reservation, nodes)
+				return matchedNodes, filteredNodes, nil
+			}
+		}
 	}
-
-	return nil, nil, errors.New("unsupported reservation status: " + reservation.Spec.Status)
 }
 
 func (su *SchedulerUtils) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,

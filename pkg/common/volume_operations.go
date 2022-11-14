@@ -153,7 +153,7 @@ func (vo *VolumeOperationsImpl) CreateVolume(ctx context.Context, v api.Volume) 
 func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *logrus.Entry, v api.Volume,
 	podNamespace string, reservationName string) (*api.Volume, error) {
 	// read volume reservation
-	podReservation, volumeReservationNum, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName)
+	podReservation, volumeReservationNum, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName, v.NodeId)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 	podNamespace string, reservationName string) (*api.Volume, error) {
 	log.Infof("Volume exists, current status: %s.", volumeCR.Spec.CSIStatus)
 	// release reservation if it was requested by scheduler again
-	if reservation, number, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName); err == nil {
+	if reservation, number, err := vo.getVolumeReservation(ctx, log, podNamespace, reservationName, volumeCR.Spec.NodeId); err == nil {
 		err = vo.deleteVolumeReservation(ctx, reservation, number)
 		if err != nil {
 			log.Errorf("Unable to release volume reservation %v", err)
@@ -289,7 +289,7 @@ func (vo *VolumeOperationsImpl) handleVolumeInProgress(ctx context.Context, log 
 }
 
 func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *logrus.Entry, namespace string,
-	name string) (*acrcrd.AvailableCapacityReservation, int, error) {
+	name string, nodeId string) (*acrcrd.AvailableCapacityReservation, int, error) {
 	resReader := capacityplanner.NewACRReader(vo.k8sClient, vo.log, false)
 	reservations, err := resReader.ReadReservations(ctx)
 	if err != nil {
@@ -309,7 +309,7 @@ func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *l
 		if reservation.Spec.Namespace == namespace {
 			for i, request := range reservation.Spec.ReservationRequests {
 				reqName := request.CapacityRequest.Name
-				if reqName == name {
+				if reqName == name || reqName == name+"-"+nodeId {
 					podReservation = &reservation
 					requestNum = i
 					break
