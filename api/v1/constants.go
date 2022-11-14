@@ -109,7 +109,6 @@ const (
 	LocationTypeNVMe  = "NVME"
 
 	// Available Capacity Reservation statuses
-	ReservationCreating  = "CREATING"
 	ReservationRequested = "REQUESTED"
 	ReservationConfirmed = "RESERVED"
 	ReservationRejected  = "REJECTED"

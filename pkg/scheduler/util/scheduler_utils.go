@@ -56,7 +56,6 @@ type SchedulerUtils struct {
 	annotationKey string
 	nodeSelector  string
 	sync.Mutex
-	useSchedulerPlugin     bool
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 }
@@ -81,7 +80,6 @@ func NewSchedulerUtils(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 		annotation:             annotationSrv,
 		annotationKey:          annotationKey,
 		nodeSelector:           nodeselector,
-		useSchedulerPlugin:     true,
 		logger:                 logger.WithField("component", "SchedulerUtils"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
 	}, nil
@@ -225,9 +223,7 @@ func (su *SchedulerUtils) createCapacityRequest(ctx context.Context, podName str
 
 func (su *SchedulerUtils) Filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	err error) {
-	su.Mutex.Lock()
 	matchedNodes, _, err = su.filter(ctx, pod, nodes, capacities)
-	su.Mutex.Unlock()
 	return matchedNodes, err
 }
 
@@ -277,13 +273,9 @@ func getReservationName(pod *coreV1.Pod) string {
 func (su *SchedulerUtils) createReservation(ctx context.Context, namespace string, name string, nodes []coreV1.Node,
 	capacities []*genV1.CapacityRequest) error {
 	// ACR CRD
-	reservationStatus := v1.ReservationCreating
-	if !su.useSchedulerPlugin {
-		reservationStatus = v1.ReservationRequested
-	}
 	reservation := genV1.AvailableCapacityReservation{
 		Namespace: namespace,
-		Status:    reservationStatus,
+		Status:    v1.ReservationRequested,
 	}
 
 	// fill in reservation requests
@@ -338,40 +330,6 @@ func (su *SchedulerUtils) handleReservation(ctx context.Context, reservation *ac
 	nodes []coreV1.Node) (matchedNodes []coreV1.Node, filteredNodes schedulerapi.FailedNodesMap, err error) {
 	// handle reservation status
 	switch reservation.Spec.Status {
-	case v1.ReservationCreating:
-		nodeRequestsChanged := false
-		for _, node := range nodes {
-			isRequested := false
-			// node ID
-			nodeID, err := su.annotation.GetNodeID(&node, su.annotationKey, su.nodeSelector)
-			if err != nil {
-				su.logger.Errorf("failed to get NodeID: %s", err)
-				continue
-			}
-			if nodeID == "" {
-				continue
-			}
-			for _, requestedNodeID := range reservation.Spec.NodeRequests.Requested {
-				if requestedNodeID == nodeID {
-					isRequested = true
-					break
-				}
-			}
-			// node name
-			if !isRequested {
-				su.logger.Debugf("Add node %s to the requests list of ACR %s", node.Name, reservation.Name)
-				reservation.Spec.NodeRequests.Requested = append(reservation.Spec.NodeRequests.Requested, nodeID)
-				nodeRequestsChanged = true
-			}
-		}
-		if !nodeRequestsChanged {
-			reservation.Spec.Status = v1.ReservationRequested
-		}
-		if err := su.k8sClient.UpdateCR(ctx, reservation); err != nil {
-			// cannot update reservation
-			return nil, nil, err
-		}
-		return nil, nil, nil
 	case v1.ReservationRequested:
 		// not an error - reservation requested. need to retry
 		return nil, nil, nil
