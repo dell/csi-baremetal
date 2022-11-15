@@ -234,6 +234,11 @@ func (su *SchedulerUtils) Filter(ctx context.Context, pod *coreV1.Pod, nodes []c
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (su *SchedulerUtils) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	filteredNodes schedulerapi.FailedNodesMap, err error) {
+	ll := su.logger.WithFields(logrus.Fields{
+		"sessionUUID": ctx.Value(base.RequestUUID),
+		"method":      "filter",
+		"pod":         pod.Name,
+	})
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil
@@ -242,20 +247,26 @@ func (su *SchedulerUtils) filter(ctx context.Context, pod *coreV1.Pod, nodes []c
 	// construct ACR name
 	reservationName := getReservationName(pod)
 	if su.isSchedulerPlugin {
-		reservationName = reservationName + "-" + nodes[0].Name
+		node := nodes[0]
+		nodeID, err := su.annotation.GetNodeID(&node, su.annotationKey, su.nodeSelector)
+		if err == nil && nodeID != "" {
+			reservationName = reservationName + "-" + nodeID
+		} else if err != nil {
+			su.logger.Errorf("failed to get NodeID: %s", err)
+		}
 	}
 	// read reservation
 	reservation := &acrcrd.AvailableCapacityReservation{}
 	err = su.k8sClient.ReadCR(ctx, reservationName, "", reservation)
 	if err != nil {
+		ll.Debugf("ACR %s not found!", reservationName)
 		if k8serrors.IsNotFound(err) {
 			// create new reservation
 			if err := su.createReservation(ctx, pod.Namespace, reservationName, nodes, capacities); err != nil {
 				// cannot create reservation
 				return nil, nil, err
 			}
-			// not an error - reservation requested
-			return nil, nil, nil
+			return su.handleReservation(ctx, reservation, nodes)
 		}
 		// issue with reading reservation
 		return nil, nil, err
@@ -348,7 +359,7 @@ func (su *SchedulerUtils) handleReservation(ctx context.Context, reservation *ac
 		"reservation": reservation.Name,
 	})
 
-	ll.Infof("Pulling reservation status")
+	ll.Infof("Pulling reservation %s status", reservation.Name)
 
 	var (
 		res                 = &acrcrd.AvailableCapacityReservation{}
