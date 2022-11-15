@@ -300,6 +300,7 @@ func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *l
 		podReservation *acrcrd.AvailableCapacityReservation
 		requestNum     int
 	)
+	nameNode := name + "-" + nodeId
 	for _, reservation := range reservations {
 		reservation := reservation
 		if reservation.Spec.Status != apiV1.ReservationConfirmed {
@@ -309,7 +310,8 @@ func (vo *VolumeOperationsImpl) getVolumeReservation(ctx context.Context, log *l
 		if reservation.Spec.Namespace == namespace {
 			for i, request := range reservation.Spec.ReservationRequests {
 				reqName := request.CapacityRequest.Name
-				if reqName == name || reqName == name+"-"+nodeId {
+				log.Debugf("reqName: %s; name: %s; nodeName: %s", reqName, name, nameNode)
+				if reqName == name || reqName == nameNode {
 					podReservation = &reservation
 					requestNum = i
 					break
