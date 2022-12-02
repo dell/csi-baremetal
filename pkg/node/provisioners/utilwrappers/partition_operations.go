@@ -180,11 +180,9 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 		// sync partition table
 		_, errStr, err := d.SyncPartitionTable(device)
 		if err != nil {
-			isMounted, _ := d.IsMounted(strings.Trim(device, "/dev"))
 			if _, ok := err.(*exec.ExitError); ok &&
-				strings.Contains(errStr, "Device or resource busy") &&
-				isMounted {
-				ll.Errorf("Unable to sync partition table for device %s: %v due to device is mounted already", device, err)
+				strings.Contains(errStr, "Device or resource busy") {
+				ll.Warningf("Unable to sync partition table for device %s: %v due to device is busy", device, err)
 			} else {
 				// log and ignore error
 				ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
