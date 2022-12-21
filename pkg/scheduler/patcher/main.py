@@ -109,12 +109,15 @@ def run():
     if kube_major_ver==1 and kube_minor_ver>22:
         path = args.target_config_23_path
 
+    config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23 and kube_minor_ver<26)
+
     manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
     if args.platform == "rke":
         manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
 
     manifest = ManifestFile(
-        manifest, [config_volume, policy_volume, config_19_volume, config_23_volume], path, args.backup_path)
+        manifest, [config_volume, policy_volume, config_19_volume, config_23_volume],
+        path, args.backup_path, config_unschedulable_pods)
 
     # add watcher on signals
     killer = GracefulKiller(args.restore, manifest)
@@ -203,11 +206,12 @@ class Volume:
 
 
 class ManifestFile(File):
-    def __init__(self, path, volumes, config_path, backup_folder):
+    def __init__(self, path, volumes, config_path, backup_folder, config_unschedulable_pods):
         self.path = path
         self.backup_folder = backup_folder
         self.volumes = volumes
         self.config_path = config_path
+        self.config_unschedulable_pods = config_unschedulable_pods
 
     def backup(self):
         makedirs(dirname(self.backup_folder), exist_ok=True)
@@ -250,6 +254,11 @@ class ManifestFile(File):
         if config_command not in commands:
             commands.append(config_command)
             self.need_patching()
+        if self.config_unschedulable_pods:
+            config_command = '--pod-max-in-unschedulable-pods-duration=60s'
+            if config_command not in commands:
+                commands.append(config_command)
+                self.need_patching()
 
     def patch(self):
         self.patch_commands()
