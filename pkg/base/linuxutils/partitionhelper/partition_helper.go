@@ -79,7 +79,7 @@ const (
 	GetPartitionUUIDCmdTmpl = sgdisk + "%s --info=%s"
 
 	// NumberOfRetriesToSyncPartTable how many times to sync fs tab
-	NumberOfRetriesToSyncPartTable = 5
+	NumberOfRetriesToSyncPartTable = 15
 	// SleepBetweenRetriesToSyncPartTable default timeout between fs tab sync attempt
 	SleepBetweenRetriesToSyncPartTable = 3 * time.Second
 )
