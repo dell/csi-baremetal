@@ -7,6 +7,7 @@ include Makefile.validation
 
 .PHONY: version test build
 
+#hello
 # print version
 version:
 	@printf $(TAG)
