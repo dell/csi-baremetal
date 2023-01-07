@@ -41,6 +41,9 @@ import (
 // +kubebuilder:printcolumn:name="SERIAL NUMBER",type="string",JSONPath=".spec.SerialNumber",description="Drive serial number"
 // +kubebuilder:printcolumn:name="NODE",type="string",JSONPath=".spec.NodeId",description="Drive node location"
 // +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.Slot",description="Drive slot"
+// +kubebuilder:printcolumn:name="Security Status",type="string",JSONPath=".spec.SecurityStatus",description="SED drive security status"
+// +kubebuilder:printcolumn:name="Encryption Capable",type="string",JSONPath=".spec.EncryptionCapable",description="SED drive or not"
+// +kubebuilder:printcolumn:name="Encryption Protocol",type="string",JSONPath=".spec.EncryptionProtocol",description="SED encryption protocol"
 type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
