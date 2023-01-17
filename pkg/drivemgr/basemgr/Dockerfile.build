@@ -1,4 +1,4 @@
-FROM    ubuntu:22.04
+FROM    ubuntu:22.10
 
 # Remove bash packet to get rid of related CVEs
 RUN     apt update --no-install-recommends -y -q \
