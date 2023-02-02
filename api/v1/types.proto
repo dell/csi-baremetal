@@ -25,6 +25,9 @@ message Drive {
     string LEDState = 17;
     bool IsSystem = 18;
     bool IsClean = 19;
+    string SecurityStatus = 20;
+    string EncryptionCapable = 21;
+    string EncryptionProtocol = 22;
 }
 
 message Volume {
