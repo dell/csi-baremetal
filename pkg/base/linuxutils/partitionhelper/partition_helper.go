@@ -156,12 +156,14 @@ func (p *WrapPartitionImpl) IsPartitionExists(device, partNum string) (bool, err
 // Receives device path on which to create table
 // Returns error if something went wrong
 func (p *WrapPartitionImpl) CreatePartitionTable(device, partTableType string) error {
+	p.log.Debugf("CreatePartitionTable")
 	if !util.ContainsString(supportedTypes, partTableType) {
 		return fmt.Errorf("unable to create partition table for device %s unsupported partition table type: %#v",
 			device, partTableType)
 	}
 
 	cmd := fmt.Sprintf(CreatePartitionTableCmdTmpl, device)
+	p.log.Debugf("Run cmd in CreatePartitionTable: %s", cmd)
 	_, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(CreatePartitionTableCmdTmpl, ""))))
@@ -199,8 +201,10 @@ func (p *WrapPartitionImpl) GetPartitionTableType(device string) (string, error)
 // Receives device path to create a partition
 // Returns error if something went wrong
 func (p *WrapPartitionImpl) CreatePartition(device, label, partUUID string) error {
+	p.log.Debugf("CreatePartition")
 	cmd := fmt.Sprintf(CreatePartitionCmdWithUUIDTmpl, label, partUUID, device)
 
+	p.log.Debugf("Run cmd in CreatePartition: %s", cmd)
 	p.opMutex.Lock()
 	_, _, err := p.e.RunCmd(cmd,
 		command.UseMetrics(true),
