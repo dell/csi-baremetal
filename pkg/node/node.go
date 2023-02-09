@@ -523,12 +523,16 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 			ll.Errorf("Unable to read volume owner pod information: %s, %v", owner, err)
 		}
 		ss := strings.Split(req.GetTargetPath(), "/")
+		var found bool
 		for _, s := range ss {
 			if string(pod.UID) == s {
-				continue
+				found = true
 			}
-			owners = append(owners, pod.Name)
 		}
+		if found {
+			continue
+		}
+		owners = append(owners, pod.Name)
 	}
 
 	volumeCR.Spec.Owners = owners
