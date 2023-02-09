@@ -64,6 +64,7 @@ var (
 
 	drive1UUID = uuid.New().String()
 	drive2UUID = uuid.New().String()
+	drive3UUID = uuid.New().String()
 
 	drive1 = api.Drive{
 		UUID:         drive1UUID,
@@ -89,6 +90,18 @@ var (
 		IsSystem:     true,
 	} // /dev/sdb in LsblkTwoDevices
 
+	drive3 = api.Drive{
+		UUID:         drive3UUID,
+		SerialNumber: "nvme3-serial",
+		Size:         1024 * 1024 * 1024 * 200,
+		NodeId:       nodeID,
+		Type:         apiV1.DriveTypeNVMe,
+		Status:       apiV1.DriveStatusOnline,
+		Health:       apiV1.HealthGood,
+		Path:         "/dev/nvme0n1",
+		IsSystem:     true,
+	} // /dev/nvme0n1
+
 	// block device that corresponds to the drive1
 	bdev1 = lsblk.BlockDevice{
 		Name:     drive1.Path,
@@ -108,6 +121,15 @@ var (
 			CreationTimestamp: v1.Time{Time: time.Now()},
 		},
 		Spec: drive1,
+	}
+
+	testNVMeDriveCR = drivecrd.Drive{
+		TypeMeta: v1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{
+			Name:              drive3.UUID,
+			CreationTimestamp: v1.Time{Time: time.Now()},
+		},
+		Spec: drive3,
 	}
 
 	volCR = vcrd.Volume{
@@ -1035,6 +1057,37 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 
 	assert.Nil(t, m.k8sClient.ReadList(testCtx, &lvgList))
 	assert.Equal(t, 0, len(lvgList.Items))
+}
+
+func Test_discoverLVGOnSystemDrive_LVGCreatedAC_NVMe(t *testing.T) {
+	var (
+		m             = prepareSuccessVolumeManager(t)
+		listBlk       = &mocklu.MockWrapLsblk{}
+		fsOps         = &mockProv.MockFsOpts{}
+		lvmOps        = &mocklu.MockWrapLVM{}
+		vgName        = "root-vg"
+		systemDriveCR = testNVMeDriveCR.DeepCopy()
+		err           error
+	)
+
+	m.listBlk = listBlk
+	m.fsOps = fsOps
+	m.lvmOps = lvmOps
+
+	pvName := testNVMeDriveCR.Spec.Path + "p1"
+	lvmOps.On("GetAllPVs").Return([]string{pvName, "/dev/sdx", "/dev/nvme10n1"}, nil)
+	lvmOps.On("GetVGNameByPVName", pvName).Return(vgName, nil)
+	lvmOps.On("GetVgFreeSpace", vgName).Return(int64(1024), nil)
+	lvmOps.On("GetLVsInVG", vgName).Return([]string{"lv_swap", "lv_boot"}, nil).Once()
+
+	assert.Nil(t, m.k8sClient.CreateCR(testCtx, systemDriveCR.Name, systemDriveCR))
+
+	// expect success, LogicalVolumeGroup CR and AC CR was created
+	m.systemDrivesUUIDs = append(m.systemDrivesUUIDs, systemDriveCR.Spec.UUID)
+	m.discoverSystemLVG = true
+	err = m.discoverLVGOnSystemDrive()
+	assert.Nil(t, err)
+	assert.True(t, m.discoverSystemLVG)
 }
 
 func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
