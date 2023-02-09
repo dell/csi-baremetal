@@ -206,7 +206,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		allocatedBytes = capacityplanner.AlignSizeByPE(v.Size)
 		locationType = apiV1.LocationTypeLVM
 	} else {
-		allocatedBytes = ac.Spec.Size
+		allocatedBytes = v.Size
 		locationType = apiV1.LocationTypeDrive
 	}
 
@@ -241,6 +241,9 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 	vo.cache.Set(v.Id, podNamespace)
 
 	// decrease AC size
+	if !util.IsStorageClassLVG(sc) {
+		ac.Spec.Size = 0
+	}
 	ac.Spec.Size -= allocatedBytes
 	if err = vo.k8sClient.UpdateCR(ctx, ac); err != nil {
 		log.Errorf("Unable to set size for AC %s to %d, error: %v", ac.Name, ac.Spec.Size, err)
