@@ -55,7 +55,7 @@ const (
 	// fdiks is a name of system util
 	fdisk = "fdisk "
 	// blockdev is a name of system util
-	blockdev = "blockdev "
+	// blockdev = "blockdev "
 
 	// PartprobeDeviceCmdTmpl check that device has partition cmd
 	PartprobeDeviceCmdTmpl = partprobe + "-d -s %s"
