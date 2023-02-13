@@ -514,8 +514,8 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.Internal, "unmount error")
 	}
 
-	// support volume shareing by multiple pods, here we need only remove the ownwer from volume owners list
-	// set volume state to VolumeReady only if Volume Owners is NULL
+	// support volume sharing by multiple pods, here we need only remove the owner from volume owners list
+	// set volume state to VolumeReady only if Volume Owners is EMPTY
 	var pod corev1.Pod
 	var owners []string
 	for _, owner := range volumeCR.Spec.Owners {
