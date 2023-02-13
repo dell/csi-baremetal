@@ -46,9 +46,9 @@ func AlignSizeByMB(size int64) int64 {
 	var alignement int64
 	reminder := size % MBSize
 	if reminder != 0 {
-		alignement = MBSize - reminder
+		return size -  reminder
 	}
-	return size + alignement
+	return size
 }
 
 // SubtractLVMMetadataSize subtracts LVM metadata size from raw drive size
