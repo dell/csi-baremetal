@@ -206,7 +206,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		allocatedBytes = capacityplanner.AlignSizeByPE(v.Size)
 		locationType = apiV1.LocationTypeLVM
 	} else {
-		allocatedBytes = v.Size
+		allocatedBytes = capacityplanner.AlignSizeByMB(ac.Spec.Size)
 		locationType = apiV1.LocationTypeDrive
 	}
 

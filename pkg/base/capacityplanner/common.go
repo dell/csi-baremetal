@@ -28,6 +28,8 @@ const LvgDefaultMetadataSize = int64(util.MBYTE) // 1MB
 // TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
 const DefaultPESize = 4 * int64(util.MBYTE)
 
+const MBSize = int64(util.MBYTE)
+
 // AlignSizeByPE make size aligned with default PE
 // TODO: use non default PE size - https://github.com/dell/csi-baremetal/issues/85
 func AlignSizeByPE(size int64) int64 {
@@ -35,6 +37,16 @@ func AlignSizeByPE(size int64) int64 {
 	reminder := size % DefaultPESize
 	if reminder != 0 {
 		alignement = DefaultPESize - reminder
+	}
+	return size + alignement
+}
+
+// AlignSizeByMB make size aligned with MB
+func AlignSizeByMB(size int64) int64 {
+	var alignement int64
+	reminder := size % MBSize
+	if reminder != 0 {
+		alignement = MBSize - reminder
 	}
 	return size + alignement
 }
