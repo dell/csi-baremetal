@@ -85,7 +85,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 	Context("NodePublish() success", func() {
 		It("Should publish volume", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[util.PodNameKey] = testPodName
+			req.VolumeContext[util.PodNameKey] = testPod1Name
 
 			fsOps.On("PrepareAndPerformMount",
 				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
@@ -99,7 +99,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
+			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
 
 			// publish again such volume
 			resp, err = node.NodePublishVolume(testCtx, req)
@@ -717,7 +717,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 	})
 	It("Should publish unhealthy volume with fake-attach annotation", func() {
 		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-		req.VolumeContext[util.PodNameKey] = testPodName
+		req.VolumeContext[util.PodNameKey] = testPod1Name
 
 		vol1 := &vcrd.Volume{}
 		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
@@ -738,7 +738,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		volumeCR := &vcrd.Volume{}
 		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 		Expect(err).To(BeNil())
-		Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
+		Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
 	})
 	It("Should stage healthy volume with fake-attach annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)

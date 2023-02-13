@@ -49,7 +49,7 @@ var (
 	nodeName     = "fake-node-name"
 	targetPath   = "/tmp/targetPath"
 	stagePath    = "/tmp/stagePath"
-	testPodName  = "pod-1"
+	testPod1Name = "pod-1"
 	testPod2Name = "pod-2"
 	testPod1UID  = uuid.New().String()
 	testPod2UID  = uuid.New().String()
@@ -124,7 +124,7 @@ var (
 	testPod1 = corev1.Pod{
 		TypeMeta: k8smetav1.TypeMeta{Kind: "Pod", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{
-			Name:              testPodName,
+			Name:              testPod1Name,
 			Namespace:         testNs,
 			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
 			UID:               types.UID(testPod1UID),
