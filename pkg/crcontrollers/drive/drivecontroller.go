@@ -403,7 +403,7 @@ func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, driv
 		drive.Spec.Usage = apiV1.DriveUsageFailed
 		// send error level alert
 		eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
-		c.eventRecorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
+		c.eventRecorder.Eventf(drive, eventing.DriveLocateLEDFailed, eventMsg)
 	} else {
 		// send warning level alert (warning for attention), good level closes issue, need only send message
 		eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
