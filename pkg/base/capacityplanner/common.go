@@ -43,7 +43,6 @@ func AlignSizeByPE(size int64) int64 {
 
 // AlignSizeByMB make size aligned with MB
 func AlignSizeByMB(size int64) int64 {
-	var alignement int64
 	reminder := size % MBSize
 	if reminder != 0 {
 		return size -  reminder
