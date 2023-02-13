@@ -216,6 +216,8 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		return nil, status.Errorf(codes.Internal, "unable to get related PVC")
 	}
 
+
+	log.Infof("CYX: allocatedBytes is %v ", allocatedBytes)
 	// create volume CR
 	apiVolume := api.Volume{
 		Id:                v.Id,
