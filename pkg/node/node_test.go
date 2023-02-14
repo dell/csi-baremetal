@@ -465,6 +465,23 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(status.Code(err)).To(Equal(codes.Internal))
 		})
+
+		It("Should failed, because volume owner pod wasn't found", func() {
+			req := getNodeUnpublishRequest(testV1ID, targetPath1)
+			volumeCR := &vcrd.Volume{}
+			err := node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			volumeCR.Spec.Owners = []string{"pod-1"}
+			volumeCR.Spec.CSIStatus = apiV1.Published
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
+
+			_, err = node.NodeUnpublishVolume(testCtx, req)
+			Expect(err).NotTo(BeNil())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+		})
 	})
 })
 var _ = Describe("CSINodeService NodeUnStage()", func() {

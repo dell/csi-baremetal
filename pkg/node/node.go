@@ -521,6 +521,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	for _, owner := range volumeCR.Spec.Owners {
 		if err := s.k8sClient.ReadCR(ctx, owner, volumeCR.Namespace, &pod); err != nil {
 			ll.Errorf("Unable to read volume owner pod information: %s, %v", owner, err)
+			return nil, status.Error(codes.Internal, err.Error())
 		}
 		ss := strings.Split(req.GetTargetPath(), "/")
 		var found bool
