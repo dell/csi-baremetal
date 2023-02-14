@@ -41,11 +41,11 @@ func AlignSizeByPE(size int64) int64 {
 
 // AlignSizeByMB make size aligned with MB
 func AlignSizeByMB(size int64) int64 {
-        reminder := size % (int64(util.MBYTE))
-        if reminder != 0 {
-                return size -  reminder
-        }
-        return size
+	reminder := size % (int64(util.MBYTE))
+	if reminder != 0 {
+		return size - reminder
+	}
+	return size
 }
 
 // SubtractLVMMetadataSize subtracts LVM metadata size from raw drive size
