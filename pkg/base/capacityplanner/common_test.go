@@ -65,7 +65,7 @@ func TestSubtractLVMMetadataSize(t *testing.T) {
 	}
 }
 
-func TestAlignSizeMB(t *testing.T) {
+func TestAlignSizeByMB(t *testing.T) {
 	type args struct {
 		size int64
 	}
@@ -105,7 +105,7 @@ func TestAlignSizeMB(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := AlignSizeMB(tt.args.size); got != tt.want {
+			if got := AlignSizeByMB(tt.args.size); got != tt.want {
 				t.Errorf("AlignSizeMB() = %v, want %v", got, tt.want)
 			}
 		})
