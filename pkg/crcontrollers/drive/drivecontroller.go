@@ -402,7 +402,7 @@ func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, driv
 		log.Errorf("Failed to locate LED of drive %s, LED status - %+v, err %v", drive.Spec.SerialNumber, status, err)
 		drive.Spec.Usage = apiV1.DriveUsageFailed
 		// send error level alert
-		eventMsg := fmt.Sprintf("Failed to locale LED, %s", drive.GetDriveDescription())
+		eventMsg := fmt.Sprintf("Failed to locate LED, %s", drive.GetDriveDescription())
 		c.eventRecorder.Eventf(drive, eventing.DriveLocateLEDFailed, eventMsg)
 	} else {
 		// send warning level alert (warning for attention), good level closes issue, need only send message
