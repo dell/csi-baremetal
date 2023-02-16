@@ -64,3 +64,50 @@ func TestSubtractLVMMetadataSize(t *testing.T) {
 		})
 	}
 }
+
+func TestAlignSizeByMB(t *testing.T) {
+	type args struct {
+		size int64
+	}
+	tests := []struct {
+		name string
+		args args
+		want int64
+	}{
+		{
+			name: "500MB",
+			args: args{
+				size: 500000000,
+			},
+			want: 499122176,
+		},
+		{
+			name: "10GB",
+			args: args{
+				size: 10000000000,
+			},
+			want: 9999220736,
+		},
+		{
+			name: "500MiB",
+			args: args{
+				size: 524288000,
+			},
+			want: 524288000,
+		},
+		{
+			name: "10GiB",
+			args: args{
+				size: 10737418240,
+			},
+			want: 10737418240,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AlignSizeByMB(tt.args.size); got != tt.want {
+				t.Errorf("AlignSizeMB() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
