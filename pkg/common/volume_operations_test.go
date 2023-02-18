@@ -100,7 +100,7 @@ func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {
 		v   = testVolume1.DeepCopy()
 	)
 
-	v.Spec.CSIStatus = apiV1.Created
+	v.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: testNS})
 	err := svc.k8sClient.CreateCR(ctx, testVolume1Name, v)
 	assert.Nil(t, err)
@@ -168,26 +168,26 @@ func Test_handleVolumeInProgress(t *testing.T) {
 	// Creating
 	volume, err := svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.CSIStatus, apiV1.Creating)
+	assert.Equal(t, apiV1.CSIStatus(volume.CSIStatus), apiV1.Creating)
 
 	// Created
-	testVolume.Spec.CSIStatus = apiV1.Created
+	testVolume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.CSIStatus, apiV1.Created)
+	assert.Equal(t, apiV1.CSIStatus(volume.CSIStatus), apiV1.Created)
 
 	// Failed
-	testVolume.Spec.CSIStatus = apiV1.Failed
+	testVolume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
 	assert.NotNil(t, err)
 
 	// Published
-	testVolume.Spec.CSIStatus = apiV1.Published
+	testVolume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Published)
 	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
 	assert.NotNil(t, err)
 
 	// Timeout
-	testVolume.Spec.CSIStatus = apiV1.Creating
+	testVolume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Creating)
 	// Update creation timestamp
 	testVolume.ObjectMeta.SetCreationTimestamp(metav1.Time{Time: time.Now().Add(-base.DefaultTimeoutForVolumeOperations)})
 	volume, err = svc.handleVolumeInProgress(ctx, logger, testVolume, podName, reservationName)
@@ -209,7 +209,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 			TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
 			ObjectMeta: k8smetav1.ObjectMeta{Name: acName, CreationTimestamp: k8smetav1.NewTime(time.Now())},
 			Spec: api.AvailableCapacity{
-				StorageClass: requiredSC,
+				StorageClass: apiV1.MatchStorageClass(requiredSC),
 				Size:         requiredBytes,
 			},
 		}
@@ -218,11 +218,11 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 			ObjectMeta: k8smetav1.ObjectMeta{Name: "test-ac", CreationTimestamp: k8smetav1.NewTime(time.Now())},
 			Spec: api.AvailableCapacityReservation{
 				Namespace: testNS,
-				Status:    apiV1.ReservationConfirmed,
+				Status:    apiV1.MatchReservationStatus(apiV1.ReservationConfirmed),
 				ReservationRequests: []*api.ReservationRequest{
 					{
 						CapacityRequest: &api.CapacityRequest{
-							StorageClass: requiredSC,
+							StorageClass: apiV1.MatchStorageClass(requiredSC),
 							Size:         requiredBytes,
 							Name:         volumeID,
 						},
@@ -233,14 +233,14 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 		expectedVolume = &api.Volume{
 			Id:                volumeID,
 			Location:          acToReturn.Spec.Location,
-			StorageClass:      requiredSC,
+			StorageClass:      apiV1.MatchStorageClass(requiredSC),
 			NodeId:            acToReturn.Spec.NodeId,
 			Size:              requiredBytes,
-			CSIStatus:         apiV1.Creating,
-			Health:            apiV1.HealthGood,
-			LocationType:      apiV1.LocationTypeLVM,
-			OperationalStatus: apiV1.OperationalStatusOperative,
-			Usage:             apiV1.VolumeUsageInUse,
+			CSIStatus:         apiV1.MatchCSIStatus(apiV1.Creating),
+			Health:            apiV1.MatchHealthStatus(apiV1.HealthGood),
+			LocationType:      apiV1.MatchLocationType(apiV1.LocationTypeLVM),
+			OperationalStatus: apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusOperative),
+			Usage:             apiV1.MatchVolumeUsage(apiV1.VolumeUsageInUse),
 		}
 		createdVolume *api.Volume
 	)
@@ -250,7 +250,7 @@ func TestVolumeOperationsImpl_CreateVolume_HDDLVGVolumeCreated(t *testing.T) {
 	assert.Nil(t, svc.k8sClient.CreateCR(ctxWithID, acrToReturn.Name, acrToReturn))
 	tv := api.Volume{
 		Id:           volumeID,
-		StorageClass: requiredSC,
+		StorageClass: apiV1.MatchStorageClass(requiredSC),
 		Size:         requiredBytes,
 		Location:     testLVG.Spec.Name,
 	}
@@ -269,7 +269,7 @@ func TestVolumeOperationsImpl_CreateVolume_FaileCauseExist(t *testing.T) {
 		v   = testVolume1.DeepCopy()
 	)
 
-	v.Spec.CSIStatus = apiV1.Failed
+	v.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 	svc.cache.Set(v.Name, v.Namespace)
 	ctx := context.WithValue(testCtx, util.VolumeInfoKey, &util.VolumeInfo{Namespace: v.Namespace})
 	assert.Nil(t, svc.k8sClient.CreateCR(ctx, testVolume1Name, v))
@@ -314,7 +314,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 			TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacityReservation", APIVersion: apiV1.APIV1Version},
 			ObjectMeta: k8smetav1.ObjectMeta{Name: acName, CreationTimestamp: k8smetav1.NewTime(time.Now())},
 			Spec: api.AvailableCapacity{
-				StorageClass: requiredSC,
+				StorageClass: apiV1.MatchStorageClass(requiredSC),
 				NodeId:       node1,
 				Size:         requiredBytes,
 			},
@@ -324,11 +324,11 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 			ObjectMeta: k8smetav1.ObjectMeta{Name: "test-ac", CreationTimestamp: k8smetav1.NewTime(time.Now())},
 			Spec: api.AvailableCapacityReservation{
 				Namespace: testNS,
-				Status:    apiV1.ReservationConfirmed,
+				Status:    apiV1.MatchReservationStatus(apiV1.ReservationConfirmed),
 				ReservationRequests: []*api.ReservationRequest{
 					{
 						CapacityRequest: &api.CapacityRequest{
-							StorageClass: requiredSC,
+							StorageClass: apiV1.MatchStorageClass(requiredSC),
 							Size:         requiredBytes,
 							Name:         volumeID,
 						},
@@ -346,7 +346,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailNoAC(t *testing.T) {
 	ctxWithID = context.WithValue(ctxWithID, util.VolumeInfoKey, &util.VolumeInfo{Name: volumeID, Namespace: testNS})
 	createdVolume, err := svc.CreateVolume(ctxWithID, api.Volume{
 		Id:           volumeID,
-		StorageClass: requiredSC,
+		StorageClass: apiV1.MatchStorageClass(requiredSC),
 		NodeId:       node2,
 		Size:         requiredBytes,
 	})
@@ -369,7 +369,7 @@ func TestVolumeOperationsImpl_CreateVolume_FailRecreateAC(t *testing.T) {
 	ctx := context.WithValue(ctxWithID, util.VolumeInfoKey, &util.VolumeInfo{Name: volumeID, Namespace: testNS})
 	createdVolume, err := svc.CreateVolume(ctx, api.Volume{
 		Id:           volumeID,
-		StorageClass: requiredSC,
+		StorageClass: apiV1.MatchStorageClass(requiredSC),
 		NodeId:       requiredNode,
 		Size:         requiredBytes,
 	})
@@ -396,7 +396,7 @@ func TestVolumeOperationsImpl_DeleteVolume_DifferentStatuses(t *testing.T) {
 
 	svc = setupVOOperationsTest(t)
 	volumeCR = *testVolume1.DeepCopy()
-	volumeCR.Spec.CSIStatus = apiV1.Removed
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removed)
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Name, &volumeCR))
 
 	svc.cache.Set(volumeCR.Name, volumeCR.Namespace)
@@ -431,7 +431,7 @@ func TestVolumeOperationsImpl_DeleteVolume_FailToRemoveSt(t *testing.T) {
 	)
 
 	svc.cache.Set(v.Name, v.Namespace)
-	v.Spec.CSIStatus = apiV1.Failed
+	v.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, v)
 	assert.Nil(t, err)
 
@@ -448,9 +448,9 @@ func TestVolumeOperationsImpl_DeleteVolume(t *testing.T) {
 		err error
 	)
 
-	for _, st := range []string{apiV1.Removing, apiV1.Removed} {
+	for _, st := range []apiV1.CSIStatus{apiV1.Removing, apiV1.Removed} {
 		v.ObjectMeta.ResourceVersion = ""
-		v.Spec.CSIStatus = st
+		v.Spec.CSIStatus = apiV1.MatchCSIStatus(st)
 		err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, v)
 		assert.Nil(t, err)
 		svc.cache.Set(v.Name, v.Namespace)
@@ -467,7 +467,7 @@ func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
 		err        error
 	)
 
-	v.Spec.CSIStatus = apiV1.Created
+	v.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 	svc.cache.Set(v.Name, v.Namespace)
 	err = svc.k8sClient.CreateCR(testCtx, v.Name, v)
 	assert.Nil(t, err)
@@ -477,7 +477,7 @@ func TestVolumeOperationsImpl_DeleteVolume_SetStatus(t *testing.T) {
 
 	err = svc.k8sClient.ReadCR(testCtx, v.Name, v.Namespace, &updatedVol)
 	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Removing, updatedVol.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Removing, apiV1.CSIStatus(updatedVol.Spec.CSIStatus))
 }
 
 func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
@@ -485,7 +485,7 @@ func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
 		svc = setupVOOperationsTest(t)
 		v   = testVolume1.DeepCopy()
 	)
-	v.Spec.CSIStatus = apiV1.Created
+	v.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 	svc.cache.Set(v.Name, v.Namespace)
 	err := svc.k8sClient.CreateCR(testCtx, v.Name, v)
 	assert.Nil(t, err)
@@ -493,7 +493,7 @@ func TestVolumeOperationsImpl_WaitStatus_Success(t *testing.T) {
 	ctx, closeFn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer closeFn()
 
-	err = svc.WaitStatus(ctx, v.Name, apiV1.Failed, apiV1.Created)
+	err = svc.WaitStatus(ctx, v.Name, apiV1.MatchCSIStatus(apiV1.Failed), apiV1.MatchCSIStatus(apiV1.Created))
 	assert.Nil(t, err)
 }
 
@@ -503,11 +503,11 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 		testVol = testVolume1.DeepCopy()
 	)
 	// namespace wasn't found
-	err := svc.WaitStatus(testCtx, "unknown_name", apiV1.Created)
+	err := svc.WaitStatus(testCtx, "unknown_name", apiV1.MatchCSIStatus(apiV1.Created))
 	assert.NotNil(t, err)
 	// volume CR wasn't found scenario
 	svc.cache.Set("unknown_name", testNS)
-	err = svc.WaitStatus(testCtx, "unknown_name", apiV1.Created)
+	err = svc.WaitStatus(testCtx, "unknown_name", apiV1.MatchCSIStatus(apiV1.Created))
 	assert.NotNil(t, err)
 	// ctx is done scenario
 	err = svc.k8sClient.CreateCR(testCtx, testVol.Name, testVol)
@@ -519,7 +519,7 @@ func TestVolumeOperationsImpl_WaitStatus_Fails(t *testing.T) {
 	ctx.Done()
 
 	// volume CR wasn't found
-	err = svc.WaitStatus(ctx, testVol.Name, apiV1.Created)
+	err = svc.WaitStatus(ctx, testVol.Name, apiV1.MatchCSIStatus(apiV1.Created))
 	assert.NotNil(t, err)
 }
 
@@ -712,7 +712,7 @@ func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 
 	volumeCR := testVolume1
 	volumeCR.ObjectMeta.ResourceVersion = ""
-	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
+	volumeCR.Spec.StorageClass = apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG)
 	svc = setupVOOperationsTest(t)
 	err = svc.k8sClient.CreateCR(testCtx, testVolume1Name, &volumeCR)
 	volAC := &accrd.AvailableCapacity{
@@ -720,22 +720,22 @@ func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         10000,
-			StorageClass: apiV1.StorageClassSystemLVG,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG),
 		},
 	}
 	volAC.Spec.Location = testDrive1UUID
 	err = svc.k8sClient.CreateCR(testCtx, "", volAC)
 	assert.Nil(t, err)
 
-	for _, v := range [2]string{apiV1.Resizing, apiV1.Resized} {
-		volumeCR.Spec.CSIStatus = v
+	for _, v := range [2]apiV1.CSIStatus{apiV1.Resizing, apiV1.Resized} {
+		volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(v)
 		err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
 		assert.Nil(t, err)
 		err := svc.ExpandVolume(testCtx, &volumeCR, capacity)
 		assert.Nil(t, err)
 	}
-	for _, v := range [3]string{apiV1.VolumeReady, apiV1.Created, apiV1.Published} {
-		volumeCR.Spec.CSIStatus = v
+	for _, v := range [3]apiV1.CSIStatus{apiV1.VolumeReady, apiV1.Created, apiV1.Published} {
+		volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(v)
 		err = svc.k8sClient.UpdateCR(testCtx, &volumeCR)
 		assert.Nil(t, err)
 
@@ -744,7 +744,7 @@ func TestVolumeOperationsImpl_ExpandVolume_DifferentStatuses(t *testing.T) {
 		uVol := &volumecrd.Volume{}
 		err = svc.k8sClient.ReadCR(testCtx, volumeCR.Spec.Id, testNS, uVol)
 		assert.Nil(t, err)
-		assert.Equal(t, apiV1.Resizing, uVol.Spec.CSIStatus)
+		assert.Equal(t, apiV1.Resizing, apiV1.CSIStatus(uVol.Spec.CSIStatus))
 	}
 }
 
@@ -760,8 +760,8 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	volumeCR.ObjectMeta.ResourceVersion = ""
 	assert.Nil(t, svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, volumeCR))
 
-	for _, v := range [4]string{apiV1.Failed, apiV1.Removed, apiV1.Removing, apiV1.Creating} {
-		volumeCR.Spec.CSIStatus = v
+	for _, v := range [4]apiV1.CSIStatus{apiV1.Failed, apiV1.Removed, apiV1.Removing, apiV1.Creating} {
+		volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(v)
 		assert.Nil(t, svc.k8sClient.UpdateCR(testCtx, volumeCR))
 		err := svc.ExpandVolume(testCtx, volumeCR, capacity)
 		assert.NotNil(t, err)
@@ -769,7 +769,7 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 	}
 
 	// Storage class is not lvg
-	volumeCR.Spec.CSIStatus = apiV1.Created
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 	volumeCR.ObjectMeta.ResourceVersion = ""
 	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, volumeCR))
 	if err := svc.ExpandVolume(testCtx, volumeCR, capacity); err != nil {
@@ -778,7 +778,7 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 
 	// Failed to get AC
 	volumeCR.ObjectMeta.ResourceVersion = ""
-	volumeCR.Spec.StorageClass = apiV1.StorageClassSystemLVG
+	volumeCR.Spec.StorageClass = apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG)
 	assert.NotNil(t, svc.k8sClient.UpdateCR(testCtx, volumeCR))
 	err := svc.ExpandVolume(testCtx, volumeCR, capacity)
 	assert.NotNil(t, err)
@@ -790,7 +790,7 @@ func TestVolumeOperationsImpl_ExpandVolume_Fail(t *testing.T) {
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
 		Spec: api.AvailableCapacity{
 			Size:         10000,
-			StorageClass: apiV1.StorageClassSystemLVG,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG),
 		},
 	}
 	volAC.Spec.Location = testDrive1UUID
@@ -808,14 +808,14 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	)
 
 	svc.cache.Set(volumeCR.Spec.Id, volumeCR.Namespace)
-	volumeCR.Spec.CSIStatus = apiV1.Failed
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 	err = svc.k8sClient.CreateCR(testCtx, volumeCR.Spec.Id, volumeCR)
 	volAC := &accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String()},
 		Spec: api.AvailableCapacity{
 			Size:         107373143824,
-			StorageClass: apiV1.StorageClassSystemLVG,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG),
 		},
 	}
 	volAC.Spec.Location = testDrive1UUID
@@ -845,27 +845,27 @@ func TestVolumeOperationsImpl_UpdateCRsAfterVolumeExpansion(t *testing.T) {
 	assert.Equal(t, pAC.Spec.Size+int64(util.GBYTE)*100-int64(util.MBYTE), capacity.Spec.Size)
 
 	// volume has resized status and doesn't have annotation
-	volumeCR.Spec.CSIStatus = apiV1.Resized
+	volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Resized)
 	err = svc.k8sClient.UpdateCR(testCtx, volumeCR)
 	assert.Nil(t, err)
 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, volumeCR)
 	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Resized, volumeCR.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Resized, apiV1.CSIStatus(volumeCR.Spec.CSIStatus))
 
 	// volume has resized status
 	volumeCR.Annotations = map[string]string{
-		apiV1.VolumePreviousStatus: apiV1.Created,
+		apiV1.VolumePreviousStatus: apiV1.MatchCSIStatus(apiV1.Created),
 	}
 	err = svc.k8sClient.UpdateCR(testCtx, volumeCR)
 	assert.Nil(t, err)
 	svc.UpdateCRsAfterVolumeExpansion(testCtx, volumeCR.Spec.Id, int64(util.GBYTE)*100)
 	err = svc.k8sClient.ReadCR(testCtx, volumeCR.Name, volumeCR.Namespace, volumeCR)
 	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Created, volumeCR.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Created, apiV1.CSIStatus(volumeCR.Spec.CSIStatus))
 }
 
-func getTestACR(size int64, sc, name, podNamespace string,
+func getTestACR(size int64, sc apiV1.StorageClass, name, podNamespace string,
 	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
 	acNames := make([]string, len(acList))
 	for i, ac := range acList {
@@ -877,10 +877,10 @@ func getTestACR(size int64, sc, name, podNamespace string,
 			CreationTimestamp: k8smetav1.NewTime(time.Now())},
 		Spec: api.AvailableCapacityReservation{
 			Namespace: podNamespace,
-			Status:    apiV1.ReservationConfirmed,
+			Status:    apiV1.MatchReservationStatus(apiV1.ReservationConfirmed),
 			ReservationRequests: []*api.ReservationRequest{
 				{CapacityRequest: &api.CapacityRequest{
-					StorageClass: sc,
+					StorageClass: apiV1.MatchStorageClass(sc),
 					Size:         size,
 					Name:         name,
 				},

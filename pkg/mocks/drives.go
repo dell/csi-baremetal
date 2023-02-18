@@ -25,14 +25,14 @@ import (
 var DriveMgrRespDrives = []*api.Drive{
 	{
 		SerialNumber: "hdd1",
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         1024 * 1024 * 1024 * 50,
 	},
 	{
 		SerialNumber: "hdd2",
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         1024 * 1024 * 1024 * 150,
 	},
 }

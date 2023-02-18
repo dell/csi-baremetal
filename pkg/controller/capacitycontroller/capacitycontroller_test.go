@@ -50,11 +50,11 @@ var (
 		VID:          "vid-drive1",
 		PID:          "pid-drive1",
 		SerialNumber: "hdd1", // depend on commands.LsblkTwoDevicesStr - /dev/sda
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         int64(1000 * util.GBYTE),
-		Status:       apiV1.DriveStatusOnline,
-		Usage:        apiV1.DriveUsageInUse,
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
+		Usage:        apiV1.MatchDriveUsage(apiV1.DriveUsageInUse),
 		NodeId:       node1ID,
 		IsClean:      true,
 	}
@@ -83,8 +83,8 @@ var (
 			Node:      node1ID,
 			Locations: []string{apiDrive1.UUID},
 			Size:      int64(1024 * 500 * util.GBYTE),
-			Status:    apiV1.Creating,
-			Health:    apiV1.HealthGood,
+			Status:    apiV1.MatchCSIStatus(apiV1.Creating),
+			Health:    apiV1.MatchHealthStatus(apiV1.HealthGood),
 		},
 	}
 
@@ -110,7 +110,7 @@ var (
 	acSpec2 = api.AvailableCapacity{
 		Location:     lvg1Name,
 		NodeId:       lvgCR1.Spec.Node,
-		StorageClass: apiV1.StorageClassSystemLVG,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG),
 		Size:         lvgCR1.Spec.Size,
 	}
 	acCR1Name = "ac1"
@@ -130,7 +130,7 @@ var (
 /* Complementary structures for table tests */
 // inputData represents input parameters for drive reconciliation
 type inputData struct {
-	driveHealth      string
+	driveHealth      apiV1.HealthStatus
 	driveACIsPresent bool
 	driveIsClean     bool
 }
@@ -315,7 +315,7 @@ func TestController_ReconcileDrive(t *testing.T) {
 
 			// creating test objects
 			testDrive := drive1CR.DeepCopy()
-			testDrive.Spec.Health = testData.inputData.driveHealth
+			testDrive.Spec.Health = apiV1.MatchHealthStatus(testData.inputData.driveHealth)
 			testDrive.Spec.IsClean = testData.inputData.driveIsClean
 			err = kubeClient.Create(tCtx, testDrive)
 			assert.Nil(t, err)
@@ -377,7 +377,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(acList.Items))
 		assert.Equal(t, int64(util.GBYTE), acList.Items[0].Spec.Size)
-		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
+		assert.Equal(t, apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG), acList.Items[0].Spec.StorageClass)
 	})
 	t.Run("LVG is good, Annotation is present, wrong annotation value", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
@@ -402,7 +402,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
-		testLVG.Spec.Health = apiV1.HealthBad
+		testLVG.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
 		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
@@ -417,7 +417,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		err = kubeClient.Create(tCtx, &testAC)
 		assert.Nil(t, err)
 		testLVG := lvgCR1
-		testLVG.Spec.Health = apiV1.HealthBad
+		testLVG.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
 		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
@@ -448,7 +448,7 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(acList.Items))
 		assert.Equal(t, int64(util.GBYTE), acList.Items[0].Spec.Size)
-		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
+		assert.Equal(t, apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG), acList.Items[0].Spec.StorageClass)
 	})
 }
 func TestController_ReconcileResourcesNotFound(t *testing.T) {
@@ -468,7 +468,7 @@ func TestController_filterUpdateEvent_Drive(t *testing.T) {
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive2 := drive1CR
-		testDrive2.Spec.Health = apiV1.HealthBad
+		testDrive2.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 		assert.True(t, controller.filterUpdateEvent(&testDrive, &testDrive2))
 	})
 	t.Run("Drives have different health statuses", func(t *testing.T) {
@@ -478,7 +478,7 @@ func TestController_filterUpdateEvent_Drive(t *testing.T) {
 		assert.NotNil(t, controller)
 		testDrive := drive1CR
 		testDrive2 := drive1CR
-		testDrive2.Spec.Status = apiV1.Failed
+		testDrive2.Spec.Status = apiV1.MatchDriveStatus(apiV1.DriveStatusFailed)
 		assert.True(t, controller.filterUpdateEvent(&testDrive, &testDrive2))
 	})
 	t.Run("Drives have different clean", func(t *testing.T) {
@@ -510,7 +510,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
-		testLVG2.Spec.Health = apiV1.HealthBad
+		testLVG2.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 		assert.True(t, controller.filterUpdateEvent(&testLVG, &testLVG2))
 	})
 	t.Run("LVG have different statuses", func(t *testing.T) {
@@ -520,7 +520,7 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 		assert.NotNil(t, controller)
 		testLVG := lvgCR1
 		testLVG2 := lvgCR1
-		testLVG2.Spec.Status = apiV1.Failed
+		testLVG2.Spec.Status = apiV1.MatchCSIStatus(apiV1.Failed)
 		assert.True(t, controller.filterUpdateEvent(&testLVG, &testLVG2))
 	})
 	t.Run("Old lvg has annotation, new one doesn't", func(t *testing.T) {

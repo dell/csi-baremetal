@@ -108,14 +108,14 @@ func (mgr *BaseManager) GetSCSIDevices() ([]*api.Drive, error) {
 			allDevices[i].SerialNumber = smartInfo.SerialNumber
 			if allDevices[i].SerialNumber != "" && allDevices[i].VID != "" && allDevices[i].PID != "" {
 				if smartInfo.Rotation > 0 {
-					allDevices[i].Type = apiV1.DriveTypeHDD
+					allDevices[i].Type = apiV1.MatchDriveType(apiV1.DriveTypeHDD)
 				} else {
-					allDevices[i].Type = apiV1.DriveTypeSSD
+					allDevices[i].Type = apiV1.MatchDriveType(apiV1.DriveTypeSSD)
 				}
 				if smartInfo.SmartStatus["passed"] {
-					allDevices[i].Health = apiV1.HealthGood
+					allDevices[i].Health = apiV1.MatchHealthStatus(apiV1.HealthGood)
 				} else {
-					allDevices[i].Health = apiV1.HealthBad
+					allDevices[i].Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 				}
 				devices = append(devices, allDevices[i])
 			} else {
@@ -138,11 +138,11 @@ func (mgr *BaseManager) GetNVMDevices() ([]*api.Drive, error) {
 	for _, device := range nvmeDevices {
 		if device.Vendor != 0 && device.ModelNumber != "" && device.SerialNumber != "" {
 			devices = append(devices, &api.Drive{
-				Health:       device.Health,
+				Health:       apiV1.MatchHealthStatus(device.Health),
 				PID:          device.ModelNumber,
 				VID:          strconv.Itoa(device.Vendor),
 				SerialNumber: device.SerialNumber,
-				Type:         apiV1.DriveTypeNVMe,
+				Type:         apiV1.MatchDriveType(apiV1.DriveTypeNVMe),
 				Size:         device.PhysicalSize,
 				Firmware:     device.Firmware,
 				Path:         device.DevicePath,

@@ -233,7 +233,7 @@ func (cm *CapacityManager) isLVGCapacityReserved(ctx context.Context, volumes []
 
 	// check if other ACRs in RESERVED state has requests with the same LVG SC
 	for _, acr := range acrs {
-		if acr.Spec.Status != v1.ReservationConfirmed {
+		if acr.Spec.Status != v1.MatchReservationStatus(v1.ReservationConfirmed) {
 			continue
 		}
 		for _, resRequest := range acr.Spec.ReservationRequests {

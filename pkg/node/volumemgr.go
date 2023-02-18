@@ -280,7 +280,7 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if volume.DeletionTimestamp.IsZero() {
-		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) && volume.Spec.CSIStatus != apiV1.Empty {
+		if !util.ContainsString(volume.ObjectMeta.Finalizers, volumeFinalizer) && apiV1.CSIStatus(volume.Spec.CSIStatus) != apiV1.Empty {
 			ll.Debug("Appending finalizer for volume")
 			volume.ObjectMeta.Finalizers = append(volume.ObjectMeta.Finalizers, volumeFinalizer)
 			if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
@@ -290,9 +290,9 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 	} else {
 		// need to handle volume CR delete request
-		switch volume.Spec.CSIStatus {
+		switch apiV1.CSIStatus(volume.Spec.CSIStatus) {
 		case apiV1.Created:
-			volume.Spec.CSIStatus = apiV1.Removing
+			volume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removing)
 			ll.Debug("Change volume status from Created to Removing")
 		case apiV1.Removing:
 		// Failed drive shouldn't be cleaned up - to avoid data loss
@@ -320,7 +320,7 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 	}
 	ll.Infof("Processing for status %s", volume.Spec.CSIStatus)
-	switch volume.Spec.CSIStatus {
+	switch apiV1.CSIStatus(volume.Spec.CSIStatus) {
 	case apiV1.Creating:
 		if util.IsStorageClassLVG(volume.Spec.StorageClass) {
 			return m.handleCreatingVolumeInLVG(ctx, volume)
@@ -332,9 +332,9 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return m.handleExpandingStatus(ctx, volume)
 	}
 
-	if volume.Spec.Usage == apiV1.VolumeUsageReleasing {
+	if apiV1.VolumeUsage(volume.Spec.Usage) == apiV1.VolumeUsageReleasing {
 		// check for release annotation
-		releaseStatus := volume.Annotations[apiV1.VolumeAnnotationRelease]
+		releaseStatus := apiV1.VolumeAnnotation(volume.Annotations[string(apiV1.VolumeAnnotationRelease)])
 		// when done move to RELEASED state
 		switch releaseStatus {
 		case apiV1.VolumeAnnotationReleaseDone:
@@ -342,7 +342,7 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return m.updateVolumeAndDriveUsageStatus(ctx, volume, apiV1.VolumeUsageReleased, apiV1.DriveUsageReleasing)
 		case apiV1.VolumeAnnotationReleaseFailed:
 			errMsg := "Volume releasing is failed"
-			errorDesc, ok := volume.Annotations[apiV1.VolumeAnnotationReleaseStatus]
+			errorDesc, ok := volume.Annotations[apiV1.MatchVolumeAnnotation(apiV1.VolumeAnnotationReleaseStatus)]
 			if ok && errorDesc != "" {
 				errMsg += fmt.Sprintf(" err: %s", errorDesc)
 			}
@@ -354,14 +354,14 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, volume *volumecrd.Volume,
-	volumeStatus, driveStatus string) (ctrl.Result, error) {
+	volumeStatus apiV1.VolumeUsage, driveStatus apiV1.DriveUsage) (ctrl.Result, error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":       "updateVolumeAndDriveUsageStatus",
 		"volumeID":     volume.Name,
 		"volumeStatus": volumeStatus,
 		"driveStatus":  driveStatus,
 	})
-	volume.Spec.Usage = volumeStatus
+	volume.Spec.Usage = apiV1.MatchVolumeUsage(volumeStatus)
 	if err := m.k8sClient.UpdateCR(ctx, volume); err != nil {
 		ll.Errorf("Unable to change volume %s usage status to %s, error: %v.",
 			volume.Name, volume.Spec.Usage, err)
@@ -374,14 +374,14 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 	}
 	// TODO add annotations for additional statuses?
 	if volumeStatus == apiV1.VolumeUsageReleased {
-		m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
+		m.addVolumeStatusAnnotation(drive, apiV1.VolumeUsage(volume.Name), apiV1.VolumeUsageReleased)
 	}
 	if drive != nil {
 		if driveStatus == apiV1.DriveUsageFailed {
 			eventMsg := fmt.Sprintf("Failed to release volume(s), %s", drive.GetDriveDescription())
 			m.recorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
 		}
-		drive.Spec.Usage = driveStatus
+		drive.Spec.Usage = apiV1.MatchDriveUsage(driveStatus)
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
 				drive.Name, drive.Spec.Usage, err)
@@ -408,7 +408,7 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 	if err = m.k8sClient.ReadCR(ctx, volume.Spec.Location, "", lvg); err != nil {
 		ll.Errorf("Unable to read underlying LogicalVolumeGroup %s: %v", volume.Spec.Location, err)
 		if k8sError.IsNotFound(err) {
-			volume.Spec.CSIStatus = apiV1.Failed
+			volume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 			err = m.k8sClient.UpdateCR(ctx, volume)
 			if err == nil {
 				return ctrl.Result{}, nil // no need to retry
@@ -419,13 +419,13 @@ func (m *VolumeManager) handleCreatingVolumeInLVG(ctx context.Context, volume *v
 		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, err
 	}
 
-	switch lvg.Spec.Status {
+	switch apiV1.CSIStatus(lvg.Spec.Status) {
 	case apiV1.Creating:
 		ll.Debugf("Underlying LogicalVolumeGroup %s is still being created", lvg.Name)
 		return ctrl.Result{Requeue: true, RequeueAfter: base.DefaultRequeueForVolume}, nil
 	case apiV1.Failed:
 		ll.Errorf("Underlying LogicalVolumeGroup %s has reached failed status. Unable to create volume on failed lvg.", lvg.Name)
-		volume.Spec.CSIStatus = apiV1.Failed
+		volume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 		if err = m.k8sClient.UpdateCR(ctx, volume); err != nil {
 			ll.Errorf("Unable to update volume CR and set status to failed: %v", err)
 			// retry because of volume status wasn't updated
@@ -464,7 +464,7 @@ func (m *VolumeManager) prepareVolume(ctx context.Context, volume *volumecrd.Vol
 		newStatus = apiV1.Failed
 	}
 
-	volume.Spec.CSIStatus = newStatus
+	volume.Spec.CSIStatus = apiV1.MatchCSIStatus(newStatus)
 	if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
 		ll.Errorf("Unable to update volume status to %s: %v", newStatus, updateErr)
 		return ctrl.Result{Requeue: true}, updateErr
@@ -487,7 +487,7 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	volume.Spec.CSIStatus = newStatus
+	volume.Spec.CSIStatus = apiV1.MatchCSIStatus(newStatus)
 	if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
 		return ctrl.Result{Requeue: true}, updateErr
@@ -495,13 +495,13 @@ func (m *VolumeManager) handleRemovingStatus(ctx context.Context, volume *volume
 	return ctrl.Result{}, err
 }
 
-func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volumecrd.Volume) (string, error) {
+func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volumecrd.Volume) (apiV1.CSIStatus, error) {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "performVolumeRemoving",
 		"volumeID": volume.Name,
 	})
 
-	if volume.Spec.GetOperationalStatus() == apiV1.OperationalStatusMissing {
+	if apiV1.VolumeOperationalStatus(volume.Spec.GetOperationalStatus()) == apiV1.OperationalStatusMissing {
 		ll.Warnf("Volume - %s is MISSING. Unable to perform deletion. Set status to Removed", volume.Spec.Id)
 		return apiV1.Removed, nil
 	}
@@ -511,17 +511,17 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 	if err != nil {
 		updateErr := fmt.Errorf("failed to read drive CR with name %s, error %w", volume.Spec.Location, err)
 		ll.Error(updateErr)
-		return "", updateErr
+		return apiV1.Empty, updateErr
 	}
 	ll.Debugf("Got drive %+v", drive)
 
 	if err := m.getProvisionerForVolume(&volume.Spec).ReleaseVolume(&volume.Spec, &drive.Spec); err != nil {
 		ll.Errorf("Failed to remove volume - %s. Error: %v. Set status to Failed", volume.Spec.Id, err)
-		drive.Spec.Usage = apiV1.DriveUsageFailed
+		drive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageFailed)
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
 				drive.Name, drive.Spec.Usage, err)
-			return "", err
+			return apiV1.Empty, err
 		}
 		m.sendEventForDrive(drive, eventing.DriveRemovalFailed, deleteVolumeFailedMsg, volume.Name, err)
 		return apiV1.Failed, err
@@ -668,7 +668,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			// don't create CR for OFFLINE drives
 			// todo do we need to deprecate status field reported by drive manager?
 			// todo https://github.com/dell/csi-baremetal/issues/202
-			if drivePtr.Status == apiV1.DriveStatusOffline {
+			if apiV1.DriveStatus(drivePtr.Status) == apiV1.DriveStatusOffline {
 				continue
 			}
 			// drive CR does not exist, try to create it
@@ -676,7 +676,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
 			// TODO: what operational status should be if drivemgr reported drive with not a good health
-			toCreateSpec.Usage = apiV1.DriveUsageInUse
+			toCreateSpec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageInUse)
 			toCreateSpec.IsClean = true
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
@@ -715,11 +715,11 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			previousState := d.DeepCopy()
 			toUpdate := d
 			// TODO: which operational status should be in case when there is drive CR that doesn't have corresponding drive from drivemgr response
-			toUpdate.Spec.Status = apiV1.DriveStatusOffline
+			toUpdate.Spec.Status = apiV1.MatchDriveStatus(apiV1.DriveStatusOffline)
 			if value, ok := d.GetAnnotations()[driveHealthOverrideAnnotation]; ok {
 				m.overrideDriveHealth(&toUpdate.Spec, value, d.Name)
 			} else {
-				toUpdate.Spec.Health = apiV1.HealthUnknown
+				toUpdate.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthUnknown)
 			}
 			if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 				ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
@@ -909,9 +909,9 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			Node:       m.nodeID,
 			Locations:  m.systemDrivesUUIDs,
 			Size:       vgFreeSpace,
-			Status:     apiV1.Created,
+			Status:     apiV1.MatchCSIStatus(apiV1.Created),
 			VolumeRefs: lvs,
-			Health:     apiV1.HealthGood,
+			Health:     apiV1.MatchHealthStatus(apiV1.HealthGood),
 		}
 		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
@@ -971,7 +971,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		}
 
 		// check for missing disk and re-activate volume group
-		if prev.Status == apiV1.DriveStatusOffline && cur.Status == apiV1.DriveStatusOnline {
+		if apiV1.DriveStatus(prev.Status) == apiV1.DriveStatusOffline && apiV1.DriveStatus(cur.Status) == apiV1.DriveStatusOnline {
 			m.reactivateVG(lvg)
 			m.checkVGErrors(lvg, cur.Path)
 		}
@@ -996,9 +996,9 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		vol.Spec.Health = cur.Health
 		// initiate volume release
 		// TODO need to check for specific annotation instead
-		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
-			if vol.Spec.Usage == apiV1.VolumeUsageInUse {
-				vol.Spec.Usage = apiV1.VolumeUsageReleasing
+		if apiV1.HealthStatus(vol.Spec.Health) == apiV1.HealthBad || apiV1.HealthStatus(vol.Spec.Health) == apiV1.HealthSuspect {
+			if apiV1.VolumeUsage(vol.Spec.Usage) == apiV1.VolumeUsageInUse {
+				vol.Spec.Usage = apiV1.MatchVolumeUsage(apiV1.VolumeUsageReleasing)
 			}
 		}
 
@@ -1006,7 +1006,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 			ll.Errorf("Failed to update volume CR's %s health status: %v", vol.Name, err)
 		}
 
-		if vol.Spec.Health == apiV1.HealthBad {
+		if apiV1.HealthStatus(vol.Spec.Health) == apiV1.HealthBad {
 			m.recorder.Eventf(vol, eventing.VolumeBadHealth,
 				"Volume health transitioned from %s to %s. Inherited from %s drive on %s)",
 				prevHealthState, vol.Spec.Health, cur.Health, cur.NodeId)
@@ -1098,7 +1098,7 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 			"New drive discovered SN: %s, Node: %s.",
 			createdDrive.Spec.SerialNumber, createdDrive.Spec.NodeId)
 		m.createEventForDriveHealthChange(
-			createdDrive, apiV1.HealthUnknown, createdDrive.Spec.Health)
+			createdDrive, apiV1.MatchHealthStatus(apiV1.HealthUnknown), createdDrive.Spec.Health)
 	}
 	for _, updDrive := range updates.Updated {
 		if updDrive.CurrentState.Spec.Status != updDrive.PreviousState.Spec.Status {
@@ -1111,8 +1111,8 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 				m.createEventForDriveHealthOverridden(
 					updDrive.CurrentState, updDrive.PreviousState.Spec.Health, currentHealth)
 				// check for missing disk replacement to clear disk missing issue
-				if (currentHealth == apiV1.HealthBad || currentHealth == apiV1.HealthSuspect) &&
-					updDrive.CurrentState.Spec.Status == apiV1.DriveStatusOffline {
+				if (currentHealth == apiV1.MatchHealthStatus(apiV1.HealthBad) || currentHealth == apiV1.MatchHealthStatus(apiV1.HealthSuspect)) &&
+					updDrive.CurrentState.Spec.Status == apiV1.MatchDriveStatus(apiV1.DriveStatusOffline) {
 					m.createEventForMissingDriveReplacementInitiated(updDrive.CurrentState)
 				}
 			}
@@ -1126,7 +1126,7 @@ func (m *VolumeManager) createEventForDriveHealthChange(
 	drive *drivecrd.Drive, prevHealth, currentHealth string) {
 	healthMsgTemplate := "Drive health is: %s, previous state: %s."
 	var event *eventing.EventDescription
-	switch currentHealth {
+	switch apiV1.HealthStatus(currentHealth) {
 	case apiV1.HealthGood:
 		event = eventing.DriveHealthGood
 	case apiV1.HealthBad:
@@ -1146,11 +1146,11 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 	drive *drivecrd.Drive, prevStatus, currentStatus string) {
 	statusMsgTemplate := "Drive status is: %s, previous status: %s."
 	var event *eventing.EventDescription
-	switch currentStatus {
+	switch apiV1.DriveStatus(currentStatus) {
 	case apiV1.DriveStatusOnline:
 		event = eventing.DriveStatusOnline
 	case apiV1.DriveStatusOffline:
-		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
+		if apiV1.DriveUsage(drive.Spec.Usage) == apiV1.DriveUsageRemoved {
 			event = eventing.DriveSuccessfullyRemoved
 			statusMsgTemplate = "Drive successfully removed. " + statusMsgTemplate
 		} else {
@@ -1213,13 +1213,13 @@ func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
 }
 
 // addVolumeStatusAnnotation add annotation with volume status to drive
-func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeName, status string) {
+func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeName, status apiV1.VolumeUsage) {
 	annotationKey := fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volumeName)
 	// init map if empty
 	if drive.Annotations == nil {
 		drive.Annotations = make(map[string]string)
 	}
-	drive.Annotations[annotationKey] = status
+	drive.Annotations[annotationKey] = apiV1.MatchVolumeUsage(status)
 }
 
 // handleExpandingStatus handles volume CR with Resizing status, it calls ExpandLV to expand volume
@@ -1236,9 +1236,9 @@ func (m *VolumeManager) handleExpandingStatus(ctx context.Context, volume *volum
 		return ctrl.Result{Requeue: true}, err
 	}
 	if err = m.lvmOps.ExpandLV(volumePath, volume.Spec.Size); err != nil {
-		volume.Spec.CSIStatus = apiV1.Failed
+		volume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 	} else {
-		volume.Spec.CSIStatus = apiV1.Resized
+		volume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Resized)
 	}
 	if updateErr := m.k8sClient.UpdateCR(ctx, volume); updateErr != nil {
 		ll.Error("Unable to set new status for volume")
@@ -1296,18 +1296,19 @@ func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
 
 // overrideDriveHealth replaces drive health with passed value,
 // generates error message if value is not valid
-func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, driveCRName string) {
-	overriddenHealth = strings.ToUpper(overriddenHealth)
+func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealthStr, driveCRName string) {
+	overriddenHealthStr = strings.ToUpper(overriddenHealthStr)
+	overriddenHealth := apiV1.HealthStatus(overriddenHealthStr)
 	if (overriddenHealth == apiV1.HealthGood) ||
 		(overriddenHealth == apiV1.HealthSuspect) ||
 		(overriddenHealth == apiV1.HealthBad) ||
 		(overriddenHealth == apiV1.HealthUnknown) {
 		m.log.Warnf("Drive %s has health annotation. Health %s has been overridden with %s.",
 			driveCRName, drive.Health, overriddenHealth)
-		drive.Health = overriddenHealth
+		drive.Health = overriddenHealthStr
 	} else {
 		m.log.Errorf("Drive %s has health annotation, but value %s is not %s/%s/%s/%s. Health is not overridden.",
-			driveCRName, overriddenHealth, apiV1.HealthGood, apiV1.HealthSuspect, apiV1.HealthBad, apiV1.HealthUnknown)
+			driveCRName, overriddenHealth, apiV1.HealthGood, apiV1.HealthSuspect, apiV1.HealthBad, apiV1.MatchHealthStatus(apiV1.HealthUnknown))
 	}
 }
 
@@ -1350,7 +1351,7 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 
 	isModeAcceptable := false
 	for _, mode := range m.wbtConfig.VolumeOptions.Modes {
-		if mode == vol.Spec.Mode {
+		if mode == apiV1.VolumeMode(vol.Spec.Mode) {
 			isModeAcceptable = true
 			break
 		}
@@ -1366,7 +1367,7 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 		m.log.Errorf("Failed to get Persistent Volume %s: %v", volumeID, err)
 		return false
 	}
-	volSC := pv.Spec.StorageClassName
+	volSC := apiV1.StorageClass(pv.Spec.StorageClassName)
 
 	isSCAcceptable := false
 	for _, sc := range m.wbtConfig.VolumeOptions.StorageClasses {
@@ -1393,7 +1394,7 @@ func (m *VolumeManager) findDeviceName(vol *volumecrd.Volume) (string, error) {
 	}
 
 	// expected device path - /dev/<device>
-	splitedPath := regexp.MustCompile(`[A-Za-z0-9]+`).FindAllString(drive.Spec.Path, -1)
+	splitedPath := regexp.MustCompile(`[A-Za-z\d]+`).FindAllString(drive.Spec.Path, -1)
 	if len(splitedPath) != 2 {
 		return "", fmt.Errorf("drive path %s is not parsable as /dev/<device>", drive.Spec.Path)
 	}

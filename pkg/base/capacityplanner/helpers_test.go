@@ -69,7 +69,7 @@ func TestReservationHelper_CreateReservation(t *testing.T) {
 	}
 	assert.Len(t, acrList.Items, 1)
 	assert.Len(t, acrList.Items[0].Spec.ReservationRequests[0].Reservations, 2)
-	assert.Equal(t, acrList.Items[0].Spec.Status, apiV1.ReservationConfirmed)
+	assert.Equal(t, apiV1.ReservationStatus(acrList.Items[0].Spec.Status), apiV1.ReservationConfirmed)
 }
 
 func TestReservationHelper_ReleaseReservation(t *testing.T) {

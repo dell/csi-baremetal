@@ -297,7 +297,7 @@ func TestLoopBackManager_GetDrivesList(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, defaultNumberOfDevices, len(drives))
-	assert.Equal(t, apiV1.DriveStatusOffline, drives[indexOfDriveToOffline].Status)
+	assert.Equal(t, apiV1.DriveStatusOffline, apiV1.DriveStatus(drives[indexOfDriveToOffline].Status))
 }
 
 func TestLoopBackManager_attemptToRecoverDevicesFromConfig(t *testing.T) {

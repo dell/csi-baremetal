@@ -19,6 +19,7 @@ package scenarios
 import (
 	"context"
 	"fmt"
+	v1 "github.com/dell/csi-baremetal/api/v1"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -89,9 +90,9 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		pvcs = make([]*corev1.PersistentVolumeClaim, 0)
 
 		if scType == "SSD" {
-			driverType = driveTypeSSD
+			driverType = v1.MatchDriveType(driveTypeSSD)
 		} else {
-			driverType = driveTypeHDD
+			driverType = v1.MatchDriveType(driveTypeHDD)
 		}
 
 		nodes, err := e2enode.GetReadySchedulableNodes(f.ClientSet)

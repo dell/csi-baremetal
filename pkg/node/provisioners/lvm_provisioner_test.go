@@ -93,7 +93,7 @@ func TestLVMProvisioner_PrepareVolume_Fail(t *testing.T) {
 	// getVGName failed
 	vol := testVolume1
 	// in that case vgName will be searching in CRs and here we get error
-	vol.StorageClass = apiV1.StorageClassSystemLVG
+	vol.StorageClass = apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG)
 
 	err = lp.PrepareVolume(&vol)
 	assert.NotNil(t, err)
@@ -150,7 +150,7 @@ func TestLVMProvisioner_ReleaseVolume_Fail(t *testing.T) {
 	// getVGName failed
 	vol := testVolume1
 	// in that case vgName will be searching in CRs and here we get error
-	vol.StorageClass = apiV1.StorageClassSystemLVG
+	vol.StorageClass = apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG)
 
 	err = lp.PrepareVolume(&vol)
 	assert.NotNil(t, err)

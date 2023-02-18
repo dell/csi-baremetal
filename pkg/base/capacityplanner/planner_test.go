@@ -44,28 +44,28 @@ var (
 	testLargeSize       = testSmallSize * 2
 )
 
-func getTestVol(nodeID string, size int64, sc string) *genV1.Volume {
+func getTestVol(nodeID string, size int64, sc apiV1.StorageClass) *genV1.Volume {
 	return &genV1.Volume{
 		Id:           uuid.New().String(),
-		StorageClass: sc,
+		StorageClass: apiV1.MatchStorageClass(sc),
 		Size:         size,
 		NodeId:       nodeID,
 	}
 }
 
-func getTestAC(nodeID string, size int64, sc string) *accrd.AvailableCapacity {
+func getTestAC(nodeID string, size int64, sc apiV1.StorageClass) *accrd.AvailableCapacity {
 	return &accrd.AvailableCapacity{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS},
 		Spec: genV1.AvailableCapacity{
 			Size:         size,
-			StorageClass: sc,
+			StorageClass: apiV1.MatchStorageClass(sc),
 			NodeId:       nodeID,
 		},
 	}
 }
 
-func getTestACR(size int64, sc string,
+func getTestACR(size int64, sc apiV1.StorageClass,
 	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
 	acNames := make([]string, len(acList))
 	for i, ac := range acList {
@@ -76,10 +76,10 @@ func getTestACR(size int64, sc string,
 		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS,
 			CreationTimestamp: k8smetav1.NewTime(time.Now())},
 		Spec: genV1.AvailableCapacityReservation{
-			Status: apiV1.ReservationConfirmed,
+			Status: apiV1.MatchReservationStatus(apiV1.ReservationConfirmed),
 			ReservationRequests: []*genV1.ReservationRequest{
 				{CapacityRequest: &genV1.CapacityRequest{
-					StorageClass: sc,
+					StorageClass: apiV1.MatchStorageClass(sc),
 					Size:         size,
 				},
 					Reservations: acNames},

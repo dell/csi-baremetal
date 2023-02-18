@@ -54,7 +54,7 @@ var (
 
 	testAPIDrive4 = api.Drive{
 		UUID:     testDrive4UUID,
-		Type:     apiV1.DriveTypeHDD,
+		Type:     apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:     1024 * 1024,
 		IsSystem: false,
 		NodeId:   testNode2Name,
@@ -71,7 +71,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testDrive1UUID},
 		Spec: api.Drive{
 			UUID:     testDrive1UUID,
-			Type:     apiV1.DriveTypeHDD,
+			Type:     apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 			Size:     int64(util.GBYTE) * 42,
 			IsSystem: false,
 			NodeId:   testNode1Name,
@@ -86,7 +86,7 @@ var (
 		Spec: api.AvailableCapacity{
 			Location:     testDrive1UUID,
 			NodeId:       testNode1Name,
-			StorageClass: apiV1.StorageClassHDD,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 			Size:         int64(util.GBYTE) * 42,
 		},
 	}
@@ -97,7 +97,7 @@ var (
 		ObjectMeta: k8smetav1.ObjectMeta{Name: testAC4Name},
 		Spec: api.AvailableCapacity{
 			Size:         testLVG.Spec.Size,
-			StorageClass: apiV1.StorageClassHDDLVG,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG),
 			Location:     testLVGName,
 			NodeId:       testNode2Name,
 		},
@@ -113,7 +113,7 @@ var (
 			Node:      testNode2Name,
 			Locations: []string{testDrive4UUID},
 			Size:      int64(util.GBYTE) * 90,
-			Status:    apiV1.Creating,
+			Status:    apiV1.MatchCSIStatus(apiV1.Creating),
 		},
 	}
 
@@ -132,11 +132,11 @@ var (
 			StorageClass:      testAC1.Spec.StorageClass,
 			NodeId:            testAC1.Spec.NodeId,
 			Size:              testAC1.Spec.Size,
-			CSIStatus:         apiV1.Creating,
-			Health:            apiV1.HealthGood,
-			LocationType:      apiV1.LocationTypeDrive,
-			OperationalStatus: apiV1.OperationalStatusOperative,
-			Usage:             apiV1.VolumeUsageInUse,
+			CSIStatus:         apiV1.MatchCSIStatus(apiV1.Creating),
+			Health:            apiV1.MatchHealthStatus(apiV1.HealthGood),
+			LocationType:      apiV1.MatchLocationType(apiV1.LocationTypeDrive),
+			OperationalStatus: apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusOperative),
+			Usage:             apiV1.MatchVolumeUsage(apiV1.VolumeUsageInUse),
 		},
 	}
 
@@ -154,11 +154,11 @@ var (
 			StorageClass:      testAC4.Spec.StorageClass,
 			NodeId:            testAC4.Spec.NodeId,
 			Size:              testAC4.Spec.Size / 2,
-			CSIStatus:         apiV1.Creating,
-			Health:            apiV1.HealthGood,
-			LocationType:      apiV1.LocationTypeLVM,
-			OperationalStatus: apiV1.OperationalStatusOperative,
-			Usage:             apiV1.VolumeUsageInUse,
+			CSIStatus:         apiV1.MatchCSIStatus(apiV1.Creating),
+			Health:            apiV1.MatchHealthStatus(apiV1.HealthGood),
+			LocationType:      apiV1.MatchLocationType(apiV1.LocationTypeLVM),
+			OperationalStatus: apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusOperative),
+			Usage:             apiV1.MatchVolumeUsage(apiV1.VolumeUsageInUse),
 		},
 	}
 

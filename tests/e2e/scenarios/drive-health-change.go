@@ -119,7 +119,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		targetDriveSN, _, err := unstructured.NestedString(targetDrive.Object, "spec", "SerialNumber")
 		framework.ExpectNoError(err)
 
-		targetDriveNewHealth := apiV1.HealthBad
+		targetDriveNewHealth := apiV1.MatchHealthStatus(apiV1.HealthBad)
 		// Append bad-health drive to this config and update config on the cluster side
 		conf.Nodes = []common.LoopBackManagerConfigNode{{
 			NodeID: &nodeNameOfAC,
@@ -186,7 +186,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		targetDriveSN, _, err := unstructured.NestedString(targetDrive.Object, "spec", "SerialNumber")
 		framework.ExpectNoError(err)
 
-		targetDriveNewHealth := apiV1.HealthBad
+		targetDriveNewHealth := apiV1.MatchHealthStatus(apiV1.HealthBad)
 		// Append bad-health drive to this config and update config on the cluster side
 		conf.Nodes = []common.LoopBackManagerConfigNode{{
 			NodeID: &nodeNameOfVolume,
@@ -198,7 +198,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 
 		// wait for volume health change
 		waitForObjStateChange(f, common.VolumeGVR, volumeName, driveStateChangeTimeout,
-			apiV1.HealthBad, "spec", "Health")
+			apiV1.MatchHealthStatus(apiV1.HealthBad), "spec", "Health")
 
 		// check events for volume
 		eventsWaitTimeout := time.Second * 30
@@ -239,7 +239,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 
 		// switch driveUnderTest1 health to "BAD"
 		// switch driveUnderTest2 status to "OFFLINE"
-		badHealth := apiV1.HealthBad
+		badHealth := apiV1.MatchHealthStatus(apiV1.HealthBad)
 		driveRemoved := true
 		conf.Nodes = []common.LoopBackManagerConfigNode{{
 			NodeID: &targetNodeName,
@@ -253,22 +253,22 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		}}
 		applyLMConfig(f, conf)
 		waitForObjStateChange(f, common.DriveGVR, driveUnderTest1Name, driveStateChangeTimeout,
-			apiV1.HealthBad, "spec", "Health")
+			apiV1.MatchHealthStatus(apiV1.HealthBad), "spec", "Health")
 		waitForObjStateChange(f, common.DriveGVR, driveUnderTest2Name, driveStateChangeTimeout,
-			apiV1.DriveStatusOffline, "spec", "Status")
+			apiV1.MatchDriveStatus(apiV1.DriveStatusOffline), "spec", "Status")
 
 		// switch driveUnderTest1 health to "GOOD"
 		// switch driveUnderTest2 status to "ONLINE"
-		goodHealth := apiV1.HealthGood
+		goodHealth := apiV1.MatchHealthStatus(apiV1.HealthGood)
 		// driveUnderTest1
 		conf.Nodes[0].Drives[0].Health = &goodHealth
 		// driveUnderTest2
 		conf.Nodes[0].Drives[1].Removed = nil
 		applyLMConfig(f, conf)
 		waitForObjStateChange(f, common.DriveGVR, driveUnderTest1Name, driveStateChangeTimeout,
-			apiV1.HealthGood, "spec", "Health")
+			apiV1.MatchHealthStatus(apiV1.HealthGood), "spec", "Health")
 		waitForObjStateChange(f, common.DriveGVR, driveUnderTest2Name, driveStateChangeTimeout,
-			apiV1.DriveStatusOnline, "spec", "Status")
+			apiV1.MatchDriveStatus(apiV1.DriveStatusOnline), "spec", "Status")
 
 		// check events
 		eventsWaitTimeout := time.Second * 30

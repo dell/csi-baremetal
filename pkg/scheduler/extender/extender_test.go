@@ -66,7 +66,7 @@ var (
 
 	testCSIVolumeSrc = coreV1.CSIVolumeSource{
 		Driver:           testProvisioner,
-		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: testStorageType},
+		VolumeAttributes: map[string]string{base.SizeKey: testSizeStr, base.StorageTypeKey: v1.MatchStorageClass(testStorageType)},
 	}
 
 	testEphemeralVolumeSrc = coreV1.EphemeralVolumeSource{
@@ -107,7 +107,7 @@ var (
 			Namespace: testNs,
 		},
 		Provisioner: testProvisioner,
-		Parameters:  map[string]string{base.StorageTypeKey: testStorageType},
+		Parameters:  map[string]string{base.StorageTypeKey: v1.MatchStorageClass(testStorageType)},
 	}
 
 	testSC2 = storageV1.StorageClass{
@@ -280,7 +280,7 @@ func TestExtender_constructVolumeFromCSISource_Success(t *testing.T) {
 	assert.Nil(t, err)
 	request := &genV1.CapacityRequest{
 		Name:         "-",
-		StorageClass: util.ConvertStorageClass(testStorageType),
+		StorageClass: v1.MatchStorageClass(testStorageType),
 		Size:         expectedSize,
 		//Ephemeral:    true,
 	}
@@ -303,7 +303,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	)
 
 	// missing storage type
-	expected := &genV1.CapacityRequest{Name: "-", StorageClass: v1.StorageClassAny}
+	expected := &genV1.CapacityRequest{Name: "-", StorageClass: v1.MatchStorageClass(v1.StorageClassAny)}
 
 	vol := v.DeepCopy()
 	vol.VolumeSource.CSI.VolumeAttributes = map[string]string{}
@@ -317,7 +317,7 @@ func TestExtender_constructVolumeFromCSISource_Fail(t *testing.T) {
 	sizeStr := "12S12"
 	vol = v.DeepCopy()
 	vol.VolumeSource.CSI.VolumeAttributes[base.SizeKey] = sizeStr
-	expected = &genV1.CapacityRequest{Name: "-", StorageClass: util.ConvertStorageClass(testStorageType)}
+	expected = &genV1.CapacityRequest{Name: "-", StorageClass: v1.MatchStorageClass(testStorageType)}
 	curr, err = e.createCapacityRequest(testCtx, "", *vol)
 	assert.NotNil(t, curr)
 	assert.Equal(t, expected, curr)
@@ -354,7 +354,7 @@ func TestExtender_filterCases(t *testing.T) {
 	capacities := make([]*genV1.CapacityRequest, 1)
 
 	for _, tt := range []struct {
-		Status            string
+		Status            v1.ReservationStatus
 		ExpectedNodeNames []string
 		Err               error
 	}{
@@ -365,7 +365,7 @@ func TestExtender_filterCases(t *testing.T) {
 		reservation := *e.k8sClient.ConstructACRCR(
 			getReservationName(pod),
 			genV1.AvailableCapacityReservation{
-				Status:       tt.Status,
+				Status:       v1.MatchReservationStatus(tt.Status),
 				NodeRequests: &genV1.NodeRequests{Requested: []string{node1Name}},
 			},
 		)
@@ -405,19 +405,19 @@ func TestExtender_filterSuccess(t *testing.T) {
 	for _, ac := range []*accrd.AvailableCapacity{
 		// NODE-1 ACs, HDD[50Gb, 100Gb]
 		e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 50 * int64(util.GBYTE)}),
 		e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node1UID, StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 100 * int64(util.GBYTE)}),
 		// NODE-2 ACs, HDD[100Gb], SSD[50Gb]
 		e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 100 * int64(util.GBYTE)}),
 		e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node2UID, StorageClass: v1.MatchStorageClass(v1.StorageClassSSD), Size: 50 * int64(util.GBYTE)}),
 		// NODE-3 ACs, HDDLVG[150Gb], SSDLVG[100Gb]
 		e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 150 * int64(util.GBYTE)}),
 		e.k8sClient.ConstructACCR(uuid.New().String(),
-			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)}),
+			genV1.AvailableCapacity{NodeId: node3UID, StorageClass: v1.MatchStorageClass(v1.StorageClassSSDLVG), Size: 100 * int64(util.GBYTE)}),
 	} {
 		assert.Nil(t, e.k8sClient.Create(testCtx, ac))
 	}
@@ -434,27 +434,27 @@ func TestExtender_filterSuccess(t *testing.T) {
 				ObjectMeta: metaV1.ObjectMeta{Name: "mypod-hdd-1"},
 			},
 			CR: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 100 * int64(util.GBYTE)},
 			},
 			ACR: []*acrcrd.AvailableCapacityReservation{
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-hdd-1",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node1UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassHDD, Size: 50 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 50 * int64(util.GBYTE)}},
 						},
 					},
 				),
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-hdd-2",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node1UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassHDD, Size: 100 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 100 * int64(util.GBYTE)}},
 						},
 					},
 				),
@@ -467,16 +467,16 @@ func TestExtender_filterSuccess(t *testing.T) {
 				ObjectMeta: metaV1.ObjectMeta{Name: "mypod-ssd-1"},
 			},
 			CR: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassSSD), Size: 50 * int64(util.GBYTE)},
 			},
 			ACR: []*acrcrd.AvailableCapacityReservation{
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-ssd-1",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node2UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassSSD, Size: 50 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassSSD), Size: 50 * int64(util.GBYTE)}},
 						},
 					},
 				),
@@ -489,16 +489,16 @@ func TestExtender_filterSuccess(t *testing.T) {
 				ObjectMeta: metaV1.ObjectMeta{Name: "mypod-hdd-1"},
 			},
 			CR: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 80 * int64(util.GBYTE)},
 			},
 			ACR: []*acrcrd.AvailableCapacityReservation{
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-hdd-1",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node1UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassHDD, Size: 80 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassHDD), Size: 80 * int64(util.GBYTE)}},
 						},
 					},
 				),
@@ -514,38 +514,38 @@ func TestExtender_filterSuccess(t *testing.T) {
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-lvg-2",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node3UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 50 * int64(util.GBYTE)}},
 						},
 					},
 				),
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-lvg-3",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node3UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 50 * int64(util.GBYTE)}},
 						},
 					},
 				),
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-lvg-4",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node3UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 50 * int64(util.GBYTE)}},
 						},
 					},
 				),
 			},
 			CR: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassHDDLVG, Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 50 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 50 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node3Name},
 			Msg:               "Volumes: HDDLVG[50Gb, 50Gb, 50Gb]; Expected nodes: [NODE-3]",
@@ -558,27 +558,27 @@ func TestExtender_filterSuccess(t *testing.T) {
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-lvg-1",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node3UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 150 * int64(util.GBYTE)}},
 						},
 					},
 				),
 				e.k8sClient.ConstructACRCR(
 					"default-mypod-lvg-2",
 					genV1.AvailableCapacityReservation{
-						Status:       v1.ReservationConfirmed,
+						Status:       v1.MatchReservationStatus(v1.ReservationConfirmed),
 						NodeRequests: &genV1.NodeRequests{Reserved: []string{node3UID}},
 						ReservationRequests: []*genV1.ReservationRequest{
-							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)}},
+							{CapacityRequest: &genV1.CapacityRequest{StorageClass: v1.MatchStorageClass(v1.StorageClassSSDLVG), Size: 100 * int64(util.GBYTE)}},
 						},
 					},
 				),
 			},
 			CR: []*genV1.CapacityRequest{
-				{StorageClass: v1.StorageClassHDDLVG, Size: 150 * int64(util.GBYTE)},
-				{StorageClass: v1.StorageClassSSDLVG, Size: 100 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassHDDLVG), Size: 150 * int64(util.GBYTE)},
+				{StorageClass: v1.MatchStorageClass(v1.StorageClassSSDLVG), Size: 100 * int64(util.GBYTE)},
 			},
 			ExpectedNodeNames: []string{node3Name},
 			Msg:               "Volumes: HDDLVG[150Gb], SSDLVG[100Gb]; Expected nodes: [NODE-3]",
@@ -626,7 +626,7 @@ func TestExtender_getSCNameStorageType_Success(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(m.managedSCs))
 	assert.Equal(t, 1, len(m.unmanagedSCs))
-	assert.Equal(t, m.managedSCs[testSCName1], testStorageType)
+	assert.Equal(t, v1.StorageClass(m.managedSCs[testSCName1]), testStorageType)
 }
 
 func TestExtender_buildSCChecker_Fail(t *testing.T) {
@@ -639,13 +639,13 @@ func TestExtender_buildSCChecker_Fail(t *testing.T) {
 
 func TestExtender_scChecker_check(t *testing.T) {
 	ch := &scChecker{
-		managedSCs:   map[string]string{testSCName1: testStorageType},
+		managedSCs:   map[string]string{testSCName1: v1.MatchStorageClass(testStorageType)},
 		unmanagedSCs: map[string]bool{testSCName2: true},
 	}
 
 	storageType, scType := ch.check(testSCName1)
 	assert.Equal(t, scType, managedSC)
-	assert.Equal(t, storageType, testStorageType)
+	assert.Equal(t, v1.StorageClass(storageType), testStorageType)
 
 	_, scType = ch.check(testSCName2)
 	assert.Equal(t, scType, unmanagedSC)

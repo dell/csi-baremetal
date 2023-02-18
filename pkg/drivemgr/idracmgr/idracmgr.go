@@ -125,12 +125,12 @@ func (mgr *IDRACManager) GetDrivesList() ([]*api.Drive, error) {
 }
 
 // Locate implements Locate method of DriveManager interface
-func (mgr *IDRACManager) Locate(serialNumber string, action int32) (int32, error) {
+func (mgr *IDRACManager) Locate(string, int32) (int32, error) {
 	return -1, status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
 }
 
 // LocateNode implements LocateNode method of DriveManager interface
-func (mgr *IDRACManager) LocateNode(action int32) error {
+func (mgr *IDRACManager) LocateNode(int32) error {
 	// not implemented
 	return status.Error(codes.Unimplemented, "method Locate not implemented in IDRACManager")
 }
@@ -210,7 +210,7 @@ func (mgr *IDRACManager) getDrive(driveURL string) *api.Drive {
 		mgr.log.Errorf("Fail to convert to IDRACDrive struct, err: %v", err)
 		return nil
 	}
-	var diskType string
+	var diskType apiV1.DriveType
 	if drive.Protocol == "NVMe" {
 		diskType = apiV1.DriveTypeNVMe
 	} else {
@@ -220,10 +220,10 @@ func (mgr *IDRACManager) getDrive(driveURL string) *api.Drive {
 		VID:          drive.Manufacturer,
 		PID:          drive.Model,
 		SerialNumber: drive.SerialNumber,
-		Health:       convertDriveHealth(drive.Status["Health"]),
-		Type:         diskType,
+		Health:       apiV1.MatchHealthStatus(convertDriveHealth(drive.Status["Health"])),
+		Type:         apiV1.MatchDriveType(diskType),
 		Size:         drive.CapacityBytes,
-		Status:       apiV1.DriveStatusOnline,
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 	}
 	return apiDrive
 }
@@ -249,7 +249,7 @@ func (mgr *IDRACManager) doRequest(url string) (*http.Response, error) {
 // convertDriveHealth converts iDRAC drives's health string to apiV1 Health string
 // Receives iDRAC drives's health string
 // Returns string variable (GOOD, BAD, UNKNOWN)
-func convertDriveHealth(health string) string {
+func convertDriveHealth(health string) apiV1.HealthStatus {
 	switch health {
 	case "OK":
 		return apiV1.HealthGood
@@ -266,7 +266,7 @@ func convertDriveHealth(health string) string {
 // convertMediaType converts iDRAC drive's media type to drive type string var
 // Receives iDRAC drive's media type
 // Returns string variable of drive type (HDD, SSD)
-func convertMediaType(mediaType string) string {
+func convertMediaType(mediaType string) apiV1.DriveType {
 	switch mediaType {
 	case "HDD":
 		return apiV1.DriveTypeHDD

@@ -63,8 +63,8 @@ func TestLoopBackManager_GetNVMDevicesSuccess(t *testing.T) {
 	assert.Equal(t, "testModel", devices[0].PID)
 	assert.Equal(t, "testSN", devices[0].SerialNumber)
 	assert.Equal(t, int64(1000), devices[0].Size)
-	assert.Equal(t, apiV1.HealthGood, devices[0].Health)
-	assert.Equal(t, apiV1.DriveTypeNVMe, devices[0].Type)
+	assert.Equal(t, apiV1.HealthGood, apiV1.HealthStatus(devices[0].Health))
+	assert.Equal(t, apiV1.DriveTypeNVMe, apiV1.DriveType(devices[0].Type))
 	assert.Equal(t, "2311", devices[0].VID)
 }
 
@@ -151,16 +151,16 @@ func TestLoopBackManager_GetSCSIDevices(t *testing.T) {
 	assert.Equal(t, "testModel", devices[0].PID)
 	assert.Equal(t, "testSN", devices[0].SerialNumber)
 	assert.Equal(t, int64(1000), devices[0].Size)
-	assert.Equal(t, apiV1.HealthGood, devices[0].Health)
-	assert.Equal(t, apiV1.DriveTypeSSD, devices[0].Type)
+	assert.Equal(t, apiV1.HealthGood, apiV1.HealthStatus(devices[0].Health))
+	assert.Equal(t, apiV1.DriveTypeSSD, apiV1.DriveType(devices[0].Type))
 
 	smart.SmartStatus["passed"] = false
 	smart.Rotation = 7200
 	devices, err = manager.GetSCSIDevices()
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(devices))
-	assert.Equal(t, apiV1.HealthBad, devices[0].Health)
-	assert.Equal(t, apiV1.DriveTypeHDD, devices[0].Type)
+	assert.Equal(t, apiV1.HealthBad, apiV1.HealthStatus(devices[0].Health))
+	assert.Equal(t, apiV1.DriveTypeHDD, apiV1.DriveType(devices[0].Type))
 }
 
 func TestLoopBackManager_GetSCSIDevicesEmptyVidPidSn(t *testing.T) {

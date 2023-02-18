@@ -161,7 +161,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			vol1 := &vcrd.Volume{}
 			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 			Expect(err).To(BeNil())
-			vol1.Spec.CSIStatus = apiV1.Failed
+			vol1.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
@@ -217,12 +217,12 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.VolumeReady))
 		})
 		It("Should stage, volume CR with VolumeReady status", func() {
 			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
 			vol1 := testVolumeCR1.DeepCopy()
-			vol1.Spec.CSIStatus = apiV1.VolumeReady
+			vol1.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.VolumeReady)
 			err := node.k8sClient.UpdateCR(testCtx, vol1)
 
 			partitionPath := "/partition/path/for/volume1"
@@ -305,7 +305,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 		It("Should fail with Mount error, volume CR has VolumeReady status", func() {
 			req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
 			vol1 := testVolumeCR1.DeepCopy()
-			vol1.Spec.CSIStatus = apiV1.VolumeReady
+			vol1.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.VolumeReady)
 			err := node.k8sClient.UpdateCR(testCtx, vol1)
 
 			partitionPath := "/partition/path/for/volume1"
@@ -324,7 +324,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			req := getNodeStageRequest(testVolume2.Id, *testVolumeCap)
 			volumeCR := &vcrd.Volume{}
 			_ = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
-			volumeCR.Spec.CSIStatus = apiV1.Created
+			volumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 			err := node.k8sClient.UpdateCR(testCtx, volumeCR)
 
 			prov.On("GetVolumePath", &testVolume2).Return("", baseerr.ErrorGetDriveFailed)
@@ -335,7 +335,7 @@ var _ = Describe("CSINodeService NodeStage()", func() {
 			// check volume CR status
 			err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.Created))
 		})
 	})
 })
@@ -357,7 +357,7 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.VolumeReady))
 			Expect(volumeCR.Spec.Owners).To(BeNil())
 		})
 		//It("Should unpublish volume and don't change volume CR status", func() {
@@ -449,7 +449,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.Created))
 		})
 	})
 
@@ -505,7 +505,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Failed))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.Failed))
 		})
 
 		It("Should failed, because Volume has failed status", func() {
@@ -513,7 +513,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			vol1 := &vcrd.Volume{}
 			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 			Expect(err).To(BeNil())
-			vol1.Spec.CSIStatus = apiV1.Failed
+			vol1.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Failed)
 			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
@@ -556,7 +556,7 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.Created))
 		})
 	})
 })
@@ -641,7 +641,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		vol1 := &vcrd.Volume{}
 		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 		Expect(err).To(BeNil())
-		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
@@ -675,7 +675,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 
 		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
 		Expect(err).To(BeNil())
-		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		Expect(apiV1.CSIStatus(vol1.Spec.CSIStatus)).To(Equal(apiV1.VolumeReady))
 		Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
 	})
 	It("Should publish unhealthy volume with fake-attach annotation", func() {
@@ -708,7 +708,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		vol1 := &vcrd.Volume{}
 		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 		Expect(err).To(BeNil())
-		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Created)
 		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
@@ -742,7 +742,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 
 		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
 		Expect(err).To(BeNil())
-		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		Expect(apiV1.CSIStatus(vol1.Spec.CSIStatus)).To(Equal(apiV1.VolumeReady))
 		_, ok := vol1.Annotations[fakeAttachVolumeAnnotation]
 		Expect(ok).To(Equal(false))
 	})
@@ -763,7 +763,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		volumeCR := &vcrd.Volume{}
 		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 		Expect(err).To(BeNil())
-		Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+		Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.Created))
 		_, ok := volumeCR.Annotations[fakeAttachVolumeAnnotation]
 		Expect(ok).To(Equal(true))
 	})
@@ -784,13 +784,13 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 				Return(nil)
 
 			var (
-				volumeMode = ""
-				volumeSC   = "csi-baremetal-sc-hdd"
+				volumeMode = apiV1.ModeEmpty
+				volumeSC   = apiV1.StorageClassHDD
 				wbtConf    = &wbtcommon.WbtConfig{
 					Enable: true,
 					VolumeOptions: wbtcommon.VolumeOptions{
-						Modes:          []string{volumeMode},
-						StorageClasses: []string{volumeSC},
+						Modes:          []apiV1.VolumeMode{volumeMode},
+						StorageClasses: []apiV1.StorageClass{volumeSC},
 					},
 				}
 				wbtValue uint32 = 0
@@ -801,7 +801,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 
 			pv := &corev1.PersistentVolume{}
 			pv.Name = testVolume2.Id
-			pv.Spec.StorageClassName = volumeSC
+			pv.Spec.StorageClassName = apiV1.MatchStorageClass(volumeSC)
 			err := node.k8sClient.Create(testCtx, pv)
 			Expect(err).To(BeNil())
 
@@ -812,14 +812,14 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testVolume2.Id, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.VolumeReady))
 			Expect(volumeCR.Annotations[wbtChangedVolumeAnnotation]).To(Equal(wbtChangedVolumeKey))
 		})
 		It("success for PUBLISHED volume", func() {
 			volume := &vcrd.Volume{}
 			err := node.k8sClient.Get(testCtx, client.ObjectKey{Name: testVolumeCR2.Name, Namespace: testVolumeCR2.Namespace}, volume)
 			Expect(err).To(BeNil())
-			volume.Spec.CSIStatus = apiV1.Published
+			volume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Published)
 			err = node.k8sClient.UpdateCR(testCtx, volume)
 			Expect(err).To(BeNil())
 
@@ -831,13 +831,13 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 				Return(nil)
 
 			var (
-				volumeMode = ""
-				volumeSC   = "csi-baremetal-sc-hdd"
+				volumeMode = apiV1.ModeEmpty
+				volumeSC   = apiV1.StorageClassAny
 				wbtConf    = &wbtcommon.WbtConfig{
 					Enable: true,
 					VolumeOptions: wbtcommon.VolumeOptions{
-						Modes:          []string{volumeMode},
-						StorageClasses: []string{volumeSC},
+						Modes:          []apiV1.VolumeMode{volumeMode},
+						StorageClasses: []apiV1.StorageClass{volumeSC},
 					},
 				}
 				wbtValue uint32 = 0
@@ -848,7 +848,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 
 			pv := &corev1.PersistentVolume{}
 			pv.Name = testVolume2.Id
-			pv.Spec.StorageClassName = volumeSC
+			pv.Spec.StorageClassName = apiV1.MatchStorageClass(volumeSC)
 			err = node.k8sClient.Create(testCtx, pv)
 			Expect(err).To(BeNil())
 
@@ -859,7 +859,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.Get(testCtx, client.ObjectKey{Name: testVolumeCR2.Name, Namespace: testVolumeCR2.Namespace}, volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.VolumeReady))
 			Expect(volumeCR.Annotations[wbtChangedVolumeAnnotation]).To(Equal(wbtChangedVolumeKey))
 		})
 		It("failed", func() {
@@ -872,13 +872,13 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 				Return(nil)
 
 			var (
-				volumeMode = ""
-				volumeSC   = "csi-baremetal-sc-hdd"
+				volumeMode = apiV1.ModeEmpty
+				volumeSC   = apiV1.StorageClassHDD
 				wbtConf    = &wbtcommon.WbtConfig{
 					Enable: true,
 					VolumeOptions: wbtcommon.VolumeOptions{
-						Modes:          []string{volumeMode},
-						StorageClasses: []string{volumeSC},
+						Modes:          []apiV1.VolumeMode{volumeMode},
+						StorageClasses: []apiV1.StorageClass{volumeSC},
 					},
 				}
 				wbtValue uint32 = 0
@@ -890,7 +890,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 
 			pv := &corev1.PersistentVolume{}
 			pv.Name = testVolume2.Id
-			pv.Spec.StorageClassName = volumeSC
+			pv.Spec.StorageClassName = apiV1.MatchStorageClass(volumeSC)
 			err := node.k8sClient.Create(testCtx, pv)
 			Expect(err).To(BeNil())
 
@@ -901,7 +901,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testVolume2.Id, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.VolumeReady))
 			_, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]
 			Expect(ok).To(BeFalse())
 		})
@@ -933,7 +933,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.Created))
 			_, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]
 			Expect(ok).To(Equal(false))
 		})
@@ -963,7 +963,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+			Expect(apiV1.CSIStatus(volumeCR.Spec.CSIStatus)).To(Equal(apiV1.Created))
 			_, ok := volumeCR.Annotations[wbtChangedVolumeAnnotation]
 			Expect(ok).To(Equal(false))
 		})

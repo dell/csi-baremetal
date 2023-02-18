@@ -103,7 +103,7 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 		name   = lvg.GetName()
 	)
 	// If LVG status is failed or Health is not good, try to reset its AC size to 0
-	if status == apiV1.Failed || health != apiV1.HealthGood {
+	if apiV1.CSIStatus(status) == apiV1.Failed || apiV1.HealthStatus(health) != apiV1.HealthGood {
 		return ctrl.Result{}, d.resetACSizeOfLVG(name)
 	}
 	// If LVG is already presented on a machine but doesn't have AC, try to create its AC using annotation with
@@ -122,14 +122,14 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 // reconcileDrive preforms logic for drive reconciliation
 func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	var (
-		health = drive.Spec.GetHealth()
+		health = apiV1.HealthStatus(drive.Spec.GetHealth())
 		status = drive.Spec.GetStatus()
 		usage  = drive.Spec.GetUsage()
 	)
 	switch {
 	case (health != apiV1.HealthGood && health != apiV1.HealthUnknown) ||
-		status != apiV1.DriveStatusOnline ||
-		usage != apiV1.DriveUsageInUse:
+		apiV1.DriveStatus(status) != apiV1.DriveStatusOnline ||
+		apiV1.DriveUsage(usage) != apiV1.DriveUsageInUse:
 		return d.handleInaccessibleDrive(ctx, drive.Spec)
 	default:
 		return d.createOrUpdateCapacity(ctx, drive.Spec)
@@ -240,7 +240,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 				capacity := &api.AvailableCapacity{
 					Size:         size,
 					Location:     lvg.Name,
-					StorageClass: apiV1.StorageClassSystemLVG,
+					StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG),
 					NodeId:       lvg.Spec.Node,
 				}
 				ac = d.client.ConstructACCR(name, *capacity)
@@ -251,7 +251,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 				ll.Infof("Replacing AC %s location from drive %s with lvg %s", ac.Name, ac.Spec.Location, location)
 				ac.Spec.Size = size
 				ac.Spec.Location = location
-				ac.Spec.StorageClass = apiV1.StorageClassSystemLVG
+				ac.Spec.StorageClass = apiV1.MatchStorageClass(apiV1.StorageClassSystemLVG)
 				if err := d.client.UpdateCR(context.Background(), ac); err != nil {
 					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 				}
@@ -329,8 +329,8 @@ func filter(old api.Drive, new api.Drive) bool {
 func filterLVG(old *lvgcrd.LogicalVolumeGroup, new *lvgcrd.LogicalVolumeGroup) bool {
 	// controller perform reconcile for lvg, which have different statuses, health or annotation field.
 	// Another LVGs are skipped
-	return (new.Spec.GetHealth() != apiV1.HealthGood && old.Spec.GetHealth() != new.Spec.GetHealth()) ||
-		(new.Spec.GetStatus() == apiV1.Failed && old.Spec.GetStatus() != new.Spec.GetStatus()) ||
+	return (apiV1.HealthStatus(new.Spec.GetHealth()) != apiV1.HealthGood && old.Spec.GetHealth() != new.Spec.GetHealth()) ||
+		(apiV1.CSIStatus(new.Spec.GetStatus()) == apiV1.Failed && old.Spec.GetStatus() != new.Spec.GetStatus()) ||
 		checkLVGAnnotation(old.Annotations, new.Annotations)
 }
 

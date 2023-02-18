@@ -60,10 +60,10 @@ var (
 		VID:          "vid-drive1",
 		PID:          "pid-drive1",
 		SerialNumber: "hdd1", // depend on commands.LsblkTwoDevicesStr - /dev/sda
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         int64(1000 * util.GBYTE),
-		Status:       apiV1.DriveStatusOnline,
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 		NodeId:       node1ID,
 	}
 
@@ -72,10 +72,10 @@ var (
 		VID:          "vid-drive2",
 		PID:          "pid-drive2",
 		SerialNumber: "hdd2", // depend on commands.LsblkTwoDevicesStr - /dev/sdb
-		Health:       apiV1.HealthGood,
-		Type:         apiV1.DriveTypeHDD,
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 		Size:         int64(333 * util.GBYTE),
-		Status:       apiV1.DriveStatusOnline,
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
 		NodeId:       node1ID,
 	}
 
@@ -114,7 +114,7 @@ var (
 			Node:      node1ID,
 			Locations: []string{apiDrive1.UUID, apiDrive2.UUID},
 			Size:      int64(1024 * 500 * util.GBYTE),
-			Status:    apiV1.Creating,
+			Status:    apiV1.MatchCSIStatus(apiV1.Creating),
 		},
 	}
 
@@ -130,7 +130,7 @@ var (
 		Spec: api.AvailableCapacity{
 			Location:     lvg1Name,
 			NodeId:       node1ID,
-			StorageClass: apiV1.StorageClassHDDLVG,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG),
 			Size:         int64(1024 * 300 * util.GBYTE),
 		},
 	}
@@ -138,8 +138,8 @@ var (
 		Id:           "volume",
 		NodeId:       node1ID,
 		Location:     lvgCR1.Name,
-		StorageClass: apiV1.StorageClassHDD,
-		CSIStatus:    apiV1.VolumeReady,
+		StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
+		CSIStatus:    apiV1.MatchCSIStatus(apiV1.VolumeReady),
 	}
 
 	testVolumeCR1 = vccrd.Volume{
@@ -190,7 +190,7 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 	err = c.k8sClient.ReadCR(tCtx, req.Name, "", lvg)
-	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
+	assert.Equal(t, apiV1.Created, apiV1.CSIStatus(lvg.Spec.Status))
 
 	// reconciled second time
 	res, err = c.Reconcile(tCtx, req)
@@ -204,8 +204,8 @@ func TestReconcile_SuccessCreatingLVG(t *testing.T) {
 
 func TestReconcile_LVGHealthBad(t *testing.T) {
 	var fLVG = lvgCR1.DeepCopy()
-	fLVG.Spec.Status = apiV1.Created
-	fLVG.Spec.Health = apiV1.HealthBad
+	fLVG.Spec.Status = apiV1.MatchCSIStatus(apiV1.Created)
+	fLVG.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 	fLVG.Finalizers = []string{lvgFinalizer}
 	c := setup(t, node1ID, fLVG)
 
@@ -319,7 +319,7 @@ func TestReconcile_FailedNoPVs(t *testing.T) {
 
 	lvgCR := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, "", lvgCR)
-	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
+	assert.Equal(t, apiV1.Failed, apiV1.CSIStatus(lvgCR.Spec.Status))
 }
 
 func TestReconcile_FailedVGCreate(t *testing.T) {
@@ -347,7 +347,7 @@ func TestReconcile_FailedVGCreate(t *testing.T) {
 
 	lvgCR := &lvgcrd.LogicalVolumeGroup{}
 	err = c.k8sClient.ReadCR(tCtx, lvgCR1.Name, "", lvgCR)
-	assert.Equal(t, apiV1.Failed, lvgCR.Spec.Status)
+	assert.Equal(t, apiV1.Failed, apiV1.CSIStatus(lvgCR.Spec.Status))
 }
 
 func Test_removeLVGArtifacts_Success(t *testing.T) {

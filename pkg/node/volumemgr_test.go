@@ -71,9 +71,9 @@ var (
 		SerialNumber: "hdd1-serial",
 		Size:         1024 * 1024 * 1024 * 500,
 		NodeId:       nodeID,
-		Type:         apiV1.DriveTypeHDD,
-		Status:       apiV1.DriveStatusOnline,
-		Health:       apiV1.HealthGood,
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
 		Path:         "/dev/sda",
 		IsSystem:     true,
 	} // /dev/sda in LsblkTwoDevices
@@ -83,9 +83,9 @@ var (
 		SerialNumber: "hdd2-serial",
 		Size:         1024 * 1024 * 1024 * 200,
 		NodeId:       nodeID,
-		Type:         apiV1.DriveTypeHDD,
-		Status:       apiV1.DriveStatusOnline,
-		Health:       apiV1.HealthGood,
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
 		Path:         "/dev/sdb",
 		IsSystem:     true,
 	} // /dev/sdb in LsblkTwoDevices
@@ -142,12 +142,12 @@ var (
 		Spec: api.Volume{
 			Id:           testID,
 			Size:         1024 * 1024 * 1024 * 150,
-			StorageClass: apiV1.StorageClassHDD,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 			// TODO location cannot be empty - need to add check
 			Location:  drive1UUID,
-			CSIStatus: apiV1.Creating,
+			CSIStatus: apiV1.MatchCSIStatus(apiV1.Creating),
 			NodeId:    nodeID,
-			Mode:      apiV1.ModeFS,
+			Mode:      apiV1.MatchVolumeMode(apiV1.ModeFS),
 			Type:      string(fs.XFS),
 		},
 	}
@@ -165,7 +165,7 @@ var (
 			Node:       nodeID,
 			Locations:  []string{drive1.UUID},
 			Size:       int64(1024 * 500 * util.GBYTE),
-			Status:     apiV1.Created,
+			Status:     apiV1.MatchCSIStatus(apiV1.Created),
 			VolumeRefs: []string{},
 		},
 	}
@@ -180,11 +180,11 @@ var (
 		Spec: api.Volume{
 			Id:           volLVGName,
 			Size:         1024 * 1024 * 1024 * 150,
-			StorageClass: apiV1.StorageClassHDDLVG,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDDLVG),
 			Location:     testLVGCR.Name,
-			CSIStatus:    apiV1.Creating,
+			CSIStatus:    apiV1.MatchCSIStatus(apiV1.Creating),
 			NodeId:       nodeID,
-			Mode:         apiV1.ModeFS,
+			Mode:         apiV1.MatchVolumeMode(apiV1.ModeFS),
 			Type:         string(fs.XFS),
 		},
 	}
@@ -194,7 +194,7 @@ var (
 		ObjectMeta: v1.ObjectMeta{Name: driveUUID, Namespace: testNs},
 		Spec: api.AvailableCapacity{
 			Size:         drive1.Size,
-			StorageClass: apiV1.StorageClassHDD,
+			StorageClass: apiV1.MatchStorageClass(apiV1.StorageClassHDD),
 			Location:     "drive-uuid",
 			NodeId:       drive1.NodeId},
 	}
@@ -206,9 +206,9 @@ func getTestDrive(id, sn string) *api.Drive {
 		SerialNumber: sn,
 		Size:         1024 * 1024 * 1024 * 500,
 		NodeId:       nodeID,
-		Type:         apiV1.DriveTypeHDD,
-		Status:       apiV1.DriveStatusOnline,
-		Health:       apiV1.HealthGood,
+		Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
+		Status:       apiV1.MatchDriveStatus(apiV1.DriveStatusOnline),
+		Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
 	}
 }
 
@@ -234,7 +234,7 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 	assert.Nil(t, err)
 	vm := NewVolumeManager(nil, nil, testLogger, kubeClient, kubeClient, new(mocks.NoOpRecorder), nodeID, nodeName)
 	newVolume := volCR.DeepCopy()
-	newVolume.Spec.CSIStatus = apiV1.Creating
+	newVolume.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Creating)
 	err = vm.k8sClient.CreateCR(testCtx, newVolume.Name, newVolume)
 	assert.Nil(t, err)
 
@@ -260,7 +260,7 @@ func TestReconcile_MultipleRequest(t *testing.T) {
 	volume := &vcrd.Volume{}
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
-	assert.Equal(t, apiV1.Created, volume.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Created, apiV1.CSIStatus(volume.Spec.CSIStatus))
 }
 
 func TestReconcile_SuccessNotFound(t *testing.T) {
@@ -296,7 +296,7 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Created)
+	assert.Equal(t, apiV1.CSIStatus(volume.Spec.CSIStatus), apiV1.Created)
 
 	// failed to update
 	vm = prepareSuccessVolumeManager(t)
@@ -318,7 +318,7 @@ func TestVolumeManager_prepareVolume(t *testing.T) {
 	assert.Equal(t, res, ctrl.Result{})
 	err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 	assert.Nil(t, err)
-	assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+	assert.Equal(t, apiV1.CSIStatus(volume.Spec.CSIStatus), apiV1.Failed)
 }
 
 func TestVolumeManager_handleRemovingStatus(t *testing.T) {
@@ -332,7 +332,7 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		vm = prepareSuccessVolumeManager(t)
 		testVol := volCR.DeepCopy()
-		testVol.Spec.CSIStatus = apiV1.Removing
+		testVol.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removing)
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 		drive := testDriveCR.DeepCopy()
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, drive))
@@ -345,7 +345,7 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		volume := &vcrd.Volume{}
 		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 		assert.Nil(t, err)
-		assert.Equal(t, apiV1.Removed, volume.Spec.CSIStatus)
+		assert.Equal(t, apiV1.Removed, apiV1.CSIStatus(volume.Spec.CSIStatus))
 	})
 
 	t.Run("failed to update", func(t *testing.T) {
@@ -364,7 +364,7 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 	t.Run("failed to get drive", func(t *testing.T) {
 		vm = prepareSuccessVolumeManager(t)
 		testVol := volCR.DeepCopy()
-		testVol.Spec.CSIStatus = apiV1.Removing
+		testVol.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removing)
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 
 		res, err = vm.handleRemovingStatus(testCtx, testVol)
@@ -373,13 +373,13 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		volume := &vcrd.Volume{}
 		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 		assert.Nil(t, err)
-		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removing)
+		assert.Equal(t, apiV1.CSIStatus(volume.Spec.CSIStatus), apiV1.Removing)
 	})
 
 	t.Run("ReleaseVolume failed", func(t *testing.T) {
 		vm = prepareSuccessVolumeManager(t)
 		testVol := volCR.DeepCopy()
-		testVol.Spec.CSIStatus = apiV1.Removing
+		testVol.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removing)
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 		drive := testDriveCR.DeepCopy()
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, drive))
@@ -393,14 +393,14 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		volume := &vcrd.Volume{}
 		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 		assert.Nil(t, err)
-		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Failed)
+		assert.Equal(t, apiV1.CSIStatus(volume.Spec.CSIStatus), apiV1.Failed)
 	})
 
 	t.Run("Volume missing", func(t *testing.T) {
 		vm = prepareSuccessVolumeManager(t)
 		testVol := volCR.DeepCopy()
-		testVol.Spec.CSIStatus = apiV1.Removing
-		testVol.Spec.OperationalStatus = apiV1.OperationalStatusMissing
+		testVol.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removing)
+		testVol.Spec.OperationalStatus = apiV1.MatchVolumeOperationalStatus(apiV1.OperationalStatusMissing)
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 
 		res, err = vm.handleRemovingStatus(testCtx, testVol)
@@ -409,17 +409,17 @@ func TestVolumeManager_handleRemovingStatus(t *testing.T) {
 		volume := &vcrd.Volume{}
 		err = vm.k8sClient.ReadCR(testCtx, req.Name, testNs, volume)
 		assert.Nil(t, err)
-		assert.Equal(t, volume.Spec.CSIStatus, apiV1.Removed)
+		assert.Equal(t, apiV1.CSIStatus(volume.Spec.CSIStatus), apiV1.Removed)
 	})
 }
 
 func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
 	drive := drive1
 	drive.UUID = driveUUID
-	drive.Health = apiV1.HealthGood
+	drive.Health = apiV1.MatchHealthStatus(apiV1.HealthGood)
 	testVol := volCR.DeepCopy()
 	testVol.Spec.Location = drive.UUID
-	testVol.Spec.CSIStatus = apiV1.Removing
+	testVol.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Removing)
 
 	vm := prepareSuccessVolumeManagerWithDrives([]*api.Drive{&drive}, t)
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
@@ -436,15 +436,15 @@ func TestVolumeManager_handleRemovingStatus_DeleteVolume(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, res, ctrl.Result{})
-	assert.Equal(t, apiV1.DriveUsageFailed, driveCR.Spec.Usage)
+	assert.Equal(t, apiV1.DriveUsageFailed, apiV1.DriveUsage(driveCR.Spec.Usage))
 }
 
 func TestReconcile_SuccessDeleteVolume(t *testing.T) {
-	removeVolume(t, apiV1.Removed)
+	removeVolume(t, apiV1.MatchCSIStatus(apiV1.Removed))
 }
 
 func TestReconcile_DeleteFailedVolume(t *testing.T) {
-	removeVolume(t, apiV1.Failed)
+	removeVolume(t, apiV1.MatchCSIStatus(apiV1.Failed))
 }
 
 func removeVolume(t *testing.T, status string) {
@@ -511,12 +511,12 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 
 	vol = &vcrd.Volume{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
-	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Failed, apiV1.CSIStatus(vol.Spec.CSIStatus))
 
 	// LogicalVolumeGroup in creating state
 	vm = prepareSuccessVolumeManager(t)
 	testLVG = testLVGCR
-	testLVG.Spec.Status = apiV1.Creating
+	testLVG.Spec.Status = apiV1.MatchCSIStatus(apiV1.Creating)
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
 
 	res, err = vm.handleCreatingVolumeInLVG(testCtx, testVol)
@@ -527,7 +527,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	vm = prepareSuccessVolumeManager(t)
 	testVol = testVolumeLVGCR.DeepCopy()
 	testLVG = testLVGCR
-	testLVG.Spec.Status = apiV1.Failed
+	testLVG.Spec.Status = apiV1.MatchCSIStatus(apiV1.Failed)
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 
@@ -537,13 +537,13 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 
 	vol = &vcrd.Volume{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
-	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Failed, apiV1.CSIStatus(vol.Spec.CSIStatus))
 
 	// LogicalVolumeGroup in failed state and volume is failed to update
 	vm = prepareSuccessVolumeManager(t)
 	testVol = testVolumeLVGCR.DeepCopy()
 	testLVG = testLVGCR
-	testLVG.Spec.Status = apiV1.Failed
+	testLVG.Spec.Status = apiV1.MatchCSIStatus(apiV1.Failed)
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
 
 	res, err = vm.handleCreatingVolumeInLVG(testCtx, testVol)
@@ -558,7 +558,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	pMock.On("PrepareVolume", mock.Anything).Return(nil)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
 	testLVG = testLVGCR
-	testLVG.Spec.Status = apiV1.Created
+	testLVG.Spec.Status = apiV1.MatchCSIStatus(apiV1.Created)
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 
@@ -577,7 +577,7 @@ func TestVolumeManager_handleCreatingVolumeInLVG(t *testing.T) {
 	pMock.On("PrepareVolume", mock.Anything).Return(nil)
 	vm.SetProvisioners(map[p.VolumeType]p.Provisioner{p.LVMBasedVolumeType: pMock})
 	testLVG = testLVGCR
-	testLVG.Spec.Status = apiV1.Created
+	testLVG.Spec.Status = apiV1.MatchCSIStatus(apiV1.Created)
 	testLVG.Spec.VolumeRefs = []string{testVol.Spec.Id}
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testLVG.Name, &testLVG))
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
@@ -612,7 +612,7 @@ func TestReconcile_ReconcileDefaultStatus(t *testing.T) {
 
 	vm = prepareSuccessVolumeManager(t)
 	newVolumeCR := volCR.DeepCopy()
-	newVolumeCR.Spec.CSIStatus = apiV1.Published
+	newVolumeCR.Spec.CSIStatus = apiV1.MatchCSIStatus(apiV1.Published)
 	assert.Nil(t, vm.k8sClient.CreateCR(testCtx, newVolumeCR.Name, newVolumeCR))
 
 	res, err = vm.Reconcile(testCtx, req)
@@ -777,12 +777,12 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 		assert.Equal(t, len(driveCRs), 2)
 		assert.Len(t, updates.Created, 2)
 
-		driveMgrRespDrives[0].Health = apiV1.HealthBad
+		driveMgrRespDrives[0].Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 		updates, err = vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 		assert.Nil(t, err)
 		updatedDrive := &drivecrd.Drive{}
 		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, driveMgrRespDrives[0].UUID, "", updatedDrive))
-		assert.Equal(t, updatedDrive.Spec.Health, apiV1.HealthBad)
+		assert.Equal(t, apiV1.HealthStatus(updatedDrive.Spec.Health), apiV1.HealthBad)
 		assert.Len(t, updates.Updated, 1)
 		assert.Len(t, updates.NotChanged, 1)
 	})
@@ -804,8 +804,8 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 		assert.Nil(t, err)
 		updatedDrive := &drivecrd.Drive{}
 		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, driveCRs[1].Name, "", updatedDrive))
-		assert.Equal(t, updatedDrive.Spec.Health, apiV1.HealthUnknown)
-		assert.Equal(t, updatedDrive.Spec.Status, apiV1.DriveStatusOffline)
+		assert.Equal(t, apiV1.HealthStatus(updatedDrive.Spec.Health), apiV1.HealthUnknown)
+		assert.Equal(t, apiV1.DriveStatus(updatedDrive.Spec.Status), apiV1.DriveStatusOffline)
 		assert.Len(t, updates.Updated, 1)
 		assert.Len(t, updates.NotChanged, 1)
 	})
@@ -830,7 +830,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 		actualDrive := &drivecrd.Drive{}
 		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, drive.Name, "", actualDrive))
 		assert.Nil(t, err)
-		assert.Equal(t, actualDrive.Spec.Health, apiV1.HealthBad)
+		assert.Equal(t, apiV1.HealthStatus(actualDrive.Spec.Health), apiV1.HealthBad)
 	})
 
 	t.Run("new drive", func(t *testing.T) {
@@ -848,8 +848,8 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 		driveMgrRespDrives = []*api.Drive{&driveCRs[0].Spec, &driveCRs[1].Spec, {
 			UUID:         uuid.New().String(),
 			SerialNumber: "hdd3",
-			Health:       apiV1.HealthGood,
-			Type:         apiV1.DriveTypeHDD,
+			Health:       apiV1.MatchHealthStatus(apiV1.HealthGood),
+			Type:         apiV1.MatchDriveType(apiV1.DriveTypeHDD),
 			Size:         1024 * 1024 * 1024 * 150,
 			NodeId:       nodeID,
 		}}
@@ -898,7 +898,7 @@ func TestVolumeManager_updatesDrivesCRs_Override(t *testing.T) {
 	vm := NewVolumeManager(nil, nil, testLogger, client, client, new(mocks.NoOpRecorder), nodeID, nodeName)
 
 	testDriveCR1 := testDriveCR.DeepCopy()
-	testDriveCR1.Annotations = map[string]string{driveHealthOverrideAnnotation: apiV1.HealthSuspect}
+	testDriveCR1.Annotations = map[string]string{driveHealthOverrideAnnotation: apiV1.MatchHealthStatus(apiV1.HealthSuspect)}
 	err = client.CreateCR(testCtx, testDriveCR1.Name, testDriveCR1)
 	assert.Nil(t, err)
 
@@ -909,7 +909,7 @@ func TestVolumeManager_updatesDrivesCRs_Override(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(updates.Updated), 1)
 	assert.Equal(t, updates.Updated[0].PreviousState.Spec.Health, drive1.Health)
-	assert.Equal(t, updates.Updated[0].CurrentState.Spec.Health, apiV1.HealthSuspect)
+	assert.Equal(t, apiV1.HealthStatus(updates.Updated[0].CurrentState.Spec.Health), apiV1.HealthSuspect)
 }
 
 func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
@@ -921,7 +921,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 
 	drive := drive1
 	drive.UUID = driveUUID
-	drive.Health = apiV1.HealthBad
+	drive.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 	driveCR := &drivecrd.Drive{Spec: drive}
 
 	update := updatedDrive{
@@ -941,7 +941,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	rVolume := &vcrd.Volume{}
 	err = vm.k8sClient.ReadCR(testCtx, testID, vol.Namespace, rVolume)
 	assert.Nil(t, err)
-	assert.Equal(t, apiV1.HealthBad, rVolume.Spec.Health)
+	assert.Equal(t, apiV1.HealthBad, apiV1.HealthStatus(rVolume.Spec.Health))
 
 	lvg := testLVGCR
 	lvg.Spec.Locations = []string{driveUUID}
@@ -952,7 +952,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 	updatedLVG := &lvgcrd.LogicalVolumeGroup{}
 	err = vm.k8sClient.ReadCR(testCtx, testLVGName, "", updatedLVG)
 	assert.Nil(t, err)
-	assert.Equal(t, apiV1.HealthBad, updatedLVG.Spec.Health)
+	assert.Equal(t, apiV1.HealthBad, apiV1.HealthStatus(updatedLVG.Spec.Health))
 }
 
 func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
@@ -1035,7 +1035,7 @@ func Test_discoverLVGOnSystemDrive_LVGCreatedACNo(t *testing.T) {
 	lvg := lvgList.Items[0]
 	assert.Equal(t, 1, len(lvg.Spec.Locations))
 	assert.Equal(t, testDriveCR.Spec.UUID, lvg.Spec.Locations[0])
-	assert.Equal(t, apiV1.Created, lvg.Spec.Status)
+	assert.Equal(t, apiV1.Created, apiV1.CSIStatus(lvg.Spec.Status))
 	assert.Equal(t, 2, len(lvg.Spec.VolumeRefs))
 
 	// unable to read LVs in system vg
@@ -1150,8 +1150,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 	t.Run("Drive status and health changed", func(t *testing.T) {
 		init()
 		modifiedDrive := drive1CR.DeepCopy()
-		modifiedDrive.Spec.Status = apiV1.DriveStatusOffline
-		modifiedDrive.Spec.Health = apiV1.HealthUnknown
+		modifiedDrive.Spec.Status = apiV1.MatchDriveStatus(apiV1.DriveStatusOffline)
+		modifiedDrive.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthUnknown)
 
 		upd := &driveUpdates{
 			Updated: []updatedDrive{{
@@ -1167,7 +1167,7 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		init()
 		modifiedDrive := drive1CR.DeepCopy()
 		modifiedDrive.Annotations = map[string]string{"health": "bad"}
-		modifiedDrive.Spec.Health = apiV1.HealthBad
+		modifiedDrive.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
 
 		upd := &driveUpdates{
 			Updated: []updatedDrive{{
@@ -1185,8 +1185,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 		init()
 		modifiedDrive := drive1CR.DeepCopy()
 		modifiedDrive.Annotations = map[string]string{"health": "bad"}
-		modifiedDrive.Spec.Health = apiV1.HealthBad
-		modifiedDrive.Spec.Status = apiV1.DriveStatusOffline
+		modifiedDrive.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthBad)
+		modifiedDrive.Spec.Status = apiV1.MatchDriveStatus(apiV1.DriveStatusOffline)
 
 		upd := &driveUpdates{
 			Updated: []updatedDrive{{
@@ -1202,9 +1202,9 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 	t.Run("Drive removed", func(t *testing.T) {
 		init()
 		modifiedDrive := drive1CR.DeepCopy()
-		modifiedDrive.Spec.Usage = apiV1.DriveUsageRemoved
-		modifiedDrive.Spec.Status = apiV1.DriveStatusOffline
-		modifiedDrive.Spec.Health = apiV1.HealthUnknown
+		modifiedDrive.Spec.Usage = apiV1.MatchDriveUsage(apiV1.DriveUsageRemoved)
+		modifiedDrive.Spec.Status = apiV1.MatchDriveStatus(apiV1.DriveStatusOffline)
+		modifiedDrive.Spec.Health = apiV1.MatchHealthStatus(apiV1.HealthUnknown)
 
 		upd := &driveUpdates{
 			Updated: []updatedDrive{{
@@ -1219,8 +1219,8 @@ func TestVolumeManager_createEventsForDriveUpdates(t *testing.T) {
 
 func TestVolumeManager_isShouldBeReconciled(t *testing.T) {
 	var (
-		vm  *VolumeManager = prepareSuccessVolumeManager(t)
-		vol *vcrd.Volume   = testVolumeCR1.DeepCopy()
+		vm  = prepareSuccessVolumeManager(t)
+		vol = testVolumeCR1.DeepCopy()
 	)
 
 	vol.Spec.NodeId = vm.nodeID
@@ -1249,7 +1249,7 @@ func TestVolumeManager_isDriveIsInLVG(t *testing.T) {
 			Node:       nodeID,
 			Locations:  []string{drive1.UUID},
 			Size:       int64(1024 * 500 * util.GBYTE),
-			Status:     apiV1.Created,
+			Status:     apiV1.MatchCSIStatus(apiV1.Created),
 			VolumeRefs: []string{},
 		},
 	}
@@ -1294,7 +1294,7 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 
 	vol = &vcrd.Volume{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
-	assert.Equal(t, apiV1.Failed, vol.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Failed, apiV1.CSIStatus(vol.Spec.CSIStatus))
 
 	pMock.On("GetVolumePath", &vol.Spec).Return("path", nil)
 
@@ -1308,7 +1308,7 @@ func TestVolumeManager_handleExpandingStatus(t *testing.T) {
 
 	vol = &vcrd.Volume{}
 	assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testVol.Name, testVol.Namespace, vol))
-	assert.Equal(t, apiV1.Resized, vol.Spec.CSIStatus)
+	assert.Equal(t, apiV1.Resized, apiV1.CSIStatus(vol.Spec.CSIStatus))
 }
 
 func TestVolumeManager_discoverDataOnDrives(t *testing.T) {
@@ -1533,12 +1533,12 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		var (
 			testVol    = volCR.DeepCopy()
 			volumeMode = apiV1.ModeFS
-			volumeSC   = "csi-baremetal-sc-hdd"
+			volumeSC   = apiV1.StorageClassHDD
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:          []string{volumeMode},
-					StorageClasses: []string{volumeSC},
+					Modes:          []apiV1.VolumeMode{volumeMode},
+					StorageClasses: []apiV1.StorageClass{volumeSC},
 				},
 			}
 		)
@@ -1547,7 +1547,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 
 		pv := &corev1.PersistentVolume{}
 		pv.Name = testVol.Name
-		pv.Spec.StorageClassName = volumeSC
+		pv.Spec.StorageClassName = apiV1.MatchStorageClass(volumeSC)
 		err := vm.k8sClient.Create(testCtx, pv)
 		assert.Nil(t, err)
 
@@ -1568,12 +1568,12 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		var (
 			testVol    = volCR.DeepCopy()
 			volumeMode = apiV1.ModeFS
-			volumeSC   = "csi-baremetal-sc-hdd"
+			volumeSC   = apiV1.StorageClassHDD
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: false,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:          []string{volumeMode},
-					StorageClasses: []string{volumeSC},
+					Modes:          []apiV1.VolumeMode{volumeMode},
+					StorageClasses: []apiV1.StorageClass{volumeSC},
 				},
 			}
 		)
@@ -1587,12 +1587,12 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		var (
 			testVol   = volCR.DeepCopy()
 			wrongMode = apiV1.ModeRAW
-			volumeSC  = "csi-baremetal-sc-hdd"
+			volumeSC  = apiV1.StorageClassHDD
 			wbtConf   = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:          []string{wrongMode},
-					StorageClasses: []string{volumeSC},
+					Modes:          []apiV1.VolumeMode{wrongMode},
+					StorageClasses: []apiV1.StorageClass{volumeSC},
 				},
 			}
 		)
@@ -1606,13 +1606,13 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		var (
 			testVol    = volCR.DeepCopy()
 			volumeMode = apiV1.ModeFS
-			volumeSC   = "csi-baremetal-sc-hdd"
-			wrongSC    = "csi-baremetal-sc-hddlvg"
+			volumeSC   = apiV1.StorageClassHDD
+			wrongSC    = apiV1.StorageClassHDDLVG
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:          []string{volumeMode},
-					StorageClasses: []string{wrongSC},
+					Modes:          []apiV1.VolumeMode{volumeMode},
+					StorageClasses: []apiV1.StorageClass{wrongSC},
 				},
 			}
 		)
@@ -1621,7 +1621,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 
 		pv := &corev1.PersistentVolume{}
 		pv.Name = testVol.Name
-		pv.Spec.StorageClassName = volumeSC
+		pv.Spec.StorageClassName = apiV1.MatchStorageClass(volumeSC)
 		err := vm.k8sClient.Create(testCtx, pv)
 		assert.Nil(t, err)
 
@@ -1632,13 +1632,13 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		var (
 			testVol    = volCR.DeepCopy()
 			volumeMode = apiV1.ModeFS
-			volumeSC   = "csi-baremetal-sc-hdd"
-			wrongSC    = "csi-baremetal-sc-hddlvg"
+			volumeSC   = apiV1.StorageClassHDD
+			wrongSC    = apiV1.StorageClassHDDLVG
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:          []string{volumeMode},
-					StorageClasses: []string{wrongSC},
+					Modes:          []apiV1.VolumeMode{volumeMode},
+					StorageClasses: []apiV1.StorageClass{wrongSC},
 				},
 			}
 		)
@@ -1647,7 +1647,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 
 		pv := &corev1.PersistentVolume{}
 		pv.Name = "some_name"
-		pv.Spec.StorageClassName = volumeSC
+		pv.Spec.StorageClassName = apiV1.MatchStorageClass(volumeSC)
 		err := vm.k8sClient.Create(testCtx, pv)
 		assert.Nil(t, err)
 
@@ -1677,7 +1677,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		)
 		vm := prepareSuccessVolumeManager(t)
 
-		testVol.Spec.LocationType = apiV1.LocationTypeLVM
+		testVol.Spec.LocationType = apiV1.MatchLocationType(apiV1.LocationTypeLVM)
 
 		device, err := vm.findDeviceName(testVol)
 		assert.NotNil(t, err)
@@ -1736,8 +1736,8 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 			wbtConf    = &wbtcommon.WbtConfig{
 				Enable: true,
 				VolumeOptions: wbtcommon.VolumeOptions{
-					Modes:          []string{volumeMode},
-					StorageClasses: []string{volumeSC},
+					Modes:          []apiV1.VolumeMode{volumeMode},
+					StorageClasses: []apiV1.StorageClass{volumeSC},
 				},
 			}
 		)
@@ -1751,8 +1751,8 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 		changedWbtConf := &wbtcommon.WbtConfig{
 			Enable: true,
 			VolumeOptions: wbtcommon.VolumeOptions{
-				Modes:          []string{volumeMode},
-				StorageClasses: []string{volumeSC},
+				Modes:          []apiV1.VolumeMode{volumeMode},
+				StorageClasses: []apiV1.StorageClass{volumeSC},
 			},
 		}
 		vm.SetWbtConfig(changedWbtConf)

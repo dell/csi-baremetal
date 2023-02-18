@@ -110,7 +110,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// check for LogicalVolumeGroup state
-	if lvg.Spec.Status == apiV1.Creating {
+	if apiV1.CSIStatus(lvg.Spec.Status) == apiV1.Creating {
 		ll.Info("Creating LogicalVolumeGroup")
 		return c.handlerLVGCreation(lvg)
 	}
@@ -159,7 +159,7 @@ func (c *Controller) handlerLVGCreation(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Re
 		ll.Errorf("Unable to create system LogicalVolumeGroup: %v", err)
 		newStatus = apiV1.Failed
 	}
-	lvg.Spec.Status = newStatus
+	lvg.Spec.Status = apiV1.MatchCSIStatus(newStatus)
 	lvg.Spec.Locations = locations
 	if err := c.k8sClient.UpdateCR(context.Background(), lvg); err != nil {
 		ll.Errorf("Unable to update LogicalVolumeGroup status to %s, error: %v.", newStatus, err)
