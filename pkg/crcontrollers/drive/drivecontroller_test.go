@@ -3,6 +3,7 @@ package drive
 import (
 	"context"
 	"errors"
+	"log"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -33,19 +35,21 @@ var (
 	testID = "someID"
 	nodeID = "node-uuid"
 
-	testLogger = logrus.New()
-	testCtx    = context.Background()
-	driveUUID  = uuid.New().String()
-	driveUUID2 = uuid.New().String()
+	testLogger        = logrus.New()
+	testCtx           = context.Background()
+	driveUUID         = uuid.New().String()
+	driveUUID2        = uuid.New().String()
+	driveSerialNumber = "VDH19UBD"
 
 	drive1 = api.Drive{
-		UUID:     driveUUID,
-		Size:     1024 * 1024 * 1024 * 500,
-		NodeId:   nodeID,
-		Type:     apiV1.DriveTypeHDD,
-		Status:   apiV1.DriveStatusOnline,
-		Health:   apiV1.HealthBad,
-		IsSystem: true,
+		UUID:         driveUUID,
+		Size:         1024 * 1024 * 1024 * 500,
+		NodeId:       nodeID,
+		Type:         apiV1.DriveTypeHDD,
+		Status:       apiV1.DriveStatusOnline,
+		Health:       apiV1.HealthBad,
+		IsSystem:     true,
+		SerialNumber: driveSerialNumber,
 	}
 
 	testBadCRDrive = dcrd.Drive{
@@ -678,6 +682,38 @@ func TestDriveController_checkAndPlaceStatusRemoved(t *testing.T) {
 		assert.False(t, status)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
+}
+
+func TestDriveController_locateDriveLED(t *testing.T) {
+	kubeClient := setup()
+
+	// get event recorder
+	k8SClientset := fake.NewSimpleClientset()
+	eventInter := k8SClientset.CoreV1().Events(testNs)
+	// get the Scheme
+	scheme, err := k8s.PrepareScheme()
+	if err != nil {
+		log.Fatalf("fail to prepare kubernetes scheme, error: %s", err)
+		return
+	}
+
+	logr := logrus.New()
+
+	eventRecorder, err := events.New("baremetal-csi-node", "434aa7b1-8b8a-4ae8-92f9-1cc7e09a9030", eventInter, scheme, logr)
+	if err != nil {
+		log.Fatalf("fail to create events recorder, error: %s", err)
+		return
+	}
+	// Wait till all events are sent/handled
+	defer eventRecorder.Wait()
+
+	dc := NewController(kubeClient, nodeID, &mocks.MockDriveMgrClient{}, eventRecorder, testLogger)
+	assert.NotNil(t, dc)
+	assert.NotNil(t, dc.crHelper)
+
+	t.Run("Failed to locate drive LED", func(t *testing.T) {
+		dc.locateDriveLED(testCtx, dc.log, &testBadCRDrive)
 	})
 }
 
