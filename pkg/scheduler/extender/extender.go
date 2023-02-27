@@ -269,6 +269,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				requests = append(requests, createRequestFromPVCSpec(
 					generateEphemeralVolumeName(pod.GetName(), v.Name),
 					storageType,
+					v.Ephemeral.VolumeClaimTemplate.Labels["csi-baremetal-storage-group"],
 					claimSpec.Resources,
 					ll,
 				))
@@ -319,6 +320,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				requests = append(requests, createRequestFromPVCSpec(
 					pvc.Name,
 					storageType,
+					pvc.Labels["csi-baremetal-storage-group"],
 					pvc.Spec.Resources,
 					ll,
 				))
@@ -614,7 +616,7 @@ func generateEphemeralVolumeName(podName, volumeName string) string {
 	return podName + "-" + volumeName
 }
 
-func createRequestFromPVCSpec(volumeName, storageType string, resourceRequirements coreV1.ResourceRequirements, log *logrus.Entry) *genV1.CapacityRequest {
+func createRequestFromPVCSpec(volumeName, storageType, storageGroup string, resourceRequirements coreV1.ResourceRequirements, log *logrus.Entry) *genV1.CapacityRequest {
 	storageReq, ok := resourceRequirements.Requests[coreV1.ResourceStorage]
 	if !ok {
 		log.Errorf("There is no key for storage resource for PVC %s", volumeName)
@@ -624,6 +626,7 @@ func createRequestFromPVCSpec(volumeName, storageType string, resourceRequiremen
 		Name:         volumeName,
 		StorageClass: util.ConvertStorageClass(storageType),
 		Size:         storageReq.Value(),
+		StorageGroup: storageGroup,
 	}
 }
 
