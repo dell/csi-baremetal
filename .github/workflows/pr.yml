@@ -106,6 +106,7 @@ jobs:
       run: |
         make install-controller-gen
         make generate-deepcopy
+        make generate-baremetal-crds
 
     - name: Verify Changed files
       uses: tj-actions/verify-changed-files@v5.5
@@ -119,7 +120,9 @@ jobs:
     - name: Display changed files
       if: steps.changed_files.outputs.files_changed == 'true'
       run: |
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_availablecapacityreservations.yaml
         echo "Changed files: ${{ steps.changed_files.outputs.changed_files }}"
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_volumes.yaml
         
     - name: Perform action when files change.
       if: steps.changed_files.outputs.files_changed == 'true'
