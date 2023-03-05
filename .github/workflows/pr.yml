@@ -118,7 +118,6 @@ jobs:
            '.(go)$'
            
     - name: Display changed files
-      if: steps.changed_files.outputs.files_changed == 'true'
       run: |
         cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_availablecapacityreservations.yaml
         echo "Changed files: ${{ steps.changed_files.outputs.changed_files }}"
