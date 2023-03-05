@@ -224,6 +224,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		Location:          ac.Spec.Location,
 		CSIStatus:         apiV1.Creating,
 		StorageClass:      sc,
+		StorageGroup:      claimLabels["csi-baremetal-storage-group"],
 		Ephemeral:         v.Ephemeral,
 		Health:            apiV1.HealthGood,
 		LocationType:      locationType,
@@ -694,6 +695,9 @@ func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Conte
 	if value, ok := pvc.GetLabels()[k8s.AppLabelKey]; ok {
 		labels[k8s.AppLabelKey] = value
 		labels[k8s.AppLabelShortKey] = value
+	}
+	if value, ok := pvc.GetLabels()["csi-baremetal-storage-group"]; ok {
+		labels["csi-baremetal-storage-group"] = value
 	}
 
 	return labels, nil
