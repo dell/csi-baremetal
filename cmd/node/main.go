@@ -216,8 +216,7 @@ func main() {
 
 	go func() {
 		logger.Info("Starting VolumeActualizer ...")
-		actualizer := volumeactualizer.NewVolumeActualizer(wrappedK8SClient, nodeID, eventRecorder, &csiNodeService.VolumeManager, logger)
-		actualizer.Start(context.Background(), 60*time.Second)
+		volumeactualizer.NewVolumeActualizer(wrappedK8SClient, nodeID, eventRecorder, &csiNodeService.VolumeManager, logger).Start(context.Background(), 60*time.Second)
 	}()
 
 	logger.Info("Starting handle CSI calls ...")
