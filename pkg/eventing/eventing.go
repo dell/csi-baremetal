@@ -229,4 +229,9 @@ var (
 		severity:    WarningType,
 		symptomCode: NoneSymptomCode,
 	}
+	VolumeStatusActualized = &EventDescription{
+		reason:      "VolumeStatusActualized",
+		severity:    WarningType,
+		symptomCode: NoneSymptomCode,
+	}
 )

@@ -60,6 +60,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
+	"github.com/dell/csi-baremetal/pkg/node/volumeactualizer"
 	"github.com/dell/csi-baremetal/pkg/node/wbt"
 )
 
@@ -212,6 +213,12 @@ func main() {
 
 	// start to updating Wbt Config
 	wbtWatcher.StartWatch(csiNodeService)
+
+	go func() {
+		logger.Info("Starting VolumeActualizer ...")
+		actualizer := volumeactualizer.NewVolumeActualizer(wrappedK8SClient, nodeID, eventRecorder, &csiNodeService.VolumeManager, logger)
+		actualizer.Start(context.Background(), 60*time.Second)
+	}()
 
 	logger.Info("Starting handle CSI calls ...")
 	if err := csiUDSServer.RunServer(); err != nil && err != grpc.ErrServerStopped {
