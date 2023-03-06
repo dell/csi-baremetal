@@ -9,22 +9,26 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/polling"
 	"github.com/dell/csi-baremetal/pkg/eventing"
-	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/node"
 )
 
 const ctxTimeout = 30 * time.Second
 
+type eventRecorder interface {
+	Eventf(object runtime.Object, event *eventing.EventDescription, messageFmt string, args ...interface{})
+}
+
 type actualizer struct {
 	client client.Client
 	// kubernetes node ID
 	nodeID        string
-	eventRecorder *events.Recorder
+	eventRecorder eventRecorder
 	vmgr          *node.VolumeManager
 	log           *logrus.Logger
 }
@@ -101,7 +105,7 @@ func (a *actualizer) Start(ctx context.Context, dur time.Duration) {
 // To fix volume status stucked in PUBLISHED if all pods of a volume is deleted
 // when node is offline, K8s runtime will clean up volume directory and will not call
 // CSI Unpublish interface.
-func NewVolumeActualizer(client client.Client, nodeID string, eventRecorder *events.Recorder,
+func NewVolumeActualizer(client client.Client, nodeID string, eventRecorder eventRecorder,
 	vmgr *node.VolumeManager, log *logrus.Logger) *actualizer {
 	return &actualizer{
 		client:        client,
