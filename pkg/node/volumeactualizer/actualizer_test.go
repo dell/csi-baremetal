@@ -137,7 +137,7 @@ func TestVolumeActualizer_Handle(t *testing.T) {
 		fs := mockprov.MockFsOpts{}
 		fs.On("IsMounted", partitionPath).Return(false, nil)
 
-		a.Handle(testCtx)
+		a.handle(testCtx)
 
 		resVol := &vcrd.Volume{}
 		err = a.client.Get(testCtx, client.ObjectKey{Name: testVolume, Namespace: testNs}, resVol)
@@ -148,7 +148,7 @@ func TestVolumeActualizer_Handle(t *testing.T) {
 	})
 }
 
-func newActualizer() *actualizer {
+func newActualizer() *Actualizer {
 	testLogger := logrus.New()
 	testLogger.SetLevel(logrus.DebugLevel)
 

@@ -1,3 +1,20 @@
+/*
+Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// Package volumeactualizer implements Actualizer
 package volumeactualizer
 
 import (
@@ -24,7 +41,10 @@ type eventRecorder interface {
 	Eventf(object runtime.Object, event *eventing.EventDescription, messageFmt string, args ...interface{})
 }
 
-type actualizer struct {
+// Actualizer is a polling loop fix volume status stucked in PUBLISHED.
+// if all pods of a volume is deleted, when node is offline,
+// K8s runtime will clean up volume directory and will not call CSI Unpublish interface.
+type Actualizer struct {
 	client client.Client
 	// kubernetes node ID
 	nodeID        string
@@ -33,7 +53,8 @@ type actualizer struct {
 	log           *logrus.Logger
 }
 
-func (a *actualizer) Handle(ctx context.Context) {
+// handle is polling loop handler
+func (a *Actualizer) handle(ctx context.Context) {
 	ctx, cancelFn := context.WithTimeout(ctx, ctxTimeout)
 	defer cancelFn()
 
@@ -73,7 +94,7 @@ func (a *actualizer) Handle(ctx context.Context) {
 	}
 }
 
-func (a *actualizer) ownerPodsAreRemoved(ctx context.Context, volume *volumecrd.Volume) bool {
+func (a *Actualizer) ownerPodsAreRemoved(ctx context.Context, volume *volumecrd.Volume) bool {
 	ownerPods := volume.Spec.GetOwners()
 
 	pod := &corev1.Pod{}
@@ -97,17 +118,15 @@ func (a *actualizer) ownerPodsAreRemoved(ctx context.Context, volume *volumecrd.
 	return true
 }
 
-func (a *actualizer) Start(ctx context.Context, dur time.Duration) {
-	polling.NewTimer(dur).Start(ctx, a.Handle)
+// Start polling
+func (a *Actualizer) Start(ctx context.Context, dur time.Duration) {
+	polling.NewTimer(dur).Start(ctx, a.handle)
 }
 
 // NewVolumeActualizer creates new Volume actualizer
-// To fix volume status stucked in PUBLISHED if all pods of a volume is deleted
-// when node is offline, K8s runtime will clean up volume directory and will not call
-// CSI Unpublish interface.
 func NewVolumeActualizer(client client.Client, nodeID string, eventRecorder eventRecorder,
-	vmgr *node.VolumeManager, log *logrus.Logger) *actualizer {
-	return &actualizer{
+	vmgr *node.VolumeManager, log *logrus.Logger) *Actualizer {
+	return &Actualizer{
 		client:        client,
 		nodeID:        nodeID,
 		eventRecorder: eventRecorder,
