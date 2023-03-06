@@ -40,7 +40,6 @@ func (t *Timer) Start(ctx context.Context, handle handle) {
 			handle(ctx)
 			timer.Reset(t.duration)
 		}
-
 	}
 }
 
