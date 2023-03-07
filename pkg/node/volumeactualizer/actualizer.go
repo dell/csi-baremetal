@@ -82,9 +82,9 @@ func (a *Actualizer) handle(ctx context.Context) {
 		}
 		a.eventRecorder.Eventf(&volumes.Items[i], eventing.VolumeStatusActualized,
 			"Volume CSIStatus is unexpected. Status: %t. Real: %t. Owner pod removed: %t",
-			volumes.Items[i].Spec.CSIStatus, apiV1.Published, isRemoved)
+			volumes.Items[i].Spec.CSIStatus, volumes.Items[i].Spec.CSIStatus, apiV1.Created, isRemoved)
 
-		volumes.Items[i].Spec.CSIStatus = apiV1.Published
+		volumes.Items[i].Spec.CSIStatus = apiV1.Created
 
 		if err := a.client.Update(ctx, &volumes.Items[i]); err != nil {
 			a.log.Errorf("failed to actualize Volume %s: %s", volumes.Items[i].GetName(), err.Error())
