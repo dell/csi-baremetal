@@ -88,18 +88,18 @@ func (w *ConfWatcher) readConfig() (*common.WbtConfig, error) {
 		isKernelInList := false
 		for _, kernelVersion := range kernels.KernelVersions {
 			if kernelVersion == w.nodeKernelVersion {
-			ll.Infof("cyx debug: readConfig kernel match! kernelVerion = %s w.nodeKernelVersion", kernelVersion, w.nodeKernelVersion)
+			w.log.Infof("cyx debug: readConfig kernel match! kernelVerion = %s w.nodeKernelVersion", kernelVersion, w.nodeKernelVersion)
 				isKernelInList = true
 				break
 			}
 		}
 		if !isKernelInList {
-			ll.Infof("cyx debug: readConfig kernel not in list, set conf.Enable as false")
+			w.log.Infof("cyx debug: readConfig kernel not in list, set conf.Enable as false")
 			conf.Enable = false
 		}
 	}
 
-	ll.Infof("cyx debug: readConfig kernels %v ==== Conf: %v", kernels, conf)
+	w.log.Infof("cyx debug: readConfig kernels %v ==== Conf: %v", kernels, conf)
 	return conf, nil
 }
 
