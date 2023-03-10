@@ -238,13 +238,17 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			"Fake-attach cleared for volume with ID %s", volumeID)
 	}
 
+	ll.Infof("cyx debug: start checking volume: %s checkWbtChangingEnable", volumeCR.Name)
+
 	if s.VolumeManager.checkWbtChangingEnable(ctx, volumeCR) {
+		ll.Infof("cyx debug: volume: %s checkWbtChangingEnable is True", volumeCR.Name)
 		if err := s.VolumeManager.setWbtValue(volumeCR); err != nil {
 			ll.Errorf("Unable to set custom WBT value for volume %s: %v", volumeCR.Name, err)
 			s.VolumeManager.recorder.Eventf(volumeCR, eventing.WBTValueSetFailed,
 				"Unable to set custom WBT value for volume %s", volumeCR.Name)
 		} else {
 			volumeCR.Annotations[wbtChangedVolumeAnnotation] = wbtChangedVolumeKey
+			ll.Infof("cyx debug: volume: %s setWbtValue successfully", volumeCR.Name)
 		}
 	}
 

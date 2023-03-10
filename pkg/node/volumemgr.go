@@ -1341,10 +1341,12 @@ func (m *VolumeManager) restoreWbtValue(vol *volumecrd.Volume) error {
 
 func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumecrd.Volume) bool {
 	if m.wbtConfig == nil {
+		ll.Infof("cyx debug: volume: %s checkWbtChangingEnable wbtconfig is nil", vol.Name)
 		return false
 	}
 
 	if !m.wbtConfig.Enable {
+		ll.Infof("cyx debug: volume: %s checkWbtChangingEnable wbtconfig.Enable is NOT set", vol.Name)
 		return false
 	}
 
