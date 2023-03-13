@@ -187,7 +187,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
 		// AC needs to be converted to LogicalVolumeGroup AC, LogicalVolumeGroup doesn't exist yet
-		if ac = vo.acProvider.RecreateACToLVGSC(ctx, v.StorageClass, *ac); ac == nil {
+		if ac = vo.acProvider.RecreateACToLVGSC(ctx, v.StorageClass, ac.Labels["csi-baremetal-storage-group"], *ac); ac == nil {
 			return nil, status.Errorf(codes.Internal,
 				"unable to prepare underlying storage for storage class %s", v.StorageClass)
 		}
