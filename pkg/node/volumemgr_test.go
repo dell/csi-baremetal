@@ -962,7 +962,7 @@ func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 			Name:      "some-name",
 			Node:      m.nodeID,
 			Locations: []string{"some-uuid"},
-		}, "group")
+		}, "")
 		lvgList = lvgcrd.LogicalVolumeGroupList{}
 		err     error
 	)
