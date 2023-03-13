@@ -496,7 +496,7 @@ var _ = Describe("Constructor methods", func() {
 	})
 	Context("ConstructLVGCR", func() {
 		It("Should return right LogicalVolumeGroup CR", func() {
-			constructedCR := k8sclient.ConstructLVGCR(testLVGName, testApiLVG)
+			constructedCR := k8sclient.ConstructLVGCR(testLVGName, testApiLVG, "group")
 			Expect(constructedCR.TypeMeta.Kind).To(Equal(testLVGCR.TypeMeta.Kind))
 			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testLVGCR.TypeMeta.APIVersion))
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testLVGCR.ObjectMeta.Name))
