@@ -224,7 +224,6 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 		Location:          ac.Spec.Location,
 		CSIStatus:         apiV1.Creating,
 		StorageClass:      sc,
-		StorageGroup:      claimLabels["csi-baremetal-storage-group"],
 		Ephemeral:         v.Ephemeral,
 		Health:            apiV1.HealthGood,
 		LocationType:      locationType,
