@@ -16,11 +16,6 @@ limitations under the License.
 
 package main
 
-func main() {
-	panic("NOT IMPLEMENTED")
-}
-
-/*
 import (
 	"math/rand"
 	"os"
@@ -41,4 +36,3 @@ func main() {
 		os.Exit(1)
 	}
 }
-*/

@@ -16,19 +16,28 @@ limitations under the License.
 
 package plugin
 
-/*
 import (
 	"context"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
+	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
+	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/logger"
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
+	"github.com/dell/csi-baremetal/pkg/scheduler/util"
+	coreV1 "k8s.io/api/core/v1"
+	storageV1 "k8s.io/api/storage/v1"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
-	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
+	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
 // CSISchedulerPlugin is a plugin that does placement decision based on information in AC CRD
 type CSISchedulerPlugin struct {
-	frameworkHandle framework.FrameworkHandle
+	frameworkHandle framework.Handle
+	schedulerUtils  *util.SchedulerUtils
 }
 
 const (
@@ -41,47 +50,82 @@ const (
 var _ framework.FilterPlugin = &CSISchedulerPlugin{}
 
 // Score plugin
-var _ framework.ScorePlugin = &CSISchedulerPlugin{}
+//var _ framework.ScorePlugin = &CSISchedulerPlugin{}
 
 // Reserve plugin
-var _ framework.ReservePlugin = &CSISchedulerPlugin{}
+//var _ framework.ReservePlugin = &CSISchedulerPlugin{}
 
 // Unreserve plugin
-var _ framework.UnreservePlugin = &CSISchedulerPlugin{}
+//var _ framework.UnreservePlugin = &CSISchedulerPlugin{}
 
 // Name returns name of plugin
-func (c CSISchedulerPlugin) Name() string {
+func (c *CSISchedulerPlugin) Name() string {
 	return Name
 }
 
 // New initializes a new plugin and returns it.
-func New(configuration *runtime.Unknown, handle framework.FrameworkHandle) (framework.Plugin, error) {
-	sp := &CSISchedulerPlugin{frameworkHandle: handle}
+func New(configuration runtime.Object, handle framework.Handle) (framework.Plugin, error) {
+	logger, _ := logger.InitLogger("", logger.DebugLevel)
+	stopCH := ctrl.SetupSignalHandler()
+	k8sClient, err := k8s.GetK8SClient()
+	if err != nil {
+		logger.Fatal(err)
+	}
+	kubeClient := k8s.NewKubeClient(k8sClient, logger, objects.NewObjectLogger(), "default")
+	kubeCache, err := k8s.InitKubeCache(stopCH, logger,
+		&coreV1.PersistentVolumeClaim{},
+		&storageV1.StorageClass{},
+		&volumecrd.Volume{})
+	featureConf := featureconfig.NewFeatureConfig()
+	featureConf.Update(featureconfig.FeatureNodeIDFromAnnotation, true)
+	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, false)
+	schedulerUtils, error := util.NewSchedulerUtils(logger, kubeClient, kubeCache, "csi-baremetal", featureConf, "", "")
+	if error != nil {
+		logger.Fatalf("Fail to create extender: %v", err)
+	}
+	sp := &CSISchedulerPlugin{
+		frameworkHandle: handle,
+		schedulerUtils:  schedulerUtils,
+	}
+	klog.V(2).Infof("CSISchedulerPlugin Instance Created")
 	return sp, nil
 }
 
 // Filter filters out nodes which don't have ACs match to PVCs
-func (c CSISchedulerPlugin) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeInfo *schedulernodeinfo.NodeInfo) *framework.Status {
-	panic("implement me")
+func (c *CSISchedulerPlugin) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
+	klog.V(2).Infof("CSISchedulerPlugin Filter on %s", nodeInfo.Node().Name)
+	requests, err := c.schedulerUtils.GatherCapacityRequestsByProvisioner(ctx, pod)
+	if err != nil {
+		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "Gather CapacityRequests Error")
+	}
+	klog.V(2).Infof("Required capacity: %v", requests)
+
+	potentialMatchedNodes, err := c.schedulerUtils.Filter(ctx, pod, []coreV1.Node{*nodeInfo.Node()}, requests)
+
+	if len(potentialMatchedNodes) == 0 {
+		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "no matched nodes yet")
+	}
+
+	klog.V(2).Infof("%s pass the CSISchedulerPlugin Filter", nodeInfo.Node().Name)
+	return nil
 }
 
 // Score does balancing across the nodes for better performance. Nodes with more ACs should have highest scores
-func (c CSISchedulerPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
-	panic("implement me")
-}
+//func (c *CSISchedulerPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
+//	panic("implement me")
+//}
 
-// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not.
-func (c CSISchedulerPlugin) ScoreExtensions() framework.ScoreExtensions {
-	panic("implement me")
-}
+//// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not.
+//func (c *CSISchedulerPlugin) ScoreExtensions() framework.ScoreExtensions {
+//	panic("implement me")
+//}
 
 // Reserve does reservation of ACs
-func (c CSISchedulerPlugin) Reserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
-	panic("implement me")
-}
+//func (c *CSISchedulerPlugin) Reserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
+//	panic("implement me")
+//}
 
 // Unreserve un-reserver ACs
-func (c CSISchedulerPlugin) Unreserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) {
-	panic("implement me")
-}
-*/
+//func (c *CSISchedulerPlugin) Unreserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) {
+//	panic("implement me")
+//}
