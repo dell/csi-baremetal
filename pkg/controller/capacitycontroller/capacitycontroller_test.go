@@ -66,7 +66,7 @@ var (
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:   drive1UUID,
-			Labels: map[string]string{},
+			Labels: make(map[string]string),
 		},
 		Spec: apiDrive1,
 	}
@@ -104,6 +104,7 @@ var (
 		ObjectMeta: v1.ObjectMeta{
 			Name:      acCRName,
 			Namespace: ns,
+			Labels:    make(map[string]string),
 		},
 		Spec: acSpec,
 	}

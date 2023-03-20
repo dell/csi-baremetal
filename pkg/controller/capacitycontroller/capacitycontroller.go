@@ -155,6 +155,10 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveCR *drivec
 		// If the corresponding ac exists, sync drive's size or storage group label to its corresponding AC if necessary
 		if ac.Spec.Size != size || ac.Labels["csi-baremetal-storage-group"] != driveCR.Labels["csi-baremetal-storage-group"] {
 			ac.Spec.Size = size
+			// TODO need deep-dive of golang map utilization and further refactor if necessary here
+			if ac.Labels == nil {
+				ac.Labels = make(map[string]string)
+			}
 			ac.Labels["csi-baremetal-storage-group"] = driveCR.Labels["csi-baremetal-storage-group"]
 			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
 				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
