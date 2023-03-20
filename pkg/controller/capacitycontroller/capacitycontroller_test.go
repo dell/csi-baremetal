@@ -65,7 +65,8 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: drive1UUID,
+			Name:   drive1UUID,
+			Labels: map[string]string{},
 		},
 		Spec: apiDrive1,
 	}
