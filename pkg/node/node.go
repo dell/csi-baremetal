@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -29,6 +30,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/keymutex"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
@@ -512,8 +514,33 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 		return nil, status.Error(codes.Internal, "unmount error")
 	}
 
-	volumeCR.Spec.Owners = nil
-	volumeCR.Spec.CSIStatus = apiV1.VolumeReady
+	// support volume sharing by multiple pods, here we need only remove the owner from volume owners list
+	// set volume state to VolumeReady only if Volume Owners is EMPTY
+	var pod corev1.Pod
+	// initialize it to avoid lint error: considering preallocating (prealloc)
+	owners := []string{}
+	for _, owner := range volumeCR.Spec.Owners {
+		if err := s.k8sClient.ReadCR(ctx, owner, volumeCR.Namespace, &pod); err != nil {
+			ll.Errorf("Unable to read volume owner pod information: %s, %v", owner, err)
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		ss := strings.Split(req.GetTargetPath(), "/")
+		var found bool
+		for _, s := range ss {
+			if string(pod.UID) == s {
+				found = true
+			}
+		}
+		if found {
+			continue
+		}
+		owners = append(owners, pod.Name)
+	}
+
+	volumeCR.Spec.Owners = owners
+	if len(volumeCR.Spec.Owners) == 0 {
+		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
+	}
 	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 		ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
 		return nil, status.Error(codes.Internal, updateErr.Error())
