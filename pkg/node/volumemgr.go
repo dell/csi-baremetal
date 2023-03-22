@@ -873,7 +873,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 	var systemPVName string
 	for _, pv := range pvs {
 		// LogicalVolumeGroup could be configured on partition on the system drive, handle this case
-		matched, _ := regexp.Match(fmt.Sprintf("^%s\\d*$", driveCR.Spec.Path), []byte(pv))
+		matched, _ := regexp.Match(fmt.Sprintf("^%sp?\\d*$", driveCR.Spec.Path), []byte(pv))
 		if matched {
 			systemPVName = pv
 			break

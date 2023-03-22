@@ -86,6 +86,11 @@ var (
 		severity:    ErrorType,
 		symptomCode: DriveHealthFailureSymptomCode,
 	}
+	DriveLocateLEDFailed = &EventDescription{
+		reason:      "DriveLocateLEDFailed",
+		severity:    ErrorType,
+		symptomCode: DriveHealthFailureSymptomCode,
+	}
 	DriveRemovedByForce = &EventDescription{
 		reason:      "DriveRemovedByForce",
 		severity:    WarningType,
