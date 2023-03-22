@@ -517,7 +517,8 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	// support volume sharing by multiple pods, here we need only remove the owner from volume owners list
 	// set volume state to VolumeReady only if Volume Owners is EMPTY
 	var pod corev1.Pod
-	var owners []string
+	// initialize it to avoid lint error: considering preallocating (prealloc)
+	owners := []string{}
 	for _, owner := range volumeCR.Spec.Owners {
 		if err := s.k8sClient.ReadCR(ctx, owner, volumeCR.Namespace, &pod); err != nil {
 			ll.Errorf("Unable to read volume owner pod information: %s, %v", owner, err)
