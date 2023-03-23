@@ -27,7 +27,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -38,16 +40,21 @@ import (
 // here locates variables that used in UTs for CSINodeService and VolumeMgr
 
 var (
-	testNs      = "default"
-	testID      = "volume-1-id"
-	volLVGName  = "volume-lvg"
-	testLVGName = "lvg-cr-1"
-	driveUUID   = "drive-uuid"
-	nodeID      = "fake-node"
-	nodeName    = "fake-node-name"
-	targetPath  = "/tmp/targetPath"
-	stagePath   = "/tmp/stagePath"
-	testPodName = "pod-1"
+	testNs       = "default"
+	testID       = "volume-1-id"
+	volLVGName   = "volume-lvg"
+	testLVGName  = "lvg-cr-1"
+	driveUUID    = "drive-uuid"
+	nodeID       = "fake-node"
+	nodeName     = "fake-node-name"
+	targetPath   = "/tmp/targetPath"
+	stagePath    = "/tmp/stagePath"
+	testPod1Name = "pod-1"
+	testPod2Name = "pod-2"
+	testPod1UID  = uuid.New().String()
+	testPod2UID  = uuid.New().String()
+	targetPath1  = "/tmp/targetPath/pods/" + testPod1UID + "/dest"
+	targetPath2  = "/var/lib/kubelet/plugins/kubernetes.io/csi/volumeDevices/publish/volumeName/" + testPod2UID
 
 	testLogger = getTestLogger()
 	testCtx    = context.Background()
@@ -110,6 +117,27 @@ var (
 		},
 		AccessMode: &csi.VolumeCapability_AccessMode{
 			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+		},
+	}
+
+	// Pod
+	testPod1 = corev1.Pod{
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Pod", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testPod1Name,
+			Namespace:         testNs,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
+			UID:               types.UID(testPod1UID),
+		},
+	}
+
+	testPod2 = corev1.Pod{
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Pod", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testPod2Name,
+			Namespace:         testNs,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
+			UID:               types.UID(testPod2UID),
 		},
 	}
 )
