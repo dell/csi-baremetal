@@ -16,7 +16,7 @@ env:
 jobs:
   e2e:
     # we need to start validation on master push or on /ci comment in PR only
-    if: github.event_name == 'push' || github.event.issue.pull_request
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-20.04
     steps:
     - name: Get operator branch 
