@@ -8,6 +8,7 @@ CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 ### version
+### NOTICE: please sync version number with helm appVersion
 MAJOR            := 1
 MINOR            := 2
 PATCH            := 0
