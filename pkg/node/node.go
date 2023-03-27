@@ -519,7 +519,6 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	var pod corev1.Pod
 	// initialize it to avoid lint error: considering preallocating (prealloc)
 	owners := []string{}
-	var podFoundErr bool
 	for _, owner := range volumeCR.Spec.Owners {
 		if err := s.k8sClient.ReadCR(ctx, owner, volumeCR.Namespace, &pod); err != nil {
 			// CSI SPEC natively does not contain pod information in NodeUnpubishVolume request
@@ -527,7 +526,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 			// behavior should not block NodeUnpublishVolume, we should cotinue to finish volume unpublish
 			// Here we just log an error
 			ll.Errorf("Unable to read volume owner pod information: %s, %v", owner, err)
-			podFoundErr = true
+			continue
 		}
 		ss := strings.Split(req.GetTargetPath(), "/")
 		var found bool
@@ -543,7 +542,7 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	}
 
 	volumeCR.Spec.Owners = owners
-	if len(volumeCR.Spec.Owners) == 0 || podFoundErr {
+	if len(volumeCR.Spec.Owners) == 0 {
 		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
 	}
 	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
