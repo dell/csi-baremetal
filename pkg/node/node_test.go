@@ -479,8 +479,10 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
 
 			_, err = node.NodeUnpublishVolume(testCtx, req)
-			Expect(err).NotTo(BeNil())
-			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err).To(BeNil())
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
 	})
 })
