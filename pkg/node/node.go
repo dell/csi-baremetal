@@ -521,8 +521,12 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	owners := []string{}
 	for _, owner := range volumeCR.Spec.Owners {
 		if err := s.k8sClient.ReadCR(ctx, owner, volumeCR.Namespace, &pod); err != nil {
+			// CSI SPEC natively does not contain pod information in NodeUnpubishVolume request
+			// We use a pod owner filter to find it. But in case no pod found due to some unexpected
+			// behavior should not block NodeUnpublishVolume, we should cotinue to finish volume unpublish
+			// Here we just log an error
 			ll.Errorf("Unable to read volume owner pod information: %s, %v", owner, err)
-			return nil, status.Error(codes.Internal, err.Error())
+			continue
 		}
 		ss := strings.Split(req.GetTargetPath(), "/")
 		var found bool
