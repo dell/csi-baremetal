@@ -9,7 +9,7 @@ on:
 jobs:
   lint-test:
     name: Validate code and charts
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     container: 
       image: ghcr.io/dell/csi-baremetal/csi-baremetal-devkit:latest
       env:
