@@ -44,7 +44,7 @@ jobs:
       # Since the issue comment event runs against the main branch
       # we need to figure out a way to checkout the correct revision
       # if we want to work with the changes from a pull request.
-      if: github.event.issue.pull_request
+      if: github.event.issue.pull_request_review
       id: sha
       uses: actions/github-script@v4
       with:
@@ -60,7 +60,7 @@ jobs:
 
     # Set ref if triggered from comment
     - name: Check out code
-      if: github.event.issue.pull_request
+      if: github.event.issue.pull_request_review
       uses: actions/checkout@v2
       with:
         ref: '${{ steps.sha.outputs.result }}'
