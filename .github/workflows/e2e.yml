@@ -3,8 +3,6 @@ name: e2e
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
   pull_request_review:
     types: [submitted]
 
