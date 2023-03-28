@@ -83,7 +83,7 @@ jobs:
         
   gen-files-validate:
     name: Generated files should be consistent
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     container: 
       image: ghcr.io/dell/csi-baremetal/csi-baremetal-devkit:latest
       env:
