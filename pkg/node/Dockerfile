@@ -4,6 +4,6 @@ LABEL   description="Bare-metal CSI Node Service"
 
 ADD     node  node
 
-EXPOSE  9999
+EXPOSE  9999 8787
 
-ENTRYPOINT ["/node"]
+ENTRYPOINT ["/node", "-metrics-address=:8787", "-metrics-path=/metrics"]
