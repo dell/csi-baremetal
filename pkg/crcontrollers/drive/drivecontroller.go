@@ -463,13 +463,27 @@ func (c *Controller) removeRelatedAC(ctx context.Context, log *logrus.Entry, cur
 func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) error {
 	var taintLabelExisted bool
 	labels := drive.GetLabels()
-	// if label is not taint just do nothing
+	// if drive is taint and labeled, need to update related ac label
 	if effect, ok := labels[apiV1.DriveTaintKey]; ok && effect == apiV1.DriveTaintValue {
 		taintLabelExisted = true
 	}
 
+	// get ac location for lvg/non-lvg case
+	// lvg ac: lvg location
+	// non-lvg ac:  drive name
+	location := drive.GetName()
+	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
+	if err != nil {
+		if err != errTypes.ErrorNotFound {
+			log.Errorf("failed to get LVG from drive %s: %s", drive.GetName(), err.Error())
+		}
+	} else {
+		if lvg != nil {
+			location = lvg.Spec.Locations[0]
+		}
+	}
 	// sync label to related ac with the drive
-	ac, err := c.crHelper.GetACByLocation(drive.GetName())
+	ac, err := c.crHelper.GetACByLocation(location)
 	if err != nil && err != errTypes.ErrorNotFound {
 		log.Errorf("Failed to get AC for Drive %s: %s", drive.GetName(), err.Error())
 		return err
