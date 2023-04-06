@@ -31,6 +31,8 @@ func TestNewNodeCapacity(t *testing.T) {
 		testACHDDLVG1 = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassHDDLVG)
 		testACSSD1    = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassSSD)
 		testACNVMe1   = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassNVMe)
+		testACHDD4    = *getTestACWithLable(nodeName, testSmallSize, apiV1.StorageClassHDD, map[string]string{apiV1.DriveTaintKey: apiV1.DriveTaintValue})
+		testACHDD5    = *getTestACWithLable(nodeName, testLargeSize, apiV1.StorageClassHDD, map[string]string{apiV1.DriveTaintKey: "test"})
 
 		testACRHDD1    = *getTestACR(testSmallSize, apiV1.StorageClassHDD, []*accrd.AvailableCapacity{&testACHDD1, &testACHDD2})
 		testACRHDD2    = testACRHDD1.DeepCopy()
@@ -188,6 +190,22 @@ func TestNewNodeCapacity(t *testing.T) {
 				reservedACs: reservedACs{
 					testACHDDLVG1.Name: &reservedCapacity{2 * testSmallSize, apiV1.StorageClassHDDLVG},
 				},
+			},
+		},
+		{
+			name: "Should filter AC with drive taint",
+			args: args{
+				node: nodeName,
+				acs:  []accrd.AvailableCapacity{testACHDD1, testACHDD4, testACHDD5},
+				acrs: nil,
+			},
+			want: &nodeCapacity{
+				node: nodeName,
+				acs:  buildACMap([]accrd.AvailableCapacity{testACHDD1, testACHDD5}),
+				acsOrder: scToACOrder{
+					apiV1.StorageClassHDD: []string{testACHDD1.Name, testACHDD5.Name},
+				},
+				reservedACs: reservedACs{},
 			},
 		},
 	}
