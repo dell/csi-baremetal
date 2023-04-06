@@ -31,8 +31,8 @@ func TestNewNodeCapacity(t *testing.T) {
 		testACHDDLVG1 = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassHDDLVG)
 		testACSSD1    = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassSSD)
 		testACNVMe1   = *getTestAC(nodeName, testSmallSize, apiV1.StorageClassNVMe)
-		testACHDD4    = *getTestACWithLable(nodeName, testSmallSize, apiV1.StorageClassHDD, map[string]string{apiV1.DriveTaintKey: apiV1.DriveTaintValue})
-		testACHDD5    = *getTestACWithLable(nodeName, testLargeSize, apiV1.StorageClassHDD, map[string]string{apiV1.DriveTaintKey: "test"})
+		testACHDD4    = *getTestACWithLabel(nodeName, testSmallSize, apiV1.StorageClassHDD, map[string]string{apiV1.DriveTaintKey: apiV1.DriveTaintValue})
+		testACHDD5    = *getTestACWithLabel(nodeName, testLargeSize, apiV1.StorageClassHDD, map[string]string{apiV1.DriveTaintKey: "test"})
 
 		testACRHDD1    = *getTestACR(testSmallSize, apiV1.StorageClassHDD, []*accrd.AvailableCapacity{&testACHDD1, &testACHDD2})
 		testACRHDD2    = testACRHDD1.DeepCopy()
