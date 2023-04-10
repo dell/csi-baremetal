@@ -933,23 +933,19 @@ func TestDriveController_handleDriveLabelUpdate(t *testing.T) {
 		assert.NotNil(t, expectedAC)
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedAC.Name, expectedAC))
 
-		lvgList := lvgcrd.LogicalVolumeGroupList{}
-		dc.client.ReadList(testCtx, &lvgList)
-		t.Log(lvgList)
-
 		// update drive label
 		driveLabels := expectedD.GetLabels()
 		driveLabels[apiV1.DriveTaintKey] = apiV1.DriveTaintValue
 		assert.Nil(t, dc.client.UpdateCR(testCtx, expectedD))
 
-		err := dc.handleDriveLableUpdate(k8s.ListFailCtx, dc.log, expectedD)
+		err := dc.handleDriveLableUpdate(testCtx, dc.log, expectedD)
 		assert.Nil(t, err)
 
 		// check label synced to lvg ac CR
-		//modifiedAC := accrd.AvailableCapacity{}
-		//assert.Nil(t, dc.client.ReadCR(testCtx, expectedAC.Name, expectedAC.Namespace, &modifiedAC))
-		//acLabels := modifiedAC.GetLabels()
-		//assert.Equal(t, apiV1.DriveTaintValue, acLabels[apiV1.DriveTaintKey])
+		modifiedAC := accrd.AvailableCapacity{}
+		assert.Nil(t, dc.client.ReadCR(testCtx, expectedAC.Name, expectedAC.Namespace, &modifiedAC))
+		acLabels := modifiedAC.GetLabels()
+		assert.Equal(t, apiV1.DriveTaintValue, acLabels[apiV1.DriveTaintKey])
 
 		// clean up resource
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))

@@ -479,7 +479,7 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 		}
 	} else {
 		if lvg != nil {
-			location = lvg.Spec.Locations[0]
+			location = lvg.GetName()
 		}
 	}
 	// sync label to related ac with the drive
