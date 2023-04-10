@@ -475,7 +475,7 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil {
 		if err != errTypes.ErrorNotFound {
-			log.Errorf("failed to get LVG from drive %s: %s", drive.GetName(), err.Error())
+			log.Infof("LVG for drive %s is not found: %s", drive.GetName(), err.Error())
 		}
 	} else {
 		if lvg != nil {
@@ -492,9 +492,12 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 		log.Warnf("AC for Drive %s is not found", drive.GetName())
 		return nil
 	}
+
 	acLabels := ac.GetLabels()
 	if acLabels == nil {
+		// label is not existed on CR, just create it and attach to CR
 		acLabels = map[string]string{}
+		ac.Labels = acLabels
 	}
 	if taintLabelExisted {
 		acLabels[apiV1.DriveTaintKey] = apiV1.DriveTaintValue

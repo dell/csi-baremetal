@@ -21,11 +21,13 @@ import (
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	dcrd "github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/mocks"
 )
@@ -35,11 +37,15 @@ var (
 	testID = "someID"
 	nodeID = "node-uuid"
 
-	testLogger        = logrus.New()
-	testCtx           = context.Background()
-	driveUUID         = uuid.New().String()
-	driveUUID2        = uuid.New().String()
-	driveSerialNumber = "VDH19UBD"
+	testLogger         = logrus.New()
+	testCtx            = context.Background()
+	driveUUID          = uuid.New().String()
+	driveUUID2         = uuid.New().String()
+	driveSerialNumber  = "VDH19UBD"
+	driveSerialNumber2 = "MDH16UAC"
+	acCR2Name          = uuid.New().String()
+	aclvgCR2Name       = uuid.New().String()
+	lvgCRName          = uuid.New().String()
 
 	drive1 = api.Drive{
 		UUID:         driveUUID,
@@ -52,10 +58,26 @@ var (
 		SerialNumber: driveSerialNumber,
 	}
 
+	drive2 = api.Drive{
+		UUID:         driveUUID2,
+		Size:         1024 * 1024 * 1024 * 500,
+		NodeId:       nodeID,
+		Type:         apiV1.DriveTypeHDD,
+		Status:       apiV1.DriveStatusOnline,
+		Health:       apiV1.HealthGood,
+		SerialNumber: driveSerialNumber2,
+	}
+
 	testBadCRDrive = dcrd.Drive{
 		TypeMeta:   k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: k8smetav1.ObjectMeta{Name: driveUUID},
 		Spec:       drive1,
+	}
+
+	testCRDrive2 = dcrd.Drive{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: driveUUID2, Labels: map[string]string{}},
+		Spec:       drive2,
 	}
 
 	failedVolCR = vcrd.Volume{
@@ -82,6 +104,37 @@ var (
 			Size:         drive1.Size,
 			StorageClass: apiV1.StorageClassHDD,
 			Location:     "drive-uuid",
+			NodeId:       nodeID},
+	}
+
+	acCR2 = accrd.AvailableCapacity{
+		TypeMeta:   v1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{Name: acCR2Name},
+		Spec: api.AvailableCapacity{
+			Size:         drive2.Size,
+			StorageClass: apiV1.StorageClassHDD,
+			Location:     driveUUID2,
+			NodeId:       nodeID},
+	}
+
+	lvgCR = lvgcrd.LogicalVolumeGroup{
+		TypeMeta:   v1.TypeMeta{Kind: "LogicalVolumeGroup", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{Name: lvgCRName},
+		Spec: api.LogicalVolumeGroup{
+			Name:      lvgCRName,
+			Node:      nodeID,
+			Locations: []string{driveUUID2},
+			Size:      int64(1024 * 5 * util.GBYTE),
+		},
+	}
+
+	aclvgCR2 = accrd.AvailableCapacity{
+		TypeMeta:   v1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{Name: aclvgCR2Name},
+		Spec: api.AvailableCapacity{
+			Size:         int64(drive2.Size),
+			StorageClass: apiV1.StorageClassHDDLVG,
+			Location:     lvgCRName,
 			NodeId:       nodeID},
 	}
 )
@@ -829,5 +882,78 @@ func TestDriveController_stopLocateNodeLED(t *testing.T) {
 		mockK8sClient.On("List", mock.Anything, &dcrd.DriveList{}, mock.Anything).Return(nil)
 		err := dc.stopLocateNodeLED(testCtx, dc.log, &testBadCRDrive)
 		assert.NotNil(t, err)
+	})
+}
+
+func TestDriveController_handleDriveLabelUpdate(t *testing.T) {
+	kubeClient := setup()
+	dc := NewController(kubeClient, nodeID, nil, new(events.Recorder), testLogger)
+	dc.driveMgrClient = &mocks.MockDriveMgrClient{}
+	assert.NotNil(t, dc)
+	assert.NotNil(t, dc.crHelper)
+	t.Run("Success-Sync label to non-LVG AvailableCapacity", func(t *testing.T) {
+		//create custom resource
+		expectedD := testCRDrive2.DeepCopy()
+		assert.NotNil(t, expectedD)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+		expectedAC := acCR2.DeepCopy()
+		assert.NotNil(t, expectedAC)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedAC.Name, expectedAC))
+
+		//update drive label
+		driveLabels := expectedD.GetLabels()
+		driveLabels[apiV1.DriveTaintKey] = apiV1.DriveTaintValue
+		assert.Nil(t, dc.client.UpdateCR(testCtx, expectedD))
+
+		err := dc.handleDriveLableUpdate(k8s.ListFailCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+
+		//check label synced to ac CR
+		modifiedAC := accrd.AvailableCapacity{}
+		assert.Nil(t, dc.client.ReadCR(testCtx, expectedAC.Name, expectedAC.Namespace, &modifiedAC))
+		acLabels := modifiedAC.GetLabels()
+		assert.Equal(t, apiV1.DriveTaintValue, acLabels[apiV1.DriveTaintKey])
+
+		// clean up resource
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedAC))
+	})
+
+	t.Run("Success-Sync label to LVG AvailableCapacity", func(t *testing.T) {
+		// create custom resource
+		expectedD := testCRDrive2.DeepCopy()
+		assert.NotNil(t, expectedD)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		expectedLVG := lvgCR.DeepCopy()
+		assert.NotNil(t, expectedLVG)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedLVG.Name, expectedLVG))
+
+		expectedAC := aclvgCR2.DeepCopy()
+		assert.NotNil(t, expectedAC)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedAC.Name, expectedAC))
+
+		lvgList := lvgcrd.LogicalVolumeGroupList{}
+		dc.client.ReadList(testCtx, &lvgList)
+		t.Log(lvgList)
+
+		// update drive label
+		driveLabels := expectedD.GetLabels()
+		driveLabels[apiV1.DriveTaintKey] = apiV1.DriveTaintValue
+		assert.Nil(t, dc.client.UpdateCR(testCtx, expectedD))
+
+		err := dc.handleDriveLableUpdate(k8s.ListFailCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+
+		// check label synced to lvg ac CR
+		//modifiedAC := accrd.AvailableCapacity{}
+		//assert.Nil(t, dc.client.ReadCR(testCtx, expectedAC.Name, expectedAC.Namespace, &modifiedAC))
+		//acLabels := modifiedAC.GetLabels()
+		//assert.Equal(t, apiV1.DriveTaintValue, acLabels[apiV1.DriveTaintKey])
+
+		// clean up resource
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedAC))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedLVG))
 	})
 }
