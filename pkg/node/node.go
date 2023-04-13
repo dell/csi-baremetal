@@ -26,6 +26,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -47,6 +48,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/controller/mountoptions"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/eventing"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	metricscomm "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 const (
@@ -71,7 +74,9 @@ type CSINodeService struct {
 	grpc_health_v1.HealthServer
 
 	// used for locking requests on each volume
-	volMu keymutex.KeyMutex
+	volMu               keymutex.KeyMutex
+	metricStageVolume   metrics.StatisticWithCustomLabels
+	metricPublishVolume metrics.StatisticWithCustomLabels
 }
 
 const (
@@ -91,13 +96,17 @@ func NewCSINodeService(client api.DriveServiceClient,
 	k8sCache k8s.CRReader,
 	recorder eventRecorder,
 	featureConf featureconfig.FeatureChecker) *CSINodeService {
+	metricStageVolume := metricscomm.DbgNodeStageDuration
+	metricPublishVolume := metricscomm.DbgNodePublishDuration
 	e := command.NewExecutor(logger)
 	s := &CSINodeService{
-		VolumeManager:  *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID, nodeName),
-		svc:            common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
-		IdentityServer: controller.NewIdentityServer(base.PluginName, base.PluginVersion),
-		volMu:          keymutex.NewHashed(0),
-		livenessCheck:  NewLivenessCheckHelper(logger, nil, nil),
+		VolumeManager:       *NewVolumeManager(client, e, logger, k8sClient, k8sCache, recorder, nodeID, nodeName),
+		svc:                 common.NewVolumeOperationsImpl(k8sClient, logger, cache.NewMemCache(), featureConf),
+		IdentityServer:      controller.NewIdentityServer(base.PluginName, base.PluginVersion),
+		volMu:               keymutex.NewHashed(0),
+		livenessCheck:       NewLivenessCheckHelper(logger, nil, nil),
+		metricStageVolume:   metricStageVolume,
+		metricPublishVolume: metricPublishVolume,
 	}
 	s.log = logger.WithField("component", "CSINodeService")
 	return s
@@ -144,6 +153,16 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		"method":   "NodeStageVolume",
 		"volumeID": req.GetVolumeId(),
 	})
+	pods, err := s.k8sClient.GetPods(ctx, "")
+	if err == nil {
+		for _, pod := range pods {
+			for _, volume := range pod.Spec.Volumes {
+				if volume.Name == req.VolumeId {
+					defer s.metricStageVolume.EvaluateDurationForMethod("NodeStageVolume", prometheus.Labels{"pod_name": pod.Name})()
+				}
+			}
+		}
+	}
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())
@@ -362,6 +381,16 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		"method":   "NodePublishVolume",
 		"volumeID": req.GetVolumeId(),
 	})
+	pods, errpd := s.k8sClient.GetPods(ctx, "")
+	if errpd == nil {
+		for _, pod := range pods {
+			for _, volume := range pod.Spec.Volumes {
+				if volume.Name == req.VolumeId {
+					defer s.metricPublishVolume.EvaluateDurationForMethod("NodePublishVolume", prometheus.Labels{"pod_name": pod.Name})()
+				}
+			}
+		}
+	}
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())

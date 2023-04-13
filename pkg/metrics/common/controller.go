@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
+Copyright © 2021 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,27 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metrics
+package common
 
 import (
-	"testing"
-
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/assert"
+
+	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
-func TestMetrics(t *testing.T) {
-	vm := NewMetrics(prometheus.HistogramOpts{
-		Name: "partition_operations_duration",
-		Help: "partition operations methods duration",
-	})
-	rVM := vm.Collect()
-	assert.Equal(t, vm.OperationsDuration, rVM)
+var DbgCreateVolumeDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
+	Name: "controller_create_volume_duration_seconds",
+	Help: "duration of the controller createVolume",
+}, "source", "method", "pod_name")
 
-	vm2 := NewMetricsWithCustomLabels(prometheus.GaugeOpts{
-		Name: "test",
-		Help: "test",
-	})
-	rVM2 := vm2.Collect()
-	assert.Equal(t, vm2.GaugeVec, rVM2)
+// nolint: gochecknoinits
+func init() {
+	prometheus.MustRegister(DbgCreateVolumeDuration.Collect())
 }

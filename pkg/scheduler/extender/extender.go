@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
@@ -46,6 +47,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -62,6 +65,7 @@ type Extender struct {
 	sync.Mutex
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
+	metrics                metrics.StatisticWithCustomLabels
 }
 
 // NewExtender returns new instance of Extender struct
@@ -77,6 +81,7 @@ func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 		annotation.WithRetryDelay(3*time.Second),
 		annotation.WithRetryNumber(20),
 	)
+
 	return &Extender{
 		k8sClient:              kubeClient,
 		k8sCache:               kubeCache,
@@ -86,6 +91,7 @@ func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 		nodeSelector:           nodeselector,
 		logger:                 logger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		metrics:                common.DbgReservationDuration,
 	}, nil
 }
 
@@ -372,6 +378,7 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	filteredNodes schedulerapi.FailedNodesMap, err error) {
+	defer e.metrics.EvaluateDurationForMethod("filter", prometheus.Labels{"pod_name": pod.Name})()
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil

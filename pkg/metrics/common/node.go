@@ -22,20 +22,18 @@ import (
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
-// ReservationDuration used to collect ReservationHelper methods durations
-var ReservationDuration = metrics.NewMetrics(prometheus.HistogramOpts{
-	Name:    "ac_reservation_duration",
-	Help:    "AvailableCapacity reservation duration",
-	Buckets: prometheus.ExponentialBuckets(0.005, 1.5, 10),
-}, "method")
+var DbgNodeStageDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
+	Name: "node_stage_volume_duration_seconds",
+	Help: "duration of the NodeStageVolume",
+}, "source", "method", "pod_name")
 
-var DbgReservationDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
-	Name: "reservation_create_duration_seconds",
-	Help: "duration of the reservation create phase",
-}, "method", "pod_name")
+var DbgNodePublishDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
+	Name: "node_publish_volume_duration_seconds",
+	Help: "duration of the NodePublishVolume",
+}, "source", "method", "pod_name")
 
 // nolint: gochecknoinits
 func init() {
-	prometheus.MustRegister(ReservationDuration.Collect())
-	prometheus.MustRegister(DbgReservationDuration.Collect())
+	prometheus.MustRegister(DbgNodeStageDuration.Collect())
+	prometheus.MustRegister(DbgNodePublishDuration.Collect())
 }
