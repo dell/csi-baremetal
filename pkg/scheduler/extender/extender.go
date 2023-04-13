@@ -66,7 +66,7 @@ type Extender struct {
 	logger                 *logrus.Entry
 	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
 	metrics                metrics.StatisticWithCustomLabels
-}
+} // if a new field is added, add field to extender_test.go also.
 
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,

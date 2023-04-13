@@ -33,7 +33,7 @@ var ReservationDuration = metrics.NewMetrics(prometheus.HistogramOpts{
 var DbgReservationDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
 	Name: "reservation_create_duration_seconds",
 	Help: "duration of the reservation create phase",
-}, "method", "pod_name")
+}, "source", "method", "pod_name")
 
 // nolint: gochecknoinits
 func init() {

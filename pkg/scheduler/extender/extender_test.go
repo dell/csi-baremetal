@@ -47,6 +47,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // todo review all tests. some might not be relevant
@@ -676,6 +677,7 @@ func setup(t *testing.T) *Extender {
 		provisioner:            testProvisioner,
 		logger:                 testLogger.WithField("component", "Extender"),
 		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		metrics:                common.DbgReservationDuration,
 	}
 }
 
