@@ -86,7 +86,7 @@ func (m *Metrics) Collect() prometheus.Collector {
 	return m.OperationsDuration
 }
 
-// Similar to Statistic but have Custom labels, but StatisticWithCustomLabels supports additional metrics labels,
+// StatisticWithCustomLabels is Similar to Statistic but have Custom labels, but StatisticWithCustomLabels supports additional metrics labels,
 // this can be useful when you want to create metrics with dynamic labels, which prometheus doesn't support in native
 type StatisticWithCustomLabels interface {
 	Collect() prometheus.Collector
@@ -96,18 +96,24 @@ type StatisticWithCustomLabels interface {
 	EvaluateDurationForType(t string, labels prometheus.Labels) func()
 }
 
+// MetricsWithCustomLabels is a structure, which encapsulate prometheus GaugeVec structure. It used for evalute duration,
+// it support support dynamic labels to make it easy to distinguish metric data that has same metric name but different label.
 type MetricsWithCustomLabels struct {
 	GaugeVec *prometheus.GaugeVec
 }
 
+// NewMetricsWithCustomLabels initializes MetricsWithCustomLabels
 func NewMetricsWithCustomLabels(opts prometheus.GaugeOpts, labels ...string) *MetricsWithCustomLabels {
 	return &MetricsWithCustomLabels{GaugeVec: prometheus.NewGaugeVec(opts, labels)}
 }
 
+// Collect returns prometheus.Collector slice with internal GaugeVec
 func (m *MetricsWithCustomLabels) Collect() prometheus.Collector {
 	return m.GaugeVec
 }
 
+// EvaluateDuration evaluate duration from start for a given method and put it into GaugeVec
+// Receive prometheus.Labels.
 func (m *MetricsWithCustomLabels) EvaluateDuration(labels prometheus.Labels) func() {
 	start := time.Now()
 	return func() {
@@ -116,7 +122,7 @@ func (m *MetricsWithCustomLabels) EvaluateDuration(labels prometheus.Labels) fun
 	}
 }
 
-// clear metric by labels before evaluate to avoid duplicated metric with same name.
+// EvaluateDurationWithClear clear metric by labels before evaluate to avoid duplicated metric with same name.
 func (m *MetricsWithCustomLabels) EvaluateDurationWithClear(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func() {
 	start := time.Now()
 	return func() {
