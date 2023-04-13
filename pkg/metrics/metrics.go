@@ -96,25 +96,25 @@ type StatisticWithCustomLabels interface {
 	EvaluateDurationForType(t string, labels prometheus.Labels) func()
 }
 
-// MetricsWithCustomLabels is a structure, which encapsulate prometheus GaugeVec structure. It used for evalute duration,
+// MetricWithCustomLabels is a structure, which encapsulate prometheus GaugeVec structure. It used for evalute duration,
 // it support support dynamic labels to make it easy to distinguish metric data that has same metric name but different label.
-type MetricsWithCustomLabels struct {
+type MetricWithCustomLabels struct {
 	GaugeVec *prometheus.GaugeVec
 }
 
 // NewMetricsWithCustomLabels initializes MetricsWithCustomLabels
-func NewMetricsWithCustomLabels(opts prometheus.GaugeOpts, labels ...string) *MetricsWithCustomLabels {
-	return &MetricsWithCustomLabels{GaugeVec: prometheus.NewGaugeVec(opts, labels)}
+func NewMetricsWithCustomLabels(opts prometheus.GaugeOpts, labels ...string) *MetricWithCustomLabels {
+	return &MetricWithCustomLabels{GaugeVec: prometheus.NewGaugeVec(opts, labels)}
 }
 
 // Collect returns prometheus.Collector slice with internal GaugeVec
-func (m *MetricsWithCustomLabels) Collect() prometheus.Collector {
+func (m *MetricWithCustomLabels) Collect() prometheus.Collector {
 	return m.GaugeVec
 }
 
 // EvaluateDuration evaluate duration from start for a given method and put it into GaugeVec
 // Receive prometheus.Labels.
-func (m *MetricsWithCustomLabels) EvaluateDuration(labels prometheus.Labels) func() {
+func (m *MetricWithCustomLabels) EvaluateDuration(labels prometheus.Labels) func() {
 	start := time.Now()
 	return func() {
 		m.GaugeVec.DeletePartialMatch(prometheus.Labels{})
@@ -123,7 +123,7 @@ func (m *MetricsWithCustomLabels) EvaluateDuration(labels prometheus.Labels) fun
 }
 
 // EvaluateDurationWithClear clear metric by labels before evaluate to avoid duplicated metric with same name.
-func (m *MetricsWithCustomLabels) EvaluateDurationWithClear(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func() {
+func (m *MetricWithCustomLabels) EvaluateDurationWithClear(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func() {
 	start := time.Now()
 	return func() {
 		if clear {
@@ -135,14 +135,14 @@ func (m *MetricsWithCustomLabels) EvaluateDurationWithClear(labels prometheus.La
 }
 
 // EvaluateDurationForMethod of the method call, it also update labels of metrics
-func (m *MetricsWithCustomLabels) EvaluateDurationForMethod(method string, labels prometheus.Labels) func() {
+func (m *MetricWithCustomLabels) EvaluateDurationForMethod(method string, labels prometheus.Labels) func() {
 	labels["source"] = "MetricsWithCustomLabels"
 	labels["method"] = method
 	return m.EvaluateDurationWithClear(labels, true, prometheus.Labels{"method": method})
 }
 
 // EvaluateDurationForType evaluate function call with "type" label, it also update labels of metrics
-func (m *MetricsWithCustomLabels) EvaluateDurationForType(t string, labels prometheus.Labels) func() {
+func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels prometheus.Labels) func() {
 	labels["source"] = "MetricsWithCustomLabels"
 	labels["type"] = t
 	return m.EvaluateDurationWithClear(labels, true, prometheus.Labels{"type": t})

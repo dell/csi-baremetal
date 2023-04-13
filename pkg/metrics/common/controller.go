@@ -22,6 +22,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
+// DbgCreateVolumeDuration used to collect ducation of Controller.CreateVolume
 var DbgCreateVolumeDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
 	Name: "controller_create_volume_duration_seconds",
 	Help: "duration of the controller createVolume",

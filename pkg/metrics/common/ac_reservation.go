@@ -29,6 +29,7 @@ var ReservationDuration = metrics.NewMetrics(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBuckets(0.005, 1.5, 10),
 }, "method")
 
+// DbgReservationDuration used to collect reservation create duration seconds
 var DbgReservationDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
 	Name: "reservation_create_duration_seconds",
 	Help: "duration of the reservation create phase",
