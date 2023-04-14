@@ -162,21 +162,8 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
-	ll.Infof("getpods...")
-	pods, err := c.k8sclient.GetPods(ctx, "")
-	ll.Infof("len(pods): %v\n", len(pods))
-	if err == nil {
-		for _, pod := range pods {
-			ll.Infof("len(pod.Spec.Volumes): %v\n", len(pod.Spec.Volumes))
-			for _, volume := range pod.Spec.Volumes {
-				ll.Infof("volume.Name: %v\n", volume.Name)
-				ll.Infof("req.Name: %v\n", req.Name)
-				if volume.Name == req.Name {
-					defer c.metricCreateVolume.EvaluateDurationForMethod("CreateVolume", prometheus.Labels{"pod_name": pod.Name})()
-				}
-			}
-		}
-	}
+	ll.Infof("get volume...")
+	defer c.metricCreateVolume.EvaluateDurationForMethod("CreateVolume", prometheus.Labels{"volume_name": req.Name})()
 
 	ll.Infof("Processing request: %+v", req)
 

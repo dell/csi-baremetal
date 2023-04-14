@@ -26,13 +26,13 @@ import (
 var DbgNodeStageDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
 	Name: "node_stage_volume_duration_seconds",
 	Help: "duration of the NodeStageVolume",
-}, "source", "method", "pod_name")
+}, "source", "method", "volume_name")
 
 // DbgNodePublishDuration used to collect duration of Node.NodePublishVolume
 var DbgNodePublishDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
 	Name: "node_publish_volume_duration_seconds",
 	Help: "duration of the NodePublishVolume",
-}, "source", "method", "pod_name")
+}, "source", "method", "volume_name")
 
 // nolint: gochecknoinits
 func init() {

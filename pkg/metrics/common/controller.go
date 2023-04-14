@@ -26,7 +26,7 @@ import (
 var DbgCreateVolumeDuration = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
 	Name: "controller_create_volume_duration_seconds",
 	Help: "duration of the controller createVolume",
-}, "source", "method", "pod_name")
+}, "source", "method", "volume_name")
 
 // nolint: gochecknoinits
 func init() {

@@ -153,16 +153,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		"method":   "NodeStageVolume",
 		"volumeID": req.GetVolumeId(),
 	})
-	pods, err := s.k8sClient.GetPods(ctx, "")
-	if err == nil {
-		for _, pod := range pods {
-			for _, volume := range pod.Spec.Volumes {
-				if volume.Name == req.VolumeId {
-					defer s.metricStageVolume.EvaluateDurationForMethod("NodeStageVolume", prometheus.Labels{"pod_name": pod.Name})()
-				}
-			}
-		}
-	}
+	defer s.metricStageVolume.EvaluateDurationForMethod("NodeStageVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())
@@ -381,16 +372,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		"method":   "NodePublishVolume",
 		"volumeID": req.GetVolumeId(),
 	})
-	pods, errpd := s.k8sClient.GetPods(ctx, "")
-	if errpd == nil {
-		for _, pod := range pods {
-			for _, volume := range pod.Spec.Volumes {
-				if volume.Name == req.VolumeId {
-					defer s.metricPublishVolume.EvaluateDurationForMethod("NodePublishVolume", prometheus.Labels{"pod_name": pod.Name})()
-				}
-			}
-		}
-	}
+	defer s.metricPublishVolume.EvaluateDurationForMethod("NodePublishVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())

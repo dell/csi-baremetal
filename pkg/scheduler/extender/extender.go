@@ -378,7 +378,9 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	filteredNodes schedulerapi.FailedNodesMap, err error) {
-	defer e.metrics.EvaluateDurationForMethod("filter", prometheus.Labels{"pod_name": pod.Name})()
+	for _, vol := range pod.Spec.Volumes {
+		defer e.metrics.EvaluateDurationForMethod("filter", prometheus.Labels{"volume_name": vol.Name})()
+	}
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil
