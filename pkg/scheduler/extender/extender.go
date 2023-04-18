@@ -45,6 +45,7 @@ import (
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	clientset "github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
 	"github.com/dell/csi-baremetal/pkg/metrics"
@@ -378,6 +379,20 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	filteredNodes schedulerapi.FailedNodesMap, err error) {
+	e.logger.Infof("filter...")
+	cs, err := clientset.GetK8SClientset()
+
+	e.logger.Infof("podname: %v", pod.GetName())
+	e.logger.Infof("err: %v", err)
+	if err == nil {
+		// TODO: Get namespace  <18-04-23, Wang yiming> //
+		// TODO: remove debug info  <18-04-23, Wang yiming> //
+		events, _ := cs.CoreV1().Events("default").List(context.TODO(), metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.GetName(), TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
+		for index, event := range events.Items {
+			e.logger.Infof("enter filter..., event: %v(%d)", event, index)
+		}
+	}
+
 	for _, vol := range pod.Spec.Volumes {
 		defer e.metrics.EvaluateDurationForMethod("filter", prometheus.Labels{"volume_name": vol.Name})()
 	}

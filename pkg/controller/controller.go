@@ -162,6 +162,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
+	// TODO: remove debug info  <18-04-23, Wang yiming> //
 	ll.Infof("get volume...")
 	defer c.metricCreateVolume.EvaluateDurationForMethod("CreateVolume", prometheus.Labels{"volume_name": req.Name})()
 
