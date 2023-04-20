@@ -387,9 +387,10 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 	if err == nil {
 		// TODO: Get namespace  <18-04-23, Wang yiming> //
 		// TODO: remove debug info  <18-04-23, Wang yiming> //
-		events, _ := cs.CoreV1().Events("default").List(context.TODO(), metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.GetName(), TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
-		//test
-		//test
+		// TODO: change TODO context  <20-04-23, Wang yiming> //
+		events, err2 := cs.CoreV1().Events("default").List(context.TODO(), metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.GetName(), TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
+		e.logger.Infof("%v", err2)
+		e.logger.Infof("%v", events)
 		for index, event := range events.Items {
 			e.logger.Infof("enter filter..., event: %v(%d)", event, index)
 		}
