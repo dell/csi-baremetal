@@ -389,6 +389,7 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 		// TODO: remove debug info  <18-04-23, Wang yiming> //
 		events, _ := cs.CoreV1().Events("default").List(context.TODO(), metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.GetName(), TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
 		//test
+		//test
 		for index, event := range events.Items {
 			e.logger.Infof("enter filter..., event: %v(%d)", event, index)
 		}
