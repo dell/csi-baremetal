@@ -914,6 +914,18 @@ func TestDriveController_handleDriveLabelUpdate(t *testing.T) {
 		acLabels := modifiedAC.GetLabels()
 		assert.Equal(t, apiV1.DriveTaintValue, acLabels[apiV1.DriveTaintKey])
 
+		//remove drive label and check ac label removed also
+		driveLabels = expectedD.GetLabels()
+		delete(driveLabels, apiV1.DriveTaintKey)
+		assert.Nil(t, dc.client.UpdateCR(testCtx, expectedD))
+		err = dc.handleDriveLableUpdate(k8s.ListFailCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+		modifiedAC = accrd.AvailableCapacity{}
+		assert.Nil(t, dc.client.ReadCR(testCtx, expectedAC.Name, expectedAC.Namespace, &modifiedAC))
+		acLabels = modifiedAC.GetLabels()
+		_, ok := acLabels[apiV1.DriveTaintKey]
+		assert.Equal(t, false, ok)
+
 		// clean up resource
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedAC))
@@ -946,6 +958,18 @@ func TestDriveController_handleDriveLabelUpdate(t *testing.T) {
 		assert.Nil(t, dc.client.ReadCR(testCtx, expectedAC.Name, expectedAC.Namespace, &modifiedAC))
 		acLabels := modifiedAC.GetLabels()
 		assert.Equal(t, apiV1.DriveTaintValue, acLabels[apiV1.DriveTaintKey])
+
+		//remove drive label and check ac label removed also
+		driveLabels = expectedD.GetLabels()
+		delete(driveLabels, apiV1.DriveTaintKey)
+		assert.Nil(t, dc.client.UpdateCR(testCtx, expectedD))
+		err = dc.handleDriveLableUpdate(testCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+		modifiedAC = accrd.AvailableCapacity{}
+		assert.Nil(t, dc.client.ReadCR(testCtx, expectedAC.Name, expectedAC.Namespace, &modifiedAC))
+		acLabels = modifiedAC.GetLabels()
+		_, ok := acLabels[apiV1.DriveTaintKey]
+		assert.Equal(t, false, ok)
 
 		// clean up resource
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))

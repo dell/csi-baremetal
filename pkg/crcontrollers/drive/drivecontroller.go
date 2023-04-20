@@ -502,9 +502,7 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 	if taintLabelExisted {
 		acLabels[apiV1.DriveTaintKey] = apiV1.DriveTaintValue
 	} else {
-		if _, ok := acLabels[apiV1.DriveTaintKey]; ok {
-			delete(acLabels, apiV1.DriveTaintKey)
-		}
+		delete(acLabels, apiV1.DriveTaintKey)
 	}
 
 	if err = c.client.UpdateCR(ctx, ac); err != nil {
