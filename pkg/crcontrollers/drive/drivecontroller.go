@@ -142,6 +142,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
 	// handle drive labeled or not
 	if err := c.handleDriveLableUpdate(ctx, log, drive); err != nil {
+		log.Warnf("handle drive %s label update event failure: %s", drive.Name, err.Error())
 	}
 	// handle offline/online drive status
 	if err := c.handleDriveStatus(ctx, drive); err != nil {
