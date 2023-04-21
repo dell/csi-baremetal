@@ -394,7 +394,7 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 
 	for _, e2 := range events.Items {
 		if e2.Reason == "Killing" {
-			//pod was killed just now
+			//same name killed pod's events found, not count in
 			totalTime = 0
 		} else if totalTime == 0 {
 			totalTime = time.Since(e2.FirstTimestamp.Time).Seconds()
@@ -402,7 +402,8 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 	}
 
 	if len(events.Items) == 0 || events.Items[len(events.Items)-1].Reason == "Killing" {
-		//pod was killed just now
+		lastTime = 0
+		//no events found
 	} else {
 		lastTime = time.Since(events.Items[len(events.Items)-1].LastTimestamp.Time).Seconds()
 	}
@@ -427,7 +428,7 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 		e.scheduleMetricsLastInterval.UpdateValue(lastInterval, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
 		defer func() {
 			filterDur := time.Since(start)
-			e.scheduleMetricsTotalTime.UpdateValue(filterDur.Seconds()+totalTime, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})()
+			e.scheduleMetricsTotalTime.UpdateValue(filterDur.Seconds()+totalTime, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
 		}()
 	}
 	// construct ACR name

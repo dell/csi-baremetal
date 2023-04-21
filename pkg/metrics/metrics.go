@@ -94,7 +94,7 @@ type StatisticWithCustomLabels interface {
 	EvaluateDurationWithClear(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func()
 	EvaluateDurationForMethod(method string, labels prometheus.Labels) func()
 	EvaluateDurationForType(t string, labels prometheus.Labels) func()
-	UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func()
+	UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels)
 }
 
 // MetricWithCustomLabels is a structure, which encapsulate prometheus GaugeVec structure. It used for evalute duration,
@@ -149,21 +149,19 @@ func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels promet
 }
 
 // UpdateValue update value of metric with specific labels
-func (m *MetricWithCustomLabels) UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func() {
+func (m *MetricWithCustomLabels) UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) {
 	labels["source"] = "MetricsWithCustomLabels"
 	labels["any"] = "true"
-	return func() {
-		if clear {
-			m.GaugeVec.DeletePartialMatch(clearLabels)
-		}
-		m.GaugeVec.With(labels).Set(value)
+	if clear {
+		m.GaugeVec.DeletePartialMatch(clearLabels)
 	}
+	m.GaugeVec.With(labels).Set(value)
 }
 
 // Counter is a common interface for counter metrics
 type Counter interface {
 	Collect() prometheus.Collector
-	Add(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func()
+	Add(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels)
 }
 
 // CounterWithCustomLabels is a structure, which encapsulate prometheus CounterVec structure. It used for counts something.
@@ -184,12 +182,12 @@ func (m *CounterWithCustomLabels) Collect() prometheus.Collector {
 }
 
 // Add adds value to metric with specific labels
-func (m *CounterWithCustomLabels) Add(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func() {
+func (m *CounterWithCustomLabels) Add(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) {
 	labels["source"] = "CounterWithCustomLabels"
-	return func() {
-		if clear {
-			m.CounterVec.DeletePartialMatch(clearLabels)
-		}
-		m.CounterVec.With(labels).Add(1)
+
+	if clear {
+		m.CounterVec.DeletePartialMatch(clearLabels)
 	}
+	m.CounterVec.With(labels).Add(1)
+
 }

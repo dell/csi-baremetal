@@ -51,5 +51,6 @@ var DbgScheduleCounter = metrics.NewCounterWithCustomLabels(prometheus.CounterOp
 func init() {
 	prometheus.MustRegister(ReservationDuration.Collect())
 	prometheus.MustRegister(DbgScheduleTotalTime.Collect())
+	prometheus.MustRegister(DbgScheduleInternal.Collect())
 	prometheus.MustRegister(DbgScheduleCounter.Collect())
 }
