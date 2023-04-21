@@ -476,10 +476,8 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil {
 		log.Infof("LVG for drive %s is not found: %s", drive.GetName(), err.Error())
-	} else {
-		if lvg != nil {
-			location = lvg.GetName()
-		}
+	} else if lvg != nil {
+		location = lvg.GetName()
 	}
 	// sync label to related ac with the drive
 	ac, err := c.crHelper.GetACByLocation(location)
