@@ -475,9 +475,7 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 	location := drive.GetName()
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil {
-		if err != errTypes.ErrorNotFound {
-			log.Infof("LVG for drive %s is not found: %s", drive.GetName(), err.Error())
-		}
+		log.Infof("LVG for drive %s is not found: %s", drive.GetName(), err.Error())
 	} else {
 		if lvg != nil {
 			location = lvg.GetName()
