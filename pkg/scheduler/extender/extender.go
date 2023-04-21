@@ -64,9 +64,11 @@ type Extender struct {
 	annotationKey string
 	nodeSelector  string
 	sync.Mutex
-	logger                 *logrus.Entry
-	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
-	metrics                metrics.StatisticWithCustomLabels
+	logger                      *logrus.Entry
+	capacityManagerBuilder      capacityplanner.CapacityManagerBuilder
+	scheduleMetricsTotalTime    metrics.StatisticWithCustomLabels
+	scheduleMetricsLastInterval metrics.StatisticWithCustomLabels
+	scheduleMetricsCounter      metrics.Counter
 } // if a new field is added, add field to extender_test.go also.
 
 // NewExtender returns new instance of Extender struct
@@ -84,15 +86,17 @@ func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	)
 
 	return &Extender{
-		k8sClient:              kubeClient,
-		k8sCache:               kubeCache,
-		provisioner:            provisioner,
-		annotation:             annotationSrv,
-		annotationKey:          annotationKey,
-		nodeSelector:           nodeselector,
-		logger:                 logger.WithField("component", "Extender"),
-		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
-		metrics:                common.DbgReservationDuration,
+		k8sClient:                   kubeClient,
+		k8sCache:                    kubeCache,
+		provisioner:                 provisioner,
+		annotation:                  annotationSrv,
+		annotationKey:               annotationKey,
+		nodeSelector:                nodeselector,
+		logger:                      logger.WithField("component", "Extender"),
+		capacityManagerBuilder:      &capacityplanner.DefaultCapacityManagerBuilder{},
+		scheduleMetricsTotalTime:    common.DbgScheduleTotalTime,
+		scheduleMetricsLastInterval: common.DbgScheduleInternal,
+		scheduleMetricsCounter:      common.DbgScheduleCounter,
 	}, nil
 }
 
@@ -373,37 +377,59 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 	return request, nil
 }
 
+func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, podName string) (float64, float64, error) {
+	//record schedule information to metrics
+	cs, err := clientset.GetK8SClientset()
+	if err != nil {
+		e.logger.Errorf("cannot get clientset: %s", err)
+		return 0, 0, err
+	}
+	events, err := cs.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName, TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
+	if err != nil {
+		e.logger.Errorf("cannot read event: %s", err)
+		return 0, 0, err
+	}
+
+	var totalTime, lastTime float64
+
+	for _, e2 := range events.Items {
+		if e2.Reason == "Killing" {
+			//pod was killed just now
+			totalTime = 0
+		} else if totalTime == 0 {
+			totalTime = time.Since(e2.FirstTimestamp.Time).Seconds()
+		}
+	}
+
+	if len(events.Items) == 0 || events.Items[len(events.Items)-1].Reason == "Killing" {
+		//pod was killed just now
+	} else {
+		lastTime = time.Since(events.Items[len(events.Items)-1].LastTimestamp.Time).Seconds()
+	}
+	return totalTime, lastTime, nil
+}
+
 // filter is an algorithm for defining whether requested volumes could be provisioned on particular node or no
 // nodes - list of node candidate, volumes - requested volumes
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
 	filteredNodes schedulerapi.FailedNodesMap, err error) {
-	e.logger.Infof("filter...")
-	cs, err := clientset.GetK8SClientset()
-
-	e.logger.Infof("podname: %v", pod.GetName())
-	e.logger.Infof("err: %v", err)
-	if err == nil {
-		// TODO: Get namespace  <18-04-23, Wang yiming> //
-		// TODO: remove debug info  <18-04-23, Wang yiming> //
-		// TODO: change TODO context  <20-04-23, Wang yiming> //
-		events, err2 := cs.CoreV1().Events("default").List(context.TODO(), metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.GetName(), TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
-		e.logger.Infof("%v", err2)
-		e.logger.Infof("%v", events)
-		for index, event := range events.Items {
-			e.logger.Infof("enter filter..., event: %v(%d)", event, index)
-		}
-	}
-
-	for _, vol := range pod.Spec.Volumes {
-		defer e.metrics.EvaluateDurationForMethod("filter", prometheus.Labels{"volume_name": vol.Name})()
-	}
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil
 	}
+	e.scheduleMetricsCounter.Add(prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
 
+	start := time.Now()
+	totalTime, lastInterval, err := calculateScheduleTime(ctx, e, pod.Namespace, pod.GetName())
+	if err != nil {
+		e.scheduleMetricsLastInterval.UpdateValue(lastInterval, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
+		defer func() {
+			filterDur := time.Since(start)
+			e.scheduleMetricsTotalTime.UpdateValue(filterDur.Seconds()+totalTime, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})()
+		}()
+	}
 	// construct ACR name
 	reservationName := getReservationName(pod)
 	// read reservation
