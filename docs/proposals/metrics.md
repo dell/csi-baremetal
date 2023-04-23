@@ -76,3 +76,15 @@ annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: 'port_number'
 ```
+### Check metrics data by manual (for debugging)
+Metrics data is exposed with HTTP Interface, you can of course check it with "curl".
+
+
+But since they are in a pod, it's better to expose it to localhost:
+```sh
+kubectl port-forward $CSIPOD 8789:8787
+```
+In another session, check metrics with "curl":
+```sh
+curl localhost:8789/metrics
+```
