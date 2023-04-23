@@ -33,13 +33,13 @@ var ReservationDuration = metrics.NewMetrics(prometheus.HistogramOpts{
 var DbgScheduleTotalTime = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
 	Name: "schedule_total_time",
 	Help: "total schedule time cose for pod",
-}, "source", "any", "pod_name")
+}, "source", "pod_name")
 
-// DbgScheduleInternal used to collect schedule interval time
-var DbgScheduleInternal = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
-	Name: "schedule_interval",
-	Help: "latest schedule interval for pod",
-}, "source", "any", "pod_name")
+// DbgScheduleSinceLastTime used to collect schedule interval time
+var DbgScheduleSinceLastTime = metrics.NewMetricsWithCustomLabels(prometheus.GaugeOpts{
+	Name: "schedule_since_last_time",
+	Help: "schedule interval since last time",
+}, "source", "pod_name")
 
 // DbgScheduleCounter used to collect schedule totol counts
 var DbgScheduleCounter = metrics.NewCounterWithCustomLabels(prometheus.CounterOpts{
@@ -51,6 +51,6 @@ var DbgScheduleCounter = metrics.NewCounterWithCustomLabels(prometheus.CounterOp
 func init() {
 	prometheus.MustRegister(ReservationDuration.Collect())
 	prometheus.MustRegister(DbgScheduleTotalTime.Collect())
-	prometheus.MustRegister(DbgScheduleInternal.Collect())
+	prometheus.MustRegister(DbgScheduleSinceLastTime.Collect())
 	prometheus.MustRegister(DbgScheduleCounter.Collect())
 }

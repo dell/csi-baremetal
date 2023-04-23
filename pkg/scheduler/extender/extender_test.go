@@ -670,16 +670,16 @@ func setup(t *testing.T) *Extender {
 		annotation.WithRetryNumber(1),
 	)
 	return &Extender{
-		k8sClient:                   kubeClient,
-		k8sCache:                    kubeCache,
-		namespace:                   testNs,
-		annotation:                  annotationSrv,
-		provisioner:                 testProvisioner,
-		logger:                      testLogger.WithField("component", "Extender"),
-		capacityManagerBuilder:      &capacityplanner.DefaultCapacityManagerBuilder{},
-		scheduleMetricsTotalTime:    common.DbgScheduleTotalTime,
-		scheduleMetricsLastInterval: common.DbgScheduleInternal,
-		scheduleMetricsCounter:      common.DbgScheduleCounter,
+		k8sClient:                    kubeClient,
+		k8sCache:                     kubeCache,
+		namespace:                    testNs,
+		annotation:                   annotationSrv,
+		provisioner:                  testProvisioner,
+		logger:                       testLogger.WithField("component", "Extender"),
+		capacityManagerBuilder:       &capacityplanner.DefaultCapacityManagerBuilder{},
+		scheduleMetricsTotalTime:     common.DbgScheduleTotalTime,
+		scheduleMetricsSinceLastTime: common.DbgScheduleSinceLastTime,
+		scheduleMetricsCounter:       common.DbgScheduleCounter,
 	}
 }
 

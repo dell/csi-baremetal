@@ -152,7 +152,6 @@ func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels promet
 // UpdateValue update value of metric with specific labels
 func (m *MetricWithCustomLabels) UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) {
 	labels["source"] = "MetricsWithCustomLabels"
-	labels["any"] = "true"
 	if clear {
 		m.GaugeVec.DeletePartialMatch(clearLabels)
 	}

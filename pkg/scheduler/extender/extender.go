@@ -64,11 +64,11 @@ type Extender struct {
 	annotationKey string
 	nodeSelector  string
 	sync.Mutex
-	logger                      *logrus.Entry
-	capacityManagerBuilder      capacityplanner.CapacityManagerBuilder
-	scheduleMetricsTotalTime    metrics.StatisticWithCustomLabels
-	scheduleMetricsLastInterval metrics.StatisticWithCustomLabels
-	scheduleMetricsCounter      metrics.Counter
+	logger                       *logrus.Entry
+	capacityManagerBuilder       capacityplanner.CapacityManagerBuilder
+	scheduleMetricsTotalTime     metrics.StatisticWithCustomLabels
+	scheduleMetricsSinceLastTime metrics.StatisticWithCustomLabels
+	scheduleMetricsCounter       metrics.Counter
 } // if a new field is added, add field to extender_test.go also.
 
 // NewExtender returns new instance of Extender struct
@@ -86,17 +86,17 @@ func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 	)
 
 	return &Extender{
-		k8sClient:                   kubeClient,
-		k8sCache:                    kubeCache,
-		provisioner:                 provisioner,
-		annotation:                  annotationSrv,
-		annotationKey:               annotationKey,
-		nodeSelector:                nodeselector,
-		logger:                      logger.WithField("component", "Extender"),
-		capacityManagerBuilder:      &capacityplanner.DefaultCapacityManagerBuilder{},
-		scheduleMetricsTotalTime:    common.DbgScheduleTotalTime,
-		scheduleMetricsLastInterval: common.DbgScheduleInternal,
-		scheduleMetricsCounter:      common.DbgScheduleCounter,
+		k8sClient:                    kubeClient,
+		k8sCache:                     kubeCache,
+		provisioner:                  provisioner,
+		annotation:                   annotationSrv,
+		annotationKey:                annotationKey,
+		nodeSelector:                 nodeselector,
+		logger:                       logger.WithField("component", "Extender"),
+		capacityManagerBuilder:       &capacityplanner.DefaultCapacityManagerBuilder{},
+		scheduleMetricsTotalTime:     common.DbgScheduleTotalTime,
+		scheduleMetricsSinceLastTime: common.DbgScheduleSinceLastTime,
+		scheduleMetricsCounter:       common.DbgScheduleCounter,
 	}, nil
 }
 
@@ -386,28 +386,26 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 	}
 	events, err := cs.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName, TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
 	if err != nil {
-		e.logger.Errorf("cannot read event: %s", err)
+		e.logger.Errorf("cannot read events for pod %s: %s", podName, err)
 		return 0, 0, err
 	}
 
-	var totalTime, lastTime float64
+	var totalTime, sinceLastTime float64
 
 	for _, ev := range events.Items {
 		if ev.Reason == "Killing" {
 			//same name killed pod's events found, not count in
 			totalTime = 0
-		} else if totalTime == 0 {
-			totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
+			sinceLastTime = 0
+		} else if ev.Reason == "FailedScheduling" {
+			if totalTime == 0 {
+				totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
+			}
+			sinceLastTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
 		}
 	}
 
-	if len(events.Items) == 0 || events.Items[len(events.Items)-1].Reason == "Killing" {
-		lastTime = 0
-		//no events found
-	} else {
-		lastTime = time.Since(events.Items[len(events.Items)-1].ObjectMeta.CreationTimestamp.Time).Seconds()
-	}
-	return totalTime, lastTime, nil
+	return totalTime, sinceLastTime, nil
 }
 
 // filter is an algorithm for defining whether requested volumes could be provisioned on particular node or no
@@ -424,9 +422,9 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 	defer func() {
 		if err == nil && matchedNodes != nil && len(matchedNodes) != 0 {
 			go func() {
-				time.Sleep(time.Second * 60)
+				time.Sleep(time.Second * 60 * 3)
 				e.scheduleMetricsTotalTime.Clear(prometheus.Labels{"pod_name": pod.Name})
-				e.scheduleMetricsLastInterval.Clear(prometheus.Labels{"pod_name": pod.Name})
+				e.scheduleMetricsSinceLastTime.Clear(prometheus.Labels{"pod_name": pod.Name})
 				e.scheduleMetricsCounter.Clear(prometheus.Labels{"pod_name": pod.Name})
 			}()
 		}
@@ -434,9 +432,9 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 	e.scheduleMetricsCounter.Add(prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
 
 	start := time.Now()
-	totalTime, lastInterval, err := calculateScheduleTime(ctx, e, pod.Namespace, pod.GetName())
+	totalTime, sinceLastTime, err := calculateScheduleTime(ctx, e, pod.Namespace, pod.GetName())
 	if err == nil {
-		e.scheduleMetricsLastInterval.UpdateValue(lastInterval, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
+		e.scheduleMetricsSinceLastTime.UpdateValue(sinceLastTime, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
 		defer func() {
 			filterDur := time.Since(start)
 			e.scheduleMetricsTotalTime.UpdateValue(filterDur.Seconds()+totalTime, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
