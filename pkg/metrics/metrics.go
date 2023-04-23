@@ -95,6 +95,7 @@ type StatisticWithCustomLabels interface {
 	EvaluateDurationForMethod(method string, labels prometheus.Labels) func()
 	EvaluateDurationForType(t string, labels prometheus.Labels) func()
 	UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels)
+	Clear(label prometheus.Labels)
 }
 
 // MetricWithCustomLabels is a structure, which encapsulate prometheus GaugeVec structure. It used for evalute duration,
@@ -158,10 +159,16 @@ func (m *MetricWithCustomLabels) UpdateValue(value float64, labels prometheus.La
 	m.GaugeVec.With(labels).Set(value)
 }
 
+// Clear clears metric by labels
+func (m *MetricWithCustomLabels) Clear(labels prometheus.Labels) {
+	m.GaugeVec.DeletePartialMatch(labels)
+}
+
 // Counter is a common interface for counter metrics
 type Counter interface {
 	Collect() prometheus.Collector
 	Add(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels)
+	Clear(label prometheus.Labels)
 }
 
 // CounterWithCustomLabels is a structure, which encapsulate prometheus CounterVec structure. It used for counts something.
@@ -190,4 +197,9 @@ func (m *CounterWithCustomLabels) Add(labels prometheus.Labels, clear bool, clea
 	}
 	m.CounterVec.With(labels).Add(1)
 
+}
+
+// Clear clears metric by labels
+func (m *CounterWithCustomLabels) Clear(labels prometheus.Labels) {
+	m.CounterVec.DeletePartialMatch(labels)
 }

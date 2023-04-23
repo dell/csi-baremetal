@@ -420,11 +420,22 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 	if len(capacities) == 0 {
 		return nodes, nil, nil
 	}
+	//clear metric after schedule completed.
+	defer func() {
+		if err == nil && len(nodes) > 0 {
+			go func() {
+				time.Sleep(time.Second * 60)
+				e.scheduleMetricsTotalTime.Clear(prometheus.Labels{"pod_name": pod.Name})
+				e.scheduleMetricsLastInterval.Clear(prometheus.Labels{"pod_name": pod.Name})
+				e.scheduleMetricsCounter.Clear(prometheus.Labels{"pod_name": pod.Name})
+			}()
+		}
+	}()
 	e.scheduleMetricsCounter.Add(prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
 
 	start := time.Now()
 	totalTime, lastInterval, err := calculateScheduleTime(ctx, e, pod.Namespace, pod.GetName())
-	if err != nil {
+	if err == nil {
 		e.scheduleMetricsLastInterval.UpdateValue(lastInterval, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
 		defer func() {
 			filterDur := time.Since(start)
