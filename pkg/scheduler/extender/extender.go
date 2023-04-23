@@ -392,12 +392,12 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 
 	var totalTime, lastTime float64
 
-	for _, e2 := range events.Items {
-		if e2.Reason == "Killing" {
+	for _, ev := range events.Items {
+		if ev.Reason == "Killing" {
 			//same name killed pod's events found, not count in
 			totalTime = 0
 		} else if totalTime == 0 {
-			totalTime = time.Since(e2.FirstTimestamp.Time).Seconds()
+			totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
 		}
 	}
 
@@ -405,7 +405,7 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 		lastTime = 0
 		//no events found
 	} else {
-		lastTime = time.Since(events.Items[len(events.Items)-1].LastTimestamp.Time).Seconds()
+		lastTime = time.Since(events.Items[len(events.Items)-1].ObjectMeta.CreationTimestamp.Time).Seconds()
 	}
 	return totalTime, lastTime, nil
 }
