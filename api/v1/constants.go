@@ -134,4 +134,8 @@ const (
 	LocateStatusNotAvailable = int32(2)
 
 	DockerImageKernelVersion = "5.4"
+
+	// CSI Drive taint-like label key and value
+	DriveTaintKey   = "drive.csi-baremetal.dell.com/taint"
+	DriveTaintValue = "NoSchedule"
 )

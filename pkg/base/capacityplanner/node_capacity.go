@@ -72,6 +72,14 @@ func newNodeCapacity(node string, acs []accrd.AvailableCapacity, acrs []acrcrd.A
 	acs = FilterACList(acs, func(ac accrd.AvailableCapacity) bool {
 		return ac.Spec.NodeId == node
 	})
+	// Filter out AC with disk taint label
+	acs = FilterACList(acs, func(ac accrd.AvailableCapacity) bool {
+		labels := ac.GetLabels()
+		if effect, ok := labels[v1.DriveTaintKey]; ok && effect == v1.DriveTaintValue {
+			return false
+		}
+		return true
+	})
 
 	// Sort AC to have the persistent order for each reservation
 	sort.Slice(acs, func(i, j int) bool {
