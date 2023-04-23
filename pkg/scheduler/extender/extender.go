@@ -422,7 +422,7 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 	}
 	//clear metric after schedule completed.
 	defer func() {
-		if err == nil && len(nodes) > 0 {
+		if err == nil && matchedNodes != nil && len(matchedNodes) != 0 {
 			go func() {
 				time.Sleep(time.Second * 60)
 				e.scheduleMetricsTotalTime.Clear(prometheus.Labels{"pod_name": pod.Name})
