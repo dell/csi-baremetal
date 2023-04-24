@@ -41,6 +41,11 @@ var BuildInfo = prometheus.NewGaugeFunc(
 	func() float64 { return 1 },
 )
 
+// DbgMetricHoldTime is Dbg metric hold time,
+// after that, Dbg metric will be cleaned up in case
+// more and more metrics exists.
+const DbgMetricHoldTime = 3 * 60
+
 // Statistic is a common interface for histogram metrics
 type Statistic interface {
 	Collect() prometheus.Collector
@@ -139,14 +144,14 @@ func (m *MetricWithCustomLabels) EvaluateDurationWithClear(labels prometheus.Lab
 func (m *MetricWithCustomLabels) EvaluateDurationForMethod(method string, labels prometheus.Labels) func() {
 	labels["source"] = "MetricsWithCustomLabels"
 	labels["method"] = method
-	return m.EvaluateDurationWithClear(labels, true, prometheus.Labels{"method": method})
+	return m.EvaluateDurationWithClear(labels, false, prometheus.Labels{})
 }
 
 // EvaluateDurationForType evaluate function call with "type" label, it also update labels of metrics
 func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels prometheus.Labels) func() {
 	labels["source"] = "MetricsWithCustomLabels"
 	labels["type"] = t
-	return m.EvaluateDurationWithClear(labels, true, prometheus.Labels{"type": t})
+	return m.EvaluateDurationWithClear(labels, false, prometheus.Labels{})
 }
 
 // UpdateValue update value of metric with specific labels

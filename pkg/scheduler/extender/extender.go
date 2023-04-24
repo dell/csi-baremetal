@@ -377,37 +377,6 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 	return request, nil
 }
 
-func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, podName string) (float64, float64, error) {
-	//record schedule information to metrics
-	cs, err := clientset.GetK8SClientset()
-	if err != nil {
-		e.logger.Errorf("cannot get clientset: %s", err)
-		return 0, 0, err
-	}
-	events, err := cs.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName, TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
-	if err != nil {
-		e.logger.Errorf("cannot read events for pod %s: %s", podName, err)
-		return 0, 0, err
-	}
-
-	var totalTime, sinceLastTime float64
-
-	for _, ev := range events.Items {
-		if ev.Reason == "Killing" {
-			//same name killed pod's events found, not count in
-			totalTime = 0
-			sinceLastTime = 0
-		} else if ev.Reason == "FailedScheduling" {
-			if totalTime == 0 {
-				totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
-			}
-			sinceLastTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
-		}
-	}
-
-	return totalTime, sinceLastTime, nil
-}
-
 // filter is an algorithm for defining whether requested volumes could be provisioned on particular node or no
 // nodes - list of node candidate, volumes - requested volumes
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
@@ -422,7 +391,7 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 	defer func() {
 		if err == nil && matchedNodes != nil && len(matchedNodes) != 0 {
 			go func() {
-				time.Sleep(time.Second * 60 * 3)
+				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
 				e.scheduleMetricsTotalTime.Clear(prometheus.Labels{"pod_name": pod.Name})
 				e.scheduleMetricsSinceLastTime.Clear(prometheus.Labels{"pod_name": pod.Name})
 				e.scheduleMetricsCounter.Clear(prometheus.Labels{"pod_name": pod.Name})
@@ -581,7 +550,6 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 func (e *Extender) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
 	nodes []coreV1.Node) error {
 	reservation.Spec.Status = v1.ReservationRequested
-	// update nodes
 	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
 	if len(reservation.Spec.NodeRequests.Requested) == 0 {
 		return nil
@@ -688,6 +656,41 @@ func createRequestFromPVCSpec(volumeName, storageType string, resourceRequiremen
 		StorageClass: util.ConvertStorageClass(storageType),
 		Size:         storageReq.Value(),
 	}
+}
+
+func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, podName string) (float64, float64, error) {
+	//record schedule information to metrics
+	cs, err := clientset.GetK8SClientset()
+	if err != nil {
+		e.logger.Errorf("cannot get clientset: %s", err)
+		return 0, 0, err
+	}
+	events, err := cs.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName, TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
+	if err != nil {
+		e.logger.Errorf("cannot read events for pod %s: %s", podName, err)
+		return 0, 0, err
+	}
+
+	return calcualte(events.Items)
+}
+
+func calcualte(events []coreV1.Event) (float64, float64, error) {
+	var totalTime, sinceLastTime float64
+
+	for _, ev := range events {
+		if ev.Reason == "Killing" {
+			//same name killed pod's events found, not count in
+			totalTime = 0
+			sinceLastTime = 0
+		} else if ev.Reason == "FailedScheduling" {
+			if totalTime == 0 {
+				totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
+			}
+			sinceLastTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
+		}
+	}
+	return totalTime, sinceLastTime, nil
+
 }
 
 // scChecker keeps info about the related SCs (provisioned by CSI Baremetal) and

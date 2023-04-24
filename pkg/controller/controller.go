@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -163,6 +164,12 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		"volumeID": req.GetName(),
 	})
 	defer c.metricCreateVolume.EvaluateDurationForMethod("CreateVolume", prometheus.Labels{"volume_name": req.Name})()
+	defer func() {
+		go func() {
+			time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+			c.metricCreateVolume.Clear(prometheus.Labels{"volume_name": req.Name})
+		}()
+	}()
 
 	ll.Infof("Processing request: %+v", req)
 

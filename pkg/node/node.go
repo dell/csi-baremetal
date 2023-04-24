@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -154,6 +155,12 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		"volumeID": req.GetVolumeId(),
 	})
 	defer s.metricStageVolume.EvaluateDurationForMethod("NodeStageVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
+	defer func() {
+		go func() {
+			time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+			s.metricStageVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
+		}()
+	}()
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())
@@ -373,6 +380,12 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		"volumeID": req.GetVolumeId(),
 	})
 	defer s.metricPublishVolume.EvaluateDurationForMethod("NodePublishVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
+	defer func() {
+		go func() {
+			time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+			s.metricPublishVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
+		}()
+	}()
 
 	ll.Infof("locking volume on request: %v", req)
 	s.volMu.LockKey(req.GetVolumeId())
