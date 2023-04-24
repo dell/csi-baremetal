@@ -156,12 +156,10 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	})
 	defer s.metricStageVolume.EvaluateDurationForMethod("NodeStageVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
 	defer func() {
-		if retresp != nil && reterr == nil {
+		if retresp != nil && reterr == nil && ctx.Err() == nil {
 			go func() {
 				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
-				if ctx.Err() == nil {
-					s.metricStageVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
-				}
+				s.metricStageVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
 			}()
 		}
 	}()
@@ -385,12 +383,10 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	})
 	defer s.metricPublishVolume.EvaluateDurationForMethod("NodePublishVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
 	defer func() {
-		if retresp != nil && reterr == nil {
+		if retresp != nil && reterr == nil && ctx.Err() == nil {
 			go func() {
 				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
-				if ctx.Err() == nil {
-					s.metricPublishVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
-				}
+				s.metricPublishVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
 			}()
 		}
 	}()
