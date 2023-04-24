@@ -269,7 +269,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				requests = append(requests, createRequestFromPVCSpec(
 					generateEphemeralVolumeName(pod.GetName(), v.Name),
 					storageType,
-					v.Ephemeral.VolumeClaimTemplate.Labels["csi-baremetal-storage-group"],
+					v.Ephemeral.VolumeClaimTemplate.Labels[v1.StorageGroupLabelKey],
 					claimSpec.Resources,
 					ll,
 				))
@@ -320,7 +320,7 @@ func (e *Extender) gatherCapacityRequestsByProvisioner(ctx context.Context, pod 
 				requests = append(requests, createRequestFromPVCSpec(
 					pvc.Name,
 					storageType,
-					pvc.Labels["csi-baremetal-storage-group"],
+					pvc.Labels[v1.StorageGroupLabelKey],
 					pvc.Spec.Resources,
 					ll,
 				))

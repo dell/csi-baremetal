@@ -424,7 +424,7 @@ func constructDefaultAppMap() (labels map[string]string) {
 func constructLVGCRLabels(storageGroup string) (labels map[string]string) {
 	labels = constructDefaultAppMap()
 	if storageGroup != "" {
-		labels["csi-baremetal-storage-group"] = storageGroup
+		labels[crdV1.StorageGroupLabelKey] = storageGroup
 	}
 	return labels
 }

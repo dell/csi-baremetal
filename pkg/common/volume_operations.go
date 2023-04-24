@@ -187,7 +187,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
 		// AC needs to be converted to LogicalVolumeGroup AC, LogicalVolumeGroup doesn't exist yet
-		if ac = vo.acProvider.RecreateACToLVGSC(ctx, v.StorageClass, ac.Labels["csi-baremetal-storage-group"], *ac); ac == nil {
+		if ac = vo.acProvider.RecreateACToLVGSC(ctx, v.StorageClass, ac.Labels[apiV1.StorageGroupLabelKey], *ac); ac == nil {
 			return nil, status.Errorf(codes.Internal,
 				"unable to prepare underlying storage for storage class %s", v.StorageClass)
 		}
@@ -695,8 +695,8 @@ func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Conte
 		labels[k8s.AppLabelKey] = value
 		labels[k8s.AppLabelShortKey] = value
 	}
-	if value, ok := pvc.GetLabels()["csi-baremetal-storage-group"]; ok {
-		labels["csi-baremetal-storage-group"] = value
+	if value, ok := pvc.GetLabels()[apiV1.StorageGroupLabelKey]; ok {
+		labels[apiV1.StorageGroupLabelKey] = value
 	}
 
 	return labels, nil

@@ -137,12 +137,12 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 }
 
 // createOrUpdateCapacity tries to create AC for drive or update its size if AC already exists
-func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveCR *drivecrd.Drive) (ctrl.Result, error) {
+func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveObj *drivecrd.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "createOrUpdateCapacity",
 	})
-	log.Debugf("createOrUpdateCapacity for corresponding Drive: %v", driveCR)
-	drive := driveCR.Spec
+	log.Debugf("createOrUpdateCapacity for corresponding Drive: %v", driveObj)
+	drive := driveObj.Spec
 	driveUUID := drive.GetUUID()
 	size := drive.GetSize()
 	// if drive is not clean, size is 0
@@ -153,13 +153,13 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveCR *drivec
 	switch {
 	case err == nil:
 		// If the corresponding ac exists, sync drive's size or storage group label to its corresponding AC if necessary
-		if ac.Spec.Size != size || ac.Labels["csi-baremetal-storage-group"] != driveCR.Labels["csi-baremetal-storage-group"] {
+		if ac.Spec.Size != size || ac.Labels[apiV1.StorageGroupLabelKey] != driveObj.Labels[apiV1.StorageGroupLabelKey] {
 			ac.Spec.Size = size
 			// TODO need deep-dive of golang map utilization and further refactor if necessary here
 			if ac.Labels == nil {
 				ac.Labels = make(map[string]string)
 			}
-			ac.Labels["csi-baremetal-storage-group"] = driveCR.Labels["csi-baremetal-storage-group"]
+			ac.Labels[apiV1.StorageGroupLabelKey] = driveObj.Labels[apiV1.StorageGroupLabelKey]
 			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
 				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
 				return ctrl.Result{}, err
@@ -333,7 +333,7 @@ func filter(oldDrive *drivecrd.Drive, newDrive *drivecrd.Drive) bool {
 	return old.GetIsClean() != new.GetIsClean() ||
 		old.GetStatus() != new.GetStatus() ||
 		old.GetHealth() != new.GetHealth() ||
-		oldDrive.Labels["csi-baremetal-storage-group"] != newDrive.Labels["csi-baremetal-storage-group"]
+		oldDrive.Labels[apiV1.StorageGroupLabelKey] != newDrive.Labels[apiV1.StorageGroupLabelKey]
 }
 
 func filterLVG(old *lvgcrd.LogicalVolumeGroup, new *lvgcrd.LogicalVolumeGroup) bool {
