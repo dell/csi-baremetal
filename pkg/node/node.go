@@ -149,17 +149,21 @@ func getStagingPath(logger *logrus.Entry, stagingPath string) string {
 // This method mounts volume with appropriate VolumeID into the StagingTargetPath from request.
 // Receives golang context and CSI Spec NodeStageVolumeRequest
 // Returns CSI Spec NodeStageVolumeResponse or error if something went wrong
-func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (retresp *csi.NodeStageVolumeResponse, reterr error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodeStageVolume",
 		"volumeID": req.GetVolumeId(),
 	})
 	defer s.metricStageVolume.EvaluateDurationForMethod("NodeStageVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
 	defer func() {
-		go func() {
-			time.Sleep(time.Second * metrics.DbgMetricHoldTime)
-			s.metricStageVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
-		}()
+		if retresp != nil && reterr == nil {
+			go func() {
+				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+				if ctx.Err() == nil {
+					s.metricStageVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
+				}
+			}()
+		}
 	}()
 
 	ll.Infof("locking volume on request: %v", req)
@@ -374,17 +378,21 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 // a volume. This method perform bind mount of volume with appropriate VolumeID from the StagingTargetPath to TargetPath.
 // Receives golang context and CSI Spec NodePublishVolumeRequest
 // Returns CSI Spec NodePublishVolumeResponse or error if something went wrong
-func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (retresp *csi.NodePublishVolumeResponse, reterr error) {
 	ll := s.log.WithFields(logrus.Fields{
 		"method":   "NodePublishVolume",
 		"volumeID": req.GetVolumeId(),
 	})
 	defer s.metricPublishVolume.EvaluateDurationForMethod("NodePublishVolume", prometheus.Labels{"volume_name": req.GetVolumeId()})()
 	defer func() {
-		go func() {
-			time.Sleep(time.Second * metrics.DbgMetricHoldTime)
-			s.metricPublishVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
-		}()
+		if retresp != nil && reterr == nil {
+			go func() {
+				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+				if ctx.Err() == nil {
+					s.metricPublishVolume.Clear(prometheus.Labels{"volume_name": req.GetVolumeId()})
+				}
+			}()
+		}
 	}()
 
 	ll.Infof("locking volume on request: %v", req)

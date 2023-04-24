@@ -158,17 +158,21 @@ func (c *CSIControllerService) Watch(*grpc_health_v1.HealthCheckRequest, grpc_he
 // For example storageType: HDD, storageType: HDDLVG. If this field is not set then storage type would be ANY.
 // Receives golang context and CSI Spec CreateVolumeRequest
 // Returns CSI Spec CreateVolumeResponse or error if something went wrong
-func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (retresp *csi.CreateVolumeResponse, reterr error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
 	defer c.metricCreateVolume.EvaluateDurationForMethod("CreateVolume", prometheus.Labels{"volume_name": req.Name})()
 	defer func() {
-		go func() {
-			time.Sleep(time.Second * metrics.DbgMetricHoldTime)
-			c.metricCreateVolume.Clear(prometheus.Labels{"volume_name": req.Name})
-		}()
+		if retresp != nil && reterr == nil {
+			go func() {
+				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+				if ctx.Err() == nil {
+					c.metricCreateVolume.Clear(prometheus.Labels{"volume_name": req.Name})
+				}
+			}()
+		}
 	}()
 
 	ll.Infof("Processing request: %+v", req)

@@ -382,19 +382,22 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
-	filteredNodes schedulerapi.FailedNodesMap, err error) {
+	filteredNodes schedulerapi.FailedNodesMap, reterr error) {
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil
 	}
 	//clear metric after schedule completed.
 	defer func() {
-		if err == nil && matchedNodes != nil && len(matchedNodes) != 0 {
+		if reterr == nil && matchedNodes != nil && len(matchedNodes) != 0 {
 			go func() {
 				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
-				e.scheduleMetricsTotalTime.Clear(prometheus.Labels{"pod_name": pod.Name})
-				e.scheduleMetricsSinceLastTime.Clear(prometheus.Labels{"pod_name": pod.Name})
-				e.scheduleMetricsCounter.Clear(prometheus.Labels{"pod_name": pod.Name})
+				if ctx.Err() == nil {
+					e.scheduleMetricsTotalTime.Clear(prometheus.Labels{"pod_name": pod.Name})
+					e.scheduleMetricsSinceLastTime.Clear(prometheus.Labels{"pod_name": pod.Name})
+					e.scheduleMetricsCounter.Clear(prometheus.Labels{"pod_name": pod.Name})
+
+				}
 			}()
 		}
 	}()
