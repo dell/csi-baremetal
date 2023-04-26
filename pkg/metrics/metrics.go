@@ -97,7 +97,6 @@ func (m *Metrics) Collect() prometheus.Collector {
 type StatisticWithCustomLabels interface {
 	Collect() prometheus.Collector
 	EvaluateDuration(labels prometheus.Labels) func()
-	EvaluateDurationWithClear(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func()
 	EvaluateDurationForMethod(method string, labels prometheus.Labels) func()
 	EvaluateDurationForType(t string, labels prometheus.Labels) func()
 	UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels)
@@ -130,8 +129,8 @@ func (m *MetricWithCustomLabels) EvaluateDuration(labels prometheus.Labels) func
 	}
 }
 
-// EvaluateDurationWithClear clear metric by labels before evaluate to avoid duplicated metric with same name.
-func (m *MetricWithCustomLabels) EvaluateDurationWithClear(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func() {
+// evaluateDurationWithClear clear metric by labels before evaluate to avoid duplicated metric with same name.
+func (m *MetricWithCustomLabels) evaluateDurationWithClear(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) func() {
 	start := time.Now()
 	return func() {
 		if clear {
@@ -145,14 +144,14 @@ func (m *MetricWithCustomLabels) EvaluateDurationWithClear(labels prometheus.Lab
 func (m *MetricWithCustomLabels) EvaluateDurationForMethod(method string, labels prometheus.Labels) func() {
 	labels["source"] = metricWithCustomLabels
 	labels["method"] = method
-	return m.EvaluateDurationWithClear(labels, false, prometheus.Labels{})
+	return m.evaluateDurationWithClear(labels, false, prometheus.Labels{})
 }
 
 // EvaluateDurationForType evaluate function call with "type" label, it also update labels of metrics
 func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels prometheus.Labels) func() {
 	labels["source"] = metricWithCustomLabels
 	labels["type"] = t
-	return m.EvaluateDurationWithClear(labels, false, prometheus.Labels{})
+	return m.evaluateDurationWithClear(labels, false, prometheus.Labels{})
 }
 
 // UpdateValue update value of metric with specific labels, also support to clear metric by labels
