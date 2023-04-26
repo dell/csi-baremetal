@@ -160,6 +160,9 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveObj *drive
 				ac.Labels = make(map[string]string)
 			}
 			ac.Labels[apiV1.StorageGroupLabelKey] = driveObj.Labels[apiV1.StorageGroupLabelKey]
+			if ac.Labels[apiV1.StorageGroupLabelKey] == "" {
+				delete(ac.Labels, apiV1.StorageGroupLabelKey)
+			}
 			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
 				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
 				return ctrl.Result{}, err
