@@ -398,7 +398,7 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 			}()
 		}
 	}()
-	e.scheduleMetricsCounter.Add(prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
+	e.scheduleMetricsCounter.Add(prometheus.Labels{"pod_name": pod.Name})
 
 	start := time.Now()
 	totalTime, sinceLastTime, err := calculateScheduleTime(ctx, e, pod.Namespace, pod.GetName())
