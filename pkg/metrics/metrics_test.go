@@ -37,4 +37,11 @@ func TestMetrics(t *testing.T) {
 	})
 	rVM2 := vm2.Collect()
 	assert.Equal(t, vm2.GaugeVec, rVM2)
+
+	vm3 := NewCounterWithCustomLabels(prometheus.CounterOpts{
+		Name: "test counter",
+		Help: "test counter",
+	}, "source", "pod_name")
+	rVM3 := vm3.Collect()
+	assert.Equal(t, vm3.CounterVec, rVM3)
 }

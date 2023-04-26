@@ -155,7 +155,7 @@ func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels promet
 	return m.EvaluateDurationWithClear(labels, false, prometheus.Labels{})
 }
 
-// UpdateValue update value of metric with specific labels
+// UpdateValue update value of metric with specific labels, also support to clear metric by labels
 func (m *MetricWithCustomLabels) UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) {
 	labels["source"] = metricWithCustomLabels
 	if clear {
@@ -193,7 +193,7 @@ func (m *CounterWithCustomLabels) Collect() prometheus.Collector {
 	return m.CounterVec
 }
 
-// Add adds value to metric with specific labels
+// Add adds value to metric with specific labels, also support to clear metric by labels
 func (m *CounterWithCustomLabels) Add(labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) {
 	labels["source"] = "CounterWithCustomLabels"
 
