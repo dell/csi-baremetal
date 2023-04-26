@@ -1032,7 +1032,7 @@ func Test_calculate(t *testing.T) {
 			Type:   "Warning",
 		},
 	}
-	totalTime, sinceLastTime, err := calcualte(events)
+	totalTime, sinceLastTime, err := calculate(events)
 	assert.Nil(t, err)
 	assert.Greater(t, sinceLastTime, 11.0*60)
 	assert.Less(t, sinceLastTime, 13.0*60)

@@ -45,6 +45,7 @@ var BuildInfo = prometheus.NewGaugeFunc(
 // after that, Dbg metric will be cleaned up in case
 // more and more metrics exists.
 const DbgMetricHoldTime = 3 * 60
+const metricWithCustomLabels = "MetricsWithCustomLabels"
 
 // Statistic is a common interface for histogram metrics
 type Statistic interface {
@@ -142,21 +143,21 @@ func (m *MetricWithCustomLabels) EvaluateDurationWithClear(labels prometheus.Lab
 
 // EvaluateDurationForMethod of the method call, it also update labels of metrics
 func (m *MetricWithCustomLabels) EvaluateDurationForMethod(method string, labels prometheus.Labels) func() {
-	labels["source"] = "MetricsWithCustomLabels"
+	labels["source"] = metricWithCustomLabels
 	labels["method"] = method
 	return m.EvaluateDurationWithClear(labels, false, prometheus.Labels{})
 }
 
 // EvaluateDurationForType evaluate function call with "type" label, it also update labels of metrics
 func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels prometheus.Labels) func() {
-	labels["source"] = "MetricsWithCustomLabels"
+	labels["source"] = metricWithCustomLabels
 	labels["type"] = t
 	return m.EvaluateDurationWithClear(labels, false, prometheus.Labels{})
 }
 
 // UpdateValue update value of metric with specific labels
 func (m *MetricWithCustomLabels) UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) {
-	labels["source"] = "MetricsWithCustomLabels"
+	labels["source"] = metricWithCustomLabels
 	if clear {
 		m.GaugeVec.DeletePartialMatch(clearLabels)
 	}
@@ -200,7 +201,6 @@ func (m *CounterWithCustomLabels) Add(labels prometheus.Labels, clear bool, clea
 		m.CounterVec.DeletePartialMatch(clearLabels)
 	}
 	m.CounterVec.With(labels).Add(1)
-
 }
 
 // Clear clears metric by labels

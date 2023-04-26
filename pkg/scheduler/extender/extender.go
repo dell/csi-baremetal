@@ -387,7 +387,7 @@ func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.N
 	if len(capacities) == 0 {
 		return nodes, nil, nil
 	}
-	//clear metric after schedule completed.
+	// clear metric after schedule completed.
 	defer func() {
 		if reterr == nil && matchedNodes != nil && len(matchedNodes) != 0 && ctx.Err() == nil {
 			go func() {
@@ -659,7 +659,7 @@ func createRequestFromPVCSpec(volumeName, storageType string, resourceRequiremen
 }
 
 func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, podName string) (float64, float64, error) {
-	//record schedule information to metrics
+	// record schedule information to metrics
 	cs, err := clientset.GetK8SClientset()
 	if err != nil {
 		e.logger.Errorf("cannot get clientset: %s", err)
@@ -671,15 +671,15 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 		return 0, 0, err
 	}
 
-	return calcualte(events.Items)
+	return calculate(events.Items)
 }
 
-func calcualte(events []coreV1.Event) (float64, float64, error) {
+func calculate(events []coreV1.Event) (float64, float64, error) {
 	var totalTime, sinceLastTime float64
 
 	for _, ev := range events {
 		if ev.Reason == "Killing" {
-			//same name killed pod's events found, not count in
+			// same name killed pod's events found, not count in
 			totalTime = 0
 			sinceLastTime = 0
 		} else if ev.Reason == "FailedScheduling" {
@@ -690,7 +690,6 @@ func calcualte(events []coreV1.Event) (float64, float64, error) {
 		}
 	}
 	return totalTime, sinceLastTime, nil
-
 }
 
 // scChecker keeps info about the related SCs (provisioned by CSI Baremetal) and
