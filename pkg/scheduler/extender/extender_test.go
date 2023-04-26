@@ -1041,6 +1041,17 @@ func Test_calculate(t *testing.T) {
 
 }
 
+func Test_scheduleMetricsInitialized(t *testing.T) {
+	k, err1 := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err1)
+	e, err2 := NewExtender(testLogger, k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs), k8s.NewKubeCache(k, testLogger), "test", fc.NewFeatureConfig(), "test", "test")
+	assert.Nil(t, err2)
+
+	assert.NotNil(t, e.scheduleMetricsTotalTime)
+	assert.NotNil(t, e.scheduleMetricsSinceLastTime)
+	assert.NotNil(t, e.scheduleMetricsCounter)
+}
+
 func removeAllACRs(k *k8s.KubeClient, t *testing.T) {
 	acrList := acrcrd.AvailableCapacityReservationList{}
 	assert.Nil(t, k.ReadList(testCtx, &acrList))
