@@ -662,12 +662,12 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 	// record schedule information to metrics
 	cs, err := clientset.GetK8SClientset()
 	if err != nil {
-		e.logger.Errorf("cannot get clientset: %s", err)
+		e.logger.Errorf("cannot get clientset: %v", err)
 		return 0, 0, err
 	}
 	events, err := cs.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName, TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
 	if err != nil {
-		e.logger.Errorf("cannot read events for pod %s: %s", podName, err)
+		e.logger.Errorf("cannot read events for pod %v: %v", podName, err)
 		return 0, 0, err
 	}
 
@@ -676,13 +676,15 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 
 func calculate(events []coreV1.Event) (float64, float64, error) {
 	var totalTime, sinceLastTime float64
+	const Killing = "Killing"
+	const FailedScheduling = "FailedScheduling"
 
 	for _, ev := range events {
-		if ev.Reason == "Killing" {
+		if ev.Reason == Killing {
 			// same name killed pod's events found, not count in
 			totalTime = 0
 			sinceLastTime = 0
-		} else if ev.Reason == "FailedScheduling" {
+		} else if ev.Reason == FailedScheduling {
 			if totalTime == 0 {
 				totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
 			}
