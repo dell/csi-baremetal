@@ -676,15 +676,13 @@ func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, p
 
 func calculate(events []coreV1.Event) (float64, float64, error) {
 	var totalTime, sinceLastTime float64
-	const Killing = "Killing"
-	const FailedScheduling = "FailedScheduling"
 
 	for _, ev := range events {
-		if ev.Reason == Killing {
+		if ev.Reason == metrics.Killing {
 			// same name killed pod's events found, not count in
 			totalTime = 0
 			sinceLastTime = 0
-		} else if ev.Reason == FailedScheduling {
+		} else if ev.Reason == metrics.FailedScheduling {
 			if totalTime == 0 {
 				totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
 			}

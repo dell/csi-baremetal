@@ -46,6 +46,8 @@ var BuildInfo = prometheus.NewGaugeFunc(
 // more and more metrics exists.
 const DbgMetricHoldTime = 3 * 60
 const metricWithCustomLabels = "MetricsWithCustomLabels"
+const Killing = "Killing"
+const FailedScheduling = "FailedScheduling"
 
 // Statistic is a common interface for histogram metrics
 type Statistic interface {
