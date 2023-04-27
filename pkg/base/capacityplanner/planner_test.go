@@ -65,6 +65,18 @@ func getTestAC(nodeID string, size int64, sc string) *accrd.AvailableCapacity {
 	}
 }
 
+func getTestACWithLabel(nodeID string, size int64, sc string, labels map[string]string) *accrd.AvailableCapacity {
+	return &accrd.AvailableCapacity{
+		TypeMeta:   k8smetav1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{Name: uuid.New().String(), Namespace: testNS, Labels: labels},
+		Spec: genV1.AvailableCapacity{
+			Size:         size,
+			StorageClass: sc,
+			NodeId:       nodeID,
+		},
+	}
+}
+
 func getTestACR(size int64, sc string,
 	acList []*accrd.AvailableCapacity) *acrcrd.AvailableCapacityReservation {
 	acNames := make([]string, len(acList))
