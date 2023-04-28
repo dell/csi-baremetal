@@ -47,13 +47,13 @@ var BuildInfo = prometheus.NewGaugeFunc(
 const DbgMetricHoldTime = 3 * 60
 const metricWithCustomLabels = "MetricsWithCustomLabels"
 
-// Killing is the delimiter keyword used to distinguish if pod event is for current pod,
+// EventReasonKilling is the delimiter keyword used to distinguish if pod event is for current pod,
 // not for same name pod already killed, which is useful to calculate scheduling metrics.
-const Killing = "Killing"
+const EventReasonKilling = "Killing"
 
-// FailedScheduling is the keyword to find out failed scheduling event, which is useful
+// EventReasonFailedScheduling is the keyword to find out failed scheduling event, which is useful
 // to calculate  scheduling metrics.
-const FailedScheduling = "FailedScheduling"
+const EventReasonFailedScheduling = "FailedScheduling"
 
 // Statistic is a common interface for histogram metrics
 type Statistic interface {
