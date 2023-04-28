@@ -41,6 +41,20 @@ var BuildInfo = prometheus.NewGaugeFunc(
 	func() float64 { return 1 },
 )
 
+// DbgMetricHoldTime is Dbg metric hold time,
+// after that, Dbg metric will be cleaned up in case
+// more and more metrics exists.
+const DbgMetricHoldTime = 3 * 60
+const metricWithCustomLabels = "MetricsWithCustomLabels"
+
+// EventReasonKilling is the delimiter keyword used to distinguish if pod event is for current pod,
+// not for same name pod already killed, which is useful to calculate scheduling metrics.
+const EventReasonKilling = "Killing"
+
+// EventReasonFailedScheduling is the keyword to find out failed scheduling event, which is useful
+// to calculate  scheduling metrics.
+const EventReasonFailedScheduling = "FailedScheduling"
+
 // Statistic is a common interface for histogram metrics
 type Statistic interface {
 	Collect() prometheus.Collector
@@ -84,4 +98,102 @@ func (m *Metrics) EvaluateDurationForType(t string) func() {
 // Collect returns prometheus.Collector slice with OperationsDuration histogram
 func (m *Metrics) Collect() prometheus.Collector {
 	return m.OperationsDuration
+}
+
+// StatisticWithCustomLabels is Similar to Statistic but have Custom labels, but StatisticWithCustomLabels supports additional metrics labels,
+// this can be useful when you want to create metrics with dynamic labels, which prometheus doesn't support in native
+type StatisticWithCustomLabels interface {
+	Collect() prometheus.Collector
+	EvaluateDurationWithLabel(labels prometheus.Labels) func()
+	EvaluateDurationForMethod(method string, labels prometheus.Labels) func()
+	EvaluateDurationForType(t string, labels prometheus.Labels) func()
+	UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels)
+	Clear(label prometheus.Labels)
+}
+
+// MetricWithCustomLabels is a structure, which encapsulate prometheus GaugeVec structure. It used for evalute duration,
+// it support support dynamic labels to make it easy to distinguish metric data that has same metric name but different label.
+type MetricWithCustomLabels struct {
+	GaugeVec *prometheus.GaugeVec
+}
+
+// NewMetricsWithCustomLabels initializes MetricsWithCustomLabels
+func NewMetricsWithCustomLabels(opts prometheus.GaugeOpts, labels ...string) *MetricWithCustomLabels {
+	return &MetricWithCustomLabels{GaugeVec: prometheus.NewGaugeVec(opts, labels)}
+}
+
+// Collect returns prometheus.Collector slice with internal GaugeVec
+func (m *MetricWithCustomLabels) Collect() prometheus.Collector {
+	return m.GaugeVec
+}
+
+// EvaluateDurationWithLabel evaluate duration with label
+func (m *MetricWithCustomLabels) EvaluateDurationWithLabel(labels prometheus.Labels) func() {
+	start := time.Now()
+	return func() {
+		m.GaugeVec.With(labels).Set(time.Since(start).Seconds())
+	}
+}
+
+// EvaluateDurationForMethod evaluate duration of the method call with label
+func (m *MetricWithCustomLabels) EvaluateDurationForMethod(method string, labels prometheus.Labels) func() {
+	labels["source"] = metricWithCustomLabels
+	labels["method"] = method
+	return m.EvaluateDurationWithLabel(labels)
+}
+
+// EvaluateDurationForType evaluate function call with "type" label
+func (m *MetricWithCustomLabels) EvaluateDurationForType(t string, labels prometheus.Labels) func() {
+	labels["source"] = metricWithCustomLabels
+	labels["type"] = t
+	return m.EvaluateDurationWithLabel(labels)
+}
+
+// UpdateValue update value of metric with specific labels, also support to clear metric by labels
+func (m *MetricWithCustomLabels) UpdateValue(value float64, labels prometheus.Labels, clear bool, clearLabels prometheus.Labels) {
+	labels["source"] = metricWithCustomLabels
+	if clear {
+		m.GaugeVec.DeletePartialMatch(clearLabels)
+	}
+	m.GaugeVec.With(labels).Set(value)
+}
+
+// Clear clears metric by labels
+func (m *MetricWithCustomLabels) Clear(labels prometheus.Labels) {
+	m.GaugeVec.DeletePartialMatch(labels)
+}
+
+// Counter is a common interface for counter metrics
+type Counter interface {
+	Collect() prometheus.Collector
+	Add(labels prometheus.Labels)
+	Clear(label prometheus.Labels)
+}
+
+// CounterWithCustomLabels is a structure, which encapsulate prometheus CounterVec structure. It used for counts something.
+// also supports additional metrics labels,
+// this can be useful when you want to create metrics with dynamic labels, which prometheus doesn't support in native
+type CounterWithCustomLabels struct {
+	CounterVec *prometheus.CounterVec
+}
+
+// NewCounterWithCustomLabels initializes CounterWithCustomLabels
+func NewCounterWithCustomLabels(opts prometheus.CounterOpts, labels ...string) *CounterWithCustomLabels {
+	return &CounterWithCustomLabels{CounterVec: prometheus.NewCounterVec(opts, labels)}
+}
+
+// Collect returns prometheus.Collector slice with internal CounterVec
+func (m *CounterWithCustomLabels) Collect() prometheus.Collector {
+	return m.CounterVec
+}
+
+// Add adds value to metric with specific labels, also support to clear metric by labels
+func (m *CounterWithCustomLabels) Add(labels prometheus.Labels) {
+	labels["source"] = "CounterWithCustomLabels"
+	m.CounterVec.With(labels).Add(1)
+}
+
+// Clear clears metric by labels
+func (m *CounterWithCustomLabels) Clear(labels prometheus.Labels) {
+	m.CounterVec.DeletePartialMatch(labels)
 }
