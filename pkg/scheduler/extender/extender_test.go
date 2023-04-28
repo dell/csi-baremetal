@@ -47,6 +47,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
@@ -938,7 +939,7 @@ func Test_calculate(t *testing.T) {
 					Time: time.Now().Add(-46 * time.Minute),
 				},
 			},
-			Reason: "Killing",
+			Reason: metrics.EventReasonKilling,
 			Type:   "Normal",
 		},
 		// 43m         Warning   FailedScheduling        pod/csi-demo-hdd-0                                    0/7 nodes are available: 6 node(s) didn't match Pod's node affinity/selector.
@@ -948,7 +949,7 @@ func Test_calculate(t *testing.T) {
 					Time: time.Now().Add(-43 * time.Minute),
 				},
 			},
-			Reason: "FailedScheduling",
+			Reason: metrics.EventReasonFailedScheduling,
 			Type:   "Warning",
 		},
 		// 41m         Normal    Scheduled               pod/csi-demo-hdd-0                                    Successfully assigned default/csi-demo-hdd-0 to worker3.ocp4.oil-bd.com
@@ -961,7 +962,7 @@ func Test_calculate(t *testing.T) {
 			Reason: "Scheduled",
 			Type:   "Normal",
 		},
-		// 41m         Normal    AddedInterface          pod/csi-demo-hdd-0                                    Add eth0 [192.168.6.31/24] from openshift-sdn
+		// 41m         Normal    AddedInterface          pod/csi-demo-hdd-0                                    Add eth0 [192.168.6.31/24] from ...
 		{
 			ObjectMeta: metaV1.ObjectMeta{
 				CreationTimestamp: metaV1.Time{
@@ -971,7 +972,7 @@ func Test_calculate(t *testing.T) {
 			Reason: "AddedInterface",
 			Type:   "Normal",
 		},
-		// 41m         Normal    Pulled                  pod/csi-demo-hdd-0                                    Container image "asdrepo.isus.emc.com:8099/mongoose:4.1.1" already present on machine
+		// 41m         Normal    Pulled                  pod/csi-demo-hdd-0                                    Container image ".../mongoose:4.1.1" already present on machine
 		{
 			ObjectMeta: metaV1.ObjectMeta{
 				CreationTimestamp: metaV1.Time{
@@ -1008,7 +1009,7 @@ func Test_calculate(t *testing.T) {
 					Time: time.Now().Add(-30 * time.Minute),
 				},
 			},
-			Reason: "Killing",
+			Reason: metrics.EventReasonKilling,
 			Type:   "Normal",
 		},
 		// 25m         Warning   FailedScheduling        pod/csi-demo-hdd-0                                    0/7 nodes are available: 6 node(s) didn't match Pod's node affinity/selector.
@@ -1018,7 +1019,7 @@ func Test_calculate(t *testing.T) {
 					Time: time.Now().Add(-25 * time.Minute),
 				},
 			},
-			Reason: "FailedScheduling",
+			Reason: metrics.EventReasonFailedScheduling,
 			Type:   "Warning",
 		},
 		// 12m         Warning   FailedScheduling        pod/csi-demo-hdd-0                                    0/7 nodes are available: 6 node(s) didn't match Pod's node affinity/selector.
@@ -1028,7 +1029,7 @@ func Test_calculate(t *testing.T) {
 					Time: time.Now().Add(-12 * time.Minute),
 				},
 			},
-			Reason: "FailedScheduling",
+			Reason: metrics.EventReasonFailedScheduling,
 			Type:   "Warning",
 		},
 	}
