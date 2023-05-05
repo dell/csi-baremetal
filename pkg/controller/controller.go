@@ -21,9 +21,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	lock "github.com/viney-shih/go-lock"
 	"google.golang.org/grpc/codes"
@@ -43,6 +45,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/controller/mountoptions"
 	"github.com/dell/csi-baremetal/pkg/controller/node"
 	csibmnodeconst "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	metricscomm "github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // NodeID is the type for node hostname
@@ -74,6 +78,7 @@ type CSIControllerService struct {
 
 	csi.IdentityServer
 	grpc_health_v1.HealthServer
+	metricCreateVolume metrics.StatisticWithCustomLabels
 }
 
 // NewControllerService is the constructor for CSIControllerService struct
@@ -81,6 +86,7 @@ type CSIControllerService struct {
 // Returns an instance of CSIControllerService
 func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 	featureConf featureconfig.FeatureChecker) *CSIControllerService {
+	metricCreateVolume := metricscomm.DbgCreateVolumeDuration
 	c := &CSIControllerService{
 		k8sclient:                k8sClient,
 		log:                      logger.WithField("component", "CSIControllerService"),
@@ -89,6 +95,7 @@ func NewControllerService(k8sClient *k8s.KubeClient, logger *logrus.Logger,
 		IdentityServer:           NewIdentityServer(base.PluginName, base.PluginVersion),
 		crHelper:                 k8s.NewCRHelperImpl(k8sClient, logger),
 		reqLock:                  lock.NewCASMutex(),
+		metricCreateVolume:       metricCreateVolume,
 	}
 
 	// run health monitor
@@ -151,11 +158,21 @@ func (c *CSIControllerService) Watch(*grpc_health_v1.HealthCheckRequest, grpc_he
 // For example storageType: HDD, storageType: HDDLVG. If this field is not set then storage type would be ANY.
 // Receives golang context and CSI Spec CreateVolumeRequest
 // Returns CSI Spec CreateVolumeResponse or error if something went wrong
-func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (retresp *csi.CreateVolumeResponse, reterr error) {
 	ll := c.log.WithFields(logrus.Fields{
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
+	defer c.metricCreateVolume.EvaluateDurationForMethod("CreateVolume", prometheus.Labels{"volume_name": req.Name})()
+	defer func() {
+		if retresp != nil && reterr == nil && ctx.Err() == nil {
+			go func() {
+				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+				c.metricCreateVolume.Clear(prometheus.Labels{"volume_name": req.Name})
+			}()
+		}
+	}()
+
 	ll.Infof("Processing request: %+v", req)
 
 	if req.GetName() == "" {

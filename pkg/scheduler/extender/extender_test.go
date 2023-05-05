@@ -47,6 +47,8 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // todo review all tests. some might not be relevant
@@ -669,13 +671,16 @@ func setup(t *testing.T) *Extender {
 		annotation.WithRetryNumber(1),
 	)
 	return &Extender{
-		k8sClient:              kubeClient,
-		k8sCache:               kubeCache,
-		namespace:              testNs,
-		annotation:             annotationSrv,
-		provisioner:            testProvisioner,
-		logger:                 testLogger.WithField("component", "Extender"),
-		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		k8sClient:                    kubeClient,
+		k8sCache:                     kubeCache,
+		namespace:                    testNs,
+		annotation:                   annotationSrv,
+		provisioner:                  testProvisioner,
+		logger:                       testLogger.WithField("component", "Extender"),
+		capacityManagerBuilder:       &capacityplanner.DefaultCapacityManagerBuilder{},
+		scheduleMetricsTotalTime:     common.DbgScheduleTotalTime,
+		scheduleMetricsSinceLastTime: common.DbgScheduleSinceLastTime,
+		scheduleMetricsCounter:       common.DbgScheduleCounter,
 	}
 }
 
@@ -903,6 +908,149 @@ func Test_createReservation(t *testing.T) {
 	assert.Equal(t, namespace, reservationResource.Spec.Namespace)
 	assert.Equal(t, len(nodes), len(reservationResource.Spec.NodeRequests.Requested))
 	assert.Equal(t, len(capacityRequests), len(reservationResource.Spec.ReservationRequests))
+}
+
+func Test_calculate(t *testing.T) {
+	events := []coreV1.Event{
+		// 66m         Normal    Created                 pod/csi-demo-hdd-0                                    Created container csi-demo
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-66 * time.Minute),
+				},
+			},
+			Reason: "Created",
+			Type:   "Normal",
+		},
+		// 66m         Normal    Started                 pod/csi-demo-hdd-0                                    Started container csi-demo
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-66 * time.Minute),
+				},
+			},
+			Reason: "Started",
+			Type:   "Normal",
+		},
+		// 46m         Normal    Killing                 pod/csi-demo-hdd-0                                    Stopping container csi-demo
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-46 * time.Minute),
+				},
+			},
+			Reason: metrics.EventReasonKilling,
+			Type:   "Normal",
+		},
+		// 43m         Warning   FailedScheduling        pod/csi-demo-hdd-0                                    0/7 nodes are available: 6 node(s) didn't match Pod's node affinity/selector.
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-43 * time.Minute),
+				},
+			},
+			Reason: metrics.EventReasonFailedScheduling,
+			Type:   "Warning",
+		},
+		// 41m         Normal    Scheduled               pod/csi-demo-hdd-0                                    Successfully assigned default/csi-demo-hdd-0 to worker3.ocp4.oil-bd.com
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-41 * time.Minute),
+				},
+			},
+			Reason: "Scheduled",
+			Type:   "Normal",
+		},
+		// 41m         Normal    AddedInterface          pod/csi-demo-hdd-0                                    Add eth0 [192.168.6.31/24] from ...
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-41 * time.Minute),
+				},
+			},
+			Reason: "AddedInterface",
+			Type:   "Normal",
+		},
+		// 41m         Normal    Pulled                  pod/csi-demo-hdd-0                                    Container image ".../mongoose:4.1.1" already present on machine
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-41 * time.Minute),
+				},
+			},
+			Reason: "Pulled",
+			Type:   "Normal",
+		},
+		// 41m         Normal    Created                 pod/csi-demo-hdd-0                                    Created container csi-demo
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-41 * time.Minute),
+				},
+			},
+			Reason: "Created",
+			Type:   "Normal",
+		},
+		// 41m         Normal    Started                 pod/csi-demo-hdd-0                                    Started container csi-demo
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-41 * time.Minute),
+				},
+			},
+			Reason: "Started",
+			Type:   "Normal",
+		},
+		// 30m         Normal    Killing                 pod/csi-demo-hdd-0                                    Stopping container csi-demo
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-30 * time.Minute),
+				},
+			},
+			Reason: metrics.EventReasonKilling,
+			Type:   "Normal",
+		},
+		// 25m         Warning   FailedScheduling        pod/csi-demo-hdd-0                                    0/7 nodes are available: 6 node(s) didn't match Pod's node affinity/selector.
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-25 * time.Minute),
+				},
+			},
+			Reason: metrics.EventReasonFailedScheduling,
+			Type:   "Warning",
+		},
+		// 12m         Warning   FailedScheduling        pod/csi-demo-hdd-0                                    0/7 nodes are available: 6 node(s) didn't match Pod's node affinity/selector.
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				CreationTimestamp: metaV1.Time{
+					Time: time.Now().Add(-12 * time.Minute),
+				},
+			},
+			Reason: metrics.EventReasonFailedScheduling,
+			Type:   "Warning",
+		},
+	}
+	totalTime, sinceLastTime, err := calculate(events)
+	assert.Nil(t, err)
+	assert.Greater(t, sinceLastTime, 11.0*60)
+	assert.Less(t, sinceLastTime, 13.0*60)
+	assert.Greater(t, totalTime, 24.0*60)
+	assert.Less(t, totalTime, 26.0*60)
+
+}
+
+func Test_scheduleMetricsInitialized(t *testing.T) {
+	k, err1 := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err1)
+	e, err2 := NewExtender(testLogger, k8s.NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs), k8s.NewKubeCache(k, testLogger), "test", fc.NewFeatureConfig(), "test", "test")
+	assert.Nil(t, err2)
+
+	assert.NotNil(t, e.scheduleMetricsTotalTime)
+	assert.NotNil(t, e.scheduleMetricsSinceLastTime)
+	assert.NotNil(t, e.scheduleMetricsCounter)
 }
 
 func removeAllACRs(k *k8s.KubeClient, t *testing.T) {

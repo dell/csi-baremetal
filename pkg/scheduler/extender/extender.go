@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	coreV1 "k8s.io/api/core/v1"
 	storageV1 "k8s.io/api/storage/v1"
@@ -44,8 +45,11 @@ import (
 	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
 	fc "github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	clientset "github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 	annotation "github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/metrics"
+	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
 // Extender holds http handlers for scheduler extender endpoints and implements logic for nodes filtering
@@ -60,9 +64,12 @@ type Extender struct {
 	annotationKey string
 	nodeSelector  string
 	sync.Mutex
-	logger                 *logrus.Entry
-	capacityManagerBuilder capacityplanner.CapacityManagerBuilder
-}
+	logger                       *logrus.Entry
+	capacityManagerBuilder       capacityplanner.CapacityManagerBuilder
+	scheduleMetricsTotalTime     metrics.StatisticWithCustomLabels
+	scheduleMetricsSinceLastTime metrics.StatisticWithCustomLabels
+	scheduleMetricsCounter       metrics.Counter
+} // if a new field is added, add field to extender_test.go also.
 
 // NewExtender returns new instance of Extender struct
 func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
@@ -77,15 +84,19 @@ func NewExtender(logger *logrus.Logger, kubeClient *k8s.KubeClient,
 		annotation.WithRetryDelay(3*time.Second),
 		annotation.WithRetryNumber(20),
 	)
+
 	return &Extender{
-		k8sClient:              kubeClient,
-		k8sCache:               kubeCache,
-		provisioner:            provisioner,
-		annotation:             annotationSrv,
-		annotationKey:          annotationKey,
-		nodeSelector:           nodeselector,
-		logger:                 logger.WithField("component", "Extender"),
-		capacityManagerBuilder: &capacityplanner.DefaultCapacityManagerBuilder{},
+		k8sClient:                    kubeClient,
+		k8sCache:                     kubeCache,
+		provisioner:                  provisioner,
+		annotation:                   annotationSrv,
+		annotationKey:                annotationKey,
+		nodeSelector:                 nodeselector,
+		logger:                       logger.WithField("component", "Extender"),
+		capacityManagerBuilder:       &capacityplanner.DefaultCapacityManagerBuilder{},
+		scheduleMetricsTotalTime:     common.DbgScheduleTotalTime,
+		scheduleMetricsSinceLastTime: common.DbgScheduleSinceLastTime,
+		scheduleMetricsCounter:       common.DbgScheduleCounter,
 	}, nil
 }
 
@@ -373,12 +384,33 @@ func (e *Extender) createCapacityRequest(ctx context.Context, podName string, vo
 // returns: matchedNodes - list of nodes on which volumes could be provisioned
 // filteredNodes - represents the filtered out nodes, with node names and failure messages
 func (e *Extender) filter(ctx context.Context, pod *coreV1.Pod, nodes []coreV1.Node, capacities []*genV1.CapacityRequest) (matchedNodes []coreV1.Node,
-	filteredNodes schedulerapi.FailedNodesMap, err error) {
+	filteredNodes schedulerapi.FailedNodesMap, reterr error) {
 	// ignore when no storage allocation requests
 	if len(capacities) == 0 {
 		return nodes, nil, nil
 	}
+	// clear metric after schedule completed.
+	defer func() {
+		if reterr == nil && matchedNodes != nil && len(matchedNodes) != 0 && ctx.Err() == nil {
+			go func() {
+				time.Sleep(time.Second * metrics.DbgMetricHoldTime)
+				e.scheduleMetricsTotalTime.Clear(prometheus.Labels{"pod_name": pod.Name})
+				e.scheduleMetricsSinceLastTime.Clear(prometheus.Labels{"pod_name": pod.Name})
+				e.scheduleMetricsCounter.Clear(prometheus.Labels{"pod_name": pod.Name})
+			}()
+		}
+	}()
+	e.scheduleMetricsCounter.Add(prometheus.Labels{"pod_name": pod.Name})
 
+	start := time.Now()
+	totalTime, sinceLastTime, err := calculateScheduleTime(ctx, e, pod.Namespace, pod.GetName())
+	if err == nil {
+		e.scheduleMetricsSinceLastTime.UpdateValue(sinceLastTime, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
+		defer func() {
+			filterDur := time.Since(start)
+			e.scheduleMetricsTotalTime.UpdateValue(filterDur.Seconds()+totalTime, prometheus.Labels{"pod_name": pod.Name}, false, prometheus.Labels{})
+		}()
+	}
 	// construct ACR name
 	reservationName := getReservationName(pod)
 	// read reservation
@@ -520,7 +552,6 @@ func (e *Extender) handleReservation(ctx context.Context, reservation *acrcrd.Av
 func (e *Extender) resendReservationRequest(ctx context.Context, reservation *acrcrd.AvailableCapacityReservation,
 	nodes []coreV1.Node) error {
 	reservation.Spec.Status = v1.ReservationRequested
-	// update nodes
 	reservation.Spec.NodeRequests.Requested = e.prepareListOfRequestedNodes(nodes)
 	if len(reservation.Spec.NodeRequests.Requested) == 0 {
 		return nil
@@ -628,6 +659,40 @@ func createRequestFromPVCSpec(volumeName, storageType, storageGroup string, reso
 		Size:         storageReq.Value(),
 		StorageGroup: storageGroup,
 	}
+}
+
+func calculateScheduleTime(ctx context.Context, e *Extender, namespace string, podName string) (float64, float64, error) {
+	// record schedule information to metrics
+	cs, err := clientset.GetK8SClientset()
+	if err != nil {
+		e.logger.Errorf("cannot get clientset: %v", err)
+		return 0, 0, err
+	}
+	events, err := cs.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName, TypeMeta: metav1.TypeMeta{Kind: "Pod"}})
+	if err != nil {
+		e.logger.Errorf("cannot read events for pod %v: %v", podName, err)
+		return 0, 0, err
+	}
+
+	return calculate(events.Items)
+}
+
+func calculate(events []coreV1.Event) (float64, float64, error) {
+	var totalTime, sinceLastTime float64
+
+	for _, ev := range events {
+		if ev.Reason == metrics.EventReasonKilling {
+			// same name killed pod's events found, not count in
+			totalTime = 0
+			sinceLastTime = 0
+		} else if ev.Reason == metrics.EventReasonFailedScheduling {
+			if totalTime == 0 {
+				totalTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
+			}
+			sinceLastTime = time.Since(ev.ObjectMeta.CreationTimestamp.Time).Seconds()
+		}
+	}
+	return totalTime, sinceLastTime, nil
 }
 
 // scChecker keeps info about the related SCs (provisioned by CSI Baremetal) and
