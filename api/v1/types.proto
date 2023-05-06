@@ -99,12 +99,3 @@ message Node {
     // key - address type, value - address, align with NodeAddress struct from k8s.io/api/core/v1
     map<string, string> Addresses = 2;
 }
-
-message StorageGroupSpec {
-    DriveSelector DriveSelector = 1;
-}
-
-message DriveSelector {
-    int64 NumberDrivesPerNode = 1;
-    map<string, string> MatchFields = 2;
-}

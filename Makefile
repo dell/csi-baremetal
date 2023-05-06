@@ -112,7 +112,6 @@ generate-deepcopy:
 	controller-gen object paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go  output:dir=api/v1/drivecrd
 	controller-gen object paths=api/v1/lvgcrd/logicalvolumegroup_types.go paths=api/v1/lvgcrd/groupversion_info.go  output:dir=api/v1/lvgcrd
 	controller-gen object paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go  output:dir=api/v1/nodecrd
-	controller-gen object paths=api/v1/storagegroupcrd/storagegroup_types.go paths=api/v1/storagegroupcrd/groupversion_info.go  output:dir=api/v1/storagegroupcrd
 
 generate-baremetal-crds: install-controller-gen
 	controller-gen $(CRD_OPTIONS) paths=api/v1/availablecapacitycrd/availablecapacity_types.go paths=api/v1/availablecapacitycrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
@@ -121,7 +120,6 @@ generate-baremetal-crds: install-controller-gen
 	controller-gen $(CRD_OPTIONS) paths=api/v1/drivecrd/drive_types.go paths=api/v1/drivecrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 	controller-gen $(CRD_OPTIONS) paths=api/v1/lvgcrd/logicalvolumegroup_types.go paths=api/v1/lvgcrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 	controller-gen $(CRD_OPTIONS) paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
-	controller-gen $(CRD_OPTIONS) paths=api/v1/storagegroupcrd/storagegroup_types.go paths=api/v1/storagegroupcrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 
 generate-api: compile-proto generate-baremetal-crds generate-deepcopy
 
