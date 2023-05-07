@@ -51,6 +51,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/controller"
 	"github.com/dell/csi-baremetal/pkg/controller/capacitycontroller"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/storagegroup"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
@@ -196,5 +197,11 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 	if err = capacityController.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
+
+	storageGroupController := storagegroup.NewController(client, log)
+	if err = storageGroupController.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
 	return mgr, nil
 }
