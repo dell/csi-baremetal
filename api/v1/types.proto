@@ -101,10 +101,10 @@ message Node {
 }
 
 message StorageGroupSpec {
-    DriveSelector DriveSelector = 1;
+    DriveSelector driveSelector = 1;
 }
 
 message DriveSelector {
-    int64 NumberDrivesPerNode = 1;
-    map<string, string> MatchFields = 2;
+    int32 numberDrivesPerNode = 1;
+    map<string, string> matchFields = 2;
 }
