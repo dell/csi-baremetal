@@ -138,4 +138,7 @@ const (
 	// CSI Drive taint-like label key and value
 	DriveTaintKey   = "drive.csi-baremetal.dell.com/taint"
 	DriveTaintValue = "NoSchedule"
+
+	// CSI StorageGroup label key
+	StorageGroupLabelKey = "drive.csi-baremetal.dell.com/storage-group"
 )

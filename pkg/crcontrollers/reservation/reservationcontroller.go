@@ -112,7 +112,7 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 		volumes := make([]*v1api.Volume, len(reservationSpec.ReservationRequests))
 		for i, request := range reservationSpec.ReservationRequests {
 			capacity := request.CapacityRequest
-			volumes[i] = &v1api.Volume{Id: capacity.Name, Size: capacity.Size, StorageClass: capacity.StorageClass}
+			volumes[i] = &v1api.Volume{Id: capacity.Name, Size: capacity.Size, StorageClass: capacity.StorageClass, StorageGroup: capacity.StorageGroup}
 		}
 
 		// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89

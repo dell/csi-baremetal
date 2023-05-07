@@ -132,15 +132,17 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 		usage != apiV1.DriveUsageInUse:
 		return d.handleInaccessibleDrive(ctx, drive.Spec)
 	default:
-		return d.createOrUpdateCapacity(ctx, drive.Spec)
+		return d.createOrUpdateCapacity(ctx, drive)
 	}
 }
 
 // createOrUpdateCapacity tries to create AC for drive or update its size if AC already exists
-func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
+func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveObj *drivecrd.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "createOrUpdateCapacity",
 	})
+	log.Debugf("createOrUpdateCapacity for corresponding Drive: %v", driveObj)
+	drive := driveObj.Spec
 	driveUUID := drive.GetUUID()
 	size := drive.GetSize()
 	// if drive is not clean, size is 0
@@ -150,9 +152,17 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
-		// If ac is exists, update its size to drive size
-		if ac.Spec.Size != size {
+		// If the corresponding ac exists, sync drive's size or storage group label to its corresponding AC if necessary
+		if ac.Spec.Size != size || ac.Labels[apiV1.StorageGroupLabelKey] != driveObj.Labels[apiV1.StorageGroupLabelKey] {
 			ac.Spec.Size = size
+			// TODO need deep-dive of golang map utilization and further refactor if necessary here
+			if ac.Labels == nil {
+				ac.Labels = make(map[string]string)
+			}
+			ac.Labels[apiV1.StorageGroupLabelKey] = driveObj.Labels[apiV1.StorageGroupLabelKey]
+			if ac.Labels[apiV1.StorageGroupLabelKey] == "" {
+				delete(ac.Labels, apiV1.StorageGroupLabelKey)
+			}
 			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
 				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
 				return ctrl.Result{}, err
@@ -298,7 +308,7 @@ func (d *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 		return handleLVGObjects(old, new)
 	}
 	if newDrive, ok = new.(*drivecrd.Drive); ok {
-		return filter(oldDrive.Spec, newDrive.Spec)
+		return filter(oldDrive, newDrive)
 	}
 	return true
 }
@@ -318,12 +328,15 @@ func handleLVGObjects(old runtime.Object, new runtime.Object) bool {
 	return false
 }
 
-func filter(old api.Drive, new api.Drive) bool {
+func filter(oldDrive *drivecrd.Drive, newDrive *drivecrd.Drive) bool {
 	// controller perform reconcile for drives, which have different statuses, health or isClean field.
 	// Another drives are skipped
+	old := oldDrive.Spec
+	new := newDrive.Spec
 	return old.GetIsClean() != new.GetIsClean() ||
 		old.GetStatus() != new.GetStatus() ||
-		old.GetHealth() != new.GetHealth()
+		old.GetHealth() != new.GetHealth() ||
+		oldDrive.Labels[apiV1.StorageGroupLabelKey] != newDrive.Labels[apiV1.StorageGroupLabelKey]
 }
 
 func filterLVG(old *lvgcrd.LogicalVolumeGroup, new *lvgcrd.LogicalVolumeGroup) bool {

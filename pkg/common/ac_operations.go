@@ -33,7 +33,7 @@ import (
 
 // AvailableCapacityOperations is the interface for interact with AvailableCapacity CRs from Controller
 type AvailableCapacityOperations interface {
-	RecreateACToLVGSC(ctx context.Context, sc string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
+	RecreateACToLVGSC(ctx context.Context, sc string, sg string, acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity
 }
 
 // ACOperationsImpl is the basic implementation of AvailableCapacityOperations interface
@@ -56,7 +56,7 @@ func NewACOperationsImpl(k8sClient *k8s.KubeClient, l *logrus.Logger) *ACOperati
 // Concerts first AC to LVG SC and set size of remaining to 0
 // Receives newSC as string (e.g. HDDLVG) and AvailableCapacities where LVG should be based
 // Returns created AC or nil
-func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string,
+func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string, storageGroup string,
 	acs ...accrd.AvailableCapacity) *accrd.AvailableCapacity {
 	ll := a.log.WithFields(logrus.Fields{
 		"method":   "RecreateACToLVGSC",
@@ -90,7 +90,7 @@ func (a *ACOperationsImpl) RecreateACToLVGSC(ctx context.Context, newSC string,
 	)
 
 	// create LVG CR based on ACs
-	lvg := a.k8sClient.ConstructLVGCR(name, apiLVG)
+	lvg := a.k8sClient.ConstructLVGCR(name, apiLVG, storageGroup)
 	if err = a.k8sClient.CreateCR(ctx, name, lvg); err != nil {
 		ll.Errorf("Unable to create LVG CR: %v", err)
 		return nil

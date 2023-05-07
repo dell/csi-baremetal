@@ -154,7 +154,7 @@ func (nc *nodeCapacity) selectACForVolume(vol *genV1.Volume) *accrd.AvailableCap
 	}
 
 	for _, ac := range nc.acsOrder[vol.StorageClass] {
-		if requiredSize <= nc.acs[ac].Spec.Size {
+		if requiredSize <= nc.acs[ac].Spec.Size && nc.acs[ac].Labels[v1.StorageGroupLabelKey] == vol.StorageGroup {
 			// check if AC is reserved
 			reservation, ok := nc.reservedACs[ac]
 
