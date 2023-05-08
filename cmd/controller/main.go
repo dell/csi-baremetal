@@ -40,6 +40,7 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -166,6 +167,10 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 	}
 
 	if err := lvgcrd.AddToSchemeLVG(scheme); err != nil {
+		return nil, err
+	}
+
+	if err := sgcrd.AddToSchemeStorageGroup(scheme); err != nil {
 		return nil, err
 	}
 

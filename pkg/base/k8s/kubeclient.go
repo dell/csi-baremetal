@@ -39,6 +39,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
+	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	checkErr "github.com/dell/csi-baremetal/pkg/base/error"
@@ -406,6 +407,11 @@ func PrepareScheme() (*runtime.Scheme, error) {
 
 	// register csi node crd
 	if err := nodecrd.AddToSchemeCSIBMNode(scheme); err != nil {
+		return nil, err
+	}
+
+	// register csi storagegroup crd
+	if err := sgcrd.AddToSchemeStorageGroup(scheme); err != nil {
 		return nil, err
 	}
 
