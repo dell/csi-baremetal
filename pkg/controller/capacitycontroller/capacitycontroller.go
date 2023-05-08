@@ -200,7 +200,6 @@ func (d *Controller) handleInaccessibleDrive(ctx context.Context, driveCR *drive
 	case err == nil:
 		log.Infof("Update AC size to 0 %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
 		ac.Spec.Size = 0
-		//log.Info(driveCR)
 		updateAvailableCapacityLabelsWhenNecessary(driveCR, ac)
 		if err := d.client.UpdateCR(ctx, ac); err != nil {
 			log.Errorf("Failed to update unhealthy available capacity CR: %v", err)
