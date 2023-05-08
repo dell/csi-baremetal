@@ -19,6 +19,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -130,17 +131,18 @@ func (d *Controller) reconcileDrive(ctx context.Context, drive *drivecrd.Drive) 
 	case (health != apiV1.HealthGood && health != apiV1.HealthUnknown) ||
 		status != apiV1.DriveStatusOnline ||
 		usage != apiV1.DriveUsageInUse:
-		return d.handleInaccessibleDrive(ctx, drive.Spec)
+		return d.handleInaccessibleDrive(ctx, drive)
 	default:
-		return d.createOrUpdateCapacity(ctx, drive.Spec)
+		return d.createOrUpdateCapacity(ctx, drive)
 	}
 }
 
 // createOrUpdateCapacity tries to create AC for drive or update its size if AC already exists
-func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
+func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveCR *drivecrd.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "createOrUpdateCapacity",
 	})
+	drive := driveCR.Spec
 	driveUUID := drive.GetUUID()
 	size := drive.GetSize()
 	// if drive is not clean, size is 0
@@ -150,13 +152,14 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
 	switch {
 	case err == nil:
+		updateAvailableCapacityLabelsWhenNecessary(driveCR, ac)
 		// If ac is exists, update its size to drive size
 		if ac.Spec.Size != size {
 			ac.Spec.Size = size
-			if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
-				log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
-				return ctrl.Result{}, err
-			}
+		}
+		if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
+			log.Errorf("Error during update AvailableCapacity request to k8s: %v, error: %v", ac, err)
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: RequeueDriveTime}, nil
 	case err == errTypes.ErrorNotFound:
@@ -171,6 +174,9 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 			NodeId:       drive.GetNodeId(),
 		}
 		newAC := d.client.ConstructACCR(name, *capacity)
+		// add taint labels
+		updateAvailableCapacityLabelsWhenNecessary(driveCR, newAC)
+
 		if err := d.client.CreateCR(context.WithValue(ctx, base.RequestUUID, name), name, newAC); err != nil {
 			log.Errorf("Error during create AvailableCapacity request to k8s: %v, error: %v",
 				capacity, err)
@@ -184,15 +190,18 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, drive api.Drive
 }
 
 // handleInaccessibleDrive deletes AC for bad Drive
-func (d *Controller) handleInaccessibleDrive(ctx context.Context, drive api.Drive) (ctrl.Result, error) {
+func (d *Controller) handleInaccessibleDrive(ctx context.Context, driveCR *drivecrd.Drive) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "handleInaccessibleDrive",
 	})
+	drive := driveCR.Spec
 	ac, err := d.cachedCrHelper.GetACByLocation(drive.GetUUID())
 	switch {
 	case err == nil:
 		log.Infof("Update AC size to 0 %s based on unhealthy location %s", ac.Name, ac.Spec.Location)
 		ac.Spec.Size = 0
+		//log.Info(driveCR)
+		updateAvailableCapacityLabelsWhenNecessary(driveCR, ac)
 		if err := d.client.UpdateCR(ctx, ac); err != nil {
 			log.Errorf("Failed to update unhealthy available capacity CR: %v", err)
 			return ctrl.Result{}, err
@@ -215,16 +224,21 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 		location  = lvg.GetName()
 		driveUUID = lvg.Spec.Locations[0]
 	)
+	var drive drivecrd.Drive
+	if err := d.client.ReadCR(context.Background(), driveUUID, "", &drive); err != nil {
+		ll.Warnf("Failed to read drive %s: %s", driveUUID, err.Error())
+	}
 	// check whether AC exists
 	ac, err := d.cachedCrHelper.GetACByLocation(location)
 	switch {
 	case err == nil:
 		if ac.Spec.Size != size {
 			ac.Spec.Size += size
-			if err := d.client.UpdateCR(context.Background(), ac); err != nil {
-				d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
-				return err
-			}
+		}
+		updateAvailableCapacityLabelsWhenNecessary(&drive, ac)
+		if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+			d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
+			return err
 		}
 		return nil
 	case err == errTypes.ErrorNotFound:
@@ -244,6 +258,8 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 					NodeId:       lvg.Spec.Node,
 				}
 				ac = d.client.ConstructACCR(name, *capacity)
+				// update ac taint label
+				updateAvailableCapacityLabelsWhenNecessary(&drive, ac)
 				if err := d.client.CreateCR(context.Background(), name, ac); err != nil {
 					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 				}
@@ -252,6 +268,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 				ac.Spec.Size = size
 				ac.Spec.Location = location
 				ac.Spec.StorageClass = apiV1.StorageClassSystemLVG
+				updateAvailableCapacityLabelsWhenNecessary(&drive, ac)
 				if err := d.client.UpdateCR(context.Background(), ac); err != nil {
 					return fmt.Errorf("unable to create AC based on system LogicalVolumeGroup, error: %v", err)
 				}
@@ -368,4 +385,19 @@ func getFreeSpaceFromLVGAnnotation(annotation map[string]string) (int64, error) 
 	}
 
 	return 0, errTypes.ErrorNotFound
+}
+
+func updateAvailableCapacityLabelsWhenNecessary(drive *drivecrd.Drive, ac *accrd.AvailableCapacity) {
+	driveLabels := drive.GetLabels()
+	if driveLabels == nil {
+		return
+	}
+	if taintValue, ok := driveLabels[apiV1.DriveTaintKey]; ok && taintValue == apiV1.DriveTaintValue {
+		acLabels := ac.GetLabels()
+		if acLabels == nil {
+			acLabels = map[string]string{}
+			ac.Labels = acLabels
+		}
+		acLabels[apiV1.DriveTaintKey] = apiV1.DriveTaintValue
+	}
 }
