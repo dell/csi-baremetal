@@ -8,7 +8,6 @@ image-node \
 image-controller \
 image-extender \
 image-extender-patcher \
-image-scheduler \
 image-node-controller
 
 base-images: base-image-drivemgr base-image-node base-image-controller
@@ -57,10 +56,6 @@ image-extender:
 image-extender-patcher:
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PATCHER_PKG}
 
-image-scheduler:
-	cp ./pkg/${SCHEDULER}/${PLUGIN}/Dockerfile ./build/${SCHEDULING_PKG}/${SCHEDULER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ./build/${SCHEDULING_PKG}/${SCHEDULER}
-
 image-node-controller:
 	cp ./pkg/${CR_CONTROLLERS}/${NODE_CONTROLLER_PKG}/Dockerfile ./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}/
 	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG} \
@@ -74,7 +69,6 @@ push-node \
 push-controller \
 push-extender \
 push-extender-patcher \
-push-scheduler \
 push-node-controller
 
 push-drivemgr:
@@ -93,9 +87,6 @@ push-extender:
 push-extender-patcher:
 	docker push ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
 
-push-scheduler:
-	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
-
 push-node-controller:
 	docker push ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
@@ -107,7 +98,6 @@ clean-image-controller \
 clean-image-drivemgr \
 clean-image-extender \
 clean-image-extender-patcher \
-clean-image-scheduler \
 clean-image-node-controller
 
 clean-image-drivemgr:
@@ -125,9 +115,6 @@ clean-image-extender:
 
 clean-image-extender-patcher:
 	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
-
-clean-image-scheduler:
-	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
 clean-image-node-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}
