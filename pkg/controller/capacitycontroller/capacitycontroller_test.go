@@ -586,3 +586,50 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 		assert.True(t, controller.filterUpdateEvent(&testLVG, &testLVG2))
 	})
 }
+
+func TestController_createOrUpdateLVGCapacity(t *testing.T) {
+	t.Run("ReadCR failure", func(t *testing.T) {
+		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+		assert.Nil(t, err)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+		assert.NotNil(t, controller)
+		testAC := acCR1
+		err = kubeClient.Create(tCtx, &testAC)
+		assert.Nil(t, err)
+		testLVG := lvgCR1
+		err = kubeClient.Create(tCtx, &testLVG)
+		assert.Nil(t, err)
+		err = controller.createOrUpdateLVGCapacity(k8s.GetFailCtx, &testLVG, testLVG.Spec.Size)
+		assert.Nil(t, err)
+	})
+
+	t.Run("UpdateCR failure", func(t *testing.T) {
+		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+		assert.Nil(t, err)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+		assert.NotNil(t, controller)
+		testAC := acCR1
+		err = kubeClient.Create(tCtx, &testAC)
+		assert.Nil(t, err)
+		testLVG := lvgCR1
+		err = kubeClient.Create(tCtx, &testLVG)
+		assert.Nil(t, err)
+		err = controller.createOrUpdateLVGCapacity(k8s.UpdateFailCtx, &testLVG, testLVG.Spec.Size)
+		assert.NotNil(t, err)
+	})
+}
+func TestController_createOrUpdateCapacity(t *testing.T) {
+	t.Run("UpdateCR failure", func(t *testing.T) {
+		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+		assert.Nil(t, err)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+		assert.NotNil(t, controller)
+		testDrive := drive1CR.DeepCopy()
+		err = kubeClient.Create(tCtx, testDrive)
+		testAC := acCR
+		err = kubeClient.Create(tCtx, &testAC)
+		assert.Nil(t, err)
+		_, err = controller.createOrUpdateCapacity(k8s.UpdateFailCtx, testDrive)
+		assert.NotNil(t, err)
+	})
+}

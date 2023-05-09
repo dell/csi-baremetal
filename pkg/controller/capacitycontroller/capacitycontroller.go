@@ -90,11 +90,11 @@ func (d *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	return d.reconcileLVG(lvg)
+	return d.reconcileLVG(ctx, lvg)
 }
 
 // reconcileLVG perform logic for LVG reconciliation
-func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, error) {
+func (d *Controller) reconcileLVG(ctx context.Context, lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, error) {
 	log := d.log.WithFields(logrus.Fields{
 		"method": "reconcileLVG",
 	})
@@ -117,7 +117,7 @@ func (d *Controller) reconcileLVG(lvg *lvgcrd.LogicalVolumeGroup) (ctrl.Result, 
 		}
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, d.createOrUpdateLVGCapacity(lvg, size)
+	return ctrl.Result{}, d.createOrUpdateLVGCapacity(ctx, lvg, size)
 }
 
 // reconcileDrive preforms logic for drive reconciliation
@@ -212,7 +212,7 @@ func (d *Controller) handleInaccessibleDrive(ctx context.Context, driveCR *drive
 }
 
 // createOrUpdateLVGCapacity creates AC for LVG
-func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, size int64) error {
+func (d *Controller) createOrUpdateLVGCapacity(ctx context.Context, lvg *lvgcrd.LogicalVolumeGroup, size int64) error {
 	ll := d.log.WithFields(logrus.Fields{
 		"method": "createACIfFreeSpace",
 	})
@@ -224,7 +224,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 		driveUUID = lvg.Spec.Locations[0]
 	)
 	var drive drivecrd.Drive
-	if err := d.client.ReadCR(context.Background(), driveUUID, "", &drive); err != nil {
+	if err := d.client.ReadCR(ctx, driveUUID, "", &drive); err != nil {
 		ll.Warnf("Failed to read drive %s: %s", driveUUID, err.Error())
 	}
 	// check whether AC exists
@@ -235,7 +235,7 @@ func (d *Controller) createOrUpdateLVGCapacity(lvg *lvgcrd.LogicalVolumeGroup, s
 			ac.Spec.Size += size
 		}
 		updateAvailableCapacityLabelsWhenNecessary(&drive, ac)
-		if err := d.client.UpdateCR(context.Background(), ac); err != nil {
+		if err := d.client.UpdateCR(ctx, ac); err != nil {
 			d.log.Errorf("Unable to update AC CR %s, error: %v.", ac.Name, err)
 			return err
 		}
