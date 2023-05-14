@@ -2,6 +2,9 @@ package storagegroup
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -9,27 +12,36 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
+	"github.com/dell/csi-baremetal/pkg/base/util"
 )
 
 const (
-	contextTimeoutSeconds = 60
+	sgFinalizer               = "dell.emc.csi/sg-cleanup"
+	sgTempStatusAnnotationKey = "storagegroup.csi-baremetal.dell.com/status"
+	contextTimeoutSeconds     = 60
 )
 
 // Controller to reconcile storagegroup custom resource
 type Controller struct {
-	client *k8s.KubeClient
-	log    *logrus.Entry
+	client         *k8s.KubeClient
+	log            *logrus.Entry
+	crHelper       k8s.CRHelper
+	cachedCrHelper k8s.CRHelper
 }
 
 // NewController creates new instance of Controller structure
 // Receives an instance of base.KubeClient and logrus logger
 // Returns an instance of Controller
-func NewController(client *k8s.KubeClient, log *logrus.Logger) *Controller {
+func NewController(client *k8s.KubeClient, k8sCache k8s.CRReader, log *logrus.Logger) *Controller {
 	c := &Controller{
-		client: client,
-		log:    log.WithField("component", "StorageGroupController"),
+		client:         client,
+		crHelper:       k8s.NewCRHelperImpl(client, log),
+		cachedCrHelper: k8s.NewCRHelperImpl(client, log).SetReader(k8sCache),
+		log:            log.WithField("component", "StorageGroupController"),
 	}
 	return c
 }
@@ -59,6 +71,129 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log.Infof("Reconcile StorageGroup: %v", storageGroup)
+	log.Debugf("Reconcile StorageGroup: %v", storageGroup)
+
+	// StorageGroup Deletion request
+	if !storageGroup.DeletionTimestamp.IsZero() {
+		return c.handleStorageGroupDeletion(ctx, log, storageGroup)
+	}
+
+	if !util.ContainsString(storageGroup.Finalizers, sgFinalizer) {
+		// append finalizer
+		log.Debugf("Appending finalizer for StorageGroup")
+		storageGroup.Finalizers = append(storageGroup.Finalizers, sgFinalizer)
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to append finalizer %s to StorageGroup, error: %v.", sgFinalizer, err)
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
+
+	sgStatus, ok := storageGroup.Annotations[sgTempStatusAnnotationKey]
+	if !ok || sgStatus == apiV1.Creating {
+		// TODO put all of this part in func handleStorageGroupCreation
+		newStatus, err := c.handleStorageGroupCreation(ctx, log, storageGroup)
+		if err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		storageGroup.Annotations[sgTempStatusAnnotationKey] = newStatus
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to update StorageGroup status, error: %v.", sgFinalizer, err)
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus.Entry,
+	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
+	// TODO handle storage-group label removal if applicable
+	return c.removeFinalizer(ctx, log, sg)
+}
+
+func (c *Controller) removeFinalizer(ctx context.Context, log *logrus.Entry,
+	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
+	if util.ContainsString(sg.Finalizers, sgFinalizer) {
+		sg.Finalizers = util.RemoveString(sg.Finalizers, sgFinalizer)
+		if err := c.client.UpdateCR(ctx, sg); err != nil {
+			log.Errorf("Unable to remove finalizer %s from StorageGroup, error: %v.", sgFinalizer, err)
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus.Entry,
+	sg *sgcrd.StorageGroup) (string, error) {
+	drivesList := &drivecrd.DriveList{}
+	if err := c.client.ReadList(ctx, drivesList); err != nil {
+		log.Errorf("failed to read drives list: %s", err.Error())
+		return apiV1.Creating, err
+	}
+	labelingNoError := true
+	for _, drive := range drivesList.Items {
+		driveSelected := false
+		for fieldName, fieldValue := range sg.Spec.DriveSelector.MatchFields {
+			driveField := reflect.ValueOf(&drive).Elem().FieldByName(fieldName)
+			switch driveField.Type().String() {
+			case "string":
+				if driveField.String() == fieldValue {
+					driveSelected = true
+				}
+			case "int64":
+				fieldValueInt64, err := strconv.ParseInt(fieldValue, 10, 64)
+				if err == nil && driveField.Int() == fieldValueInt64 {
+					driveSelected = true
+				}
+			case "bool":
+				fieldValueBool, err := strconv.ParseBool(fieldValue)
+				if err == nil && driveField.Bool() == fieldValueBool {
+					driveSelected = true
+				}
+			}
+		}
+		if driveSelected {
+			if err := c.handleStorageGroupLabeling(ctx, log, &drive, sg); err != nil {
+				log.Errorf("Error in adding storage-group label to drive %s", err.Error())
+				labelingNoError = false
+			}
+		}
+	}
+	if labelingNoError {
+		return apiV1.Created, nil
+	}
+	return apiV1.Creating, fmt.Errorf("Error in adding storage-group label")
+}
+
+func (c *Controller) handleStorageGroupLabeling(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
+	sg *sgcrd.StorageGroup) error {
+	if existingStorageGroup, ok := drive.Labels[apiV1.StorageGroupLabelKey]; ok {
+		log.Warnf("Drive %s already has already been selected by storage group %s", drive.Name, existingStorageGroup)
+		return nil
+	}
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+	if err != nil {
+		return err
+	}
+	if len(volumes) > 0 {
+		log.Warnf("Drive %s already has existing volumes. Storage group label won't be added.", drive.Name)
+		return nil
+	}
+
+	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
+	if err != nil {
+		return err
+	}
+	// the corresponding ac exists, add storage-group label to the drive and corresponding ac
+	drive.Labels[apiV1.StorageGroupLabelKey] = sg.Name
+	if err1 := c.client.UpdateCR(ctx, drive); err1 != nil {
+		log.Errorf("failed to add storage-group label to drive %s with error %s", drive.Name, err.Error())
+		return err1
+	}
+	ac.Labels[apiV1.StorageGroupLabelKey] = sg.Name
+	if err1 := c.client.UpdateCR(ctx, ac); err1 != nil {
+		log.Errorf("failed to add storage-group label to ac %s with error %s", ac.Name, err.Error())
+		return err1
+	}
+	return nil
 }

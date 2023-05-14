@@ -203,7 +203,7 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 		return nil, err
 	}
 
-	storageGroupController := storagegroup.NewController(client, log)
+	storageGroupController := storagegroup.NewController(client, kubeCache, log)
 	if err = storageGroupController.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
