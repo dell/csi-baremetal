@@ -107,7 +107,23 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus.Entry,
 	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
-	// TODO handle storage-group label removal if applicable
+	drivesList := &drivecrd.DriveList{}
+	if err := c.client.ReadList(ctx, drivesList); err != nil {
+		log.Errorf("failed to read drives list: %s", err.Error())
+		return ctrl.Result{Requeue: true}, err
+	}
+	removalNoError := true
+	for _, drive := range drivesList.Items {
+		if drive.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
+			if err := c.removeStorageGroupLabel(ctx, log, &drive, sg); err != nil {
+				log.Errorf("Error in remove storage-group label from drive %s", err.Error())
+				removalNoError = false
+			}
+		}
+	}
+	if !removalNoError {
+		return ctrl.Result{Requeue: true}, fmt.Errorf("Error in removing storage-group label")
+	}
 	return c.removeFinalizer(ctx, log, sg)
 }
 
@@ -163,6 +179,39 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		return apiV1.Created, nil
 	}
 	return apiV1.Creating, fmt.Errorf("Error in adding storage-group label")
+}
+
+func (c *Controller) removeStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
+	sg *sgcrd.StorageGroup) error {
+	log.Debugf("Remove storagegroup label from drive %s", drive.Name)
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+	if err != nil {
+		return err
+	}
+	if len(volumes) > 0 {
+		log.Warnf("Drive %s already has existing volumes. Storage group label can't be removed.", drive.Name)
+		return fmt.Errorf("Error in removing storage-group label on drive")
+	}
+
+	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
+	if err != nil {
+		return err
+	}
+	delete(drive.Labels, apiV1.StorageGroupLabelKey)
+	if err1 := c.client.UpdateCR(ctx, drive); err1 != nil {
+		log.Errorf("failed to remove storage-group label from drive %s with error %s", drive.Name, err.Error())
+		return err1
+	}
+	if ac.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
+		delete(ac.Labels, apiV1.StorageGroupLabelKey)
+		if err1 := c.client.UpdateCR(ctx, ac); err1 != nil {
+			log.Errorf("failed to remove storage-group label from ac %s with error %s", ac.Name, err.Error())
+			return err1
+		}
+	} else {
+		log.Warnf("ac %s not included in storage group %s", ac.Name, sg.Name)
+	}
+	return nil
 }
 
 func (c *Controller) addStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
