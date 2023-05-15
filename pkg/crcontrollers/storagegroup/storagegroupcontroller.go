@@ -153,7 +153,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 			}
 		}
 		if driveSelected {
-			if err := c.handleStorageGroupLabeling(ctx, log, &drive, sg); err != nil {
+			if err := c.addStorageGroupLabel(ctx, log, &drive, sg); err != nil {
 				log.Errorf("Error in adding storage-group label to drive %s", err.Error())
 				labelingNoError = false
 			}
@@ -165,8 +165,9 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	return apiV1.Creating, fmt.Errorf("Error in adding storage-group label")
 }
 
-func (c *Controller) handleStorageGroupLabeling(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
+func (c *Controller) addStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
 	sg *sgcrd.StorageGroup) error {
+	log.Debugf("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
 	if existingStorageGroup, ok := drive.Labels[apiV1.StorageGroupLabelKey]; ok {
 		log.Warnf("Drive %s already has already been selected by storage group %s", drive.Name, existingStorageGroup)
 		return nil
