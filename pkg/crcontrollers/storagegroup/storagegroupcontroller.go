@@ -134,7 +134,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	for _, drive := range drivesList.Items {
 		driveSelected := false
 		for fieldName, fieldValue := range sg.Spec.DriveSelector.MatchFields {
-			driveField := reflect.ValueOf(&drive).Elem().FieldByName(fieldName)
+			driveField := reflect.ValueOf(&(drive.Spec)).Elem().FieldByName(fieldName)
 			switch driveField.Type().String() {
 			case "string":
 				if driveField.String() == fieldValue {
