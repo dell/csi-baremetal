@@ -148,9 +148,11 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	}
 	labelingNoError := true
 	invalidField := false
+	drivesCount := map[string]int32{}
+	driveSelector := sg.Spec.DriveSelector
 	for _, drive := range drivesList.Items {
 		driveSelected := true
-		for fieldName, fieldValue := range sg.Spec.DriveSelector.MatchFields {
+		for fieldName, fieldValue := range driveSelector.MatchFields {
 			driveField := reflect.ValueOf(&(drive.Spec)).Elem().FieldByName(fieldName)
 			invalidField = driveField.IsValid()
 			if invalidField {
@@ -182,7 +184,10 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		if invalidField {
 			break
 		}
-		if driveSelected {
+		if driveSelected && (driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
+			if driveSelector.NumberDrivesPerNode > 0 {
+				drivesCount[drive.Spec.NodeId]++
+			}
 			if err := c.addStorageGroupLabel(ctx, log, &drive, sg); err != nil {
 				log.Errorf("Error in adding storage-group label to drive %s", err.Error())
 				labelingNoError = false
