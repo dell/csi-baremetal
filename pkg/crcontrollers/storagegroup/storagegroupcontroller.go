@@ -147,26 +147,40 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		return apiV1.Creating, err
 	}
 	labelingNoError := true
+	invalidField := false
 	for _, drive := range drivesList.Items {
-		driveSelected := false
+		driveSelected := true
 		for fieldName, fieldValue := range sg.Spec.DriveSelector.MatchFields {
 			driveField := reflect.ValueOf(&(drive.Spec)).Elem().FieldByName(fieldName)
+			invalidField = driveField.IsValid()
+			if invalidField {
+				driveSelected = false
+				break
+			}
 			switch driveField.Type().String() {
 			case "string":
-				if driveField.String() == fieldValue {
-					driveSelected = true
+				if driveField.String() != fieldValue {
+					driveSelected = false
 				}
 			case "int64":
 				fieldValueInt64, err := strconv.ParseInt(fieldValue, 10, 64)
-				if err == nil && driveField.Int() == fieldValueInt64 {
-					driveSelected = true
+				invalidField = err != nil
+				if invalidField || driveField.Int() != fieldValueInt64 {
+					driveSelected = false
 				}
 			case "bool":
 				fieldValueBool, err := strconv.ParseBool(fieldValue)
-				if err == nil && driveField.Bool() == fieldValueBool {
-					driveSelected = true
+				invalidField = err != nil
+				if invalidField && driveField.Bool() != fieldValueBool {
+					driveSelected = false
 				}
 			}
+			if invalidField || !driveSelected {
+				break
+			}
+		}
+		if invalidField {
+			break
 		}
 		if driveSelected {
 			if err := c.addStorageGroupLabel(ctx, log, &drive, sg); err != nil {
