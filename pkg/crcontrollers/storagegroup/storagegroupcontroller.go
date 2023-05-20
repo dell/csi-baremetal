@@ -214,7 +214,7 @@ func (c *Controller) removeStorageGroupLabel(ctx context.Context, log *logrus.En
 		return err
 	}
 	if len(volumes) > 0 {
-		log.Warnf("Drive %s already has existing volumes. Storage group label can't be removed.", drive.Name)
+		log.Warnf("Drive %s has existing volumes. Storage group label can't be removed.", drive.Name)
 		return fmt.Errorf("Error in removing storage-group label on drive")
 	}
 
