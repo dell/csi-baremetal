@@ -148,13 +148,14 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	}
 	labelingNoError := true
 	invalidField := false
+	noDriveSelected := true
 	drivesCount := map[string]int32{}
 	driveSelector := sg.Spec.DriveSelector
 	for _, drive := range drivesList.Items {
 		driveSelected := true
 		for fieldName, fieldValue := range driveSelector.MatchFields {
 			driveField := reflect.ValueOf(&(drive.Spec)).Elem().FieldByName(fieldName)
-			invalidField = driveField.IsValid()
+			invalidField = !driveField.IsValid()
 			if invalidField {
 				driveSelected = false
 				break
@@ -182,9 +183,11 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 			}
 		}
 		if invalidField {
+			log.Errorf("Invalid field term in driveSelector of storage group %s", sg.Name)
 			break
 		}
 		if driveSelected && (driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
+			noDriveSelected = false
 			if driveSelector.NumberDrivesPerNode > 0 {
 				drivesCount[drive.Spec.NodeId]++
 			}
@@ -193,6 +196,9 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 				labelingNoError = false
 			}
 		}
+	}
+	if noDriveSelected {
+		log.Warnf("No drive selected by driveSelector of storage group %s", sg.Name)
 	}
 	if labelingNoError {
 		return apiV1.Created, nil
