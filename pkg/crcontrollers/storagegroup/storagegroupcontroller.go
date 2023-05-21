@@ -187,18 +187,39 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 			break
 		}
 		if driveSelected && (driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
-			noDriveSelected = false
-			if driveSelector.NumberDrivesPerNode > 0 {
-				drivesCount[drive.Spec.NodeId]++
+			existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
+			if !exists || (exists && existingStorageGroup == sg.Name) {
+				if driveSelector.NumberDrivesPerNode > 0 {
+					drivesCount[drive.Spec.NodeId]++
+				}
+				if exists {
+					log.Infof("Drive %s has already been selected by current storage group", drive.Name)
+					noDriveSelected = false
+				} else {
+					lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
+					if err != nil {
+						log.Errorf("Error when getting LVG by drive %s: %s", drive.Name, err.Error())
+						labelingNoError = false
+					} else if lvg != nil {
+						log.Warnf("Drive %s has existing LVG and can't be selected by current storage group.",
+							drive.Name)
+					} else {
+						if err = c.addStorageGroupLabel(ctx, log, &drive, sg); err != nil {
+							log.Errorf("Error in adding storage-group label to drive %s: %s", drive.Name, err.Error())
+							labelingNoError = false
+						}
+						noDriveSelected = false
+					}
+				}
+			} else {
+				log.Warnf("Drive %s has already been selected by storage group %s "+
+					"and can't be selected by current storage group", drive.Name, existingStorageGroup)
 			}
-			if err := c.addStorageGroupLabel(ctx, log, &drive, sg); err != nil {
-				log.Errorf("Error in adding storage-group label to drive %s", err.Error())
-				labelingNoError = false
-			}
+
 		}
 	}
 	if noDriveSelected {
-		log.Warnf("No drive selected by driveSelector of storage group %s", sg.Name)
+		log.Warnf("No drive can be selected by driveSelector of storage group %s", sg.Name)
 	}
 	if labelingNoError {
 		return apiV1.Created, nil
@@ -242,18 +263,6 @@ func (c *Controller) removeStorageGroupLabel(ctx context.Context, log *logrus.En
 func (c *Controller) addStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
 	sg *sgcrd.StorageGroup) error {
 	log.Debugf("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
-	if existingStorageGroup, ok := drive.Labels[apiV1.StorageGroupLabelKey]; ok {
-		log.Warnf("Drive %s already has already been selected by storage group %s", drive.Name, existingStorageGroup)
-		return nil
-	}
-	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
-	if err != nil {
-		return err
-	}
-	if len(volumes) > 0 {
-		log.Warnf("Drive %s already has existing volumes. Storage group label won't be added.", drive.Name)
-		return nil
-	}
 
 	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
 	if err != nil {
