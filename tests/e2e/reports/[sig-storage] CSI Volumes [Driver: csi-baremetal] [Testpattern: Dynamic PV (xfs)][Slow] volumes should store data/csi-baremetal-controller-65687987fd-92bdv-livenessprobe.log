@@ -1,5 +1,0 @@
-==== start of pod log for container csi-baremetal-controller-65687987fd-92bdv/livenessprobe ====
-I0517 02:52:38.458226       1 main.go:149] calling CSI driver to discover driver name
-I0517 02:52:38.461447       1 main.go:155] CSI driver name: "csi-baremetal"
-I0517 02:52:38.461460       1 main.go:183] ServeMux listening at "0.0.0.0:9808"
-==== end of pod log for container csi-baremetal-controller-65687987fd-92bdv/livenessprobe ====

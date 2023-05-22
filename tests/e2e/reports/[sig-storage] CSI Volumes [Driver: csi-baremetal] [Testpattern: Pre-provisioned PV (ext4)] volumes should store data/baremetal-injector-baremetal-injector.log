@@ -1,3 +1,0 @@
-==== start of pod log for container baremetal-injector/baremetal-injector ====
-rpc error: code = NotFound desc = an error occurred when try to find container "5089b9215c40a13c5f0ad74b552a3820fbb4abfe822880de94e0d59ff2a351e8": not found
-==== end of pod log for container baremetal-injector/baremetal-injector ====

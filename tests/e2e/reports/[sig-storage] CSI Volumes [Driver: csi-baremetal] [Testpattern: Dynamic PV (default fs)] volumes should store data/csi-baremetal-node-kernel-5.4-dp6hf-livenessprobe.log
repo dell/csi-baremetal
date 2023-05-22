@@ -1,7 +1,0 @@
-==== start of pod log for container csi-baremetal-node-kernel-5.4-dp6hf/livenessprobe ====
-W0517 02:59:34.379463       1 connection.go:173] Still connecting to unix:///csi/csi.sock
-W0517 02:59:44.372524       1 connection.go:173] Still connecting to unix:///csi/csi.sock
-I0517 02:59:45.401890       1 main.go:149] calling CSI driver to discover driver name
-I0517 02:59:45.405398       1 main.go:155] CSI driver name: "csi-baremetal"
-I0517 02:59:45.405433       1 main.go:183] ServeMux listening at "0.0.0.0:9808"
-==== end of pod log for container csi-baremetal-node-kernel-5.4-dp6hf/livenessprobe ====

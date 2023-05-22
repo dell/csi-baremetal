@@ -1,7 +1,0 @@
-==== start of pod log for container csi-baremetal-node-kernel-5.4-jsmr5/livenessprobe ====
-W0517 03:06:46.186398       1 connection.go:173] Still connecting to unix:///csi/csi.sock
-I0517 03:06:53.136710       1 main.go:149] calling CSI driver to discover driver name
-I0517 03:06:53.139369       1 main.go:155] CSI driver name: "csi-baremetal"
-I0517 03:06:53.139436       1 main.go:183] ServeMux listening at "0.0.0.0:9808"
-rpc error: code = NotFound desc = an error occurred when try to find container "daf577a747b377638b9fab41e4b1d4a977d5310101d228c18835c3231c6432ef": not found
-==== end of pod log for container csi-baremetal-node-kernel-5.4-jsmr5/livenessprobe ====

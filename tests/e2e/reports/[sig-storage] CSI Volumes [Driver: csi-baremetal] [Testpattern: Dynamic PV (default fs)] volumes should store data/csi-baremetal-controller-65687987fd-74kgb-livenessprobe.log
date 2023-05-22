@@ -1,6 +1,0 @@
-==== start of pod log for container csi-baremetal-controller-65687987fd-74kgb/livenessprobe ====
-I0517 02:59:27.231931       1 main.go:149] calling CSI driver to discover driver name
-I0517 02:59:27.233749       1 main.go:155] CSI driver name: "csi-baremetal"
-I0517 02:59:27.233764       1 main.go:183] ServeMux listening at "0.0.0.0:9808"
-rpc error: code = NotFound desc = an error occurred when try to find container "1aaa780279655d3d8dfc0e8efaa9f0906409932fbbb85cafe4d29a885a83bf9a": not found
-==== end of pod log for container csi-baremetal-controller-65687987fd-74kgb/livenessprobe ====
