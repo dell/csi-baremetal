@@ -174,7 +174,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 			case "bool":
 				fieldValueBool, err := strconv.ParseBool(fieldValue)
 				invalidField = err != nil
-				if invalidField && driveField.Bool() != fieldValueBool {
+				if invalidField || driveField.Bool() != fieldValueBool {
 					driveSelected = false
 				}
 			}
