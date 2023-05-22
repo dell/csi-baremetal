@@ -1,0 +1,21 @@
+==== start of pod log for container csi-baremetal-node-kernel-5.4-tx7dx/csi-node-driver-registrar ====
+I0520 08:36:09.284917       1 main.go:166] Version: v2.5.0
+I0520 08:36:09.284966       1 main.go:167] Running node-driver-registrar in mode=registration
+I0520 08:36:09.286942       1 main.go:191] Attempting to open a gRPC connection with: "/csi/csi.sock"
+I0520 08:36:09.286971       1 connection.go:154] Connecting to unix:///csi/csi.sock
+W0520 08:36:19.289107       1 connection.go:173] Still connecting to unix:///csi/csi.sock
+I0520 08:36:25.295338       1 main.go:198] Calling CSI driver to discover driver name
+I0520 08:36:25.295427       1 connection.go:183] GRPC call: /csi.v1.Identity/GetPluginInfo
+I0520 08:36:25.295440       1 connection.go:184] GRPC request: {}
+I0520 08:36:25.312761       1 connection.go:186] GRPC response: {"name":"csi-baremetal","vendor_version":"1.3.0"}
+I0520 08:36:25.312999       1 connection.go:187] GRPC error: <nil>
+I0520 08:36:25.313016       1 main.go:208] CSI driver name: "csi-baremetal"
+I0520 08:36:25.313071       1 node_register.go:53] Starting Registration Server at: /registration/csi-baremetal-reg.sock
+I0520 08:36:25.313735       1 node_register.go:62] Registration Server started at: /registration/csi-baremetal-reg.sock
+I0520 08:36:25.316250       1 node_register.go:92] Skipping HTTP server because endpoint is set to: ""
+I0520 08:36:25.828842       1 main.go:102] Received GetInfo call: &InfoRequest{}
+I0520 08:36:25.833899       1 main.go:109] "Kubelet registration probe created" path="/var/lib/kubelet/plugins/csi-baremetal/registration"
+I0520 08:36:25.963308       1 main.go:120] Received NotifyRegistrationStatus call: &RegistrationStatus{PluginRegistered:true,Error:,}
+E0520 08:42:03.673686       1 connection.go:132] Lost connection to unix:///csi/csi.sock.
+rpc error: code = NotFound desc = an error occurred when try to find container "d1c773a94a8c7634901b3fd4e10bc952106e81686397086aa1eb51fce8b51c8d": not found
+==== end of pod log for container csi-baremetal-node-kernel-5.4-tx7dx/csi-node-driver-registrar ====

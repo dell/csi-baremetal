@@ -1,0 +1,126 @@
+==== start of pod log for container csi-baremetal-controller-847c95dbf-wpw2t/csi-provisioner ====
+W0520 09:01:08.564264       1 feature_gate.go:237] Setting GA feature gate Topology=true. It will be removed in a future release.
+I0520 09:01:08.564334       1 csi-provisioner.go:139] Version: v3.1.0
+I0520 09:01:08.564338       1 csi-provisioner.go:162] Building kube configs for running in cluster...
+I0520 09:01:08.566915       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:08.568283       1 common.go:129] CSI driver is not ready
+I0520 09:01:09.573375       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:09.608399       1 common.go:129] CSI driver is not ready
+I0520 09:01:10.611948       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:10.612385       1 common.go:129] CSI driver is not ready
+I0520 09:01:11.612722       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:11.614140       1 common.go:129] CSI driver is not ready
+I0520 09:01:12.618034       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:12.623632       1 common.go:129] CSI driver is not ready
+I0520 09:01:13.624896       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:13.627767       1 common.go:129] CSI driver is not ready
+I0520 09:01:14.631041       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:14.631861       1 common.go:129] CSI driver is not ready
+I0520 09:01:15.632754       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:15.633289       1 common.go:129] CSI driver is not ready
+I0520 09:01:16.633423       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:16.634539       1 common.go:129] CSI driver is not ready
+I0520 09:01:17.635625       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:17.636778       1 common.go:129] CSI driver is not ready
+I0520 09:01:18.640598       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:18.641443       1 common.go:129] CSI driver is not ready
+I0520 09:01:19.648702       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:19.650457       1 common.go:129] CSI driver is not ready
+I0520 09:01:20.652537       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:20.656037       1 common.go:129] CSI driver is not ready
+I0520 09:01:21.657087       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:21.658691       1 common.go:129] CSI driver is not ready
+I0520 09:01:22.662266       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:22.664108       1 common.go:129] CSI driver is not ready
+I0520 09:01:23.677760       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:23.680690       1 common.go:129] CSI driver is not ready
+I0520 09:01:24.682794       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:24.684539       1 common.go:129] CSI driver is not ready
+I0520 09:01:25.687800       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:25.689901       1 common.go:129] CSI driver is not ready
+I0520 09:01:26.694893       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:26.696900       1 common.go:129] CSI driver is not ready
+I0520 09:01:27.711695       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:27.713562       1 common.go:129] CSI driver is not ready
+I0520 09:01:28.717125       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:28.719084       1 common.go:129] CSI driver is not ready
+I0520 09:01:29.735210       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:29.742817       1 common.go:129] CSI driver is not ready
+I0520 09:01:30.751432       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:30.753477       1 common.go:129] CSI driver is not ready
+I0520 09:01:31.755595       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:31.756141       1 common.go:129] CSI driver is not ready
+I0520 09:01:32.760552       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:32.762152       1 common.go:129] CSI driver is not ready
+I0520 09:01:33.763389       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:33.764930       1 common.go:129] CSI driver is not ready
+I0520 09:01:34.765664       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:34.767395       1 common.go:129] CSI driver is not ready
+I0520 09:01:35.781499       1 common.go:111] Probing CSI driver for readiness
+W0520 09:01:35.788465       1 common.go:129] CSI driver is not ready
+I0520 09:01:36.793465       1 common.go:111] Probing CSI driver for readiness
+I0520 09:01:36.798607       1 csi-provisioner.go:278] CSI driver does not support PUBLISH_UNPUBLISH_VOLUME, not watching VolumeAttachments
+I0520 09:01:36.936151       1 controller.go:811] Starting provisioner controller csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8!
+I0520 09:01:36.939562       1 volume_store.go:97] Starting save volume queue
+I0520 09:01:37.054161       1 controller.go:860] Started provisioner controller csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8!
+I0520 09:01:38.133584       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:01:38.133661       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:01:38.134468       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:01:38.174726       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 0
+E0520 09:01:38.174789       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:38.176279       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:39.176284       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:01:39.176611       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:01:39.178178       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:01:39.200631       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 1
+E0520 09:01:39.200777       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:39.203526       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:41.205175       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:01:41.205452       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:01:41.205999       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:01:41.229792       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 2
+E0520 09:01:41.229943       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:41.230886       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:45.239316       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:01:45.239562       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:01:45.239970       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:01:45.255159       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 3
+E0520 09:01:45.255280       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:45.255335       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:53.263388       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:01:53.263612       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:01:53.264028       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:01:53.276639       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 4
+E0520 09:01:53.276837       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:01:53.276724       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:02:09.277902       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:02:09.278072       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:02:09.279129       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:02:09.297663       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 5
+E0520 09:02:09.297739       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:02:09.297762       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:02:41.308744       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:02:41.309124       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:02:41.311267       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:02:41.347785       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 6
+E0520 09:02:41.347830       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:02:41.348039       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:03:45.353275       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+W0520 09:03:45.353517       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0520 09:03:45.355132       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:03:45.375493       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 7
+E0520 09:03:45.375594       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:03:45.376085       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:05:53.384321       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+I0520 09:05:53.384858       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:05:53.385004       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+W0520 09:05:53.393430       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 8
+E0520 09:05:53.393462       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:05:53.393477       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"15912", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:06:38.166914       1 controller.go:1337] provision "volume-5356/csi-baremetal6ntlx" class "volume-5356hnh4n": started
+I0520 09:06:38.167447       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"16727", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx"
+W0520 09:06:38.169143       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+W0520 09:06:38.227508       1 controller.go:934] Retrying syncing claim "d13033f2-d11a-43a9-b777-9959443098e9", failure 9
+E0520 09:06:38.227907       1 controller.go:957] error syncing claim "d13033f2-d11a-43a9-b777-9959443098e9": failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+I0520 09:06:38.227867       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-5356", Name:"csi-baremetal6ntlx", UID:"d13033f2-d11a-43a9-b777-9959443098e9", APIVersion:"v1", ResourceVersion:"16727", FieldPath:""}): type: 'Warning' reason: 'ProvisioningFailed' failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found
+==== end of pod log for container csi-baremetal-controller-847c95dbf-wpw2t/csi-provisioner ====

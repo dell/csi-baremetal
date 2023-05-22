@@ -1,0 +1,3 @@
+==== start of pod log for container baremetal-client/baremetal-client ====
+rpc error: code = NotFound desc = an error occurred when try to find container "4b94b667bb478313cc01d8e684335a03ddd1f6578a1e214c68c3485bf864907b": not found
+==== end of pod log for container baremetal-client/baremetal-client ====

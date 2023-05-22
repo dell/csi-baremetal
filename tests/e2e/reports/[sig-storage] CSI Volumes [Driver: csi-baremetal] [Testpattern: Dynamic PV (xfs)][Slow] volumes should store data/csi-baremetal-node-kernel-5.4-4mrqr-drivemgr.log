@@ -1,0 +1,56 @@
+==== start of pod log for container csi-baremetal-node-kernel-5.4-4mrqr/drivemgr ====
+May 20 08:55:05.338 [INFO] Obtaining node ID...
+May 20 08:55:05.345 [INFO] Create server for endpoint "localhost:8888" on "tcp" socket
+May 20 08:55:05.346 [INFO] Start DriveManager
+May 20 08:55:05.356 [INFO] [LoopBackManager] [updateDevicesFromConfig] device: &{Test Loopback LOOPBACK4186171484 101Mi false GOOD HDD 0 /host/home/50259059-d764-46c5-b5fe-58609a792d55-4186171484.img }
+May 20 08:55:05.356 [INFO] [LoopBackManager] [updateDevicesFromConfig] device: &{Test Loopback LOOPBACK1989910369 101Mi false GOOD HDD 0 /host/home/50259059-d764-46c5-b5fe-58609a792d55-1989910369.img }
+May 20 08:55:05.356 [INFO] [LoopBackManager] [updateDevicesFromConfig] device: &{Test Loopback LOOPBACK2995633779 101Mi false GOOD HDD 0 /host/home/50259059-d764-46c5-b5fe-58609a792d55-2995633779.img }
+May 20 08:55:05.357 [INFO] [ServerRunner] Starting gRPC server for endpoint localhost:8888 and socket tcp
+May 20 08:55:05.361 [DEBU] [Executor] [df / --output=target,avail --block-size=M] [3.844619ms] [3844619] stdout: Mounted on Avail
+/          6830M
+
+May 20 08:55:05.504 [WARN] [Executor] [dd if=/dev/zero of=/host/home/50259059-d764-46c5-b5fe-58609a792d55-4186171484.img bs=1M count=101] [142.992068ms] [142992068] stdout: , stderr: 101+0 records in
+101+0 records out
+105906176 bytes (106 MB, 101 MiB) copied, 0.139427 s, 760 MB/s
+
+May 20 08:55:05.509 [DEBU] [Executor] [df / --output=target,avail --block-size=M] [4.242831ms] [4242831] stdout: Mounted on Avail
+/          6830M
+
+May 20 08:55:05.664 [WARN] [Executor] [dd if=/dev/zero of=/host/home/50259059-d764-46c5-b5fe-58609a792d55-1989910369.img bs=1M count=101] [154.828561ms] [154828561] stdout: , stderr: 101+0 records in
+101+0 records out
+105906176 bytes (106 MB, 101 MiB) copied, 0.152388 s, 695 MB/s
+
+May 20 08:55:05.667 [DEBU] [Executor] [df / --output=target,avail --block-size=M] [2.482423ms] [2482423] stdout: Mounted on Avail
+/          6830M
+
+May 20 08:55:05.825 [WARN] [Executor] [dd if=/dev/zero of=/host/home/50259059-d764-46c5-b5fe-58609a792d55-2995633779.img bs=1M count=101] [158.092124ms] [158092124] stdout: , stderr: 101+0 records in
+101+0 records out
+105906176 bytes (106 MB, 101 MiB) copied, 0.146885 s, 721 MB/s
+
+May 20 08:55:05.835 [DEBU] [Executor] [losetup -O NAME,BACK-FILE] [9.842234ms] [9842234] stdout: NAME       BACK-FILE
+/dev/loop1 /host/home/a56f351b-8a4f-4fa8-8d9a-8983c39263a2-2553812739.img
+/dev/loop2 /host/home/a56f351b-8a4f-4fa8-8d9a-8983c39263a2-75996862.img
+/dev/loop0 /host/home/a56f351b-8a4f-4fa8-8d9a-8983c39263a2-4198583605.img
+
+May 20 08:55:05.855 [DEBU] [Executor] [losetup -f] [17.869831ms] [17869831] stdout: /dev/loop3
+
+May 20 08:55:05.868 [DEBU] [Executor] [losetup -fP --show /host/home/50259059-d764-46c5-b5fe-58609a792d55-4186171484.img] [13.770838ms] [13770838] stdout: /dev/loop3
+
+May 20 08:55:05.879 [DEBU] [Executor] [losetup -f] [10.411171ms] [10411171] stdout: /dev/loop4
+
+May 20 08:55:05.897 [DEBU] [Executor] [losetup -fP --show /host/home/50259059-d764-46c5-b5fe-58609a792d55-1989910369.img] [17.8815ms] [17881500] stdout: /dev/loop4
+
+May 20 08:55:05.906 [DEBU] [Executor] [losetup -f] [7.378083ms] [7378083] stdout: /dev/loop5
+
+May 20 08:55:05.913 [DEBU] [Executor] [losetup -fP --show /host/home/50259059-d764-46c5-b5fe-58609a792d55-2995633779.img] [7.146748ms] [7146748] stdout: /dev/loop5
+
+May 20 09:00:53.046 [DEBU] [SignalHandler] [setupSignalHandler] Got hangup signal
+May 20 09:00:53.099 [DEBU] [Executor] [losetup -d /dev/loop3] [34.046296ms] [34046296] stdout: 
+May 20 09:00:53.111 [DEBU] [Executor] [rm -rf /host/home/50259059-d764-46c5-b5fe-58609a792d55-4186171484.img] [8.898813ms] [8898813] stdout: 
+May 20 09:00:53.134 [DEBU] [Executor] [losetup -d /dev/loop4] [23.216549ms] [23216549] stdout: 
+May 20 09:00:53.156 [DEBU] [Executor] [rm -rf /host/home/50259059-d764-46c5-b5fe-58609a792d55-1989910369.img] [21.748383ms] [21748383] stdout: 
+May 20 09:00:53.172 [DEBU] [Executor] [losetup -d /dev/loop5] [15.139973ms] [15139973] stdout: 
+May 20 09:00:53.205 [DEBU] [Executor] [rm -rf /host/home/50259059-d764-46c5-b5fe-58609a792d55-2995633779.img] [32.752675ms] [32752675] stdout: 
+May 20 09:00:56.644 [DEBU] [SignalHandler] [setupSignalHandler] Got terminated signal
+May 20 09:00:56.644 [INFO] [ServerRunner] Stopping server
+==== end of pod log for container csi-baremetal-node-kernel-5.4-4mrqr/drivemgr ====

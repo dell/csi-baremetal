@@ -1,0 +1,76 @@
+==== start of pod log for container csi-baremetal-controller-65687987fd-4x8cg/csi-provisioner ====
+W0517 03:15:54.872024       1 feature_gate.go:237] Setting GA feature gate Topology=true. It will be removed in a future release.
+I0517 03:15:54.872132       1 csi-provisioner.go:139] Version: v3.1.0
+I0517 03:15:54.872198       1 csi-provisioner.go:162] Building kube configs for running in cluster...
+I0517 03:15:54.874308       1 common.go:111] Probing CSI driver for readiness
+W0517 03:15:54.877162       1 common.go:129] CSI driver is not ready
+I0517 03:15:55.878307       1 common.go:111] Probing CSI driver for readiness
+W0517 03:15:55.879839       1 common.go:129] CSI driver is not ready
+I0517 03:15:56.880717       1 common.go:111] Probing CSI driver for readiness
+W0517 03:15:56.892216       1 common.go:129] CSI driver is not ready
+I0517 03:15:57.892921       1 common.go:111] Probing CSI driver for readiness
+W0517 03:15:57.894295       1 common.go:129] CSI driver is not ready
+I0517 03:15:58.894937       1 common.go:111] Probing CSI driver for readiness
+W0517 03:15:58.895961       1 common.go:129] CSI driver is not ready
+I0517 03:15:59.897110       1 common.go:111] Probing CSI driver for readiness
+W0517 03:15:59.897534       1 common.go:129] CSI driver is not ready
+I0517 03:16:00.898266       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:00.899175       1 common.go:129] CSI driver is not ready
+I0517 03:16:01.901354       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:01.903752       1 common.go:129] CSI driver is not ready
+I0517 03:16:02.905631       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:02.906533       1 common.go:129] CSI driver is not ready
+I0517 03:16:03.909144       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:03.910314       1 common.go:129] CSI driver is not ready
+I0517 03:16:04.910886       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:04.911903       1 common.go:129] CSI driver is not ready
+I0517 03:16:05.912132       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:05.926671       1 common.go:129] CSI driver is not ready
+I0517 03:16:06.931584       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:06.932198       1 common.go:129] CSI driver is not ready
+I0517 03:16:07.936062       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:07.938502       1 common.go:129] CSI driver is not ready
+I0517 03:16:08.939016       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:08.939753       1 common.go:129] CSI driver is not ready
+I0517 03:16:09.941490       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:09.942998       1 common.go:129] CSI driver is not ready
+I0517 03:16:10.943741       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:10.944704       1 common.go:129] CSI driver is not ready
+I0517 03:16:11.945800       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:11.946942       1 common.go:129] CSI driver is not ready
+I0517 03:16:12.948320       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:12.949757       1 common.go:129] CSI driver is not ready
+I0517 03:16:13.950738       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:13.953284       1 common.go:129] CSI driver is not ready
+I0517 03:16:14.954213       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:14.955192       1 common.go:129] CSI driver is not ready
+I0517 03:16:15.958006       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:15.959261       1 common.go:129] CSI driver is not ready
+I0517 03:16:16.965635       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:16.967096       1 common.go:129] CSI driver is not ready
+I0517 03:16:17.979328       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:17.980846       1 common.go:129] CSI driver is not ready
+I0517 03:16:18.983641       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:18.985163       1 common.go:129] CSI driver is not ready
+I0517 03:16:19.986544       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:19.987465       1 common.go:129] CSI driver is not ready
+I0517 03:16:20.987942       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:20.988690       1 common.go:129] CSI driver is not ready
+I0517 03:16:21.998711       1 common.go:111] Probing CSI driver for readiness
+W0517 03:16:21.999064       1 common.go:129] CSI driver is not ready
+I0517 03:16:22.999917       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:23.042829       1 csi-provisioner.go:278] CSI driver does not support PUBLISH_UNPUBLISH_VOLUME, not watching VolumeAttachments
+I0517 03:16:23.151371       1 controller.go:811] Starting provisioner controller csi-baremetal_csi-baremetal-controller-65687987fd-4x8cg_cf0c7f98-d642-4641-bcbb-3c8217c286c7!
+I0517 03:16:23.151431       1 volume_store.go:97] Starting save volume queue
+I0517 03:16:23.270320       1 controller.go:860] Started provisioner controller csi-baremetal_csi-baremetal-controller-65687987fd-4x8cg_cf0c7f98-d642-4641-bcbb-3c8217c286c7!
+I0517 03:17:30.422936       1 controller.go:1337] provision "volume-9947/csi-baremetalrdhd8" class "volume-9947k2c7t": started
+W0517 03:17:30.423139       1 controller.go:579] "fstype" is deprecated and will be removed in a future release, please use "csi.storage.k8s.io/fstype" instead
+I0517 03:17:30.424170       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-9947", Name:"csi-baremetalrdhd8", UID:"0f4f3693-f908-46c4-8f4a-b1ca6177cd62", APIVersion:"v1", ResourceVersion:"11615", FieldPath:""}): type: 'Normal' reason: 'Provisioning' External provisioner is provisioning volume for claim "volume-9947/csi-baremetalrdhd8"
+I0517 03:17:31.582406       1 controller.go:1442] provision "volume-9947/csi-baremetalrdhd8" class "volume-9947k2c7t": volume "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62" provisioned
+I0517 03:17:31.582472       1 controller.go:1455] provision "volume-9947/csi-baremetalrdhd8" class "volume-9947k2c7t": succeeded
+I0517 03:17:31.593340       1 event.go:285] Event(v1.ObjectReference{Kind:"PersistentVolumeClaim", Namespace:"volume-9947", Name:"csi-baremetalrdhd8", UID:"0f4f3693-f908-46c4-8f4a-b1ca6177cd62", APIVersion:"v1", ResourceVersion:"11615", FieldPath:""}): type: 'Normal' reason: 'ProvisioningSucceeded' Successfully provisioned volume pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62
+I0517 03:17:46.927244       1 controller.go:1471] delete "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62": started
+I0517 03:18:03.255941       1 controller.go:1486] delete "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62": volume deleted
+I0517 03:18:03.269845       1 controller.go:1531] delete "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62": persistentvolume deleted
+I0517 03:18:03.269894       1 controller.go:1536] delete "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62": succeeded
+==== end of pod log for container csi-baremetal-controller-65687987fd-4x8cg/csi-provisioner ====

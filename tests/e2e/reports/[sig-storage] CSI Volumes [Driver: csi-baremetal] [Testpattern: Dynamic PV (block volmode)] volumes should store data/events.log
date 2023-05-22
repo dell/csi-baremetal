@@ -1,0 +1,599 @@
+03:15:49.595 event: apps/v1/Deployment csi-baremetal-operator: deployment-controller Normal: Scaled up replica set csi-baremetal-operator-679545bb49 to 1 (2023-05-17 03:15:49 +0000 UTC - 2023-05-17 03:15:49 +0000 UTC)
+03:15:49.645 pod: ADDED: volume-9947/csi-baremetal-operator-679545bb49-r6ssx Pending:  []
+03:15:49.658 event: apps/v1/ReplicaSet csi-baremetal-operator-679545bb49: replicaset-controller Normal: Created pod: csi-baremetal-operator-679545bb49-r6ssx (2023-05-17 03:15:49 +0000 UTC - 2023-05-17 03:15:49 +0000 UTC)
+03:15:50.061 pod: MODIFIED: volume-9947/csi-baremetal-operator-679545bb49-r6ssx Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:50 +0000 UTC  }]
+03:15:50.072 event: v1/Pod csi-baremetal-operator-679545bb49-r6ssx:  Normal: Successfully assigned volume-9947/csi-baremetal-operator-679545bb49-r6ssx to kind-worker2 (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:50.142 pod: MODIFIED: volume-9947/csi-baremetal-operator-679545bb49-r6ssx Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:50 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:50 +0000 UTC ContainersNotReady containers with unready status: [manager]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:50 +0000 UTC ContainersNotReady containers with unready status: [manager]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:50 +0000 UTC  }]
+   manager: WAITING: ContainerCreating - 
+03:15:51.082 event: v1/Pod csi-baremetal-operator-679545bb49-r6ssx: kubelet Normal: Container image "csi-baremetal-operator:1.3.0-118.ead6e47" already present on machine (2023-05-17 03:15:50 +0000 UTC - 2023-05-17 03:15:50 +0000 UTC)
+03:15:51.198 event: v1/Pod csi-baremetal-operator-679545bb49-r6ssx: kubelet Normal: Created container manager (2023-05-17 03:15:51 +0000 UTC - 2023-05-17 03:15:51 +0000 UTC)
+03:15:51.334 event: v1/Pod csi-baremetal-operator-679545bb49-r6ssx: kubelet Normal: Started container manager (2023-05-17 03:15:51 +0000 UTC - 2023-05-17 03:15:51 +0000 UTC)
+03:15:51.946 pod: MODIFIED: volume-9947/csi-baremetal-operator-679545bb49-r6ssx Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:50 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:51 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:51 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:50 +0000 UTC  }]
+   manager: RUNNING
+03:15:52.143 event: v1/ConfigMap 7db7c6a0.dell.com: csi-baremetal-operator-679545bb49-r6ssx_64584743-9ccd-4e5d-b722-5480e8d89ec2 Normal: csi-baremetal-operator-679545bb49-r6ssx_64584743-9ccd-4e5d-b722-5480e8d89ec2 became leader (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.193 event: coordination.k8s.io/v1/Lease 7db7c6a0.dell.com: csi-baremetal-operator-679545bb49-r6ssx_64584743-9ccd-4e5d-b722-5480e8d89ec2 Normal: csi-baremetal-operator-679545bb49-r6ssx_64584743-9ccd-4e5d-b722-5480e8d89ec2 became leader (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.427 pod: ADDED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Pending:  []
+03:15:52.463 event: apps/v1/Deployment csi-baremetal-node-controller: deployment-controller Normal: Scaled up replica set csi-baremetal-node-controller-66fb8476bb to 1 (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.463 event: apps/v1/ReplicaSet csi-baremetal-node-controller-66fb8476bb: replicaset-controller Normal: Created pod: csi-baremetal-node-controller-66fb8476bb-l8j88 (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.468 pod: MODIFIED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+03:15:52.477 event: v1/Pod csi-baremetal-node-controller-66fb8476bb-l8j88:  Normal: Successfully assigned volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 to kind-worker (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:52.510 pod: MODIFIED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   node-controller: WAITING: ContainerCreating - 
+03:15:52.537 pod: ADDED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Pending:  []
+03:15:52.550 pod: ADDED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Pending:  []
+03:15:52.552 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+03:15:52.556 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Created pod: csi-baremetal-node-kernel-5.4-s5nzg (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.556 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg:  Normal: Successfully assigned volume-9947/csi-baremetal-node-kernel-5.4-s5nzg to kind-worker2 (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:52.599 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Created pod: csi-baremetal-node-kernel-5.4-khc4d (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.599 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d:  Normal: Successfully assigned volume-9947/csi-baremetal-node-kernel-5.4-khc4d to kind-worker (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:52.607 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+03:15:52.619 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: WAITING: ContainerCreating - 
+   drivemgr: WAITING: ContainerCreating - 
+   livenessprobe: WAITING: ContainerCreating - 
+   node: WAITING: ContainerCreating - 
+03:15:52.642 event: apps/v1/Deployment csi-baremetal-controller: deployment-controller Normal: Scaled up replica set csi-baremetal-controller-65687987fd to 1 (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.648 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: WAITING: ContainerCreating - 
+   drivemgr: WAITING: ContainerCreating - 
+   livenessprobe: WAITING: ContainerCreating - 
+   node: WAITING: ContainerCreating - 
+03:15:52.655 pod: ADDED: volume-9947/csi-baremetal-controller-65687987fd-4x8cg Pending:  []
+03:15:52.668 event: apps/v1/ReplicaSet csi-baremetal-controller-65687987fd: replicaset-controller Normal: Created pod: csi-baremetal-controller-65687987fd-4x8cg (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.672 pod: MODIFIED: volume-9947/csi-baremetal-controller-65687987fd-4x8cg Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+03:15:52.726 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg:  Normal: Successfully assigned volume-9947/csi-baremetal-controller-65687987fd-4x8cg to kind-worker (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:52.737 pod: ADDED: volume-9947/csi-baremetal-se-qw58n Pending:  []
+03:15:52.737 pod: MODIFIED: volume-9947/csi-baremetal-controller-65687987fd-4x8cg Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   controller: WAITING: ContainerCreating - 
+   csi-provisioner: WAITING: ContainerCreating - 
+   csi-resizer: WAITING: ContainerCreating - 
+   livenessprobe: WAITING: ContainerCreating - 
+03:15:52.772 event: apps/v1/DaemonSet csi-baremetal-se: daemonset-controller Normal: Created pod: csi-baremetal-se-qw58n (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.772 event: v1/Pod csi-baremetal-se-qw58n:  Warning: 0/3 nodes are available: 1 node(s) didn't have free ports for the requested pod ports, 2 node(s) didn't match Pod's node affinity/selector. (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:52.773 pod: MODIFIED: volume-9947/csi-baremetal-se-qw58n Pending:  [{PodScheduled False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC Unschedulable 0/3 nodes are available: 1 node(s) didn't have free ports for the requested pod ports, 2 node(s) didn't match Pod's node affinity/selector.}]
+03:15:52.822 pod: ADDED: volume-9947/csi-baremetal-se-patcher-dc49l Pending:  []
+03:15:52.875 event: apps/v1/DaemonSet csi-baremetal-se-patcher: daemonset-controller Normal: Created pod: csi-baremetal-se-patcher-dc49l (2023-05-17 03:15:52 +0000 UTC - 2023-05-17 03:15:52 +0000 UTC)
+03:15:52.883 pod: MODIFIED: volume-9947/csi-baremetal-se-patcher-dc49l Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+03:15:52.928 event: v1/Pod csi-baremetal-se-patcher-dc49l:  Normal: Successfully assigned volume-9947/csi-baremetal-se-patcher-dc49l to kind-control-plane (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:52.969 pod: MODIFIED: volume-9947/csi-baremetal-se-patcher-dc49l Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   schedulerpatcher: WAITING: ContainerCreating - 
+03:15:53.123 event: v1/Pod csi-baremetal-node-controller-66fb8476bb-l8j88: kubelet Normal: Container image "csi-baremetal-node-controller:1.3.0-633.1c96858" already present on machine (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.277 event: v1/Pod csi-baremetal-node-controller-66fb8476bb-l8j88: kubelet Normal: Created container node-controller (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.401 event: v1/Pod csi-baremetal-node-controller-66fb8476bb-l8j88: kubelet Normal: Started container node-controller (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.440 event: v1/Pod csi-baremetal-se-patcher-dc49l: kubelet Normal: Container image "csi-baremetal-scheduler-patcher:1.3.0-633.1c96858" already present on machine (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.492 pod: MODIFIED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:53 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:53 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   node-controller: RUNNING
+03:15:53.587 event: v1/Pod csi-baremetal-se-patcher-dc49l: kubelet Normal: Created container schedulerpatcher (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.611 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Container image "csi-baremetal-controller:1.3.0-633.1c96858" already present on machine (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.767 event: v1/Pod csi-baremetal-se-patcher-dc49l: kubelet Normal: Started container schedulerpatcher (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.828 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Created container controller (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.895 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Warning: MountVolume.SetUp failed for volume "drive-config" : failed to sync configmap cache: timed out waiting for the condition (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.959 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Warning: MountVolume.SetUp failed for volume "node-config" : failed to sync configmap cache: timed out waiting for the condition (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:53.984 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Container image "livenessprobe:v2.6.0" already present on machine (2023-05-17 03:15:53 +0000 UTC - 2023-05-17 03:15:53 +0000 UTC)
+03:15:54.056 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Started container controller (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.170 event: v1/Pod csi-baremetal-se-qw58n:  Warning: 0/3 nodes are available: 1 node(s) didn't have free ports for the requested pod ports, 2 node(s) didn't match Pod's node affinity/selector. (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:15:54.177 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Container image "csi-provisioner:v3.1.0" already present on machine (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.395 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Created container livenessprobe (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.555 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Started container livenessprobe (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.588 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Created container csi-provisioner (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.588 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Container image "csi-node-driver-registrar:v2.5.0" already present on machine (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.739 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Created container csi-node-driver-registrar (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.751 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Started container csi-provisioner (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.783 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Container image "csi-resizer:v1.4.0" already present on machine (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.787 pod: MODIFIED: volume-9947/csi-baremetal-se-patcher-dc49l Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:54 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:54 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   schedulerpatcher: RUNNING
+03:15:54.874 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Started container csi-node-driver-registrar (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.902 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Container image "csi-baremetal-node-kernel-5.4:1.3.0-633.1c96858" already present on machine (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:54.991 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Container image "livenessprobe:v2.6.0" already present on machine (2023-05-17 03:15:54 +0000 UTC - 2023-05-17 03:15:54 +0000 UTC)
+03:15:55.207 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Created container csi-resizer (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.239 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Created container node (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.526 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Started container csi-resizer (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.526 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Started container node (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.545 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Container image "livenessprobe:v2.6.0" already present on machine (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.602 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Container image "csi-baremetal-loopbackmgr:1.3.0-633.1c96858" already present on machine (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.602 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Created container livenessprobe (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.675 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Started container livenessprobe (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.691 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Created container drivemgr (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.713 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Container image "csi-node-driver-registrar:v2.5.0" already present on machine (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.829 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Created container livenessprobe (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.914 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Started container drivemgr (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:55.974 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Created container csi-node-driver-registrar (2023-05-17 03:15:55 +0000 UTC - 2023-05-17 03:15:55 +0000 UTC)
+03:15:56.026 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [node]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [node]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+03:15:56.052 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Started container livenessprobe (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:56.350 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Started container csi-node-driver-registrar (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:56.362 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Container image "csi-baremetal-node-kernel-5.4:1.3.0-633.1c96858" already present on machine (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:56.548 pod: MODIFIED: volume-9947/csi-baremetal-controller-65687987fd-4x8cg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   controller: RUNNING
+   csi-provisioner: RUNNING
+   csi-resizer: RUNNING
+   livenessprobe: RUNNING
+03:15:56.675 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Created container node (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:56.761 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:56.890 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Started container node (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:56.902 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Container image "csi-baremetal-loopbackmgr:1.3.0-633.1c96858" already present on machine (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:57.032 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Created container drivemgr (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:56 +0000 UTC)
+03:15:57.173 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Started container drivemgr (2023-05-17 03:15:57 +0000 UTC - 2023-05-17 03:15:57 +0000 UTC)
+03:15:57.663 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [node]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC ContainersNotReady containers with unready status: [node]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+03:15:57.991 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:15:57 +0000 UTC)
+03:15:58.733 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:58 +0000 UTC - 2023-05-17 03:15:58 +0000 UTC)
+03:15:59.619 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:59 +0000 UTC - 2023-05-17 03:15:59 +0000 UTC)
+03:16:00.263 pod: MODIFIED: volume-9947/csi-baremetal-se-qw58n Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  }]
+03:16:00.325 event: v1/Pod csi-baremetal-se-qw58n:  Normal: Successfully assigned volume-9947/csi-baremetal-se-qw58n to kind-control-plane (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:16:00.418 pod: MODIFIED: volume-9947/csi-baremetal-se-qw58n Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC ContainersNotReady containers with unready status: [scheduler-extender]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC ContainersNotReady containers with unready status: [scheduler-extender]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  }]
+   scheduler-extender: WAITING: ContainerCreating - 
+03:16:00.895 event: v1/Pod csi-baremetal-se-qw58n: kubelet Normal: Container image "csi-baremetal-scheduler-extender:1.3.0-633.1c96858" already present on machine (2023-05-17 03:16:00 +0000 UTC - 2023-05-17 03:16:00 +0000 UTC)
+03:16:01.167 event: v1/Pod csi-baremetal-se-qw58n: kubelet Normal: Created container scheduler-extender (2023-05-17 03:16:01 +0000 UTC - 2023-05-17 03:16:01 +0000 UTC)
+03:16:01.276 event: v1/Pod csi-baremetal-se-qw58n: kubelet Normal: Started container scheduler-extender (2023-05-17 03:16:01 +0000 UTC - 2023-05-17 03:16:01 +0000 UTC)
+03:16:01.689 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:59 +0000 UTC - 2023-05-17 03:16:01 +0000 UTC)
+03:16:01.793 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:58 +0000 UTC - 2023-05-17 03:16:01 +0000 UTC)
+03:16:01.867 pod: MODIFIED: volume-9947/csi-baremetal-se-qw58n Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC ContainersNotReady containers with unready status: [scheduler-extender]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC ContainersNotReady containers with unready status: [scheduler-extender]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  }]
+   scheduler-extender: RUNNING
+03:16:02.820 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:16:02 +0000 UTC)
+03:16:04.685 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:58 +0000 UTC - 2023-05-17 03:16:04 +0000 UTC)
+03:16:04.747 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:59 +0000 UTC - 2023-05-17 03:16:04 +0000 UTC)
+03:16:10.490 pod: MODIFIED: volume-9947/csi-baremetal-se-qw58n Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:10 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:10 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  }]
+   scheduler-extender: RUNNING
+03:16:12.837 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-17 03:15:56 +0000 UTC - 2023-05-17 03:16:12 +0000 UTC)
+03:16:13.702 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+03:16:13.762 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+03:16:22.851 pod: MODIFIED: volume-9947/csi-baremetal-controller-65687987fd-4x8cg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:22 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:22 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   controller: RUNNING
+   csi-provisioner: RUNNING
+   csi-resizer: RUNNING
+   livenessprobe: RUNNING
+03:16:23.113 pod: ADDED: volume-9947/baremetal-injector Pending:  []
+03:16:23.117 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for first consumer to be created before binding (2023-05-17 03:16:23 +0000 UTC - 2023-05-17 03:16:23 +0000 UTC)
+03:16:23.156 pod: MODIFIED: volume-9947/baremetal-injector Pending:  [{PodScheduled False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:23 +0000 UTC Unschedulable 0/3 nodes are available: 1 node(s) had taint {node-role.kubernetes.io/master: }, that the pod didn't tolerate.}]
+03:16:23.162 event: v1/Pod baremetal-injector:  Warning: 0/3 nodes are available: 1 node(s) had taint {node-role.kubernetes.io/master: }, that the pod didn't tolerate. (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:16:23.671 event: coordination.k8s.io/v1/Lease external-resizer-csi-baremetal: external-resizer-csi-baremetal/csi-baremetal-controller-65687987fd-4x8cg Normal: csi-baremetal-controller-65687987fd-4x8cg became leader (2023-05-17 03:16:23 +0000 UTC - 2023-05-17 03:16:23 +0000 UTC)
+03:16:30.375 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for pod baremetal-injector to be scheduled (2023-05-17 03:16:30 +0000 UTC - 2023-05-17 03:16:30 +0000 UTC)
+03:16:45.374 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for pod baremetal-injector to be scheduled (2023-05-17 03:16:30 +0000 UTC - 2023-05-17 03:16:45 +0000 UTC)
+03:17:00.373 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for pod baremetal-injector to be scheduled (2023-05-17 03:16:30 +0000 UTC - 2023-05-17 03:17:00 +0000 UTC)
+03:17:15.378 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for pod baremetal-injector to be scheduled (2023-05-17 03:16:30 +0000 UTC - 2023-05-17 03:17:15 +0000 UTC)
+03:17:30.375 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for pod baremetal-injector to be scheduled (2023-05-17 03:16:30 +0000 UTC - 2023-05-17 03:17:30 +0000 UTC)
+03:17:30.451 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-17 03:17:30 +0000 UTC - 2023-05-17 03:17:30 +0000 UTC)
+03:17:30.451 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: csi-baremetal_csi-baremetal-controller-65687987fd-4x8cg_cf0c7f98-d642-4641-bcbb-3c8217c286c7 Normal: External provisioner is provisioning volume for claim "volume-9947/csi-baremetalrdhd8" (2023-05-17 03:17:30 +0000 UTC - 2023-05-17 03:17:30 +0000 UTC)
+03:17:30.462 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-17 03:17:30 +0000 UTC - 2023-05-17 03:17:30 +0000 UTC)
+03:17:31.600 event: v1/PersistentVolumeClaim csi-baremetalrdhd8: csi-baremetal_csi-baremetal-controller-65687987fd-4x8cg_cf0c7f98-d642-4641-bcbb-3c8217c286c7 Normal: Successfully provisioned volume pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62 (2023-05-17 03:17:31 +0000 UTC - 2023-05-17 03:17:31 +0000 UTC)
+03:17:32.424 pod: MODIFIED: volume-9947/baremetal-injector Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  }]
+03:17:32.454 event: v1/Pod baremetal-injector:  Normal: Successfully assigned volume-9947/baremetal-injector to kind-worker2 (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:17:32.471 pod: MODIFIED: volume-9947/baremetal-injector Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  }]
+   baremetal-injector: WAITING: ContainerCreating - 
+03:17:33.069 event: v1/Pod baremetal-injector: kubelet Normal: MapVolume.MapPodDevice succeeded for volume "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62" globalMapPath "/var/lib/kubelet/plugins/kubernetes.io/csi/volumeDevices/pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62/dev" (2023-05-17 03:17:33 +0000 UTC - 2023-05-17 03:17:33 +0000 UTC)
+03:17:33.074 event: v1/Pod baremetal-injector: kubelet Normal: MapVolume.MapPodDevice succeeded for volume "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62" volumeMapPath "/var/lib/kubelet/pods/19200e19-ec80-44de-92b9-4b32453bc205/volumeDevices/kubernetes.io~csi" (2023-05-17 03:17:33 +0000 UTC - 2023-05-17 03:17:33 +0000 UTC)
+03:17:33.736 event: v1/Pod baremetal-injector: kubelet Normal: Container image "k8s.gcr.io/e2e-test-images/busybox:1.29-1" already present on machine (2023-05-17 03:17:33 +0000 UTC - 2023-05-17 03:17:33 +0000 UTC)
+03:17:33.859 event: v1/Pod baremetal-injector: kubelet Normal: Created container baremetal-injector (2023-05-17 03:17:33 +0000 UTC - 2023-05-17 03:17:33 +0000 UTC)
+03:17:33.952 event: v1/Pod baremetal-injector: kubelet Normal: Started container baremetal-injector (2023-05-17 03:17:33 +0000 UTC - 2023-05-17 03:17:33 +0000 UTC)
+03:17:34.728 pod: MODIFIED: volume-9947/baremetal-injector Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:34 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:34 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  }]
+   baremetal-injector: RUNNING
+03:17:36.160 pod: MODIFIED: volume-9947/baremetal-injector Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:34 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:34 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  }]
+   baremetal-injector: RUNNING
+03:17:36.765 event: v1/Pod baremetal-injector: kubelet Normal: Stopping container baremetal-injector (2023-05-17 03:17:36 +0000 UTC - 2023-05-17 03:17:36 +0000 UTC)
+03:17:38.772 pod: MODIFIED: volume-9947/baremetal-injector Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:38 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:38 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  }]
+   baremetal-injector: TERMINATED: Error - 
+03:17:38.801 pod: MODIFIED: volume-9947/baremetal-injector Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:38 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:38 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  }]
+   baremetal-injector: TERMINATED: Error - 
+03:17:38.803 pod: DELETED: volume-9947/baremetal-injector Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:38 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:38 +0000 UTC ContainersNotReady containers with unready status: [baremetal-injector]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:32 +0000 UTC  }]
+   baremetal-injector: TERMINATED: Error - 
+03:17:40.206 pod: ADDED: volume-9947/baremetal-client Pending:  []
+03:17:40.240 pod: MODIFIED: volume-9947/baremetal-client Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  }]
+03:17:40.277 event: v1/Pod baremetal-client:  Normal: Successfully assigned volume-9947/baremetal-client to kind-worker2 (0001-01-01 00:00:00 +0000 UTC - 0001-01-01 00:00:00 +0000 UTC)
+03:17:40.296 pod: MODIFIED: volume-9947/baremetal-client Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  }]
+   baremetal-client: WAITING: ContainerCreating - 
+03:17:40.732 event: v1/Pod baremetal-client: kubelet Normal: MapVolume.MapPodDevice succeeded for volume "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62" globalMapPath "/var/lib/kubelet/plugins/kubernetes.io/csi/volumeDevices/pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62/dev" (2023-05-17 03:17:40 +0000 UTC - 2023-05-17 03:17:40 +0000 UTC)
+03:17:40.745 event: v1/Pod baremetal-client: kubelet Normal: MapVolume.MapPodDevice succeeded for volume "pvc-0f4f3693-f908-46c4-8f4a-b1ca6177cd62" volumeMapPath "/var/lib/kubelet/pods/e50c850f-0029-4ad4-8a36-0b33f9868fe8/volumeDevices/kubernetes.io~csi" (2023-05-17 03:17:40 +0000 UTC - 2023-05-17 03:17:40 +0000 UTC)
+03:17:41.186 event: v1/Pod baremetal-client: kubelet Normal: Container image "k8s.gcr.io/e2e-test-images/busybox:1.29-1" already present on machine (2023-05-17 03:17:41 +0000 UTC - 2023-05-17 03:17:41 +0000 UTC)
+03:17:41.317 event: v1/Pod baremetal-client: kubelet Normal: Created container baremetal-client (2023-05-17 03:17:41 +0000 UTC - 2023-05-17 03:17:41 +0000 UTC)
+03:17:41.476 event: v1/Pod baremetal-client: kubelet Normal: Started container baremetal-client (2023-05-17 03:17:41 +0000 UTC - 2023-05-17 03:17:41 +0000 UTC)
+03:17:41.784 pod: MODIFIED: volume-9947/baremetal-client Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:41 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:41 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  }]
+   baremetal-client: RUNNING
+03:17:42.844 pod: MODIFIED: volume-9947/baremetal-client Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:41 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:41 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  }]
+   baremetal-client: RUNNING
+03:17:43.795 event: v1/Pod baremetal-client: kubelet Normal: Stopping container baremetal-client (2023-05-17 03:17:43 +0000 UTC - 2023-05-17 03:17:43 +0000 UTC)
+03:17:45.829 pod: MODIFIED: volume-9947/baremetal-client Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:45 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:45 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  }]
+   baremetal-client: TERMINATED: Error - 
+03:17:45.859 pod: MODIFIED: volume-9947/baremetal-client Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:45 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:45 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  }]
+   baremetal-client: TERMINATED: Error - 
+03:17:45.869 pod: DELETED: volume-9947/baremetal-client Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:45 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:45 +0000 UTC ContainersNotReady containers with unready status: [baremetal-client]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:17:40 +0000 UTC  }]
+   baremetal-client: TERMINATED: Error - 
+03:17:46.599 event: v1/Pod baremetal-client: kubelet Normal: Stopping container baremetal-client (2023-05-17 03:17:43 +0000 UTC - 2023-05-17 03:17:46 +0000 UTC)
+03:17:46.716 event: v1/Pod baremetal-client: kubelet Warning: error killing pod: failed to "KillContainer" for "baremetal-client" with KillContainerError: "rpc error: code = NotFound desc = an error occurred when try to find container \"5e3fb1b7fbade9b9797cf502f73a3edb4e0f2539b55963674591433f300c6690\": not found" (2023-05-17 03:17:46 +0000 UTC - 2023-05-17 03:17:46 +0000 UTC)
+03:18:30.749 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+03:18:30.889 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Stopping container livenessprobe (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:30 +0000 UTC)
+03:18:30.889 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Deleted pod: csi-baremetal-node-kernel-5.4-khc4d (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:30 +0000 UTC)
+03:18:30.967 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Stopping container drivemgr (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:30 +0000 UTC)
+03:18:31.011 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Stopping container node (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:30 +0000 UTC)
+03:18:31.036 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:13 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+03:18:31.161 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Stopping container livenessprobe (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.161 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Stopping container csi-node-driver-registrar (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:30 +0000 UTC)
+03:18:31.210 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Deleted pod: csi-baremetal-node-kernel-5.4-s5nzg (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.210 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Warning: Exec lifecycle hook ([/bin/sh -c rm -rf /registration/csi-baremetal /registration/csi-baremetal-reg.sock]) for Container "csi-node-driver-registrar" in Pod "csi-baremetal-node-kernel-5.4-khc4d_volume-9947(e76c1924-f47b-45eb-a2cd-966eeadc8931)" failed - error: rpc error: code = Unknown desc = failed to exec in container: failed to start exec "c1e18dea526e121f05fc5346947137c4df63c1a544f8a7e8e005275cb44a305d": OCI runtime exec failed: exec failed: container_linux.go:380: starting container process caused: exec: "/bin/sh": stat /bin/sh: no such file or directory: unknown, message: "" (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:30 +0000 UTC)
+03:18:31.210 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Stopping container drivemgr (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.310 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Stopping container node (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.422 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Normal: Stopping container csi-node-driver-registrar (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.453 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Warning: Exec lifecycle hook ([/bin/sh -c rm -rf /registration/csi-baremetal /registration/csi-baremetal-reg.sock]) for Container "csi-node-driver-registrar" in Pod "csi-baremetal-node-kernel-5.4-s5nzg_volume-9947(baba0c8a-9148-4017-924c-10457a65de55)" failed - error: rpc error: code = Unknown desc = failed to exec in container: failed to start exec "075bd11073253a969f45536dee2039bdca7eb9eb13cd1736afc4a74f537aa46b": OCI runtime exec failed: exec failed: container_linux.go:380: starting container process caused: exec: "/bin/sh": stat /bin/sh: no such file or directory: unknown, message: "" (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.611 pod: MODIFIED: volume-9947/csi-baremetal-se-patcher-dc49l Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:54 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:54 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   schedulerpatcher: RUNNING
+03:18:31.627 event: v1/Pod csi-baremetal-node-kernel-5.4-s5nzg: kubelet Warning: Readiness probe errored: rpc error: code = NotFound desc = failed to exec in container: failed to load task: no running task found: task ed6dd68f309d01e86136a93cf8aafe3c7de6e7697166d21e0d9299ac89cead47 not found: not found (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.634 pod: MODIFIED: volume-9947/csi-baremetal-se-qw58n Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:10 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:10 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:00 +0000 UTC  }]
+   scheduler-extender: RUNNING
+03:18:31.736 event: v1/Pod csi-baremetal-se-patcher-dc49l: kubelet Normal: Stopping container schedulerpatcher (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:31.974 pod: MODIFIED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:53 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:53 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   node-controller: RUNNING
+03:18:31.977 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:31 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:31 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+03:18:31.992 event: v1/Pod csi-baremetal-se-qw58n: kubelet Normal: Stopping container scheduler-extender (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:32.087 pod: MODIFIED: volume-9947/csi-baremetal-controller-65687987fd-4x8cg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:22 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:16:22 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   controller: RUNNING
+   csi-provisioner: RUNNING
+   csi-resizer: RUNNING
+   livenessprobe: RUNNING
+03:18:32.122 event: v1/Pod csi-baremetal-node-controller-66fb8476bb-l8j88: kubelet Normal: Stopping container node-controller (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:31 +0000 UTC)
+03:18:32.149 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Stopping container controller (2023-05-17 03:18:32 +0000 UTC - 2023-05-17 03:18:32 +0000 UTC)
+03:18:32.159 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:31 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:31 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+03:18:32.182 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Stopping container livenessprobe (2023-05-17 03:18:32 +0000 UTC - 2023-05-17 03:18:32 +0000 UTC)
+03:18:32.365 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Stopping container csi-resizer (2023-05-17 03:18:32 +0000 UTC - 2023-05-17 03:18:32 +0000 UTC)
+03:18:32.395 pod: DELETED: volume-9947/csi-baremetal-node-kernel-5.4-khc4d Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:31 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:31 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+03:18:32.431 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+03:18:32.469 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Normal: Stopping container csi-provisioner (2023-05-17 03:18:32 +0000 UTC - 2023-05-17 03:18:32 +0000 UTC)
+03:18:32.533 pod: MODIFIED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+03:18:32.606 pod: DELETED: volume-9947/csi-baremetal-node-kernel-5.4-s5nzg Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+03:18:32.695 event: v1/Pod csi-baremetal-controller-65687987fd-4x8cg: kubelet Warning: Readiness probe errored: rpc error: code = Unknown desc = failed to exec in container: container is in CONTAINER_EXITED state (2023-05-17 03:18:32 +0000 UTC - 2023-05-17 03:18:32 +0000 UTC)
+03:18:32.849 pod: MODIFIED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   node-controller: TERMINATED: Completed - 
+03:18:32.876 pod: MODIFIED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   node-controller: TERMINATED: Completed - 
+03:18:32.898 pod: DELETED: volume-9947/csi-baremetal-node-controller-66fb8476bb-l8j88 Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:32 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   node-controller: TERMINATED: Completed - 
+03:18:33.260 event: v1/Pod csi-baremetal-node-controller-66fb8476bb-l8j88: kubelet Normal: Stopping container node-controller (2023-05-17 03:18:31 +0000 UTC - 2023-05-17 03:18:33 +0000 UTC)
+03:18:33.364 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Stopping container drivemgr (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:33 +0000 UTC)
+03:18:33.389 pod: MODIFIED: volume-9947/csi-baremetal-se-patcher-dc49l Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:33 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:33 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   schedulerpatcher: TERMINATED: Completed - 
+03:18:33.565 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Stopping container livenessprobe (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:33 +0000 UTC)
+03:18:33.590 pod: MODIFIED: volume-9947/csi-baremetal-se-patcher-dc49l Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:33 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:33 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   schedulerpatcher: TERMINATED: Completed - 
+03:18:33.644 event: v1/Pod csi-baremetal-node-kernel-5.4-khc4d: kubelet Normal: Stopping container csi-node-driver-registrar (2023-05-17 03:18:30 +0000 UTC - 2023-05-17 03:18:33 +0000 UTC)
+03:18:33.649 pod: DELETED: volume-9947/csi-baremetal-se-patcher-dc49l Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:33 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:18:33 +0000 UTC ContainersNotReady containers with unready status: [schedulerpatcher]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-17 03:15:52 +0000 UTC  }]
+   schedulerpatcher: TERMINATED: Completed - 
+03:18:33.662 event: v1/Pod csi-baremetal-node-controller-66fb8476bb-l8j88: kubelet Warning: error killing pod: failed to "KillContainer" for "node-controller" with KillContainerError: "rpc error: code = NotFound desc = an error occurred when try to find container \"94a09df5a0045e97486fa33fc23f4448b60b1c2cc607818730221ff3666301e7\": not found" (2023-05-17 03:18:33 +0000 UTC - 2023-05-17 03:18:33 +0000 UTC)
+09:01:00.420 event: apps/v1/Deployment csi-baremetal-operator: deployment-controller Normal: Scaled up replica set csi-baremetal-operator-544b8594c4 to 1 (2023-05-20 09:01:00 +0000 UTC - 2023-05-20 09:01:00 +0000 UTC)
+09:01:00.438 pod: ADDED: volume-5356/csi-baremetal-operator-544b8594c4-wtbz2 Pending:  []
+09:01:00.463 event: apps/v1/ReplicaSet csi-baremetal-operator-544b8594c4: replicaset-controller Normal: Created pod: csi-baremetal-operator-544b8594c4-wtbz2 (2023-05-20 09:01:00 +0000 UTC - 2023-05-20 09:01:00 +0000 UTC)
+09:01:00.467 pod: MODIFIED: volume-5356/csi-baremetal-operator-544b8594c4-wtbz2 Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC  }]
+09:01:00.481 event: v1/Pod csi-baremetal-operator-544b8594c4-wtbz2: default-scheduler Normal: Successfully assigned volume-5356/csi-baremetal-operator-544b8594c4-wtbz2 to kind-worker (2023-05-20 09:01:00 +0000 UTC - 2023-05-20 09:01:00 +0000 UTC)
+09:01:00.490 pod: MODIFIED: volume-5356/csi-baremetal-operator-544b8594c4-wtbz2 Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC ContainersNotReady containers with unready status: [manager]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC ContainersNotReady containers with unready status: [manager]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC  }]
+   manager: WAITING: ContainerCreating - 
+09:01:01.424 event: v1/Pod csi-baremetal-operator-544b8594c4-wtbz2: kubelet Normal: Container image "csi-baremetal-operator:1.3.0-118.ead6e47" already present on machine (2023-05-20 09:01:01 +0000 UTC - 2023-05-20 09:01:01 +0000 UTC)
+09:01:01.480 event: v1/Pod csi-baremetal-operator-544b8594c4-wtbz2: kubelet Normal: Created container manager (2023-05-20 09:01:01 +0000 UTC - 2023-05-20 09:01:01 +0000 UTC)
+09:01:02.524 event: v1/Pod csi-baremetal-operator-544b8594c4-wtbz2: kubelet Normal: Started container manager (2023-05-20 09:01:02 +0000 UTC - 2023-05-20 09:01:02 +0000 UTC)
+09:01:03.296 event: v1/ConfigMap 7db7c6a0.dell.com: csi-baremetal-operator-544b8594c4-wtbz2_8a40ebf9-0ad4-43d8-9327-582d568e0c71 Normal: csi-baremetal-operator-544b8594c4-wtbz2_8a40ebf9-0ad4-43d8-9327-582d568e0c71 became leader (2023-05-20 09:01:03 +0000 UTC - 2023-05-20 09:01:03 +0000 UTC)
+09:01:03.299 pod: MODIFIED: volume-5356/csi-baremetal-operator-544b8594c4-wtbz2 Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:03 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:03 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC  }]
+   manager: RUNNING
+09:01:03.307 event: coordination.k8s.io/v1/Lease 7db7c6a0.dell.com: csi-baremetal-operator-544b8594c4-wtbz2_8a40ebf9-0ad4-43d8-9327-582d568e0c71 Normal: csi-baremetal-operator-544b8594c4-wtbz2_8a40ebf9-0ad4-43d8-9327-582d568e0c71 became leader (2023-05-20 09:01:03 +0000 UTC - 2023-05-20 09:01:03 +0000 UTC)
+09:01:06.025 pod: ADDED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Pending:  []
+09:01:06.034 event: apps/v1/Deployment csi-baremetal-node-controller: deployment-controller Normal: Scaled up replica set csi-baremetal-node-controller-cf984ddc to 1 (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.045 event: apps/v1/ReplicaSet csi-baremetal-node-controller-cf984ddc: replicaset-controller Normal: Created pod: csi-baremetal-node-controller-cf984ddc-fpjcc (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.047 pod: MODIFIED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+09:01:06.077 event: v1/Pod csi-baremetal-node-controller-cf984ddc-fpjcc: default-scheduler Normal: Successfully assigned volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc to kind-worker2 (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.086 pod: MODIFIED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   node-controller: WAITING: ContainerCreating - 
+09:01:06.173 pod: ADDED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Pending:  []
+09:01:06.200 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Created pod: csi-baremetal-node-kernel-5.4-ztdnk (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.218 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+09:01:06.222 pod: ADDED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Pending:  []
+09:01:06.242 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+09:01:06.267 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Created pod: csi-baremetal-node-kernel-5.4-r99cb (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.267 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: default-scheduler Normal: Successfully assigned volume-5356/csi-baremetal-node-kernel-5.4-ztdnk to kind-worker (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.269 pod: ADDED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Pending:  []
+09:01:06.271 event: apps/v1/Deployment csi-baremetal-controller: deployment-controller Normal: Scaled up replica set csi-baremetal-controller-847c95dbf to 1 (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.303 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: default-scheduler Normal: Successfully assigned volume-5356/csi-baremetal-node-kernel-5.4-r99cb to kind-worker2 (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.303 event: apps/v1/ReplicaSet csi-baremetal-controller-847c95dbf: replicaset-controller Normal: Created pod: csi-baremetal-controller-847c95dbf-wpw2t (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.307 pod: MODIFIED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Pending:  [{PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+09:01:06.307 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: WAITING: ContainerCreating - 
+   drivemgr: WAITING: ContainerCreating - 
+   livenessprobe: WAITING: ContainerCreating - 
+   node: WAITING: ContainerCreating - 
+09:01:06.335 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: default-scheduler Normal: Successfully assigned volume-5356/csi-baremetal-controller-847c95dbf-wpw2t to kind-worker (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.338 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: WAITING: ContainerCreating - 
+   drivemgr: WAITING: ContainerCreating - 
+   livenessprobe: WAITING: ContainerCreating - 
+   node: WAITING: ContainerCreating - 
+09:01:06.408 pod: MODIFIED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Pending:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   controller: WAITING: ContainerCreating - 
+   csi-provisioner: WAITING: ContainerCreating - 
+   csi-resizer: WAITING: ContainerCreating - 
+   livenessprobe: WAITING: ContainerCreating - 
+09:01:06.696 event: v1/Pod csi-baremetal-node-controller-cf984ddc-fpjcc: kubelet Normal: Container image "csi-baremetal-node-controller:1.3.0-633.1c96858" already present on machine (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.841 event: v1/Pod csi-baremetal-node-controller-cf984ddc-fpjcc: kubelet Normal: Created container node-controller (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:06.949 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Container image "csi-baremetal-controller:1.3.0-633.1c96858" already present on machine (2023-05-20 09:01:06 +0000 UTC - 2023-05-20 09:01:06 +0000 UTC)
+09:01:07.163 event: v1/Pod csi-baremetal-node-controller-cf984ddc-fpjcc: kubelet Normal: Started container node-controller (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.242 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Created container controller (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.361 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Container image "livenessprobe:v2.6.0" already present on machine (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.505 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Container image "livenessprobe:v2.6.0" already present on machine (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.522 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Created container livenessprobe (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.573 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Started container controller (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.594 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Container image "csi-provisioner:v3.1.0" already present on machine (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.669 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Created container livenessprobe (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.907 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Created container csi-provisioner (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.907 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Started container livenessprobe (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:07.943 pod: MODIFIED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:07 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:07 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   node-controller: RUNNING
+09:01:07.960 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Container image "csi-node-driver-registrar:v2.5.0" already present on machine (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:08.020 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Created container csi-node-driver-registrar (2023-05-20 09:01:07 +0000 UTC - 2023-05-20 09:01:07 +0000 UTC)
+09:01:08.204 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Started container csi-provisioner (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.204 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Started container csi-node-driver-registrar (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.268 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Container image "csi-baremetal-node-kernel-5.4:1.3.0-633.1c96858" already present on machine (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.268 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Started container livenessprobe (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.345 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Container image "csi-resizer:v1.4.0" already present on machine (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.354 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Container image "csi-node-driver-registrar:v2.5.0" already present on machine (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.427 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Created container node (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.524 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Created container csi-resizer (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.549 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Created container csi-node-driver-registrar (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.621 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Started container node (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.642 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Container image "csi-baremetal-loopbackmgr:1.3.0-633.1c96858" already present on machine (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.782 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Started container csi-resizer (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.848 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Created container drivemgr (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.848 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Container image "livenessprobe:v2.6.0" already present on machine (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.858 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Started container csi-node-driver-registrar (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:08.869 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Container image "csi-baremetal-node-kernel-5.4:1.3.0-633.1c96858" already present on machine (2023-05-20 09:01:08 +0000 UTC - 2023-05-20 09:01:08 +0000 UTC)
+09:01:09.015 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Created container node (2023-05-20 09:01:09 +0000 UTC - 2023-05-20 09:01:09 +0000 UTC)
+09:01:09.098 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Started container drivemgr (2023-05-20 09:01:09 +0000 UTC - 2023-05-20 09:01:09 +0000 UTC)
+09:01:09.117 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Created container livenessprobe (2023-05-20 09:01:09 +0000 UTC - 2023-05-20 09:01:09 +0000 UTC)
+09:01:09.461 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Started container livenessprobe (2023-05-20 09:01:09 +0000 UTC - 2023-05-20 09:01:09 +0000 UTC)
+09:01:09.592 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Started container node (2023-05-20 09:01:09 +0000 UTC - 2023-05-20 09:01:09 +0000 UTC)
+09:01:09.607 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Container image "csi-baremetal-loopbackmgr:1.3.0-633.1c96858" already present on machine (2023-05-20 09:01:09 +0000 UTC - 2023-05-20 09:01:09 +0000 UTC)
+09:01:09.804 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Created container drivemgr (2023-05-20 09:01:09 +0000 UTC - 2023-05-20 09:01:09 +0000 UTC)
+09:01:09.983 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [node]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [node]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+09:01:10.240 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Started container drivemgr (2023-05-20 09:01:10 +0000 UTC - 2023-05-20 09:01:10 +0000 UTC)
+09:01:10.461 pod: MODIFIED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   controller: RUNNING
+   csi-provisioner: RUNNING
+   csi-resizer: RUNNING
+   livenessprobe: RUNNING
+09:01:10.563 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [node]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC ContainersNotReady containers with unready status: [node]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+09:01:10.706 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:10 +0000 UTC - 2023-05-20 09:01:10 +0000 UTC)
+09:01:11.606 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:10 +0000 UTC - 2023-05-20 09:01:11 +0000 UTC)
+09:01:12.082 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:12 +0000 UTC)
+09:01:12.639 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:12 +0000 UTC)
+09:01:12.947 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:12 +0000 UTC)
+09:01:12.996 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:12 +0000 UTC)
+09:01:16.036 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:16 +0000 UTC)
+09:01:16.083 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:16 +0000 UTC)
+09:01:16.728 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:10 +0000 UTC - 2023-05-20 09:01:16 +0000 UTC)
+09:01:18.969 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:18 +0000 UTC)
+09:01:19.080 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:12 +0000 UTC - 2023-05-20 09:01:19 +0000 UTC)
+09:01:26.754 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Warning: Readiness probe failed: service unhealthy (responded with "NOT_SERVING")
+ (2023-05-20 09:01:10 +0000 UTC - 2023-05-20 09:01:26 +0000 UTC)
+09:01:27.938 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+09:01:28.086 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+09:01:36.691 pod: MODIFIED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:36 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:36 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   controller: RUNNING
+   csi-provisioner: RUNNING
+   csi-resizer: RUNNING
+   livenessprobe: RUNNING
+09:01:37.246 event: coordination.k8s.io/v1/Lease external-resizer-csi-baremetal: external-resizer-csi-baremetal/csi-baremetal-controller-847c95dbf-wpw2t Normal: csi-baremetal-controller-847c95dbf-wpw2t became leader (2023-05-20 09:01:37 +0000 UTC - 2023-05-20 09:01:37 +0000 UTC)
+09:01:38.040 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for first consumer to be created before binding (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:38 +0000 UTC)
+09:01:38.084 pod: ADDED: volume-5356/baremetal-injector Pending:  []
+09:01:38.144 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:38 +0000 UTC)
+09:01:38.144 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:38 +0000 UTC)
+09:01:38.189 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:38 +0000 UTC)
+09:01:38.189 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:38 +0000 UTC)
+09:01:39.194 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:39 +0000 UTC)
+09:01:39.212 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:39 +0000 UTC)
+09:01:41.225 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:41 +0000 UTC)
+09:01:41.240 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:41 +0000 UTC)
+09:01:45.256 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:45 +0000 UTC)
+09:01:45.268 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:45 +0000 UTC)
+09:01:48.476 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:48 +0000 UTC)
+09:01:53.277 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:53 +0000 UTC)
+09:01:53.283 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:01:53 +0000 UTC)
+09:02:03.479 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:03 +0000 UTC)
+09:02:09.300 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:09 +0000 UTC)
+09:02:09.313 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:09 +0000 UTC)
+09:02:18.491 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:18 +0000 UTC)
+09:02:33.504 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:33 +0000 UTC)
+09:02:41.346 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:41 +0000 UTC)
+09:02:41.351 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:41 +0000 UTC)
+09:02:48.514 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:02:48 +0000 UTC)
+09:03:03.528 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:03:03 +0000 UTC)
+09:03:18.531 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:03:18 +0000 UTC)
+09:03:33.533 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:03:33 +0000 UTC)
+09:03:45.369 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:03:45 +0000 UTC)
+09:03:45.386 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:03:45 +0000 UTC)
+09:03:48.530 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:03:48 +0000 UTC)
+09:04:03.542 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:04:03 +0000 UTC)
+09:04:18.540 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:04:18 +0000 UTC)
+09:04:33.543 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:04:33 +0000 UTC)
+09:04:48.552 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:04:48 +0000 UTC)
+09:05:03.553 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:05:03 +0000 UTC)
+09:05:18.570 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:05:18 +0000 UTC)
+09:05:33.568 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:05:33 +0000 UTC)
+09:05:48.568 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:05:48 +0000 UTC)
+09:05:53.392 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:05:53 +0000 UTC)
+09:05:53.398 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:05:53 +0000 UTC)
+09:06:03.575 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:06:03 +0000 UTC)
+09:06:18.583 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:06:18 +0000 UTC)
+09:06:33.585 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:06:33 +0000 UTC)
+09:06:38.128 pod: MODIFIED: volume-5356/baremetal-injector Pending:  []
+09:06:38.133 pod: DELETED: volume-5356/baremetal-injector Pending:  []
+09:06:38.226 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Normal: External provisioner is provisioning volume for claim "volume-5356/csi-baremetal6ntlx" (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:06:38 +0000 UTC)
+09:06:38.232 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: persistentvolume-controller Normal: waiting for a volume to be created, either by external provisioner "csi-baremetal" or manually created by system administrator (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:06:38 +0000 UTC)
+09:06:38.236 event: v1/PersistentVolumeClaim csi-baremetal6ntlx: csi-baremetal_csi-baremetal-controller-847c95dbf-wpw2t_a7e97355-1683-4b4d-a7ce-ea01a6cbcdd8 Warning: failed to provision volume with StorageClass "volume-5356hnh4n": rpc error: code = NotFound desc = Reservation csi-baremetal6ntlx not found (2023-05-20 09:01:38 +0000 UTC - 2023-05-20 09:06:38 +0000 UTC)
+09:06:39.127 event: v1/Pod baremetal-injector: default-scheduler Warning: running PreBind plugin "VolumeBinding": binding volumes: pod does not exist any more: pod "baremetal-injector" not found (2023-05-20 09:06:39 +0000 UTC - 2023-05-20 09:06:39 +0000 UTC)
+09:07:01.708 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+09:07:01.834 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Deleted pod: csi-baremetal-node-kernel-5.4-ztdnk (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:01.838 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Stopping container livenessprobe (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:01.887 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Stopping container drivemgr (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:01.908 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:27 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: RUNNING
+   drivemgr: RUNNING
+   livenessprobe: RUNNING
+   node: RUNNING
+09:07:01.921 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Stopping container node (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:02.001 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Stopping container livenessprobe (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:02.001 event: apps/v1/DaemonSet csi-baremetal-node-kernel-5.4: daemonset-controller Normal: Deleted pod: csi-baremetal-node-kernel-5.4-r99cb (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:02.003 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Normal: Stopping container csi-node-driver-registrar (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:02.090 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Stopping container drivemgr (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:02.122 event: v1/Pod csi-baremetal-node-kernel-5.4-ztdnk: kubelet Warning: Exec lifecycle hook ([/bin/sh -c rm -rf /registration/csi-baremetal /registration/csi-baremetal-reg.sock]) for Container "csi-node-driver-registrar" in Pod "csi-baremetal-node-kernel-5.4-ztdnk_volume-5356(d840d55e-872a-4933-9538-60836347c5b2)" failed - error: rpc error: code = Unknown desc = failed to exec in container: failed to start exec "f17caec3f192d99b2a2e18ac1219f975025cc78bd156f6247b92f115105f888b": OCI runtime exec failed: exec failed: unable to start container process: exec: "/bin/sh": stat /bin/sh: no such file or directory: unknown, message: "" (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:02 +0000 UTC)
+09:07:02.122 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Stopping container node (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:02.163 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Stopping container csi-node-driver-registrar (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:01 +0000 UTC)
+09:07:02.202 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Warning: Exec lifecycle hook ([/bin/sh -c rm -rf /registration/csi-baremetal /registration/csi-baremetal-reg.sock]) for Container "csi-node-driver-registrar" in Pod "csi-baremetal-node-kernel-5.4-r99cb_volume-5356(211781ef-a2c6-4d1b-9639-6546a983356b)" failed - error: rpc error: code = Unknown desc = failed to exec in container: failed to start exec "f19d11372ecf0c3fc0ef96b3b7c212d98f9d4178c4a484e7698eadd419774141": OCI runtime exec failed: exec failed: unable to start container process: exec: "/bin/sh": stat /bin/sh: no such file or directory: unknown, message: "" (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:02 +0000 UTC)
+09:07:02.391 pod: MODIFIED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:07 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:07 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   node-controller: RUNNING
+09:07:02.393 pod: MODIFIED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:36 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:36 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   controller: RUNNING
+   csi-provisioner: RUNNING
+   csi-resizer: RUNNING
+   livenessprobe: RUNNING
+09:07:02.402 event: v1/Pod csi-baremetal-node-controller-cf984ddc-fpjcc: kubelet Normal: Stopping container node-controller (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:02 +0000 UTC)
+09:07:02.417 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Stopping container controller (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:02 +0000 UTC)
+09:07:02.447 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Stopping container livenessprobe (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:02 +0000 UTC)
+09:07:02.453 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Stopping container csi-resizer (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:02 +0000 UTC)
+09:07:02.465 event: v1/Pod csi-baremetal-controller-847c95dbf-wpw2t: kubelet Normal: Stopping container csi-provisioner (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:02 +0000 UTC)
+09:07:02.920 pod: MODIFIED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   node-controller: TERMINATED: Completed - 
+09:07:03.187 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+09:07:03.229 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+09:07:03.285 pod: DELETED: volume-5356/csi-baremetal-node-kernel-5.4-r99cb Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+09:07:03.432 pod: MODIFIED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   node-controller: TERMINATED: Completed - 
+09:07:03.460 pod: DELETED: volume-5356/csi-baremetal-node-controller-cf984ddc-fpjcc Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:02 +0000 UTC ContainersNotReady containers with unready status: [node-controller]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   node-controller: TERMINATED: Completed - 
+09:07:03.802 pod: MODIFIED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   controller: TERMINATED: Completed - 
+   csi-provisioner: TERMINATED: Error - 
+   csi-resizer: TERMINATED: Error - 
+   livenessprobe: TERMINATED: Error - 
+09:07:04.003 pod: MODIFIED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   controller: TERMINATED: Completed - 
+   csi-provisioner: TERMINATED: Error - 
+   csi-resizer: TERMINATED: Error - 
+   livenessprobe: TERMINATED: Error - 
+09:07:04.043 pod: DELETED: volume-5356/csi-baremetal-controller-847c95dbf-wpw2t Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [controller csi-provisioner csi-resizer livenessprobe]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   controller: TERMINATED: Completed - 
+   csi-provisioner: TERMINATED: Error - 
+   csi-resizer: TERMINATED: Error - 
+   livenessprobe: TERMINATED: Error - 
+09:07:04.217 event: v1/Pod csi-baremetal-node-controller-cf984ddc-fpjcc: kubelet Normal: Stopping container node-controller (2023-05-20 09:07:02 +0000 UTC - 2023-05-20 09:07:04 +0000 UTC)
+09:07:04.219 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+09:07:04.336 pod: MODIFIED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+09:07:04.339 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Stopping container csi-node-driver-registrar (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:04 +0000 UTC)
+09:07:04.387 pod: DELETED: volume-5356/csi-baremetal-node-kernel-5.4-ztdnk Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  } {Ready False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {ContainersReady False 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:07:03 +0000 UTC ContainersNotReady containers with unready status: [livenessprobe csi-node-driver-registrar node drivemgr]} {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:06 +0000 UTC  }]
+   csi-node-driver-registrar: TERMINATED: Completed - 
+   drivemgr: TERMINATED: Completed - 
+   livenessprobe: TERMINATED: Error - 
+   node: TERMINATED: Completed - 
+09:07:04.518 event: v1/Pod csi-baremetal-node-kernel-5.4-r99cb: kubelet Normal: Stopping container node (2023-05-20 09:07:01 +0000 UTC - 2023-05-20 09:07:04 +0000 UTC)
+09:07:04.538 pod: MODIFIED: volume-5356/csi-baremetal-operator-544b8594c4-wtbz2 Running:  [{Initialized True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC  } {Ready True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:03 +0000 UTC  } {ContainersReady True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:03 +0000 UTC  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2023-05-20 09:01:00 +0000 UTC  }]
+   manager: RUNNING
+09:07:04.558 event: v1/Pod csi-baremetal-operator-544b8594c4-wtbz2: kubelet Normal: Stopping container manager (2023-05-20 09:07:04 +0000 UTC - 2023-05-20 09:07:04 +0000 UTC)

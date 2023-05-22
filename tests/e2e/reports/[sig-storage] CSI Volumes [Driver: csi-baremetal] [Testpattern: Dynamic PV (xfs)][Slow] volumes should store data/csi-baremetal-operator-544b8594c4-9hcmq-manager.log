@@ -1,0 +1,43 @@
+==== start of pod log for container csi-baremetal-operator-544b8594c4-9hcmq/manager ====
+1.6845728981806755e+09	INFO	controller-runtime.metrics	Metrics server is starting to listen	{"addr": ":8080"}
+1.6845728981812403e+09	INFO	setup	starting manager
+1.6845728981823683e+09	INFO	Starting server	{"path": "/metrics", "kind": "metrics", "addr": "[::]:8080"}
+I0520 08:54:58.371834       1 leaderelection.go:248] attempting to acquire leader lease volume-2790/7db7c6a0.dell.com...
+I0520 08:54:58.390791       1 leaderelection.go:258] successfully acquired lease volume-2790/7db7c6a0.dell.com
+1.6845728983916643e+09	DEBUG	events	Normal	{"object": {"kind":"ConfigMap","namespace":"volume-2790","name":"7db7c6a0.dell.com","uid":"902076f6-2079-447d-9e43-0957e0fcc10a","apiVersion":"v1","resourceVersion":"14106"}, "reason": "LeaderElection", "message": "csi-baremetal-operator-544b8594c4-9hcmq_c2f8198c-ce10-4997-a3b3-3385bda93188 became leader"}
+1.6845728983923976e+09	DEBUG	events	Normal	{"object": {"kind":"Lease","namespace":"volume-2790","name":"7db7c6a0.dell.com","uid":"098f892b-5acf-42a0-9b0a-5a7ad04952e3","apiVersion":"coordination.k8s.io/v1","resourceVersion":"14107"}, "reason": "LeaderElection", "message": "csi-baremetal-operator-544b8594c4-9hcmq_c2f8198c-ce10-4997-a3b3-3385bda93188 became leader"}
+1.6845728983925703e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Deployment"}
+1.6845728983933735e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Deployment"}
+1.6845728983938408e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.DaemonSet"}
+1.6845728983949106e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.ConfigMap"}
+1.684572898463521e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Pod"}
+1.684572898463788e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Node"}
+1.6845728984653296e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Role"}
+1.6845728984675422e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.RoleBinding"}
+1.6845728984677138e+09	INFO	controller.csi-controller	Starting Controller
+1.6845728985698075e+09	INFO	controller.csi-controller	Starting workers	{"worker count": 1}
+time="2023-05-20T08:55:00Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:00Z" level=info msg="Successfully add finalizer to CR" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:00Z" level=info msg="Deployment created successfully: csi-baremetal-node-controller" csi-baremetal=nodeController
+time="2023-05-20T08:55:00Z" level=info msg="Daemonset created successfully: csi-baremetal-node-kernel-5.4" csi-baremetal=node
+time="2023-05-20T08:55:00Z" level=info msg="Deployment created successfully: csi-baremetal-controller" csi-baremetal=controller
+time="2023-05-20T08:55:00Z" level=info msg="Daemonset created successfully: csi-baremetal-se" csi-baremetal=extender
+time="2023-05-20T08:55:01Z" level=info msg="Configmap created successfully: schedulerpatcher-config" csi-baremetal=patcher
+time="2023-05-20T08:55:01Z" level=info msg="Daemonset created successfully: csi-baremetal-se-patcher" csi-baremetal=patcher
+time="2023-05-20T08:55:01Z" level=info msg="Configmap created successfully: extender-readiness" csi-baremetal=patcher
+time="2023-05-20T08:55:01Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:02Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:20Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:21Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:22Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:22Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T08:55:31Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=info msg="Successfully remove finalizer" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+time="2023-05-20T09:00:56Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-2790/csi-baremetal module=controllers
+==== end of pod log for container csi-baremetal-operator-544b8594c4-9hcmq/manager ====

@@ -1,0 +1,44 @@
+==== start of pod log for container csi-baremetal-controller-847c95dbf-zcd65/controller ====
+May 20 08:42:14.357 [INFO] Starting controller ...
+May 20 08:42:14.357 [INFO] Create server for endpoint "/csi/csi.sock" on "unix" socket
+May 20 08:42:14.465 [INFO] [ReservationController] Reservation controller parameters: fastTimeout - 1.5s, slowTimeout - 12s, maxAttempts - 30
+May 20 08:42:14.603 [INFO] Starting CSIControllerService
+May 20 08:42:14.603 [INFO] [ServerRunner] Starting gRPC server for endpoint /csi/csi.sock and socket unix
+May 20 08:42:14.603 [INFO] Starting Controller Health server
+May 20 08:42:14.603 [INFO] Starting Reservation Controller
+May 20 08:42:14.603 [INFO] Create server for endpoint ":9999" on "tcp" socket
+May 20 08:42:14.603 [INFO] Registering health check service
+May 20 08:42:14.603 [INFO] [ServerRunner] Starting gRPC server for endpoint :9999 and socket tcp
+May 20 08:42:18.053 [INFO] [CSIControllerService] [Check] Controller svc is not ready yet
+May 20 08:42:23.465 [INFO] [CSIControllerService] [Check] Controller svc is not ready yet
+May 20 08:42:26.022 [WARN] [CRHelper] [GetACByLocation] [24f5ce34-84cb-4769-9643-915e0e5a9929] Can't find AC assigned to provided location: 24f5ce34-84cb-4769-9643-915e0e5a9929
+May 20 08:42:26.037 [INFO] [KubeClient] [CreateCR] [c8123b39-7814-4008-b2d6-2164bf6218db] Creating CR 'AvailableCapacity': ID: '', Name: 'c8123b39-7814-4008-b2d6-2164bf6218db', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:24f5ce34-84cb-4769-9643-915e0e5a9929 NodeId:c383aab0-a6c1-4448-9654-1d3d6f2bffe8 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:42:26.059 [INFO] [KubeClient] [CreateCR] [c8123b39-7814-4008-b2d6-2164bf6218db] CR AvailableCapacity c8123b39-7814-4008-b2d6-2164bf6218db created
+May 20 08:42:26.069 [WARN] [CRHelper] [GetACByLocation] [4764eae9-86bd-44c4-94ae-6e9f53f80160] Can't find AC assigned to provided location: 4764eae9-86bd-44c4-94ae-6e9f53f80160
+May 20 08:42:26.075 [INFO] [KubeClient] [CreateCR] [af649e1a-ef56-4611-bd05-ee5e79a5138d] Creating CR 'AvailableCapacity': ID: '', Name: 'af649e1a-ef56-4611-bd05-ee5e79a5138d', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:4764eae9-86bd-44c4-94ae-6e9f53f80160 NodeId:c383aab0-a6c1-4448-9654-1d3d6f2bffe8 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:42:26.081 [INFO] [KubeClient] [CreateCR] [af649e1a-ef56-4611-bd05-ee5e79a5138d] CR AvailableCapacity af649e1a-ef56-4611-bd05-ee5e79a5138d created
+May 20 08:42:26.091 [WARN] [CRHelper] [GetACByLocation] [7e662b23-6476-4cac-97d5-eef5d0015a45] Can't find AC assigned to provided location: 7e662b23-6476-4cac-97d5-eef5d0015a45
+May 20 08:42:26.157 [INFO] [KubeClient] [CreateCR] [38831860-ecae-42d0-88e9-09de4337ae47] Creating CR 'AvailableCapacity': ID: '', Name: '38831860-ecae-42d0-88e9-09de4337ae47', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:7e662b23-6476-4cac-97d5-eef5d0015a45 NodeId:c383aab0-a6c1-4448-9654-1d3d6f2bffe8 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:42:26.173 [INFO] [KubeClient] [CreateCR] [38831860-ecae-42d0-88e9-09de4337ae47] CR AvailableCapacity 38831860-ecae-42d0-88e9-09de4337ae47 created
+May 20 08:42:27.411 [WARN] [CRHelper] [GetACByLocation] [57cbefaa-720a-403d-b25e-35906e0e93bd] Can't find AC assigned to provided location: 57cbefaa-720a-403d-b25e-35906e0e93bd
+May 20 08:42:27.424 [INFO] [KubeClient] [CreateCR] [19618f80-e1c6-46ff-9a73-373ab28b3777] Creating CR 'AvailableCapacity': ID: '', Name: '19618f80-e1c6-46ff-9a73-373ab28b3777', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:57cbefaa-720a-403d-b25e-35906e0e93bd NodeId:68d0593e-0148-4da2-90b1-e6cde5b2f4a3 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:42:27.444 [INFO] [KubeClient] [CreateCR] [19618f80-e1c6-46ff-9a73-373ab28b3777] CR AvailableCapacity 19618f80-e1c6-46ff-9a73-373ab28b3777 created
+May 20 08:42:27.455 [WARN] [CRHelper] [GetACByLocation] [08b5eccf-50a4-4e95-9371-ae837eb3cba2] Can't find AC assigned to provided location: 08b5eccf-50a4-4e95-9371-ae837eb3cba2
+May 20 08:42:27.459 [INFO] [KubeClient] [CreateCR] [cb776520-8c88-4964-b6d9-5cdda3311e25] Creating CR 'AvailableCapacity': ID: '', Name: 'cb776520-8c88-4964-b6d9-5cdda3311e25', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:08b5eccf-50a4-4e95-9371-ae837eb3cba2 NodeId:68d0593e-0148-4da2-90b1-e6cde5b2f4a3 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:42:27.474 [INFO] [KubeClient] [CreateCR] [cb776520-8c88-4964-b6d9-5cdda3311e25] CR AvailableCapacity cb776520-8c88-4964-b6d9-5cdda3311e25 created
+May 20 08:42:27.484 [WARN] [CRHelper] [GetACByLocation] [ac0b45bf-bbc0-48b4-bd13-1b25e70ce5d3] Can't find AC assigned to provided location: ac0b45bf-bbc0-48b4-bd13-1b25e70ce5d3
+May 20 08:42:27.504 [INFO] [KubeClient] [CreateCR] [e182d970-2d17-4d7b-8274-126e882cec8a] Creating CR 'AvailableCapacity': ID: '', Name: 'e182d970-2d17-4d7b-8274-126e882cec8a', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:ac0b45bf-bbc0-48b4-bd13-1b25e70ce5d3 NodeId:68d0593e-0148-4da2-90b1-e6cde5b2f4a3 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:42:27.510 [INFO] [KubeClient] [CreateCR] [e182d970-2d17-4d7b-8274-126e882cec8a] CR AvailableCapacity e182d970-2d17-4d7b-8274-126e882cec8a created
+May 20 08:42:33.460 [INFO] [CSIControllerService] [Check] Controller svc is not ready yet
+May 20 08:42:43.477 [INFO] [ServicesStateMonitor] [calculatePodStatus] Node service e89eefd4-2f85-4fc3-a64a-0a3e462c1607 is ready
+May 20 08:42:43.477 [INFO] [ServicesStateMonitor] [calculatePodStatus] Node service 8ad15bb4-5151-42e5-9731-b5c16e6cab13 is ready
+time="2023-05-20T08:42:43Z" level=info msg="Response: capabilities:<service:<type:CONTROLLER_SERVICE > > capabilities:<service:<type:VOLUME_ACCESSIBILITY_CONSTRAINTS > > capabilities:<volume_expansion:<type:ONLINE > > capabilities:<volume_expansion:<type:OFFLINE > > " component=identityService method=GetPluginCapabilities
+May 20 08:42:43.577 [INFO] [CSIControllerService] [ControllerGetCapabilities] ControllerGetCapabilities returns response: capabilities:<rpc:<type:CREATE_DELETE_VOLUME > > capabilities:<rpc:<type:EXPAND_VOLUME > > 
+May 20 08:42:43.579 [INFO] [CSIControllerService] [ControllerGetCapabilities] ControllerGetCapabilities returns response: capabilities:<rpc:<type:CREATE_DELETE_VOLUME > > capabilities:<rpc:<type:EXPAND_VOLUME > > 
+time="2023-05-20T08:42:44Z" level=info msg="Response: capabilities:<service:<type:CONTROLLER_SERVICE > > capabilities:<service:<type:VOLUME_ACCESSIBILITY_CONSTRAINTS > > capabilities:<volume_expansion:<type:ONLINE > > capabilities:<volume_expansion:<type:OFFLINE > > " component=identityService method=GetPluginCapabilities
+May 20 08:42:44.112 [INFO] [CSIControllerService] [ControllerGetCapabilities] ControllerGetCapabilities returns response: capabilities:<rpc:<type:CREATE_DELETE_VOLUME > > capabilities:<rpc:<type:EXPAND_VOLUME > > 
+May 20 08:48:44.842 [ERRO] [ServicesStateMonitor] [UpdateNodeHealthCache] [pkg/controller/node/statemonitor.go:171] [UpdateNodeHealthCache] Unable to obtain list of the pods. Change health to Unknown for all pods
+May 20 08:48:45.736 [DEBU] [SignalHandler] [setupSignalHandler] Got terminated signal
+May 20 08:48:45.736 [INFO] [ServerRunner] Stopping server
+May 20 08:48:45.779 [INFO] Got SIGTERM signal
+==== end of pod log for container csi-baremetal-controller-847c95dbf-zcd65/controller ====

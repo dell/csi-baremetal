@@ -1,0 +1,68 @@
+==== start of pod log for container csi-baremetal-controller-847c95dbf-zcd65/csi-provisioner ====
+W0520 08:42:14.760265       1 feature_gate.go:237] Setting GA feature gate Topology=true. It will be removed in a future release.
+I0520 08:42:14.761944       1 csi-provisioner.go:139] Version: v3.1.0
+I0520 08:42:14.762083       1 csi-provisioner.go:162] Building kube configs for running in cluster...
+I0520 08:42:14.769916       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:14.781319       1 common.go:129] CSI driver is not ready
+I0520 08:42:15.785013       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:15.795664       1 common.go:129] CSI driver is not ready
+I0520 08:42:16.796228       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:16.798204       1 common.go:129] CSI driver is not ready
+I0520 08:42:17.800885       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:17.803559       1 common.go:129] CSI driver is not ready
+I0520 08:42:18.816454       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:18.818841       1 common.go:129] CSI driver is not ready
+I0520 08:42:19.819572       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:19.820847       1 common.go:129] CSI driver is not ready
+I0520 08:42:20.828393       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:20.830853       1 common.go:129] CSI driver is not ready
+I0520 08:42:21.877315       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:21.879260       1 common.go:129] CSI driver is not ready
+I0520 08:42:22.894667       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:22.897421       1 common.go:129] CSI driver is not ready
+I0520 08:42:23.897745       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:23.904029       1 common.go:129] CSI driver is not ready
+I0520 08:42:24.911567       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:24.917183       1 common.go:129] CSI driver is not ready
+I0520 08:42:25.918628       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:25.923434       1 common.go:129] CSI driver is not ready
+I0520 08:42:26.925593       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:26.926887       1 common.go:129] CSI driver is not ready
+I0520 08:42:27.927571       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:27.929465       1 common.go:129] CSI driver is not ready
+I0520 08:42:28.943322       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:28.946214       1 common.go:129] CSI driver is not ready
+I0520 08:42:29.947531       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:29.948275       1 common.go:129] CSI driver is not ready
+I0520 08:42:30.949592       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:30.961433       1 common.go:129] CSI driver is not ready
+I0520 08:42:31.963966       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:31.971765       1 common.go:129] CSI driver is not ready
+I0520 08:42:32.972805       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:32.977002       1 common.go:129] CSI driver is not ready
+I0520 08:42:33.988944       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:33.990240       1 common.go:129] CSI driver is not ready
+I0520 08:42:34.990655       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:34.993503       1 common.go:129] CSI driver is not ready
+I0520 08:42:35.993826       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:35.994927       1 common.go:129] CSI driver is not ready
+I0520 08:42:37.001196       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:37.005104       1 common.go:129] CSI driver is not ready
+I0520 08:42:38.012827       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:38.013506       1 common.go:129] CSI driver is not ready
+I0520 08:42:39.023682       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:39.025042       1 common.go:129] CSI driver is not ready
+I0520 08:42:40.030734       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:40.032863       1 common.go:129] CSI driver is not ready
+I0520 08:42:41.036807       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:41.039291       1 common.go:129] CSI driver is not ready
+I0520 08:42:42.044943       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:42.048874       1 common.go:129] CSI driver is not ready
+I0520 08:42:43.062587       1 common.go:111] Probing CSI driver for readiness
+W0520 08:42:43.096341       1 common.go:129] CSI driver is not ready
+I0520 08:42:44.104368       1 common.go:111] Probing CSI driver for readiness
+I0520 08:42:44.117870       1 csi-provisioner.go:278] CSI driver does not support PUBLISH_UNPUBLISH_VOLUME, not watching VolumeAttachments
+I0520 08:42:44.245769       1 controller.go:811] Starting provisioner controller csi-baremetal_csi-baremetal-controller-847c95dbf-zcd65_6abc9503-6bbf-41ef-89a7-4172d5d717a3!
+I0520 08:42:44.246712       1 volume_store.go:97] Starting save volume queue
+I0520 08:42:44.356293       1 controller.go:860] Started provisioner controller csi-baremetal_csi-baremetal-controller-847c95dbf-zcd65_6abc9503-6bbf-41ef-89a7-4172d5d717a3!
+==== end of pod log for container csi-baremetal-controller-847c95dbf-zcd65/csi-provisioner ====

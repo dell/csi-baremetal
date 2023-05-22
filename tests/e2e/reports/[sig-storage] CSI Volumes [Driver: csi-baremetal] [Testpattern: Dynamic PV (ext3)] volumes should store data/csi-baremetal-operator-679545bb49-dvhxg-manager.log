@@ -1,0 +1,60 @@
+==== start of pod log for container csi-baremetal-operator-679545bb49-dvhxg/manager ====
+1.684293072486711e+09	INFO	controller-runtime.metrics	Metrics server is starting to listen	{"addr": ":8080"}
+1.6842930724874713e+09	INFO	setup	starting manager
+1.6842930725810394e+09	INFO	Starting server	{"path": "/metrics", "kind": "metrics", "addr": "[::]:8080"}
+I0517 03:11:12.684877       1 leaderelection.go:248] attempting to acquire leader lease volume-495/7db7c6a0.dell.com...
+I0517 03:11:12.706334       1 leaderelection.go:258] successfully acquired lease volume-495/7db7c6a0.dell.com
+1.6842930727092283e+09	DEBUG	events	Normal	{"object": {"kind":"ConfigMap","namespace":"volume-495","name":"7db7c6a0.dell.com","uid":"cb4a15b0-12bd-475f-8946-67710a8ff77d","apiVersion":"v1","resourceVersion":"9450"}, "reason": "LeaderElection", "message": "csi-baremetal-operator-679545bb49-dvhxg_c5867fec-5fc3-4c61-8d06-b2f8e8cb892f became leader"}
+1.684293072779559e+09	DEBUG	events	Normal	{"object": {"kind":"Lease","namespace":"volume-495","name":"7db7c6a0.dell.com","uid":"9ae9cbf5-f169-4151-810e-35dcd112e2df","apiVersion":"coordination.k8s.io/v1","resourceVersion":"9451"}, "reason": "LeaderElection", "message": "csi-baremetal-operator-679545bb49-dvhxg_c5867fec-5fc3-4c61-8d06-b2f8e8cb892f became leader"}
+1.6842930727797868e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Deployment"}
+1.6842930727798421e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Deployment"}
+1.684293072779855e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.DaemonSet"}
+1.6842930727798715e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.ConfigMap"}
+1.6842930727798822e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Pod"}
+1.6842930727798986e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Node"}
+1.6842930727799082e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.Role"}
+1.6842930727799225e+09	INFO	controller.csi-controller	Starting EventSource	{"source": "kind source: *v1.RoleBinding"}
+1.68429307277993e+09	INFO	controller.csi-controller	Starting Controller
+1.6842930729918382e+09	INFO	controller.csi-controller	Starting workers	{"worker count": 1}
+time="2023-05-17T03:11:15Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:15Z" level=info msg="Successfully add finalizer to CR" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:15Z" level=info msg="Deployment created successfully: csi-baremetal-node-controller" csi-baremetal=nodeController
+time="2023-05-17T03:11:16Z" level=info msg="Daemonset created successfully: csi-baremetal-node-kernel-5.4" csi-baremetal=node
+time="2023-05-17T03:11:16Z" level=info msg="Deployment created successfully: csi-baremetal-controller" csi-baremetal=controller
+time="2023-05-17T03:11:16Z" level=info msg="Daemonset created successfully: csi-baremetal-se" csi-baremetal=extender
+time="2023-05-17T03:11:16Z" level=info msg="Configmap created successfully: schedulerpatcher-config" csi-baremetal=patcher
+time="2023-05-17T03:11:16Z" level=info msg="Daemonset created successfully: csi-baremetal-se-patcher" csi-baremetal=patcher
+time="2023-05-17T03:11:16Z" level=info msg="Configmap created successfully: extender-readiness" csi-baremetal=patcher
+time="2023-05-17T03:11:16Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:18Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:19Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:23Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:23Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:24Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:24Z" level=info msg="Configmap updated successfully: extender-readiness" csi-baremetal=patcher
+time="2023-05-17T03:11:24Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:35Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:36Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:37Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:37Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:43Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:43Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:11:46Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:12:44Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=info msg="Custom resource obtained" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=info msg="Successfully remove finalizer" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+time="2023-05-17T03:15:45Z" level=warning msg="Custom resource is not found" component=DeploymentReconciler deployment=volume-495/csi-baremetal module=controllers
+1.684293348468268e+09	INFO	Stopping and waiting for non leader election runnables
+1.684293348468336e+09	INFO	Stopping and waiting for leader election runnables
+1.6842933484684088e+09	INFO	controller.csi-controller	Shutdown signal received, waiting for all workers to finish
+1.6842933484684434e+09	INFO	controller.csi-controller	All workers finished
+1.6842933484684494e+09	INFO	Stopping and waiting for caches
+1.6842933484732218e+09	INFO	Stopping and waiting for webhooks
+1.6842933484732928e+09	INFO	Wait completed, proceeding to shutdown the manager
+==== end of pod log for container csi-baremetal-operator-679545bb49-dvhxg/manager ====

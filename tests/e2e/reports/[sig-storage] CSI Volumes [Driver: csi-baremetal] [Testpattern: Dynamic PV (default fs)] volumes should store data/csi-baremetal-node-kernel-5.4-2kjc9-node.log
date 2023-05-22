@@ -1,0 +1,370 @@
+==== start of pod log for container csi-baremetal-node-kernel-5.4-2kjc9/node ====
+May 20 08:30:04.949 [INFO] Starting Node Service
+May 20 08:30:04.981 [INFO] Obtaining node ID...
+May 20 08:30:04.990 [INFO] [Client] Initialize client for endpoint "localhost:8888"
+May 20 08:30:04.990 [INFO] Create server for endpoint "/csi/csi.sock" on "unix" socket
+May 20 08:30:05.394 [INFO] Waiting for node service to become ready ...
+May 20 08:30:05.395 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:05.395 [INFO] Not ready yet. Sleep 5 seconds and retry ...
+May 20 08:30:05.395 [INFO] Starting Node Health server ...
+May 20 08:30:05.395 [INFO] Create server for endpoint ":9999" on "tcp" socket
+May 20 08:30:05.395 [INFO] Registering health check service
+May 20 08:30:05.396 [INFO] [ServerRunner] Starting gRPC server for endpoint :9999 and socket tcp
+May 20 08:30:05.396 [INFO] Starting CRD Controller Manager ...
+May 20 08:30:07.603 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:08.292 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:08.435 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:10.403 [INFO] Waiting for node service to become ready ...
+May 20 08:30:10.403 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:10.404 [INFO] Not ready yet. Sleep 5 seconds and retry ...
+May 20 08:30:11.297 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:14.299 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:15.407 [INFO] Waiting for node service to become ready ...
+May 20 08:30:15.408 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 20 08:30:15.408 [INFO] Not ready yet. Sleep 5 seconds and retry ...
+May 20 08:30:15.504 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:30:15.700 [INFO] [KubeClient] [CreateCR] [Unknown] Creating CR 'Drive': ID: '', Name: '33b6ed92-49e8-45f9-9c1f-26b240147538', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {UUID:33b6ed92-49e8-45f9-9c1f-26b240147538 VID:Test PID:Loopback SerialNumber:LOOPBACK2289257656 Health:GOOD Type:HDD Size:105906176 Status:ONLINE Usage:IN_USE NodeId:d5f60b5d-e268-406f-8939-93748a5f2dfa Path:/dev/loop0 Enclosure: Slot: Bay: Firmware: Endurance:0 LEDState: IsSystem:false IsClean:true SecurityStatus: EncryptionCapable: EncryptionProtocol: XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:30:15.727 [INFO] [KubeClient] [CreateCR] [Unknown] CR Drive 33b6ed92-49e8-45f9-9c1f-26b240147538 created
+May 20 08:30:15.803 [INFO] [KubeClient] [CreateCR] [Unknown] Creating CR 'Drive': ID: '', Name: '8597c354-0e17-46a9-998f-9acf11958a2b', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {UUID:8597c354-0e17-46a9-998f-9acf11958a2b VID:Test PID:Loopback SerialNumber:LOOPBACK3334300411 Health:GOOD Type:HDD Size:105906176 Status:ONLINE Usage:IN_USE NodeId:d5f60b5d-e268-406f-8939-93748a5f2dfa Path:/dev/loop1 Enclosure: Slot: Bay: Firmware: Endurance:0 LEDState: IsSystem:false IsClean:true SecurityStatus: EncryptionCapable: EncryptionProtocol: XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:30:15.811 [INFO] [Controller] [drive/Reconcile] [33b6ed92-49e8-45f9-9c1f-26b240147538] Drive changed: &{{ } {33b6ed92-49e8-45f9-9c1f-26b240147538    a73aed29-6bc1-4c39-9dae-4655d7ca1a4b 8560 1 2023-05-20 08:30:15 +0000 UTC <nil> <nil> map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal] map[] [] []  [{node Update csi-baremetal.dell.com/v1 2023-05-20 08:30:15 +0000 UTC FieldsV1 {"f:metadata":{"f:labels":{".":{},"f:app":{},"f:app.kubernetes.io/name":{}}},"f:spec":{".":{},"f:Health":{},"f:IsClean":{},"f:NodeId":{},"f:PID":{},"f:Path":{},"f:SerialNumber":{},"f:Size":{},"f:Status":{},"f:Type":{},"f:UUID":{},"f:Usage":{},"f:VID":{}}} }]} {33b6ed92-49e8-45f9-9c1f-26b240147538 Test Loopback LOOPBACK2289257656 GOOD HDD 105906176 ONLINE IN_USE d5f60b5d-e268-406f-8939-93748a5f2dfa /dev/loop0     0  false true    {} [] 0}}
+May 20 08:30:15.829 [INFO] [KubeClient] [CreateCR] [Unknown] CR Drive 8597c354-0e17-46a9-998f-9acf11958a2b created
+May 20 08:30:15.842 [INFO] [KubeClient] [CreateCR] [Unknown] Creating CR 'Drive': ID: '', Name: 'e106f288-396c-4ea7-b9c1-a018c2ffd388', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {UUID:e106f288-396c-4ea7-b9c1-a018c2ffd388 VID:Test PID:Loopback SerialNumber:LOOPBACK3984247349 Health:GOOD Type:HDD Size:105906176 Status:ONLINE Usage:IN_USE NodeId:d5f60b5d-e268-406f-8939-93748a5f2dfa Path:/dev/loop2 Enclosure: Slot: Bay: Firmware: Endurance:0 LEDState: IsSystem:false IsClean:true SecurityStatus: EncryptionCapable: EncryptionProtocol: XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:30:15.848 [INFO] [KubeClient] [UpdateCR] [Unknown] Updating CR 'AvailableCapacity': ID: 'eae7c9f4-e0f0-4228-892b-c400acf246ec', Name: '25e9a441-ba2f-4fe5-b41f-2efb9110a267', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:33b6ed92-49e8-45f9-9c1f-26b240147538 NodeId:d5f60b5d-e268-406f-8939-93748a5f2dfa StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:30:15.861 [INFO] [KubeClient] [CreateCR] [Unknown] CR Drive e106f288-396c-4ea7-b9c1-a018c2ffd388 created
+May 20 08:30:15.862 [WARN] [VolumeManager] [discoverLVGOnSystemDrive] System drive is not detected by drive manager
+May 20 08:30:15.867 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [4.155688ms] [4155688] stdout: 
+
+May 20 08:30:15.871 [INFO] [Controller] [drive/Reconcile] [33b6ed92-49e8-45f9-9c1f-26b240147538] Update AC 25e9a441-ba2f-4fe5-b41f-2efb9110a267 labels to related drive 33b6ed92-49e8-45f9-9c1f-26b240147538 successful
+May 20 08:30:15.888 [DEBU] [Executor] [fdisk --list /dev/loop0] [20.364886ms] [20364886] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:30:15.894 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:30:15.895 [WARN] [CRHelper] [GetVolumesByLocation] [33b6ed92-49e8-45f9-9c1f-26b240147538] Can't find VolumeCR assigned to provided location
+May 20 08:30:15.899 [INFO] [Controller] [drive/Reconcile] [8597c354-0e17-46a9-998f-9acf11958a2b] Drive changed: &{{ } {8597c354-0e17-46a9-998f-9acf11958a2b    437fd11b-1310-44be-ab6c-828e7454584a 8561 1 2023-05-20 08:30:15 +0000 UTC <nil> <nil> map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal] map[] [] []  [{node Update csi-baremetal.dell.com/v1 2023-05-20 08:30:15 +0000 UTC FieldsV1 {"f:metadata":{"f:labels":{".":{},"f:app":{},"f:app.kubernetes.io/name":{}}},"f:spec":{".":{},"f:Health":{},"f:IsClean":{},"f:NodeId":{},"f:PID":{},"f:Path":{},"f:SerialNumber":{},"f:Size":{},"f:Status":{},"f:Type":{},"f:UUID":{},"f:Usage":{},"f:VID":{}}} }]} {8597c354-0e17-46a9-998f-9acf11958a2b Test Loopback LOOPBACK3334300411 GOOD HDD 105906176 ONLINE IN_USE d5f60b5d-e268-406f-8939-93748a5f2dfa /dev/loop1     0  false true    {} [] 0}}
+May 20 08:30:15.900 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [6.151834ms] [6151834] stdout: 
+
+May 20 08:30:15.910 [INFO] [KubeClient] [UpdateCR] [Unknown] Updating CR 'AvailableCapacity': ID: '1206ea4c-9a40-4407-b817-a37b94fa92ac', Name: 'e9531150-3aeb-412d-ad6a-2b971f460623', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:8597c354-0e17-46a9-998f-9acf11958a2b NodeId:d5f60b5d-e268-406f-8939-93748a5f2dfa StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:30:15.914 [INFO] [Controller] [drive/Reconcile] [8597c354-0e17-46a9-998f-9acf11958a2b] Update AC e9531150-3aeb-412d-ad6a-2b971f460623 labels to related drive 8597c354-0e17-46a9-998f-9acf11958a2b successful
+May 20 08:30:15.917 [WARN] [CRHelper] [GetVolumesByLocation] [8597c354-0e17-46a9-998f-9acf11958a2b] Can't find VolumeCR assigned to provided location
+May 20 08:30:15.922 [INFO] [Controller] [drive/Reconcile] [e106f288-396c-4ea7-b9c1-a018c2ffd388] Drive changed: &{{ } {e106f288-396c-4ea7-b9c1-a018c2ffd388    6df78de0-bc03-4b8c-8804-b61625789ba6 8564 1 2023-05-20 08:30:15 +0000 UTC <nil> <nil> map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal] map[] [] []  [{node Update csi-baremetal.dell.com/v1 2023-05-20 08:30:15 +0000 UTC FieldsV1 {"f:metadata":{"f:labels":{".":{},"f:app":{},"f:app.kubernetes.io/name":{}}},"f:spec":{".":{},"f:Health":{},"f:IsClean":{},"f:NodeId":{},"f:PID":{},"f:Path":{},"f:SerialNumber":{},"f:Size":{},"f:Status":{},"f:Type":{},"f:UUID":{},"f:Usage":{},"f:VID":{}}} }]} {e106f288-396c-4ea7-b9c1-a018c2ffd388 Test Loopback LOOPBACK3984247349 GOOD HDD 105906176 ONLINE IN_USE d5f60b5d-e268-406f-8939-93748a5f2dfa /dev/loop2     0  false true    {} [] 0}}
+May 20 08:30:15.927 [INFO] [KubeClient] [UpdateCR] [Unknown] Updating CR 'AvailableCapacity': ID: '65b8ecd8-5c35-47cb-be9d-80f596386ee3', Name: 'fff97fc1-0d29-42b2-98ed-814db6140cd6', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:e106f288-396c-4ea7-b9c1-a018c2ffd388 NodeId:d5f60b5d-e268-406f-8939-93748a5f2dfa StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 20 08:30:15.929 [DEBU] [Executor] [fdisk --list /dev/loop1] [29.061411ms] [29061411] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:30:15.936 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:30:15.939 [INFO] [Controller] [drive/Reconcile] [e106f288-396c-4ea7-b9c1-a018c2ffd388] Update AC fff97fc1-0d29-42b2-98ed-814db6140cd6 labels to related drive e106f288-396c-4ea7-b9c1-a018c2ffd388 successful
+May 20 08:30:15.942 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [5.612899ms] [5612899] stdout: 
+
+May 20 08:30:15.947 [WARN] [CRHelper] [GetVolumesByLocation] [e106f288-396c-4ea7-b9c1-a018c2ffd388] Can't find VolumeCR assigned to provided location
+May 20 08:30:15.967 [DEBU] [Executor] [fdisk --list /dev/loop2] [24.866913ms] [24866913] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:30:15.984 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:30:15.984 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:30:20.410 [INFO] Waiting for node service to become ready ...
+May 20 08:30:20.410 [INFO] Node service is ready to handle requests
+May 20 08:30:20.410 [INFO] Starting handle CSI calls ...
+May 20 08:30:20.411 [INFO] [ServerRunner] Starting gRPC server for endpoint /csi/csi.sock and socket unix
+May 20 08:30:20.415 [INFO] [VolumeManager] Wbt config changed: {Enable:false Value:0 VolumeOptions:{Modes:[FS] StorageClasses:[csi-baremetal-sc-hdd csi-baremetal-sc-ssd csi-baremetal-sc-nvme]}}
+May 20 08:30:22.114 [INFO] [CSINodeService] [NodeGetInfo] NodeGetInfo created topology: {map[nodes.csi-baremetal.dell.com/uuid:d5f60b5d-e268-406f-8939-93748a5f2dfa] {} [] 0}
+May 20 08:30:45.990 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:30:45.995 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [5.090264ms] [5090264] stdout: 
+
+May 20 08:30:46.039 [DEBU] [Executor] [fdisk --list /dev/loop1] [44.001525ms] [44001525] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:30:46.050 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:30:46.054 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [4.350437ms] [4350437] stdout: 
+
+May 20 08:30:46.097 [DEBU] [Executor] [fdisk --list /dev/loop2] [43.176171ms] [43176171] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:30:46.109 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:30:46.114 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [5.226745ms] [5226745] stdout: 
+
+May 20 08:30:46.139 [DEBU] [Executor] [fdisk --list /dev/loop0] [24.727648ms] [24727648] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:30:46.149 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:30:46.149 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:31:16.156 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:31:16.158 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [2.281332ms] [2281332] stdout: 
+
+May 20 08:31:16.201 [DEBU] [Executor] [fdisk --list /dev/loop0] [42.090641ms] [42090641] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:31:16.205 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:31:16.208 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [2.288632ms] [2288632] stdout: 
+
+May 20 08:31:16.233 [DEBU] [Executor] [fdisk --list /dev/loop1] [24.772801ms] [24772801] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:31:16.237 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:31:16.241 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [2.729389ms] [2729389] stdout: 
+
+May 20 08:31:16.280 [DEBU] [Executor] [fdisk --list /dev/loop2] [38.327832ms] [38327832] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:31:16.285 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:31:16.285 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:31:46.301 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:31:46.305 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [3.627006ms] [3627006] stdout: 
+
+May 20 08:31:46.348 [DEBU] [Executor] [fdisk --list /dev/loop1] [43.190207ms] [43190207] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:31:46.360 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:31:46.367 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [6.651957ms] [6651957] stdout: 
+
+May 20 08:31:46.396 [DEBU] [Executor] [fdisk --list /dev/loop2] [28.176016ms] [28176016] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:31:46.405 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:31:46.410 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [4.335144ms] [4335144] stdout: 
+
+May 20 08:31:46.457 [DEBU] [Executor] [fdisk --list /dev/loop0] [46.46716ms] [46467160] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:31:46.466 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:31:46.466 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:32:16.470 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:32:16.477 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [7.409471ms] [7409471] stdout: 
+
+May 20 08:32:16.532 [DEBU] [Executor] [fdisk --list /dev/loop1] [54.325878ms] [54325878] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:32:16.546 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:32:16.552 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [5.345348ms] [5345348] stdout: 
+
+May 20 08:32:16.583 [DEBU] [Executor] [fdisk --list /dev/loop2] [31.131765ms] [31131765] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:32:16.595 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:32:16.603 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [7.135633ms] [7135633] stdout: 
+
+May 20 08:32:16.656 [DEBU] [Executor] [fdisk --list /dev/loop0] [49.522994ms] [49522994] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:32:16.669 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:32:16.669 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:32:46.679 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:32:46.685 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [5.074512ms] [5074512] stdout: 
+
+May 20 08:32:46.712 [DEBU] [Executor] [fdisk --list /dev/loop0] [26.817408ms] [26817408] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:32:46.726 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:32:46.730 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [4.321703ms] [4321703] stdout: 
+
+May 20 08:32:46.758 [DEBU] [Executor] [fdisk --list /dev/loop1] [27.708426ms] [27708426] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:32:46.776 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:32:46.781 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [4.681454ms] [4681454] stdout: 
+
+May 20 08:32:46.837 [DEBU] [Executor] [fdisk --list /dev/loop2] [54.304713ms] [54304713] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:32:46.847 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:32:46.847 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:33:16.861 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:33:16.868 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [5.499905ms] [5499905] stdout: 
+
+May 20 08:33:16.895 [DEBU] [Executor] [fdisk --list /dev/loop0] [27.260126ms] [27260126] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:33:16.906 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:33:16.913 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [6.208448ms] [6208448] stdout: 
+
+May 20 08:33:16.940 [DEBU] [Executor] [fdisk --list /dev/loop1] [27.161461ms] [27161461] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:33:16.957 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:33:16.960 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [2.209486ms] [2209486] stdout: 
+
+May 20 08:33:16.987 [DEBU] [Executor] [fdisk --list /dev/loop2] [27.028868ms] [27028868] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:33:16.997 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:33:16.997 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:33:47.009 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:33:47.018 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [7.214784ms] [7214784] stdout: 
+
+May 20 08:33:47.071 [DEBU] [Executor] [fdisk --list /dev/loop0] [53.474461ms] [53474461] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:33:47.084 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:33:47.090 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [5.200177ms] [5200177] stdout: 
+
+May 20 08:33:47.164 [DEBU] [Executor] [fdisk --list /dev/loop1] [73.367716ms] [73367716] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:33:47.175 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:33:47.179 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [3.637559ms] [3637559] stdout: 
+
+May 20 08:33:47.213 [DEBU] [Executor] [fdisk --list /dev/loop2] [33.153837ms] [33153837] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:33:47.219 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:33:47.219 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:34:17.221 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:34:17.227 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [5.191053ms] [5191053] stdout: 
+
+May 20 08:34:17.297 [DEBU] [Executor] [fdisk --list /dev/loop0] [69.837276ms] [69837276] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:34:17.308 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:34:17.313 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [4.405727ms] [4405727] stdout: 
+
+May 20 08:34:17.342 [DEBU] [Executor] [fdisk --list /dev/loop1] [26.341183ms] [26341183] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:34:17.352 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:34:17.357 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [4.450923ms] [4450923] stdout: 
+
+May 20 08:34:17.405 [DEBU] [Executor] [fdisk --list /dev/loop2] [48.195109ms] [48195109] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:34:17.417 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:34:17.418 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:34:47.420 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:34:47.426 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [5.407677ms] [5407677] stdout: 
+
+May 20 08:34:47.479 [DEBU] [Executor] [fdisk --list /dev/loop0] [52.822133ms] [52822133] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:34:47.492 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:34:47.498 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [5.469873ms] [5469873] stdout: 
+
+May 20 08:34:47.538 [DEBU] [Executor] [fdisk --list /dev/loop1] [40.027465ms] [40027465] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:34:47.547 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:34:47.551 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [3.884582ms] [3884582] stdout: 
+
+May 20 08:34:47.587 [DEBU] [Executor] [fdisk --list /dev/loop2] [35.617578ms] [35617578] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:34:47.600 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:34:47.600 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:35:12.228 [DEBU] [LivenessCheckHelper] Check: OK
+May 20 08:35:17.601 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:35:17.607 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [5.362253ms] [5362253] stdout: 
+
+May 20 08:35:17.661 [DEBU] [Executor] [fdisk --list /dev/loop0] [53.641779ms] [53641779] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:35:17.673 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:35:17.680 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [6.096386ms] [6096386] stdout: 
+
+May 20 08:35:17.740 [DEBU] [Executor] [fdisk --list /dev/loop1] [60.645482ms] [60645482] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:35:17.758 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:35:17.763 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [5.309605ms] [5309605] stdout: 
+
+May 20 08:35:17.799 [DEBU] [Executor] [fdisk --list /dev/loop2] [35.267106ms] [35267106] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:35:17.812 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:35:17.813 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:35:22.208 [DEBU] [LivenessCheckHelper] Check: OK
+May 20 08:35:32.204 [DEBU] [LivenessCheckHelper] Check: OK
+May 20 08:35:42.204 [DEBU] [LivenessCheckHelper] Check: OK
+May 20 08:35:47.827 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 20 08:35:47.831 [DEBU] [Executor] [lsblk /dev/loop0 --output FSTYPE --noheadings] [3.359792ms] [3359792] stdout: 
+
+May 20 08:35:47.889 [DEBU] [Executor] [fdisk --list /dev/loop0] [58.277943ms] [58277943] stdout: Disk /dev/loop0: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:35:47.903 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop0, SN LOOPBACK2289257656 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:35:47.909 [DEBU] [Executor] [lsblk /dev/loop1 --output FSTYPE --noheadings] [5.97206ms] [5972060] stdout: 
+
+May 20 08:35:47.939 [DEBU] [Executor] [fdisk --list /dev/loop1] [29.935224ms] [29935224] stdout: Disk /dev/loop1: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:35:47.952 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop1, SN LOOPBACK3334300411 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:35:47.960 [DEBU] [Executor] [lsblk /dev/loop2 --output FSTYPE --noheadings] [4.110589ms] [4110589] stdout: 
+
+May 20 08:35:48.016 [DEBU] [Executor] [fdisk --list /dev/loop2] [55.199746ms] [55199746] stdout: Disk /dev/loop2: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 20 08:35:48.033 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop2, SN LOOPBACK3984247349 doesn't have filesystem, partition table, partitions or PV.
+May 20 08:35:48.034 [DEBU] [LivenessCheckHelper] updated with OK
+May 20 08:35:52.210 [DEBU] [LivenessCheckHelper] Check: OK
+May 20 08:35:58.069 [DEBU] [SignalHandler] [setupSignalHandler] Got terminated signal
+May 20 08:35:58.069 [INFO] [ServerRunner] Stopping server
+May 20 08:35:58.093 [INFO] Got SIGTERM signal
+==== end of pod log for container csi-baremetal-node-kernel-5.4-2kjc9/node ====

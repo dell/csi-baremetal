@@ -1,0 +1,20 @@
+==== start of pod log for container csi-baremetal-node-kernel-5.4-rmsnm/csi-node-driver-registrar ====
+I0517 03:06:38.841224       1 main.go:166] Version: v2.5.0
+I0517 03:06:38.841283       1 main.go:167] Running node-driver-registrar in mode=registration
+I0517 03:06:38.841765       1 main.go:191] Attempting to open a gRPC connection with: "/csi/csi.sock"
+I0517 03:06:38.841789       1 connection.go:154] Connecting to unix:///csi/csi.sock
+W0517 03:06:48.843187       1 connection.go:173] Still connecting to unix:///csi/csi.sock
+I0517 03:06:56.402323       1 main.go:198] Calling CSI driver to discover driver name
+I0517 03:06:56.402393       1 connection.go:183] GRPC call: /csi.v1.Identity/GetPluginInfo
+I0517 03:06:56.402398       1 connection.go:184] GRPC request: {}
+I0517 03:06:56.405053       1 connection.go:186] GRPC response: {"name":"csi-baremetal","vendor_version":"1.3.0"}
+I0517 03:06:56.405113       1 connection.go:187] GRPC error: <nil>
+I0517 03:06:56.405119       1 main.go:208] CSI driver name: "csi-baremetal"
+I0517 03:06:56.405143       1 node_register.go:53] Starting Registration Server at: /registration/csi-baremetal-reg.sock
+I0517 03:06:56.405349       1 node_register.go:62] Registration Server started at: /registration/csi-baremetal-reg.sock
+I0517 03:06:56.408420       1 node_register.go:92] Skipping HTTP server because endpoint is set to: ""
+I0517 03:06:56.437657       1 main.go:102] Received GetInfo call: &InfoRequest{}
+I0517 03:06:56.441332       1 main.go:109] "Kubelet registration probe created" path="/var/lib/kubelet/plugins/csi-baremetal/registration"
+I0517 03:06:56.526065       1 main.go:120] Received NotifyRegistrationStatus call: &RegistrationStatus{PluginRegistered:true,Error:,}
+E0517 03:11:06.468530       1 connection.go:132] Lost connection to unix:///csi/csi.sock.
+==== end of pod log for container csi-baremetal-node-kernel-5.4-rmsnm/csi-node-driver-registrar ====

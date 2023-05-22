@@ -1,0 +1,174 @@
+==== start of pod log for container csi-baremetal-node-kernel-5.4-khc4d/node ====
+May 17 03:15:56.860 [INFO] Starting Node Service
+May 17 03:15:56.973 [INFO] Obtaining node ID...
+May 17 03:15:56.993 [INFO] [Client] Initialize client for endpoint "localhost:8888"
+May 17 03:15:56.994 [INFO] Create server for endpoint "/csi/csi.sock" on "unix" socket
+May 17 03:15:57.271 [INFO] Waiting for node service to become ready ...
+May 17 03:15:57.271 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 17 03:15:57.271 [INFO] Not ready yet. Sleep 5 seconds and retry ...
+May 17 03:15:57.271 [INFO] Starting Node Health server ...
+May 17 03:15:57.271 [INFO] Create server for endpoint ":9999" on "tcp" socket
+May 17 03:15:57.271 [INFO] Registering health check service
+May 17 03:15:57.271 [INFO] [ServerRunner] Starting gRPC server for endpoint :9999 and socket tcp
+May 17 03:15:57.271 [INFO] Starting CRD Controller Manager ...
+May 17 03:15:59.598 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 17 03:16:01.656 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 17 03:16:02.285 [INFO] Waiting for node service to become ready ...
+May 17 03:16:02.285 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 17 03:16:02.285 [INFO] Not ready yet. Sleep 5 seconds and retry ...
+May 17 03:16:04.716 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 17 03:16:07.291 [INFO] Waiting for node service to become ready ...
+May 17 03:16:07.291 [INFO] [CSINodeService] [Check] Node svc is not ready yet
+May 17 03:16:07.292 [INFO] Not ready yet. Sleep 5 seconds and retry ...
+May 17 03:16:07.312 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 17 03:16:07.350 [INFO] [KubeClient] [CreateCR] [Unknown] Creating CR 'Drive': ID: '', Name: '89b8cd30-1676-4861-a85a-c81f9193f0d5', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {UUID:89b8cd30-1676-4861-a85a-c81f9193f0d5 VID:Test PID:Loopback SerialNumber:LOOPBACK3615836454 Health:GOOD Type:HDD Size:105906176 Status:ONLINE Usage:IN_USE NodeId:e367d874-1775-467b-8291-b6c0ad6e94a4 Path:/dev/loop3 Enclosure: Slot: Bay: Firmware: Endurance:0 LEDState: IsSystem:false IsClean:true SecurityStatus: EncryptionCapable: EncryptionProtocol: XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 17 03:16:07.361 [INFO] [KubeClient] [CreateCR] [Unknown] CR Drive 89b8cd30-1676-4861-a85a-c81f9193f0d5 created
+May 17 03:16:07.366 [INFO] [KubeClient] [CreateCR] [Unknown] Creating CR 'Drive': ID: '', Name: '80e25db9-3124-4396-91be-9be77b18269b', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {UUID:80e25db9-3124-4396-91be-9be77b18269b VID:Test PID:Loopback SerialNumber:LOOPBACK756034697 Health:GOOD Type:HDD Size:105906176 Status:ONLINE Usage:IN_USE NodeId:e367d874-1775-467b-8291-b6c0ad6e94a4 Path:/dev/loop4 Enclosure: Slot: Bay: Firmware: Endurance:0 LEDState: IsSystem:false IsClean:true SecurityStatus: EncryptionCapable: EncryptionProtocol: XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 17 03:16:07.372 [INFO] [KubeClient] [CreateCR] [Unknown] CR Drive 80e25db9-3124-4396-91be-9be77b18269b created
+May 17 03:16:07.376 [INFO] [KubeClient] [CreateCR] [Unknown] Creating CR 'Drive': ID: '', Name: '987efe2b-91f8-4d54-8483-f10c12255e49', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {UUID:987efe2b-91f8-4d54-8483-f10c12255e49 VID:Test PID:Loopback SerialNumber:LOOPBACK1033725612 Health:GOOD Type:HDD Size:105906176 Status:ONLINE Usage:IN_USE NodeId:e367d874-1775-467b-8291-b6c0ad6e94a4 Path:/dev/loop5 Enclosure: Slot: Bay: Firmware: Endurance:0 LEDState: IsSystem:false IsClean:true SecurityStatus: EncryptionCapable: EncryptionProtocol: XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 17 03:16:07.377 [INFO] [Controller] [drive/Reconcile] [89b8cd30-1676-4861-a85a-c81f9193f0d5] Drive changed: &{{ } {89b8cd30-1676-4861-a85a-c81f9193f0d5    f1584850-3ec6-4ebd-8b29-7b77feb71eb8 11317 1 2023-05-17 03:16:07 +0000 UTC <nil> <nil> map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal] map[] [] []  [{node Update csi-baremetal.dell.com/v1 2023-05-17 03:16:07 +0000 UTC FieldsV1 {"f:metadata":{"f:labels":{".":{},"f:app":{},"f:app.kubernetes.io/name":{}}},"f:spec":{".":{},"f:Health":{},"f:IsClean":{},"f:NodeId":{},"f:PID":{},"f:Path":{},"f:SerialNumber":{},"f:Size":{},"f:Status":{},"f:Type":{},"f:UUID":{},"f:Usage":{},"f:VID":{}}} }]} {89b8cd30-1676-4861-a85a-c81f9193f0d5 Test Loopback LOOPBACK3615836454 GOOD HDD 105906176 ONLINE IN_USE e367d874-1775-467b-8291-b6c0ad6e94a4 /dev/loop3     0  false true    {} [] 0}}
+May 17 03:16:07.384 [INFO] [KubeClient] [CreateCR] [Unknown] CR Drive 987efe2b-91f8-4d54-8483-f10c12255e49 created
+May 17 03:16:07.385 [WARN] [VolumeManager] [discoverLVGOnSystemDrive] System drive is not detected by drive manager
+May 17 03:16:07.390 [WARN] [CRHelper] [GetACByLocation] [89b8cd30-1676-4861-a85a-c81f9193f0d5] Can't find AC assigned to provided location: 89b8cd30-1676-4861-a85a-c81f9193f0d5
+May 17 03:16:07.390 [WARN] [Controller] [drive/Reconcile] [89b8cd30-1676-4861-a85a-c81f9193f0d5] AC for Drive 89b8cd30-1676-4861-a85a-c81f9193f0d5 is not found
+May 17 03:16:07.395 [DEBU] [Executor] [lsblk /dev/loop3 --output FSTYPE --noheadings] [8.617483ms] [8617483] stdout: 
+
+May 17 03:16:07.416 [WARN] [CRHelper] [GetVolumesByLocation] [89b8cd30-1676-4861-a85a-c81f9193f0d5] Can't find VolumeCR assigned to provided location
+May 17 03:16:07.422 [INFO] [Controller] [drive/Reconcile] [80e25db9-3124-4396-91be-9be77b18269b] Drive changed: &{{ } {80e25db9-3124-4396-91be-9be77b18269b    9a826fdb-a871-42e3-8659-62ae1e0d3e69 11318 1 2023-05-17 03:16:07 +0000 UTC <nil> <nil> map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal] map[] [] []  [{node Update csi-baremetal.dell.com/v1 2023-05-17 03:16:07 +0000 UTC FieldsV1 {"f:metadata":{"f:labels":{".":{},"f:app":{},"f:app.kubernetes.io/name":{}}},"f:spec":{".":{},"f:Health":{},"f:IsClean":{},"f:NodeId":{},"f:PID":{},"f:Path":{},"f:SerialNumber":{},"f:Size":{},"f:Status":{},"f:Type":{},"f:UUID":{},"f:Usage":{},"f:VID":{}}} }]} {80e25db9-3124-4396-91be-9be77b18269b Test Loopback LOOPBACK756034697 GOOD HDD 105906176 ONLINE IN_USE e367d874-1775-467b-8291-b6c0ad6e94a4 /dev/loop4     0  false true    {} [] 0}}
+May 17 03:16:07.434 [DEBU] [Executor] [fdisk --list /dev/loop3] [38.90869ms] [38908690] stdout: Disk /dev/loop3: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:16:07.439 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop3, SN LOOPBACK3615836454 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:16:07.442 [DEBU] [Executor] [lsblk /dev/loop4 --output FSTYPE --noheadings] [2.351403ms] [2351403] stdout: 
+
+May 17 03:16:07.444 [INFO] [KubeClient] [UpdateCR] [Unknown] Updating CR 'AvailableCapacity': ID: '925c0978-9de0-4633-94d1-e5fc1d9205ac', Name: 'bc61414b-e5ab-4493-bfa1-21b01dca4514', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:80e25db9-3124-4396-91be-9be77b18269b NodeId:e367d874-1775-467b-8291-b6c0ad6e94a4 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 17 03:16:07.462 [INFO] [Controller] [drive/Reconcile] [80e25db9-3124-4396-91be-9be77b18269b] Update AC bc61414b-e5ab-4493-bfa1-21b01dca4514 labels to related drive 80e25db9-3124-4396-91be-9be77b18269b successful
+May 17 03:16:07.466 [DEBU] [Executor] [fdisk --list /dev/loop4] [23.42416ms] [23424160] stdout: Disk /dev/loop4: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:16:07.482 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop4, SN LOOPBACK756034697 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:16:07.482 [DEBU] [LivenessCheckHelper] updated with OK
+May 17 03:16:07.487 [WARN] [CRHelper] [GetVolumesByLocation] [80e25db9-3124-4396-91be-9be77b18269b] Can't find VolumeCR assigned to provided location
+May 17 03:16:07.496 [INFO] [Controller] [drive/Reconcile] [987efe2b-91f8-4d54-8483-f10c12255e49] Drive changed: &{{ } {987efe2b-91f8-4d54-8483-f10c12255e49    1feb82c4-299d-42c3-9bac-101804c0cbdb 11319 1 2023-05-17 03:16:07 +0000 UTC <nil> <nil> map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal] map[] [] []  [{node Update csi-baremetal.dell.com/v1 2023-05-17 03:16:07 +0000 UTC FieldsV1 {"f:metadata":{"f:labels":{".":{},"f:app":{},"f:app.kubernetes.io/name":{}}},"f:spec":{".":{},"f:Health":{},"f:IsClean":{},"f:NodeId":{},"f:PID":{},"f:Path":{},"f:SerialNumber":{},"f:Size":{},"f:Status":{},"f:Type":{},"f:UUID":{},"f:Usage":{},"f:VID":{}}} }]} {987efe2b-91f8-4d54-8483-f10c12255e49 Test Loopback LOOPBACK1033725612 GOOD HDD 105906176 ONLINE IN_USE e367d874-1775-467b-8291-b6c0ad6e94a4 /dev/loop5     0  false true    {} [] 0}}
+May 17 03:16:07.503 [INFO] [KubeClient] [UpdateCR] [Unknown] Updating CR 'AvailableCapacity': ID: '526815bd-b9bf-435b-abe2-f2e7b4df29db', Name: '9530a147-06e5-4c5a-9f7c-0d8bdb67192c', Labels: map[app:csi-baremetal app.kubernetes.io/name:csi-baremetal], Annotations: map[], Spec: {Location:987efe2b-91f8-4d54-8483-f10c12255e49 NodeId:e367d874-1775-467b-8291-b6c0ad6e94a4 StorageClass:HDD Size:105906176 XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+May 17 03:16:07.515 [INFO] [Controller] [drive/Reconcile] [987efe2b-91f8-4d54-8483-f10c12255e49] Update AC 9530a147-06e5-4c5a-9f7c-0d8bdb67192c labels to related drive 987efe2b-91f8-4d54-8483-f10c12255e49 successful
+May 17 03:16:07.529 [WARN] [CRHelper] [GetVolumesByLocation] [987efe2b-91f8-4d54-8483-f10c12255e49] Can't find VolumeCR assigned to provided location
+May 17 03:16:12.300 [INFO] Waiting for node service to become ready ...
+May 17 03:16:12.300 [INFO] Node service is ready to handle requests
+May 17 03:16:12.300 [INFO] Starting handle CSI calls ...
+May 17 03:16:12.301 [INFO] [ServerRunner] Starting gRPC server for endpoint /csi/csi.sock and socket unix
+May 17 03:16:12.302 [INFO] [VolumeManager] Wbt config changed: {Enable:false Value:0 VolumeOptions:{Modes:[FS] StorageClasses:[csi-baremetal-sc-hdd csi-baremetal-sc-ssd csi-baremetal-sc-nvme]}}
+May 17 03:16:12.941 [INFO] [CSINodeService] [NodeGetInfo] NodeGetInfo created topology: {map[nodes.csi-baremetal.dell.com/uuid:e367d874-1775-467b-8291-b6c0ad6e94a4] {} [] 0}
+May 17 03:16:37.493 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 17 03:16:37.496 [DEBU] [Executor] [lsblk /dev/loop3 --output FSTYPE --noheadings] [3.683998ms] [3683998] stdout: 
+
+May 17 03:16:37.549 [DEBU] [Executor] [fdisk --list /dev/loop3] [51.473277ms] [51473277] stdout: Disk /dev/loop3: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:16:37.572 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop3, SN LOOPBACK3615836454 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:16:37.580 [DEBU] [Executor] [lsblk /dev/loop4 --output FSTYPE --noheadings] [7.870618ms] [7870618] stdout: 
+
+May 17 03:16:37.620 [DEBU] [Executor] [fdisk --list /dev/loop4] [39.979159ms] [39979159] stdout: Disk /dev/loop4: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:16:37.642 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop4, SN LOOPBACK756034697 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:16:37.652 [DEBU] [Executor] [lsblk /dev/loop5 --output FSTYPE --noheadings] [9.950522ms] [9950522] stdout: 
+
+May 17 03:16:37.674 [DEBU] [Executor] [fdisk --list /dev/loop5] [21.205567ms] [21205567] stdout: Disk /dev/loop5: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:16:37.688 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop5, SN LOOPBACK1033725612 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:16:37.688 [DEBU] [LivenessCheckHelper] updated with OK
+May 17 03:17:07.706 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 17 03:17:07.715 [DEBU] [Executor] [lsblk /dev/loop5 --output FSTYPE --noheadings] [8.962912ms] [8962912] stdout: 
+
+May 17 03:17:07.757 [DEBU] [Executor] [fdisk --list /dev/loop5] [41.72261ms] [41722610] stdout: Disk /dev/loop5: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:17:07.765 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop5, SN LOOPBACK1033725612 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:17:07.768 [DEBU] [Executor] [lsblk /dev/loop3 --output FSTYPE --noheadings] [3.229635ms] [3229635] stdout: 
+
+May 17 03:17:07.820 [DEBU] [Executor] [fdisk --list /dev/loop3] [52.380403ms] [52380403] stdout: Disk /dev/loop3: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:17:07.829 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop3, SN LOOPBACK3615836454 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:17:07.833 [DEBU] [Executor] [lsblk /dev/loop4 --output FSTYPE --noheadings] [3.225596ms] [3225596] stdout: 
+
+May 17 03:17:07.898 [DEBU] [Executor] [fdisk --list /dev/loop4] [64.821557ms] [64821557] stdout: Disk /dev/loop4: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:17:07.908 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop4, SN LOOPBACK756034697 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:17:07.908 [DEBU] [LivenessCheckHelper] updated with OK
+May 17 03:17:37.913 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 17 03:17:37.929 [DEBU] [Executor] [lsblk /dev/loop3 --output FSTYPE --noheadings] [15.600072ms] [15600072] stdout: 
+
+May 17 03:17:37.950 [DEBU] [Executor] [fdisk --list /dev/loop3] [20.457926ms] [20457926] stdout: Disk /dev/loop3: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:17:37.954 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop3, SN LOOPBACK3615836454 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:17:37.958 [DEBU] [Executor] [lsblk /dev/loop4 --output FSTYPE --noheadings] [3.634592ms] [3634592] stdout: 
+
+May 17 03:17:37.976 [DEBU] [Executor] [fdisk --list /dev/loop4] [17.185468ms] [17185468] stdout: Disk /dev/loop4: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:17:38.002 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop4, SN LOOPBACK756034697 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:17:38.008 [DEBU] [Executor] [lsblk /dev/loop5 --output FSTYPE --noheadings] [6.383447ms] [6383447] stdout: 
+
+May 17 03:17:38.033 [DEBU] [Executor] [fdisk --list /dev/loop5] [24.817854ms] [24817854] stdout: Disk /dev/loop5: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:17:38.039 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop5, SN LOOPBACK1033725612 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:17:38.039 [DEBU] [LivenessCheckHelper] updated with OK
+May 17 03:18:08.041 [DEBU] [VolumeManager] [updateDrivesCRs] Processing
+May 17 03:18:08.045 [DEBU] [Executor] [lsblk /dev/loop3 --output FSTYPE --noheadings] [4.194754ms] [4194754] stdout: 
+
+May 17 03:18:08.090 [DEBU] [Executor] [fdisk --list /dev/loop3] [44.195894ms] [44195894] stdout: Disk /dev/loop3: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:18:08.097 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop3, SN LOOPBACK3615836454 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:18:08.100 [DEBU] [Executor] [lsblk /dev/loop4 --output FSTYPE --noheadings] [3.147126ms] [3147126] stdout: 
+
+May 17 03:18:08.132 [DEBU] [Executor] [fdisk --list /dev/loop4] [31.713533ms] [31713533] stdout: Disk /dev/loop4: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:18:08.143 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop4, SN LOOPBACK756034697 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:18:08.148 [DEBU] [Executor] [lsblk /dev/loop5 --output FSTYPE --noheadings] [4.557547ms] [4557547] stdout: 
+
+May 17 03:18:08.179 [DEBU] [Executor] [fdisk --list /dev/loop5] [28.715099ms] [28715099] stdout: Disk /dev/loop5: 101 MiB, 105906176 bytes, 206848 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+May 17 03:18:08.187 [DEBU] [VolumeManager] [discoverVolumeCRs] Drive with path /dev/loop5, SN LOOPBACK1033725612 doesn't have filesystem, partition table, partitions or PV.
+May 17 03:18:08.188 [DEBU] [LivenessCheckHelper] updated with OK
+May 17 03:18:30.826 [DEBU] [SignalHandler] [setupSignalHandler] Got terminated signal
+May 17 03:18:30.829 [INFO] [ServerRunner] Stopping server
+May 17 03:18:30.838 [INFO] Got SIGTERM signal
+rpc error: code = NotFound desc = an error occurred when try to find container "ce8833043dc0c492c30685d463b3a0d7a3c2a96302327b9a4b4eff39d8706ff5": not found
+==== end of pod log for container csi-baremetal-node-kernel-5.4-khc4d/node ====

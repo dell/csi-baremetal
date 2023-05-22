@@ -1,0 +1,238 @@
+==== start of pod log for container csi-baremetal-controller-65687987fd-4x8cg/csi-resizer ====
+I0517 03:15:55.418105       1 main.go:93] Version : v1.4.0
+I0517 03:15:55.418152       1 feature_gate.go:245] feature gates: &{map[]}
+I0517 03:15:55.425019       1 connection.go:154] Connecting to unix:///csi/csi.sock
+I0517 03:15:55.428924       1 common.go:111] Probing CSI driver for readiness
+I0517 03:15:55.428949       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:15:55.428954       1 connection.go:184] GRPC request: {}
+I0517 03:15:55.438112       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:15:55.438212       1 connection.go:187] GRPC error: <nil>
+W0517 03:15:55.438217       1 common.go:129] CSI driver is not ready
+I0517 03:15:56.441880       1 common.go:111] Probing CSI driver for readiness
+I0517 03:15:56.441907       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:15:56.441912       1 connection.go:184] GRPC request: {}
+I0517 03:15:56.466235       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:15:56.466281       1 connection.go:187] GRPC error: <nil>
+W0517 03:15:56.466288       1 common.go:129] CSI driver is not ready
+I0517 03:15:57.466997       1 common.go:111] Probing CSI driver for readiness
+I0517 03:15:57.467071       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:15:57.467089       1 connection.go:184] GRPC request: {}
+I0517 03:15:57.468419       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:15:57.468575       1 connection.go:187] GRPC error: <nil>
+W0517 03:15:57.469993       1 common.go:129] CSI driver is not ready
+I0517 03:15:58.471161       1 common.go:111] Probing CSI driver for readiness
+I0517 03:15:58.471206       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:15:58.471215       1 connection.go:184] GRPC request: {}
+I0517 03:15:58.472170       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:15:58.472281       1 connection.go:187] GRPC error: <nil>
+W0517 03:15:58.472293       1 common.go:129] CSI driver is not ready
+I0517 03:15:59.473107       1 common.go:111] Probing CSI driver for readiness
+I0517 03:15:59.473133       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:15:59.473138       1 connection.go:184] GRPC request: {}
+I0517 03:15:59.473562       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:15:59.473616       1 connection.go:187] GRPC error: <nil>
+W0517 03:15:59.473622       1 common.go:129] CSI driver is not ready
+I0517 03:16:00.473744       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:00.473778       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:00.473784       1 connection.go:184] GRPC request: {}
+I0517 03:16:00.474292       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:00.474462       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:00.474769       1 common.go:129] CSI driver is not ready
+I0517 03:16:01.474915       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:01.475065       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:01.475080       1 connection.go:184] GRPC request: {}
+I0517 03:16:01.476775       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:01.476959       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:01.476999       1 common.go:129] CSI driver is not ready
+I0517 03:16:02.487424       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:02.487753       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:02.487772       1 connection.go:184] GRPC request: {}
+I0517 03:16:02.489111       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:02.489546       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:02.489568       1 common.go:129] CSI driver is not ready
+I0517 03:16:03.489887       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:03.489979       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:03.490215       1 connection.go:184] GRPC request: {}
+I0517 03:16:03.491647       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:03.491718       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:03.491730       1 common.go:129] CSI driver is not ready
+I0517 03:16:04.495663       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:04.495719       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:04.495732       1 connection.go:184] GRPC request: {}
+I0517 03:16:04.497110       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:04.497167       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:04.497178       1 common.go:129] CSI driver is not ready
+I0517 03:16:05.508326       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:05.508397       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:05.508410       1 connection.go:184] GRPC request: {}
+I0517 03:16:05.509231       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:05.509296       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:05.509308       1 common.go:129] CSI driver is not ready
+I0517 03:16:06.511751       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:06.511895       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:06.512019       1 connection.go:184] GRPC request: {}
+I0517 03:16:06.513557       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:06.513619       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:06.513630       1 common.go:129] CSI driver is not ready
+I0517 03:16:07.515337       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:07.515375       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:07.515384       1 connection.go:184] GRPC request: {}
+I0517 03:16:07.518389       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:07.518443       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:07.518453       1 common.go:129] CSI driver is not ready
+I0517 03:16:08.521427       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:08.521511       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:08.521526       1 connection.go:184] GRPC request: {}
+I0517 03:16:08.526551       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:08.526582       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:08.526587       1 common.go:129] CSI driver is not ready
+I0517 03:16:09.527246       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:09.527317       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:09.527328       1 connection.go:184] GRPC request: {}
+I0517 03:16:09.528401       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:09.528461       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:09.528474       1 common.go:129] CSI driver is not ready
+I0517 03:16:10.528761       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:10.528795       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:10.528802       1 connection.go:184] GRPC request: {}
+I0517 03:16:10.531133       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:10.531281       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:10.531289       1 common.go:129] CSI driver is not ready
+I0517 03:16:11.532415       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:11.532586       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:11.532603       1 connection.go:184] GRPC request: {}
+I0517 03:16:11.534233       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:11.534321       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:11.534337       1 common.go:129] CSI driver is not ready
+I0517 03:16:12.535443       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:12.535489       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:12.535499       1 connection.go:184] GRPC request: {}
+I0517 03:16:12.536432       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:12.536576       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:12.536589       1 common.go:129] CSI driver is not ready
+I0517 03:16:13.537034       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:13.537164       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:13.537179       1 connection.go:184] GRPC request: {}
+I0517 03:16:13.538584       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:13.538656       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:13.538799       1 common.go:129] CSI driver is not ready
+I0517 03:16:14.540954       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:14.541066       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:14.541321       1 connection.go:184] GRPC request: {}
+I0517 03:16:14.542414       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:14.542525       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:14.542537       1 common.go:129] CSI driver is not ready
+I0517 03:16:15.543196       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:15.543386       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:15.543401       1 connection.go:184] GRPC request: {}
+I0517 03:16:15.546775       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:15.546935       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:15.546951       1 common.go:129] CSI driver is not ready
+I0517 03:16:16.547279       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:16.547445       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:16.547599       1 connection.go:184] GRPC request: {}
+I0517 03:16:16.549246       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:16.549356       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:16.549859       1 common.go:129] CSI driver is not ready
+I0517 03:16:17.562133       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:17.562261       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:17.562275       1 connection.go:184] GRPC request: {}
+I0517 03:16:17.563455       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:17.563574       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:17.563640       1 common.go:129] CSI driver is not ready
+I0517 03:16:18.566935       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:18.567064       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:18.567078       1 connection.go:184] GRPC request: {}
+I0517 03:16:18.568526       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:18.568637       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:18.568650       1 common.go:129] CSI driver is not ready
+I0517 03:16:19.569107       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:19.569198       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:19.569210       1 connection.go:184] GRPC request: {}
+I0517 03:16:19.575355       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:19.575478       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:19.575493       1 common.go:129] CSI driver is not ready
+I0517 03:16:20.584060       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:20.584093       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:20.584100       1 connection.go:184] GRPC request: {}
+I0517 03:16:20.584858       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:20.584968       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:20.585001       1 common.go:129] CSI driver is not ready
+I0517 03:16:21.585548       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:21.585609       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:21.585614       1 connection.go:184] GRPC request: {}
+I0517 03:16:21.588476       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:21.588527       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:21.588537       1 common.go:129] CSI driver is not ready
+I0517 03:16:22.589076       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:22.589101       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:22.589105       1 connection.go:184] GRPC request: {}
+I0517 03:16:22.589545       1 connection.go:186] GRPC response: {"ready":{}}
+I0517 03:16:22.589571       1 connection.go:187] GRPC error: <nil>
+W0517 03:16:22.589575       1 common.go:129] CSI driver is not ready
+I0517 03:16:23.590999       1 common.go:111] Probing CSI driver for readiness
+I0517 03:16:23.591061       1 connection.go:183] GRPC call: /csi.v1.Identity/Probe
+I0517 03:16:23.591073       1 connection.go:184] GRPC request: {}
+I0517 03:16:23.592021       1 connection.go:186] GRPC response: {"ready":{"value":true}}
+I0517 03:16:23.592113       1 connection.go:187] GRPC error: <nil>
+I0517 03:16:23.592136       1 connection.go:183] GRPC call: /csi.v1.Identity/GetPluginInfo
+I0517 03:16:23.592143       1 connection.go:184] GRPC request: {}
+I0517 03:16:23.592999       1 connection.go:186] GRPC response: {"name":"csi-baremetal","vendor_version":"1.3.0"}
+I0517 03:16:23.593123       1 connection.go:187] GRPC error: <nil>
+I0517 03:16:23.593142       1 main.go:141] CSI driver name: "csi-baremetal"
+I0517 03:16:23.593159       1 connection.go:183] GRPC call: /csi.v1.Identity/GetPluginCapabilities
+I0517 03:16:23.593167       1 connection.go:184] GRPC request: {}
+I0517 03:16:23.594436       1 connection.go:186] GRPC response: {"capabilities":[{"Type":{"Service":{"type":1}}},{"Type":{"Service":{"type":2}}},{"Type":{"VolumeExpansion":{"type":1}}},{"Type":{"VolumeExpansion":{"type":2}}}]}
+I0517 03:16:23.594673       1 connection.go:187] GRPC error: <nil>
+I0517 03:16:23.594689       1 connection.go:183] GRPC call: /csi.v1.Controller/ControllerGetCapabilities
+I0517 03:16:23.594696       1 connection.go:184] GRPC request: {}
+I0517 03:16:23.596782       1 connection.go:186] GRPC response: {"capabilities":[{"Type":{"Rpc":{"type":1}}},{"Type":{"Rpc":{"type":9}}}]}
+I0517 03:16:23.596850       1 connection.go:187] GRPC error: <nil>
+I0517 03:16:23.596856       1 connection.go:183] GRPC call: /csi.v1.Controller/ControllerGetCapabilities
+I0517 03:16:23.596858       1 connection.go:184] GRPC request: {}
+I0517 03:16:23.597148       1 connection.go:186] GRPC response: {"capabilities":[{"Type":{"Rpc":{"type":1}}},{"Type":{"Rpc":{"type":9}}}]}
+I0517 03:16:23.597217       1 connection.go:187] GRPC error: <nil>
+I0517 03:16:23.602512       1 controller.go:120] Register Pod informer for resizer csi-baremetal
+I0517 03:16:23.603000       1 leaderelection.go:248] attempting to acquire leader lease volume-9947/external-resizer-csi-baremetal...
+I0517 03:16:23.628720       1 leaderelection.go:258] successfully acquired lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:23.628905       1 leader_election.go:212] new leader detected, current leader: csi-baremetal-controller-65687987fd-4x8cg
+I0517 03:16:23.630175       1 leader_election.go:205] became leader, starting
+I0517 03:16:23.631196       1 controller.go:255] Starting external resizer csi-baremetal
+I0517 03:16:23.632004       1 reflector.go:219] Starting reflector *v1.PersistentVolumeClaim (10m0s) from k8s.io/client-go/informers/factory.go:134
+I0517 03:16:23.632081       1 reflector.go:255] Listing and watching *v1.PersistentVolumeClaim from k8s.io/client-go/informers/factory.go:134
+I0517 03:16:23.632356       1 reflector.go:219] Starting reflector *v1.PersistentVolume (10m0s) from k8s.io/client-go/informers/factory.go:134
+I0517 03:16:23.632476       1 reflector.go:255] Listing and watching *v1.PersistentVolume from k8s.io/client-go/informers/factory.go:134
+I0517 03:16:23.643816       1 reflector.go:219] Starting reflector *v1.Pod (10m0s) from k8s.io/client-go/informers/factory.go:134
+I0517 03:16:23.643891       1 reflector.go:255] Listing and watching *v1.Pod from k8s.io/client-go/informers/factory.go:134
+I0517 03:16:23.689842       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:23.837954       1 shared_informer.go:270] caches populated
+I0517 03:16:23.838574       1 controller.go:295] Started PVC processing "volume-9947/csi-baremetalrdhd8"
+I0517 03:16:23.838755       1 controller.go:318] PV bound to PVC "volume-9947/csi-baremetalrdhd8" is not created yet
+I0517 03:16:28.703534       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:33.722992       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:38.753962       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:43.784106       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:48.806892       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:53.823532       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:16:58.845544       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:03.874898       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:08.901916       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:13.927475       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:18.952980       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:23.987087       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:29.008713       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:31.627520       1 controller.go:295] Started PVC processing "volume-9947/csi-baremetalrdhd8"
+I0517 03:17:31.627538       1 controller.go:343] No need to resize PVC "volume-9947/csi-baremetalrdhd8"
+I0517 03:17:34.017455       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:39.039913       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:44.071681       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:49.090209       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:54.105794       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:17:59.139210       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:18:04.154239       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:18:09.184606       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:18:14.207829       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:18:19.236726       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:18:24.266348       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+I0517 03:18:29.291859       1 leaderelection.go:278] successfully renewed lease volume-9947/external-resizer-csi-baremetal
+==== end of pod log for container csi-baremetal-controller-65687987fd-4x8cg/csi-resizer ====
