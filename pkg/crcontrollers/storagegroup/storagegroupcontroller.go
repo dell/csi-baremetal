@@ -219,7 +219,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		}
 	}
 	if noDriveSelected {
-		log.Warnf("No drive can be selected by driveSelector of storage group %s", sg.Name)
+		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
 	if labelingNoError {
 		return apiV1.Created, nil
