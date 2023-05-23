@@ -83,7 +83,7 @@ kind-pull-images: kind-pull-sidecar-images
 	docker pull ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
-	docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
+	# docker pull ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 	docker pull ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-pull-sidecar-images:
@@ -113,7 +113,7 @@ kind-tag-images:
 	docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${PROJECT}-${CONTROLLER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
-	docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ${PROJECT}-${SCHEDULER}:${TAG}
+	# docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG} ${PROJECT}-${SCHEDULER}:${TAG}
 	docker tag ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG} ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-load-images:
@@ -132,7 +132,7 @@ kind-load-images:
 	$(KIND) load docker-image ${PROJECT}-${CONTROLLER}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${EXTENDER_PATCHER}:${TAG}
-	$(KIND) load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
+	# $(KIND) load docker-image ${PROJECT}-${SCHEDULER}:${TAG}
 	$(KIND) load docker-image ${PROJECT}-${NODE_CONTROLLER}:${TAG}
 
 kind-build:
