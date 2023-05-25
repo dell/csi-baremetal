@@ -97,7 +97,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		storageGroup.Annotations[sgTempStatusAnnotationKey] = newStatus
 		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-			log.Errorf("Unable to update StorageGroup status, error: %v.", sgFinalizer, err)
+			log.Errorf("Unable to update StorageGroup status, error: %v.", err)
 			return ctrl.Result{Requeue: true}, err
 		}
 	}
@@ -114,15 +114,16 @@ func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus
 	}
 	removalNoError := true
 	for _, drive := range drivesList.Items {
+		drive := drive
 		if drive.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
 			if err := c.removeStorageGroupLabel(ctx, log, &drive, sg); err != nil {
-				log.Errorf("Error in remove storage-group label from drive %s", err.Error())
+				log.Errorf("error in remove storage-group label from drive %s", err.Error())
 				removalNoError = false
 			}
 		}
 	}
 	if !removalNoError {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("Error in removing storage-group label")
+		return ctrl.Result{Requeue: true}, fmt.Errorf("error in removing storage-group label")
 	}
 	return c.removeFinalizer(ctx, log, sg)
 }
@@ -153,6 +154,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	driveSelector := sg.Spec.DriveSelector
 	for _, drive := range drivesList.Items {
 		driveSelected := true
+		drive := drive
 		for fieldName, fieldValue := range driveSelector.MatchFields {
 			driveField := reflect.ValueOf(&(drive.Spec)).Elem().FieldByName(fieldName)
 			invalidField = !driveField.IsValid()
@@ -228,7 +230,6 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 				log.Warnf("Drive %s has already been selected by storage group %s "+
 					"and can't be selected by current storage group", drive.Name, existingStorageGroup)
 			}
-
 		}
 	}
 	if noDriveSelected {
