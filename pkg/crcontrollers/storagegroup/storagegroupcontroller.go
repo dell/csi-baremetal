@@ -238,7 +238,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	if labelingNoError {
 		return apiV1.Created, nil
 	}
-	return apiV1.Creating, fmt.Errorf("Error in adding storage-group label")
+	return apiV1.Creating, fmt.Errorf("error in adding storage-group label")
 }
 
 func (c *Controller) removeStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
@@ -250,7 +250,7 @@ func (c *Controller) removeStorageGroupLabel(ctx context.Context, log *logrus.En
 	}
 	if len(volumes) > 0 {
 		log.Warnf("Drive %s has existing volumes. Storage group label can't be removed.", drive.Name)
-		return fmt.Errorf("Error in removing storage-group label on drive")
+		return fmt.Errorf("error in removing storage-group label on drive")
 	}
 
 	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
