@@ -53,7 +53,7 @@ RUN           zypper --no-gpg-checks --non-interactive refresh \
               python3-devel-${arg_python_ver} \
               bash-completion
 # install go
-RUN           wget https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
+RUN           wget --no-check-certificate https://go.dev/dl/go${arg_go_ver}.linux-amd64.tar.gz \
 &&            tar -C /usr/local -xzf go${arg_go_ver}.linux-amd64.tar.gz \
 &&            rm go${arg_go_ver}.linux-amd64.tar.gz
 # install bin golangci
