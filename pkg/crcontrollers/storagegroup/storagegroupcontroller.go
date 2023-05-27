@@ -90,16 +90,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	sgStatus, ok := storageGroup.Annotations[sgTempStatusAnnotationKey]
 	if !ok || sgStatus == apiV1.Creating {
-		// TODO put all of this part in func handleStorageGroupCreation
-		newStatus, err := c.handleStorageGroupCreation(ctx, log, storageGroup)
-		if err != nil {
-			return ctrl.Result{Requeue: true}, err
-		}
-		storageGroup.Annotations[sgTempStatusAnnotationKey] = newStatus
-		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-			log.Errorf("Unable to update StorageGroup status, error: %v.", err)
-			return ctrl.Result{Requeue: true}, err
-		}
+		return c.handleStorageGroupCreation(ctx, log, storageGroup)
 	}
 
 	return ctrl.Result{}, nil
@@ -141,11 +132,11 @@ func (c *Controller) removeFinalizer(ctx context.Context, log *logrus.Entry,
 }
 
 func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus.Entry,
-	sg *sgcrd.StorageGroup) (string, error) {
+	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
 	drivesList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, drivesList); err != nil {
 		log.Errorf("failed to read drives list: %s", err.Error())
-		return apiV1.Creating, err
+		return ctrl.Result{Requeue: true}, err
 	}
 	labelingNoError := true
 	invalidField := false
@@ -236,9 +227,14 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
 	if labelingNoError {
-		return apiV1.Created, nil
+		sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Created
+		if err := c.client.UpdateCR(ctx, sg); err != nil {
+			log.Errorf("Unable to update StorageGroup status, error: %v.", err)
+			return ctrl.Result{Requeue: true}, err
+		}
+		return ctrl.Result{}, nil
 	}
-	return apiV1.Creating, fmt.Errorf("error in adding storage-group label")
+	return ctrl.Result{Requeue: true}, fmt.Errorf("error in adding storage-group label")
 }
 
 func (c *Controller) removeStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
