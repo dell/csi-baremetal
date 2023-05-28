@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
+	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
@@ -133,13 +134,15 @@ func (c *Controller) removeFinalizer(ctx context.Context, log *logrus.Entry,
 
 func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus.Entry,
 	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
+	if !c.isStorageGroupValid(log, sg) {
+		return c.updateStorageGroupStatus(ctx, log, sg, apiV1.Created)
+	}
 	drivesList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, drivesList); err != nil {
 		log.Errorf("failed to read drives list: %s", err.Error())
 		return ctrl.Result{Requeue: true}, err
 	}
 	labelingNoError := true
-	invalidField := false
 	noDriveSelected := true
 	drivesCount := map[string]int32{}
 	driveSelector := sg.Spec.DriveSelector
@@ -148,36 +151,25 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		drive := drive
 		for fieldName, fieldValue := range driveSelector.MatchFields {
 			driveField := reflect.ValueOf(&(drive.Spec)).Elem().FieldByName(fieldName)
-			invalidField = !driveField.IsValid()
-			if invalidField {
-				driveSelected = false
-				break
-			}
 			switch driveField.Type().String() {
 			case "string":
 				if driveField.String() != fieldValue {
 					driveSelected = false
 				}
 			case "int64":
-				fieldValueInt64, err := strconv.ParseInt(fieldValue, 10, 64)
-				invalidField = err != nil
-				if invalidField || driveField.Int() != fieldValueInt64 {
+				fieldValueInt64, _ := strconv.ParseInt(fieldValue, 10, 64)
+				if driveField.Int() != fieldValueInt64 {
 					driveSelected = false
 				}
 			case "bool":
-				fieldValueBool, err := strconv.ParseBool(fieldValue)
-				invalidField = err != nil
-				if invalidField || driveField.Bool() != fieldValueBool {
+				fieldValueBool, _ := strconv.ParseBool(fieldValue)
+				if driveField.Bool() != fieldValueBool {
 					driveSelected = false
 				}
 			}
-			if invalidField || !driveSelected {
+			if !driveSelected {
 				break
 			}
-		}
-		if invalidField {
-			log.Errorf("Invalid field term in driveSelector of storage group %s", sg.Name)
-			break
 		}
 		if driveSelected && (driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
 			existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
@@ -227,14 +219,43 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
 	if labelingNoError {
-		sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Created
-		if err := c.client.UpdateCR(ctx, sg); err != nil {
-			log.Errorf("Unable to update StorageGroup status, error: %v.", err)
-			return ctrl.Result{Requeue: true}, err
-		}
-		return ctrl.Result{}, nil
+		return c.updateStorageGroupStatus(ctx, log, sg, apiV1.Created)
 	}
 	return ctrl.Result{Requeue: true}, fmt.Errorf("error in adding storage-group label")
+}
+
+func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGroup) bool {
+	for fieldName, fieldValue := range sg.Spec.DriveSelector.MatchFields {
+		driveField := reflect.ValueOf(&api.Drive{}).Elem().FieldByName(fieldName)
+		if !driveField.IsValid() {
+			log.Warnf("No Field %s in Drive.spec", fieldName)
+			return false
+		}
+		switch driveField.Type().String() {
+		case "string":
+		case "int64":
+			if _, err := strconv.ParseInt(fieldValue, 10, 64); err != nil {
+				log.Warnf("Invalid field value %s for field %s", fieldValue, fieldName)
+				return false
+			}
+		case "bool":
+			if _, err := strconv.ParseBool(fieldValue); err != nil {
+				log.Warnf("Invalid field value %s for field %s", fieldValue, fieldName)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (c *Controller) updateStorageGroupStatus(ctx context.Context, log *logrus.Entry, sg *sgcrd.StorageGroup,
+	status string) (ctrl.Result, error) {
+	sg.Annotations[sgTempStatusAnnotationKey] = status
+	if err := c.client.UpdateCR(ctx, sg); err != nil {
+		log.Errorf("Unable to update StorageGroup status, error: %v.", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 func (c *Controller) removeStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
