@@ -147,31 +147,9 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	drivesCount := map[string]int32{}
 	driveSelector := sg.Spec.DriveSelector
 	for _, drive := range drivesList.Items {
-		driveSelected := true
 		drive := drive
-		for fieldName, fieldValue := range driveSelector.MatchFields {
-			driveField := reflect.ValueOf(&(drive.Spec)).Elem().FieldByName(fieldName)
-			switch driveField.Type().String() {
-			case "string":
-				if driveField.String() != fieldValue {
-					driveSelected = false
-				}
-			case "int64":
-				fieldValueInt64, _ := strconv.ParseInt(fieldValue, 10, 64)
-				if driveField.Int() != fieldValueInt64 {
-					driveSelected = false
-				}
-			case "bool":
-				fieldValueBool, _ := strconv.ParseBool(fieldValue)
-				if driveField.Bool() != fieldValueBool {
-					driveSelected = false
-				}
-			}
-			if !driveSelected {
-				break
-			}
-		}
-		if driveSelected && (driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
+		if isDriveSelectedByValidMatchFields(&drive.Spec, &driveSelector.MatchFields) &&
+			(driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
 			existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
 			if !exists || (exists && existingStorageGroup == sg.Name) {
 				if driveSelector.NumberDrivesPerNode > 0 {
@@ -224,8 +202,31 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	return ctrl.Result{Requeue: true}, fmt.Errorf("error in adding storage-group label")
 }
 
-func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGroup) bool {
-	for fieldName, fieldValue := range sg.Spec.DriveSelector.MatchFields {
+func isDriveSelectedByValidMatchFields(drive *api.Drive, matchFields *map[string]string) bool {
+	for fieldName, fieldValue := range *matchFields {
+		driveField := reflect.ValueOf(drive).Elem().FieldByName(fieldName)
+		switch driveField.Type().String() {
+		case "string":
+			if driveField.String() != fieldValue {
+				return false
+			}
+		case "int64":
+			fieldValueInt64, _ := strconv.ParseInt(fieldValue, 10, 64)
+			if driveField.Int() != fieldValueInt64 {
+				return false
+			}
+		case "bool":
+			fieldValueBool, _ := strconv.ParseBool(fieldValue)
+			if driveField.Bool() != fieldValueBool {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (c *Controller) isMatchFieldsValid(log *logrus.Entry, matchFields *map[string]string) bool {
+	for fieldName, fieldValue := range *matchFields {
 		driveField := reflect.ValueOf(&api.Drive{}).Elem().FieldByName(fieldName)
 		if !driveField.IsValid() {
 			log.Warnf("No Field %s in Drive.spec", fieldName)
@@ -246,6 +247,12 @@ func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGro
 		}
 	}
 	return true
+
+}
+
+// TODO Need more check on whether storagegroup is valid
+func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGroup) bool {
+	return c.isMatchFieldsValid(log, &sg.Spec.DriveSelector.MatchFields)
 }
 
 func (c *Controller) updateStorageGroupStatus(ctx context.Context, log *logrus.Entry, sg *sgcrd.StorageGroup,
