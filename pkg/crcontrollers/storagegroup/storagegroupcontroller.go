@@ -247,7 +247,6 @@ func (c *Controller) isMatchFieldsValid(log *logrus.Entry, matchFields *map[stri
 		}
 	}
 	return true
-
 }
 
 // TODO Need more check on whether storagegroup is valid
