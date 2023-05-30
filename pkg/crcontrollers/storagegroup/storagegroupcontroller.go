@@ -8,9 +8,14 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -52,7 +57,35 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&sgcrd.StorageGroup{}).
 		WithOptions(controller.Options{}).
+		Watches(&source.Kind{Type: &drivecrd.Drive{}}, &handler.EnqueueRequestForObject{}).
+		WithEventFilter(predicate.Funcs{
+			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+				return false
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return c.filterUpdateEvent(e.ObjectOld, e.ObjectNew)
+			},
+		}).
 		Complete(c)
+}
+
+func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) bool {
+	var (
+		oldDrive *drivecrd.Drive
+		newDrive *drivecrd.Drive
+		ok       bool
+	)
+	if oldDrive, ok = old.(*drivecrd.Drive); !ok {
+		return false
+	}
+	if newDrive, ok = new.(*drivecrd.Drive); ok {
+		return filterDrive(oldDrive, newDrive)
+	}
+	return false
+}
+
+func filterDrive(old *drivecrd.Drive, new *drivecrd.Drive) bool {
+	return old.Labels[apiV1.StorageGroupLabelKey] != new.Labels[apiV1.StorageGroupLabelKey]
 }
 
 // Reconcile reconciles StorageGroup custom resources
@@ -65,7 +98,11 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// customize logging
 	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": name})
 
-	// obtain corresponding storage group
+	drive := &drivecrd.Drive{}
+	if err := c.client.ReadCR(ctx, name, "", drive); err == nil {
+		return c.syncDriveStorageGroupLabel(ctx, drive)
+	}
+
 	storageGroup := &sgcrd.StorageGroup{}
 	if err := c.client.ReadCR(ctx, name, "", storageGroup); err != nil {
 		log.Warningf("Failed to read StorageGroup %s", name)
@@ -94,6 +131,28 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return c.handleStorageGroupCreation(ctx, log, storageGroup)
 	}
 
+	return ctrl.Result{}, nil
+}
+
+func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
+	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
+	log.Debugf("Sync storage group label of drive: %v", drive)
+
+	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
+	if err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+	// TODO *handle the case that drive.Labels[apiV1.StorageGroupLabelKey] exists with value ""
+	if ac.Labels[apiV1.StorageGroupLabelKey] != drive.Labels[apiV1.StorageGroupLabelKey] {
+		ac.Labels[apiV1.StorageGroupLabelKey] = drive.Labels[apiV1.StorageGroupLabelKey]
+		if ac.Labels[apiV1.StorageGroupLabelKey] == "" {
+			delete(ac.Labels, apiV1.StorageGroupLabelKey)
+		}
+		if err1 := c.client.UpdateCR(ctx, ac); err1 != nil {
+			log.Errorf("failed to sync storage-group label to ac %s with error %s", ac.Name, err.Error())
+			return ctrl.Result{Requeue: true}, err1
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
