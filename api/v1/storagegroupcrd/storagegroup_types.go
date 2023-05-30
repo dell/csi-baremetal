@@ -25,11 +25,11 @@ import (
 
 // StorageGroup is the Schema for the StorageGroups API
 // +kubebuilder:resource:scope=Cluster,shortName={sg,sgs}
-// +kubebuilder:printcolumn:name="DRIVES PER NODE",type="string",JSONPath=".spec.driveSelector.numberDrivesPerNode",description="numberDrivesPerNode of StorageGroup's DriveSelector"
+// +kubebuilder:printcolumn:name="DRIVES_PER_NODE",type="string",JSONPath=".spec.driveSelector.numberDrivesPerNode",description="numberDrivesPerNode of StorageGroup's DriveSelector"
 // +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.driveSelector.matchFields.Type",description="Drive Type of StorageGroup's DriveSelector"
 // +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.driveSelector.matchFields.Slot",description="Drive Slot of StorageGroup's DriveSelector"
-// +kubebuilder:printcolumn:name="BAY",type="string",JSONPath=".spec.driveSelector.matchFields.Bay",description="Drive Bay of StorageGroup's DriveSelector"
 // +kubebuilder:printcolumn:name="PATH",type="string",JSONPath=".spec.driveSelector.matchFields.Path",description="Drive Path of StorageGroup's DriveSelector"
+// +kubebuilder:printcolumn:name="SYSTEM",type="string",JSONPath=".spec.driveSelector.matchFields.IsSystem",description="Whether StorageGroup's DriveSelector to Select System Drive"
 type StorageGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
