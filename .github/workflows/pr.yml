@@ -104,7 +104,7 @@ jobs:
 
     - name: Generate CRD
       run: |
-        make install-controller-gen
+        make generate-baremetal-crds
         make generate-deepcopy
 
     - name: Verify Changed files
@@ -116,11 +116,30 @@ jobs:
            api/v1/*/*.go
            '.(go)$'
            
-    - name: Display changed files
-      if: steps.changed_files.outputs.files_changed == 'true'
+    - name: Display types.pb.go
       run: |
-        echo "Changed files: ${{ steps.changed_files.outputs.changed_files }}"
-        
+        cat api/generated/v1/types.pb.go
+
+    - name: Display zz_generated.deepcopy.go
+      run: |
+        cat api/v1/acreservationcrd/zz_generated.deepcopy.go
+        cat api/v1/availablecapacitycrd/zz_generated.deepcopy.go
+        cat api/v1/drivecrd/zz_generated.deepcopy.go
+        cat api/v1/lvgcrd/zz_generated.deepcopy.go
+        cat api/v1/nodecrd/zz_generated.deepcopy.go
+        cat api/v1/storagegroupcrd/zz_generated.deepcopy.go
+        cat api/v1/volumecrd/zz_generated.deepcopy.go
+
+    - name: Display CRDs
+      run: |
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_availablecapacities.yaml
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_availablecapacityreservations.yaml
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_drives.yaml
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_logicalvolumegroups.yaml
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_nodes.yaml
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_storagegroups.yaml
+        cat ../csi-baremetal-operator/charts/csi-baremetal-operator/crds/csi-baremetal.dell.com_volumes.yaml
+
     - name: Perform action when files change.
       if: steps.changed_files.outputs.files_changed == 'true'
       run: |
