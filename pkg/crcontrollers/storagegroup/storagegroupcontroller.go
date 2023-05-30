@@ -229,7 +229,7 @@ func (c *Controller) isMatchFieldsValid(log *logrus.Entry, matchFields *map[stri
 	for fieldName, fieldValue := range *matchFields {
 		driveField := reflect.ValueOf(&api.Drive{}).Elem().FieldByName(fieldName)
 		if !driveField.IsValid() {
-			log.Warnf("No Field %s in Drive.spec", fieldName)
+			log.Warnf("Invalid field %s in driveSelector.matchFields!", fieldName)
 			return false
 		}
 		switch driveField.Type().String() {
@@ -316,5 +316,6 @@ func (c *Controller) addStorageGroupLabel(ctx context.Context, log *logrus.Entry
 		log.Errorf("failed to add storage-group label to ac %s with error %s", ac.Name, err.Error())
 		return err1
 	}
+	log.Debugf("Successfully add label of storagegroup %s to drive %s", sg.Name, drive.Name)
 	return nil
 }
