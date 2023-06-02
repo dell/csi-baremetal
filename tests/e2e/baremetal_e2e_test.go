@@ -21,8 +21,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2"
+	//"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/test/e2e/framework"
 
@@ -59,8 +59,9 @@ func Test(t *testing.T) {
 	flag.Parse()
 	framework.AfterReadingAllFlags(&framework.TestContext)
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	junitReporter := reporters.NewJUnitReporter("reports/report.xml")
-	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "CSI Suite", []ginkgo.Reporter{junitReporter})
+	//junitReporter := reporters.NewJUnitReporter("reports/report.xml")
+	//ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "CSI Suite", []ginkgo.Reporter{junitReporter})
+	ginkgo.RunSpecs(t, "CSI Suite")
 }
 
 func main() {
