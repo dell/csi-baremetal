@@ -1,0 +1,24 @@
+diff -Naur kind-0.17.0/pkg/cluster/internal/providers/docker/provision.go kind-0.17.0-patched/pkg/cluster/internal/providers/docker/provision.go
+--- kind-0.17.0/pkg/cluster/internal/providers/docker/provision.go	2022-10-26 23:41:56.000000000 +0800
++++ kind-0.17.0-patched/pkg/cluster/internal/providers/docker/provision.go	2023-05-11 14:21:36.132692234 +0800
+@@ -226,6 +226,8 @@
+ 		"--volume", "/var",
+ 		// some k8s things want to read /lib/modules
+ 		"--volume", "/lib/modules:/lib/modules:ro",
++		// ipc host
++		"--ipc", "host",
+ 		// propagate KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER to the entrypoint script
+ 		"-e", "KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER",
+ 	},
+diff -Naur kind-0.17.0/pkg/cmd/kind/version/version.go kind-0.17.0-patched/pkg/cmd/kind/version/version.go
+--- kind-0.17.0/pkg/cmd/kind/version/version.go	2023-05-11 13:55:02.026388670 +0800
++++ kind-0.17.0-patched/pkg/cmd/kind/version/version.go	2023-05-11 14:22:09.436823934 +0800
+@@ -54,7 +54,7 @@
+ }
+ 
+ // versionCore is the core portion of the kind CLI version per Semantic Versioning 2.0.0
+-const versionCore = "0.17.0"
++const versionCore = "0.17.0-patched"
+ 
+ // versionPreRelease is the base pre-release portion of the kind CLI version per
+ // Semantic Versioning 2.0.0

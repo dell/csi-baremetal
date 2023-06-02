@@ -6,6 +6,8 @@ ADD     extender  extender
 
 ADD     health_probe    health_probe
 
+RUN apk update; apk upgrade
+
 RUN addgroup -S bmcsi && adduser -S bmcsi -u 1000 -G bmcsi
 
 USER 1000
