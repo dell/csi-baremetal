@@ -252,7 +252,7 @@ if filesystem is corrupted, whether there are bad blocks, etc. in this RPC.
       4. Check if target path (VolumePath) is mounted. If mount no found - set abnormal value to true with corresponding message.
       5. Check if volume path (VolumePath) is accessible just by reading dir:
          ```go
-         _, err = ioutil.ReadDir(volumePath)
+         _, err = os.ReadDir(volumePath)
          if err != nil {
              ...
          }

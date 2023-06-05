@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -111,7 +110,7 @@ func (e *ExtenderHealthServer) Watch(*grpc_health_v1.HealthCheckRequest, grpc_he
 func (y *yamlReaderImpl) getStatuses() (*common.ReadinessStatusList, error) {
 	readinessStatuses := &common.ReadinessStatusList{}
 
-	yamlFile, err := ioutil.ReadFile(y.statusFilePath)
+	yamlFile, err := os.ReadFile(y.statusFilePath)
 	if err != nil {
 		return nil, err
 	}

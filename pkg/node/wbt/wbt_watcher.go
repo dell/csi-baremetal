@@ -2,7 +2,6 @@ package wbt
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -65,7 +64,7 @@ func (w *ConfWatcher) StartWatch(cns *node.CSINodeService) {
 
 func (w *ConfWatcher) readConfig() (*common.WbtConfig, error) {
 	kernels := &common.AcceptableKernelsConfig{}
-	kernelsFile, err := ioutil.ReadFile(kernelsPath)
+	kernelsFile, err := os.ReadFile(kernelsPath)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +74,7 @@ func (w *ConfWatcher) readConfig() (*common.WbtConfig, error) {
 	}
 
 	conf := &common.WbtConfig{}
-	confFile, err := ioutil.ReadFile(confPath)
+	confFile, err := os.ReadFile(confPath)
 	if err != nil {
 		return nil, err
 	}
