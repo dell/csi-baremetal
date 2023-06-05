@@ -173,6 +173,17 @@ func (c *Controller) addACStorageGroupLabel(ctx context.Context, log *logrus.Ent
 	return nil
 }
 
+func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
+	log := c.log.WithFields(logrus.Fields{"method": "syncDriveOnAllStorageGroups", "name": drive.Name})
+
+	sgList := &sgcrd.StorageGroupList{}
+	if err := c.client.ReadList(ctx, sgList); err != nil {
+		log.Errorf("failed to read storage group list: %v", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	return ctrl.Result{}, nil
+}
+
 func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
 
@@ -197,7 +208,7 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		return ctrl.Result{}, nil
 	}
 
-	log.Debugf("Sync storage group label of drive %s", drive.Name)
+	log.Debugf("Handle manual change of storage group label of drive %s", drive.Name)
 
 	switch {
 	// add new storagegroup label to drive
