@@ -140,6 +140,10 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	// handle drive labeled or not
+	if err := c.handleDriveLableUpdate(ctx, log, drive); err != nil {
+		log.Warnf("handle drive %s label update event failure: %s", drive.Name, err.Error())
+	}
 	// handle offline/online drive status
 	if err := c.handleDriveStatus(ctx, drive); err != nil {
 		return ignore, err
@@ -453,5 +457,55 @@ func (c *Controller) removeRelatedAC(ctx context.Context, log *logrus.Entry, cur
 		return err
 	}
 
+	return nil
+}
+
+// handle drive lable update
+func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) error {
+	var taintLabelExisted bool
+	labels := drive.GetLabels()
+	// if drive is taint and labeled, need to update related ac label
+	if effect, ok := labels[apiV1.DriveTaintKey]; ok && effect == apiV1.DriveTaintValue {
+		taintLabelExisted = true
+	}
+
+	// get ac location for lvg/non-lvg case
+	// lvg ac: lvg location
+	// non-lvg ac:  drive name
+	location := drive.GetName()
+	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
+	if err != nil {
+		log.Infof("LVG for drive %s is not found: %s", drive.GetName(), err.Error())
+	} else if lvg != nil {
+		location = lvg.GetName()
+	}
+	// sync label to related ac with the drive
+	ac, err := c.crHelper.GetACByLocation(location)
+	if err != nil && err != errTypes.ErrorNotFound {
+		log.Errorf("Failed to get AC for Drive %s: %s", drive.GetName(), err.Error())
+		return err
+	}
+	if err == errTypes.ErrorNotFound {
+		log.Warnf("AC for Drive %s is not found", drive.GetName())
+		return nil
+	}
+
+	acLabels := ac.GetLabels()
+	if acLabels == nil {
+		// label is not existed on CR, just create it and attach to CR
+		acLabels = map[string]string{}
+		ac.Labels = acLabels
+	}
+	if taintLabelExisted {
+		acLabels[apiV1.DriveTaintKey] = apiV1.DriveTaintValue
+	} else {
+		delete(acLabels, apiV1.DriveTaintKey)
+	}
+
+	if err = c.client.UpdateCR(ctx, ac); err != nil {
+		log.Errorf("Failed to update AC %s labels related to drive %s: %s", ac.GetName(), drive.GetName(), err.Error())
+		return err
+	}
+	log.Infof("Update AC %s labels to related drive %s successful", ac.GetName(), drive.GetName())
 	return nil
 }

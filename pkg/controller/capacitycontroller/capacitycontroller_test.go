@@ -65,7 +65,8 @@ var (
 			APIVersion: apiV1.APIV1Version,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: drive1UUID,
+			Name:   drive1UUID,
+			Labels: map[string]string{apiV1.DriveTaintKey: apiV1.DriveTaintValue},
 		},
 		Spec: apiDrive1,
 	}
@@ -103,6 +104,7 @@ var (
 		ObjectMeta: v1.ObjectMeta{
 			Name:      acCRName,
 			Namespace: ns,
+			Labels:    map[string]string{},
 		},
 		Spec: acSpec,
 	}
@@ -336,6 +338,10 @@ func TestController_ReconcileDrive(t *testing.T) {
 			assert.Equal(t, len(testData.expectedResult.acList.Items), len(acList.Items))
 			for i := 0; i < len(acList.Items); i++ {
 				assert.Equal(t, testData.expectedResult.acList.Items[i].Spec, acList.Items[i].Spec)
+				labels := acList.Items[i].GetLabels()
+				value, ok := labels[apiV1.DriveTaintKey]
+				assert.Equal(t, true, ok)
+				assert.Equal(t, apiV1.DriveTaintValue, value)
 			}
 		})
 	}
@@ -405,8 +411,20 @@ func TestController_ReconcileLVG(t *testing.T) {
 		testLVG.Spec.Health = apiV1.HealthBad
 		err = kubeClient.Create(tCtx, &testLVG)
 		assert.Nil(t, err)
+		testDrive := drive1CR
+		err = kubeClient.Create(tCtx, &testDrive)
+		assert.Nil(t, err)
 		_, err = controller.Reconcile(tCtx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: testLVG.Name}})
 		assert.Nil(t, err)
+		acList := &accrd.AvailableCapacityList{}
+		err = kubeClient.ReadList(tCtx, acList)
+		assert.Nil(t, err)
+		for i := 0; i < len(acList.Items); i++ {
+			labels := acList.Items[i].GetLabels()
+			value, ok := labels[apiV1.DriveTaintKey]
+			assert.Equal(t, true, ok)
+			assert.Equal(t, apiV1.DriveTaintValue, value)
+		}
 	})
 	t.Run("LVG is bad, AC is present", func(t *testing.T) {
 		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
@@ -449,6 +467,10 @@ func TestController_ReconcileLVG(t *testing.T) {
 		assert.Equal(t, 1, len(acList.Items))
 		assert.Equal(t, int64(util.GBYTE), acList.Items[0].Spec.Size)
 		assert.Equal(t, apiV1.StorageClassSystemLVG, acList.Items[0].Spec.StorageClass)
+		labels := acList.Items[0].GetLabels()
+		value, ok := labels[apiV1.DriveTaintKey]
+		assert.Equal(t, true, ok)
+		assert.Equal(t, apiV1.DriveTaintValue, value)
 	})
 }
 func TestController_ReconcileResourcesNotFound(t *testing.T) {
@@ -562,5 +584,52 @@ func TestController_filterUpdateEvent_LVG(t *testing.T) {
 		testLVG2.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: "10000"}
 		testLVG.Annotations = map[string]string{apiV1.LVGFreeSpaceAnnotation: "5000"}
 		assert.True(t, controller.filterUpdateEvent(&testLVG, &testLVG2))
+	})
+}
+
+func TestController_createOrUpdateLVGCapacity(t *testing.T) {
+	t.Run("ReadCR failure", func(t *testing.T) {
+		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+		assert.Nil(t, err)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+		assert.NotNil(t, controller)
+		testAC := acCR1
+		err = kubeClient.Create(tCtx, &testAC)
+		assert.Nil(t, err)
+		testLVG := lvgCR1
+		err = kubeClient.Create(tCtx, &testLVG)
+		assert.Nil(t, err)
+		err = controller.createOrUpdateLVGCapacity(k8s.GetFailCtx, &testLVG, testLVG.Spec.Size)
+		assert.Nil(t, err)
+	})
+
+	t.Run("UpdateCR failure", func(t *testing.T) {
+		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+		assert.Nil(t, err)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+		assert.NotNil(t, controller)
+		testAC := acCR1
+		err = kubeClient.Create(tCtx, &testAC)
+		assert.Nil(t, err)
+		testLVG := lvgCR1
+		err = kubeClient.Create(tCtx, &testLVG)
+		assert.Nil(t, err)
+		err = controller.createOrUpdateLVGCapacity(k8s.UpdateFailCtx, &testLVG, testLVG.Spec.Size)
+		assert.NotNil(t, err)
+	})
+}
+func TestController_createOrUpdateCapacity(t *testing.T) {
+	t.Run("UpdateCR failure", func(t *testing.T) {
+		kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+		assert.Nil(t, err)
+		controller := NewCapacityController(kubeClient, kubeClient, testLogger)
+		assert.NotNil(t, controller)
+		testDrive := drive1CR.DeepCopy()
+		err = kubeClient.Create(tCtx, testDrive)
+		testAC := acCR
+		err = kubeClient.Create(tCtx, &testAC)
+		assert.Nil(t, err)
+		_, err = controller.createOrUpdateCapacity(k8s.UpdateFailCtx, testDrive)
+		assert.NotNil(t, err)
 	})
 }

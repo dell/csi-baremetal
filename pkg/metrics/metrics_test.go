@@ -30,4 +30,26 @@ func TestMetrics(t *testing.T) {
 	})
 	rVM := vm.Collect()
 	assert.Equal(t, vm.OperationsDuration, rVM)
+
+	vm2 := NewMetricsWithCustomLabels(prometheus.GaugeOpts{
+		Name: "test",
+		Help: "test",
+	}, "source", "pod_name")
+	rVM2 := vm2.Collect()
+	assert.Equal(t, vm2.GaugeVec, rVM2)
+
+	assert.NotNil(t, vm2.EvaluateDurationWithLabel(prometheus.Labels{"pod_name": "test_pod"}))
+	assert.NotNil(t, vm2.EvaluateDurationForMethod("testMethod", prometheus.Labels{"pod_name": "test_pod"}))
+	assert.NotNil(t, vm2.EvaluateDurationForType("testType", prometheus.Labels{"pod_name": "test_pod"}))
+	assert.NotPanics(t, func() { vm2.UpdateValue(10.0, prometheus.Labels{"pod_name": "test_pod"}, false, prometheus.Labels{}) })
+	assert.NotPanics(t, func() { vm2.Clear(prometheus.Labels{"pod_name": "test_pod"}) })
+
+	vm3 := NewCounterWithCustomLabels(prometheus.CounterOpts{
+		Name: "test counter",
+		Help: "test counter",
+	}, "source", "pod_name")
+	rVM3 := vm3.Collect()
+	assert.Equal(t, vm3.CounterVec, rVM3)
+	assert.NotPanics(t, func() { vm3.Add(prometheus.Labels{"pod_name": "test_pod"}) })
+	assert.NotPanics(t, func() { vm3.Clear(prometheus.Labels{"pod_name": "test_pod"}) })
 }

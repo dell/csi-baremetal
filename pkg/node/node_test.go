@@ -19,12 +19,13 @@ package node
 import (
 	"errors"
 	"fmt"
-	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
-	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	"path"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 	"time"
+
+	baseerr "github.com/dell/csi-baremetal/pkg/base/error"
+	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	. "github.com/onsi/ginkgo"
@@ -84,7 +85,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 	Context("NodePublish() success", func() {
 		It("Should publish volume", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			req.VolumeContext[util.PodNameKey] = testPodName
+			req.VolumeContext[util.PodNameKey] = testPod1Name
 
 			fsOps.On("PrepareAndPerformMount",
 				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
@@ -98,7 +99,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			volumeCR := &vcrd.Volume{}
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
-			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
+			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
 
 			// publish again such volume
 			resp, err = node.NodePublishVolume(testCtx, req)
@@ -346,6 +347,10 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 	})
 
 	Context("NodeUnPublish() success", func() {
+		BeforeEach(func() {
+			addPods(node.k8sClient, testPod1.DeepCopy(), testPod2.DeepCopy())
+		})
+
 		It("Should unpublish volume and change volume CR status", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath)
 			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
@@ -360,24 +365,56 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 			Expect(volumeCR.Spec.Owners).To(BeNil())
 		})
-		//It("Should unpublish volume and don't change volume CR status", func() {
-		//	req := getNodeUnpublishRequest(testV1ID, targetPath)
-		//	vol1 := testVolumeCR1
-		//	vol1.Spec.Owners = []string{"pod-1", "pod-2"}
-		//	vol1.Spec.CSIStatus = apiV1.Published
-		//	err := node.k8sClient.UpdateCR(testCtx, &vol1)
-		//	Expect(err).To(BeNil())
-		//	fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
-		//
-		//	resp, err := node.NodeUnpublishVolume(testCtx, req)
-		//	Expect(resp).NotTo(BeNil())
-		//	Expect(err).To(BeNil())
-		//	// check volume CR status
-		//	volumeCR := &vcrd.Volume{}
-		//	err = node.k8sClient.ReadCR(testCtx, testV1ID, volumeCR)
-		//	Expect(err).To(BeNil())
-		//	Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
-		//})
+		It("Should unpublish volume and don't change volume CR status", func() {
+			req := getNodeUnpublishRequest(testV1ID, targetPath1)
+			volumeCR := &vcrd.Volume{}
+			err := node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			volumeCR.Spec.Owners = []string{"pod-1", "pod-2"}
+			volumeCR.Spec.CSIStatus = apiV1.Published
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
+
+			resp, err := node.NodeUnpublishVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+			// check volume CR status
+			volumeCR = &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
+		})
+
+		It("Should unpublish volume and change volume CR status to ready after all workloads done", func() {
+			req1 := getNodeUnpublishRequest(testV1ID, targetPath1)
+			req2 := getNodeUnpublishRequest(testV1ID, targetPath2)
+			volumeCR := &vcrd.Volume{}
+			err := node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			volumeCR.Spec.Owners = []string{"pod-1", "pod-2"}
+			volumeCR.Spec.CSIStatus = apiV1.Published
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+			fsOps.On("UnmountWithCheck", req1.GetTargetPath()).Return(nil)
+			fsOps.On("UnmountWithCheck", req2.GetTargetPath()).Return(nil)
+
+			// first workload removed
+			resp, err := node.NodeUnpublishVolume(testCtx, req1)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
+			// second workload removed
+			resp, err = node.NodeUnpublishVolume(testCtx, req2)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
+			// check volume CR status
+			volumeCR = &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		})
 
 	})
 
@@ -427,6 +464,25 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			_, err := node.NodeUnpublishVolume(k8s.UpdateFailCtx, req)
 			Expect(err).NotTo(BeNil())
 			Expect(status.Code(err)).To(Equal(codes.Internal))
+		})
+
+		It("Should failed, because volume owner pod wasn't found", func() {
+			req := getNodeUnpublishRequest(testV1ID, targetPath1)
+			volumeCR := &vcrd.Volume{}
+			err := node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			volumeCR.Spec.Owners = []string{"pod-1"}
+			volumeCR.Spec.CSIStatus = apiV1.Published
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+
+			fsOps.On("UnmountWithCheck", req.GetTargetPath()).Return(nil)
+
+			_, err = node.NodeUnpublishVolume(testCtx, req)
+			Expect(err).To(BeNil())
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
 	})
 })
@@ -680,7 +736,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 	})
 	It("Should publish unhealthy volume with fake-attach annotation", func() {
 		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-		req.VolumeContext[util.PodNameKey] = testPodName
+		req.VolumeContext[util.PodNameKey] = testPod1Name
 
 		vol1 := &vcrd.Volume{}
 		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
@@ -701,7 +757,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		volumeCR := &vcrd.Volume{}
 		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 		Expect(err).To(BeNil())
-		Expect(volumeCR.Spec.Owners[0]).To(Equal(testPodName))
+		Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
 	})
 	It("Should stage healthy volume with fake-attach annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
@@ -1022,6 +1078,14 @@ func newNodeService() *CSINodeService {
 func addVolumeCRs(k8sClient *k8s.KubeClient, volumes ...*vcrd.Volume) {
 	for _, v := range volumes {
 		if err := k8sClient.CreateCR(context.Background(), v.Name, v); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func addPods(k8sClient *k8s.KubeClient, pods ...*corev1.Pod) {
+	for _, pod := range pods {
+		if err := k8sClient.CreateCR(context.Background(), pod.Name, pod); err != nil {
 			panic(err)
 		}
 	}
