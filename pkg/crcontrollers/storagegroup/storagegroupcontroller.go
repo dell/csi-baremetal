@@ -61,10 +61,6 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{}).
 		Watches(&source.Kind{Type: &drivecrd.Drive{}}, &handler.EnqueueRequestForObject{}).
 		WithEventFilter(predicate.Funcs{
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				_, ok := e.Object.(*sgcrd.StorageGroup)
-				return ok
-			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				return c.filterUpdateEvent(e.ObjectOld, e.ObjectNew)
 			},
