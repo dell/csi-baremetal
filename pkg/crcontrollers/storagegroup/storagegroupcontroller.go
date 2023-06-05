@@ -75,7 +75,8 @@ func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 		ok       bool
 	)
 	if oldDrive, ok = old.(*drivecrd.Drive); !ok {
-		return false
+		// TODO need to restrict storage group update event handling
+		return true
 	}
 	if newDrive, ok = new.(*drivecrd.Drive); ok {
 		return filterDrive(oldDrive, newDrive)
