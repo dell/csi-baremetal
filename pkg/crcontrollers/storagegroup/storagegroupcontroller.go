@@ -504,16 +504,6 @@ func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGro
 	return c.isMatchFieldsValid(log, &sg.Spec.DriveSelector.MatchFields)
 }
 
-func (c *Controller) updateStorageGroupStatus(ctx context.Context, log *logrus.Entry, sg *sgcrd.StorageGroup,
-	status string) (ctrl.Result, error) {
-	sg.Annotations[sgTempStatusAnnotationKey] = status
-	if err := c.client.UpdateCR(ctx, sg); err != nil {
-		log.Errorf("Unable to update StorageGroup status, error: %v.", err)
-		return ctrl.Result{Requeue: true}, err
-	}
-	return ctrl.Result{}, nil
-}
-
 func (c *Controller) removeDriveAndACStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
 	sg *sgcrd.StorageGroup) error {
 	log.Debugf("Remove storagegroup label from drive %s", drive.Name)
