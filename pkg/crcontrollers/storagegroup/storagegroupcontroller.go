@@ -380,7 +380,6 @@ func (c *Controller) removeFinalizer(ctx context.Context, log *logrus.Entry,
 
 func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus.Entry,
 	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
-
 	drivesList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, drivesList); err != nil {
 		log.Errorf("failed to read drives list: %s", err.Error())
