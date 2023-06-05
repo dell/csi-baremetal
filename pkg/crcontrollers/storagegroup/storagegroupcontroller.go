@@ -127,7 +127,25 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	sgStatus, ok := storageGroup.Annotations[sgTempStatusAnnotationKey]
-	if !ok || sgStatus == apiV1.Creating {
+	if !ok {
+		if !c.isStorageGroupValid(log, storageGroup) {
+			storageGroup.Annotations[sgTempStatusAnnotationKey] = apiV1.Failed
+			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+				log.Errorf("Unable to update StorageGroup status, error: %v.", err)
+				return ctrl.Result{Requeue: true}, err
+			}
+			return ctrl.Result{}, nil
+		}
+		// Pass storage group valiation, change to CREATING status
+		sgStatus = apiV1.Creating
+		storageGroup.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to update StorageGroup status, error: %v.", err)
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
+
+	if sgStatus == apiV1.Creating {
 		return c.handleStorageGroupCreation(ctx, log, storageGroup)
 	}
 
@@ -320,9 +338,7 @@ func (c *Controller) removeFinalizer(ctx context.Context, log *logrus.Entry,
 
 func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus.Entry,
 	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
-	if !c.isStorageGroupValid(log, sg) {
-		return c.updateStorageGroupStatus(ctx, log, sg, apiV1.Created)
-	}
+
 	drivesList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, drivesList); err != nil {
 		log.Errorf("failed to read drives list: %s", err.Error())
@@ -384,7 +400,12 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
 	if labelingNoError {
-		return c.updateStorageGroupStatus(ctx, log, sg, apiV1.Created)
+		sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Created
+		if err := c.client.UpdateCR(ctx, sg); err != nil {
+			log.Errorf("Unable to update StorageGroup status, error: %v.", err)
+			return ctrl.Result{Requeue: true}, err
+		}
+		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{Requeue: true}, fmt.Errorf("error in adding storage-group label")
 }
