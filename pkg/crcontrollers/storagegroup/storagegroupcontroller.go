@@ -234,8 +234,8 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 			return ctrl.Result{Requeue: true}, err
 		}
 		if len(volumes) > 0 {
-			log.Warnf("We can't remove existing storage group %s label from drive %s with existing volumes",
-				driveSGLabel, drive.Name)
+			log.Warnf("We can't remove storage group %s label from drive %s with existing volumes",
+				acSGLabel, drive.Name)
 			if err := c.addDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
@@ -247,7 +247,7 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		switch {
 		case err == nil && isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields):
 			log.Warnf("We can't remove storage group %s label from drive %s still selected by this storage group",
-				driveSGLabel, drive.Name)
+				acSGLabel, drive.Name)
 			if err := c.addDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
