@@ -19,7 +19,7 @@ package util
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -30,7 +30,7 @@ import (
 // Receives absolute path to the file as filename, amount of retries to read and timeout of the operation
 // Returns read file or error in case if there were not twice same read content
 func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, error) {
-	oldContent, err := ioutil.ReadFile(filename)
+	oldContent, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, 
 	ticker := time.NewTicker(timeout)
 	for i := 0; i < retry; i++ {
 		<-ticker.C
-		newContent, err := ioutil.ReadFile(filename)
+		newContent, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, err
 		}
