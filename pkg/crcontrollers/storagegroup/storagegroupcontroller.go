@@ -220,7 +220,8 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 			}
 		}
 
-		if sgStatus != apiV1.Failed && isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
+		if sgStatus != apiV1.Failed && sg.Spec.DriveSelector.NumberDrivesPerNode == 0 &&
+			isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
 			log.Infof("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
 			if err := c.addDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
 				return ctrl.Result{Requeue: true}, err
@@ -317,7 +318,8 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		sg := &sgcrd.StorageGroup{}
 		err = c.client.ReadCR(ctx, acSGLabel, "", sg)
 		switch {
-		case err == nil && isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields):
+		case err == nil && sg.Spec.DriveSelector.NumberDrivesPerNode == 0 &&
+			isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields):
 			log.Warnf("We can't remove storage group %s label from drive %s still selected by this storage group",
 				acSGLabel, drive.Name)
 			if err := c.addDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
