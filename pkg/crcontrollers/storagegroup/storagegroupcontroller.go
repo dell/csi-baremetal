@@ -126,6 +126,9 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
+	if storageGroup.Annotations == nil {
+		storageGroup.Annotations = map[string]string{}
+	}
 	sgStatus, ok := storageGroup.Annotations[sgTempStatusAnnotationKey]
 	if !ok {
 		if !c.isStorageGroupValid(log, storageGroup) {
