@@ -241,6 +241,7 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
 
+	log.Debugf("Handle storage group label of drive %s", drive.Name)
 	location := drive.Name
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil {
