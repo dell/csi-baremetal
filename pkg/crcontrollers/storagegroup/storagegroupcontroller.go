@@ -202,8 +202,8 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 		log.Errorf("failed to read storage group list: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
-	for _, sg := range sgList.Items {
-		sg := sg
+	for _, storageGroup := range sgList.Items {
+		sg := storageGroup
 		sgStatus, ok := sg.Annotations[sgTempStatusAnnotationKey]
 		if !ok {
 			if !c.isStorageGroupValid(log, &sg) {
@@ -223,16 +223,24 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 			}
 		}
 
-		if sgStatus != apiV1.Failed && sg.Spec.DriveSelector.NumberDrivesPerNode == 0 &&
-			isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
-			log.Infof("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
-			if err := c.addDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
-				return ctrl.Result{Requeue: true}, err
+		if sgStatus != apiV1.Failed && isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
+			if sg.Spec.DriveSelector.NumberDrivesPerNode == 0 {
+				log.Infof("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
+				if err := c.addDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
+					return ctrl.Result{Requeue: true}, err
+				}
+				if err := c.addACStorageGroupLabel(ctx, log, ac, sg.Name); err != nil {
+					return ctrl.Result{Requeue: true}, err
+				}
+				return ctrl.Result{}, nil
+			} else {
+				// trigger the subsequent reconcilation of the potentially-matched storage group
+				sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
+				if err := c.client.UpdateCR(ctx, &sg); err != nil {
+					log.Errorf("Unable to update StorageGroup status, error: %v.", err)
+					return ctrl.Result{Requeue: true}, err
+				}
 			}
-			if err := c.addACStorageGroupLabel(ctx, log, ac, sg.Name); err != nil {
-				return ctrl.Result{Requeue: true}, err
-			}
-			return ctrl.Result{}, nil
 		}
 	}
 	return ctrl.Result{}, nil
@@ -272,6 +280,7 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		return ctrl.Result{}, nil
 	}
 
+	// Current manual sg labeling support
 	log.Debugf("Handle manual change of storage group label of drive %s", drive.Name)
 
 	switch {
