@@ -402,54 +402,75 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	noDriveSelected := true
 	drivesCount := map[string]int32{}
 	driveSelector := sg.Spec.DriveSelector
-	for _, drive := range drivesList.Items {
-		drive := drive
-		if isDriveSelectedByValidMatchFields(&drive.Spec, &driveSelector.MatchFields) &&
-			(driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
-			existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
-			if !exists || (exists && existingStorageGroup == sg.Name) {
+
+	// used for candidate drives to be selected by storagegroup with numberDrivesPerNode > 0
+	var candidateDrives []*drivecrd.Drive
+	for _, d := range drivesList.Items {
+		drive := d
+		existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
+		if exists {
+			if existingStorageGroup == sg.Name {
+				log.Infof("Drive %s has already been selected by current storage group", drive.Name)
+				noDriveSelected = false
 				if driveSelector.NumberDrivesPerNode > 0 {
 					drivesCount[drive.Spec.NodeId]++
-				}
-				if exists {
-					log.Infof("Drive %s has already been selected by current storage group", drive.Name)
-					noDriveSelected = false
-				} else {
-					// TODO refactor to reduce cognitive complexity
-					if lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID); err != nil || lvg != nil {
-						if err != nil {
-							log.Errorf("Error when getting LVG by drive %s: %s", drive.Name, err.Error())
-							labelingNoError = false
-						} else {
-							log.Warnf("Drive %s has existing LVG and can't be selected by current storage group.",
-								drive.Name)
-						}
-						continue
-					}
-
-					if volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID); err != nil || len(volumes) > 0 {
-						if err != nil {
-							log.Errorf("Error when getting volumes on drive %s: %s", drive.Name, err.Error())
-							labelingNoError = false
-						} else {
-							log.Warnf("Drive %s has existing volumes and can't be selected by current storage group.",
-								drive.Name)
-						}
-						continue
-					}
-
-					if err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
-						log.Errorf("Error in adding storage-group label to drive %s: %s", drive.Name, err.Error())
-						labelingNoError = false
-					}
-					noDriveSelected = false
 				}
 			} else {
 				log.Warnf("Drive %s has already been selected by storage group %s "+
 					"and can't be selected by current storage group", drive.Name, existingStorageGroup)
 			}
+			continue
+		}
+
+		if isDriveSelectedByValidMatchFields(&drive.Spec, &driveSelector.MatchFields) &&
+			(driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
+			// TODO refactor to reduce cognitive complexity
+			if lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID); err != nil || lvg != nil {
+				if err != nil {
+					log.Errorf("Error when getting LVG by drive %s: %s", drive.Name, err.Error())
+					labelingNoError = false
+				} else {
+					log.Warnf("Drive %s has existing LVG and can't be selected by current storage group.",
+						drive.Name)
+				}
+				continue
+			}
+
+			if volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID); err != nil || len(volumes) > 0 {
+				if err != nil {
+					log.Errorf("Error when getting volumes on drive %s: %s", drive.Name, err.Error())
+					labelingNoError = false
+				} else {
+					log.Warnf("Drive %s has existing volumes and can't be selected by current storage group.",
+						drive.Name)
+				}
+				continue
+			}
+
+			if driveSelector.NumberDrivesPerNode == 0 {
+				if err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
+					log.Errorf("Error in adding storage-group label to drive %s: %s", drive.Name, err.Error())
+					labelingNoError = false
+				}
+				noDriveSelected = false
+			} else {
+				candidateDrives = append(candidateDrives, &drive)
+			}
 		}
 	}
+
+	for _, d := range candidateDrives {
+		drive := d
+		if drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode {
+			if err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg); err != nil {
+				log.Errorf("Error in adding storage-group label to drive %s: %s", drive.Name, err.Error())
+				labelingNoError = false
+			}
+			noDriveSelected = false
+			drivesCount[drive.Spec.NodeId]++
+		}
+	}
+
 	if noDriveSelected {
 		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
