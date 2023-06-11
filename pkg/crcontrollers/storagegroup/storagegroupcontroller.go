@@ -329,8 +329,7 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		sg := &sgcrd.StorageGroup{}
 		err = c.client.ReadCR(ctx, acSGLabel, "", sg)
 		switch {
-		case err == nil && sg.Spec.DriveSelector.NumberDrivesPerNode == 0 &&
-			isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields):
+		case err == nil && isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields):
 			log.Warnf("We can't remove storage group %s label from drive %s still selected by this storage group",
 				acSGLabel, drive.Name)
 			if err := c.addDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
@@ -350,7 +349,7 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 			}
 		}
 
-		// restore the update of storagegroup label of drive
+		// TODO restore the update of storagegroup label of drive
 	}
 
 	return ctrl.Result{}, nil
