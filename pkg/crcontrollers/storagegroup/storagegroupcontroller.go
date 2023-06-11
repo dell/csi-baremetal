@@ -235,7 +235,7 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 				return ctrl.Result{}, nil
 			}
 
-			log.Debugf("drive %s will probably be selected by storagegroup %s", sg.Name, drive.Name)
+			log.Debugf("drive %s will probably be selected by storagegroup %s", drive.Name, sg.Name)
 			if sg.Annotations[sgTempStatusAnnotationKey] != apiV1.Creating {
 				// trigger the subsequent reconciliation of the potentially-matched storage group
 				sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
