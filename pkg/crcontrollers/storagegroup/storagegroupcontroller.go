@@ -234,11 +234,15 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 				}
 				return ctrl.Result{}, nil
 			}
-			// trigger the subsequent reconciliation of the potentially-matched storage group
-			sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
-			if err := c.client.UpdateCR(ctx, &sg); err != nil {
-				log.Errorf("Unable to update StorageGroup status, error: %v.", err)
-				return ctrl.Result{Requeue: true}, err
+
+			log.Debugf("drive %s will probably be selected by storagegroup %s", sg.Name, drive.Name)
+			if sg.Annotations[sgTempStatusAnnotationKey] != apiV1.Creating {
+				// trigger the subsequent reconciliation of the potentially-matched storage group
+				sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
+				if err := c.client.UpdateCR(ctx, &sg); err != nil {
+					log.Errorf("Unable to update StorageGroup status, error: %v.", err)
+					return ctrl.Result{Requeue: true}, err
+				}
 			}
 		}
 	}
