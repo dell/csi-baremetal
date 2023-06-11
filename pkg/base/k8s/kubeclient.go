@@ -228,7 +228,7 @@ func (k *KubeClient) ConstructACRCR(name string, apiACR api.AvailableCapacityRes
 // ConstructLVGCR constructs LogicalVolumeGroup custom resource from api.LogicalVolumeGroup struct
 // Receives a name for k8s ObjectMeta and an instance of api.LogicalVolumeGroup struct
 // Returns an instance of LogicalVolumeGroup CR struct
-func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup, storageGroup string) *lvgcrd.LogicalVolumeGroup {
+func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LogicalVolumeGroup {
 	return &lvgcrd.LogicalVolumeGroup{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.LVGKind,
@@ -236,7 +236,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup, 
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:   name,
-			Labels: constructLVGCRLabels(storageGroup),
+			Labels: constructDefaultAppMap(),
 		},
 		Spec: apiLVG,
 	}
@@ -425,12 +425,4 @@ func constructDefaultAppMap() (labels map[string]string) {
 		AppLabelShortKey: AppLabelValue,
 	}
 	return
-}
-
-func constructLVGCRLabels(storageGroup string) (labels map[string]string) {
-	labels = constructDefaultAppMap()
-	if storageGroup != "" {
-		labels[crdV1.StorageGroupLabelKey] = storageGroup
-	}
-	return labels
 }

@@ -913,7 +913,7 @@ func (m *VolumeManager) discoverLVGOnSystemDrive() error {
 			VolumeRefs: lvs,
 			Health:     apiV1.HealthGood,
 		}
-		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg, "")
+		vgCR = m.k8sClient.ConstructLVGCR(vgCRName, vg)
 		ctx  = context.WithValue(context.Background(), base.RequestUUID, vg.Name)
 	)
 	m.updateLVGAnnotation(vgCR, vgFreeSpace)
