@@ -232,6 +232,8 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 				if err := c.addACStorageGroupLabel(ctx, log, ac, sg.Name); err != nil {
 					return ctrl.Result{Requeue: true}, err
 				}
+				log.Infof("Successfully add label of storagegroup %s to drive %s and its corresponding AC",
+					sg.Name, drive.Name)
 				return ctrl.Result{}, nil
 			}
 
@@ -582,6 +584,6 @@ func (c *Controller) addDriveAndACStorageGroupLabel(ctx context.Context, log *lo
 	if err = c.addACStorageGroupLabel(ctx, log, ac, sg.Name); err != nil {
 		return err
 	}
-	log.Debugf("Successfully add label of storagegroup %s to drive %s and its corresponding AC", sg.Name, drive.Name)
+	log.Infof("Successfully add label of storagegroup %s to drive %s and its corresponding AC", sg.Name, drive.Name)
 	return nil
 }
