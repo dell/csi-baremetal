@@ -415,14 +415,11 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 		existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
 		if exists {
 			if existingStorageGroup == sg.Name {
-				log.Infof("Drive %s has already been selected by current storage group", drive.Name)
+				log.Debugf("Drive %s has already been selected by current storage group", drive.Name)
 				noDriveSelected = false
 				if driveSelector.NumberDrivesPerNode > 0 {
 					drivesCount[drive.Spec.NodeId]++
 				}
-			} else {
-				log.Warnf("Drive %s has already been selected by storage group %s "+
-					"and can't be selected by current storage group", drive.Name, existingStorageGroup)
 			}
 			continue
 		}
