@@ -411,7 +411,8 @@ func PrepareScheme() (*runtime.Scheme, error) {
 	}
 
 	// register csi storagegroup crd
-	if err := sgcrd.AddToSchemeStorageGroup(scheme); err != nil {
+	err := sgcrd.AddToSchemeStorageGroup(scheme)
+	if err != nil {
 		return nil, err
 	}
 
