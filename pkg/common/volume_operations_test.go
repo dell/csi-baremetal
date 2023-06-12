@@ -74,9 +74,11 @@ func Test_getPersistentVolumeClaimLabels(t *testing.T) {
 	var (
 		appName     = "my-app"
 		releaseName = "my-release"
+		sgName      = "my-group"
 		pvcLabels   = map[string]string{
-			k8s.AppLabelKey:     appName,
-			k8s.ReleaseLabelKey: releaseName,
+			k8s.AppLabelKey:            appName,
+			k8s.ReleaseLabelKey:        releaseName,
+			apiV1.StorageGroupLabelKey: sgName,
 		}
 		pvc = &v1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: namespace,
 			Labels: pvcLabels}}
@@ -91,6 +93,7 @@ func Test_getPersistentVolumeClaimLabels(t *testing.T) {
 	assert.Equal(t, labels[k8s.AppLabelKey], appName)
 	assert.Equal(t, labels[k8s.AppLabelShortKey], appName)
 	assert.Equal(t, labels[k8s.ReleaseLabelKey], releaseName)
+	assert.Equal(t, labels[apiV1.StorageGroupLabelKey], sgName)
 }
 
 func TestVolumeOperationsImpl_CreateVolume_VolumeExists(t *testing.T) {

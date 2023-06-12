@@ -670,7 +670,7 @@ func (vo *VolumeOperationsImpl) fillCache() {
 	}
 }
 
-// VolumeOperationsImpl returns PVC labels: release, app.kubernetes.io/name and adds short app label
+// VolumeOperationsImpl returns PVC labels: release, app.kubernetes.io/name, storagegroup and adds short app label
 func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Context, pvcName, pvcNamespace string) (
 	map[string]string, error) {
 	ll := vo.log.WithFields(logrus.Fields{
@@ -686,7 +686,7 @@ func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Conte
 		return nil, err
 	}
 
-	// need to get release and app labels only
+	// need to get release, app and storagegroup labels
 	labels := map[string]string{}
 	if value, ok := pvc.GetLabels()[k8s.ReleaseLabelKey]; ok {
 		labels[k8s.ReleaseLabelKey] = value
