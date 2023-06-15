@@ -17,7 +17,7 @@ limitations under the License.
 package idracmgr
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -76,7 +76,7 @@ func Test_doRequest(t *testing.T) {
 	response, err := idracManager.doRequest(server.URL)
 	assert.NotNil(t, response)
 	assert.Nil(t, err)
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, "OK", string(body))
 	assert.Equal(t, response.StatusCode, 200)

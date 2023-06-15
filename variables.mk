@@ -83,8 +83,8 @@ LDFLAGS := -ldflags "-X ${METRICS_PACKAGE}.Revision=${RELEASE_STR} -X ${METRICS_
 KIND_BUILD_DIR		:= ${PWD}/devkit/kind
 KIND_CONFIG_DIR		:= tests/kind
 KIND				:= ${KIND_BUILD_DIR}/kind
-KIND_CONFIG			:= kind.yaml
-KIND_IMAGE_VERSION	:= v1.19.11
+KIND_CONFIG			:= small-kind.yaml
+KIND_IMAGE_VERSION	:= v1.25.3
 KIND_WAIT			:= 30s
 
 ### ci vars

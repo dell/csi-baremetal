@@ -18,7 +18,6 @@ package loopbackmgr
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -104,7 +103,7 @@ func TestLoopBackManager_UpdateDevicesFromSetConfig(t *testing.T) {
 	testConfigPath := "/tmp/config.yaml"
 
 	config := []byte("defaultDrivePerNodeCount: 3")
-	err := ioutil.WriteFile(testConfigPath, config, 0777)
+	err := os.WriteFile(testConfigPath, config, 0777)
 	assert.Nil(t, err)
 	defer func() {
 		_ = os.Remove(testConfigPath)
@@ -121,7 +120,7 @@ func TestLoopBackManager_UpdateDevicesFromSetConfig(t *testing.T) {
 		fmt.Sprintf("  driveCount: %d\n", 5) +
 		"  drives:\n" +
 		fmt.Sprintf("  - serialNumber: %s\n", testSN))
-	err = ioutil.WriteFile(testConfigPath, config, 0777)
+	err = os.WriteFile(testConfigPath, config, 0777)
 	assert.Nil(t, err)
 
 	manager.readAndSetConfig(testConfigPath)
@@ -146,7 +145,7 @@ func TestLoopBackManager_updateDevicesFromSetConfigWithSize(t *testing.T) {
 
 	config := []byte("defaultDriveSize: 30Mi \ndefaultDrivePerNodeCount: 3")
 	testConfigPath := "/tmp/config.yaml"
-	err := ioutil.WriteFile(testConfigPath, config, 0777)
+	err := os.WriteFile(testConfigPath, config, 0777)
 	assert.Nil(t, err)
 
 	defer func() {
@@ -180,7 +179,7 @@ func TestLoopBackManager_overrideDevicesFromSetConfigWithSize(t *testing.T) {
 		"  drives:\n" +
 		fmt.Sprintf("  - serialNumber: %s\n", testSN) +
 		fmt.Sprintf("    size: %s\n", "40Mi"))
-	err := ioutil.WriteFile(testConfigPath, config, 0777)
+	err := os.WriteFile(testConfigPath, config, 0777)
 	assert.Nil(t, err)
 
 	defer func() {
@@ -202,7 +201,7 @@ func TestLoopBackManager_overrideDevicesFromSetConfigWithSize(t *testing.T) {
 		fmt.Sprintf("  driveCount: %d\n", 5) +
 		"  drives:\n" +
 		fmt.Sprintf("  - serialNumber: %s\n", testSN))
-	err = ioutil.WriteFile(testConfigPath, config, 0777)
+	err = os.WriteFile(testConfigPath, config, 0777)
 	assert.Nil(t, err)
 
 	for _, device := range manager.devices {

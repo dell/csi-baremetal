@@ -19,7 +19,6 @@ package loopbackmgr
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -138,7 +137,7 @@ func (mgr *LoopBackManager) attemptToRecoverDevices(imagesPath string) {
 	mgr.Lock()
 	defer mgr.Unlock()
 
-	entries, err := ioutil.ReadDir(imagesPath)
+	entries, err := os.ReadDir(imagesPath)
 	if err != nil {
 		ll.Errorf("failed to read images folder: %v", err)
 		return
@@ -236,7 +235,7 @@ func (d *LoopBackDevice) fillEmptyFieldsWithDefaults() {
 func (mgr *LoopBackManager) readAndSetConfig(path string) {
 	ll := mgr.log.WithField("method", "readAndSetConfig")
 
-	configData, err := ioutil.ReadFile(path)
+	configData, err := os.ReadFile(path)
 	if err != nil {
 		ll.Debugf("failed to read config file %s: %v", configData, err)
 	} else {
