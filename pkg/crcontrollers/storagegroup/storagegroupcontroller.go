@@ -101,11 +101,13 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	drive := &drivecrd.Drive{}
 	if err := c.client.ReadCR(ctx, name, "", drive); err == nil {
 		return c.syncDriveStorageGroupLabel(ctx, drive)
+	} else if !k8serrors.IsNotFound(err) {
+		log.Errorf("error in reading %s as drive object: %v", name, err)
 	}
 
 	storageGroup := &sgcrd.StorageGroup{}
 	if err := c.client.ReadCR(ctx, name, "", storageGroup); err != nil {
-		log.Warningf("Failed to read StorageGroup %s", name)
+		log.Warnf("Failed to read StorageGroup %s with error: %v", name, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -149,7 +151,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if sgStatus == apiV1.Creating {
-		return c.handleStorageGroupCreation(ctx, log, storageGroup)
+		return c.handleStorageGroupCreationOrUpdate(ctx, log, storageGroup)
 	}
 
 	return ctrl.Result{}, nil
@@ -176,6 +178,9 @@ func (c *Controller) removeDriveStorageGroupLabel(ctx context.Context, log *logr
 
 func (c *Controller) addDriveStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
 	sgName string) error {
+	if drive.Labels == nil {
+		drive.Labels = map[string]string{}
+	}
 	drive.Labels[apiV1.StorageGroupLabelKey] = sgName
 	if err1 := c.client.UpdateCR(ctx, drive); err1 != nil {
 		log.Errorf("failed to add storage group %s label to drive %s with error %s", sgName, drive.Name, err1.Error())
@@ -186,6 +191,9 @@ func (c *Controller) addDriveStorageGroupLabel(ctx context.Context, log *logrus.
 
 func (c *Controller) addACStorageGroupLabel(ctx context.Context, log *logrus.Entry, ac *accrd.AvailableCapacity,
 	sgName string) error {
+	if ac.Labels == nil {
+		ac.Labels = map[string]string{}
+	}
 	ac.Labels[apiV1.StorageGroupLabelKey] = sgName
 	if err1 := c.client.UpdateCR(ctx, ac); err1 != nil {
 		log.Errorf("failed to add storage group %s label to ac %s with error %s", sgName, ac.Name, err1.Error())
@@ -223,7 +231,7 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 			}
 		}
 
-		if sgStatus != apiV1.Failed && isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
+		if sgStatus != apiV1.Failed && c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
 			if sg.Spec.DriveSelector.NumberDrivesPerNode == 0 {
 				log.Infof("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
 				if err := c.addDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
@@ -335,7 +343,7 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		sg := &sgcrd.StorageGroup{}
 		err = c.client.ReadCR(ctx, acSGLabel, "", sg)
 		switch {
-		case err == nil && isDriveSelectedByValidMatchFields(&drive.Spec, &sg.Spec.DriveSelector.MatchFields):
+		case err == nil && c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields):
 			log.Warnf("We can't remove storage group %s label from drive %s still selected by this storage group",
 				acSGLabel, drive.Name)
 			if err := c.addDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
@@ -396,7 +404,7 @@ func (c *Controller) removeFinalizer(ctx context.Context, log *logrus.Entry,
 	return ctrl.Result{}, nil
 }
 
-func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus.Entry,
+func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log *logrus.Entry,
 	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
 	drivesList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, drivesList); err != nil {
@@ -424,7 +432,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 			continue
 		}
 
-		if isDriveSelectedByValidMatchFields(&drive.Spec, &driveSelector.MatchFields) &&
+		if c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &driveSelector.MatchFields) &&
 			(driveSelector.NumberDrivesPerNode == 0 || drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode) {
 			if driveSelector.NumberDrivesPerNode > 0 {
 				candidateDrives = append(candidateDrives, &drive)
@@ -465,7 +473,7 @@ func (c *Controller) handleStorageGroupCreation(ctx context.Context, log *logrus
 	return ctrl.Result{Requeue: true}, fmt.Errorf("error in adding storage-group label")
 }
 
-func isDriveSelectedByValidMatchFields(drive *api.Drive, matchFields *map[string]string) bool {
+func (c *Controller) isDriveSelectedByValidMatchFields(log *logrus.Entry, drive *api.Drive, matchFields *map[string]string) bool {
 	for fieldName, fieldValue := range *matchFields {
 		driveField := reflect.ValueOf(drive).Elem().FieldByName(fieldName)
 		switch driveField.Type().String() {
@@ -483,6 +491,11 @@ func isDriveSelectedByValidMatchFields(drive *api.Drive, matchFields *map[string
 			if driveField.Bool() != fieldValueBool {
 				return false
 			}
+		default:
+			// the case of unexpected field type of the field which may be added to drive CR in the future
+			log.Warnf("unexpected field type %s for field %s with value %s in matchFields",
+				driveField.Type().String(), fieldName, fieldValue)
+			return false
 		}
 	}
 	return true
@@ -507,6 +520,11 @@ func (c *Controller) isMatchFieldsValid(log *logrus.Entry, matchFields *map[stri
 				log.Warnf("Invalid field value %s for field %s", fieldValue, fieldName)
 				return false
 			}
+		default:
+			// the case of unexpected field type of the field which may be added to drive CR in the future
+			log.Warnf("unexpected field type %s for field %s with value %s in matchFields",
+				driveField.Type().String(), fieldName, fieldValue)
+			return false
 		}
 	}
 	return true
