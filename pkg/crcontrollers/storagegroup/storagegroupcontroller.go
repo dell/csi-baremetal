@@ -74,18 +74,27 @@ func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 		newDrive *drivecrd.Drive
 		ok       bool
 	)
-	if oldDrive, ok = old.(*drivecrd.Drive); !ok {
-		// TODO need to restrict storage group update event handling
-		return true
-	}
+
 	if newDrive, ok = new.(*drivecrd.Drive); ok {
-		return filterDrive(oldDrive, newDrive)
+		if oldDrive, ok = old.(*drivecrd.Drive); ok {
+			return filterDriveUpdateEvent(oldDrive, newDrive)
+		}
 	}
-	return false
+	return true
 }
 
-func filterDrive(old *drivecrd.Drive, new *drivecrd.Drive) bool {
-	return old.Labels[apiV1.StorageGroupLabelKey] != new.Labels[apiV1.StorageGroupLabelKey]
+func filterDriveUpdateEvent(old *drivecrd.Drive, new *drivecrd.Drive) bool {
+	var (
+		oldSGLabel string
+		newSGLabel string
+	)
+	if old.Labels != nil {
+		oldSGLabel = old.Labels[apiV1.StorageGroupLabelKey]
+	}
+	if new.Labels != nil {
+		newSGLabel = new.Labels[apiV1.StorageGroupLabelKey]
+	}
+	return oldSGLabel != newSGLabel
 }
 
 // Reconcile reconciles StorageGroup custom resources
@@ -277,8 +286,19 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	acSGLabel, acSGLabeled := ac.Labels[apiV1.StorageGroupLabelKey]
-	driveSGLabel, driveSGLabeled := drive.Labels[apiV1.StorageGroupLabelKey]
+	var (
+		acSGLabel      string
+		acSGLabeled    bool
+		driveSGLabel   string
+		driveSGLabeled bool
+	)
+	if ac.Labels != nil {
+		acSGLabel, acSGLabeled = ac.Labels[apiV1.StorageGroupLabelKey]
+	}
+	if drive.Labels != nil {
+		driveSGLabel, driveSGLabeled = drive.Labels[apiV1.StorageGroupLabelKey]
+	}
+
 	if acSGLabel == driveSGLabel {
 		if !acSGLabeled && !driveSGLabeled && lvg == nil {
 			volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
