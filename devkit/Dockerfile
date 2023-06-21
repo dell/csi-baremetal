@@ -10,7 +10,7 @@ RUN           apt update \
 &&            /kind/kind-build.sh /kind
 
 
-FROM opensuse/leap:latest
+FROM opensuse/leap:15.4
 
 ARG           arg_docker_ver
 ARG           arg_go_ver
