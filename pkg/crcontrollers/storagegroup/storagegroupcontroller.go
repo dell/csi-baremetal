@@ -268,6 +268,36 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 	return ctrl.Result{}, nil
 }
 
+func (c *Controller) handleManualDriveStorageGroupLabelAddition(ctx context.Context, log *logrus.Entry,
+	drive *drivecrd.Drive, ac *accrd.AvailableCapacity, driveSGLabel string, lvgExists bool) (ctrl.Result, error) {
+	if lvgExists {
+		log.Warnf("We can't add storage group label to drive %s with existing LVG", drive.Name)
+		if err := c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+	if err != nil {
+		log.Errorf("Error when getting volumes on drive %s: %s", drive.Name, err.Error())
+		return ctrl.Result{Requeue: true}, err
+	}
+	if len(volumes) > 0 {
+		log.Warnf("We can't add storage group label to drive %s with existing volumes", drive.Name)
+		if err := c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	log.Debugf("Also add storage-group %s label to AC %s corresponding to drive %s", driveSGLabel, ac.Name, drive.Name)
+	if err = c.addACStorageGroupLabel(ctx, log, ac, driveSGLabel); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+	return ctrl.Result{}, nil
+}
+
 func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
 
@@ -286,9 +316,10 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	var acSGLabel, driveSGLabel string
-	var acSGLabeled, driveSGLabeled bool
-
+	var (
+		acSGLabel, driveSGLabel     string
+		acSGLabeled, driveSGLabeled bool
+	)
 	if ac.Labels != nil {
 		acSGLabel, acSGLabeled = ac.Labels[apiV1.StorageGroupLabelKey]
 	}
@@ -316,30 +347,7 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 	switch {
 	// add new storagegroup label to drive
 	case !acSGLabeled && driveSGLabeled:
-		if lvg != nil {
-			log.Warnf("We can't add storage group label to drive %s with existing LVG", drive.Name)
-			if err := c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
-				return ctrl.Result{Requeue: true}, err
-			}
-			return ctrl.Result{}, nil
-		}
-
-		volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
-		if err != nil {
-			log.Errorf("Error when getting volumes on drive %s: %s", drive.Name, err.Error())
-			return ctrl.Result{Requeue: true}, err
-		}
-		if len(volumes) > 0 {
-			log.Warnf("We can't add storage group label to drive %s with existing volumes", drive.Name)
-			if err := c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
-				return ctrl.Result{Requeue: true}, err
-			}
-			return ctrl.Result{}, nil
-		}
-		log.Debugf("Also add storage-group %s label to AC %s corresponding to drive %s", driveSGLabel, ac.Name, drive.Name)
-		if err = c.addACStorageGroupLabel(ctx, log, ac, driveSGLabel); err != nil {
-			return ctrl.Result{Requeue: true}, err
-		}
+		return c.handleManualDriveStorageGroupLabelAddition(ctx, log, drive, ac, driveSGLabel, lvg != nil)
 
 	// remove storagegroup label from drive
 	case acSGLabeled && !driveSGLabeled:
