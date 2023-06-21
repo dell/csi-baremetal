@@ -286,12 +286,9 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	var (
-		acSGLabel      string
-		acSGLabeled    bool
-		driveSGLabel   string
-		driveSGLabeled bool
-	)
+	var acSGLabel, driveSGLabel string
+	var acSGLabeled, driveSGLabeled bool
+
 	if ac.Labels != nil {
 		acSGLabel, acSGLabeled = ac.Labels[apiV1.StorageGroupLabelKey]
 	}
