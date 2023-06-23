@@ -201,8 +201,7 @@ func (k *KubeClient) ConstructACCR(name string, apiAC api.AvailableCapacity) *ac
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:   name,
-			Labels: constructDefaultAppMap(),
+			Name: name,
 		},
 		Spec: apiAC,
 	}
@@ -271,8 +270,7 @@ func (k *KubeClient) ConstructDriveCR(name string, apiDrive api.Drive) *drivecrd
 			APIVersion: crdV1.APIV1Version,
 		},
 		ObjectMeta: apisV1.ObjectMeta{
-			Name:   name,
-			Labels: constructDefaultAppMap(),
+			Name: name,
 		},
 		Spec: apiDrive,
 	}
