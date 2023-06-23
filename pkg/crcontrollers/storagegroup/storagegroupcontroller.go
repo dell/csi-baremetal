@@ -316,17 +316,8 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	var (
-		acSGLabel, driveSGLabel     string
-		acSGLabeled, driveSGLabeled bool
-	)
-	if ac.Labels != nil {
-		acSGLabel, acSGLabeled = ac.Labels[apiV1.StorageGroupLabelKey]
-	}
-	if drive.Labels != nil {
-		driveSGLabel, driveSGLabeled = drive.Labels[apiV1.StorageGroupLabelKey]
-	}
-
+	acSGLabel, acSGLabeled := ac.Labels[apiV1.StorageGroupLabelKey]
+	driveSGLabel, driveSGLabeled := drive.Labels[apiV1.StorageGroupLabelKey]
 	if acSGLabel == driveSGLabel {
 		if !acSGLabeled && !driveSGLabeled && lvg == nil {
 			volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
