@@ -312,7 +312,6 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 	}
 
 	ac, err := c.cachedCrHelper.GetACByLocation(location)
-	log.Errorf("Error when getting ac by location %s: %s", location, err.Error())
 	log.Errorf("Error when getting ac by location %s: %v", location, err)
 	if err != nil {
 		return ctrl.Result{Requeue: true}, err
