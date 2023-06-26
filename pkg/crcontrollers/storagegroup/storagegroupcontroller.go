@@ -301,6 +301,7 @@ func (c *Controller) handleManualDriveStorageGroupLabelAddition(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
+// Here, we will sync the storage-group label of the drive object if applicable
 func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
 
