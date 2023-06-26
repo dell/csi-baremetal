@@ -402,17 +402,15 @@ func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus
 	}
 
 	var labelRemovalErrMsgs []string
-	removalNoError := true
 	for _, drive := range drivesList.Items {
 		drive := drive
 		if drive.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
 			if err := c.removeDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
 				labelRemovalErrMsgs = append(labelRemovalErrMsgs, err.Error())
-				removalNoError = false
 			}
 		}
 	}
-	if !removalNoError {
+	if len(labelRemovalErrMsgs) > 0 {
 		return ctrl.Result{Requeue: true}, fmt.Errorf(strings.Join(labelRemovalErrMsgs, "\n"))
 	}
 	return c.removeFinalizer(ctx, log, sg)
@@ -437,7 +435,6 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 		log.Errorf("failed to read drives list: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
-	labelingNoError := true
 	noDriveSelected := true
 	drivesCount := map[string]int32{}
 	driveSelector := sg.Spec.DriveSelector
@@ -468,7 +465,6 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 			}
 
 			if err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
-				labelingNoError = false
 				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
 			noDriveSelected = false
@@ -479,7 +475,6 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 		drive := d
 		if drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode {
 			if err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg); err != nil {
-				labelingNoError = false
 				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
 			noDriveSelected = false
@@ -490,7 +485,7 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 	if noDriveSelected {
 		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
-	if labelingNoError {
+	if len(labelingErrMsgs) == 0 {
 		sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Created
 		if err := c.client.UpdateCR(ctx, sg); err != nil {
 			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
