@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -399,17 +400,20 @@ func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus
 		log.Errorf("failed to read drives list: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
+
+	var labelRemovalErrMsgs []string
 	removalNoError := true
 	for _, drive := range drivesList.Items {
 		drive := drive
 		if drive.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
 			if err := c.removeDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
+				labelRemovalErrMsgs = append(labelRemovalErrMsgs, err.Error())
 				removalNoError = false
 			}
 		}
 	}
 	if !removalNoError {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("error in removing storage-group label")
+		return ctrl.Result{Requeue: true}, fmt.Errorf(strings.Join(labelRemovalErrMsgs, "\n"))
 	}
 	return c.removeFinalizer(ctx, log, sg)
 }
@@ -438,6 +442,8 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 	drivesCount := map[string]int32{}
 	driveSelector := sg.Spec.DriveSelector
 
+	var labelingErrMsgs []string
+
 	// used for candidate drives to be selected by storagegroup with numberDrivesPerNode > 0
 	var candidateDrives []*drivecrd.Drive
 	for _, d := range drivesList.Items {
@@ -463,6 +469,7 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 
 			if err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
 				labelingNoError = false
+				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
 			noDriveSelected = false
 		}
@@ -473,6 +480,7 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 		if drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode {
 			if err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg); err != nil {
 				labelingNoError = false
+				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
 			noDriveSelected = false
 			drivesCount[drive.Spec.NodeId]++
@@ -490,7 +498,7 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 		}
 		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{Requeue: true}, fmt.Errorf("error in adding storage-group label")
+	return ctrl.Result{Requeue: true}, fmt.Errorf(strings.Join(labelingErrMsgs, "\n"))
 }
 
 func (c *Controller) isDriveSelectedByValidMatchFields(log *logrus.Entry, drive *api.Drive, matchFields *map[string]string) bool {
