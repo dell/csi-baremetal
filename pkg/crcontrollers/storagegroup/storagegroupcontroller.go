@@ -71,14 +71,8 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) bool {
-	var (
-		oldDrive *drivecrd.Drive
-		newDrive *drivecrd.Drive
-		ok       bool
-	)
-
-	if newDrive, ok = new.(*drivecrd.Drive); ok {
-		if oldDrive, ok = old.(*drivecrd.Drive); ok {
+	if newDrive, ok := new.(*drivecrd.Drive); ok {
+		if oldDrive, ok := old.(*drivecrd.Drive); ok {
 			return filterDriveUpdateEvent(oldDrive, newDrive)
 		}
 	}
@@ -86,17 +80,8 @@ func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 }
 
 func filterDriveUpdateEvent(old *drivecrd.Drive, new *drivecrd.Drive) bool {
-	var (
-		oldSGLabel string
-		newSGLabel string
-	)
-	if old.Labels != nil {
-		oldSGLabel = old.Labels[apiV1.StorageGroupLabelKey]
-	}
-	if new.Labels != nil {
-		newSGLabel = new.Labels[apiV1.StorageGroupLabelKey]
-	}
-	return oldSGLabel != newSGLabel
+	return old.Labels[apiV1.StorageGroupLabelKey] != new.Labels[apiV1.StorageGroupLabelKey] ||
+		(new.Spec.Status == apiV1.DriveStatusOffline && new.Spec.Usage == apiV1.DriveUsageRemoved)
 }
 
 // Reconcile reconciles StorageGroup custom resources
