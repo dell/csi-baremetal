@@ -45,6 +45,7 @@ const (
 	testID             = "someID"
 	testNode1Name      = "node1"
 	testDriveLocation1 = "drive"
+	testStorageGroup   = "test-group"
 )
 
 var (
@@ -496,13 +497,25 @@ var _ = Describe("Constructor methods", func() {
 	})
 	Context("ConstructLVGCR", func() {
 		It("Should return right LogicalVolumeGroup CR", func() {
-			constructedCR := k8sclient.ConstructLVGCR(testLVGName, testApiLVG)
+			constructedCR := k8sclient.ConstructLVGCR(testLVGName, "", testApiLVG)
 			Expect(constructedCR.TypeMeta.Kind).To(Equal(testLVGCR.TypeMeta.Kind))
 			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testLVGCR.TypeMeta.APIVersion))
 			Expect(constructedCR.ObjectMeta.Name).To(Equal(testLVGCR.ObjectMeta.Name))
 			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testLVGCR.ObjectMeta.Namespace))
 			Expect(constructedCR.Spec).To(Equal(testLVGCR.Spec))
 			Expect(constructedCR.Labels).To(Equal(constructDefaultAppMap()))
+		})
+	})
+	Context("ConstructLVGCR with storage group", func() {
+		It("Should return right LogicalVolumeGroup CR with storage group", func() {
+			constructedCR := k8sclient.ConstructLVGCR(testLVGName, testStorageGroup, testApiLVG)
+			Expect(constructedCR.TypeMeta.Kind).To(Equal(testLVGCR.TypeMeta.Kind))
+			Expect(constructedCR.TypeMeta.APIVersion).To(Equal(testLVGCR.TypeMeta.APIVersion))
+			Expect(constructedCR.ObjectMeta.Name).To(Equal(testLVGCR.ObjectMeta.Name))
+			Expect(constructedCR.ObjectMeta.Namespace).To(Equal(testLVGCR.ObjectMeta.Namespace))
+			Expect(constructedCR.Labels[apiV1.StorageGroupLabelKey]).To(Equal(testStorageGroup))
+			Expect(constructedCR.Spec).To(Equal(testLVGCR.Spec))
+			Expect(constructedCR.Labels).To(Equal(constructLVGCRLabels(testStorageGroup)))
 		})
 	})
 })
