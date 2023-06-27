@@ -39,6 +39,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
+	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	checkErr "github.com/dell/csi-baremetal/pkg/base/error"
@@ -227,7 +228,7 @@ func (k *KubeClient) ConstructACRCR(name string, apiACR api.AvailableCapacityRes
 // ConstructLVGCR constructs LogicalVolumeGroup custom resource from api.LogicalVolumeGroup struct
 // Receives a name for k8s ObjectMeta and an instance of api.LogicalVolumeGroup struct
 // Returns an instance of LogicalVolumeGroup CR struct
-func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LogicalVolumeGroup {
+func (k *KubeClient) ConstructLVGCR(name, storageGroup string, apiLVG api.LogicalVolumeGroup) *lvgcrd.LogicalVolumeGroup {
 	return &lvgcrd.LogicalVolumeGroup{
 		TypeMeta: apisV1.TypeMeta{
 			Kind:       crdV1.LVGKind,
@@ -235,7 +236,7 @@ func (k *KubeClient) ConstructLVGCR(name string, apiLVG api.LogicalVolumeGroup) 
 		},
 		ObjectMeta: apisV1.ObjectMeta{
 			Name:   name,
-			Labels: constructDefaultAppMap(),
+			Labels: constructLVGCRLabels(storageGroup),
 		},
 		Spec: apiLVG,
 	}
@@ -409,6 +410,12 @@ func PrepareScheme() (*runtime.Scheme, error) {
 		return nil, err
 	}
 
+	// register csi storagegroup crd
+	err := sgcrd.AddToSchemeStorageGroup(scheme)
+	if err != nil {
+		return nil, err
+	}
+
 	return scheme, nil
 }
 
@@ -419,4 +426,12 @@ func constructDefaultAppMap() (labels map[string]string) {
 		AppLabelShortKey: AppLabelValue,
 	}
 	return
+}
+
+func constructLVGCRLabels(storageGroup string) (labels map[string]string) {
+	labels = constructDefaultAppMap()
+	if storageGroup != "" {
+		labels[crdV1.StorageGroupLabelKey] = storageGroup
+	}
+	return labels
 }

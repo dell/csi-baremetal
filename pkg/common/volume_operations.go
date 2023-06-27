@@ -187,7 +187,7 @@ func (vo *VolumeOperationsImpl) handleVolumeCreation(ctx context.Context, log *l
 
 	if ac.Spec.StorageClass != v.StorageClass && util.IsStorageClassLVG(v.StorageClass) {
 		// AC needs to be converted to LogicalVolumeGroup AC, LogicalVolumeGroup doesn't exist yet
-		if ac = vo.acProvider.RecreateACToLVGSC(ctx, v.StorageClass, *ac); ac == nil {
+		if ac = vo.acProvider.RecreateACToLVGSC(ctx, v.StorageClass, ac.Labels[apiV1.StorageGroupLabelKey], *ac); ac == nil {
 			return nil, status.Errorf(codes.Internal,
 				"unable to prepare underlying storage for storage class %s", v.StorageClass)
 		}
@@ -670,7 +670,7 @@ func (vo *VolumeOperationsImpl) fillCache() {
 	}
 }
 
-// VolumeOperationsImpl returns PVC labels: release, app.kubernetes.io/name and adds short app label
+// VolumeOperationsImpl returns PVC labels: release, app.kubernetes.io/name, storagegroup and adds short app label
 func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Context, pvcName, pvcNamespace string) (
 	map[string]string, error) {
 	ll := vo.log.WithFields(logrus.Fields{
@@ -686,7 +686,7 @@ func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Conte
 		return nil, err
 	}
 
-	// need to get release and app labels only
+	// need to get release, app and storagegroup labels
 	labels := map[string]string{}
 	if value, ok := pvc.GetLabels()[k8s.ReleaseLabelKey]; ok {
 		labels[k8s.ReleaseLabelKey] = value
@@ -694,6 +694,9 @@ func (vo *VolumeOperationsImpl) getPersistentVolumeClaimLabels(ctx context.Conte
 	if value, ok := pvc.GetLabels()[k8s.AppLabelKey]; ok {
 		labels[k8s.AppLabelKey] = value
 		labels[k8s.AppLabelShortKey] = value
+	}
+	if value, ok := pvc.GetLabels()[apiV1.StorageGroupLabelKey]; ok {
+		labels[apiV1.StorageGroupLabelKey] = value
 	}
 
 	return labels, nil

@@ -40,6 +40,7 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
@@ -51,6 +52,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/controller"
 	"github.com/dell/csi-baremetal/pkg/controller/capacitycontroller"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/reservation"
+	"github.com/dell/csi-baremetal/pkg/crcontrollers/storagegroup"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 )
 
@@ -168,6 +170,10 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 		return nil, err
 	}
 
+	if err := sgcrd.AddToSchemeStorageGroup(scheme); err != nil {
+		return nil, err
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:    scheme,
 		Namespace: *namespace,
@@ -196,5 +202,11 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 	if err = capacityController.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
+
+	storageGroupController := storagegroup.NewController(client, kubeCache, log)
+	if err = storageGroupController.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
 	return mgr, nil
 }

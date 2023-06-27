@@ -958,7 +958,7 @@ func TestVolumeManager_handleDriveStatusChange(t *testing.T) {
 func Test_discoverLVGOnSystemDrive_LVGAlreadyExists(t *testing.T) {
 	var (
 		m     = prepareSuccessVolumeManager(t)
-		lvgCR = m.k8sClient.ConstructLVGCR("some-name", api.LogicalVolumeGroup{
+		lvgCR = m.k8sClient.ConstructLVGCR("some-name", "", api.LogicalVolumeGroup{
 			Name:      "some-name",
 			Node:      m.nodeID,
 			Locations: []string{"some-uuid"},

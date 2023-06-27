@@ -46,6 +46,7 @@ message Volume {
     string Usage = 13;
     // inline volumes are not support anymore. need to remove field in the next version
     bool Ephemeral = 14;
+    string StorageGroup = 15;
 }
 
 message AvailableCapacity {
@@ -80,6 +81,7 @@ message CapacityRequest {
     string Name = 1;
     string StorageClass = 2;
     int64 Size = 3;
+    string StorageGroup = 4;
 }
 
 message LogicalVolumeGroup {
@@ -96,4 +98,13 @@ message Node {
     string UUID = 1;
     // key - address type, value - address, align with NodeAddress struct from k8s.io/api/core/v1
     map<string, string> Addresses = 2;
+}
+
+message StorageGroupSpec {
+    DriveSelector driveSelector = 1;
+}
+
+message DriveSelector {
+    int32 numberDrivesPerNode = 1;
+    map<string, string> matchFields = 2;
 }
