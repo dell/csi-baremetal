@@ -80,8 +80,7 @@ func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 }
 
 func filterDriveUpdateEvent(old *drivecrd.Drive, new *drivecrd.Drive) bool {
-	return old.Labels[apiV1.StorageGroupLabelKey] != new.Labels[apiV1.StorageGroupLabelKey] ||
-		(new.Spec.Status == apiV1.DriveStatusOffline && new.Spec.Usage == apiV1.DriveUsageRemoved)
+	return old.Labels[apiV1.StorageGroupLabelKey] != new.Labels[apiV1.StorageGroupLabelKey]
 }
 
 // Reconcile reconciles StorageGroup custom resources
