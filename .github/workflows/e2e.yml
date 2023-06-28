@@ -77,7 +77,7 @@ jobs:
         OPERATOR_BRANCH: ${{ steps.operator_branch.outputs.result }}
       with:
         repository: dell/csi-baremetal-operator 
-        ref: 'bugfix-previous-master'
+        ref: ${{ env.OPERATOR_BRANCH }}
         path: ./csi-baremetal-operator 
       continue-on-error: true 
     
