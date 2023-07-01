@@ -26,20 +26,19 @@ import (
 // StorageGroup is the Schema for the StorageGroups API
 // +kubebuilder:resource:scope=Cluster,shortName={sg,sgs}
 // +kubebuilder:printcolumn:name="DRIVES_PER_NODE",type="string",JSONPath=".spec.driveSelector.numberDrivesPerNode",description="numberDrivesPerNode of StorageGroup's DriveSelector"
-// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.driveSelector.matchFields.Type",description="Drive Type of StorageGroup's DriveSelector"
-// +kubebuilder:printcolumn:name="SLOT",type="string",JSONPath=".spec.driveSelector.matchFields.Slot",description="Drive Slot of StorageGroup's DriveSelector"
-// +kubebuilder:printcolumn:name="PATH",type="string",JSONPath=".spec.driveSelector.matchFields.Path",description="Drive Path of StorageGroup's DriveSelector"
-// +kubebuilder:printcolumn:name="SYSTEM",type="string",JSONPath=".spec.driveSelector.matchFields.IsSystem",description="Whether StorageGroup's DriveSelector to Select System Drive"
+// +kubebuilder:printcolumn:name="DRIVE_FIELDS",type="string",JSONPath=".spec.driveSelector.matchFields",description="Match Fields of StorageGroup's DriveSelector to Select Drives on Field Values"
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.phase",description="status of StorageGroup"
 type StorageGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              api.StorageGroupSpec `json:"spec,omitempty"`
+	Spec              api.StorageGroupSpec   `json:"spec,omitempty"`
+	Status            api.StorageGroupStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
 // StorageGroupList contains a list of StorageGroup
-//+kubebuilder:object:generate=true
+// +kubebuilder:object:generate=true
 type StorageGroupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
