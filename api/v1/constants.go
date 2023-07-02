@@ -141,4 +141,10 @@ const (
 
 	// CSI StorageGroup label key
 	StorageGroupLabelKey = "drive.csi-baremetal.dell.com/storage-group"
+
+	// CSI StorageGroup Status
+	StorageGroupPhaseSyncing  = "SYNCING"
+	StorageGroupPhaseSynced   = "SYNCED"
+	StorageGroupPhaseRemoving = "REMOVING"
+	StorageGroupPhaseInvalid  = "INVALID"
 )

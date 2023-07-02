@@ -30,9 +30,8 @@ import (
 )
 
 const (
-	sgFinalizer               = "dell.emc.csi/sg-cleanup"
-	sgTempStatusAnnotationKey = "storagegroup.csi-baremetal.dell.com/status"
-	contextTimeoutSeconds     = 60
+	sgFinalizer           = "dell.emc.csi/sg-cleanup"
+	contextTimeoutSeconds = 60
 )
 
 // Controller to reconcile storagegroup custom resource
@@ -112,6 +111,11 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// StorageGroup Deletion request
 	if !storageGroup.DeletionTimestamp.IsZero() {
+		storageGroup.Status.Phase = apiV1.StorageGroupPhaseRemoving
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
+			return ctrl.Result{Requeue: true}, err
+		}
 		return c.handleStorageGroupDeletion(ctx, log, storageGroup)
 	}
 
@@ -125,29 +129,24 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	if storageGroup.Annotations == nil {
-		storageGroup.Annotations = map[string]string{}
-	}
-	sgStatus, ok := storageGroup.Annotations[sgTempStatusAnnotationKey]
-	if !ok {
+	if storageGroup.Status.Phase == "" {
 		if !c.isStorageGroupValid(log, storageGroup) {
-			storageGroup.Annotations[sgTempStatusAnnotationKey] = apiV1.Failed
+			storageGroup.Status.Phase = apiV1.StorageGroupPhaseInvalid
 			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
 				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
 				return ctrl.Result{Requeue: true}, err
 			}
 			return ctrl.Result{}, nil
 		}
-		// Pass storage group valiation, change to CREATING status
-		sgStatus = apiV1.Creating
-		storageGroup.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
+		// Pass storage group valiation, change to SYNCING status phase
+		storageGroup.Status.Phase = apiV1.StorageGroupPhaseSyncing
 		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
 			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
 			return ctrl.Result{Requeue: true}, err
 		}
 	}
 
-	if sgStatus == apiV1.Creating {
+	if storageGroup.Status.Phase == apiV1.StorageGroupPhaseSyncing {
 		return c.handleStorageGroupCreationOrUpdate(ctx, log, storageGroup)
 	}
 
@@ -209,26 +208,27 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 	}
 	for _, storageGroup := range sgList.Items {
 		sg := storageGroup
-		sgStatus, ok := sg.Annotations[sgTempStatusAnnotationKey]
-		if !ok {
+
+		if sg.Status.Phase == "" && sg.DeletionTimestamp.IsZero() {
 			if !c.isStorageGroupValid(log, &sg) {
-				sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Failed
+				sg.Status.Phase = apiV1.StorageGroupPhaseInvalid
 				if err := c.client.UpdateCR(ctx, &sg); err != nil {
 					log.Errorf("Unable to update StorageGroup status with error: %v", err)
 					return ctrl.Result{Requeue: true}, err
 				}
 				continue
 			}
-			// Pass storage group valiation, change to CREATING status
-			sgStatus = apiV1.Creating
-			sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
+			// Pass storage group valiation, change to SYNCING status phase
+			sg.Status.Phase = apiV1.StorageGroupPhaseSyncing
 			if err := c.client.UpdateCR(ctx, &sg); err != nil {
 				log.Errorf("Unable to update StorageGroup status with error: %v", err)
 				return ctrl.Result{Requeue: true}, err
 			}
 		}
 
-		if sgStatus != apiV1.Failed && c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
+		if (sg.Status.Phase == apiV1.StorageGroupPhaseSynced || (sg.Status.Phase == apiV1.StorageGroupPhaseSyncing &&
+			sg.Spec.DriveSelector.NumberDrivesPerNode == 0)) && c.isDriveSelectedByValidMatchFields(log, &drive.Spec,
+			&sg.Spec.DriveSelector.MatchFields) {
 			if sg.Spec.DriveSelector.NumberDrivesPerNode == 0 {
 				log.Infof("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
 				if err := c.addDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
@@ -243,9 +243,9 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 			}
 
 			log.Debugf("drive %s will probably be selected by storagegroup %s", drive.Name, sg.Name)
-			if sg.Annotations[sgTempStatusAnnotationKey] != apiV1.Creating {
+			if sg.Status.Phase == apiV1.StorageGroupPhaseSynced {
 				// trigger the subsequent reconciliation of the potentially-matched storage group
-				sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
+				sg.Status.Phase = apiV1.StorageGroupPhaseSyncing
 				if err := c.client.UpdateCR(ctx, &sg); err != nil {
 					log.Errorf("Unable to update StorageGroup status with error: %v", err)
 					return ctrl.Result{Requeue: true}, err
@@ -470,7 +470,7 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
 	if len(labelingErrMsgs) == 0 {
-		sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Created
+		sg.Status.Phase = apiV1.StorageGroupPhaseSynced
 		if err := c.client.UpdateCR(ctx, sg); err != nil {
 			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
 			return ctrl.Result{Requeue: true}, err
