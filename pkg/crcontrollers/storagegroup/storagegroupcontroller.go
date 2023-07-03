@@ -93,9 +93,10 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": name})
 
 	drive := &drivecrd.Drive{}
-	if err := c.client.ReadCR(ctx, name, "", drive); err == nil {
+	// A drive whose Usage is REMOVED will not be selected in any storage group and its existing sg label takes no effect
+	if err := c.client.ReadCR(ctx, name, "", drive); err == nil && drive.Spec.Usage != apiV1.DriveUsageRemoved {
 		return c.syncDriveStorageGroupLabel(ctx, drive)
-	} else if !k8serrors.IsNotFound(err) {
+	} else if err != nil && !k8serrors.IsNotFound(err) {
 		log.Errorf("error in reading %s as drive object: %v", name, err)
 	}
 
@@ -427,6 +428,12 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 	var candidateDrives []*drivecrd.Drive
 	for _, d := range drivesList.Items {
 		drive := d
+
+		// A drive whose Usage is REMOVED will not be selected in any storage group and its existing sg label takes no effect
+		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
+			continue
+		}
+
 		existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
 		if exists {
 			if existingStorageGroup == sg.Name {
