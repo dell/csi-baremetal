@@ -9,7 +9,7 @@ on:
 env:
   LATEST_TAG: latest
   REGISTRY: ghcr.io/${{ github.repository }}
-  equeal_with_latest: false
+  equeal_with_latest: true
   docker_version: "1.16.8"
 
 jobs:
