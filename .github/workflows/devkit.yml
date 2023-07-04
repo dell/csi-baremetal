@@ -51,15 +51,3 @@ jobs:
         equeal_with_latest="false"
         [ ${id1} == ${id2} ] &&  equeal_with_latest="true"
         echo "equeal_with_latest=${equeal_with_latest}" >> $GITHUB_ENV      
-          
-    - name: Push devkit
-      working-directory: devkit
-      if: github.event_name == 'push' && env.equeal_with_latest != 'true'
-      run: |
-        # Push current image
-        docker tag ${{ env.LOCAL_IMAGE }} ${{ env.DEST_IMAGE }}
-        docker push ${{ env.DEST_IMAGE }}
-        # Update latest image
-        docker tag ${{ env.DEST_IMAGE }} ${{ env.LATEST_IMAGE }}
-        docker push ${{ env.LATEST_IMAGE }}
-        
