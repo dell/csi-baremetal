@@ -93,8 +93,10 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": name})
 
 	drive := &drivecrd.Drive{}
-	// A drive whose Usage is REMOVED will not be selected in any storage group and its existing sg label takes no effect
-	if err := c.client.ReadCR(ctx, name, "", drive); err == nil && drive.Spec.Usage != apiV1.DriveUsageRemoved {
+	// A drive just physically removed but not yet totally deleted yet, i.e. Usage == "REMOVED" && Status == "OFFLINE"
+	// will not be selected in any storage group and its existing sg label takes no effect
+	if err := c.client.ReadCR(ctx, name, "", drive); err == nil &&
+		!(drive.Spec.Usage == apiV1.DriveUsageRemoved && drive.Spec.Status == apiV1.DriveStatusOffline) {
 		return c.syncDriveStorageGroupLabel(ctx, drive)
 	} else if err != nil && !k8serrors.IsNotFound(err) {
 		log.Errorf("error in reading %s as drive object: %v", name, err)
@@ -429,8 +431,9 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 	for _, d := range drivesList.Items {
 		drive := d
 
-		// A drive whose Usage is REMOVED will not be selected in any storage group and its existing sg label takes no effect
-		if drive.Spec.Usage == apiV1.DriveUsageRemoved {
+		// A drive just physically removed but not yet totally deleted yet, i.e. Usage == "REMOVED" && Status == "OFFLINE"
+		// will not be selected in any storage group and its existing sg label takes no effect
+		if drive.Spec.Usage == apiV1.DriveUsageRemoved && drive.Spec.Status == apiV1.DriveStatusOffline {
 			continue
 		}
 
