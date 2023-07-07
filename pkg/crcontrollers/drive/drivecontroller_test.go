@@ -888,14 +888,14 @@ func TestDriveController_triggerStorageGroupResyncIfApplicable(t *testing.T) {
 	dc := NewController(setup(), nodeID, &mocks.MockDriveMgrClient{}, new(events.Recorder), testLogger)
 	assert.NotNil(t, dc)
 	assert.NotNil(t, dc.crHelper)
-	t.Run("drive with no storage group label", func(t *testing.T) {
+	t.Run("drive has no storage group label", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 
 		err := dc.triggerStorageGroupResyncIfApplicable(testCtx, dc.log, expectedD)
 		assert.Nil(t, err)
 	})
-	t.Run("drive with sg label of non-existing sg", func(t *testing.T) {
+	t.Run("drive has sg label of non-existing sg", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
@@ -903,7 +903,15 @@ func TestDriveController_triggerStorageGroupResyncIfApplicable(t *testing.T) {
 		err := dc.triggerStorageGroupResyncIfApplicable(testCtx, dc.log, expectedD)
 		assert.Nil(t, err)
 	})
-	t.Run("drive with sg label of existing sg", func(t *testing.T) {
+	t.Run("drive has sg label but reading sg fails", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
+
+		err := dc.triggerStorageGroupResyncIfApplicable(k8s.GetFailCtx, dc.log, expectedD)
+		assert.NotNil(t, err)
+	})
+	t.Run("drive has sg label of existing sg", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
@@ -922,6 +930,21 @@ func TestDriveController_triggerStorageGroupResyncIfApplicable(t *testing.T) {
 		assert.NotNil(t, resultSG)
 		assert.Equal(t, resultSG.Status.Phase, apiV1.StorageGroupPhaseSyncing)
 		assert.Equal(t, resultSG.Annotations[expectedD.Name], apiV1.DriveAnnotationRemoval)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedSG))
+	})
+	t.Run("drive has sg label of existing sg but sg status update fails", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
+
+		expectedSG := testSG1.DeepCopy()
+		assert.NotNil(t, expectedSG)
+		err := dc.client.CreateCR(testCtx, expectedSG.Name, expectedSG)
+		assert.Nil(t, err)
+
+		err = dc.triggerStorageGroupResyncIfApplicable(k8s.UpdateFailCtx, dc.log, expectedD)
+		assert.NotNil(t, err)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedSG))
 	})
