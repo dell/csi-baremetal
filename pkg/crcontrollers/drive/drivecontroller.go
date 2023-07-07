@@ -469,9 +469,14 @@ func (c *Controller) triggerStorageGroupResyncIfApplicable(ctx context.Context, 
 	if drive.Labels[apiV1.StorageGroupLabelKey] != "" {
 		storageGroup := &sgcrd.StorageGroup{}
 		err := c.client.ReadCR(ctx, drive.Labels[apiV1.StorageGroupLabelKey], "", storageGroup)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			log.Errorf("error in reading storagegroup %s: %v", drive.Labels[apiV1.StorageGroupLabelKey], err)
-			return err
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				log.Warnf("no existing storage group %s", drive.Labels[apiV1.StorageGroupLabelKey])
+				return nil
+			} else {
+				log.Errorf("error in reading storagegroup %s: %v", drive.Labels[apiV1.StorageGroupLabelKey], err)
+				return err
+			}
 		}
 
 		if storageGroup.Spec.DriveSelector.NumberDrivesPerNode > 0 {
