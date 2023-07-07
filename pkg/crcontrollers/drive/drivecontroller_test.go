@@ -22,6 +22,7 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	dcrd "github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
+	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
@@ -46,6 +47,7 @@ var (
 	acCR2Name          = uuid.New().String()
 	aclvgCR2Name       = uuid.New().String()
 	lvgCRName          = uuid.New().String()
+	testSG1Name        = "test-hdd-1"
 
 	drive1 = api.Drive{
 		UUID:         driveUUID,
@@ -136,6 +138,17 @@ var (
 			StorageClass: apiV1.StorageClassHDDLVG,
 			Location:     lvgCRName,
 			NodeId:       nodeID},
+	}
+
+	testSG1 = sgcrd.StorageGroup{
+		TypeMeta:   v1.TypeMeta{Kind: "StorageGroup", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{Name: testSG1Name},
+		Spec: api.StorageGroupSpec{
+			DriveSelector: &api.DriveSelector{
+				NumberDrivesPerNode: 1,
+				MatchFields:         map[string]string{"Type": "HDD"},
+			},
+		},
 	}
 )
 
@@ -868,6 +881,49 @@ func TestDriveController_removeRelatedAC(t *testing.T) {
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, accr))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
+}
+
+func TestDriveController_triggerStorageGroupResyncIfApplicable(t *testing.T) {
+	dc := NewController(setup(), nodeID, &mocks.MockDriveMgrClient{}, new(events.Recorder), testLogger)
+	assert.NotNil(t, dc)
+	assert.NotNil(t, dc.crHelper)
+	t.Run("drive with no storage group label", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+
+		err := dc.triggerStorageGroupResyncIfApplicable(testCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+	})
+	t.Run("drive with sg label of non-existing sg", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
+
+		err := dc.triggerStorageGroupResyncIfApplicable(testCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+	})
+	t.Run("drive with sg label of existing sg", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
+
+		expectedSG := testSG1.DeepCopy()
+		assert.NotNil(t, expectedSG)
+		err := dc.client.CreateCR(testCtx, expectedSG.Name, expectedSG)
+		assert.Nil(t, err)
+
+		err = dc.triggerStorageGroupResyncIfApplicable(testCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+
+		resultSG := &sgcrd.StorageGroup{}
+		err = dc.client.ReadCR(testCtx, expectedSG.Name, "", resultSG)
+		assert.Nil(t, err)
+		assert.NotNil(t, resultSG)
+		assert.Equal(t, resultSG.Status.Phase, apiV1.StorageGroupPhaseSyncing)
+		assert.Equal(t, resultSG.Annotations[expectedD.Name], apiV1.DriveAnnotationRemoval)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedSG))
 	})
 }
 
