@@ -112,10 +112,12 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// StorageGroup Deletion request
 	if !storageGroup.DeletionTimestamp.IsZero() {
-		storageGroup.Status.Phase = apiV1.StorageGroupPhaseRemoving
-		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
-			return ctrl.Result{Requeue: true}, err
+		if storageGroup.Status.Phase != apiV1.StorageGroupPhaseRemoving {
+			storageGroup.Status.Phase = apiV1.StorageGroupPhaseRemoving
+			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
+				return ctrl.Result{Requeue: true}, err
+			}
 		}
 		return c.handleStorageGroupDeletion(ctx, log, storageGroup)
 	}
