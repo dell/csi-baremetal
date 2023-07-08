@@ -912,7 +912,7 @@ func TestDriveController_triggerStorageGroupResyncIfApplicable(t *testing.T) {
 		err := dc.triggerStorageGroupResyncIfApplicable(k8s.GetFailCtx, dc.log, expectedD)
 		assert.NotNil(t, err)
 	})
-	t.Run("drive has sg label of existing sg", func(t *testing.T) {
+	t.Run("drive has sg label of existing sg without status", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
@@ -929,9 +929,33 @@ func TestDriveController_triggerStorageGroupResyncIfApplicable(t *testing.T) {
 		err = dc.client.ReadCR(testCtx, expectedSG.Name, "", resultSG)
 		assert.Nil(t, err)
 		assert.NotNil(t, resultSG)
-		assert.Equal(t, resultSG.Status.Phase, apiV1.StorageGroupPhaseSyncing)
+		assert.Equal(t, "", resultSG.Status.Phase)
 		annotationKey := fmt.Sprintf("%s/%s", apiV1.StorageGroupAnnotationDriveRemovalPrefix, expectedD.Name)
-		assert.Equal(t, resultSG.Annotations[annotationKey], apiV1.StorageGroupAnnotationDriveRemovalDone)
+		assert.Equal(t, apiV1.StorageGroupAnnotationDriveRemovalDone, resultSG.Annotations[annotationKey])
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedSG))
+	})
+	t.Run("drive has sg label of existing sg with status", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Labels = map[string]string{apiV1.StorageGroupLabelKey: testSG1Name}
+
+		expectedSG := testSG1.DeepCopy()
+		assert.NotNil(t, expectedSG)
+		expectedSG.Status.Phase = apiV1.StorageGroupPhaseSynced
+		err := dc.client.CreateCR(testCtx, expectedSG.Name, expectedSG)
+		assert.Nil(t, err)
+
+		err = dc.triggerStorageGroupResyncIfApplicable(testCtx, dc.log, expectedD)
+		assert.Nil(t, err)
+
+		resultSG := &sgcrd.StorageGroup{}
+		err = dc.client.ReadCR(testCtx, expectedSG.Name, "", resultSG)
+		assert.Nil(t, err)
+		assert.NotNil(t, resultSG)
+		assert.Equal(t, apiV1.StorageGroupPhaseSyncing, resultSG.Status.Phase)
+		annotationKey := fmt.Sprintf("%s/%s", apiV1.StorageGroupAnnotationDriveRemovalPrefix, expectedD.Name)
+		assert.Equal(t, apiV1.StorageGroupAnnotationDriveRemovalDone, resultSG.Annotations[annotationKey])
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedSG))
 	})

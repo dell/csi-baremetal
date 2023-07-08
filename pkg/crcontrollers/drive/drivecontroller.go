@@ -478,8 +478,10 @@ func (c *Controller) triggerStorageGroupResyncIfApplicable(ctx context.Context, 
 			return err
 		}
 
-		if storageGroup.Spec.DriveSelector.NumberDrivesPerNode > 0 {
-			storageGroup.Status.Phase = apiV1.StorageGroupPhaseSyncing
+		if storageGroup.Status.Phase != apiV1.StorageGroupPhaseInvalid && storageGroup.Spec.DriveSelector.NumberDrivesPerNode > 0 {
+			if storageGroup.Status.Phase != "" {
+				storageGroup.Status.Phase = apiV1.StorageGroupPhaseSyncing
+			}
 			if storageGroup.Annotations == nil {
 				storageGroup.Annotations = map[string]string{}
 			}
