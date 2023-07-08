@@ -3,6 +3,7 @@ package drive
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -929,7 +930,8 @@ func TestDriveController_triggerStorageGroupResyncIfApplicable(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, resultSG)
 		assert.Equal(t, resultSG.Status.Phase, apiV1.StorageGroupPhaseSyncing)
-		assert.Equal(t, resultSG.Annotations[expectedD.Name], apiV1.DriveAnnotationRemoval)
+		annotationKey := fmt.Sprintf("%s/%s", apiV1.StorageGroupAnnotationDriveRemovalPrefix, expectedD.Name)
+		assert.Equal(t, resultSG.Annotations[annotationKey], apiV1.StorageGroupAnnotationDriveRemovalDone)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedSG))
 	})

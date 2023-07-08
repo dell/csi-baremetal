@@ -484,7 +484,8 @@ func (c *Controller) triggerStorageGroupResyncIfApplicable(ctx context.Context, 
 				storageGroup.Annotations = map[string]string{}
 			}
 			// also add annotation for specific drive removal to storage group
-			storageGroup.Annotations[drive.Name] = apiV1.DriveAnnotationRemoval
+			annotationKey := fmt.Sprintf("%s/%s", apiV1.StorageGroupAnnotationDriveRemovalPrefix, drive.Name)
+			storageGroup.Annotations[annotationKey] = apiV1.StorageGroupAnnotationDriveRemovalDone
 			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
 				log.Errorf("Unable to update StorageGroup with error: %v.", err)
 				return err

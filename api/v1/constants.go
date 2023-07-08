@@ -147,4 +147,8 @@ const (
 	StorageGroupPhaseSynced   = "SYNCED"
 	StorageGroupPhaseRemoving = "REMOVING"
 	StorageGroupPhaseInvalid  = "INVALID"
+
+	// CSI StorageGroup annotations
+	StorageGroupAnnotationDriveRemovalPrefix = "drive-removal"
+	StorageGroupAnnotationDriveRemovalDone   = "done"
 )
