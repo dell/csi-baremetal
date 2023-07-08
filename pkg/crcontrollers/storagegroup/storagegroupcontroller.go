@@ -109,6 +109,8 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	log.Debugf("Reconcile StorageGroup: %v", storageGroup)
+	log.Debugf("Reconcile StorageGroup: %+v", storageGroup)
+	log.Debugf("Reconcile StorageGroup: %#v", storageGroup)
 
 	// StorageGroup Deletion request
 	if !storageGroup.DeletionTimestamp.IsZero() {
@@ -293,7 +295,9 @@ func (c *Controller) handleManualDriveStorageGroupLabelAddition(ctx context.Cont
 func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
 
+	log.Debugf("sync potential sg label of drive %v", drive)
 	log.Debugf("sync potential sg label of drive %+v", drive)
+	log.Debugf("sync potential sg label of drive %#v", drive)
 	location := drive.Name
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil {
