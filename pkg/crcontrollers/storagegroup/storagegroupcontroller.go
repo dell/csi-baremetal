@@ -293,6 +293,7 @@ func (c *Controller) handleManualDriveStorageGroupLabelAddition(ctx context.Cont
 func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
 	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
 
+	log.Debugf("sync potential sg label of drive %+v", drive)
 	location := drive.Name
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil {
