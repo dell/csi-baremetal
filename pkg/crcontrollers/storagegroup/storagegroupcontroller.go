@@ -103,8 +103,10 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	storageGroup := &sgcrd.StorageGroup{}
-	if err := c.client.ReadCR(ctx, name, "", storageGroup); err != nil && !k8serrors.IsNotFound(err) {
-		log.Errorf("error in reading %s as drive or storagegroup object: %v", name, err)
+	if err := c.client.ReadCR(ctx, name, "", storageGroup); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			log.Errorf("error in reading %s as drive or storagegroup object: %v", name, err)
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
