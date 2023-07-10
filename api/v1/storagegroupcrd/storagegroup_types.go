@@ -31,8 +31,10 @@ import (
 type StorageGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              api.StorageGroupSpec   `json:"spec,omitempty"`
-	Status            api.StorageGroupStatus `json:"status,omitempty"`
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="updates to storagegroup spec are forbidden"
+	Spec   api.StorageGroupSpec   `json:"spec,omitempty"`
+	Status api.StorageGroupStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
