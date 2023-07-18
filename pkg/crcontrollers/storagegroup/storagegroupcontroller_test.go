@@ -71,7 +71,7 @@ var (
 		Spec: api.AvailableCapacity{
 			Size:         drive1.Spec.Size,
 			StorageClass: apiV1.StorageClassHDD,
-			Location:     "drive-uuid",
+			Location:     driveUUID1,
 			NodeId:       nodeID},
 	}
 
