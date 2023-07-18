@@ -123,7 +123,7 @@ func TestStorageGroupController_NewController(t *testing.T) {
 	assert.NotEqual(t, storageGroupController.log, testLogger)
 }
 
-func TestStorageGroupController_addRemoveACStorageGroupLabel(t *testing.T) {
+func TestStorageGroupController_Reconcile(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 
@@ -134,7 +134,7 @@ func TestStorageGroupController_addRemoveACStorageGroupLabel(t *testing.T) {
 	assert.NotNil(t, storageGroupController.log)
 	assert.NotEqual(t, storageGroupController.log, testLogger)
 
-	t.Run("test on AC's sg label", func(t *testing.T) {
+	t.Run("manually add sg label to drive", func(t *testing.T) {
 		newSGName := "hdd-group-new"
 
 		testAC := ac1.DeepCopy()
@@ -152,11 +152,58 @@ func TestStorageGroupController_addRemoveACStorageGroupLabel(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
-		resultAC := &accrd.AvailableCapacity{}
-		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testAC.Name, "", resultAC))
-		assert.Equal(t, newSGName, resultAC.Labels[apiV1.StorageGroupLabelKey])
+		testACResult := &accrd.AvailableCapacity{}
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testAC.Name, "", testACResult))
+		assert.Equal(t, newSGName, testACResult.Labels[apiV1.StorageGroupLabelKey])
 
 		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testDrive))
 		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testAC))
+	})
+
+	t.Run("handle storage group creation", func(t *testing.T) {
+		testAC1 := ac1.DeepCopy()
+		testDrive1 := drive1.DeepCopy()
+		testAC2 := ac2.DeepCopy()
+		testDrive2 := drive2.DeepCopy()
+
+		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testAC1.Name, testAC1))
+		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testDrive1.Name, testDrive1))
+		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testAC2.Name, testAC2))
+		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testDrive2.Name, testDrive2))
+
+		testSG1 := sg1.DeepCopy()
+		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testSG1.Name, testSG1))
+
+		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: testSG1.Name}}
+		assert.NotNil(t, req)
+
+		res, err := storageGroupController.Reconcile(testCtx, req)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		testSG1Result := &sgcrd.StorageGroup{}
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testSG1.Name, "", testSG1Result))
+		assert.Equal(t, 1, len(testSG1Result.Finalizers))
+		assert.Equal(t, apiV1.StorageGroupPhaseSynced, testSG1Result.Status.Phase)
+
+		testAC1Result := &accrd.AvailableCapacity{}
+		testAC2Result := &accrd.AvailableCapacity{}
+		testDrive1Result := &dcrd.Drive{}
+		testDrive2Result := &dcrd.Drive{}
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testAC1.Name, "", testAC1Result))
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testAC2.Name, "", testAC2Result))
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1Result))
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testDrive2.Name, "", testDrive2Result))
+		assert.Equal(t, testSG1.Name, testAC1Result.Labels[apiV1.StorageGroupLabelKey])
+		assert.Equal(t, testSG1.Name, testDrive1Result.Labels[apiV1.StorageGroupLabelKey])
+		assert.Empty(t, testAC2Result.Labels[apiV1.StorageGroupLabelKey])
+		assert.Empty(t, testDrive2Result.Labels[apiV1.StorageGroupLabelKey])
+
+		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testSG1))
+		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testDrive1))
+		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testAC1))
+		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testDrive2))
+		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testAC2))
 	})
 }
