@@ -221,6 +221,10 @@ func TestStorageGroupController_Reconcile(t *testing.T) {
 		// reconcile deletion of testSG1
 		testSG1Result.DeletionTimestamp = &v1.Time{Time: time.Now()}
 		assert.Nil(t, storageGroupController.client.UpdateCR(testCtx, testSG1Result))
+
+		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: testSG1.Name}}
+		assert.NotNil(t, req)
+
 		res, err = storageGroupController.Reconcile(testCtx, req)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
@@ -251,6 +255,7 @@ func TestStorageGroupController_Reconcile(t *testing.T) {
 		assert.Equal(t, apiV1.StorageGroupPhaseSyncing, testSG2Result.Status.Phase)
 
 		// reconcile testDrive1 with testSG1
+		testSG1 = sg1.DeepCopy()
 		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testSG1.Name, testSG1))
 
 		res, err = storageGroupController.Reconcile(testCtx, req)
