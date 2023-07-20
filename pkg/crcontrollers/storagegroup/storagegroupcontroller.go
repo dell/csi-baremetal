@@ -109,53 +109,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	log.Debugf("Reconcile StorageGroup: %+v", storageGroup)
-
-	// StorageGroup Deletion request
-	if !storageGroup.DeletionTimestamp.IsZero() {
-		if storageGroup.Status.Phase != apiV1.StorageGroupPhaseRemoving {
-			storageGroup.Status.Phase = apiV1.StorageGroupPhaseRemoving
-			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
-				return ctrl.Result{Requeue: true}, err
-			}
-		}
-		return c.handleStorageGroupDeletion(ctx, log, storageGroup)
-	}
-
-	if !util.ContainsString(storageGroup.Finalizers, sgFinalizer) {
-		// append finalizer
-		log.Debugf("Appending finalizer for StorageGroup")
-		storageGroup.Finalizers = append(storageGroup.Finalizers, sgFinalizer)
-		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-			log.Errorf("Unable to append finalizer %s to StorageGroup with error: %v.", sgFinalizer, err)
-			return ctrl.Result{Requeue: true}, err
-		}
-	}
-
-	if storageGroup.Status.Phase == "" {
-		if !c.isStorageGroupValid(log, storageGroup) {
-			storageGroup.Status.Phase = apiV1.StorageGroupPhaseInvalid
-			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
-				return ctrl.Result{Requeue: true}, err
-			}
-			return ctrl.Result{}, nil
-		}
-		// Pass storage group valiation, change to SYNCING status phase
-		storageGroup.Status.Phase = apiV1.StorageGroupPhaseSyncing
-		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
-			return ctrl.Result{Requeue: true}, err
-		}
-	}
-
-	if storageGroup.Status.Phase == apiV1.StorageGroupPhaseSyncing {
-		return c.handleStorageGroupCreationOrUpdate(ctx, log, storageGroup)
-	}
-
-	return ctrl.Result{}, nil
+	return c.reconcileStorageGroup(ctx, storageGroup)
 }
 
 // combine the following similar funcs
@@ -377,6 +331,57 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		}
 
 		// TODO restore the update of storagegroup label of drive
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (c *Controller) reconcileStorageGroup(ctx context.Context, storageGroup *sgcrd.StorageGroup) (ctrl.Result, error) {
+	log := c.log.WithFields(logrus.Fields{"method": "reconcileStorageGroup", "name": storageGroup.Name})
+
+	log.Debugf("Reconcile StorageGroup: %+v", storageGroup)
+
+	// StorageGroup Deletion request
+	if !storageGroup.DeletionTimestamp.IsZero() {
+		if storageGroup.Status.Phase != apiV1.StorageGroupPhaseRemoving {
+			storageGroup.Status.Phase = apiV1.StorageGroupPhaseRemoving
+			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
+				return ctrl.Result{Requeue: true}, err
+			}
+		}
+		return c.handleStorageGroupDeletion(ctx, log, storageGroup)
+	}
+
+	if !util.ContainsString(storageGroup.Finalizers, sgFinalizer) {
+		// append finalizer
+		log.Debugf("Appending finalizer for StorageGroup")
+		storageGroup.Finalizers = append(storageGroup.Finalizers, sgFinalizer)
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to append finalizer %s to StorageGroup with error: %v.", sgFinalizer, err)
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
+
+	if storageGroup.Status.Phase == "" {
+		if !c.isStorageGroupValid(log, storageGroup) {
+			storageGroup.Status.Phase = apiV1.StorageGroupPhaseInvalid
+			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
+				return ctrl.Result{Requeue: true}, err
+			}
+			return ctrl.Result{}, nil
+		}
+		// Pass storage group valiation, change to SYNCING status phase
+		storageGroup.Status.Phase = apiV1.StorageGroupPhaseSyncing
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
+
+	if storageGroup.Status.Phase == apiV1.StorageGroupPhaseSyncing {
+		return c.handleStorageGroupCreationOrUpdate(ctx, log, storageGroup)
 	}
 
 	return ctrl.Result{}, nil
