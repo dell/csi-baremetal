@@ -36,8 +36,9 @@ var (
 	driveSerialNumber2 = "MDH16UAC"
 	sg1Name            = "hdd-group-1"
 	sg2Name            = "hdd-group-r"
+	sg3Name            = "hdd-group-invalid"
 
-	drive1 = dcrd.Drive{
+	drive1 = &dcrd.Drive{
 		TypeMeta:   v1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{Name: driveUUID1},
 		Spec: api.Drive{
@@ -52,7 +53,7 @@ var (
 		},
 	}
 
-	drive2 = dcrd.Drive{
+	drive2 = &dcrd.Drive{
 		TypeMeta:   v1.TypeMeta{Kind: "Drive", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{Name: driveUUID2},
 		Spec: api.Drive{
@@ -67,7 +68,7 @@ var (
 		},
 	}
 
-	ac1 = accrd.AvailableCapacity{
+	ac1 = &accrd.AvailableCapacity{
 		TypeMeta:   v1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{Name: acUUID1},
 		Spec: api.AvailableCapacity{
@@ -77,7 +78,7 @@ var (
 			NodeId:       nodeID},
 	}
 
-	ac2 = accrd.AvailableCapacity{
+	ac2 = &accrd.AvailableCapacity{
 		TypeMeta:   v1.TypeMeta{Kind: "AvailableCapacity", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{Name: acUUID2},
 		Spec: api.AvailableCapacity{
@@ -87,7 +88,7 @@ var (
 			NodeId:       nodeID},
 	}
 
-	sg1 = sgcrd.StorageGroup{
+	sg1 = &sgcrd.StorageGroup{
 		TypeMeta:   v1.TypeMeta{Kind: "StorageGroup", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{Name: sg1Name},
 		Spec: api.StorageGroupSpec{
@@ -100,13 +101,26 @@ var (
 		},
 	}
 
-	sg2 = sgcrd.StorageGroup{
+	sg2 = &sgcrd.StorageGroup{
 		TypeMeta:   v1.TypeMeta{Kind: "StorageGroup", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{Name: sg2Name},
 		Spec: api.StorageGroupSpec{
 			DriveSelector: &api.DriveSelector{
 				NumberDrivesPerNode: 1,
 				MatchFields:         map[string]string{"Type": "HDD"},
+			},
+		},
+	}
+
+	sg3 = &sgcrd.StorageGroup{
+		TypeMeta:   v1.TypeMeta{Kind: "StorageGroup", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{Name: sg3Name},
+		Spec: api.StorageGroupSpec{
+			DriveSelector: &api.DriveSelector{
+				MatchFields: map[string]string{
+					"Type":  "HDD",
+					"IsSSD": "no",
+				},
 			},
 		},
 	}
@@ -296,7 +310,56 @@ func TestStorageGroupController_reconcileStorageGroup(t *testing.T) {
 	assert.NotNil(t, storageGroupController.log)
 	assert.NotEqual(t, storageGroupController.log, testLogger)
 
-	t.Run("handle storage group deletion", func(t *testing.T) {
+	t.Run("reconcile invalid storage group", func(t *testing.T) {
+		testSG3 := sg3.DeepCopy()
+		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testSG3.Name, testSG3))
 
+		res, err := storageGroupController.reconcileStorageGroup(testCtx, testSG3)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		testSG3Result := &sgcrd.StorageGroup{}
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testSG3.Name, "", testSG3Result))
+		assert.Equal(t, apiV1.StorageGroupPhaseInvalid, testSG3Result.Status.Phase)
+
+		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG3Result)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testSG3.Name, "", testSG3Result))
+		assert.Equal(t, apiV1.StorageGroupPhaseInvalid, testSG3Result.Status.Phase)
+
+		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testSG3))
+	})
+
+	t.Run("reconcile storage group with error", func(t *testing.T) {
+		testSG3 := sg3.DeepCopy()
+
+		res, err := storageGroupController.reconcileStorageGroup(testCtx, testSG3)
+		assert.NotNil(t, res)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
+		testSG3.Finalizers = append(testSG3.Finalizers, sgFinalizer)
+		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG3)
+		assert.NotNil(t, res)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
+		testSG1 := sg1.DeepCopy()
+		testSG1.Finalizers = append(testSG1.Finalizers, sgFinalizer)
+		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG1)
+		assert.NotNil(t, res)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
+		testSG1.DeletionTimestamp = &v1.Time{Time: time.Now()}
+		testSG1.Finalizers = append(testSG1.Finalizers, sgFinalizer)
+		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG1)
+		assert.NotNil(t, res)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 	})
 }
