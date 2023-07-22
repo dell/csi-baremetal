@@ -409,7 +409,8 @@ func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus
 			volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
 			if err != nil {
 				log.Errorf("failed to get volumes on drive %s: %v", drive.Name, err)
-				return ctrl.Result{Requeue: true}, err
+				labelRemovalErrMsgs = append(labelRemovalErrMsgs, err.Error())
+				continue
 			}
 			if len(volumes) > 0 {
 				log.Warnf("Drive %s has existing volumes. Its label of storage group %s can't be removed.",
