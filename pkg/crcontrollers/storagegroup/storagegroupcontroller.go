@@ -496,10 +496,8 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 			successful, err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg)
 			if successful {
 				noDriveSelected = false
-			} else {
-				if err != nil {
-					labelingErrMsgs = append(labelingErrMsgs, err.Error())
-				}
+			} else if err != nil {
+				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
 
 		}
@@ -512,10 +510,8 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 			if successful {
 				noDriveSelected = false
 				drivesCount[drive.Spec.NodeId]++
-			} else {
-				if err != nil {
-					labelingErrMsgs = append(labelingErrMsgs, err.Error())
-				}
+			} else if err != nil {
+				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
 		}
 	}
