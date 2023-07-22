@@ -499,7 +499,6 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 			} else if err != nil {
 				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
-
 		}
 	}
 
