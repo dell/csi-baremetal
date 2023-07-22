@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	sgFinalizer           = "dell.emc.csi/sg-cleanup"
-	contextTimeoutSeconds = 60
+	sgFinalizer             = "dell.emc.csi/sg-cleanup"
+	contextTimeoutSeconds   = 60
+	sgDeletionRetryInterval = 1 * time.Second
 )
 
 // Controller to reconcile storagegroup custom resource
@@ -398,9 +399,25 @@ func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus
 	}
 
 	var labelRemovalErrMsgs []string
+
+	// whether there is some drive with existing volumes in this storage group
+	driveHasExistingVolumes := false
 	for _, drive := range drivesList.Items {
 		drive := drive
 		if drive.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
+			// check whether this drive has existing volumes
+			volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
+			if err != nil {
+				log.Errorf("failed to get volumes on drive %s: %v", drive.Name, err)
+				return ctrl.Result{Requeue: true}, err
+			}
+			if len(volumes) > 0 {
+				log.Warnf("Drive %s has existing volumes. Its label of storage group %s can't be removed.",
+					drive.Name, sg.Name)
+				driveHasExistingVolumes = true
+				continue
+			}
+
 			if err := c.removeDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
 				labelRemovalErrMsgs = append(labelRemovalErrMsgs, err.Error())
 			}
@@ -408,6 +425,10 @@ func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus
 	}
 	if len(labelRemovalErrMsgs) > 0 {
 		return ctrl.Result{Requeue: true}, fmt.Errorf(strings.Join(labelRemovalErrMsgs, "\n"))
+	}
+	if driveHasExistingVolumes {
+		log.Warnf("Storage group %s has drive with existing volumes. The deletion will be retried later.", sg.Name)
+		return ctrl.Result{RequeueAfter: sgDeletionRetryInterval}, nil
 	}
 	log.Infof("deletion of storage group %s successfully completed", sg.Name)
 	return c.removeFinalizer(ctx, log, sg)
@@ -569,14 +590,6 @@ func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGro
 func (c *Controller) removeDriveAndACStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
 	sg *sgcrd.StorageGroup) error {
 	log.Infof("try to remove storagegroup label of drive %s and its corresponding AC", drive.Name)
-	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
-	if err != nil {
-		return err
-	}
-	if len(volumes) > 0 {
-		log.Errorf("Drive %s has existing volumes. Storage group label can't be removed.", drive.Name)
-		return fmt.Errorf("error in removing storage-group label on drive")
-	}
 
 	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
 	if err != nil {
