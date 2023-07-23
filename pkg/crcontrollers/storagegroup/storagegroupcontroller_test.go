@@ -50,6 +50,7 @@ var (
 			Health:       apiV1.HealthGood,
 			Slot:         "1",
 			SerialNumber: driveSerialNumber,
+			IsClean:      true,
 		},
 	}
 
@@ -65,6 +66,7 @@ var (
 			Health:       apiV1.HealthGood,
 			Slot:         "2",
 			SerialNumber: driveSerialNumber2,
+			IsClean:      true,
 		},
 	}
 
