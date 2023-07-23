@@ -567,7 +567,7 @@ func (c *Controller) addDriveAndACStorageGroupLabel(ctx context.Context, log *lo
 
 	// the corresponding non-lvg ac exists and has free space, add storage-group label to the drive and corresponding ac
 	if drive.Labels[apiV1.StorageGroupLabelKey] == sgName {
-		log.Infof("label of storagegroup %s has been already added to drive %s")
+		log.Infof("label of storagegroup %s has been already added to drive %s", sgName, drive.Name)
 	} else {
 		if err = c.addDriveStorageGroupLabel(ctx, log, drive, sgName); err != nil {
 			return false, false, err
