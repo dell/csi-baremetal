@@ -170,7 +170,11 @@ func TestStorageGroupController_Reconcile(t *testing.T) {
 
 		testACResult := &accrd.AvailableCapacity{}
 		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testAC.Name, "", testACResult))
-		assert.Equal(t, newSGName, testACResult.Labels[apiV1.StorageGroupLabelKey])
+		assert.Empty(t, testACResult.Labels[apiV1.StorageGroupLabelKey])
+
+		testDriveResult := &dcrd.Drive{}
+		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testDrive.Name, "", testDriveResult))
+		assert.Empty(t, testDriveResult.Labels[apiV1.StorageGroupLabelKey])
 
 		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testDrive))
 		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testAC))
