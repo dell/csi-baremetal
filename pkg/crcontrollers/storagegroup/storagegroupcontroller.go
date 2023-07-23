@@ -199,7 +199,7 @@ func (c *Controller) findAndAddMatchedStorageGroupLabelToDrive(ctx context.Conte
 			sg.Spec.DriveSelector.NumberDrivesPerNode == 0)) && c.isDriveSelectedByValidMatchFields(log, &drive.Spec,
 			&sg.Spec.DriveSelector.MatchFields) {
 			if sg.Spec.DriveSelector.NumberDrivesPerNode == 0 {
-				if _, _, err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
+				if _, err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
 					return ctrl.Result{Requeue: true}, err
 				}
 				return ctrl.Result{}, nil
@@ -230,7 +230,7 @@ func (c *Controller) reconcileDriveStorageGroupLabel(ctx context.Context, drive 
 			return c.findAndAddMatchedStorageGroupLabelToDrive(ctx, drive)
 		}
 
-		_, driveReallyClean, err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, driveSGLabel)
+		driveReallyClean, err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, driveSGLabel)
 		if err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
@@ -412,7 +412,7 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 				continue
 			}
 
-			_, driveLabeled, err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg.Name)
+			driveLabeled, err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg.Name)
 			if driveLabeled {
 				noDriveSelected = false
 			} else if err != nil {
@@ -424,7 +424,7 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 	for _, d := range candidateDrives {
 		drive := d
 		if drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode {
-			_, driveLabeled, err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg.Name)
+			driveLabeled, err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg.Name)
 			if driveLabeled {
 				noDriveSelected = false
 				drivesCount[drive.Spec.NodeId]++
@@ -549,12 +549,12 @@ func (c *Controller) removeDriveAndACStorageGroupLabel(ctx context.Context, log 
 }
 
 func (c *Controller) addDriveAndACStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
-	sgName string) (bool, bool, error) {
+	sgName string) (bool, error) {
 	log.Infof("Expect to add label of storagegroup %s to drive %s and its corresponding AC", sgName, drive.Name)
 
 	if !drive.Spec.IsClean {
 		log.Warnf("not clean drive %s can't be selected by current storage group.", drive.Name)
-		return false, false, nil
+		return false, nil
 	}
 
 	ac, err := c.getACByDriveLocation(log, drive)
@@ -562,7 +562,7 @@ func (c *Controller) addDriveAndACStorageGroupLabel(ctx context.Context, log *lo
 		if ac.Spec.Size == 0 {
 			log.Warnf("not clean drive %s can't be selected by current storage group.", drive.Name)
 		}
-		return false, false, err
+		return false, err
 	}
 
 	// the corresponding non-lvg ac exists and has free space, add storage-group label to the drive and corresponding ac
@@ -570,16 +570,16 @@ func (c *Controller) addDriveAndACStorageGroupLabel(ctx context.Context, log *lo
 		log.Infof("label of storagegroup %s has been already added to drive %s", sgName, drive.Name)
 	} else {
 		if err = c.addDriveStorageGroupLabel(ctx, log, drive, sgName); err != nil {
-			return false, false, err
+			return false, err
 		}
 		log.Infof("Successfully add label of storagegroup %s to drive %s", sgName, drive.Name)
 	}
 
 	if err = c.addACStorageGroupLabel(ctx, log, ac, sgName); err != nil {
-		return false, true, err
+		return true, err
 	}
 	log.Infof("Successfully add label of storagegroup %s to drive %s and its corresponding AC", sgName, drive.Name)
-	return true, true, nil
+	return true, nil
 }
 
 func (c *Controller) getACByDriveLocation(log *logrus.Entry, drive *drivecrd.Drive) (*accrd.AvailableCapacity, error) {
