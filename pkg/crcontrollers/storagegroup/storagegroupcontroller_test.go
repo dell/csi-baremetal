@@ -128,6 +128,12 @@ var (
 	}
 )
 
+func TestStorageGroupController_filterDriveUpdateEvent(t *testing.T) {
+	testDrive1 := drive1.DeepCopy()
+	testDrive2 := drive2.DeepCopy()
+	assert.False(t, filterDriveUpdateEvent(testDrive1, testDrive2))
+}
+
 func TestStorageGroupController_NewController(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
@@ -151,6 +157,16 @@ func TestStorageGroupController_Reconcile(t *testing.T) {
 	assert.NotNil(t, storageGroupController.crHelper)
 	assert.NotNil(t, storageGroupController.log)
 	assert.NotEqual(t, storageGroupController.log, testLogger)
+
+	t.Run("reconcile drive with read error", func(t *testing.T) {
+		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: drive1.Name}}
+		assert.NotNil(t, req)
+
+		res, err := storageGroupController.Reconcile(k8s.GetFailCtx, req)
+		assert.NotNil(t, res)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+	})
 
 	t.Run("reconcile drive with sg label manually added", func(t *testing.T) {
 		newSGName := "hdd-group-new"

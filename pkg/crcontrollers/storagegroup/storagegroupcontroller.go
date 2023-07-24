@@ -107,6 +107,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return c.reconcileDriveStorageGroupLabel(ctx, drive)
 	} else if err != nil && !k8serrors.IsNotFound(err) {
 		log.Errorf("error in reading %s as drive object: %v", name, err)
+		return ctrl.Result{}, err
 	}
 
 	storageGroup := &sgcrd.StorageGroup{}
