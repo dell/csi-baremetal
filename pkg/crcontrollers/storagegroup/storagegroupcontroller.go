@@ -24,6 +24,7 @@ import (
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
+	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
 )
@@ -82,7 +83,7 @@ func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 }
 
 func filterDriveUpdateEvent(old *drivecrd.Drive, new *drivecrd.Drive) bool {
-	oldLabel, _ := old.Labels[apiV1.StorageGroupLabelKey]
+	oldLabel := old.Labels[apiV1.StorageGroupLabelKey]
 	newLabel, newLabeled := new.Labels[apiV1.StorageGroupLabelKey]
 	return (oldLabel != newLabel && oldLabel == old.Annotations[driveAnnotationKeyLastAppliedStorageGroupLabel]) ||
 		(!old.Spec.IsClean && new.Spec.IsClean && !newLabeled)
@@ -254,7 +255,7 @@ func (c *Controller) reconcileDriveStorageGroupLabel(ctx context.Context, drive 
 			location = lvg.Name
 		}
 		ac, err := c.crHelper.GetACByLocation(location)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		if err != nil && err != errTypes.ErrorNotFound {
 			log.Errorf("error when getting AC of drive %s: %v", drive.Name, err)
 			return ctrl.Result{Requeue: true}, err
 		}
@@ -593,7 +594,7 @@ func (c *Controller) removeDriveAndACStorageGroupLabel(ctx context.Context, log 
 		location = lvg.Name
 	}
 	ac, err := c.crHelper.GetACByLocation(location)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil && err != errTypes.ErrorNotFound {
 		log.Errorf("error when getting AC of drive %s: %v", drive.Name, err)
 		return false, err
 	}
@@ -625,7 +626,7 @@ func (c *Controller) addDriveAndACStorageGroupLabel(ctx context.Context, log *lo
 
 	ac, err := c.crHelper.GetACByLocation(drive.Name)
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
+		if err != errTypes.ErrorNotFound {
 			log.Errorf("Error when getting AC by the location of drive %s: %v", drive.Spec.UUID, err)
 			return false, err
 		}
