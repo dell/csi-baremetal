@@ -316,12 +316,13 @@ func (c *Controller) reconcileDriveStorageGroupLabel(ctx context.Context, drive 
 
 	log.Debugf("Restore manual change of drive %s's storage group label", drive.Name)
 	if driveLastSGLabelRecorded {
-		drive.Labels[apiV1.StorageGroupLabelKey] = drive.Annotations[driveAnnotationKeyLastAppliedStorageGroupLabel]
+		if err := c.addDriveStorageGroupLabel(ctx, log, drive, driveLastSGLabelRecord); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
 	} else {
-		delete(drive.Labels, apiV1.StorageGroupLabelKey)
-	}
-	if err := c.client.UpdateCR(ctx, drive); err != nil {
-		return ctrl.Result{Requeue: true}, err
+		if err := c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }
