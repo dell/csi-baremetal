@@ -332,8 +332,6 @@ func (c *Controller) reconcileDriveStorageGroupLabel(ctx context.Context, drive 
 		}
 		return ctrl.Result{}, nil
 	}
-
-	return ctrl.Result{}, nil
 }
 
 func (c *Controller) reconcileStorageGroup(ctx context.Context, storageGroup *sgcrd.StorageGroup) (ctrl.Result, error) {
