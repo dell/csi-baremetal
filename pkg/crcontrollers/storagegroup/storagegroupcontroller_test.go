@@ -21,6 +21,7 @@ import (
 	dcrd "github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
+	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
 	"github.com/dell/csi-baremetal/pkg/base/util"
@@ -29,12 +30,11 @@ import (
 
 var (
 	testNs  = "default"
-	testID  = "someID"
-	nodeID  = "node-uuid"
 	testErr = errors.New("error")
 
 	testLogger         = logrus.New()
 	testCtx            = context.Background()
+	nodeID             = uuid.New().String()
 	driveUUID1         = uuid.New().String()
 	driveUUID2         = uuid.New().String()
 	acUUID1            = uuid.New().String()
@@ -42,6 +42,7 @@ var (
 	lvgUUID1           = uuid.New().String()
 	driveSerialNumber  = "VDH19UBD"
 	driveSerialNumber2 = "MDH16UAC"
+	vol1Name           = "pvc-" + uuid.New().String()
 	sg1Name            = "hdd-group-1"
 	sg2Name            = "hdd-group-r"
 	sg3Name            = "hdd-group-invalid"
@@ -98,7 +99,7 @@ var (
 			NodeId:       nodeID},
 	}
 
-	lvg1 = lvgcrd.LogicalVolumeGroup{
+	lvg1 = &lvgcrd.LogicalVolumeGroup{
 		TypeMeta:   v1.TypeMeta{Kind: "LogicalVolumeGroup", APIVersion: apiV1.APIV1Version},
 		ObjectMeta: v1.ObjectMeta{Name: lvgUUID1},
 		Spec: api.LogicalVolumeGroup{
@@ -106,6 +107,21 @@ var (
 			Node:      nodeID,
 			Locations: []string{driveUUID1},
 			Size:      int64(1024 * 5 * util.GBYTE),
+		},
+	}
+
+	vol1 = &vcrd.Volume{
+		TypeMeta: v1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      vol1Name,
+			Namespace: testNs,
+		},
+		Spec: api.Volume{
+			Id:           vol1Name,
+			StorageClass: apiV1.StorageClassHDD,
+			Location:     driveUUID1,
+			CSIStatus:    apiV1.Created,
+			NodeId:       nodeID,
 		},
 	}
 
@@ -413,6 +429,91 @@ func TestStorageGroupController_reconcileStorageGroup(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+	})
+}
+
+func TestStorageGroupController_handleManualDriveStorageGroupLabelRemoval(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+
+	c := NewController(kubeClient, kubeClient, testLogger)
+
+	t.Run("get volumes with error", func(t *testing.T) {
+		testDrive1 := drive1.DeepCopy()
+		testAC1 := ac1.DeepCopy()
+
+		res, err := c.handleManualDriveStorageGroupLabelRemoval(k8s.ListFailCtx, c.log, testDrive1, testAC1, sg1Name)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+	})
+
+	t.Run("restore sg label removal on drive with existing volumes", func(t *testing.T) {
+		testDrive1 := drive1.DeepCopy()
+		testAC1 := ac1.DeepCopy()
+		testVol1 := vol1.DeepCopy()
+
+		assert.Nil(t, c.client.CreateCR(testCtx, testDrive1.Name, testDrive1))
+		assert.Nil(t, c.client.CreateCR(testCtx, testVol1.Name, testVol1))
+
+		// update fail
+		res, err := c.handleManualDriveStorageGroupLabelRemoval(k8s.UpdateFailCtx, c.log, testDrive1, testAC1, sg1Name)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
+		// redo
+		assert.Nil(t, c.removeDriveStorageGroupLabel(testCtx, c.log, testDrive1))
+		assert.Nil(t, c.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1))
+		assert.Empty(t, testDrive1.Labels[apiV1.StorageGroupLabelKey])
+
+		res, err = c.handleManualDriveStorageGroupLabelRemoval(testCtx, c.log, testDrive1, testAC1, sg1Name)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		assert.Nil(t, c.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1))
+		assert.Equal(t, sg1Name, testDrive1.Labels[apiV1.StorageGroupLabelKey])
+
+		assert.Nil(t, c.client.DeleteCR(testCtx, testDrive1))
+		assert.Nil(t, c.client.DeleteCR(testCtx, testVol1))
+	})
+
+	t.Run("cases of handling drive's manual sg label removal", func(t *testing.T) {
+		testDrive1 := drive1.DeepCopy()
+		testAC1 := ac1.DeepCopy()
+		testAC1.Labels = map[string]string{apiV1.StorageGroupLabelKey: sg1Name}
+
+		testSG1 := sg1.DeepCopy()
+
+		// Fail to read testSG1
+		res, err := c.handleManualDriveStorageGroupLabelRemoval(k8s.GetFailCtx, c.log, testDrive1, testAC1, sg1Name)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
+		// testSG1 not found from fake k8s, fail to remove sg label from testAC1
+		res, err = c.handleManualDriveStorageGroupLabelRemoval(testCtx, c.log, testDrive1, testAC1, sg1Name)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
+		// successfully get testSG1, and need to restore the testDrive1's sg label removal
+		// update testDrive1's sg label with error
+		assert.Nil(t, c.client.CreateCR(testCtx, testSG1.Name, testSG1))
+
+		res, err = c.handleManualDriveStorageGroupLabelRemoval(testCtx, c.log, testDrive1, testAC1, sg1Name)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
+		// redo the restore and succeed now
+		delete(testDrive1.Labels, apiV1.StorageGroupLabelKey)
+
+		assert.Nil(t, c.client.CreateCR(testCtx, testDrive1.Name, testDrive1))
+		assert.Nil(t, c.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1))
+		assert.Empty(t, testDrive1.Labels[apiV1.StorageGroupLabelKey])
+
+		res, err = c.handleManualDriveStorageGroupLabelRemoval(testCtx, c.log, testDrive1, testAC1, sg1Name)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		assert.Nil(t, c.client.DeleteCR(testCtx, testDrive1))
+		assert.Nil(t, c.client.DeleteCR(testCtx, testSG1))
 	})
 }
 
