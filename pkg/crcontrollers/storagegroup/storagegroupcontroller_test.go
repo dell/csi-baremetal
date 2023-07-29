@@ -479,7 +479,11 @@ func TestStorageGroupController_reconcileDriveStorageGroupLabel(t *testing.T) {
 		testSG2.Status.Phase = apiV1.StorageGroupPhaseSynced
 		assert.Nil(t, c.client.CreateCR(testCtx, testSG2.Name, testSG2))
 
-		// update sg status failure
+		// get sg and update sg status failure
+		res, err = c.reconcileDriveStorageGroupLabel(k8s.GetFailCtx, testDrive1)
+		assert.NotNil(t, err)
+		assert.Equal(t, ctrl.Result{Requeue: true}, res)
+
 		res, err = c.reconcileDriveStorageGroupLabel(k8s.UpdateFailCtx, testDrive1)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
@@ -495,6 +499,9 @@ func TestStorageGroupController_reconcileDriveStorageGroupLabel(t *testing.T) {
 
 		// redo
 		assert.Nil(t, c.client.CreateCR(testCtx, testDrive1.Name, testDrive1))
+		assert.Nil(t, c.updateDriveStorageGroupLabel(testCtx, c.log, testDrive1, sg2Name))
+		assert.Nil(t, c.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1))
+		assert.Equal(t, sg2Name, testDrive1.Labels[apiV1.StorageGroupLabelKey])
 
 		res, err = c.reconcileDriveStorageGroupLabel(testCtx, testDrive1)
 		assert.Nil(t, err)
@@ -502,6 +509,21 @@ func TestStorageGroupController_reconcileDriveStorageGroupLabel(t *testing.T) {
 
 		assert.Nil(t, c.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1))
 		assert.Empty(t, testDrive1.Labels[apiV1.StorageGroupLabelKey])
+
+		// manually remove drive's sg label
+		assert.Nil(t, c.updateACStorageGroupLabel(testCtx, c.log, testAC1, sg1Name))
+		assert.Nil(t, c.client.ReadCR(testCtx, testAC1.Name, "", testAC1))
+		assert.Equal(t, sg1Name, testAC1.Labels[apiV1.StorageGroupLabelKey])
+
+		res, err = c.reconcileDriveStorageGroupLabel(testCtx, testDrive1)
+		assert.Nil(t, err)
+		assert.Equal(t, ctrl.Result{}, res)
+
+		assert.Nil(t, c.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1))
+		assert.Empty(t, testDrive1.Labels[apiV1.StorageGroupLabelKey])
+
+		assert.Nil(t, c.client.ReadCR(testCtx, testAC1.Name, "", testAC1))
+		assert.Empty(t, testAC1.Labels[apiV1.StorageGroupLabelKey])
 
 		// restore drive's manual sg label change with update failure
 		assert.Nil(t, c.updateDriveStorageGroupLabel(testCtx, c.log, testDrive1, sg2Name))
