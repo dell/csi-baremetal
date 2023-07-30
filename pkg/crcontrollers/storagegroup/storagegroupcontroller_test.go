@@ -163,6 +163,16 @@ var (
 	}
 )
 
+func TestStorageGroupController_filterDeleteEvent(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+
+	c := NewController(kubeClient, kubeClient, testLogger)
+
+	testDrive1 := drive1.DeepCopy()
+	assert.False(t, c.filterDeleteEvent(testDrive1))
+}
+
 func TestStorageGroupController_filterDriveUpdateEvent(t *testing.T) {
 	testDrive1 := drive1.DeepCopy()
 	testDrive2 := drive2.DeepCopy()
