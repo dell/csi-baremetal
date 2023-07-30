@@ -192,6 +192,9 @@ func TestStorageGroupController_Reconcile(t *testing.T) {
 		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: drive1.Name}}
 		assert.NotNil(t, req)
 
+		_, err := uuid.Parse(drive1.Name)
+		assert.Nil(t, err)
+
 		res, err := storageGroupController.Reconcile(k8s.GetFailCtx, req)
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)

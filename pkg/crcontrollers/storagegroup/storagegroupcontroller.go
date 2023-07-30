@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -103,25 +104,27 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	defer cancelFn()
 
 	// read name
-	name := req.Name
+	reqName := req.Name
 	// customize logging
-	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": name})
+	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": reqName})
 
-	drive := &drivecrd.Drive{}
-	// A drive just physically removed but not yet totally deleted yet, i.e. Usage == "REMOVED" && Status == "OFFLINE"
-	// will not be selected in any storage group and its existing sg label takes no effect
-	if err := c.client.ReadCR(ctx, name, "", drive); err == nil &&
-		!(drive.Spec.Usage == apiV1.DriveUsageRemoved && drive.Spec.Status == apiV1.DriveStatusOffline) {
-		return c.reconcileDriveStorageGroupLabel(ctx, drive)
-	} else if err != nil && !k8serrors.IsNotFound(err) {
-		log.Errorf("error in reading %s as drive object: %v", name, err)
-		return ctrl.Result{}, err
+	if _, err := uuid.Parse(reqName); err == nil {
+		drive := &drivecrd.Drive{}
+		// A drive just physically removed but not yet totally deleted yet, i.e. Usage == "REMOVED" && Status == "OFFLINE"
+		// will not be selected in any storage group and its existing sg label takes no effect
+		if err := c.client.ReadCR(ctx, reqName, "", drive); err == nil &&
+			!(drive.Spec.Usage == apiV1.DriveUsageRemoved && drive.Spec.Status == apiV1.DriveStatusOffline) {
+			return c.reconcileDriveStorageGroupLabel(ctx, drive)
+		} else if err != nil && !k8serrors.IsNotFound(err) {
+			log.Errorf("error in reading %s as drive object: %v", reqName, err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	storageGroup := &sgcrd.StorageGroup{}
-	if err := c.client.ReadCR(ctx, name, "", storageGroup); err != nil {
+	if err := c.client.ReadCR(ctx, reqName, "", storageGroup); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			log.Errorf("error in reading %s as drive or storagegroup object: %v", name, err)
+			log.Errorf("error in reading %s as drive or storagegroup object: %v", reqName, err)
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
