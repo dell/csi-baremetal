@@ -35,6 +35,8 @@ const (
 	normalRequeueInterval = 1 * time.Second
 )
 
+var unsupportedDriveMatchFields = []string{"Health", "Status", "Usage", "IsClean"}
+
 // Controller to reconcile storagegroup custom resource
 type Controller struct {
 	client         *k8s.KubeClient
@@ -527,6 +529,17 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 
 func (c *Controller) isDriveSelectedByValidMatchFields(log *logrus.Entry, drive *api.Drive, matchFields *map[string]string) bool {
 	for fieldName, fieldValue := range *matchFields {
+		isSupportedDriveMatchField := true
+		for _, unsupportedField := range unsupportedDriveMatchFields {
+			if fieldName == unsupportedField {
+				isSupportedDriveMatchField = false
+				break
+			}
+		}
+		if !isSupportedDriveMatchField {
+			continue
+		}
+
 		driveField := reflect.ValueOf(drive).Elem().FieldByName(fieldName)
 		switch driveField.Type().String() {
 		case "string":

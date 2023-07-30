@@ -132,7 +132,7 @@ var (
 			DriveSelector: &api.DriveSelector{
 				MatchFields: map[string]string{
 					"Slot": "1",
-					"Type": "HDD",
+					"Type": apiV1.DriveTypeHDD,
 				},
 			},
 		},
@@ -144,7 +144,10 @@ var (
 		Spec: api.StorageGroupSpec{
 			DriveSelector: &api.DriveSelector{
 				NumberDrivesPerNode: 1,
-				MatchFields:         map[string]string{"Type": "HDD"},
+				MatchFields: map[string]string{
+					"Type":   apiV1.DriveTypeHDD,
+					"Status": apiV1.DriveStatusOffline,
+				},
 			},
 		},
 	}
@@ -155,7 +158,7 @@ var (
 		Spec: api.StorageGroupSpec{
 			DriveSelector: &api.DriveSelector{
 				MatchFields: map[string]string{
-					"Type":  "HDD",
+					"Type":  apiV1.DriveTypeHDD,
 					"IsSSD": "no",
 				},
 			},
