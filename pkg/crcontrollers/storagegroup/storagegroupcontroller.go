@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,14 +31,17 @@ import (
 )
 
 const (
-	sgFinalizer               = "dell.emc.csi/sg-cleanup"
-	sgTempStatusAnnotationKey = "storagegroup.csi-baremetal.dell.com/status"
-	contextTimeoutSeconds     = 60
+	sgFinalizer           = "dell.emc.csi/sg-cleanup"
+	contextTimeoutSeconds = 60
+	normalRequeueInterval = 1 * time.Second
 )
+
+var unsupportedDriveMatchFields = []string{"Health", "Status", "Usage", "IsClean"}
 
 // Controller to reconcile storagegroup custom resource
 type Controller struct {
 	client         *k8s.KubeClient
+	k8sCache       k8s.CRReader
 	log            *logrus.Entry
 	crHelper       k8s.CRHelper
 	cachedCrHelper k8s.CRHelper
@@ -49,6 +53,7 @@ type Controller struct {
 func NewController(client *k8s.KubeClient, k8sCache k8s.CRReader, log *logrus.Logger) *Controller {
 	c := &Controller{
 		client:         client,
+		k8sCache:       k8sCache,
 		crHelper:       k8s.NewCRHelperImpl(client, log),
 		cachedCrHelper: k8s.NewCRHelperImpl(client, log).SetReader(k8sCache),
 		log:            log.WithField("component", "StorageGroupController"),
@@ -63,11 +68,19 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{}).
 		Watches(&source.Kind{Type: &drivecrd.Drive{}}, &handler.EnqueueRequestForObject{}).
 		WithEventFilter(predicate.Funcs{
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return c.filterDeleteEvent(e.Object)
+			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				return c.filterUpdateEvent(e.ObjectOld, e.ObjectNew)
 			},
 		}).
 		Complete(c)
+}
+
+func (c *Controller) filterDeleteEvent(obj runtime.Object) bool {
+	_, isStorageGroup := obj.(*sgcrd.StorageGroup)
+	return isStorageGroup
 }
 
 func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) bool {
@@ -80,7 +93,9 @@ func (c *Controller) filterUpdateEvent(old runtime.Object, new runtime.Object) b
 }
 
 func filterDriveUpdateEvent(old *drivecrd.Drive, new *drivecrd.Drive) bool {
-	return old.Labels[apiV1.StorageGroupLabelKey] != new.Labels[apiV1.StorageGroupLabelKey]
+	oldLabel := old.Labels[apiV1.StorageGroupLabelKey]
+	newLabel, newLabeled := new.Labels[apiV1.StorageGroupLabelKey]
+	return (oldLabel != newLabel) || (!old.Spec.IsClean && new.Spec.IsClean && !newLabeled)
 }
 
 // Reconcile reconciles StorageGroup custom resources
@@ -89,69 +104,31 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	defer cancelFn()
 
 	// read name
-	name := req.Name
+	reqName := req.Name
 	// customize logging
-	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": name})
+	log := c.log.WithFields(logrus.Fields{"method": "Reconcile", "name": reqName})
 
-	drive := &drivecrd.Drive{}
-	if err := c.client.ReadCR(ctx, name, "", drive); err == nil {
-		return c.syncDriveStorageGroupLabel(ctx, drive)
-	} else if !k8serrors.IsNotFound(err) {
-		log.Errorf("error in reading %s as drive object: %v", name, err)
+	if _, err := uuid.Parse(reqName); err == nil {
+		drive := &drivecrd.Drive{}
+		// A drive just physically removed but not yet totally deleted yet, i.e. Usage == "REMOVED" && Status == "OFFLINE"
+		// will not be selected in any storage group and its existing sg label takes no effect
+		if err := c.client.ReadCR(ctx, reqName, "", drive); err == nil &&
+			!(drive.Spec.Usage == apiV1.DriveUsageRemoved && drive.Spec.Status == apiV1.DriveStatusOffline) {
+			return c.reconcileDriveStorageGroupLabel(ctx, drive)
+		} else if err != nil && !k8serrors.IsNotFound(err) {
+			log.Errorf("error in reading %s as drive object: %v", reqName, err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	storageGroup := &sgcrd.StorageGroup{}
-	if err := c.client.ReadCR(ctx, name, "", storageGroup); err != nil {
+	if err := c.client.ReadCR(ctx, reqName, "", storageGroup); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			log.Errorf("error in reading %s as drive or storagegroup object: %v", name, err)
+			log.Errorf("error in reading %s as drive or storagegroup object: %v", reqName, err)
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	log.Debugf("Reconcile StorageGroup: %v", storageGroup)
-
-	// StorageGroup Deletion request
-	if !storageGroup.DeletionTimestamp.IsZero() {
-		return c.handleStorageGroupDeletion(ctx, log, storageGroup)
-	}
-
-	if !util.ContainsString(storageGroup.Finalizers, sgFinalizer) {
-		// append finalizer
-		log.Debugf("Appending finalizer for StorageGroup")
-		storageGroup.Finalizers = append(storageGroup.Finalizers, sgFinalizer)
-		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-			log.Errorf("Unable to append finalizer %s to StorageGroup with error: %v.", sgFinalizer, err)
-			return ctrl.Result{Requeue: true}, err
-		}
-	}
-
-	if storageGroup.Annotations == nil {
-		storageGroup.Annotations = map[string]string{}
-	}
-	sgStatus, ok := storageGroup.Annotations[sgTempStatusAnnotationKey]
-	if !ok {
-		if !c.isStorageGroupValid(log, storageGroup) {
-			storageGroup.Annotations[sgTempStatusAnnotationKey] = apiV1.Failed
-			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
-				return ctrl.Result{Requeue: true}, err
-			}
-			return ctrl.Result{}, nil
-		}
-		// Pass storage group valiation, change to CREATING status
-		sgStatus = apiV1.Creating
-		storageGroup.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
-		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
-			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
-			return ctrl.Result{Requeue: true}, err
-		}
-	}
-
-	if sgStatus == apiV1.Creating {
-		return c.handleStorageGroupCreationOrUpdate(ctx, log, storageGroup)
-	}
-
-	return ctrl.Result{}, nil
+	return c.reconcileStorageGroup(ctx, storageGroup)
 }
 
 // combine the following similar funcs
@@ -173,7 +150,7 @@ func (c *Controller) removeDriveStorageGroupLabel(ctx context.Context, log *logr
 	return nil
 }
 
-func (c *Controller) addDriveStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
+func (c *Controller) updateDriveStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
 	sgName string) error {
 	if drive.Labels == nil {
 		drive.Labels = map[string]string{}
@@ -186,7 +163,7 @@ func (c *Controller) addDriveStorageGroupLabel(ctx context.Context, log *logrus.
 	return nil
 }
 
-func (c *Controller) addACStorageGroupLabel(ctx context.Context, log *logrus.Entry, ac *accrd.AvailableCapacity,
+func (c *Controller) updateACStorageGroupLabel(ctx context.Context, log *logrus.Entry, ac *accrd.AvailableCapacity,
 	sgName string) error {
 	if ac.Labels == nil {
 		ac.Labels = map[string]string{}
@@ -199,53 +176,39 @@ func (c *Controller) addACStorageGroupLabel(ctx context.Context, log *logrus.Ent
 	return nil
 }
 
-func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *drivecrd.Drive, ac *accrd.AvailableCapacity) (ctrl.Result, error) {
-	log := c.log.WithFields(logrus.Fields{"method": "syncDriveOnAllStorageGroups", "name": drive.Name})
+func (c *Controller) findAndAddMatchedStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive,
+	ac *accrd.AvailableCapacity) (ctrl.Result, error) {
+	log := c.log.WithFields(logrus.Fields{"method": "findAndAddMatchedStorageGroupLabel", "name": drive.Name})
 
 	sgList := &sgcrd.StorageGroupList{}
 	if err := c.client.ReadList(ctx, sgList); err != nil {
 		log.Errorf("failed to read storage group list: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
+
 	for _, storageGroup := range sgList.Items {
 		sg := storageGroup
-		sgStatus, ok := sg.Annotations[sgTempStatusAnnotationKey]
-		if !ok {
-			if !c.isStorageGroupValid(log, &sg) {
-				sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Failed
-				if err := c.client.UpdateCR(ctx, &sg); err != nil {
-					log.Errorf("Unable to update StorageGroup status with error: %v", err)
-					return ctrl.Result{Requeue: true}, err
-				}
-				continue
-			}
-			// Pass storage group valiation, change to CREATING status
-			sgStatus = apiV1.Creating
-			sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
-			if err := c.client.UpdateCR(ctx, &sg); err != nil {
-				log.Errorf("Unable to update StorageGroup status with error: %v", err)
-				return ctrl.Result{Requeue: true}, err
-			}
-		}
 
-		if sgStatus != apiV1.Failed && c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
+		if (sg.Status.Phase == apiV1.StorageGroupPhaseSynced || (sg.Status.Phase == apiV1.StorageGroupPhaseSyncing &&
+			sg.Spec.DriveSelector.NumberDrivesPerNode == 0)) && c.isDriveSelectedByValidMatchFields(log, &drive.Spec,
+			&sg.Spec.DriveSelector.MatchFields) {
 			if sg.Spec.DriveSelector.NumberDrivesPerNode == 0 {
 				log.Infof("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
-				if err := c.addDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
+				if err := c.updateDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
 					return ctrl.Result{Requeue: true}, err
 				}
-				if err := c.addACStorageGroupLabel(ctx, log, ac, sg.Name); err != nil {
+				log.Infof("Successfully add label of storagegroup %s to drive %s", sg.Name, drive.Name)
+				if err := c.updateACStorageGroupLabel(ctx, log, ac, sg.Name); err != nil {
 					return ctrl.Result{Requeue: true}, err
 				}
-				log.Infof("Successfully add label of storagegroup %s to drive %s and its corresponding AC",
-					sg.Name, drive.Name)
+				log.Infof("Successfully add label of storagegroup %s to drive %s's corresponding AC", sg.Name, drive.Name)
 				return ctrl.Result{}, nil
 			}
 
 			log.Debugf("drive %s will probably be selected by storagegroup %s", drive.Name, sg.Name)
-			if sg.Annotations[sgTempStatusAnnotationKey] != apiV1.Creating {
+			if sg.Status.Phase == apiV1.StorageGroupPhaseSynced {
 				// trigger the subsequent reconciliation of the potentially-matched storage group
-				sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Creating
+				sg.Status.Phase = apiV1.StorageGroupPhaseSyncing
 				if err := c.client.UpdateCR(ctx, &sg); err != nil {
 					log.Errorf("Unable to update StorageGroup status with error: %v", err)
 					return ctrl.Result{Requeue: true}, err
@@ -256,39 +219,83 @@ func (c *Controller) syncDriveOnAllStorageGroups(ctx context.Context, drive *dri
 	return ctrl.Result{}, nil
 }
 
-func (c *Controller) handleManualDriveStorageGroupLabelAddition(ctx context.Context, log *logrus.Entry,
+func (c *Controller) handleSeparateDriveStorageGroupLabelAddition(ctx context.Context, log *logrus.Entry,
 	drive *drivecrd.Drive, ac *accrd.AvailableCapacity, driveSGLabel string, lvgExists bool) (ctrl.Result, error) {
-	if lvgExists {
-		log.Warnf("We can't add storage group label to drive %s with existing LVG", drive.Name)
+	if !drive.Spec.IsClean || lvgExists || ac.Spec.Size == 0 {
+		log.Warnf("We shouldn't storage group label to not clean drive %s", drive.Name)
+
+		// if this drive has been really selected by this existing sg with NumberDrivesPerNode > 0 and SYNCED status,
+		// we need to also trigger the resync of this sg afterward
+		sg := &sgcrd.StorageGroup{}
+		if err := c.client.ReadCR(ctx, driveSGLabel, "", sg); err != nil && !k8serrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, err
+		}
+		if sg.Status.Phase == apiV1.StorageGroupPhaseSynced && sg.Spec.DriveSelector.NumberDrivesPerNode > 0 &&
+			c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
+			sg.Status.Phase = apiV1.StorageGroupPhaseSyncing
+			if err := c.client.UpdateCR(ctx, sg); err != nil {
+				return ctrl.Result{Requeue: true}, err
+			}
+		}
+
 		if err := c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
 		return ctrl.Result{}, nil
 	}
 
+	if err := c.updateACStorageGroupLabel(ctx, log, ac, driveSGLabel); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+	log.Infof("successfully add label of storage group %s to drive %s and its corresponding AC manually", driveSGLabel, drive.Name)
+	return ctrl.Result{}, nil
+}
+
+func (c *Controller) handleManualDriveStorageGroupLabelRemoval(ctx context.Context, log *logrus.Entry,
+	drive *drivecrd.Drive, ac *accrd.AvailableCapacity, acSGLabel string) (ctrl.Result, error) {
 	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
 	if err != nil {
 		log.Errorf("Error when getting volumes on drive %s: %v", drive.Name, err)
 		return ctrl.Result{Requeue: true}, err
 	}
 	if len(volumes) > 0 {
-		log.Warnf("We can't add storage group label to drive %s with existing volumes", drive.Name)
-		if err = c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
+		log.Warnf("We shouldn't remove label of storage group %s from drive %s with existing volumes",
+			acSGLabel, drive.Name)
+		if err := c.updateDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
 		return ctrl.Result{}, nil
 	}
 
-	log.Debugf("Also add storage-group %s label to AC %s corresponding to drive %s", driveSGLabel, ac.Name, drive.Name)
-	if err = c.addACStorageGroupLabel(ctx, log, ac, driveSGLabel); err != nil {
+	sg := &sgcrd.StorageGroup{}
+	err = c.client.ReadCR(ctx, acSGLabel, "", sg)
+	switch {
+	case err == nil && (sg.Status.Phase == apiV1.StorageGroupPhaseSynced || sg.Status.Phase == apiV1.StorageGroupPhaseSyncing) &&
+		c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields):
+		log.Warnf("We shouldn't remove label of storage group %s from drive %s still selected by this storage group",
+			acSGLabel, drive.Name)
+		if err := c.updateDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		return ctrl.Result{}, nil
+	case err != nil && !k8serrors.IsNotFound(err):
+		log.Errorf("Failed to read StorageGroup %s with error: %v", acSGLabel, err)
 		return ctrl.Result{Requeue: true}, err
+
+	// the case that the drive's storage group label removal is valid and we should sync the removal to AC
+	default:
+		if err := c.removeACStorageGroupLabel(ctx, log, ac); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		log.Infof("successfully remove label of storage group %s from drive %s and its corresponding AC",
+			acSGLabel, drive.Name)
 	}
 	return ctrl.Result{}, nil
 }
 
-// Here, we will sync the storage-group label of the drive object if applicable
-func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
-	log := c.log.WithFields(logrus.Fields{"method": "syncDriveStorageGroupLabel", "name": drive.Name})
+// Here, we will sync the storage-group label of single drive object if applicable
+func (c *Controller) reconcileDriveStorageGroupLabel(ctx context.Context, drive *drivecrd.Drive) (ctrl.Result, error) {
+	log := c.log.WithFields(logrus.Fields{"method": "reconcileDriveStorageGroupLabel", "name": drive.Name})
 
 	location := drive.Name
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
@@ -300,78 +307,93 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 		location = lvg.Name
 	}
 
-	ac, err := c.cachedCrHelper.GetACByLocation(location)
+	ac, err := c.crHelper.GetACByLocation(location)
 	if err != nil {
+		log.Errorf("Error when getting AC of drive %s: %v", drive.Name, err)
 		if err != errTypes.ErrorNotFound {
-			log.Errorf("Error when getting AC by location %s: %v", location, err)
+			return ctrl.Result{Requeue: true}, err
 		}
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{RequeueAfter: normalRequeueInterval}, nil
 	}
 
 	acSGLabel, acSGLabeled := ac.Labels[apiV1.StorageGroupLabelKey]
 	driveSGLabel, driveSGLabeled := drive.Labels[apiV1.StorageGroupLabelKey]
 	if acSGLabel == driveSGLabel {
-		if !acSGLabeled && !driveSGLabeled && lvg == nil {
-			volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
-			if err != nil {
-				log.Errorf("Error when getting volumes on drive %s: %v", drive.Name, err)
-				return ctrl.Result{Requeue: true}, err
-			}
-			if len(volumes) == 0 {
-				return c.syncDriveOnAllStorageGroups(ctx, drive, ac)
-			}
+		if !acSGLabeled && !driveSGLabeled && drive.Spec.IsClean && lvg == nil && ac.Spec.Size > 0 {
+			return c.findAndAddMatchedStorageGroupLabel(ctx, drive, ac)
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// Current manual sg labeling support
-	log.Debugf("Handle manual change of storage group label of drive %s", drive.Name)
+	log.Debugf("Handle separate change of storage group label of drive %s", drive.Name)
 
 	switch {
-	// add new storagegroup label to drive
+	// add new storagegroup label to drive separately
 	case !acSGLabeled && driveSGLabeled:
-		return c.handleManualDriveStorageGroupLabelAddition(ctx, log, drive, ac, driveSGLabel, lvg != nil)
+		return c.handleSeparateDriveStorageGroupLabelAddition(ctx, log, drive, ac, driveSGLabel, lvg != nil)
 
-	// remove storagegroup label from drive
+	// remove storagegroup label from drive manually
 	case acSGLabeled && !driveSGLabeled:
-		volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
-		if err != nil {
-			log.Errorf("Error when getting volumes on drive %s: %v", drive.Name, err)
+		return c.handleManualDriveStorageGroupLabelRemoval(ctx, log, drive, ac, acSGLabel)
+
+	// actually just the case acSGLabeled && driveSGLabeled here, i.e. update drive's storage group label manually,
+	// need to restore the update
+	default:
+		log.Warnf("We cannot update the drive %s's storage group label from %s to %s", drive.Name, acSGLabel, driveSGLabel)
+		if err := c.updateDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
-		if len(volumes) > 0 {
-			log.Warnf("We can't remove storage group %s label from drive %s with existing volumes",
-				acSGLabel, drive.Name)
-			if err := c.addDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
+		return ctrl.Result{}, nil
+	}
+}
+
+func (c *Controller) reconcileStorageGroup(ctx context.Context, storageGroup *sgcrd.StorageGroup) (ctrl.Result, error) {
+	log := c.log.WithFields(logrus.Fields{"method": "reconcileStorageGroup", "name": storageGroup.Name})
+
+	log.Debugf("Reconcile StorageGroup: %+v", storageGroup)
+
+	// StorageGroup Deletion request
+	if !storageGroup.DeletionTimestamp.IsZero() {
+		if storageGroup.Status.Phase != apiV1.StorageGroupPhaseRemoving {
+			storageGroup.Status.Phase = apiV1.StorageGroupPhaseRemoving
+			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
+				return ctrl.Result{Requeue: true}, err
+			}
+		}
+		return c.handleStorageGroupDeletion(ctx, log, storageGroup)
+	}
+
+	if !util.ContainsString(storageGroup.Finalizers, sgFinalizer) {
+		// append finalizer
+		log.Debugf("Appending finalizer for StorageGroup")
+		storageGroup.Finalizers = append(storageGroup.Finalizers, sgFinalizer)
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to append finalizer %s to StorageGroup with error: %v.", sgFinalizer, err)
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
+
+	if storageGroup.Status.Phase == "" {
+		if !c.isStorageGroupValid(log, storageGroup) {
+			storageGroup.Status.Phase = apiV1.StorageGroupPhaseInvalid
+			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+				log.Errorf("Unable to update StorageGroup status with error: %v.", err)
 				return ctrl.Result{Requeue: true}, err
 			}
 			return ctrl.Result{}, nil
 		}
-
-		sg := &sgcrd.StorageGroup{}
-		err = c.client.ReadCR(ctx, acSGLabel, "", sg)
-		switch {
-		case err == nil && c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields):
-			log.Warnf("We can't remove storage group %s label from drive %s still selected by this storage group",
-				acSGLabel, drive.Name)
-			if err := c.addDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
-				return ctrl.Result{Requeue: true}, err
-			}
-			return ctrl.Result{}, nil
-		case err != nil && !k8serrors.IsNotFound(err):
-			log.Errorf("Failed to read StorageGroup %s with error: %v", acSGLabel, err)
+		// Pass storage group valiation, change to SYNCING status phase
+		storageGroup.Status.Phase = apiV1.StorageGroupPhaseSyncing
+		if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
 			return ctrl.Result{Requeue: true}, err
-
-		// the case that the storage-group label removal is valid and we should sync the removal to AC
-		default:
-			log.Debugf("Also remove the storage-group %s label of AC %s corresponding to drive %s", acSGLabel,
-				ac.Name, drive.Name)
-			if err := c.removeACStorageGroupLabel(ctx, log, ac); err != nil {
-				return ctrl.Result{Requeue: true}, err
-			}
 		}
+	}
 
-		// TODO restore the update of storagegroup label of drive
+	if storageGroup.Status.Phase == apiV1.StorageGroupPhaseSyncing {
+		return c.handleStorageGroupCreationOrUpdate(ctx, log, storageGroup)
 	}
 
 	return ctrl.Result{}, nil
@@ -379,6 +401,8 @@ func (c *Controller) syncDriveStorageGroupLabel(ctx context.Context, drive *driv
 
 func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus.Entry,
 	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
+	log.Infof("handle deletion of storage group %s", sg.Name)
+
 	drivesList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, drivesList); err != nil {
 		log.Errorf("failed to read drives list: %v", err)
@@ -386,17 +410,28 @@ func (c *Controller) handleStorageGroupDeletion(ctx context.Context, log *logrus
 	}
 
 	var labelRemovalErrMsgs []string
+
+	// whether there is some drive with existing volumes in this storage group
+	driveHasExistingVolumes := false
 	for _, drive := range drivesList.Items {
 		drive := drive
 		if drive.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
-			if err := c.removeDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
+			successful, err := c.removeDriveAndACStorageGroupLabel(ctx, log, &drive, sg.Name)
+			if err != nil {
 				labelRemovalErrMsgs = append(labelRemovalErrMsgs, err.Error())
+			} else if !successful {
+				driveHasExistingVolumes = true
 			}
 		}
 	}
 	if len(labelRemovalErrMsgs) > 0 {
 		return ctrl.Result{Requeue: true}, fmt.Errorf(strings.Join(labelRemovalErrMsgs, "\n"))
 	}
+	if driveHasExistingVolumes {
+		log.Warnf("Storage group %s has drive with existing volumes. The deletion will be retried later.", sg.Name)
+		return ctrl.Result{RequeueAfter: normalRequeueInterval}, nil
+	}
+	log.Infof("deletion of storage group %s successfully completed", sg.Name)
 	return c.removeFinalizer(ctx, log, sg)
 }
 
@@ -414,6 +449,8 @@ func (c *Controller) removeFinalizer(ctx context.Context, log *logrus.Entry,
 
 func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log *logrus.Entry,
 	sg *sgcrd.StorageGroup) (ctrl.Result, error) {
+	log.Infof("handle creation or update of storage group %s", sg.Name)
+
 	drivesList := &drivecrd.DriveList{}
 	if err := c.client.ReadList(ctx, drivesList); err != nil {
 		log.Errorf("failed to read drives list: %v", err)
@@ -427,17 +464,25 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 
 	// used for candidate drives to be selected by storagegroup with numberDrivesPerNode > 0
 	var candidateDrives []*drivecrd.Drive
+
 	for _, d := range drivesList.Items {
 		drive := d
+
+		// A drive just physically removed but not yet totally deleted yet, i.e. Usage == "REMOVED" && Status == "OFFLINE"
+		// will not be selected in any storage group and its existing sg label takes no effect
+		if drive.Spec.Usage == apiV1.DriveUsageRemoved && drive.Spec.Status == apiV1.DriveStatusOffline {
+			continue
+		}
+
 		existingStorageGroup, exists := drive.Labels[apiV1.StorageGroupLabelKey]
 		if exists {
 			if existingStorageGroup == sg.Name {
-				log.Debugf("Drive %s has already been selected by current storage group", drive.Name)
 				noDriveSelected = false
 				if driveSelector.NumberDrivesPerNode > 0 {
 					drivesCount[drive.Spec.NodeId]++
 				}
 			}
+			log.Debugf("Drive %s has already been selected by storage group %s", drive.Name, existingStorageGroup)
 			continue
 		}
 
@@ -448,40 +493,57 @@ func (c *Controller) handleStorageGroupCreationOrUpdate(ctx context.Context, log
 				continue
 			}
 
-			if err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg); err != nil {
+			driveLabeled, err := c.addDriveAndACStorageGroupLabel(ctx, log, &drive, sg.Name)
+			if driveLabeled {
+				noDriveSelected = false
+			} else if err != nil {
 				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
-			noDriveSelected = false
 		}
 	}
 
 	for _, d := range candidateDrives {
 		drive := d
 		if drivesCount[drive.Spec.NodeId] < driveSelector.NumberDrivesPerNode {
-			if err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg); err != nil {
+			driveLabeled, err := c.addDriveAndACStorageGroupLabel(ctx, log, drive, sg.Name)
+			if driveLabeled {
+				noDriveSelected = false
+				drivesCount[drive.Spec.NodeId]++
+			} else if err != nil {
 				labelingErrMsgs = append(labelingErrMsgs, err.Error())
 			}
-			noDriveSelected = false
-			drivesCount[drive.Spec.NodeId]++
 		}
 	}
 
 	if noDriveSelected {
 		log.Warnf("No drive can be selected by current storage group %s", sg.Name)
 	}
-	if len(labelingErrMsgs) == 0 {
-		sg.Annotations[sgTempStatusAnnotationKey] = apiV1.Created
-		if err := c.client.UpdateCR(ctx, sg); err != nil {
-			log.Errorf("Unable to update StorageGroup status with error: %v.", err)
-			return ctrl.Result{Requeue: true}, err
-		}
-		return ctrl.Result{}, nil
+
+	if len(labelingErrMsgs) != 0 {
+		return ctrl.Result{Requeue: true}, fmt.Errorf(strings.Join(labelingErrMsgs, "\n"))
 	}
-	return ctrl.Result{Requeue: true}, fmt.Errorf(strings.Join(labelingErrMsgs, "\n"))
+	sg.Status.Phase = apiV1.StorageGroupPhaseSynced
+	if err := c.client.UpdateCR(ctx, sg); err != nil {
+		log.Errorf("Unable to update StorageGroup status with error: %v.", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	log.Infof("creation or update of storage group %s completed", sg.Name)
+	return ctrl.Result{}, nil
 }
 
 func (c *Controller) isDriveSelectedByValidMatchFields(log *logrus.Entry, drive *api.Drive, matchFields *map[string]string) bool {
 	for fieldName, fieldValue := range *matchFields {
+		isSupportedDriveMatchField := true
+		for _, unsupportedField := range unsupportedDriveMatchFields {
+			if fieldName == unsupportedField {
+				isSupportedDriveMatchField = false
+				break
+			}
+		}
+		if !isSupportedDriveMatchField {
+			continue
+		}
+
 		driveField := reflect.ValueOf(drive).Elem().FieldByName(fieldName)
 		switch driveField.Type().String() {
 		case "string":
@@ -537,77 +599,93 @@ func (c *Controller) isMatchFieldsValid(log *logrus.Entry, matchFields *map[stri
 	return true
 }
 
-// TODO Need more check on whether storagegroup is valid
 func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGroup) bool {
-	return c.isMatchFieldsValid(log, &sg.Spec.DriveSelector.MatchFields)
+	return sg.Spec.DriveSelector != nil && c.isMatchFieldsValid(log, &sg.Spec.DriveSelector.MatchFields)
 }
 
 func (c *Controller) removeDriveAndACStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
-	sg *sgcrd.StorageGroup) error {
-	log.Debugf("try to remove storagegroup label of drive %s", drive.Name)
+	sgName string) (bool, error) {
+	log.Infof("try to remove storagegroup label of drive %s and its corresponding AC", drive.Name)
+
+	// check whether this drive has existing volumes
 	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
 	if err != nil {
-		return err
+		log.Errorf("failed to get volumes on drive %s: %v", drive.Name, err)
+		return false, err
 	}
 	if len(volumes) > 0 {
-		log.Errorf("Drive %s has existing volumes. Storage group label can't be removed.", drive.Name)
-		return fmt.Errorf("error in removing storage-group label on drive")
+		log.Warnf("Drive %s has existing volumes and its sg label can't be removed.", drive.Name)
+		return false, nil
 	}
 
-	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
+	location := drive.Name
+	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Name)
 	if err != nil {
-		log.Errorf("Error when getting AC by drive %s: %v", drive.Spec.UUID, err)
-		return err
+		log.Errorf("error when getting LVG of drive %s: %v", drive.GetName(), err)
+		return false, err
+	} else if lvg != nil {
+		location = lvg.Name
 	}
-	if err = c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
-		return err
+	ac, err := c.crHelper.GetACByLocation(location)
+	if err != nil && err != errTypes.ErrorNotFound {
+		log.Errorf("error when getting AC of drive %s: %v", drive.Name, err)
+		return false, err
 	}
-	if ac.Labels[apiV1.StorageGroupLabelKey] == sg.Name {
-		if err = c.removeACStorageGroupLabel(ctx, log, ac); err != nil {
-			return err
+	if ac != nil {
+		if ac.Labels[apiV1.StorageGroupLabelKey] != sgName {
+			log.Warnf("ac %s's storage group label is not %s", ac.Name, sgName)
 		}
-	} else {
-		log.Warnf("we cannot remove storage-group label of ac %s not included in storage group %s", ac.Name, sg.Name)
+		if err = c.removeACStorageGroupLabel(ctx, log, ac); err != nil {
+			return false, err
+		}
+		log.Infof("successfully remove storagegroup label of drive %s's corresponding AC", drive.Name)
 	}
-	return nil
+
+	if err = c.removeDriveStorageGroupLabel(ctx, log, drive); err != nil {
+		return false, err
+	}
+	log.Infof("successfully remove storagegroup label of drive %s", drive.Name)
+	return true, nil
 }
 
 func (c *Controller) addDriveAndACStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
-	sg *sgcrd.StorageGroup) error {
-	log.Infof("Expect to add label of storagegroup %s to drive %s", sg.Name, drive.Name)
+	sgName string) (bool, error) {
+	log.Infof("Expect to add label of storagegroup %s to drive %s and its corresponding AC", sgName, drive.Name)
 
-	if lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID); err != nil || lvg != nil {
-		if err != nil {
-			log.Errorf("Error when getting LVG by drive %s: %v", drive.Name, err)
-			return err
-		}
-		log.Warnf("Drive %s has existing LVG and can't be selected by current storage group.",
-			drive.Name)
-		return nil
+	if !drive.Spec.IsClean {
+		log.Warnf("not clean drive %s can't be selected by current storage group.", drive.Name)
+		return false, nil
 	}
 
-	if volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID); err != nil || len(volumes) > 0 {
-		if err != nil {
-			log.Errorf("Error when getting volumes on drive %s: %v", drive.Name, err)
-			return err
-		}
-		log.Warnf("Drive %s has existing volumes and can't be selected by current storage group.",
-			drive.Name)
-		return nil
-	}
-
-	ac, err := c.cachedCrHelper.GetACByLocation(drive.Spec.UUID)
+	ac, err := c.crHelper.GetACByLocation(drive.Name)
 	if err != nil {
-		log.Errorf("Error when getting AC by drive %s: %v", drive.Spec.UUID, err)
-		return err
+		if err != errTypes.ErrorNotFound {
+			log.Errorf("Error when getting AC by the location of drive %s: %v", drive.Spec.UUID, err)
+			return false, err
+		}
+		lvg, e := c.crHelper.GetLVGByDrive(ctx, drive.Name)
+		if e != nil || lvg != nil {
+			return false, e
+		}
+		// AC really doesn't exist yet, need to wait for AC created and reconcile again
+		return false, err
 	}
-	// the corresponding ac exists, add storage-group label to the drive and corresponding ac
-	if err = c.addDriveStorageGroupLabel(ctx, log, drive, sg.Name); err != nil {
-		return err
+	// not clean AC, i.e. not clean drive
+	if ac != nil && ac.Spec.Size == 0 {
+		log.Warnf("not clean drive %s can't be selected by current storage group.", drive.Name)
+		return false, nil
 	}
-	if err = c.addACStorageGroupLabel(ctx, log, ac, sg.Name); err != nil {
-		return err
+
+	// the corresponding non-lvg ac exists and has free space, add storage-group label to the drive and corresponding ac
+	if err = c.updateDriveStorageGroupLabel(ctx, log, drive, sgName); err != nil {
+		return false, err
 	}
-	log.Infof("Successfully add label of storagegroup %s to drive %s and its corresponding AC", sg.Name, drive.Name)
-	return nil
+	log.Infof("Successfully add label of storagegroup %s to drive %s", sgName, drive.Name)
+
+	if err = c.updateACStorageGroupLabel(ctx, log, ac, sgName); err != nil {
+		return true, err
+	}
+	log.Infof("Successfully add label of storagegroup %s to drive %s and its corresponding AC", sgName, drive.Name)
+
+	return true, nil
 }

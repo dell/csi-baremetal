@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,6 +16,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	errTypes "github.com/dell/csi-baremetal/pkg/base/error"
@@ -396,6 +398,9 @@ func (c *Controller) handleDriveUsageRemoved(ctx context.Context, log *logrus.En
 	if err := c.removeRelatedAC(ctx, log, drive); err != nil {
 		return ignore, err
 	}
+	if err := c.triggerStorageGroupResyncIfApplicable(ctx, log, drive); err != nil {
+		return ignore, err
+	}
 	return remove, nil
 }
 
@@ -457,6 +462,40 @@ func (c *Controller) removeRelatedAC(ctx context.Context, log *logrus.Entry, cur
 		return err
 	}
 
+	return nil
+}
+
+func (c *Controller) triggerStorageGroupResyncIfApplicable(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) error {
+	if drive.Labels[apiV1.StorageGroupLabelKey] != "" {
+		storageGroup := &sgcrd.StorageGroup{}
+		err := c.client.ReadCR(ctx, drive.Labels[apiV1.StorageGroupLabelKey], "", storageGroup)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				log.Warnf("no existing storage group %s", drive.Labels[apiV1.StorageGroupLabelKey])
+				return nil
+			}
+			log.Errorf("error in reading storagegroup %s: %v", drive.Labels[apiV1.StorageGroupLabelKey], err)
+			return err
+		}
+
+		if storageGroup.Status.Phase != apiV1.StorageGroupPhaseInvalid &&
+			storageGroup.Status.Phase != apiV1.StorageGroupPhaseRemoving &&
+			storageGroup.Spec.DriveSelector.NumberDrivesPerNode > 0 {
+			if storageGroup.Status.Phase == apiV1.StorageGroupPhaseSynced {
+				storageGroup.Status.Phase = apiV1.StorageGroupPhaseSyncing
+			}
+			if storageGroup.Annotations == nil {
+				storageGroup.Annotations = map[string]string{}
+			}
+			// also add annotation for specific drive removal to storage group
+			annotationKey := fmt.Sprintf("%s/%s", apiV1.StorageGroupAnnotationDriveRemovalPrefix, drive.Name)
+			storageGroup.Annotations[annotationKey] = apiV1.StorageGroupAnnotationDriveRemovalDone
+			if err := c.client.UpdateCR(ctx, storageGroup); err != nil {
+				log.Errorf("Unable to update StorageGroup with error: %v.", err)
+				return err
+			}
+		}
+	}
 	return nil
 }
 
