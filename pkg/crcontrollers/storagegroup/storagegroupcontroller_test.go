@@ -392,56 +392,56 @@ func TestStorageGroupController_reconcileStorageGroup(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 
-	storageGroupController := NewController(kubeClient, kubeClient, testLogger)
+	c := NewController(kubeClient, kubeClient, testLogger)
 
 	t.Run("reconcile invalid storage group", func(t *testing.T) {
 		testSG3 := sg3.DeepCopy()
-		assert.Nil(t, storageGroupController.client.CreateCR(testCtx, testSG3.Name, testSG3))
+		assert.Nil(t, c.client.CreateCR(testCtx, testSG3.Name, testSG3))
 
-		res, err := storageGroupController.reconcileStorageGroup(testCtx, testSG3)
+		res, err := c.reconcileStorageGroup(testCtx, testSG3)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
 		testSG3Result := &sgcrd.StorageGroup{}
-		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testSG3.Name, "", testSG3Result))
+		assert.Nil(t, c.client.ReadCR(testCtx, testSG3.Name, "", testSG3Result))
 		assert.Equal(t, apiV1.StorageGroupPhaseInvalid, testSG3Result.Status.Phase)
 
-		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG3Result)
+		res, err = c.reconcileStorageGroup(testCtx, testSG3Result)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
-		assert.Nil(t, storageGroupController.client.ReadCR(testCtx, testSG3.Name, "", testSG3Result))
+		assert.Nil(t, c.client.ReadCR(testCtx, testSG3.Name, "", testSG3Result))
 		assert.Equal(t, apiV1.StorageGroupPhaseInvalid, testSG3Result.Status.Phase)
 
-		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testSG3))
+		assert.Nil(t, c.client.DeleteCR(testCtx, testSG3))
 	})
 
 	t.Run("reconcile storage group with error", func(t *testing.T) {
 		testSG3 := sg3.DeepCopy()
 
-		res, err := storageGroupController.reconcileStorageGroup(testCtx, testSG3)
+		res, err := c.reconcileStorageGroup(testCtx, testSG3)
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 
 		testSG3.Finalizers = append(testSG3.Finalizers, sgFinalizer)
-		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG3)
+		res, err = c.reconcileStorageGroup(testCtx, testSG3)
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 
 		testSG1 := sg1.DeepCopy()
 		testSG1.Finalizers = append(testSG1.Finalizers, sgFinalizer)
-		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG1)
+		res, err = c.reconcileStorageGroup(testCtx, testSG1)
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
 
 		testSG1.DeletionTimestamp = &v1.Time{Time: time.Now()}
 		testSG1.Finalizers = append(testSG1.Finalizers, sgFinalizer)
-		res, err = storageGroupController.reconcileStorageGroup(testCtx, testSG1)
+		res, err = c.reconcileStorageGroup(testCtx, testSG1)
 		assert.NotNil(t, res)
 		assert.NotNil(t, err)
 		assert.Equal(t, ctrl.Result{Requeue: true}, res)
@@ -498,6 +498,7 @@ func TestStorageGroupController_handleManualDriveStorageGroupLabelRemoval(t *tes
 		testAC1.Labels = map[string]string{apiV1.StorageGroupLabelKey: sg1Name}
 
 		testSG1 := sg1.DeepCopy()
+		testSG1.Status.Phase = apiV1.StorageGroupPhaseSynced
 
 		// Fail to read testSG1
 		res, err := c.handleManualDriveStorageGroupLabelRemoval(k8s.GetFailCtx, c.log, testDrive1, testAC1, sg1Name)
@@ -527,6 +528,9 @@ func TestStorageGroupController_handleManualDriveStorageGroupLabelRemoval(t *tes
 		res, err = c.handleManualDriveStorageGroupLabelRemoval(testCtx, c.log, testDrive1, testAC1, sg1Name)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
+
+		assert.Nil(t, c.client.ReadCR(testCtx, testDrive1.Name, "", testDrive1))
+		assert.Equal(t, sg1Name, testDrive1.Labels[apiV1.StorageGroupLabelKey])
 
 		assert.Nil(t, c.client.DeleteCR(testCtx, testDrive1))
 		assert.Nil(t, c.client.DeleteCR(testCtx, testSG1))

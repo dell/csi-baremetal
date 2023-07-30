@@ -230,7 +230,7 @@ func (c *Controller) handleSeparateDriveStorageGroupLabelAddition(ctx context.Co
 		if err := c.k8sCache.ReadCR(ctx, driveSGLabel, "", sg); err != nil && !k8serrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, err
 		}
-		if sg.Spec.DriveSelector.NumberDrivesPerNode > 0 && sg.Status.Phase == apiV1.StorageGroupPhaseSynced &&
+		if sg.Status.Phase == apiV1.StorageGroupPhaseSynced && sg.Spec.DriveSelector.NumberDrivesPerNode > 0 &&
 			c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields) {
 			sg.Status.Phase = apiV1.StorageGroupPhaseSyncing
 			if err := c.client.UpdateCR(ctx, sg); err != nil {
@@ -270,7 +270,8 @@ func (c *Controller) handleManualDriveStorageGroupLabelRemoval(ctx context.Conte
 	sg := &sgcrd.StorageGroup{}
 	err = c.k8sCache.ReadCR(ctx, acSGLabel, "", sg)
 	switch {
-	case err == nil && c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields):
+	case err == nil && (sg.Status.Phase == apiV1.StorageGroupPhaseSynced || sg.Status.Phase == apiV1.StorageGroupPhaseSyncing) &&
+		c.isDriveSelectedByValidMatchFields(log, &drive.Spec, &sg.Spec.DriveSelector.MatchFields):
 		log.Warnf("We shouldn't remove label of storage group %s from drive %s still selected by this storage group",
 			acSGLabel, drive.Name)
 		if err := c.updateDriveStorageGroupLabel(ctx, log, drive, acSGLabel); err != nil {
@@ -598,9 +599,8 @@ func (c *Controller) isMatchFieldsValid(log *logrus.Entry, matchFields *map[stri
 	return true
 }
 
-// TODO Need more check on whether storagegroup is valid
 func (c *Controller) isStorageGroupValid(log *logrus.Entry, sg *sgcrd.StorageGroup) bool {
-	return c.isMatchFieldsValid(log, &sg.Spec.DriveSelector.MatchFields)
+	return sg.Spec.DriveSelector != nil && c.isMatchFieldsValid(log, &sg.Spec.DriveSelector.MatchFields)
 }
 
 func (c *Controller) removeDriveAndACStorageGroupLabel(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive,
