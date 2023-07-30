@@ -192,8 +192,7 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 	wrappedK8SClient := k8s.NewKubeClient(client, log, objects.NewObjectLogger(), *namespace)
 
 	kubeCache, err := k8s.InitKubeCache(ctx, log,
-		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{},
-		&lvgcrd.LogicalVolumeGroup{}, &sgcrd.StorageGroup{})
+		&drivecrd.Drive{}, &accrd.AvailableCapacity{}, &volumecrd.Volume{})
 	if err != nil {
 		return nil, err
 	}
