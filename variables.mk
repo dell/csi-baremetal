@@ -5,7 +5,7 @@ PROJECT_PATH     := ${PWD}
 ### common path
 CSI_OPERATOR_PATH=../csi-baremetal-operator
 CSI_CHART_CRDS_PATH=$(CSI_OPERATOR_PATH)/charts/csi-baremetal-operator/crds
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+CRD_OPTIONS ?= crd
 
 ### version
 MAJOR            := 1
@@ -68,7 +68,7 @@ GOPRIVATE_PART  :=
 GOPROXY_PART    := GOPROXY=https://proxy.golang.org,direct
 
 ### go dependencies
-CONTROLLER_GEN_VER := v0.5.0
+CONTROLLER_GEN_VER := v0.9.2
 MOCKERY_VER        := v2.9.4
 PROTOC_GEN_GO_VER  := v1.3.2
 CLIENT_GO_VER      := v0.22.5
