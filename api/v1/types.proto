@@ -108,3 +108,7 @@ message DriveSelector {
     int32 numberDrivesPerNode = 1;
     map<string, string> matchFields = 2;
 }
+
+message StorageGroupStatus {
+    string phase = 1;
+}
