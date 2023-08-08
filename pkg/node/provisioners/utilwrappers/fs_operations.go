@@ -195,12 +195,12 @@ func (fsOp *FSOperationsImpl) MountFakeDevice(volumeID, dst string) error {
 		return err
 	}
 
-	//loopDev, err := fsOp.CreateLoopDevice(imagePath)
-	//if err != nil {
-	//	ll.Error(err)
-	//	return err
-	//}
-	//ll.Infof("loopback devcie created: %s", loopDev)
+	loopDev, err := fsOp.CreateLoopDevice(imagePath)
+	if err != nil {
+		ll.Error(err)
+		return err
+	}
+	ll.Infof("loopback devcie created: %s", loopDev)
 
 	if _, err := os.Stat(dst); err != nil {
 		if !os.IsNotExist(err) {
@@ -211,7 +211,7 @@ func (fsOp *FSOperationsImpl) MountFakeDevice(volumeID, dst string) error {
 			return err
 		}
 	}
-	return fsOp.Mount(imagePath, dst, "--bind")
+	return fsOp.Mount(loopDev, dst, "--bind")
 }
 
 // CreateFSIfNotExist checks FS and creates one if not exist
