@@ -74,6 +74,9 @@ const (
 	BindOption = "--bind"
 	// MountOptionsFlag flag to set mount options
 	MountOptionsFlag = "-o"
+
+	CreateFileCmdTmpl          = "dd if=/dev/zero of=%s bs=1M count=%d"
+	SetupLoopBackDeviceCmdTmpl = "losetup -f --show %s"
 )
 
 // WrapFS is an interface that encapsulates operation with file systems
@@ -91,6 +94,8 @@ type WrapFS interface {
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
+	MkImageFile(file string, siezMb int) error
+	CreateLoopDevice(src string) (string, error)
 }
 
 // WrapFSImpl is a WrapFS implementer
@@ -335,4 +340,25 @@ func (h *WrapFSImpl) GetFSUUID(device string) (string, error) {
 		return "", fmt.Errorf("failed to detect file system on %s: %w", device, err)
 	}
 	return strings.TrimSpace(stdout), err
+}
+
+func (h *WrapFSImpl) MkImageFile(file string, sizeMb int) error {
+	err := h.MkFile(file)
+	if err != nil {
+		return fmt.Errorf("failed to create image file %s: %w", file, err)
+	}
+
+	_, stderr, err := h.e.RunCmd(fmt.Sprintf(CreateFileCmdTmpl, file, sizeMb))
+	if err != nil {
+		return fmt.Errorf("failed to create image file %s: %w %s", file, err, stderr)
+	}
+	return nil
+}
+
+func (h *WrapFSImpl) CreateLoopDevice(src string) (string, error) {
+	stdout, stderr, err := h.e.RunCmd(fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, src))
+	if err != nil {
+		return "", fmt.Errorf("failed to create loopback device %s: %w", stderr, err)
+	}
+	return stdout, nil
 }

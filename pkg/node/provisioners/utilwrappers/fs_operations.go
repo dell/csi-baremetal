@@ -33,6 +33,8 @@ type FSOperations interface {
 	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error
 	// MountFakeTmpfs does attach of a temporary folder on failure
 	MountFakeTmpfs(volumeID, dst string) error
+	// MountFakeDevice does attach of fake block device
+	MountFakeDevice(volumeID, dst string) error
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	// CreateFSIfNotExist checks FS and creates one if not exist
@@ -177,6 +179,39 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 	}
 	// rw option is used as workaround for issue-906
 	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,rw")
+}
+
+// MountFakeDevice does attach of fake block device
+func (fsOp *FSOperationsImpl) MountFakeDevice(volumeID, dst string) error {
+	ll := fsOp.log.WithFields(logrus.Fields{
+		"method": "MountFakeDevice",
+	})
+
+	ll.Warningf("Simulate attachment")
+	imagePath := "/host/home/" + volumeID
+	err := fsOp.MkImageFile(imagePath, 1)
+	if err != nil {
+		ll.Error(err)
+		return err
+	}
+
+	//loopDev, err := fsOp.CreateLoopDevice(imagePath)
+	//if err != nil {
+	//	ll.Error(err)
+	//	return err
+	//}
+	//ll.Infof("loopback devcie created: %s", loopDev)
+
+	if _, err := os.Stat(dst); err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		createCMD := fsOp.MkFile
+		if err = createCMD(dst); err != nil {
+			return err
+		}
+	}
+	return fsOp.Mount(imagePath, dst, "--bind")
 }
 
 // CreateFSIfNotExist checks FS and creates one if not exist

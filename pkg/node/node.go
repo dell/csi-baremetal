@@ -453,9 +453,16 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	)
 
 	if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
-		if err := s.fsOps.MountFakeTmpfs(volumeID, dstPath); err != nil {
-			newStatus = apiV1.Failed
-			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
+		if volumeCR.Spec.Mode == apiV1.ModeRAWPART {
+			if err := s.fsOps.MountFakeDevice(volumeID, dstPath); err != nil {
+				newStatus = apiV1.Failed
+				resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
+			}
+		} else {
+			if err := s.fsOps.MountFakeTmpfs(volumeID, dstPath); err != nil {
+				newStatus = apiV1.Failed
+				resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
+			}
 		}
 	} else {
 		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
