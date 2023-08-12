@@ -75,8 +75,9 @@ const (
 	BindOption = "--bind"
 	// MountOptionsFlag flag to set mount options
 	MountOptionsFlag = "-o"
-
-	CreateFileByDDCmdTmpl      = "dd if=/dev/zero of=%s bs=1M count=%s"
+	// CreateFileByDDCmdTmpl cmd for creating file with specified size by dd command
+	CreateFileByDDCmdTmpl = "dd if=/dev/zero of=%s bs=1M count=%s"
+	// SetupLoopBackDeviceCmdTmpl cmd for loopback device setup
 	SetupLoopBackDeviceCmdTmpl = "losetup -f --show %s"
 )
 
@@ -372,7 +373,7 @@ func (h *WrapFSImpl) CreateFileWithSize(filePath, sizeStr string) error {
 // Receives the file path of the specificed src, whether a regular file or block device
 // Returns the loopback device's file path or empty string and error if something went wrong
 func (h *WrapFSImpl) CreateLoopDevice(src string) (string, error) {
-	cmd := fmt.Sprintf(fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, src))
+	cmd := fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, src)
 	stdout, _, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, ""))))

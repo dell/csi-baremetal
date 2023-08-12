@@ -59,6 +59,8 @@ const (
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
 
+	fakeAttachVolumeBlockModeFakeDeviceAnnotation = "fake-device"
+
 	wbtChangedVolumeAnnotation = "wbt-changed"
 	wbtChangedVolumeKey        = "yes"
 )
