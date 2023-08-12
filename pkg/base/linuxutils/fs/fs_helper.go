@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -75,7 +76,7 @@ const (
 	// MountOptionsFlag flag to set mount options
 	MountOptionsFlag = "-o"
 
-	CreateFileCmdTmpl          = "dd if=/dev/zero of=%s bs=1M count=%d"
+	CreateFileByDDCmdTmpl      = "dd if=/dev/zero of=%s bs=1M count=%s"
 	SetupLoopBackDeviceCmdTmpl = "losetup -f --show %s"
 )
 
@@ -94,7 +95,7 @@ type WrapFS interface {
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
-	MkImageFile(file string, siezMb int) error
+	CreateFileWithSize(filePath, sizeStr string) error
 	CreateLoopDevice(src string) (string, error)
 }
 
@@ -342,23 +343,41 @@ func (h *WrapFSImpl) GetFSUUID(device string) (string, error) {
 	return strings.TrimSpace(stdout), err
 }
 
-func (h *WrapFSImpl) MkImageFile(file string, sizeMb int) error {
-	err := h.MkFile(file)
+// CreateFileWithSize create file with specified size by dd command
+// Receives the file path and size in string format
+// Returns error if something went wrong
+func (h *WrapFSImpl) CreateFileWithSize(filePath, sizeStr string) error {
+	err := h.MkFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to create image file %s: %w", file, err)
+		return fmt.Errorf("failed to create file %s: %w", filePath, err)
 	}
 
-	_, stderr, err := h.e.RunCmd(fmt.Sprintf(CreateFileCmdTmpl, file, sizeMb))
+	sizeBytes, err := util.StrToBytes(sizeStr)
 	if err != nil {
-		return fmt.Errorf("failed to create image file %s: %w %s", file, err, stderr)
+		return fmt.Errorf("failed to convert %s to bytes", sizeStr)
+	}
+	sizeMB, _ := util.ToSizeUnit(sizeBytes, util.BYTE, util.MBYTE)
+
+	cmd := fmt.Sprintf(CreateFileByDDCmdTmpl, filePath, strconv.FormatInt(sizeMB, 10))
+	_, _, err = h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(fmt.Sprintf(CreateFileByDDCmdTmpl, "", "")))
+	if err != nil {
+		return fmt.Errorf("failed to create file %s with size %d MB: %w", filePath, sizeMB, err)
 	}
 	return nil
 }
 
+// CreateLoopDevice create loopback device mapped to specified src
+// Receives the file path of the specificed src, whether a regular file or block device
+// Returns the loopback device's file path or empty string and error if something went wrong
 func (h *WrapFSImpl) CreateLoopDevice(src string) (string, error) {
-	stdout, stderr, err := h.e.RunCmd(fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, src))
+	cmd := fmt.Sprintf(fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, src))
+	stdout, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, ""))))
 	if err != nil {
-		return "", fmt.Errorf("failed to create loopback device %s: %w", stderr, err)
+		return "", fmt.Errorf("failed to create loopback device for %s: %w", src, err)
 	}
-	return stdout, nil
+	return strings.TrimSpace(stdout), nil
 }

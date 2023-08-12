@@ -33,8 +33,8 @@ type FSOperations interface {
 	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error
 	// MountFakeTmpfs does attach of a temporary folder on failure
 	MountFakeTmpfs(volumeID, dst string) error
-	// MountFakeDevice does attach of fake block device
-	MountFakeDevice(volumeID, dst string) error
+	// CreateFakeDevice does attach of fake block device
+	CreateFakeDevice(src string) (string, error)
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	// CreateFSIfNotExist checks FS and creates one if not exist
@@ -181,37 +181,24 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,rw")
 }
 
-// MountFakeDevice does attach of fake block device
-func (fsOp *FSOperationsImpl) MountFakeDevice(volumeID, dst string) error {
+// CreateFakeDevice creates fake device based on volumeID, which is actually a loopback device mapped to a regular file
+func (fsOp *FSOperationsImpl) CreateFakeDevice(src string) (string, error) {
 	ll := fsOp.log.WithFields(logrus.Fields{
-		"method": "MountFakeDevice",
+		"method": "CreateFakeDevice",
 	})
 
-	ll.Warningf("Simulate attachment")
-	imagePath := "/host/home/" + volumeID
-	err := fsOp.MkImageFile(imagePath, 1)
+	err := fsOp.CreateFileWithSize(src, "1M")
 	if err != nil {
 		ll.Error(err)
-		return err
+		return "", err
 	}
 
-	loopDev, err := fsOp.CreateLoopDevice(imagePath)
+	loopDev, err := fsOp.CreateLoopDevice(src)
 	if err != nil {
 		ll.Error(err)
-		return err
+		return "", err
 	}
-	ll.Infof("loopback devcie created: %s", loopDev)
-
-	if _, err := os.Stat(dst); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-		createCMD := fsOp.MkFile
-		if err = createCMD(dst); err != nil {
-			return err
-		}
-	}
-	return fsOp.Mount(loopDev, dst, "--bind")
+	return loopDev, nil
 }
 
 // CreateFSIfNotExist checks FS and creates one if not exist
