@@ -71,6 +71,7 @@ var (
 		Location:     disk1.UUID,
 		StorageClass: apiV1.StorageClassHDD,
 		CSIStatus:    apiV1.VolumeReady,
+		Mode:         apiV1.ModeFS,
 	}
 	testVolume2 = api.Volume{
 		Id:           testV2ID,
