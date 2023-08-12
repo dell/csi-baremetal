@@ -110,3 +110,17 @@ func (m *MockWrapFS) Unmount(src string) error {
 
 	return args.Error(0)
 }
+
+// CreateFileWithSize is a mock implementations
+func (m *MockWrapFS) CreateFileWithSize(filePath, sizeStr string) error {
+	args := m.Mock.Called(filePath, sizeStr)
+
+	return args.Error(0)
+}
+
+// CreateLoopDevice is a mock implementations
+func (m *MockWrapFS) CreateLoopDevice(src string) (string, error) {
+	args := m.Mock.Called(src)
+
+	return args.String(0), args.Error(1)
+}
