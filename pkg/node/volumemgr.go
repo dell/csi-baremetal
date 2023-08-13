@@ -1384,14 +1384,14 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 	return true
 }
 
-func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, volumeCR *volumecrd.Volume) (string, error) {
-	fakeDevice, ok := volumeCR.Annotations[fakeDeviceVolumeAnnotation]
-	fakeDeviceFilePath := fakeDeviceFileDir + volumeCR.Name
+func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, vol *volumecrd.Volume) (string, error) {
+	fakeDevice, ok := vol.Annotations[fakeDeviceVolumeAnnotation]
+	fakeDeviceFilePath := fakeDeviceFileDir + vol.Name
 	var err error
 	if !ok {
 		fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceFilePath)
 		if err != nil {
-			return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", volumeCR.Name, err)
+			return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
 		}
 	} else {
 		if _, err = os.Stat(fakeDevice); err != nil {
@@ -1399,7 +1399,7 @@ func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, volumeCR *
 				log.Warnf("re-create non-existing device %s", fakeDevice)
 				fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceFilePath)
 				if err != nil {
-					return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", volumeCR.Name, err)
+					return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
 				}
 			} else {
 				return "", fmt.Errorf("failed to get info of device %s with error: %v", fakeDevice, err)

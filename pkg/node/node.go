@@ -37,6 +37,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/cache"
 	"github.com/dell/csi-baremetal/pkg/base/command"
@@ -148,6 +149,37 @@ func getStagingPath(logger *logrus.Entry, stagingPath string) string {
 	return stagingPath
 }
 
+func (s *CSINodeService) processFakeAttachInNodeStageVolume(ll *logrus.Entry, volumeCR *volumecrd.Volume, targetPath string, isFakeAttachNeed bool) error {
+	volumeID := volumeCR.Spec.Id
+	if isFakeAttachNeed {
+		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
+			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
+			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachInvolved,
+				"Fake-attach involved for volume with ID %s", volumeID)
+		}
+		// mount fake device in the non-fs mode
+		if volumeCR.Spec.Mode != apiV1.ModeFS {
+			fakeDevice, err := s.VolumeManager.createFakeDeviceIfNotExist(ll, volumeCR)
+			if err != nil {
+				ll.Errorf("failed to create fake device with error: %v", err)
+				return status.Error(codes.Internal, fmt.Sprintf("failed to create fake device in stage volume: %s", err.Error()))
+			}
+			volumeCR.Annotations[fakeDeviceVolumeAnnotation] = fakeDevice
+			if err := s.fsOps.PrepareAndPerformMount(fakeDevice, targetPath, true, false); err != nil {
+				ll.Errorf("unable to mount fake device in stage volume request with error: %v", err)
+				return status.Error(codes.Internal, fmt.Sprintf("failed to mount device in stage volume: %s", err.Error()))
+			}
+		}
+	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
+		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
+		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
+		s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachCleared,
+			"Fake-attach cleared for volume with ID %s", volumeID)
+	}
+	return nil
+}
+
 // NodeStageVolume is the implementation of CSI Spec NodeStageVolume. Performs when the first pod consumes a volume.
 // This method mounts volume with appropriate VolumeID into the StagingTargetPath from request.
 // Receives golang context and CSI Spec NodeStageVolumeRequest
@@ -248,31 +280,8 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 	}
 
-	if isFakeAttachNeed {
-		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
-			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
-			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
-			s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachInvolved,
-				"Fake-attach involved for volume with ID %s", volumeID)
-		}
-		// mount fake device in the non-fs mode
-		if volumeCR.Spec.Mode != apiV1.ModeFS {
-			fakeDevice, err := s.VolumeManager.createFakeDeviceIfNotExist(ll, volumeCR)
-			if err != nil {
-				ll.Errorf("failed to create fake device with error: %v", err)
-				return nil, status.Error(codes.Internal, fmt.Sprintf("failed to create fake device in stage volume: %s", err.Error()))
-			}
-			volumeCR.Annotations[fakeDeviceVolumeAnnotation] = fakeDevice
-			if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
-				ll.Errorf("unable to mount device in stage volume request with error: %v", err)
-				return nil, status.Error(codes.Internal, fmt.Sprintf("failed to mount device in stage volume: %s", err.Error()))
-			}
-		}
-	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
-		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
-		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
-		s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachCleared,
-			"Fake-attach cleared for volume with ID %s", volumeID)
+	if err := s.processFakeAttachInNodeStageVolume(ll, volumeCR, targetPath, isFakeAttachNeed); err != nil {
+		return nil, err
 	}
 
 	if s.VolumeManager.checkWbtChangingEnable(ctx, volumeCR) {
