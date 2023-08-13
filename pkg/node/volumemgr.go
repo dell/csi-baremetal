@@ -502,6 +502,11 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 		"volumeID": volume.Name,
 	})
 
+	// For non-fs mode volume still in fake-attach status, we need to clean fake device
+	if volume.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey && volume.Spec.Mode == apiV1.ModeFS {
+		m.cleanFakeDevice(ll, volume)
+	}
+
 	if volume.Spec.GetOperationalStatus() == apiV1.OperationalStatusMissing {
 		ll.Warnf("Volume - %s is MISSING. Unable to perform deletion. Set status to Removed", volume.Spec.Id)
 		return apiV1.Removed, nil
@@ -1407,6 +1412,21 @@ func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, vol *volum
 		}
 	}
 	return fakeDevice, nil
+}
+
+func (m *VolumeManager) cleanFakeDevice(log *logrus.Entry, vol *volumecrd.Volume) {
+	fakeDevice, ok := vol.Annotations[fakeDeviceVolumeAnnotation]
+	if !ok {
+		log.Warnf("the %s annotation of volume %s is missing", fakeDeviceVolumeAnnotation, vol.Name)
+		return
+	}
+	if err := m.fsOps.RemoveLoopDevice(fakeDevice); err != nil {
+		log.Warnf("removing fake device %s of volume %s failed with error: %v", fakeDevice, vol.Name, err)
+	}
+	fakeDeviceSrcFilePath := fakeDeviceSrcFileDir + vol.Name
+	if err := m.fsOps.RmDir(fakeDeviceSrcFilePath); err != nil {
+		log.Warnf("removing fake device src file %s of volume %s failed with error: %v", fakeDeviceSrcFilePath, vol.Name, err)
+	}
 }
 
 func (m *VolumeManager) findDeviceName(vol *volumecrd.Volume) (string, error) {

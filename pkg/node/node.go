@@ -176,6 +176,11 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(ll *logrus.Entry, vo
 		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
 		s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachCleared,
 			"Fake-attach cleared for volume with ID %s", volumeID)
+		// clean fake device in the non-fs mode
+		if volumeCR.Spec.Mode != apiV1.ModeFS {
+			s.VolumeManager.cleanFakeDevice(ll, volumeCR)
+			delete(volumeCR.Annotations, fakeDeviceVolumeAnnotation)
+		}
 	}
 	return nil
 }
