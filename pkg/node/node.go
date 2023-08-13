@@ -59,7 +59,8 @@ const (
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
 
-	// fakeAttachVolumeBlockModeFakeDeviceAnnotation = "fake-device"
+	fakeDeviceVolumeAnnotation = "fake-device"
+	fakeDeviceFileDir          = "/hostroot/host/fakeDevices/"
 
 	wbtChangedVolumeAnnotation = "wbt-changed"
 	wbtChangedVolumeKey        = "yes"
@@ -254,6 +255,19 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachInvolved,
 				"Fake-attach involved for volume with ID %s", volumeID)
 		}
+		// mount fake device in the non-fs mode
+		if volumeCR.Spec.Mode != apiV1.ModeFS {
+			fakeDevice, err := s.VolumeManager.createFakeDeviceIfNotExist(ll, volumeCR)
+			if err != nil {
+				ll.Errorf("failed to create fake device with error: %v", err)
+				return nil, status.Error(codes.Internal, fmt.Sprintf("failed to create fake device in stage volume: %s", err.Error()))
+			}
+			volumeCR.Annotations[fakeDeviceVolumeAnnotation] = fakeDevice
+			if err := s.fsOps.PrepareAndPerformMount(partition, targetPath, true, false); err != nil {
+				ll.Errorf("unable to mount device in stage volume request with error: %v", err)
+				return nil, status.Error(codes.Internal, fmt.Sprintf("failed to mount device in stage volume: %s", err.Error()))
+			}
+		}
 	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
 		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
 		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
@@ -342,7 +356,7 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		errToReturn error
 	)
 
-	if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
+	if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey || volumeCR.Spec.Mode != apiV1.ModeFS {
 		targetPath := getStagingPath(ll, req.GetStagingTargetPath())
 		errToReturn = s.fsOps.UnmountWithCheck(targetPath)
 		if errToReturn == nil {

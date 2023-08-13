@@ -79,6 +79,8 @@ const (
 	CreateFileByDDCmdTmpl = "dd if=/dev/zero of=%s bs=1M count=%s"
 	// SetupLoopBackDeviceCmdTmpl cmd for loopback device setup
 	SetupLoopBackDeviceCmdTmpl = "losetup -f --show %s"
+	// DetachLoopBackDeviceCmdTmpl cmd for loopback device detach
+	DetachLoopBackDeviceCmdTmpl = "losetup -d %s"
 )
 
 // WrapFS is an interface that encapsulates operation with file systems
@@ -98,6 +100,7 @@ type WrapFS interface {
 	Unmount(src string) error
 	CreateFileWithSizeInMB(filePath string, sizeMB int) error
 	CreateLoopDevice(src string) (string, error)
+	RemoveLoopDevice(device string) error
 }
 
 // WrapFSImpl is a WrapFS implementer
@@ -375,4 +378,18 @@ func (h *WrapFSImpl) CreateLoopDevice(src string) (string, error) {
 		return "", fmt.Errorf("failed to create loopback device for %s: %w", src, err)
 	}
 	return strings.TrimSpace(stdout), nil
+}
+
+// RemoveLoopDevice remove the specified loopback device
+// Receives the loop device path
+// Returns error if something went wrong
+func (h *WrapFSImpl) RemoveLoopDevice(device string) error {
+	cmd := fmt.Sprintf(DetachLoopBackDeviceCmdTmpl, device)
+	_, _, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(DetachLoopBackDeviceCmdTmpl, ""))))
+	if err != nil {
+		return fmt.Errorf("failed to remove loopback device %s: %w", device, err)
+	}
+	return nil
 }

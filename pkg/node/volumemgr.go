@@ -19,6 +19,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -1381,6 +1382,31 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 	}
 
 	return true
+}
+
+func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, volumeCR *volumecrd.Volume) (string, error) {
+	fakeDevice, ok := volumeCR.Annotations[fakeDeviceVolumeAnnotation]
+	fakeDeviceFilePath := fakeDeviceFileDir + volumeCR.Name
+	var err error
+	if !ok {
+		fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceFilePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", volumeCR.Name, err)
+		}
+	} else {
+		if _, err = os.Stat(fakeDevice); err != nil {
+			if os.IsNotExist(err) {
+				log.Warnf("re-create non-existing device %s", fakeDevice)
+				fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceFilePath)
+				if err != nil {
+					return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", volumeCR.Name, err)
+				}
+			} else {
+				return "", fmt.Errorf("failed to get info of device %s with error: %v", fakeDevice, err)
+			}
+		}
+	}
+	return fakeDevice, nil
 }
 
 func (m *VolumeManager) findDeviceName(vol *volumecrd.Volume) (string, error) {
