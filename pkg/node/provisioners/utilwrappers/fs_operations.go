@@ -33,12 +33,12 @@ type FSOperations interface {
 	PrepareAndPerformMount(src, dst string, bindMount, dstIsDir bool, mountOptions ...string) error
 	// MountFakeTmpfs does attach of a temporary folder on failure
 	MountFakeTmpfs(volumeID, dst string) error
-	// CreateFakeDevice does attach of fake block device
-	CreateFakeDevice(src string) (string, error)
 	// UnmountWithCheck unmount operation
 	UnmountWithCheck(path string) error
 	// CreateFSIfNotExist checks FS and creates one if not exist
 	CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error
+	// CreateFakeDevice creates of fake block device
+	CreateFakeDevice(src string) (string, error)
 	fs.WrapFS
 }
 
@@ -181,26 +181,6 @@ func (fsOp *FSOperationsImpl) MountFakeTmpfs(volumeID, dst string) error {
 	return fsOp.Mount(volumeID, dst, "-t tmpfs -o size=1M,rw")
 }
 
-// CreateFakeDevice creates fake device based on volumeID, which is actually a loopback device mapped to a regular file
-func (fsOp *FSOperationsImpl) CreateFakeDevice(src string) (string, error) {
-	ll := fsOp.log.WithFields(logrus.Fields{
-		"method": "CreateFakeDevice",
-	})
-
-	err := fsOp.CreateFileWithSizeInMB(src, 1)
-	if err != nil {
-		ll.Error(err)
-		return "", err
-	}
-
-	loopDev, err := fsOp.CreateLoopDevice(src)
-	if err != nil {
-		ll.Error(err)
-		return "", err
-	}
-	return loopDev, nil
-}
-
 // CreateFSIfNotExist checks FS and creates one if not exist
 /*
 	CMD example:
@@ -246,6 +226,26 @@ func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device, u
 	}
 
 	return nil
+}
+
+// CreateFakeDevice creates a fake device, which is actually a loop device mapped to a regular file created at src file path
+func (fsOp *FSOperationsImpl) CreateFakeDevice(src string) (string, error) {
+	ll := fsOp.log.WithFields(logrus.Fields{
+		"method": "CreateFakeDevice",
+	})
+
+	err := fsOp.CreateFileWithSizeInMB(src, 1)
+	if err != nil {
+		ll.Error(err)
+		return "", err
+	}
+
+	loopDev, err := fsOp.CreateLoopDevice(src)
+	if err != nil {
+		ll.Error(err)
+		return "", err
+	}
+	return loopDev, nil
 }
 
 // Add options to mount command

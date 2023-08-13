@@ -1386,10 +1386,10 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 
 func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, vol *volumecrd.Volume) (string, error) {
 	fakeDevice, ok := vol.Annotations[fakeDeviceVolumeAnnotation]
-	fakeDeviceFilePath := fakeDeviceFileDir + vol.Name
+	fakeDeviceSrcFilePath := fakeDeviceSrcFileDir + vol.Name
 	var err error
 	if !ok {
-		fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceFilePath)
+		fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
 		if err != nil {
 			return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
 		}
@@ -1397,7 +1397,7 @@ func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, vol *volum
 		if _, err = os.Stat(fakeDevice); err != nil {
 			if os.IsNotExist(err) {
 				log.Warnf("re-create non-existing device %s", fakeDevice)
-				fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceFilePath)
+				fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
 				if err != nil {
 					return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
 				}

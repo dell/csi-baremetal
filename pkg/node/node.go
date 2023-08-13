@@ -61,7 +61,7 @@ const (
 	fakeAttachVolumeKey        = "yes"
 
 	fakeDeviceVolumeAnnotation = "fake-device"
-	fakeDeviceFileDir          = "/hostroot/host/fakeDevices/"
+	fakeDeviceSrcFileDir       = "/hostroot/host/fakeDevices/"
 
 	wbtChangedVolumeAnnotation = "wbt-changed"
 	wbtChangedVolumeKey        = "yes"
