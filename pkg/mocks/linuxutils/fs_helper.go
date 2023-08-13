@@ -111,9 +111,9 @@ func (m *MockWrapFS) Unmount(src string) error {
 	return args.Error(0)
 }
 
-// CreateFileWithSize is a mock implementations
-func (m *MockWrapFS) CreateFileWithSize(filePath, sizeStr string) error {
-	args := m.Mock.Called(filePath, sizeStr)
+// CreateFileWithSizeInMB is a mock implementations
+func (m *MockWrapFS) CreateFileWithSizeInMB(filePath string, sizeMB int) error {
+	args := m.Mock.Called(filePath, sizeMB)
 
 	return args.Error(0)
 }

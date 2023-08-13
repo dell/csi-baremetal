@@ -96,7 +96,7 @@ type WrapFS interface {
 	FindMountPoint(target string) (string, error)
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
-	CreateFileWithSize(filePath, sizeStr string) error
+	CreateFileWithSizeInMB(filePath string, sizeMB int) error
 	CreateLoopDevice(src string) (string, error)
 }
 
@@ -344,22 +344,16 @@ func (h *WrapFSImpl) GetFSUUID(device string) (string, error) {
 	return strings.TrimSpace(stdout), err
 }
 
-// CreateFileWithSize create file with specified size by dd command
-// Receives the file path and size in string format
+// CreateFileWithSizeInMB creates file with specified size in MB unit by dd command
+// Receives the file path and size in MB unit
 // Returns error if something went wrong
-func (h *WrapFSImpl) CreateFileWithSize(filePath, sizeStr string) error {
+func (h *WrapFSImpl) CreateFileWithSizeInMB(filePath string, sizeMB int) error {
 	err := h.MkFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filePath, err)
 	}
 
-	sizeBytes, err := util.StrToBytes(sizeStr)
-	if err != nil {
-		return fmt.Errorf("failed to convert %s to bytes", sizeStr)
-	}
-	sizeMB, _ := util.ToSizeUnit(sizeBytes, util.BYTE, util.MBYTE)
-
-	cmd := fmt.Sprintf(CreateFileByDDCmdTmpl, filePath, strconv.FormatInt(sizeMB, 10))
+	cmd := fmt.Sprintf(CreateFileByDDCmdTmpl, filePath, strconv.Itoa(sizeMB))
 	_, _, err = h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(fmt.Sprintf(CreateFileByDDCmdTmpl, "", "")))

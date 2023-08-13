@@ -187,7 +187,7 @@ func (fsOp *FSOperationsImpl) CreateFakeDevice(src string) (string, error) {
 		"method": "CreateFakeDevice",
 	})
 
-	err := fsOp.CreateFileWithSize(src, "1M")
+	err := fsOp.CreateFileWithSizeInMB(src, 1)
 	if err != nil {
 		ll.Error(err)
 		return "", err
