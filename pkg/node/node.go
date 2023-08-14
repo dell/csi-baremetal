@@ -61,7 +61,7 @@ const (
 	fakeAttachVolumeKey        = "yes"
 
 	fakeDeviceVolumeAnnotation = "fake-device"
-	fakeDeviceSrcFileDir       = "/hostroot/host/fakeDevices/"
+	fakeDeviceSrcFileDir       = "/var/lib/kubelet/plugins/kubernetes.io/csi/volumeDevices/fake/"
 
 	wbtChangedVolumeAnnotation = "wbt-changed"
 	wbtChangedVolumeKey        = "yes"
