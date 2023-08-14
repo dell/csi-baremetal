@@ -19,7 +19,6 @@ package node
 import (
 	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -1399,15 +1398,15 @@ func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, vol *volum
 			return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
 		}
 	} else {
-		if _, err = os.Stat(fakeDevice); err != nil {
-			if os.IsNotExist(err) {
-				log.Warnf("re-create non-existing device %s", fakeDevice)
-				fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
-				if err != nil {
-					return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
-				}
-			} else {
-				return "", fmt.Errorf("failed to get info of device %s with error: %v", fakeDevice, err)
+		blockDevices, err := m.listBlk.GetBlockDevices(fakeDevice)
+		if err != nil {
+			return "", fmt.Errorf("failed to get info of fake device %s of volume %s with error: %v", fakeDevice, vol.Name, err)
+		}
+		if len(blockDevices) == 0 {
+			log.Warnf("re-create non-existing fake device %s", fakeDevice)
+			fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
+			if err != nil {
+				return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
 			}
 		}
 	}

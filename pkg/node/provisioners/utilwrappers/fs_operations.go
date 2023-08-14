@@ -245,6 +245,8 @@ func (fsOp *FSOperationsImpl) CreateFakeDevice(src string) (string, error) {
 		ll.Error(err)
 		return "", err
 	}
+
+	ll.Warnf("fake device %s created on regular file %s", loopDev, src)
 	return loopDev, nil
 }
 
