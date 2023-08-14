@@ -236,13 +236,13 @@ func (fsOp *FSOperationsImpl) CreateFakeDevice(src string) (string, error) {
 
 	err := fsOp.CreateFileWithSizeInMB(src, 1)
 	if err != nil {
-		ll.Error(err)
+		ll.Errorf("call fsOp.CreateFileWithSizeInMB with error: %v", err)
 		return "", err
 	}
 
 	loopDev, err := fsOp.CreateLoopDevice(src)
 	if err != nil {
-		ll.Error(err)
+		ll.Errorf("call fsOp.CreateLoopDevice with error: %v", err)
 		return "", err
 	}
 

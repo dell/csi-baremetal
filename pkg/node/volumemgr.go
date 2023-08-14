@@ -1388,25 +1388,30 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 	return true
 }
 
-func (m *VolumeManager) createFakeDeviceIfNotExist(log *logrus.Entry, vol *volumecrd.Volume) (string, error) {
+func (m *VolumeManager) createFakeDeviceIfNecessary(log *logrus.Entry, vol *volumecrd.Volume) (string, error) {
 	fakeDevice, ok := vol.Annotations[fakeDeviceVolumeAnnotation]
 	fakeDeviceSrcFilePath := fakeDeviceSrcFileDir + vol.Name
 	var err error
 	if !ok {
 		fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
 		if err != nil {
-			return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
+			log.Errorf("call fsOps.CreateFakeDevice with error: %v", err)
+			return "", err
 		}
 	} else {
 		blockDevices, err := m.listBlk.GetBlockDevices(fakeDevice)
-		if err != nil {
-			return "", fmt.Errorf("failed to get info of fake device %s of volume %s with error: %v", fakeDevice, vol.Name, err)
-		}
-		if len(blockDevices) == 0 {
-			log.Warnf("fake device %s doesn't exist! re-create the fake device for volume %s", fakeDevice, vol.Name)
+		if err != nil || len(blockDevices) == 0 {
+			var warnMsg string
+			if err != nil {
+				warnMsg = fmt.Sprintf("failed to get info of fake device %s with error: %s.", fakeDevice, err.Error())
+			} else {
+				warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
+			}
+			log.Warnf("%s re-create the fake device", warnMsg)
 			fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
 			if err != nil {
-				return "", fmt.Errorf("failed to create fake device for volume %s with error: %v", vol.Name, err)
+				log.Errorf("call fsOps.CreateFakeDevice with error: %v", err)
+				return "", err
 			}
 		}
 	}

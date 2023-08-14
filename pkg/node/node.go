@@ -160,9 +160,9 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(ll *logrus.Entry, vo
 		}
 		// mount fake device in the non-fs mode
 		if volumeCR.Spec.Mode != apiV1.ModeFS {
-			fakeDevice, err := s.VolumeManager.createFakeDeviceIfNotExist(ll, volumeCR)
+			fakeDevice, err := s.VolumeManager.createFakeDeviceIfNecessary(ll, volumeCR)
 			if err != nil {
-				ll.Errorf("failed to create fake device with error: %v", err)
+				ll.Errorf("unable to create fake device in stage volume request with error: %v", err)
 				return status.Error(codes.Internal, fmt.Sprintf("failed to create fake device in stage volume: %s", err.Error()))
 			}
 			volumeCR.Annotations[fakeDeviceVolumeAnnotation] = fakeDevice
