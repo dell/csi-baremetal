@@ -502,7 +502,7 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 	})
 
 	// For non-fs mode volume still in fake-attach status, we need to clean fake device
-	if volume.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey && volume.Spec.Mode == apiV1.ModeFS {
+	if volume.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey && volume.Spec.Mode != apiV1.ModeFS {
 		m.cleanFakeDevice(ll, volume)
 	}
 
@@ -1399,8 +1399,8 @@ func (m *VolumeManager) createFakeDeviceIfNecessary(log *logrus.Entry, vol *volu
 			return "", err
 		}
 	} else {
-		blockDevices, err := m.listBlk.GetBlockDevices(fakeDevice)
-		if err != nil || len(blockDevices) == 0 {
+		devices, err := m.listBlk.GetBlockDevices(fakeDevice)
+		if err != nil || len(devices) == 0 {
 			var warnMsg string
 			if err != nil {
 				warnMsg = fmt.Sprintf("failed to get info of fake device %s with error: %s.", fakeDevice, err.Error())
