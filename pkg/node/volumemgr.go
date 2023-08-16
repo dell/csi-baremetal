@@ -1399,13 +1399,17 @@ func (m *VolumeManager) createFakeDeviceIfNecessary(log *logrus.Entry, vol *volu
 			return "", err
 		}
 	} else {
-		devices, err := m.listBlk.GetBlockDevices(fakeDevice)
-		if err != nil || len(devices) == 0 {
+		backFile, err := m.fsOps.ReadLoopDevice(fakeDevice)
+		if err != nil {
+			log.Errorf("call fsOps.ReadLoopDevice with error: %v", err)
+			return "", err
+		}
+		if backFile == "" || !strings.HasPrefix(backFile, fakeDeviceSrcFilePath) {
 			var warnMsg string
-			if err != nil {
-				warnMsg = fmt.Sprintf("failed to get info of fake device %s with error: %s.", fakeDevice, err.Error())
-			} else {
+			if backFile == "" {
 				warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
+			} else {
+				warnMsg = fmt.Sprintf("fake device %s maps to other source", fakeDevice)
 			}
 			log.Warnf("%s re-create the fake device", warnMsg)
 			fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)

@@ -118,6 +118,13 @@ func (m *MockWrapFS) CreateFileWithSizeInMB(filePath string, sizeMB int) error {
 	return args.Error(0)
 }
 
+// ReadLoopDevice is a mock implementation
+func (m *MockWrapFS) ReadLoopDevice(device string) (string, error) {
+	args := m.Mock.Called(device)
+
+	return args.String(0), args.Error(1)
+}
+
 // CreateLoopDevice is a mock implementation
 func (m *MockWrapFS) CreateLoopDevice(src string) (string, error) {
 	args := m.Mock.Called(src)

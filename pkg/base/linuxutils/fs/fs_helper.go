@@ -43,6 +43,8 @@ const (
 
 	// wipefs is a system utility
 	wipefs = "wipefs "
+	// losetupCmd is base cmd to operate loop devices, losetup
+	losetupCmd = "losetup "
 	// CheckSpaceCmdImpl cmd for getting space on the mounted FS, produce output in megabytes (--block-size=M)
 	CheckSpaceCmdImpl = "df %s --output=target,avail --block-size=M" // add mounted fs part
 	// MkFSCmdTmpl mkfs command template
@@ -77,10 +79,12 @@ const (
 	MountOptionsFlag = "-o"
 	// CreateFileByDDCmdTmpl cmd for creating file with specified size by dd command
 	CreateFileByDDCmdTmpl = "dd if=/dev/zero of=%s bs=1M count=%s"
+	// ReadLoopBackDeviceMappingCmd cmd for reading loopback device mapping
+	ReadLoopBackDeviceMappingCmd = losetupCmd + "-O NAME,BACK-FILE %s"
 	// SetupLoopBackDeviceCmdTmpl cmd for loopback device setup
-	SetupLoopBackDeviceCmdTmpl = "losetup -f --show %s"
+	SetupLoopBackDeviceCmdTmpl = losetupCmd + "-f --show %s"
 	// DetachLoopBackDeviceCmdTmpl cmd for loopback device detach
-	DetachLoopBackDeviceCmdTmpl = "losetup -d %s"
+	DetachLoopBackDeviceCmdTmpl = losetupCmd + "-d %s"
 )
 
 // WrapFS is an interface that encapsulates operation with file systems
@@ -99,6 +103,7 @@ type WrapFS interface {
 	Mount(src, dst string, opts ...string) error
 	Unmount(src string) error
 	CreateFileWithSizeInMB(filePath string, sizeMB int) error
+	ReadLoopDevice(device string) (string, error)
 	CreateLoopDevice(src string) (string, error)
 	RemoveLoopDevice(device string) error
 }
@@ -366,8 +371,38 @@ func (h *WrapFSImpl) CreateFileWithSizeInMB(filePath string, sizeMB int) error {
 	return nil
 }
 
+// ReadLoopDevice get loopback device's mapped backing file
+// Receives the specified device's path
+// Returns the loopback device's mapped backing file or empty string and error if something went wrong
+func (h *WrapFSImpl) ReadLoopDevice(device string) (string, error) {
+	cmd := fmt.Sprintf(ReadLoopBackDeviceMappingCmd, device)
+	noSuchDeviceErrMsgSuffix := "No such device"
+	errPrefix := fmt.Sprintf("failed to read loopback device %s", device)
+
+	stdout, stderr, err := h.e.RunCmd(cmd,
+		command.UseMetrics(true),
+		command.CmdName(strings.TrimSpace(fmt.Sprintf(ReadLoopBackDeviceMappingCmd, ""))))
+
+	if err != nil {
+		if strings.HasSuffix(stderr, noSuchDeviceErrMsgSuffix) {
+			return "", nil
+		}
+		return "", fmt.Errorf("%s: %w", errPrefix, err)
+	}
+
+	lines := strings.Split(stdout, "\n")
+	if len(lines) != 2 || len(lines[1]) == 0 {
+		return "", fmt.Errorf("%s: invalid command stdout", errPrefix)
+	}
+	dataFields := strings.SplitN(lines[1], " ", 2)
+	if len(dataFields) == 1 {
+		return "", nil
+	}
+	return strings.TrimSpace(dataFields[1]), nil
+}
+
 // CreateLoopDevice create loopback device mapped to specified src
-// Receives the file path of the specificed src, whether a regular file or block device
+// Receives the file path of the specified src, whether a regular file or block device
 // Returns the loopback device's file path or empty string and error if something went wrong
 func (h *WrapFSImpl) CreateLoopDevice(src string) (string, error) {
 	cmd := fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, src)
