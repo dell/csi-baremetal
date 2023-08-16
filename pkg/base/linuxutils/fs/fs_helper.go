@@ -356,9 +356,9 @@ func (h *WrapFSImpl) GetFSUUID(device string) (string, error) {
 // Receives the file path and size in MB unit
 // Returns error if something went wrong
 func (h *WrapFSImpl) CreateFileWithSizeInMB(filePath string, sizeMB int) error {
-	err := h.MkFile(filePath)
+	err := h.MkDir(path.Dir(filePath))
 	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", filePath, err)
+		return fmt.Errorf("failed to create parent dir of file %s: %w", filePath, err)
 	}
 
 	cmd := fmt.Sprintf(CreateFileByDDCmdTmpl, filePath, strconv.Itoa(sizeMB))
