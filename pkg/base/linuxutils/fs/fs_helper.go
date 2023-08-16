@@ -391,7 +391,7 @@ func (h *WrapFSImpl) ReadLoopDevice(device string) (string, error) {
 	}
 
 	lines := strings.Split(stdout, "\n")
-	if len(lines) != 2 || len(lines[1]) == 0 {
+	if len(lines) < 2 || len(lines[1]) == 0 {
 		return "", fmt.Errorf("%s: invalid command stdout", errPrefix)
 	}
 	dataFields := strings.SplitN(lines[1], " ", 2)
