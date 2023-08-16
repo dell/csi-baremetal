@@ -1409,7 +1409,7 @@ func (m *VolumeManager) createFakeDeviceIfNecessary(log *logrus.Entry, vol *volu
 			if backFile == "" {
 				warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
 			} else {
-				warnMsg = fmt.Sprintf("fake device %s maps to other source", fakeDevice)
+				warnMsg = fmt.Sprintf("fake device %s maps to other source.", fakeDevice)
 			}
 			log.Warnf("%s re-create the fake device", warnMsg)
 			fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)

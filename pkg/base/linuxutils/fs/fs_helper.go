@@ -384,7 +384,7 @@ func (h *WrapFSImpl) ReadLoopDevice(device string) (string, error) {
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(ReadLoopBackDeviceMappingCmd, ""))))
 
 	if err != nil {
-		if strings.HasSuffix(stderr, noSuchDeviceErrMsgSuffix) {
+		if strings.Contains(stderr, noSuchDeviceErrMsgSuffix) {
 			return "", nil
 		}
 		return "", fmt.Errorf("%s: %w", errPrefix, err)
