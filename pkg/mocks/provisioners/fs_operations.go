@@ -53,3 +53,10 @@ func (m *MockFsOpts) CreateFSIfNotExist(fsType fs.FileSystem, device, uuid strin
 
 	return args.Error(0)
 }
+
+// CreateFakeDevice is a mock implementation
+func (m *MockFsOpts) CreateFakeDevice(src string) (string, error) {
+	args := m.Mock.Called(src)
+
+	return args.String(0), args.Error(1)
+}
