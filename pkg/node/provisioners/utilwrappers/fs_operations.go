@@ -37,6 +37,8 @@ type FSOperations interface {
 	UnmountWithCheck(path string) error
 	// CreateFSIfNotExist checks FS and creates one if not exist
 	CreateFSIfNotExist(fsType fs.FileSystem, device, uuid string) error
+	// CreateFakeDevice creates of fake block device
+	CreateFakeDevice(src string) (string, error)
 	fs.WrapFS
 }
 
@@ -224,6 +226,28 @@ func (fsOp *FSOperationsImpl) CreateFSIfNotExist(fsType fs.FileSystem, device, u
 	}
 
 	return nil
+}
+
+// CreateFakeDevice creates a fake device, which is actually a loop device mapped to a regular file created at src file path
+func (fsOp *FSOperationsImpl) CreateFakeDevice(src string) (string, error) {
+	ll := fsOp.log.WithFields(logrus.Fields{
+		"method": "CreateFakeDevice",
+	})
+
+	err := fsOp.CreateFileWithSizeInMB(src, 1)
+	if err != nil {
+		ll.Errorf("call fsOp.CreateFileWithSizeInMB with error: %v", err)
+		return "", err
+	}
+
+	loopDev, err := fsOp.CreateLoopDevice(src)
+	if err != nil {
+		ll.Errorf("call fsOp.CreateLoopDevice with error: %v", err)
+		return "", err
+	}
+
+	ll.Warnf("fake device %s created on regular file %s", loopDev, src)
+	return loopDev, nil
 }
 
 // Add options to mount command

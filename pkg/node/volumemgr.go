@@ -501,6 +501,11 @@ func (m *VolumeManager) performVolumeRemoving(ctx context.Context, volume *volum
 		"volumeID": volume.Name,
 	})
 
+	// For non-fs mode volume still in fake-attach status, we need to clean fake device
+	if volume.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey && volume.Spec.Mode != apiV1.ModeFS {
+		m.cleanFakeDevice(ll, volume)
+	}
+
 	if volume.Spec.GetOperationalStatus() == apiV1.OperationalStatusMissing {
 		ll.Warnf("Volume - %s is MISSING. Unable to perform deletion. Set status to Removed", volume.Spec.Id)
 		return apiV1.Removed, nil
@@ -1381,6 +1386,73 @@ func (m *VolumeManager) checkWbtChangingEnable(ctx context.Context, vol *volumec
 	}
 
 	return true
+}
+
+func (m *VolumeManager) createFakeDeviceIfNecessary(log *logrus.Entry, vol *volumecrd.Volume) (string, error) {
+	fakeDevice, ok := vol.Annotations[fakeDeviceVolumeAnnotation]
+	fakeDeviceSrcFilePath := fakeDeviceSrcFileDir + vol.Name
+	var err error
+	if !ok {
+		fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
+		if err != nil {
+			log.Errorf("call fsOps.CreateFakeDevice with error: %v", err)
+			return "", err
+		}
+	} else {
+		backFile, err := m.fsOps.ReadLoopDevice(fakeDevice)
+		if !strings.Contains(backFile, fakeDeviceSrcFilePath) {
+			var warnMsg string
+			if backFile == "" {
+				if err == nil {
+					warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
+				} else {
+					warnMsg = fmt.Sprintf("call fsOps.ReadLoopDevice(%s) with error: %v", fakeDevice, err)
+				}
+			} else {
+				warnMsg = fmt.Sprintf("fake device %s maps to other source.", fakeDevice)
+			}
+			log.Warnf("%s re-create the fake device", warnMsg)
+			fakeDevice, err = m.fsOps.CreateFakeDevice(fakeDeviceSrcFilePath)
+			if err != nil {
+				log.Errorf("call fsOps.CreateFakeDevice with error: %v", err)
+				return "", err
+			}
+		}
+	}
+	return fakeDevice, nil
+}
+
+func (m *VolumeManager) cleanFakeDevice(log *logrus.Entry, vol *volumecrd.Volume) {
+	fakeDevice, ok := vol.Annotations[fakeDeviceVolumeAnnotation]
+	if !ok {
+		log.Warnf("the %s annotation of volume %s is missing", fakeDeviceVolumeAnnotation, vol.Name)
+		return
+	}
+
+	fakeDeviceSrcFilePath := fakeDeviceSrcFileDir + vol.Name
+	backFile, err := m.fsOps.ReadLoopDevice(fakeDevice)
+	// We can only clean fake device really created by this volume, otherwise we may break loop device mapped to other src
+	if strings.Contains(backFile, fakeDeviceSrcFilePath) {
+		if err := m.fsOps.RemoveLoopDevice(fakeDevice); err != nil {
+			log.Warnf("removing fake device %s of volume %s failed with error: %v", fakeDevice, vol.Name, err)
+		}
+	} else {
+		var warnMsg string
+		if backFile == "" {
+			if err == nil {
+				warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
+			} else {
+				warnMsg = fmt.Sprintf("call fsOps.ReadLoopDevice(%s) with error: %v", fakeDevice, err)
+			}
+		} else {
+			warnMsg = fmt.Sprintf("fake device %s maps to other source.", fakeDevice)
+		}
+		log.Warnf("%s we can't remove it", warnMsg)
+	}
+
+	if err := m.fsOps.RmDir(fakeDeviceSrcFilePath); err != nil {
+		log.Warnf("removing fake device src file %s of volume %s failed with error: %v", fakeDeviceSrcFilePath, vol.Name, err)
+	}
 }
 
 func (m *VolumeManager) findDeviceName(vol *volumecrd.Volume) (string, error) {

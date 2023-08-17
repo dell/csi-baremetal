@@ -19,6 +19,9 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"path"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -283,4 +286,93 @@ func Test_GetFSUUID(t *testing.T) {
 	uuid, err = fh.GetFSUUID(path)
 	assert.Nil(t, err)
 	assert.Equal(t, testUUID, uuid)
+}
+
+func TestCreateFileWithSizeInMB(t *testing.T) {
+	var (
+		e        = &mocks.GoMockExecutor{}
+		filePath = "/fake/pvc-a"
+		sizeMB   = 1
+		fh       = NewFSImpl(e)
+		mkdirCmd = fmt.Sprintf(MkDirCmdTmpl, path.Dir(filePath))
+		ddCmd    = fmt.Sprintf(CreateFileByDDCmdTmpl, filePath, strconv.Itoa(sizeMB))
+		err      error
+	)
+
+	e.OnCommand(mkdirCmd).Return("", "", nil).Times(2)
+	e.OnCommand(ddCmd).Return("", "", nil).Times(1)
+	err = fh.CreateFileWithSizeInMB(filePath, sizeMB)
+	assert.Nil(t, err)
+
+	e.OnCommand(ddCmd).Return("", "", testError).Times(1)
+	err = fh.CreateFileWithSizeInMB(filePath, sizeMB)
+	assert.NotNil(t, err)
+
+	e.OnCommand(mkdirCmd).Return("", "", testError).Times(1)
+	err = fh.CreateFileWithSizeInMB(filePath, sizeMB)
+	assert.NotNil(t, err)
+}
+
+func TestReadLoopDevice(t *testing.T) {
+	var (
+		e                 = &mocks.GoMockExecutor{}
+		fh                = NewFSImpl(e)
+		device            = "/dev/loop2"
+		deviceBackFile    = "/fake/pvc-a"
+		cmd               = fmt.Sprintf(ReadLoopBackDeviceMappingCmd, device)
+		stdout            = fmt.Sprintf("NAME BACK-FILE\n%s %s\n", device, deviceBackFile)
+		returnedErrPrefix = fmt.Sprintf("failed to read loopback device %s", device)
+	)
+
+	e.OnCommand(cmd).Return(stdout, "", nil).Times(1)
+	backFile, err := fh.ReadLoopDevice(device)
+	assert.Nil(t, err)
+	assert.Equal(t, backFile, deviceBackFile)
+
+	e.OnCommand(cmd).Return("", NoSuchDeviceErrMsg, testError).Times(1)
+	backFile, err = fh.ReadLoopDevice(device)
+	assert.Nil(t, err)
+	assert.Empty(t, backFile)
+
+	e.OnCommand(cmd).Return("", "os error", testError).Times(1)
+	backFile, err = fh.ReadLoopDevice(device)
+	assert.NotNil(t, err)
+	assert.True(t, strings.HasSuffix(err.Error(), testError.Error()))
+	assert.True(t, strings.HasPrefix(err.Error(), returnedErrPrefix))
+	assert.Empty(t, backFile)
+
+	stdout = "NAME BACK-FILE\n"
+	e.OnCommand(cmd).Return(stdout, "", nil).Times(1)
+	backFile, err = fh.ReadLoopDevice(device)
+	assert.NotNil(t, err)
+	assert.True(t, strings.HasSuffix(err.Error(), "invalid command stdout"))
+	assert.True(t, strings.HasPrefix(err.Error(), returnedErrPrefix))
+	assert.Empty(t, backFile)
+
+	stdout = fmt.Sprintf("NAME BACK-FILE\n%s\n", device)
+	e.OnCommand(cmd).Return(stdout, "", nil).Times(1)
+	backFile, err = fh.ReadLoopDevice(device)
+	assert.Nil(t, err)
+	assert.Empty(t, backFile)
+}
+
+func TestCreateLoopDevice(t *testing.T) {
+	var (
+		e      = &mocks.GoMockExecutor{}
+		fh     = NewFSImpl(e)
+		src    = "/fake/pvc-a"
+		cmd    = fmt.Sprintf(SetupLoopBackDeviceCmdTmpl, src)
+		stdout = "/dev/loop2"
+	)
+
+	e.OnCommand(cmd).Return(stdout, "", nil).Times(1)
+	loopDev, err := fh.CreateLoopDevice(src)
+	assert.Nil(t, err)
+	assert.Equal(t, loopDev, stdout)
+
+	// cmd failed
+	e.OnCommand(cmd).Return("", "", testError).Times(1)
+	loopDev, err = fh.CreateLoopDevice(src)
+	assert.NotNil(t, err)
+	assert.Empty(t, loopDev)
 }
