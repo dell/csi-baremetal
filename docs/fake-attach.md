@@ -37,9 +37,9 @@ When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI
 - ignore NodeStageVolume errors
 - put `fake-attach: yes` annotation on CSI Volume CR if there is stageVolume error and annotation wasn't set before, i.e. the volume turns from healthy to unhealthy
 - if there is stageVolume error on block-mode volume without `fake-device: <device path>` annotation, try to setup a fake loop device mapped to regular file, add `fake-device: <device path>` annotation to volume, and then try to mount this fake device to stagingTargetPath as normal stage volume
-- if there is stageVolume error on block-mode volume with `fake-device: <device path>` annotation, check whether <device path> is really the path of fake device of this volume first. if the check passed, also try to mount this fake device to stagingTargetPath as normal stage volume
+- if there is stageVolume error on block-mode volume with `fake-device: <device path>` annotation, check whether the device is really the path of fake device of this volume first. if the check passed, also try to mount this fake device to stagingTargetPath as normal stage volume
 - delete `fake-attach: yes` annotation on CSI Volume CR if there is no stageVolume error and annotation was set before, i.e. the volume turns from unhealthy back to healthy
-- In this scenario, for block-mode volume with `fake-device: <device path>` annotation, if <device path> is really the path of fake device of this volume, then try to clean this fake device. By the way, the removal of block-mode volume with annotations `fake-attach: yes` and `fake-device: <device path>` will also trigger the clean of fake device.
+- In this scenario, for block-mode volume with `fake-device: <device path>` annotation, if the device is really the path of fake device of this volume, then try to clean this fake device. By the way, the removal of block-mode volume with annotations `fake-attach: yes` and `fake-device: <device path>` will also trigger the clean of fake device.
 
 Event FakeAttachInvolved generated when `fake-attach: yes` annotation is setting.
 
