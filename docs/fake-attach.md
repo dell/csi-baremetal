@@ -35,22 +35,25 @@ If fake-attach volume is successfully created, CSI Volume CR will be annotated w
 ### NodeStageVolume
 When `pv.attach.kubernetes.io/ignore-if-inaccessible: yes` annotation is set CSI must:
 - ignore NodeStageVolume errors
-- put `fake-attach: yes` annotation on CSI Volume CR if error is and annotation wasn't set before
-- delete `fake-attach: yes` annotation on CSI Volume CR if error is not and annotation was set before
+- put `fake-attach: yes` annotation on CSI Volume CR if there is stageVolume error and annotation wasn't set before, i.e. the volume turns from healthy to unhealthy
+- if there is stageVolume error on block-mode volume without `fake-device: <device path>` annotation, try to setup a fake loop device mapped to regular file, add `fake-device: <device path>` annotation to volume, and then try to mount this fake device to stagingTargetPath as normal stage volume
+- if there is stageVolume error on block-mode volume with `fake-device: <device path>` annotation, check whether this device is really the fake device of this volume first. if the check passed, also try to mount this fake device to stagingTargetPath as normal stage volume
+- delete `fake-attach: yes` annotation on CSI Volume CR if there is no stageVolume error and annotation was set before, i.e. the volume turns from unhealthy back to healthy
+- In this scenario, for block-mode volume with `fake-device: <device path>` annotation, if this device is really the fake device of this volume, then try to clean this fake device. By the way, the removal of block-mode volume with annotations `fake-attach: yes` and `fake-device: <device path>` will also trigger the clean of fake device.
 
 Event FakeAttachInvolved generated when `fake-attach: yes` annotation is setting.
 
 Event FakeAttachCleared generated when `fake-attach: yes` annotation is deleting.
 
 ### NodePublishVolume 
-CSI must check `fake-attach` annotation and mount tmpfs volume in read-write mode.
+CSI must check `fake-attach` annotation and mount tmpfs volume in read-write mode for fs-mode volume
 
 Command to mount tmpfs volume: `mount -t tmpfs -o size=1M,rw <volumeID> <destination folder>`
 
 rw option is used as workaround for issue-906 (OpenShift 4.8)
 
 ### NodeUnpublishVolume 
-tmpfs volume must be unmounted usually.
+tmpfs volume must be unmounted usually for fs-mode volume.
 
 ### NodeUnstageVolume 
 Do nothing.

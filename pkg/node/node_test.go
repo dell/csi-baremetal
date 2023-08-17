@@ -692,38 +692,33 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		setVariables()
 	})
 
-	It("Should stage unhealthy volume with fake-attach annotation", func() {
+	It("Should stage unhealthy block-mode volume successfully", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
 		vol1 := &vcrd.Volume{}
 		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 		Expect(err).To(BeNil())
 		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
 		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
-		pvcName := "pvcName"
-		pvcNamespace := "pvcNamespace"
-
-		pv := &corev1.PersistentVolume{}
-		pv.Name = vol1.Name
-		pv.Spec.ClaimRef = &corev1.ObjectReference{}
-		pv.Spec.ClaimRef.Name = pvcName
-		pv.Spec.ClaimRef.Namespace = pvcNamespace
-		err = node.k8sClient.Create(testCtx, pv)
-		Expect(err).To(BeNil())
-
-		pvc := &corev1.PersistentVolumeClaim{}
-		pvc.Name = pvcName
-		pvc.Namespace = pvcNamespace
-		pvc.Annotations = map[string]string{fakeAttachAnnotation: fakeAttachAllowKey}
-		err = node.k8sClient.Create(testCtx, pvc)
-		Expect(err).To(BeNil())
+		createPVAndPVCForFakeAttach(vol1.Name)
 
 		partitionPath := "/partition/path/for/volume1"
 		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
 		fsOps.On("PrepareAndPerformMount",
 			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
-			Return(errors.New("mount error"))
+			Return(errors.New("mount error")).Once()
+
+		expectedFakeDevice := "/dev/loop2"
+		fakeDeviceSrcFile := fakeDeviceSrcFileDir + vol1.Name
+
+		// The case that create fake device successfully
+		fsOps.On("CreateFakeDevice", fakeDeviceSrcFile).
+			Return(expectedFakeDevice, nil).Once()
+		fsOps.On("PrepareAndPerformMount",
+			expectedFakeDevice, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil).Once()
 
 		resp, err := node.NodeStageVolume(testCtx, req)
 		Expect(resp).NotTo(BeNil())
@@ -733,8 +728,155 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		Expect(err).To(BeNil())
 		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
+		Expect(vol1.Annotations[fakeDeviceVolumeAnnotation]).To(Equal(expectedFakeDevice))
 	})
-	It("Should publish unhealthy volume with fake-attach annotation", func() {
+	It("stage unhealthy block-mode volume with mount fake device error", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		createPVAndPVCForFakeAttach(vol1.Name)
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(errors.New("mount error")).Once()
+
+		expectedFakeDevice := "/dev/loop2"
+		fakeDeviceSrcFile := fakeDeviceSrcFileDir + vol1.Name
+
+		// The case that create fake device successfully
+		fsOps.On("CreateFakeDevice", fakeDeviceSrcFile).
+			Return(expectedFakeDevice, nil).Once()
+		fsOps.On("PrepareAndPerformMount",
+			expectedFakeDevice, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(errors.New("mount error")).Once()
+
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).To(BeNil())
+		Expect(err).NotTo(BeNil())
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
+		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.Created))
+		_, ok := vol1.Annotations[fakeAttachVolumeAnnotation]
+		Expect(ok).To(Equal(false))
+	})
+	It("stage unhealthy block-mode volume with create fake device error", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		createPVAndPVCForFakeAttach(vol1.Name)
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(errors.New("mount error")).Once()
+
+		fakeDeviceSrcFile := fakeDeviceSrcFileDir + vol1.Name
+		createFakeDeviceErrMsg := "create fake device with error"
+		// The case that create fake device with error
+		fsOps.On("CreateFakeDevice", fakeDeviceSrcFile).
+			Return("", errors.New(createFakeDeviceErrMsg)).Once()
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).To(BeNil())
+		Expect(err).NotTo(BeNil())
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
+		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.Created))
+		_, ok := vol1.Annotations[fakeAttachVolumeAnnotation]
+		Expect(ok).To(Equal(false))
+	})
+	It("fail to stage unhealthy block-mode volume already with invalid fake-device ann and fail to re-create fake device", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		otherFakeDevice := "/dev/loop2"
+		otherFakeDeviceSrc := "/dev/sdd"
+		fakeDeviceSrcFile := fakeDeviceSrcFileDir + testVolume1.Id
+
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		vol1.Annotations[fakeDeviceVolumeAnnotation] = otherFakeDevice
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		createPVAndPVCForFakeAttach(vol1.Name)
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(errors.New("mount error")).Once()
+
+		fsOps.On("ReadLoopDevice", otherFakeDevice).Return(otherFakeDeviceSrc, nil)
+		createFakeDeviceErrMsg := "create fake device with error"
+		fsOps.On("CreateFakeDevice", fakeDeviceSrcFile).
+			Return("", errors.New(createFakeDeviceErrMsg))
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).To(BeNil())
+		Expect(err).NotTo(BeNil())
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
+		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.Created))
+	})
+	It("stage unhealthy block-mode volume already with invalid fake-device ann and re-create fake device successfully", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		orgFakeDevice := "/dev/loop2"
+
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		vol1.Annotations[fakeDeviceVolumeAnnotation] = orgFakeDevice
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		createPVAndPVCForFakeAttach(vol1.Name)
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(errors.New("mount error")).Once()
+
+		fsOps.On("ReadLoopDevice", orgFakeDevice).Return("", errors.New("os error"))
+
+		newFakeDevice := "/dev/loop3"
+		fakeDeviceSrcFile := fakeDeviceSrcFileDir + vol1.Name
+		fsOps.On("CreateFakeDevice", fakeDeviceSrcFile).Return(newFakeDevice, nil)
+		fsOps.On("PrepareAndPerformMount",
+			newFakeDevice, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil).Once()
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
+		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		Expect(vol1.Annotations[fakeDeviceVolumeAnnotation]).To(Equal(newFakeDevice))
+	})
+	It("Should publish unhealthy fs-mode volume with fake-attach annotation", func() {
 		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 		req.VolumeContext[util.PodNameKey] = testPod1Name
 
@@ -755,36 +897,62 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 
 		// check owner appearance
 		volumeCR := &vcrd.Volume{}
-		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, testNs, volumeCR)
 		Expect(err).To(BeNil())
+		Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 		Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
 	})
-	It("Should stage healthy volume with fake-attach annotation", func() {
+	It("Should stage healthy block-mode volume with fake-attach and valid fake-device annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		fakeDevice := "/dev/loop2"
+		fakeDeviceSrcFilePath := fakeDeviceSrcFileDir + testV1ID
+
 		vol1 := &vcrd.Volume{}
-		err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		err := node.k8sClient.ReadCR(testCtx, testV1ID, testNs, vol1)
 		Expect(err).To(BeNil())
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
 		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		vol1.Annotations[fakeDeviceVolumeAnnotation] = fakeDevice
 		err = node.k8sClient.UpdateCR(testCtx, vol1)
 		Expect(err).To(BeNil())
 
-		pvcName := "pvcName"
-		pvcNamespace := "pvcNamespace"
+		createPVAndPVCForFakeAttach(vol1.Name)
 
-		pv := &corev1.PersistentVolume{}
-		pv.Name = vol1.Name
-		pv.Spec.ClaimRef = &corev1.ObjectReference{}
-		pv.Spec.ClaimRef.Name = pvcName
-		pv.Spec.ClaimRef.Namespace = pvcNamespace
-		err = node.k8sClient.Create(testCtx, pv)
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil)
+		fsOps.On("ReadLoopDevice", fakeDevice).Return(fakeDeviceSrcFilePath, nil)
+		fsOps.On("RemoveLoopDevice", fakeDevice).Return(errors.New("No such device"))
+		fsOps.On("RmDir", fakeDeviceSrcFilePath).Return(errors.New("Remove dir with error"))
+
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
 		Expect(err).To(BeNil())
 
-		pvc := &corev1.PersistentVolumeClaim{}
-		pvc.Name = pvcName
-		pvc.Namespace = pvcNamespace
-		pvc.Annotations = map[string]string{fakeAttachAnnotation: fakeAttachAllowKey}
-		err = node.k8sClient.Create(testCtx, pvc)
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
 		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		_, ok := vol1.Annotations[fakeAttachVolumeAnnotation]
+		Expect(ok).To(Equal(false))
+		_, ok = vol1.Annotations[fakeDeviceVolumeAnnotation]
+		Expect(ok).To(Equal(false))
+	})
+	It("Should stage healthy block-mode volume with fake-attach ann but no fake-device ann", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+
+		vol1 := &vcrd.Volume{}
+		err := node.k8sClient.ReadCR(testCtx, testV1ID, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		createPVAndPVCForFakeAttach(vol1.Name)
 
 		partitionPath := "/partition/path/for/volume1"
 		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
@@ -1069,10 +1237,33 @@ func newNodeService() *CSINodeService {
 
 	driveCR1 := node.k8sClient.ConstructDriveCR(disk1.UUID, disk1)
 	driveCR2 := node.k8sClient.ConstructDriveCR(disk2.UUID, disk2)
-	addDriveCRs(node.k8sClient, driveCR1, driveCR2)
-	addVolumeCRs(node.k8sClient, testVolumeCR1.DeepCopy(), testVolumeCR2.DeepCopy(), testVolumeCR3.DeepCopy())
+	driveCR4 := node.k8sClient.ConstructDriveCR(disk4.UUID, disk4)
+	addDriveCRs(node.k8sClient, driveCR1, driveCR2, driveCR4)
+	addVolumeCRs(node.k8sClient, testVolumeCR1.DeepCopy(), testVolumeCR2.DeepCopy(), testVolumeCR3.DeepCopy(), testVolumeCR4.DeepCopy())
 
 	return node
+}
+
+func createPVAndPVCForFakeAttach(volName string) {
+	pvcName := "pvcName"
+	pvcNamespace := "pvcNamespace"
+
+	pv := &corev1.PersistentVolume{}
+	pv.Name = volName
+	pv.Spec.ClaimRef = &corev1.ObjectReference{}
+	pv.Spec.ClaimRef.Name = pvcName
+	pv.Spec.ClaimRef.Namespace = pvcNamespace
+	if err := node.k8sClient.Create(testCtx, pv); err != nil {
+		panic(err)
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	pvc.Name = pvcName
+	pvc.Namespace = pvcNamespace
+	pvc.Annotations = map[string]string{fakeAttachAnnotation: fakeAttachAllowKey}
+	if err := node.k8sClient.Create(testCtx, pvc); err != nil {
+		panic(err)
+	}
 }
 
 func addVolumeCRs(k8sClient *k8s.KubeClient, volumes ...*vcrd.Volume) {
