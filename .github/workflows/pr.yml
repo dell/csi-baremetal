@@ -107,6 +107,8 @@ jobs:
         make install-controller-gen
         make generate-deepcopy
 
+# Temporarily comment out the forbidden 3rd-party action script from our github PR validation workflow
+# to fix our github PR validation startup failure.
 #    - name: Verify Changed files
 #      uses: tj-actions/verify-changed-files@v5.5
 #      id: changed_files
