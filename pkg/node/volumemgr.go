@@ -1400,14 +1400,14 @@ func (m *VolumeManager) createFakeDeviceIfNecessary(log *logrus.Entry, vol *volu
 		}
 	} else {
 		backFile, err := m.fsOps.ReadLoopDevice(fakeDevice)
-		if err != nil {
-			log.Errorf("call fsOps.ReadLoopDevice with error: %v", err)
-			return "", err
-		}
-		if backFile == "" || !strings.HasPrefix(backFile, fakeDeviceSrcFilePath) {
+		if !strings.Contains(backFile, fakeDeviceSrcFilePath) {
 			var warnMsg string
 			if backFile == "" {
-				warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
+				if err == nil {
+					warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
+				} else {
+					warnMsg = fmt.Sprintf("call fsOps.ReadLoopDevice(%s) with error: %v", fakeDevice, err)
+				}
 			} else {
 				warnMsg = fmt.Sprintf("fake device %s maps to other source.", fakeDevice)
 			}
@@ -1428,10 +1428,28 @@ func (m *VolumeManager) cleanFakeDevice(log *logrus.Entry, vol *volumecrd.Volume
 		log.Warnf("the %s annotation of volume %s is missing", fakeDeviceVolumeAnnotation, vol.Name)
 		return
 	}
-	if err := m.fsOps.RemoveLoopDevice(fakeDevice); err != nil {
-		log.Warnf("removing fake device %s of volume %s failed with error: %v", fakeDevice, vol.Name, err)
-	}
+
 	fakeDeviceSrcFilePath := fakeDeviceSrcFileDir + vol.Name
+	backFile, err := m.fsOps.ReadLoopDevice(fakeDevice)
+	// We can only clean fake device really created by this volume, otherwise we may break loop device mapped to other src
+	if strings.Contains(backFile, fakeDeviceSrcFilePath) {
+		if err := m.fsOps.RemoveLoopDevice(fakeDevice); err != nil {
+			log.Warnf("removing fake device %s of volume %s failed with error: %v", fakeDevice, vol.Name, err)
+		}
+	} else {
+		var warnMsg string
+		if backFile == "" {
+			if err == nil {
+				warnMsg = fmt.Sprintf("fake device %s doesn't exist.", fakeDevice)
+			} else {
+				warnMsg = fmt.Sprintf("call fsOps.ReadLoopDevice(%s) with error: %v", fakeDevice, err)
+			}
+		} else {
+			warnMsg = fmt.Sprintf("fake device %s maps to other source.", fakeDevice)
+		}
+		log.Warnf("%s we can't remove it", warnMsg)
+	}
+
 	if err := m.fsOps.RmDir(fakeDeviceSrcFilePath); err != nil {
 		log.Warnf("removing fake device src file %s of volume %s failed with error: %v", fakeDeviceSrcFilePath, vol.Name, err)
 	}
