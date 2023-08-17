@@ -60,10 +60,12 @@ var (
 	testCtx    = context.Background()
 	disk1      = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd1", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID, Path: "/dev/sda"}
 	disk2      = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd2", Size: 1024 * 1024 * 1024 * 200, NodeId: nodeID, Path: "/dev/sda"}
+	disk4      = api.Drive{UUID: uuid.New().String(), SerialNumber: "hdd4", Size: 1024 * 1024 * 1024 * 500, NodeId: nodeID, Path: "/dev/sdb"}
 	// volumes
 	testV1ID = "volume-1-id"
 	testV2ID = "volume-2-id"
 	testV3ID = "volume-3-id"
+	testV4ID = "volume-4-id"
 
 	testVolume1 = api.Volume{
 		Id:           testV1ID,
@@ -81,6 +83,14 @@ var (
 		CSIStatus:    apiV1.Created,
 	}
 	testVolume3 = api.Volume{Id: testV3ID, NodeId: nodeID, Location: ""}
+	testVolume4 = api.Volume{
+		Id:           testV4ID,
+		NodeId:       nodeID,
+		Location:     disk4.UUID,
+		StorageClass: apiV1.StorageClassHDD,
+		CSIStatus:    apiV1.VolumeReady,
+		Mode:         apiV1.ModeRAWPART,
+	}
 
 	testVolumeCR1 = vcrd.Volume{
 		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
@@ -108,6 +118,15 @@ var (
 			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
 		},
 		Spec: testVolume3,
+	}
+	testVolumeCR4 = vcrd.Volume{
+		TypeMeta: k8smetav1.TypeMeta{Kind: "Volume", APIVersion: apiV1.APIV1Version},
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:              testVolume4.Id,
+			Namespace:         testNs,
+			CreationTimestamp: k8smetav1.Time{Time: time.Now()},
+		},
+		Spec: testVolume4,
 	}
 
 	testVolumeCap = &csi.VolumeCapability{
