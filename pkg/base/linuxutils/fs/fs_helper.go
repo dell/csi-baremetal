@@ -85,6 +85,9 @@ const (
 	SetupLoopBackDeviceCmdTmpl = losetupCmd + "-f --show %s"
 	// DetachLoopBackDeviceCmdTmpl cmd for loopback device detach
 	DetachLoopBackDeviceCmdTmpl = losetupCmd + "-d %s"
+
+	// NoSuchDeviceErrMsg is the err msg in stderr of the cmd output when specified device cannot be found
+	NoSuchDeviceErrMsg = "No such device"
 )
 
 // WrapFS is an interface that encapsulates operation with file systems
@@ -376,23 +379,22 @@ func (h *WrapFSImpl) CreateFileWithSizeInMB(filePath string, sizeMB int) error {
 // Returns the loopback device's mapped backing file or empty string and error if something went wrong
 func (h *WrapFSImpl) ReadLoopDevice(device string) (string, error) {
 	cmd := fmt.Sprintf(ReadLoopBackDeviceMappingCmd, device)
-	noSuchDeviceErrMsgSuffix := "No such device"
-	errPrefix := fmt.Sprintf("failed to read loopback device %s", device)
+	returnedErrPrefix := fmt.Sprintf("failed to read loopback device %s", device)
 
 	stdout, stderr, err := h.e.RunCmd(cmd,
 		command.UseMetrics(true),
 		command.CmdName(strings.TrimSpace(fmt.Sprintf(ReadLoopBackDeviceMappingCmd, ""))))
 
 	if err != nil {
-		if strings.Contains(stderr, noSuchDeviceErrMsgSuffix) {
+		if strings.Contains(stderr, NoSuchDeviceErrMsg) {
 			return "", nil
 		}
-		return "", fmt.Errorf("%s: %w", errPrefix, err)
+		return "", fmt.Errorf("%s: %w", returnedErrPrefix, err)
 	}
 
 	lines := strings.Split(stdout, "\n")
 	if len(lines) < 2 || len(lines[1]) == 0 {
-		return "", fmt.Errorf("%s: invalid command stdout", errPrefix)
+		return "", fmt.Errorf("%s: invalid command stdout", returnedErrPrefix)
 	}
 	dataFields := strings.SplitN(lines[1], " ", 2)
 	if len(dataFields) == 1 {
