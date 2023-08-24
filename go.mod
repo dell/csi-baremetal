@@ -12,7 +12,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	github.com/prometheus/client_golang v1.13.0
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.7.0
 	github.com/viney-shih/go-lock v1.1.1
 	golang.org/x/net v0.7.0
