@@ -353,7 +353,9 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	if currStatus == apiV1.Created {
+	if currStatus == apiV1.Failed {
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	} else if currStatus == apiV1.Created {
 		ll.Info("Volume has been already unstaged")
 		return &csi.NodeUnstageVolumeResponse{}, nil
 	} else if currStatus != apiV1.VolumeReady {
@@ -468,8 +470,9 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	// if currStatus not in [VolumeReady, Published]
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
+	if currStatus == apiV1.Failed {
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	} else if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)
@@ -554,8 +557,9 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	// if currStatus not in [VolumeReady, Published]
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
+	if currStatus == apiV1.Failed {
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	} else if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)
