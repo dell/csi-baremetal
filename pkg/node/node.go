@@ -494,6 +494,27 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
 		}
 	} else {
+		// will check whether srcPath is mounted, if not, need to redo NodeStageVolume
+		srcMounted, err := s.fsOps.IsMounted(srcPath)
+		if err != nil {
+			errMsg := fmt.Sprintf("execute IsMounted on %s with error: %s", srcPath, err.Error())
+			ll.Error(errMsg)
+			return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
+		}
+		if !srcMounted {
+			nodeStageReq := &csi.NodeStageVolumeRequest{
+				VolumeId:          volumeID,
+				StagingTargetPath: stagePath,
+				VolumeCapability:  req.GetVolumeCapability(),
+			}
+			nodeStageResp, err := s.NodeStageVolume(ctx, nodeStageReq)
+			if nodeStageResp == nil && err != nil {
+				errMsg := fmt.Sprintf("redo NodeStageVolume on volume %s with error: %s", volumeID, err.Error())
+				ll.Error(errMsg)
+				return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
+			}
+		}
+
 		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
 		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock, mountOptions...); err != nil {
 			ll.Errorf("Unable to mount volume: %v", err)
