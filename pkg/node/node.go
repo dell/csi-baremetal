@@ -353,12 +353,15 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	if currStatus == apiV1.Failed {
+	switch currStatus {
+	case apiV1.Failed:
 		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
-	} else if currStatus == apiV1.Created {
+	case apiV1.Created:
 		ll.Info("Volume has been already unstaged")
 		return &csi.NodeUnstageVolumeResponse{}, nil
-	} else if currStatus != apiV1.VolumeReady {
+	case apiV1.VolumeReady:
+		ll.Infof("Expected volume status: %s", currStatus)
+	default:
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.Created, apiV1.VolumeReady)
 		ll.Error(msg)
