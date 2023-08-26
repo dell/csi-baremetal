@@ -101,7 +101,9 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
 
-			// publish again such volume
+			// publish again such volume in Failed Status
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
 			resp, err = node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
@@ -111,6 +113,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(len(volumeCR.Spec.Owners)).To(Equal(1))
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 		})
 	})
 
@@ -156,19 +159,6 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Staging Path missing in request"))
-		})
-		It("Should fail, because Volume has failed status", func() {
-			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
-			vol1 := &vcrd.Volume{}
-			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
-			Expect(err).To(BeNil())
-			vol1.Spec.CSIStatus = apiV1.Failed
-			err = node.k8sClient.UpdateCR(testCtx, vol1)
-			Expect(err).To(BeNil())
-
-			resp, err := node.NodePublishVolume(testCtx, req)
-			Expect(resp).To(BeNil())
-			Expect(err).NotTo(BeNil())
 		})
 		It("Should fail, because of volume CR isn't exist", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
@@ -503,6 +493,18 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(err).To(BeNil())
 			// check owners and CSI status
 			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+
+			// retry unstage on failed volume
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+			resp, err = node.NodeUnstageVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
