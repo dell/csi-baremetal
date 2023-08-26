@@ -160,12 +160,12 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Staging Path missing in request"))
 		})
-		It("Should fail, because Volume has failed status", func() {
+		It("Should fail, because Volume has unexpected status", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			vol1 := &vcrd.Volume{}
 			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 			Expect(err).To(BeNil())
-			vol1.Spec.CSIStatus = apiV1.Failed
+			vol1.Spec.CSIStatus = apiV1.Creating
 			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
@@ -367,6 +367,19 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 			Expect(volumeCR.Spec.Owners).To(BeNil())
+
+			// unpublish again on failed volume
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+
+			resp, err = node.NodeUnpublishVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
 		It("Should unpublish volume and don't change volume CR status", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath1)
@@ -579,12 +592,12 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
 
-		It("Should failed, because Volume has failed status", func() {
+		It("Should failed, because Volume has unexpected status", func() {
 			req := getNodeUnstageRequest(testV1ID, targetPath)
 			vol1 := &vcrd.Volume{}
 			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 			Expect(err).To(BeNil())
-			vol1.Spec.CSIStatus = apiV1.Failed
+			vol1.Spec.CSIStatus = apiV1.Creating
 			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
