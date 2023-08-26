@@ -504,7 +504,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		if !srcMounted {
 			nodeStageReq := &csi.NodeStageVolumeRequest{
 				VolumeId:          volumeID,
-				StagingTargetPath: stagePath,
+				StagingTargetPath: req.GetStagingTargetPath(),
 				VolumeCapability:  req.GetVolumeCapability(),
 			}
 			nodeStageResp, err := s.NodeStageVolume(ctx, nodeStageReq)
