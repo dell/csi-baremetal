@@ -160,6 +160,19 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Staging Path missing in request"))
 		})
+		It("Should fail, because Volume has failed status", func() {
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+			vol1 := &vcrd.Volume{}
+			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+			Expect(err).To(BeNil())
+			vol1.Spec.CSIStatus = apiV1.Failed
+			err = node.k8sClient.UpdateCR(testCtx, vol1)
+			Expect(err).To(BeNil())
+
+			resp, err := node.NodePublishVolume(testCtx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+		})
 		It("Should fail, because of volume CR isn't exist", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			err := node.k8sClient.DeleteCR(testCtx, &testVolumeCR1)
