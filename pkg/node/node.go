@@ -508,7 +508,19 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 				StagingTargetPath: req.GetStagingTargetPath(),
 				VolumeCapability:  req.GetVolumeCapability(),
 			}
+
+			// unlock volume to redo NodeStageVolume
+			err := s.volMu.UnlockKey(req.GetVolumeId())
+			if err != nil {
+				errMsg := fmt.Sprintf("unlock volume %s to redo NodeStageVolume with error: %s", volumeID, err.Error())
+				ll.Error(errMsg)
+				return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
+			}
 			nodeStageResp, err := s.NodeStageVolume(ctx, nodeStageReq)
+
+			// re-lock the volume to proceed NodePublishVolume
+			s.volMu.LockKey(req.GetVolumeId())
+
 			if nodeStageResp == nil && err != nil {
 				errMsg := fmt.Sprintf("redo NodeStageVolume on volume %s with error: %s", volumeID, err.Error())
 				ll.Error(errMsg)
