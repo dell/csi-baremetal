@@ -502,6 +502,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 			return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
 		}
 		if !srcMounted {
+			ll.Warnf("staging path %s is not mounted! need to redo NodeStageVolume!", srcPath)
 			nodeStageReq := &csi.NodeStageVolumeRequest{
 				VolumeId:          volumeID,
 				StagingTargetPath: req.GetStagingTargetPath(),
