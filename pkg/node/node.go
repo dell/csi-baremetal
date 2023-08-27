@@ -526,6 +526,12 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 				ll.Error(errMsg)
 				return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
 			}
+
+			// update the content of volume
+			volumeCR, err = s.crHelper.GetVolumeByID(volumeID)
+			if err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("unable to get updated volume %s", volumeID))
+			}
 		}
 
 		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
