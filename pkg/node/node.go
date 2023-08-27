@@ -631,6 +631,9 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	volumeCR.Spec.Owners = owners
 	if len(volumeCR.Spec.Owners) == 0 {
 		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
+	} else {
+		// ensure the Published status of volume in the successful processing
+		volumeCR.Spec.CSIStatus = apiV1.Published
 	}
 	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 		ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
