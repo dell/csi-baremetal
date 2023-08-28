@@ -87,9 +87,9 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			req.VolumeContext[util.PodNameKey] = testPod1Name
 
-			fsOps.On("PrepareAndPerformMount",
-				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
-				Return(nil)
+			srcPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false, true).Return(nil)
+			fsOps.On("IsMounted", srcPath).Return(true, nil)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -187,14 +187,26 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail, because of PrepareAndPerformMount failed", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 
-			fsOps.On("PrepareAndPerformMount",
-				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
-				Return(errors.New("error mount"))
+			srcPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false, true).Return(errors.New("error mount"))
+			fsOps.On("IsMounted", srcPath).Return(true, nil)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("mount error"))
+		})
+		It("Should fail, because the check on whether stagingPath is mounted failed", func() {
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+
+			srcPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			errMsg := fmt.Sprintf("unable to check whether %s is mounted", srcPath)
+			fsOps.On("IsMounted", srcPath).Return(false, errors.New(errMsg))
+
+			resp, err := node.NodePublishVolume(testCtx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring(errMsg))
 		})
 	})
 })
