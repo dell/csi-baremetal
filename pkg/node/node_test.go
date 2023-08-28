@@ -87,9 +87,9 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			req.VolumeContext[util.PodNameKey] = testPod1Name
 
-			fsOps.On("PrepareAndPerformMount",
-				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
-				Return(nil)
+			srcPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false, true).Return(nil)
+			fsOps.On("IsMounted", srcPath).Return(true, nil)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -101,7 +101,9 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
 
-			// publish again such volume
+			// publish again such volume in Failed Status
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
 			resp, err = node.NodePublishVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
@@ -111,6 +113,7 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(len(volumeCR.Spec.Owners)).To(Equal(1))
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 		})
 	})
 
@@ -157,12 +160,12 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Staging Path missing in request"))
 		})
-		It("Should fail, because Volume has failed status", func() {
+		It("Should fail, because Volume has unexpected status", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 			vol1 := &vcrd.Volume{}
 			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 			Expect(err).To(BeNil())
-			vol1.Spec.CSIStatus = apiV1.Failed
+			vol1.Spec.CSIStatus = apiV1.Creating
 			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
@@ -184,14 +187,26 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 		It("Should fail, because of PrepareAndPerformMount failed", func() {
 			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
 
-			fsOps.On("PrepareAndPerformMount",
-				path.Join(req.GetStagingTargetPath(), stagingFileName), req.GetTargetPath(), false, true).
-				Return(errors.New("error mount"))
+			srcPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			fsOps.On("PrepareAndPerformMount", srcPath, req.GetTargetPath(), false, true).Return(errors.New("error mount"))
+			fsOps.On("IsMounted", srcPath).Return(true, nil)
 
 			resp, err := node.NodePublishVolume(testCtx, req)
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("mount error"))
+		})
+		It("Should fail, because the check on whether stagingPath is mounted failed", func() {
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+
+			srcPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			errMsg := fmt.Sprintf("unable to check whether %s is mounted", srcPath)
+			fsOps.On("IsMounted", srcPath).Return(false, errors.New(errMsg))
+
+			resp, err := node.NodePublishVolume(testCtx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring(errMsg))
 		})
 	})
 })
@@ -364,6 +379,19 @@ var _ = Describe("CSINodeService NodeUnPublish()", func() {
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 			Expect(volumeCR.Spec.Owners).To(BeNil())
+
+			// unpublish again on failed volume
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+
+			resp, err = node.NodeUnpublishVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
 		})
 		It("Should unpublish volume and don't change volume CR status", func() {
 			req := getNodeUnpublishRequest(testV1ID, targetPath1)
@@ -506,6 +534,18 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
 			Expect(err).To(BeNil())
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
+
+			// retry unstage on failed volume
+			volumeCR.Spec.CSIStatus = apiV1.Failed
+			err = node.k8sClient.UpdateCR(testCtx, volumeCR)
+			Expect(err).To(BeNil())
+			resp, err = node.NodeUnstageVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Created))
 		})
 	})
 
@@ -564,12 +604,12 @@ var _ = Describe("CSINodeService NodeUnStage()", func() {
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Failed))
 		})
 
-		It("Should failed, because Volume has failed status", func() {
+		It("Should failed, because Volume has unexpected status", func() {
 			req := getNodeUnstageRequest(testV1ID, targetPath)
 			vol1 := &vcrd.Volume{}
 			err := node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
 			Expect(err).To(BeNil())
-			vol1.Spec.CSIStatus = apiV1.Failed
+			vol1.Spec.CSIStatus = apiV1.Creating
 			err = node.k8sClient.UpdateCR(testCtx, vol1)
 			Expect(err).To(BeNil())
 
