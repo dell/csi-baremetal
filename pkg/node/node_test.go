@@ -115,6 +115,28 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(len(volumeCR.Spec.Owners)).To(Equal(1))
 			Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 		})
+		It("Should publish volume successfully with stagingPath unmounted", func() {
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+			req.VolumeContext[util.PodNameKey] = testPod1Name
+
+			partitionPath := "/partition/path/for/volume1"
+			stagingPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			prov.On("GetVolumePath", &testVolume1).Return(partitionPath, nil)
+			fsOps.On("PrepareAndPerformMount", partitionPath, stagingPath, true, false).Return(nil)
+
+			fsOps.On("PrepareAndPerformMount", stagingPath, req.GetTargetPath(), false, true).Return(nil)
+			fsOps.On("IsMounted", stagingPath).Return(false, nil)
+
+			resp, err := node.NodePublishVolume(testCtx, req)
+			Expect(resp).NotTo(BeNil())
+			Expect(err).To(BeNil())
+
+			// check owner appearance
+			volumeCR := &vcrd.Volume{}
+			err = node.k8sClient.ReadCR(testCtx, testV1ID, "", volumeCR)
+			Expect(err).To(BeNil())
+			Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
+		})
 	})
 
 	Context("NodePublish() failure", func() {
@@ -207,6 +229,23 @@ var _ = Describe("CSINodeService NodePublish()", func() {
 			Expect(resp).To(BeNil())
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring(errMsg))
+		})
+		It("Should fail, because redoing NodeStageVolume when stagingPath unmounted failed", func() {
+			req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+			req.VolumeContext[util.PodNameKey] = testPod1Name
+
+			partitionPath := "/partition/path/for/volume1"
+			stagingPath := path.Join(req.GetStagingTargetPath(), stagingFileName)
+			prov.On("GetVolumePath", &testVolume1).Return(partitionPath, nil)
+			fsOps.On("PrepareAndPerformMount", partitionPath, stagingPath, true, false).Return(errors.New("mount error"))
+			fsOps.On("IsMounted", stagingPath).Return(false, nil)
+
+			redoErr := fmt.Sprintf("redo NodeStageVolume on volume %s with error", testV1ID)
+
+			resp, err := node.NodePublishVolume(testCtx, req)
+			Expect(resp).To(BeNil())
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring(redoErr))
 		})
 	})
 })
