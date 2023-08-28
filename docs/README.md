@@ -30,7 +30,6 @@ Features
 - CSI Operator
 
 ### Planned features
-- User defined storage classes
 - NVMeOf support
 - Kubernetes Scheduler
 - SMART Self Test execution
