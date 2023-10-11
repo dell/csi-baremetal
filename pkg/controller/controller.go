@@ -163,6 +163,7 @@ func (c *CSIControllerService) CreateVolume(ctx context.Context, req *csi.Create
 		"method":   "CreateVolume",
 		"volumeID": req.GetName(),
 	})
+	ll.Infof("test")
 	defer c.metricCreateVolume.EvaluateDurationForMethod("CreateVolume", prometheus.Labels{"volume_name": req.Name})()
 	defer func() {
 		if retresp != nil && reterr == nil && ctx.Err() == nil {
