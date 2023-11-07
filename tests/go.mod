@@ -1,6 +1,6 @@
 module github.com/dell/csi-baremetal-e2e-tests
 
-go 1.17
+go 1.21
 
 require (
 	github.com/container-storage-interface/spec v1.6.0
