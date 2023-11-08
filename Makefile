@@ -23,12 +23,16 @@ all: build base-images images push
 
 ### Build binaries
 build: \
+go-test \
 build-drivemgr \
 build-node \
 build-controller \
 build-extender \
 build-scheduler \
 build-node-controller
+
+go-test:
+	echo `go version`
 
 build-drivemgr:
 	GOOS=linux go build -o ./build/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/$(DRIVE_MANAGER_TYPE) ${LDFLAGS} ./cmd/${DRIVE_MANAGER}/$(DRIVE_MANAGER_TYPE)/main.go
