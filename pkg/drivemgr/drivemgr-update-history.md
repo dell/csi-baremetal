@@ -5,3 +5,4 @@ git commit for proprietary code.
 
 2023/05/16  remove empty image csi-baremetal-scheduler.
 2023/05/23  upgrade halmgr to SP4.
+2023/05/27  upgrade halmgr SUSE SP4 version.
