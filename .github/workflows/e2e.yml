@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: 'ghcr.io/dell/csi-baremetal'
-  go_version: '1.19.2'
+  go_version: '1.21.3'
   golangci_version: '1.48.0'
   helm_version: '3.7.1'
   kubectl_version: 'v1.25.3'
