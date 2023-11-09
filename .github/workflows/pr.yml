@@ -22,6 +22,9 @@ jobs:
         - /tmp:/tmp
         - /var/run/docker.sock:/var/run/docker.sock
     steps:
+    - name: Trust My Directory # workaround for https://github.com/actions/checkout/issues/760
+      run: git config --global --add safe.directory /__w/csi-baremetal/csi-baremetal
+
     - name: Check out code
       uses: actions/checkout@v3
 
