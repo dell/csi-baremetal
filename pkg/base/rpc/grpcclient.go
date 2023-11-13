@@ -24,6 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Client encapsulates logic for new gRPC clint
@@ -72,7 +73,7 @@ func (c *Client) initClient() error {
 	if c.Creds != nil {
 		opts = append(opts, grpc.WithTransportCredentials(c.Creds))
 	} else {
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	if c.metricsEnabled {
