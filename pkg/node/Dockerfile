@@ -2,8 +2,8 @@ FROM    node:base
 
 LABEL   description="Bare-metal CSI Node Service"
 
-ADD     node  node
+ADD     nsrv  nsrv
 
 EXPOSE  9999
 
-ENTRYPOINT ["/node"]
+ENTRYPOINT ["/nsrv"]
