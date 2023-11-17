@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -29,13 +28,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/fs"
 	ph "github.com/dell/csi-baremetal/pkg/base/linuxutils/partitionhelper"
 	"github.com/dell/csi-baremetal/pkg/metrics"
-)
-
-const (
-	// NumberOfRetriesToObtainPartName how many retries to obtain partition name
-	NumberOfRetriesToObtainPartName = 5
-	// SleepBetweenRetriesToObtainPartName default timeout between retries to obtain partition name
-	SleepBetweenRetriesToObtainPartName = 3 * time.Second
 )
 
 // PartitionOperations is a high-level interface
@@ -173,31 +165,23 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 	var (
 		partName string
 		err      error
+		errStr   string
 	)
 
 	// get partition name
-	for i := 0; i < NumberOfRetriesToObtainPartName; i++ {
-		// sync partition table
-		_, errStr, err := d.SyncPartitionTable(device)
-		if err != nil {
-			if _, ok := err.(*exec.ExitError); ok &&
-				strings.Contains(errStr, "Device or resource busy") {
-				ll.Warningf("Unable to sync partition table for device %s: %v due to device is busy", device, err)
-			} else {
-				// log and ignore error
-				ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
-				return "", err
-			}
+	// sync partition table
+	_, errStr, err = d.SyncPartitionTable(device)
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok &&
+			strings.Contains(errStr, "Device or resource busy") {
+			ll.Warningf("Unable to sync partition table for device %s: %v due to device is busy", device, err)
+		} else {
+			// log and ignore error
+			ll.Errorf("Unable to sync partition table for device %s: %v", device, err)
+			return "", err
 		}
-		// sleep first to avoid issues with lsblk caching
-		time.Sleep(SleepBetweenRetriesToObtainPartName)
-		partName, err = d.GetPartitionNameByUUID(device, partUUID)
-		if err != nil {
-			ll.Warningf("Unable to find part name: %v. Sleep and retry...", err)
-			continue
-		}
-		break
 	}
+	partName, err = d.GetPartitionNameByUUID(device, partUUID)
 
 	// partition not found
 	if partName == "" {
