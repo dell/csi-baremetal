@@ -20,6 +20,7 @@ test-pr-validation:
 
 install-junit-report:
 	${GO_ENV_VARS} go get -u github.com/jstemmer/go-junit-report
+	${GO_ENV_VARS} go install github.com/jstemmer/go-junit-report
 
 # Convert go test output from log.txt to junit-style output. Split these steps because no matter if test fails,
 # junit output must be collected
