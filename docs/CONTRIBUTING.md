@@ -101,7 +101,7 @@ You have to commit the changes to go.mod, go.sum and before submitting the pull 
 [This guide is intended](/devkit/README.md) as a quickstart on how to use devkit for CSI development env. 
 
 #### Requirements
-- go v1.17
+- go v1.21
 - lvm2 packet installed on host machine
 - kubectl v1.16+
 - helm v3
