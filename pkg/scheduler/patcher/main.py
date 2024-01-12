@@ -109,7 +109,9 @@ def run():
     if kube_major_ver==1 and kube_minor_ver>22:
         path = args.target_config_23_path
 
-    config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23 and kube_minor_ver<26)
+    # the option is still available for kubernetes 1.26, 1.27, 1.28, 1.29
+    # verify if the option is still available for kubernetes greater than 1.29
+    config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23 and kube_minor_ver<=29)
 
     manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
     if args.platform == "rke":
