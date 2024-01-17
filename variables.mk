@@ -22,10 +22,10 @@ TAG              := ${FULL_VERSION}
 BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 
 ### third-party components version
-CSI_PROVISIONER_TAG := v3.1.0
-CSI_RESIZER_TAG     := v1.4.0
-CSI_REGISTRAR_TAG   := v2.5.0
-LIVENESS_PROBE_TAG  := v2.6.0
+CSI_PROVISIONER_TAG := v3.6.0
+CSI_RESIZER_TAG     := v1.9.0
+CSI_REGISTRAR_TAG   := v2.9.0
+LIVENESS_PROBE_TAG  := v2.11.0
 BUSYBOX_TAG         := 1.29
 
 ### PATH
