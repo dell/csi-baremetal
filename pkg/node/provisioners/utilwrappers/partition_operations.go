@@ -191,7 +191,7 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 		}
 		// sleep first to avoid issues with lsblk caching
 		time.Sleep(SleepBetweenRetriesToObtainPartName)
-		partName, err = d.GetPartitionNameByUUID(device, partUUID)
+		_, err = d.GetPartitionNameByUUID(device, partUUID)
 		if err != nil {
 			ll.Warningf("Unable to find part name: %v. Sleep and retry...", err)
 			continue
