@@ -1,4 +1,4 @@
-FROM python:3.10-alpine3.17
+FROM python:3.12.1-alpine3.19
 
 COPY requirements.txt main.py /patcher/
 WORKDIR /patcher

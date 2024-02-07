@@ -9,7 +9,7 @@ CRD_OPTIONS ?= crd
 
 ### version
 MAJOR            := 1
-MINOR            := 4
+MINOR            := 5
 PATCH            := 0
 PRODUCT_VERSION  ?= ${MAJOR}.${MINOR}.${PATCH}
 BUILD_REL_A      := $(shell git rev-list HEAD |wc -l)
@@ -22,10 +22,10 @@ TAG              := ${FULL_VERSION}
 BRANCH           := $(shell git rev-parse --abbrev-ref HEAD)
 
 ### third-party components version
-CSI_PROVISIONER_TAG := v3.1.0
-CSI_RESIZER_TAG     := v1.4.0
-CSI_REGISTRAR_TAG   := v2.5.0
-LIVENESS_PROBE_TAG  := v2.6.0
+CSI_PROVISIONER_TAG := v3.6.0
+CSI_RESIZER_TAG     := v1.9.0
+CSI_REGISTRAR_TAG   := v2.9.0
+LIVENESS_PROBE_TAG  := v2.11.0
 BUSYBOX_TAG         := 1.29
 
 ### PATH
@@ -58,7 +58,7 @@ LIVENESS_PROBE  := livenessprobe
 BUSYBOX         := busybox
 
 HEALTH_PROBE    	 := health_probe
-HEALTH_PROBE_BIN_URL := https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.22/grpc_health_probe-linux-amd64
+HEALTH_PROBE_BIN_URL := https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.24/grpc_health_probe-linux-amd64
 
 ### go env vars
 GO_ENV_VARS     := GO111MODULE=on ${GOPRIVATE_PART} ${GOPROXY_PART}
