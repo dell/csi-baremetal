@@ -199,6 +199,8 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 		break
 	}
 
+	partName, err = d.GetPartitionNameByUUID(device, partUUID)
+
 	// partition not found
 	if partName == "" {
 		ll.Errorf("Partition not found: %v", err)
