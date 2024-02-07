@@ -238,6 +238,20 @@ func TestSearchPartNameSuccess(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestSearchPartNameFailure(t *testing.T) {
+	var (
+		partOps, mockPH, _ = setupTestPartitioner()
+		expectedErr        = fmt.Errorf("fail")
+		err                error
+	)
+	mockPH.On("SyncPartitionTable", testPart1.Device).
+		Return("", "", nil).Times(5)
+	mockPH.On("GetPartitionNameByUUID", testPart1.Device, testPart1.PartUUID).
+		Return("", expectedErr).Times(5)
+	_, err = partOps.SearchPartName(testPart1.Device, testPart1.PartUUID)
+	assert.Error(t, expectedErr, err)
+}
+
 func TestSearchPartNameFail(t *testing.T) {
 	var (
 		partOps, mockPH, wrapFS = setupTestPartitioner()
