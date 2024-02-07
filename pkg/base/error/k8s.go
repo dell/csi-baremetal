@@ -9,6 +9,7 @@ func IsSafeReturnError(err error) bool {
 		k8sError.IsTooManyRequests(err)
 }
 
+// AlwaysSafeReturnError returns true for all errors
 func AlwaysSafeReturnError(err error) bool {
 	return true
 }

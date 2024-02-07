@@ -48,6 +48,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
 	"github.com/dell/csi-baremetal/pkg/base/command"
+	checkErr "github.com/dell/csi-baremetal/pkg/base/error"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover"
 	"github.com/dell/csi-baremetal/pkg/base/linuxutils/datadiscover/types"
@@ -63,7 +64,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 	wbtconf "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 	wbtops "github.com/dell/csi-baremetal/pkg/node/wbt/operations"
-	checkErr "github.com/dell/csi-baremetal/pkg/base/error"
 )
 
 const (
@@ -669,12 +669,12 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 						Jitter:   0,
 					}
 					if err := retry.OnError(updateRetry, checkErr.AlwaysSafeReturnError, func() error {
-							if err1 := m.k8sClient.UpdateCR(ctx, &toUpdate) ; err1 != nil {
-								ll.Infof("Failed to update drive CR (health/status) retrying, error %v", err1)
-								return err1
-							}
-							return nil
-						}); err != nil {
+						if err1 := m.k8sClient.UpdateCR(ctx, &toUpdate); err1 != nil {
+							ll.Infof("Failed to update drive CR (health/status) retrying, error %v", err1)
+							return err1
+						}
+						return nil
+					}); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
 					} else {
