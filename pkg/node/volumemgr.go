@@ -612,6 +612,31 @@ func (m *VolumeManager) Discover() error {
 	return nil
 }
 
+// safeUpdateCRs updates Drives CRs based on provided Drives.
+// Receives golang context and drivecrd.Drive with current data to be updated
+// returns error in case of apiserver connection problems, nil otherwise
+func (m *VolumeManager) safeUpdateCR(ctx context.Context, toUpdate drivecrd.Drive) error {
+	ll := m.log.WithFields(logrus.Fields{
+		"component": "VolumeManager",
+		"method":    "safeUpdateCR",
+	})
+
+	updateRetry := wait.Backoff{
+		Steps:    6,
+		Duration: 1 * time.Second,
+		Factor:   2.0,
+		Jitter:   0,
+	}
+
+	return retry.OnError(updateRetry, checkErr.AlwaysSafeReturnError, func() error {
+		if err1 := m.k8sClient.UpdateCR(ctx, &toUpdate); err1 != nil {
+			ll.Infof("Failed to update drive CR (health/status) retrying, error %v", err1)
+			return err1
+		}
+		return nil
+	})
+}
+
 // updateDrivesCRs updates Drives CRs based on provided list of Drives.
 // Receives golang context and slice of discovered api.Drive structs usually got from DriveManager
 // returns struct with information about drives updates
@@ -662,19 +687,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
 
-					updateRetry := wait.Backoff{
-						Steps:    6,
-						Duration: 1 * time.Second,
-						Factor:   2.0,
-						Jitter:   0,
-					}
-					if err := retry.OnError(updateRetry, checkErr.AlwaysSafeReturnError, func() error {
-						if err1 := m.k8sClient.UpdateCR(ctx, &toUpdate); err1 != nil {
-							ll.Infof("Failed to update drive CR (health/status) retrying, error %v", err1)
-							return err1
-						}
-						return nil
-					}); err != nil {
+					if err := m.safeUpdateCR(ctx, toUpdate); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
 					} else {
