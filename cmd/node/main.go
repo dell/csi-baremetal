@@ -66,7 +66,7 @@ import (
 const (
 	componentName = "csi-baremetal-node"
 	// on loaded system drive manager might response with the delay
-	numberOfRetries  = 20
+	numberOfRetries  = 40
 	delayBeforeRetry = 5
 )
 

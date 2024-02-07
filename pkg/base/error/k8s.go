@@ -8,3 +8,7 @@ func IsSafeReturnError(err error) bool {
 		k8sError.IsTimeout(err) ||
 		k8sError.IsTooManyRequests(err)
 }
+
+func AlwaysSafeReturnError(err error) bool {
+	return true
+}

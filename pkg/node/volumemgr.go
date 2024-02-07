@@ -31,6 +31,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/keymutex"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,6 +63,7 @@ import (
 	"github.com/dell/csi-baremetal/pkg/node/provisioners/utilwrappers"
 	wbtconf "github.com/dell/csi-baremetal/pkg/node/wbt/common"
 	wbtops "github.com/dell/csi-baremetal/pkg/node/wbt/operations"
+	checkErr "github.com/dell/csi-baremetal/pkg/base/error"
 )
 
 const (
@@ -658,7 +661,20 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
-					if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
+
+					updateRetry := wait.Backoff{
+						Steps:    6,
+						Duration: 1 * time.Second,
+						Factor:   2.0,
+						Jitter:   0,
+					}
+					if err := retry.OnError(updateRetry, checkErr.AlwaysSafeReturnError, func() error {
+							if err1 := m.k8sClient.UpdateCR(ctx, &toUpdate) ; err1 != nil {
+								ll.Infof("Failed to update drive CR (health/status) retrying, error %v", err1)
+								return err1
+							}
+							return nil
+						}); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
 					} else {
