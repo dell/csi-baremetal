@@ -172,7 +172,7 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 
 	var (
 		partName string
-		err      error
+		partErr  error
 	)
 
 	// get partition name
@@ -191,9 +191,9 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 		}
 		// sleep first to avoid issues with lsblk caching
 		time.Sleep(SleepBetweenRetriesToObtainPartName)
-		partName, err = d.GetPartitionNameByUUID(device, partUUID)
-		if err != nil {
-			ll.Warningf("Unable to find part name: %v. Sleep and retry...", err)
+		partName, partErr = d.GetPartitionNameByUUID(device, partUUID)
+		if partErr != nil {
+			ll.Warningf("Unable to find part name: %v. Sleep and retry...", partErr)
 			continue
 		}
 		break
@@ -201,8 +201,8 @@ func (d *PartitionOperationsImpl) SearchPartName(device, partUUID string) (strin
 
 	// partition not found
 	if partName == "" {
-		ll.Errorf("Partition not found: %v", err)
-		return "", err
+		ll.Errorf("Partition not found: %v", partErr)
+		return "", partErr
 	}
 
 	ll.Debugf("Got partition number %s", partName)
