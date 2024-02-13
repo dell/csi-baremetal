@@ -254,7 +254,7 @@ func (h *WrapFSImpl) IsMounted(path string) (bool, error) {
 	h.opMutex.Lock()
 	defer h.opMutex.Unlock()
 
-	procMounts, err := util.ConsistentRead(MountInfoFile, 5, time.Millisecond)
+	procMounts, err := util.ConsistentRead(MountInfoFile, 20, time.Millisecond)
 	if err != nil || len(procMounts) == 0 {
 		return false, fmt.Errorf("unable to check whether %s mounted or no, error: %w", path, err)
 	}
