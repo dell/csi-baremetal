@@ -197,9 +197,8 @@ func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
 
 	pod := extenderArgs.Pod
 	var hostPriority []schedulerapi.HostPriority
-	requests, _ := e.gatherCapacityRequestsByProvisioner(context.TODO(), pod)
-	if len(requests) != 0 {
-		var err error
+	requests, err := e.gatherCapacityRequestsByProvisioner(req.Context(), pod)
+	if err == nil && len(requests) != 0 {
 		hostPriority, err = e.score(extenderArgs.Nodes.Items)
 		if err != nil {
 			ll.Errorf("Unable to score %v", err)
