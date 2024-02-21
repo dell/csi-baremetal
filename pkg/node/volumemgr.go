@@ -645,7 +645,6 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				}
 				if value, ok := driveCR.GetAnnotations()[driveHealthOverrideAnnotation]; ok {
 					m.overrideDriveHealth(drivePtr, value, driveCR.Name)
-					m.overrideDriveStatusWhenHealthBad(drivePtr, value, driveCR.Name)
 				}
 				if driveCR.Equals(drivePtr) {
 					updates.AddNotChanged(&driveCR)
@@ -1311,6 +1310,7 @@ func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, 
 		m.log.Warnf("Drive %s has health annotation. Health %s has been overridden with %s.",
 			driveCRName, drive.Health, overriddenHealth)
 		drive.Health = overriddenHealth
+		m.overrideDriveStatusWhenHealthBad(drive, overriddenHealth, driveCRName)
 	} else {
 		m.log.Errorf("Drive %s has health annotation, but value %s is not %s/%s/%s/%s. Health is not overridden.",
 			driveCRName, overriddenHealth, apiV1.HealthGood, apiV1.HealthSuspect, apiV1.HealthBad, apiV1.HealthUnknown)

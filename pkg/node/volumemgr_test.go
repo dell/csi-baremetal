@@ -831,10 +831,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, drive.Name, "", actualDrive))
 		assert.Nil(t, err)
 		assert.Equal(t, actualDrive.Spec.Health, apiV1.HealthBad)
-
-		updatedDrive := &drivecrd.Drive{}
-		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, drive.Name, "", updatedDrive))
-		assert.Equal(t, apiV1.DriveStatusOffline, updatedDrive.Spec.Status)
+		assert.Equal(t, apiV1.DriveStatusOffline, actualDrive.Spec.Status)
 	})
 
 	t.Run("new drive", func(t *testing.T) {
