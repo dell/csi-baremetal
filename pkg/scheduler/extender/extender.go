@@ -195,14 +195,20 @@ func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
 	e.Lock()
 	defer e.Unlock()
 
-	hostPriority, err := e.score(extenderArgs.Nodes.Items)
-	if err != nil {
-		ll.Errorf("Unable to score %v", err)
-		return
+	pod := extenderArgs.Pod
+	var hostPriority []schedulerapi.HostPriority
+	requests, err := e.gatherCapacityRequestsByProvisioner(req.Context(), pod)
+	if err == nil && len(requests) != 0 {
+		hostPriority, err = e.score(extenderArgs.Nodes.Items)
+		if err != nil {
+			ll.Errorf("Unable to score %v", err)
+			return
+		}
+		ll.Infof("Score results for pod %s: %v", pod, hostPriority)
+	} else {
+		ll.Infof("Skip skoring for pod: %s", pod)
 	}
-	ll.Infof("Score results: %v", hostPriority)
 	extenderRes := (schedulerapi.HostPriorityList)(hostPriority)
-
 	if err := resp.Encode(&extenderRes); err != nil {
 		ll.Errorf("Unable to write response %v: %v", extenderRes, err)
 	}
