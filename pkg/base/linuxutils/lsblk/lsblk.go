@@ -173,8 +173,9 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	vid := drive.VID
 	pid := drive.PID
 	for _, l := range lsblkOut {
-		if strings.EqualFold(l.Serial, sn) && strings.Contains(l.Vendor, vid) &&
-			strings.EqualFold(l.Model, pid) {
+		lvid := strings.TrimSpace(l.Vendor)
+		if strings.EqualFold(l.Serial, sn) && strings.EqualFold(lvid, vid) &&
+			strings.HasPrefix(l.Model, pid) {
 			device = l.Name
 			break
 		}
