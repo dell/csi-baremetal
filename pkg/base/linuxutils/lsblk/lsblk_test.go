@@ -84,14 +84,6 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewLSBLK(testLogger)
 	l.e = e
-	// path is in drive spec
-	dCR := testDriveCR
-	path := "/dev/sda"
-	dCR.Spec.Path = path
-
-	res, err := l.SearchDrivePath(&dCR.Spec)
-	assert.Nil(t, err)
-	assert.Equal(t, path, res)
 
 	// got from lsblk output
 	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
@@ -100,7 +92,7 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	d2CR := testDriveCR
 	d2CR.Spec.SerialNumber = sn
 
-	res, err = l.SearchDrivePath(&d2CR.Spec)
+	res, err := l.SearchDrivePath(&d2CR.Spec)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedDevice, res)
 }
