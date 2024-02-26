@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 Dell Inc. or its subsidiaries. All Rights Reserved.
+Copyright © 2020-2024 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -161,7 +161,6 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 // Receives an instance of drivecrd.Drive struct
 // Returns drive's path based on provided drivecrd.Drive or error if something went wrong
 func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
-
 	device := ""
 	// try to find it with lsblk
 	lsblkOut, err := l.GetBlockDevices("")
