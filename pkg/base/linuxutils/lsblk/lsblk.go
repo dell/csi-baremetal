@@ -161,7 +161,13 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 // Receives an instance of drivecrd.Drive struct
 // Returns drive's path based on provided drivecrd.Drive or error if something went wrong
 func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
-	device := ""
+	// device path might be already set by hwmgr
+	device := drive.Path
+	if device != "" {
+		return device, nil
+	}
+
+	device = ""
 	// try to find it with lsblk
 	lsblkOut, err := l.GetBlockDevices("")
 	if err != nil {
