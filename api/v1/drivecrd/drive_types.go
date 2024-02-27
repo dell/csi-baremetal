@@ -44,7 +44,7 @@ import (
 // +kubebuilder:printcolumn:name="Security Status",type="string",JSONPath=".spec.SecurityStatus",description="SED drive security status"
 // +kubebuilder:printcolumn:name="Encryption Capable",type="string",JSONPath=".spec.EncryptionCapable",description="SED drive or not"
 // +kubebuilder:printcolumn:name="Encryption Protocol",type="string",JSONPath=".spec.EncryptionProtocol",description="SED encryption protocol"
-// +kubebuilder:printcolumn:name="Smart Info",type="string",JSONPath=".spec.SmartInfo",description="Smart Info data"
+// +kubebuilder:printcolumn:name="Smart Info",type="string",JSONPath=".spec.SmartInfo",description="Smart Info data",priority=1
 type Drive struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
