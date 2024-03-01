@@ -44,6 +44,7 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
+	smart "github.com/dell/csi-baremetal/pkg/node/smart/generated"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
@@ -90,6 +91,7 @@ var (
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
+	smartpath = flag.String("smart-path", "/smart", "The HTTP path where smart metrics will be exposed. Default is /smart.")
 )
 
 func main() {
@@ -104,8 +106,13 @@ func main() {
 	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
 
 	var enableMetrics bool
+	var enableSmart bool
+
 	if *metricspath != "" {
 		enableMetrics = true
+	}
+	if *smartpath != "" {
+		enableSmart = true
 	}
 
 	logger, err := logger.InitLogger(*logPath, *logLevel)
@@ -178,14 +185,21 @@ func main() {
 
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiUDSServer)
-	if enableMetrics {
-		grpc_prometheus.Register(csiUDSServer.GRPCServer)
-		grpc_prometheus.EnableHandlingTimeHistogram()
-		grpc_prometheus.EnableClientHandlingTimeHistogram()
-		prometheus.MustRegister(metrics.BuildInfo)
+	if enableMetrics || enableSmart {
+		if enableMetrics {
+			grpc_prometheus.Register(csiUDSServer.GRPCServer)
+			grpc_prometheus.EnableHandlingTimeHistogram()
+			grpc_prometheus.EnableClientHandlingTimeHistogram()
+			prometheus.MustRegister(metrics.BuildInfo)
+			http.Handle(*metricspath, promhttp.Handler())
+		}
+		if enableSmart {
+			server, _ := smart.NewServer(node.NewSmartService(clientToDriveMgr, logger))
+			http.Handle(*smartpath, server)
+			http.Handle(*smartpath + "/", server)
+		}
 
 		go func() {
-			http.Handle(*metricspath, promhttp.Handler())
 			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
 				logger.Warnf("metric http returned: %s ", err)
 			}

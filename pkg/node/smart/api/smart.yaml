@@ -1,0 +1,56 @@
+openapi: 3.1.0
+x-stoplight:
+  id: od1taketfszh8
+info:
+  title: CSI-Smart-Info
+  version: '1.0'
+  summary: API used to provide drive smart info.
+servers:
+  - url: 'http://localhost:3000'
+paths:
+  '/smart/{serialNumber}':
+    parameters:
+      - schema:
+          type: string
+        name: serialNumber
+        in: path
+        required: true
+    get:
+      summary: Get disk smart info by Serial Number
+      tags: []
+      responses:
+        '200':
+          description: Smart info data found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartMetrics'
+        '404':
+          description: Disk not found
+      operationId: get-smart-info
+      description: Retrieve the disk information/metrics with the matching serial number.
+  /smart:
+    get:
+      summary: Get all disks smart info
+      tags: []
+      responses:
+        '200':
+          description: Smart info data found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartMetrics'
+        '404':
+          description: No disks discovered
+      operationId: get-all-drives-smart-info
+      description: Retrieve all discovered disks information/metrics.
+components:
+  schemas:
+    SmartMetrics:
+      title: SmartMetrics
+      additionalProperties: true
+      description: ''
+  securitySchemes:
+    mTLS:
+      type: http
+      scheme: mutual

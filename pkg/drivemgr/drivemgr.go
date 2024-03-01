@@ -28,4 +28,8 @@ type DriveManager interface {
 	Locate(serialNumber string, action int32) (currentStatus int32, err error)
 	// LocateNode manipulates of node's led state, which should be synced with drive's led
 	LocateNode(action int32) error
+	// GetSmartInfo gets smart info for specific drive with given serialNumber
+	GetSmartInfo(serialNumber string) (string, error)
+	// GetAllDrivesSmartInfo gets smart info for all drives on given node
+	GetAllDrivesSmartInfo() (string, error)
 }

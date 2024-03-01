@@ -539,6 +539,17 @@ func (mgr *LoopBackManager) LocateNode(action int32) error {
 	return nil
 }
 
+// GetSmartInfo implements GetSmartInfo method of DriveManager interface
+func (mgr *LoopBackManager) GetSmartInfo(serialNumber string) (string, error) {
+	return "", status.Error(codes.Unimplemented, "method GetSmartInfo not implemented in BaseManager")
+}
+
+// GetAllDrivesSmartInfo implements GetAllDrivesSmartInfo method of DriveManager interface
+func (mgr *LoopBackManager) GetAllDrivesSmartInfo() (string, error) {
+	// not implemented
+	return "", status.Error(codes.Unimplemented, "method GetAllDrivesSmartInfo not implemented in BaseManager")
+}
+
 // GetBackFileToLoopMap return mapping between backing file and loopback devices
 // Multiple loopback devices can be created from on backing file.
 func (mgr *LoopBackManager) GetBackFileToLoopMap() (map[string][]string, error) {

@@ -85,3 +85,31 @@ func (svc *DriveServiceServerImpl) LocateNode(ctx context.Context, req *api.Node
 	}
 	return new(api.Empty), nil
 }
+
+// GetSmartInfo invokes DriveManager's GetSmartInfo() and sends the response over gRPC
+// Receives go context and SmartInfoRequest which contains Serial Number
+// Returns SmartInfoResponse with smart info json string
+func (svc *DriveServiceServerImpl) GetSmartInfo(ctx context.Context, req *api.SmartInfoRequest) (*api.SmartInfoResponse, error) {
+	smartInfo, err := svc.mgr.GetSmartInfo(req.GetSerialNumber())
+	if err != nil {
+		svc.log.Errorf("DriveManager failed with error: %s", err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &api.SmartInfoResponse{
+		SmartInfo: smartInfo,
+	}, nil
+}
+
+// GetAllDrivesSmartInfo invokes DriveManager's GetAllDrivesSmartInfo() and sends the response over gRPC
+// Receives go context and Empty message
+// Returns SmartInfoResponse with smart info json string
+func (svc *DriveServiceServerImpl) GetAllDrivesSmartInfo(ctx context.Context, req *api.Empty) (*api.SmartInfoResponse, error) {
+	smartInfo, err := svc.mgr.GetAllDrivesSmartInfo()
+	if err != nil {
+		svc.log.Errorf("DriveManager failed with error: %s", err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &api.SmartInfoResponse{
+		SmartInfo: smartInfo,
+	}, nil
+}
