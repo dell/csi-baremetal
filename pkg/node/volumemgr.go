@@ -1109,8 +1109,7 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 		if updDrive.CurrentState.Spec.Status != updDrive.PreviousState.Spec.Status {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
-		}
-		if updDrive.CurrentState.Spec.Status == apiV1.DriveStatusOffline {
+		} else if updDrive.CurrentState.Spec.Status == apiV1.DriveStatusOffline {
 			if updDrive.CurrentState.Spec.Usage == apiV1.DriveUsageRemoved &&
 				updDrive.PreviousState.Spec.Usage == apiV1.DriveUsageRemoving {
 				m.createEventForMissingDriveRemoved(updDrive.CurrentState)
