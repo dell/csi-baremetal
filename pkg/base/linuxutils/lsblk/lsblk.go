@@ -157,6 +157,7 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	return res, nil
 }
 
+// SearchDrivePath searches for the drive path by comparing drive's sn, vid, pid with lsblk output
 func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	device := ""
 	// try to find it with lsblk
