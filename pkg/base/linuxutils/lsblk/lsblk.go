@@ -175,7 +175,7 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	for _, l := range lsblkOut {
 		lvid := strings.TrimSpace(l.Vendor)
 		if strings.EqualFold(l.Serial, sn) && strings.EqualFold(lvid, vid) &&
-			strings.HasPrefix(l.Model, pid) {
+			hasPrefixIgnoreSpaces(l.Model, pid) {
 			device = l.Name
 			break
 		}
@@ -187,4 +187,12 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	}
 
 	return device, nil
+}
+func hasPrefixIgnoreSpaces(s, prefix string) bool {
+	empty := ""
+	emptySpace := " "
+	s = strings.ReplaceAll(s, emptySpace, empty)
+	prefix = strings.ReplaceAll(prefix, emptySpace, empty)
+
+	return strings.HasPrefix(s, prefix)
 }
