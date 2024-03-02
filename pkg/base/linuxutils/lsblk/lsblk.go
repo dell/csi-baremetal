@@ -157,9 +157,6 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	return res, nil
 }
 
-// SearchDrivePath if not defined returns drive path based on drive S/N, VID and PID.
-// Receives an instance of drivecrd.Drive struct
-// Returns drive's path based on provided drivecrd.Drive or error if something went wrong
 func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	device := ""
 	// try to find it with lsblk
@@ -174,6 +171,8 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	pid := drive.PID
 	for _, l := range lsblkOut {
 		lvid := strings.TrimSpace(l.Vendor)
+		// The hasPrefixIgnoreSpaces function is used to compare pid and lsblk model, accounting for drives that may have
+		// multiple spaces in their pid, and situations where pid is truncated or limited to 16 digits compared to lsblk model.
 		if strings.EqualFold(l.Serial, sn) && strings.EqualFold(lvid, vid) &&
 			hasPrefixIgnoreSpaces(l.Model, pid) {
 			device = l.Name
