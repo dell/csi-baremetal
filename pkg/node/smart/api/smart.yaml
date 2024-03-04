@@ -1,12 +1,15 @@
 openapi: 3.1.0
 x-stoplight:
-  id: od1taketfszh8
+  id: ndz31t0qy7dfl
 info:
-  title: CSI-Smart-Info
+  title: CSI-Smart-Info-Backend
   version: '1.0'
   summary: API used to provide drive smart info.
+  description: CSI Smart Info API for node container backend
+  contact:
+    name: API Support
 servers:
-  - url: 'http://localhost:3000'
+  - url: 'http://localhost:8787'
 paths:
   '/smart/{serialNumber}':
     parameters:
@@ -17,7 +20,8 @@ paths:
         required: true
     get:
       summary: Get disk smart info by Serial Number
-      tags: []
+      tags:
+        - SmartAPIBackend
       responses:
         '200':
           description: Smart info data found
@@ -25,6 +29,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmartMetrics'
+              examples:
+                example:
+                  value:
+                    device:
+                      DevPath: /dev/sg10
+                      DevCmdType: ATA
+                      Vendor: ATA
+                      modelName: DELLBOSS VD
+                      SerialNum: 1bd574be7bd60010
+                      Slot: '0'
+                      DriveType: rotational
+                    smart_status:
+                      ResponseCode: '0x72'
+                      AdditionalSenseLength: '14'
+                      DescriptorCode: '0x9'
+                      DescriptorLength: '12'
+                      'Lba[3]': '0x4f'
+                      'Lba[5]': '0xc2'
+                    smart_attribute_table:
+                      Revnumber: '0'
+                      OfflineDataCollectionStatus: '0'
+                      SelfTestStatus: '0'
+                      TotalTimeToCompleteOffline: '0'
+                      VendorSpecific_366: '0'
+                      OfflineDataCollectionCapability: '0'
+                      SmartCapability: '0'
+                      VendorSpecific_371: '0'
+                      ShortTestCompletionTime: '0'
+                      ExtendTestCompletionTime: '0'
+                      ConveyanceTestCompletionTime: '0'
+                      Checksum: '0'
+                      smart_entries: ''
+                    smart_self_test_log:
+                      Revision: '0'
+                      VendorSpecific: '0'
+                      SelfTestIndex: '0'
+                      Reserved: '0'
+                      Checksum: '0'
+                      'self_test_log_entry[1]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[2]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[3]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[4]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[5]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[6]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[7]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[8]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[9]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[10]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[11]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[12]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[13]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[14]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[15]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[16]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[17]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[18]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[19]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[20]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
+                      'self_test_log_entry[21]':
+                        Lba: '0'
+                        Status: '0'
+                        LifeTimestamp: '0'
+                        Checkpoint: '0'
         '404':
           description: Disk not found
       operationId: get-smart-info
@@ -32,7 +179,8 @@ paths:
   /smart:
     get:
       summary: Get all disks smart info
-      tags: []
+      tags:
+        - SmartAPIBackend
       responses:
         '200':
           description: Smart info data found
@@ -40,6 +188,443 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmartMetrics'
+              examples:
+                example:
+                  value:
+                    S3FXNA0J400174:
+                      device:
+                        DevPath: /dev/sg0
+                        DevCmdType: SCSI
+                        Vendor: SAMSUNG
+                        modelName: MZILS1T6HEJH0D3
+                        SerialNum: S3FXNA0J400174
+                        Slot: '0'
+                        DriveType: SSD
+                      scsi_error_counter_log:
+                        read:
+                          errors_corrected_by_eccfast: '0'
+                          errors_corrected_by_eccdelayed: '0'
+                          errors_corrected_by_rereads_rewrites: '0'
+                          total_errors_corrected: '0'
+                          correction_algorithm_invocations: '0'
+                          total_bytes_processed: '21170217525080'
+                          total_uncorrected_errors: '0'
+                        write:
+                          errors_corrected_by_eccfast: '0'
+                          errors_corrected_by_eccdelayed: '0'
+                          errors_corrected_by_rereads_rewrites: '0'
+                          total_errors_corrected: '0'
+                          correction_algorithm_invocations: '0'
+                          total_bytes_processed: '40574335724000'
+                          total_uncorrected_errors: '0'
+                        verify:
+                          errors_corrected_by_eccfast: '0'
+                          errors_corrected_by_eccdelayed: '0'
+                          errors_corrected_by_rereads_rewrites: '0'
+                          total_errors_corrected: '0'
+                          correction_algorithm_invocations: '0'
+                          total_bytes_processed: '8470280'
+                          total_uncorrected_errors: '0'
+                      scsi_self_test_1:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34701'
+                      scsi_self_test_2:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34677'
+                      scsi_self_test_3:
+                        code:
+                          value: '2'
+                          string: Background long
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34676'
+                      scsi_self_test_4:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34653'
+                      scsi_self_test_5:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34629'
+                      scsi_self_test_6:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34605'
+                      scsi_self_test_7:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34581'
+                      scsi_self_test_8:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34557'
+                      scsi_self_test_9:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34533'
+                      scsi_self_test_10:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34509'
+                      scsi_self_test_11:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34485'
+                      scsi_self_test_12:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34461'
+                      scsi_self_test_13:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34437'
+                      scsi_self_test_14:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34413'
+                      scsi_self_test_15:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34389'
+                      scsi_self_test_16:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34365'
+                      scsi_self_test_17:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34341'
+                      scsi_self_test_18:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34317'
+                      scsi_self_test_19:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34293'
+                      scsi_self_test_20:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '34269'
+                      temperature: '27'
+                      scsi_percentage_used_endurance_indicator: '0'
+                      scsi_background_scan:
+                        scan_status:
+                          power_on_time:
+                            hours: '34707'
+                            minutes: '15'
+                          scan_status: '1'
+                          scan_count: '21'
+                          scan_progress: '22112'
+                          medium_scan_count: '21'
+                        scan_results: ''
+                      informational_exceptions:
+                        additional_sense_code: '0'
+                        additional_sense_code_qualifier: '0'
+                        most_recent_temperature: '27'
+                      scsi_start_stop_cycle_counter:
+                        date_of_manufacture: '361'
+                        accounting_date: '1032613'
+                        specified_cycle_count_over_device_lifetime: '4294967295'
+                        accumulated_start_stop_cycles: '1486'
+                        specified_load_unload_count_over_device_lifetime: '0'
+                        accumulated_load_unload_cycles: '0'
+                    S3FXNA0J400198:
+                      device:
+                        DevPath: /dev/sg1
+                        DevCmdType: SCSI
+                        Vendor: SAMSUNG
+                        modelName: MZILS1T6HEJH0D3
+                        SerialNum: S3FXNA0J400198
+                        Slot: '1'
+                        DriveType: SSD
+                      scsi_error_counter_log:
+                        read:
+                          errors_corrected_by_eccfast: '0'
+                          errors_corrected_by_eccdelayed: '0'
+                          errors_corrected_by_rereads_rewrites: '0'
+                          total_errors_corrected: '0'
+                          correction_algorithm_invocations: '0'
+                          total_bytes_processed: '23453999872680'
+                          total_uncorrected_errors: '0'
+                        write:
+                          errors_corrected_by_eccfast: '0'
+                          errors_corrected_by_eccdelayed: '0'
+                          errors_corrected_by_rereads_rewrites: '0'
+                          total_errors_corrected: '0'
+                          correction_algorithm_invocations: '0'
+                          total_bytes_processed: '67101947246880'
+                          total_uncorrected_errors: '0'
+                        verify:
+                          errors_corrected_by_eccfast: '0'
+                          errors_corrected_by_eccdelayed: '0'
+                          errors_corrected_by_rereads_rewrites: '0'
+                          total_errors_corrected: '0'
+                          correction_algorithm_invocations: '0'
+                          total_bytes_processed: '8470280'
+                          total_uncorrected_errors: '0'
+                      scsi_self_test_1:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35538'
+                      scsi_self_test_2:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35514'
+                      scsi_self_test_3:
+                        code:
+                          value: '2'
+                          string: Background long
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35513'
+                      scsi_self_test_4:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35490'
+                      scsi_self_test_5:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35466'
+                      scsi_self_test_6:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35442'
+                      scsi_self_test_7:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35418'
+                      scsi_self_test_8:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35394'
+                      scsi_self_test_9:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35370'
+                      scsi_self_test_10:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35346'
+                      scsi_self_test_11:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35322'
+                      scsi_self_test_12:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35298'
+                      scsi_self_test_13:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35274'
+                      scsi_self_test_14:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35250'
+                      scsi_self_test_15:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35226'
+                      scsi_self_test_16:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35202'
+                      scsi_self_test_17:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35178'
+                      scsi_self_test_18:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35154'
+                      scsi_self_test_19:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35130'
+                      scsi_self_test_20:
+                        code:
+                          value: '1'
+                          string: Background short
+                        result:
+                          value: '0'
+                          string: Completed
+                        accumulated_power_on_hours: '35106'
+                      temperature: '26'
+                      scsi_percentage_used_endurance_indicator: '0'
+                      scsi_background_scan:
+                        scan_status:
+                          power_on_time:
+                            hours: '35544'
+                            minutes: '15'
+                          scan_status: '1'
+                          scan_count: '21'
+                          scan_progress: '35678'
+                          medium_scan_count: '21'
+                        scan_results: ''
+                      informational_exceptions:
+                        additional_sense_code: '0'
+                        additional_sense_code_qualifier: '0'
+                        most_recent_temperature: '26'
+                      scsi_start_stop_cycle_counter:
+                        date_of_manufacture: '361'
+                        accounting_date: '1032613'
+                        specified_cycle_count_over_device_lifetime: '4294967295'
+                        accumulated_start_stop_cycles: '1487'
+                        specified_load_unload_count_over_device_lifetime: '0'
+                        accumulated_load_unload_cycles: '0'
         '404':
           description: No disks discovered
       operationId: get-all-drives-smart-info
@@ -50,7 +635,11 @@ components:
       title: SmartMetrics
       additionalProperties: true
       description: ''
+      examples: []
   securitySchemes:
     mTLS:
       type: http
       scheme: mutual
+tags:
+  - name: SmartAPIBackend
+    description: Smart API implemented in backend service
