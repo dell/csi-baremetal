@@ -163,7 +163,7 @@ var LsblkDevV2 = `{
 				"serial":"5000cca0bbce17ff",
 				"wwn":"0x5000cca0bbce17ff",
 				"vendor":"ATA     ",
-				"model":"HGST_HUS728T8TAL",
+				"model":"HGS THUS728T8TAL",
 				"rev":"RT04",
 				"mountpoint":null,
 				"fstype":null,

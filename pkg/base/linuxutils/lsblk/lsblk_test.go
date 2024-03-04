@@ -97,6 +97,27 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	assert.Equal(t, expectedDevice, res)
 }
 
+func TestLSBLK_SearchDrivePath_ModelWithEmptySpaces_Success(t *testing.T) {
+	l := NewLSBLK(testLogger)
+	e := &mocks.GoMockExecutor{}
+	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkDevV2, "", nil)
+	l.e = e
+
+	sn := "5000cca0bbce17ff"
+	//pid := "HGS  THUS728T8TAL"
+	pid := "HGS  THUS728T8TA"
+	vendor := "ATA"
+	expectedDevice := "/dev/sdc"
+	d2CR := testDriveCR
+	d2CR.Spec.SerialNumber = sn
+	d2CR.Spec.VID = vendor
+	d2CR.Spec.PID = pid
+
+	res, err := l.SearchDrivePath(&d2CR.Spec)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedDevice, res)
+}
+
 func TestLSBLK_SearchDrivePath(t *testing.T) {
 	e := &mocks.GoMockExecutor{}
 	l := NewLSBLK(testLogger)
