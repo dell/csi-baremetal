@@ -21,17 +21,17 @@ import (
 	"context"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-	"github.com/go-faster/jx"
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	smart "github.com/dell/csi-baremetal/pkg/node/smart/generated"
+	"github.com/go-faster/jx"
+	"github.com/sirupsen/logrus"
 )
 
 // SmartService represents smart API handler
 type SmartService struct {
-	mux      sync.Mutex
-	client   api.DriveServiceClient
-	log      *logrus.Entry
+	mux    sync.Mutex
+	client api.DriveServiceClient
+	log    *logrus.Entry
 }
 
 // NewSmartService is the constructor for CmartService struct

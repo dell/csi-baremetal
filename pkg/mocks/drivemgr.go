@@ -52,6 +52,16 @@ func (m *MockDriveMgrClientFail) LocateNode(ctx context.Context, in *api.NodeLoc
 	return nil, errors.New("locate node failed")
 }
 
+// GetSmartInfo is a stub for GetSmartInfo DriveManager's method
+func (m *MockDriveMgrClientFail) GetSmartInfo(ctx context.Context, req *api.SmartInfoRequest, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSmartInfo not implemented in MockDriveMgrClient")
+}
+
+// GetAllDrivesSmartInfo is a stub for GetAllDrivesSmartInfo DriveManager's method
+func (m *MockDriveMgrClientFail) GetAllDrivesSmartInfo(ctx context.Context, req *api.Empty, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAllDrivesSmartInfo not implemented in MockDriveMgrClient")
+}
+
 // NewMockDriveMgrClient returns new instance of MockDriveMgrClient
 // Receives slice of api.Drive which would be used in imitation of GetDrivesList
 func NewMockDriveMgrClient(drives []*api.Drive) *MockDriveMgrClient {
@@ -85,4 +95,14 @@ func (m *MockDriveMgrClient) Locate(ctx context.Context, in *api.DriveLocateRequ
 // LocateNode is a stub for LocateNode DriveManager's method
 func (m *MockDriveMgrClient) LocateNode(ctx context.Context, in *api.NodeLocateRequest, opts ...grpc.CallOption) (*api.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method LocateNode not implemented in MockDriveMgrClient")
+}
+
+// GetSmartInfo is a stub for GetSmartInfo DriveManager's method
+func (m *MockDriveMgrClient) GetSmartInfo(ctx context.Context, req *api.SmartInfoRequest, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSmartInfo not implemented in MockDriveMgrClient")
+}
+
+// GetAllDrivesSmartInfo is a stub for GetAllDrivesSmartInfo DriveManager's method
+func (m *MockDriveMgrClient) GetAllDrivesSmartInfo(ctx context.Context, req *api.Empty, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAllDrivesSmartInfo not implemented in MockDriveMgrClient")
 }

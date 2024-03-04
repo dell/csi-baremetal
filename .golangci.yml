@@ -76,6 +76,7 @@ linters-settings:
           - github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver
           - github.com/dell/csi-baremetal/pkg/scheduler/extender/healthserver/common
           - github.com/fsnotify/fsnotify
+          - github.com/go-faster/jx
           - github.com/golang/protobuf/ptypes/wrappers
           - github.com/google/uuid
           - github.com/grpc-ecosystem/go-grpc-prometheus
