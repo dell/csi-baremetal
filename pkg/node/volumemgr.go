@@ -1109,6 +1109,11 @@ func (m *VolumeManager) createEventsForDriveUpdates(updates *driveUpdates) {
 		if updDrive.CurrentState.Spec.Status != updDrive.PreviousState.Spec.Status {
 			m.createEventForDriveStatusChange(
 				updDrive.CurrentState, updDrive.PreviousState.Spec.Status, updDrive.CurrentState.Spec.Status)
+		} else if updDrive.CurrentState.Spec.Status == apiV1.DriveStatusOffline {
+			if updDrive.CurrentState.Spec.Usage == apiV1.DriveUsageRemoved &&
+				updDrive.PreviousState.Spec.Usage == apiV1.DriveUsageRemoving {
+				m.createEventForMissingDriveRemoved(updDrive.CurrentState)
+			}
 		}
 		currentHealth := updDrive.CurrentState.Spec.Health
 		if currentHealth != updDrive.PreviousState.Spec.Health {
@@ -1166,6 +1171,12 @@ func (m *VolumeManager) createEventForDriveStatusChange(
 	}
 	m.sendEventForDrive(drive, event,
 		statusMsgTemplate, currentStatus, prevStatus)
+}
+
+func (m *VolumeManager) createEventForMissingDriveRemoved(drive *drivecrd.Drive) {
+	event := eventing.DriveSuccessfullyRemoved
+	msgTemplate := "Drive successfully removed for a missing disk."
+	m.sendEventForDrive(drive, event, msgTemplate)
 }
 
 // createEventForDriveHealthOverridden creates DriveHealthOverridden with Warning type
