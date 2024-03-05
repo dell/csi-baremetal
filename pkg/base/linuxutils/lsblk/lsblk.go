@@ -174,8 +174,10 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	pid := drive.PID
 	for _, l := range lsblkOut {
 		lvid := strings.TrimSpace(l.Vendor)
+		// The hasPrefixIgnoreSpaces function is used to compare pid and lsblk model, accounting for drives that may have
+		// multiple spaces in their pid, and situations where pid is truncated or limited to 16 digits compared to lsblk model.
 		if strings.EqualFold(l.Serial, sn) && strings.EqualFold(lvid, vid) &&
-			strings.HasPrefix(l.Model, pid) {
+			hasPrefixIgnoreSpaces(l.Model, pid) {
 			device = l.Name
 			break
 		}
@@ -187,4 +189,13 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	}
 
 	return device, nil
+}
+
+func hasPrefixIgnoreSpaces(s, prefix string) bool {
+	empty := ""
+	emptySpace := " "
+	s = strings.ReplaceAll(s, emptySpace, empty)
+	prefix = strings.ReplaceAll(prefix, emptySpace, empty)
+
+	return strings.HasPrefix(s, prefix)
 }
