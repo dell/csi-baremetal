@@ -186,7 +186,7 @@ func main() {
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiUDSServer)
 
-	enableHTTPServers(enableMetrics, enableSmart, metricsAddress, metricspath, smartpath, clientToDriveMgr, csiUDSServer, logger)
+	_ = enableHTTPServers(enableMetrics, enableSmart, metricsAddress, metricspath, smartpath, clientToDriveMgr, csiUDSServer, logger)
 	go func() {
 		logger.Info("Starting Node Health server ...")
 		if err := util.SetupAndStartHealthCheckServer(
@@ -224,7 +224,7 @@ func enableHTTPServers(enableMetrics bool,
 	smartPath *string,
 	clientToDriveMgr api.DriveServiceClient,
 	csiUDSServer *rpc.ServerRunner,
-	logger *logrus.Logger) {
+	logger *logrus.Logger) *http.Server {
 	if enableMetrics || enableSmart {
 		if enableMetrics {
 			grpc_prometheus.Register(csiUDSServer.GRPCServer)
@@ -239,12 +239,15 @@ func enableHTTPServers(enableMetrics bool,
 			http.Handle(*smartPath+"/", server)
 		}
 
+		srv := &http.Server{Addr: *address}
 		go func() {
-			if err := http.ListenAndServe(*address, nil); err != nil {
+			if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 				logger.Warnf("metric http returned: %s ", err)
 			}
 		}()
+		return srv
 	}
+	return nil
 }
 
 func waitForVolumeManagerReadiness(c *node.CSINodeService, logger *logrus.Logger) {

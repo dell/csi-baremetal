@@ -23,7 +23,6 @@ import (
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	smart "github.com/dell/csi-baremetal/pkg/node/smart/generated"
-	"github.com/go-faster/jx"
 	"github.com/sirupsen/logrus"
 )
 
@@ -61,7 +60,10 @@ func (s *SmartService) GetAllDrivesSmartInfo(ctx context.Context) (smart.GetAllD
 	}
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)
-	response := smart.SmartMetrics(jx.Raw(smartInfoResponse.GetSmartInfo()))
+
+	var smartInfo smart.OptString
+	smartInfo.SetTo(smartInfoResponse.GetSmartInfo())
+	response := smart.SmartMetrics{SmartInfo: smartInfo}
 	return &response, nil
 }
 
@@ -81,6 +83,9 @@ func (s *SmartService) GetSmartInfo(ctx context.Context, params smart.GetSmartIn
 	}
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)
-	response := smart.SmartMetrics(jx.Raw(smartInfoResponse.GetSmartInfo()))
+
+	var smartInfo smart.OptString
+	smartInfo.SetTo(smartInfoResponse.GetSmartInfo())
+	response := smart.SmartMetrics{SmartInfo: smartInfo}
 	return &response, nil
 }
