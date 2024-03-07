@@ -106,13 +106,8 @@ func main() {
 	featureConf.Update(featureconfig.FeatureExternalAnnotationForNode, *useExternalAnnotation)
 
 	var enableMetrics bool
-	var enableSmart bool
-
 	if *metricspath != "" {
 		enableMetrics = true
-	}
-	if *smartpath != "" {
-		enableSmart = true
 	}
 
 	logger, err := logger.InitLogger(*logPath, *logLevel)
@@ -186,7 +181,7 @@ func main() {
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiUDSServer)
 
-	_ = enableHTTPServers(enableMetrics, enableSmart, metricsAddress, metricspath, smartpath, clientToDriveMgr, csiUDSServer, logger)
+	_ = enableHTTPServers(*metricsAddress, *metricspath, *smartpath, clientToDriveMgr, csiUDSServer, logger)
 	go func() {
 		logger.Info("Starting Node Health server ...")
 		if err := util.SetupAndStartHealthCheckServer(
@@ -217,29 +212,37 @@ func main() {
 	logger.Info("Got SIGTERM signal")
 }
 
-func enableHTTPServers(enableMetrics bool,
-	enableSmart bool,
-	address *string,
-	metricsPath *string,
-	smartPath *string,
+func enableHTTPServers(address string,
+	metricsPath string,
+	smartPath string,
 	clientToDriveMgr api.DriveServiceClient,
 	csiUDSServer *rpc.ServerRunner,
 	logger *logrus.Logger) *http.Server {
+	enableMetrics := false
+	enableSmart := false
+
+	if metricsPath != "" {
+		enableMetrics = true
+	}
+	if smartPath != "" {
+		enableSmart = true
+	}
+
 	if enableMetrics || enableSmart {
 		if enableMetrics {
 			grpc_prometheus.Register(csiUDSServer.GRPCServer)
 			grpc_prometheus.EnableHandlingTimeHistogram()
 			grpc_prometheus.EnableClientHandlingTimeHistogram()
 			prometheus.MustRegister(metrics.BuildInfo)
-			http.Handle(*metricsPath, promhttp.Handler())
+			http.Handle(metricsPath, promhttp.Handler())
 		}
 		if enableSmart {
 			server, _ := smart.NewServer(node.NewSmartService(clientToDriveMgr, logger))
-			http.Handle(*smartPath, server)
-			http.Handle(*smartPath+"/", server)
+			http.Handle(smartPath, server)
+			http.Handle(smartPath+"/", server)
 		}
 
-		srv := &http.Server{Addr: *address}
+		srv := &http.Server{Addr: address}
 		go func() {
 			if err := srv.ListenAndServe(); err != nil {
 				logger.Warnf("metric http returned: %s ", err)

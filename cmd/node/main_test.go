@@ -36,7 +36,6 @@ import (
 
 var (
 	tEnableMetrics  = true
-	tEnableSmart    = true
 	tMetricsPath    = "/metrics"
 	tSmartPath      = "/smart"
 	tMetricsAddress = "localhost:8787"
@@ -114,11 +113,10 @@ func TestNode_GetAllDrivesSmartInfo(t *testing.T) {
 		expectedSmartInfo, err := json.Marshal(tc.smartInfo)
 		http.DefaultServeMux = new(http.ServeMux)
 		clientToDriveMgr := mocks.NewMockDriveMgrClient(nil, tc.smartInfo)
-		srv := enableHTTPServers(false,
-			tEnableSmart,
-			&tMetricsAddress,
-			&tMetricsPath,
-			&tSmartPath,
+		srv := enableHTTPServers(
+			tMetricsAddress,
+			"",
+			tSmartPath,
 			clientToDriveMgr,
 			nil,
 			tLogger)
@@ -166,11 +164,10 @@ func TestNode_GetSmartInfo(t *testing.T) {
 		expectedSmartInfo, err := json.Marshal(smartInfo[tc.serialNumber])
 		http.DefaultServeMux = new(http.ServeMux)
 		clientToDriveMgr := mocks.NewMockDriveMgrClient(nil, smartInfo)
-		srv := enableHTTPServers(false,
-			tEnableSmart,
-			&tMetricsAddress,
-			&tMetricsPath,
-			&tSmartPath,
+		srv := enableHTTPServers(
+			tMetricsAddress,
+			"",
+			tSmartPath,
 			clientToDriveMgr,
 			nil,
 			tLogger)
@@ -217,11 +214,10 @@ func TestNode_GetAllDrivesSmartMetricsUds(t *testing.T) {
 		http.DefaultServeMux = new(http.ServeMux)
 		clientToDriveMgr := mocks.NewMockDriveMgrClient(nil, tc.smartInfo)
 		csiUDSServer := rpc.NewServerRunner(nil, tCsiEndpoint, tEnableMetrics, tLogger)
-		srv := enableHTTPServers(tEnableMetrics,
-			tEnableSmart,
-			&tMetricsAddress,
-			&tMetricsPath,
-			&tSmartPath,
+		srv := enableHTTPServers(
+			tMetricsAddress,
+			tMetricsPath,
+			tSmartPath,
 			clientToDriveMgr,
 			csiUDSServer,
 			tLogger)
@@ -255,11 +251,10 @@ func TestNode_GetAllDrivesSmartMetricsUds(t *testing.T) {
 
 func TestNode_HTTPServer_Disabled(t *testing.T) {
 	http.DefaultServeMux = new(http.ServeMux)
-	srv := enableHTTPServers(false,
-		false,
-		&tMetricsAddress,
-		&tMetricsPath,
-		&tSmartPath,
+	srv := enableHTTPServers(
+		tMetricsAddress,
+		"",
+		"",
 		nil,
 		nil,
 		tLogger)
@@ -269,11 +264,10 @@ func TestNode_HTTPServer_Disabled(t *testing.T) {
 func TestNode_MockDriveMgrClientFail(t *testing.T) {
 	http.DefaultServeMux = new(http.ServeMux)
 	clientToDriveMgr := mocks.MockDriveMgrClientFail{}
-	srv := enableHTTPServers(false,
-		tEnableSmart,
-		&tMetricsAddress,
-		&tMetricsPath,
-		&tSmartPath,
+	srv := enableHTTPServers(
+		tMetricsAddress,
+		"",
+		tSmartPath,
 		&clientToDriveMgr,
 		nil,
 		tLogger)
