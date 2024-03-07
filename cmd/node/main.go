@@ -241,7 +241,7 @@ func enableHTTPServers(enableMetrics bool,
 
 		srv := &http.Server{Addr: *address}
 		go func() {
-			if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			if err := srv.ListenAndServe(); err != nil {
 				logger.Warnf("metric http returned: %s ", err)
 			}
 		}()

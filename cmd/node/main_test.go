@@ -265,3 +265,28 @@ func TestNode_HTTPServer_Disabled(t *testing.T) {
 		tLogger)
 	assert.Nil(t, srv)
 }
+
+func TestNode_MockDriveMgrClientFail(t *testing.T) {
+	http.DefaultServeMux = new(http.ServeMux)
+	clientToDriveMgr := mocks.MockDriveMgrClientFail{}
+	srv := enableHTTPServers(false,
+		tEnableSmart,
+		&tMetricsAddress,
+		&tMetricsPath,
+		&tSmartPath,
+		&clientToDriveMgr,
+		nil,
+		tLogger)
+	ctx, shutdownRelease := context.WithTimeout(context.Background(), 10 * time.Second)
+	defer shutdownRelease()
+
+	resp, err := getSmartInfo("XXX")
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	resp, err = getAllDrivesSmartInfo()
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	srv.Shutdown(ctx)
+}
