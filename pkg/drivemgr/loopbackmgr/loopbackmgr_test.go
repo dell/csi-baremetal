@@ -380,3 +380,23 @@ func TestLoopBackManager_attemptToRecoverDevicesFromDefaults(t *testing.T) {
 	manager.attemptToRecoverDevices(testImagesPath)
 	assert.Equal(t, len(manager.devices), 1)
 }
+
+func TestLoopBackManager_GetSmartInfo(t *testing.T) {
+	var mockexec = &mocks.GoMockExecutor{}
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
+
+	resp, err := manager.GetSmartInfo("")
+
+	assert.Equal(t, "", resp)
+	assert.NotNil(t, err)
+}
+
+func TestLoopBackManager_GetAllDrivesSmartInfo(t *testing.T) {
+	var mockexec = &mocks.GoMockExecutor{}
+	var manager = NewLoopBackManager(mockexec, "", "", logger)
+
+	resp, err := manager.GetAllDrivesSmartInfo()
+
+	assert.Equal(t, "", resp)
+	assert.NotNil(t, err)
+}
