@@ -40,7 +40,7 @@ var (
 	tMetricsPath    = "/metrics"
 	tSmartPath      = "/smart"
 	tMetricsAddress = "localhost:8787"
-        tLogger         = logrus.New()
+	tLogger         = logrus.New()
 	tCsiEndpoint    = "unix:///tmp/csi.sock"
 	maxRetries      = 5
 	smartInfo       = mocks.SmartInfo {
@@ -90,7 +90,7 @@ func getAllDrivesSmartInfo() (*http.Response, error) {
 	var err error
 
 	for count := 0; count < maxRetries; count++ {
-        	resp, err = http.Get("http://" + tMetricsAddress + tSmartPath)
+		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath)
 		if err == nil {
 			break
 		}
@@ -114,7 +114,6 @@ func TestNode_GetAllDrivesSmartInfo(t *testing.T) {
 		expectedSmartInfo, err := json.Marshal(tc.smartInfo)
 		http.DefaultServeMux = new(http.ServeMux)
 		clientToDriveMgr := mocks.NewMockDriveMgrClient(nil, tc.smartInfo)
-		ctx, cancel := context.WithCancel(context.Background())
 		srv := enableHTTPServers(false,
 			tEnableSmart,
 			&tMetricsAddress,
@@ -123,11 +122,10 @@ func TestNode_GetAllDrivesSmartInfo(t *testing.T) {
 			clientToDriveMgr,
 			nil,
 			tLogger)
+		ctx, shutdownRelease := context.WithTimeout(context.Background(), 10 * time.Second)
+		defer shutdownRelease()
 	
-		defer srv.Shutdown(ctx)
-		srv.RegisterOnShutdown(cancel)
-	
-	        resp, err := getAllDrivesSmartInfo()
+		resp, err := getAllDrivesSmartInfo()
 		assert.Nil(t, err)
 		assert.Equal(t, tc.statusCode, resp.StatusCode)
 	
@@ -146,6 +144,8 @@ func TestNode_GetAllDrivesSmartInfo(t *testing.T) {
 		default:
 			assert.Fail(t, "Unexpected status code: %d", resp.StatusCode )
 		}
+
+		srv.Shutdown(ctx)
 	}
 }
 
@@ -166,7 +166,6 @@ func TestNode_GetSmartInfo(t *testing.T) {
 		expectedSmartInfo, err := json.Marshal(smartInfo[tc.serialNumber])
 		http.DefaultServeMux = new(http.ServeMux)
 		clientToDriveMgr := mocks.NewMockDriveMgrClient(nil, smartInfo)
-		ctx, cancel := context.WithCancel(context.Background())
 		srv := enableHTTPServers(false,
 			tEnableSmart,
 			&tMetricsAddress,
@@ -175,11 +174,10 @@ func TestNode_GetSmartInfo(t *testing.T) {
 			clientToDriveMgr,
 			nil,
 			tLogger)
+		ctx, shutdownRelease := context.WithTimeout(context.Background(), 10 * time.Second)
+		defer shutdownRelease()
 
-		defer srv.Shutdown(ctx)
-		srv.RegisterOnShutdown(cancel)
-
-        	resp, err := getSmartInfo(tc.serialNumber)
+		resp, err := getSmartInfo(tc.serialNumber)
 		assert.Nil(t, err)
 		assert.Equal(t, tc.statusCode, resp.StatusCode)
 
@@ -198,6 +196,8 @@ func TestNode_GetSmartInfo(t *testing.T) {
 		default:
 			assert.Fail(t, "Unexpected status code: %d", resp.StatusCode )
 		}
+
+		srv.Shutdown(ctx)
 	}
 }
 
@@ -226,9 +226,9 @@ func TestNode_GetAllDrivesSmartMetricsUds(t *testing.T) {
 			csiUDSServer,
 			tLogger)
 		ctx, shutdownRelease := context.WithTimeout(context.Background(), 10 * time.Second)
-    		defer shutdownRelease()
+		defer shutdownRelease()
 	
-	        resp, err := getAllDrivesSmartInfo()
+		resp, err := getAllDrivesSmartInfo()
 		assert.Nil(t, err)
 		assert.Equal(t, tc.statusCode, resp.StatusCode)
 	
@@ -251,4 +251,17 @@ func TestNode_GetAllDrivesSmartMetricsUds(t *testing.T) {
 		prometheus.Unregister(metrics.BuildInfo)
 		srv.Shutdown(ctx)
 	}
+}
+
+func TestNode_HTTPServer_Disabled(t *testing.T) {
+	http.DefaultServeMux = new(http.ServeMux)
+	srv := enableHTTPServers(false,
+		false,
+		&tMetricsAddress,
+		&tMetricsPath,
+		&tSmartPath,
+		nil,
+		nil,
+		tLogger)
+	assert.Nil(t, srv)
 }
