@@ -43,6 +43,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	smart "github.com/dell/csi-baremetal/api/smart/generated"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
@@ -60,7 +61,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/events"
 	"github.com/dell/csi-baremetal/pkg/metrics"
 	"github.com/dell/csi-baremetal/pkg/node"
-	smart "github.com/dell/csi-baremetal/pkg/node/smart/generated"
 	"github.com/dell/csi-baremetal/pkg/node/wbt"
 )
 

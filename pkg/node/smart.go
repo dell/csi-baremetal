@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
-	smart "github.com/dell/csi-baremetal/pkg/node/smart/generated"
+	smart "github.com/dell/csi-baremetal/api/smart/generated"
 	"github.com/sirupsen/logrus"
 )
 
