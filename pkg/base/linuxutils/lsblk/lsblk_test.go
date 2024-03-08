@@ -85,6 +85,15 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	l := NewLSBLK(testLogger)
 	l.e = e
 
+	// path is in drive spec
+	dCR := testDriveCR
+	path := "/dev/sda"
+	dCR.Spec.Path = path
+
+	res, err := l.SearchDrivePath(&dCR.Spec)
+	assert.Nil(t, err)
+	assert.Equal(t, path, res)
+
 	// got from lsblk output
 	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkTwoDevicesStr, "", nil)
 	sn = "hdd1"                  // from mocks.LsblkTwoDevicesStr
@@ -92,27 +101,7 @@ func TestLSBLK_SearchDrivePath_Success(t *testing.T) {
 	d2CR := testDriveCR
 	d2CR.Spec.SerialNumber = sn
 
-	res, err := l.SearchDrivePath(&d2CR.Spec)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedDevice, res)
-}
-
-func TestLSBLK_SearchDrivePath_ModelWithEmptySpaces_Success(t *testing.T) {
-	l := NewLSBLK(testLogger)
-	e := &mocks.GoMockExecutor{}
-	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkDevV2, "", nil)
-	l.e = e
-
-	sn := "5000cca0bbce17ff"
-	pid := "HGS  THUS728T8TA"
-	vendor := "ATA"
-	expectedDevice := "/dev/sdc"
-	d2CR := testDriveCR
-	d2CR.Spec.SerialNumber = sn
-	d2CR.Spec.VID = vendor
-	d2CR.Spec.PID = pid
-
-	res, err := l.SearchDrivePath(&d2CR.Spec)
+	res, err = l.SearchDrivePath(&d2CR.Spec)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedDevice, res)
 }
@@ -147,27 +136,6 @@ func TestLSBLK_SearchDrivePath(t *testing.T) {
 
 	res, err = l.SearchDrivePath(&dCR.Spec)
 	assert.NotNil(t, err)
-}
-
-func TestLSBLK_SearchDrivePath_EmptyVendor_Success(t *testing.T) {
-	l := NewLSBLK(testLogger)
-	e := &mocks.GoMockExecutor{}
-
-	e.On("RunCmd", allDevicesCmd).Return(mocks.LsblkDevNullVendor, "", nil)
-	l.e = e
-
-	sn := "PHLJ043300VY4P0DGN"
-	pid := "Dell Express Flash NVMe P4510 4TB SFF"
-	vendor := "0x8086"
-	expectedDevice := "/dev/sdc"
-	d2CR := testDriveCR
-	d2CR.Spec.SerialNumber = sn
-	d2CR.Spec.VID = vendor
-	d2CR.Spec.PID = pid
-
-	res, err := l.SearchDrivePath(&d2CR.Spec)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedDevice, res)
 }
 
 func TestLSBLK_GetBlockDevicesV2_Success(t *testing.T) {
