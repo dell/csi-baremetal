@@ -163,23 +163,7 @@ var LsblkDevV2 = `{
 				"serial":"5000cca0bbce17ff",
 				"wwn":"0x5000cca0bbce17ff",
 				"vendor":"ATA     ",
-				"model":"HGS THUS728T8TAL",
-				"rev":"RT04",
-				"mountpoint":null,
-				"fstype":null,
-				"partuuid":null
-			}]}`
-
-// LsblkDevNullVendor provides output for lsblk with null vendor
-var LsblkDevNullVendor = `{
-			"blockdevices": [{
-				"name":"/dev/sdc",
-				"type":"disk",
-				"size":8001563222016,
-				"rota":true,
-				"serial":"PHLJ043300VY4P0DGN",
-				"vendor":null,
-				"model":"Dell Express Flash NVMe P4510 4TB SFF",
+				"model":"HGST_HUS728T8TAL",
 				"rev":"RT04",
 				"mountpoint":null,
 				"fstype":null,
