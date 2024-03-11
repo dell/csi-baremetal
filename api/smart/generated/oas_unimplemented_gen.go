@@ -22,11 +22,11 @@ func (UnimplementedHandler) GetAllDrivesSmartInfo(ctx context.Context) (r GetAll
 	return r, ht.ErrNotImplemented
 }
 
-// GetSmartInfo implements get-smart-info operation.
+// GetDriveSmartInfo implements get-drive-smart-info operation.
 //
 // Retrieve the disk information/metrics with the matching serial number.
 //
 // GET /smart/{serialNumber}
-func (UnimplementedHandler) GetSmartInfo(ctx context.Context, params GetSmartInfoParams) (r GetSmartInfoRes, _ error) {
+func (UnimplementedHandler) GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (r GetDriveSmartInfoRes, _ error) {
 	return r, ht.ErrNotImplemented
 }

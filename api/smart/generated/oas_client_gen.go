@@ -29,12 +29,12 @@ type Invoker interface {
 	//
 	// GET /smart
 	GetAllDrivesSmartInfo(ctx context.Context) (GetAllDrivesSmartInfoRes, error)
-	// GetSmartInfo invokes get-smart-info operation.
+	// GetDriveSmartInfo invokes get-drive-smart-info operation.
 	//
 	// Retrieve the disk information/metrics with the matching serial number.
 	//
 	// GET /smart/{serialNumber}
-	GetSmartInfo(ctx context.Context, params GetSmartInfoParams) (GetSmartInfoRes, error)
+	GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (GetDriveSmartInfoRes, error)
 }
 
 // Client implements OAS client.
@@ -157,19 +157,19 @@ func (c *Client) sendGetAllDrivesSmartInfo(ctx context.Context) (res GetAllDrive
 	return result, nil
 }
 
-// GetSmartInfo invokes get-smart-info operation.
+// GetDriveSmartInfo invokes get-drive-smart-info operation.
 //
 // Retrieve the disk information/metrics with the matching serial number.
 //
 // GET /smart/{serialNumber}
-func (c *Client) GetSmartInfo(ctx context.Context, params GetSmartInfoParams) (GetSmartInfoRes, error) {
-	res, err := c.sendGetSmartInfo(ctx, params)
+func (c *Client) GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (GetDriveSmartInfoRes, error) {
+	res, err := c.sendGetDriveSmartInfo(ctx, params)
 	return res, err
 }
 
-func (c *Client) sendGetSmartInfo(ctx context.Context, params GetSmartInfoParams) (res GetSmartInfoRes, err error) {
+func (c *Client) sendGetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (res GetDriveSmartInfoRes, err error) {
 	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("get-smart-info"),
+		otelogen.OperationID("get-drive-smart-info"),
 		semconv.HTTPMethodKey.String("GET"),
 		semconv.HTTPRouteKey.String("/smart/{serialNumber}"),
 	}
@@ -186,7 +186,7 @@ func (c *Client) sendGetSmartInfo(ctx context.Context, params GetSmartInfoParams
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(ctx, "GetSmartInfo",
+	ctx, span := c.cfg.Tracer.Start(ctx, "GetDriveSmartInfo",
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -239,7 +239,7 @@ func (c *Client) sendGetSmartInfo(ctx context.Context, params GetSmartInfoParams
 	defer resp.Body.Close()
 
 	stage = "DecodeResponse"
-	result, err := decodeGetSmartInfoResponse(resp)
+	result, err := decodeGetDriveSmartInfoResponse(resp)
 	if err != nil {
 		return res, errors.Wrap(err, "decode response")
 	}

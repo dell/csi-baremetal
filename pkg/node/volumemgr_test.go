@@ -54,6 +54,7 @@ import (
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
+	"google.golang.org/grpc/codes"
 )
 
 // TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
@@ -636,7 +637,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("driveMgr return error", func(t *testing.T) {
 		vm = prepareSuccessVolumeManager(t)
-		vm.driveMgrClient = &mocks.MockDriveMgrClientFail{}
+		vm.driveMgrClient = &mocks.MockDriveMgrClientFail{Code: codes.Unimplemented}
 
 		err = vm.Discover()
 		assert.NotNil(t, err)

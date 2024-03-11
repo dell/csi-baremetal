@@ -140,10 +140,10 @@ func Test_getDrive(t *testing.T) {
 	assert.Nil(t, drive)
 }
 
-func Test_GetSmartInfo(t *testing.T) {
+func Test_GetDriveSmartInfo(t *testing.T) {
 	manager := NewIDRACManager(logger, time.Second, "user", "password", "127.0.0.1")
 
-	resp, err := manager.GetSmartInfo("")
+	resp, err := manager.GetDriveSmartInfo("")
 
 	assert.Equal(t, "", resp)
 	assert.NotNil(t, err)

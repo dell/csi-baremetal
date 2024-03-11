@@ -237,9 +237,13 @@ func enableHTTPServers(address string,
 			http.Handle(metricsPath, promhttp.Handler())
 		}
 		if enableSmart {
-			server, _ := smart.NewServer(node.NewSmartService(clientToDriveMgr, logger))
-			http.Handle(smartPath, server)
-			http.Handle(smartPath+"/", server)
+			server, err := smart.NewServer(node.NewSmartService(clientToDriveMgr, logger))
+			if err == nil {
+				http.Handle(smartPath, server)
+				http.Handle(smartPath+"/", server)
+			} else {
+				logger.Warnf("unable to register smart handlers: %s ", err)
+			}
 		}
 
 		srv := &http.Server{Addr: address}

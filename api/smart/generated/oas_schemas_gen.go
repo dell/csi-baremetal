@@ -2,15 +2,35 @@
 
 package api
 
+// GetAllDrivesSmartInfoBadRequest is response for GetAllDrivesSmartInfo operation.
+type GetAllDrivesSmartInfoBadRequest struct{}
+
+func (*GetAllDrivesSmartInfoBadRequest) getAllDrivesSmartInfoRes() {}
+
+// GetAllDrivesSmartInfoInternalServerError is response for GetAllDrivesSmartInfo operation.
+type GetAllDrivesSmartInfoInternalServerError struct{}
+
+func (*GetAllDrivesSmartInfoInternalServerError) getAllDrivesSmartInfoRes() {}
+
 // GetAllDrivesSmartInfoNotFound is response for GetAllDrivesSmartInfo operation.
 type GetAllDrivesSmartInfoNotFound struct{}
 
 func (*GetAllDrivesSmartInfoNotFound) getAllDrivesSmartInfoRes() {}
 
-// GetSmartInfoNotFound is response for GetSmartInfo operation.
-type GetSmartInfoNotFound struct{}
+// GetDriveSmartInfoBadRequest is response for GetDriveSmartInfo operation.
+type GetDriveSmartInfoBadRequest struct{}
 
-func (*GetSmartInfoNotFound) getSmartInfoRes() {}
+func (*GetDriveSmartInfoBadRequest) getDriveSmartInfoRes() {}
+
+// GetDriveSmartInfoInternalServerError is response for GetDriveSmartInfo operation.
+type GetDriveSmartInfoInternalServerError struct{}
+
+func (*GetDriveSmartInfoInternalServerError) getDriveSmartInfoRes() {}
+
+// GetDriveSmartInfoNotFound is response for GetDriveSmartInfo operation.
+type GetDriveSmartInfoNotFound struct{}
+
+func (*GetDriveSmartInfoNotFound) getDriveSmartInfoRes() {}
 
 // NewOptString returns new OptString with value set to v.
 func NewOptString(v string) OptString {
@@ -75,4 +95,4 @@ func (s *SmartMetrics) SetSmartInfo(val OptString) {
 }
 
 func (*SmartMetrics) getAllDrivesSmartInfoRes() {}
-func (*SmartMetrics) getSmartInfoRes()          {}
+func (*SmartMetrics) getDriveSmartInfoRes()     {}

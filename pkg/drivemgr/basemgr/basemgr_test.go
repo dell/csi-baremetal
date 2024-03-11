@@ -307,11 +307,11 @@ func TestLoopBackManager_GetDrivesListSuccess(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestLoopBackManager_GetSmartInfo(t *testing.T) {
+func TestLoopBackManager_GetDriveSmartInfo(t *testing.T) {
 	var mockexec = &mocks.GoMockExecutor{}
 	var manager  = New(mockexec, logger)
 
-	resp, err := manager.GetSmartInfo("")
+	resp, err := manager.GetDriveSmartInfo("")
 
 	assert.Equal(t, "", resp)
 	assert.NotNil(t, err)

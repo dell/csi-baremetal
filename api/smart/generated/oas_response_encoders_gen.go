@@ -26,9 +26,21 @@ func encodeGetAllDrivesSmartInfoResponse(response GetAllDrivesSmartInfoRes, w ht
 
 		return nil
 
+	case *GetAllDrivesSmartInfoBadRequest:
+		w.WriteHeader(400)
+		span.SetStatus(codes.Error, http.StatusText(400))
+
+		return nil
+
 	case *GetAllDrivesSmartInfoNotFound:
 		w.WriteHeader(404)
 		span.SetStatus(codes.Error, http.StatusText(404))
+
+		return nil
+
+	case *GetAllDrivesSmartInfoInternalServerError:
+		w.WriteHeader(500)
+		span.SetStatus(codes.Error, http.StatusText(500))
 
 		return nil
 
@@ -37,7 +49,7 @@ func encodeGetAllDrivesSmartInfoResponse(response GetAllDrivesSmartInfoRes, w ht
 	}
 }
 
-func encodeGetSmartInfoResponse(response GetSmartInfoRes, w http.ResponseWriter, span trace.Span) error {
+func encodeGetDriveSmartInfoResponse(response GetDriveSmartInfoRes, w http.ResponseWriter, span trace.Span) error {
 	switch response := response.(type) {
 	case *SmartMetrics:
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -52,9 +64,21 @@ func encodeGetSmartInfoResponse(response GetSmartInfoRes, w http.ResponseWriter,
 
 		return nil
 
-	case *GetSmartInfoNotFound:
+	case *GetDriveSmartInfoBadRequest:
+		w.WriteHeader(400)
+		span.SetStatus(codes.Error, http.StatusText(400))
+
+		return nil
+
+	case *GetDriveSmartInfoNotFound:
 		w.WriteHeader(404)
 		span.SetStatus(codes.Error, http.StatusText(404))
+
+		return nil
+
+	case *GetDriveSmartInfoInternalServerError:
+		w.WriteHeader(500)
+		span.SetStatus(codes.Error, http.StatusText(500))
 
 		return nil
 

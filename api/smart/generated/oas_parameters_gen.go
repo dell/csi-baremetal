@@ -15,12 +15,12 @@ import (
 	"github.com/ogen-go/ogen/validate"
 )
 
-// GetSmartInfoParams is parameters of get-smart-info operation.
-type GetSmartInfoParams struct {
+// GetDriveSmartInfoParams is parameters of get-drive-smart-info operation.
+type GetDriveSmartInfoParams struct {
 	SerialNumber string
 }
 
-func unpackGetSmartInfoParams(packed middleware.Parameters) (params GetSmartInfoParams) {
+func unpackGetDriveSmartInfoParams(packed middleware.Parameters) (params GetDriveSmartInfoParams) {
 	{
 		key := middleware.ParameterKey{
 			Name: "serialNumber",
@@ -31,7 +31,7 @@ func unpackGetSmartInfoParams(packed middleware.Parameters) (params GetSmartInfo
 	return params
 }
 
-func decodeGetSmartInfoParams(args [1]string, argsEscaped bool, r *http.Request) (params GetSmartInfoParams, _ error) {
+func decodeGetDriveSmartInfoParams(args [1]string, argsEscaped bool, r *http.Request) (params GetDriveSmartInfoParams, _ error) {
 	// Decode path: serialNumber.
 	if err := func() error {
 		param := args[0]

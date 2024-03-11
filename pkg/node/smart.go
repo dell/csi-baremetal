@@ -1,5 +1,5 @@
 /*
-Copyright © 2040 Dell Inc. or its subsidiaries. All Rights Reserved.
+Copyright © 2024 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,21 +19,21 @@ package node
 
 import (
 	"context"
-	"sync"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	smart "github.com/dell/csi-baremetal/api/smart/generated"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // SmartService represents smart API handler
 type SmartService struct {
-	mux    sync.Mutex
 	client api.DriveServiceClient
 	log    *logrus.Entry
 }
 
-// NewSmartService is the constructor for CmartService struct
+// NewSmartService is the constructor for SmartService struct
 // Receives query path prefix and handles incomming HTTP requests
 // Returns an instance of SmartService
 func NewSmartService(client api.DriveServiceClient, logger *logrus.Logger) *SmartService {
@@ -50,13 +50,21 @@ func NewSmartService(client api.DriveServiceClient, logger *logrus.Logger) *Smar
 //
 // GET /smart
 func (s *SmartService) GetAllDrivesSmartInfo(ctx context.Context) (smart.GetAllDrivesSmartInfoRes, error) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	smartInfoResponse, err := s.client.GetAllDrivesSmartInfo(context.Background(), &api.Empty{})
 	if err != nil {
 		s.log.Errorf("Drivemgr response failure: %v", err)
-		return &smart.GetAllDrivesSmartInfoNotFound{}, nil
+
+		if code, ok := status.FromError(err); ok {
+			switch code.Code() {
+			case codes.NotFound:
+				return &smart.GetAllDrivesSmartInfoNotFound{}, nil
+			case codes.Unimplemented:
+				return &smart.GetAllDrivesSmartInfoBadRequest{}, nil
+			default:
+				return &smart.GetAllDrivesSmartInfoInternalServerError{}, nil
+			}
+		}
+		return &smart.GetAllDrivesSmartInfoInternalServerError{}, nil
 	}
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)
@@ -67,19 +75,27 @@ func (s *SmartService) GetAllDrivesSmartInfo(ctx context.Context) (smart.GetAllD
 	return &response, nil
 }
 
-// GetSmartInfo implements get-smart-info operation.
+// GetDriveSmartInfo implements get-drive-smart-info operation.
 //
 // Retrieve the disk information/metrics with the matching serial number.
 //
 // GET /smart/{serialNumber}
-func (s *SmartService) GetSmartInfo(ctx context.Context, params smart.GetSmartInfoParams) (smart.GetSmartInfoRes, error) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	smartInfoResponse, err := s.client.GetSmartInfo(context.Background(), &api.SmartInfoRequest{SerialNumber: params.SerialNumber})
+func (s *SmartService) GetDriveSmartInfo(ctx context.Context, params smart.GetDriveSmartInfoParams) (smart.GetDriveSmartInfoRes, error) {
+	smartInfoResponse, err := s.client.GetDriveSmartInfo(context.Background(), &api.SmartInfoRequest{SerialNumber: params.SerialNumber})
 	if err != nil {
 		s.log.Errorf("Drivemgr response failure: %v", err)
-		return &smart.GetSmartInfoNotFound{}, nil
+
+		if code, ok := status.FromError(err); ok {
+			switch code.Code() {
+			case codes.NotFound:
+				return &smart.GetDriveSmartInfoNotFound{}, nil
+			case codes.Unimplemented:
+				return &smart.GetDriveSmartInfoBadRequest{}, nil
+			default:
+				return &smart.GetDriveSmartInfoInternalServerError{}, nil
+			}
+		}
+		return &smart.GetDriveSmartInfoInternalServerError{}, nil
 	}
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)

@@ -5,6 +5,6 @@ type GetAllDrivesSmartInfoRes interface {
 	getAllDrivesSmartInfoRes()
 }
 
-type GetSmartInfoRes interface {
-	getSmartInfoRes()
+type GetDriveSmartInfoRes interface {
+	getDriveSmartInfoRes()
 }

@@ -107,20 +107,20 @@ func (s *Server) handleGetAllDrivesSmartInfoRequest(args [0]string, argsEscaped 
 	}
 }
 
-// handleGetSmartInfoRequest handles get-smart-info operation.
+// handleGetDriveSmartInfoRequest handles get-drive-smart-info operation.
 //
 // Retrieve the disk information/metrics with the matching serial number.
 //
 // GET /smart/{serialNumber}
-func (s *Server) handleGetSmartInfoRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetDriveSmartInfoRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	otelAttrs := []attribute.KeyValue{
-		otelogen.OperationID("get-smart-info"),
+		otelogen.OperationID("get-drive-smart-info"),
 		semconv.HTTPMethodKey.String("GET"),
 		semconv.HTTPRouteKey.String("/smart/{serialNumber}"),
 	}
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(r.Context(), "GetSmartInfo",
+	ctx, span := s.cfg.Tracer.Start(r.Context(), "GetDriveSmartInfo",
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -145,11 +145,11 @@ func (s *Server) handleGetSmartInfoRequest(args [1]string, argsEscaped bool, w h
 		}
 		err          error
 		opErrContext = ogenerrors.OperationContext{
-			Name: "GetSmartInfo",
-			ID:   "get-smart-info",
+			Name: "GetDriveSmartInfo",
+			ID:   "get-drive-smart-info",
 		}
 	)
-	params, err := decodeGetSmartInfoParams(args, argsEscaped, r)
+	params, err := decodeGetDriveSmartInfoParams(args, argsEscaped, r)
 	if err != nil {
 		err = &ogenerrors.DecodeParamsError{
 			OperationContext: opErrContext,
@@ -160,13 +160,13 @@ func (s *Server) handleGetSmartInfoRequest(args [1]string, argsEscaped bool, w h
 		return
 	}
 
-	var response GetSmartInfoRes
+	var response GetDriveSmartInfoRes
 	if m := s.cfg.Middleware; m != nil {
 		mreq := middleware.Request{
 			Context:          ctx,
-			OperationName:    "GetSmartInfo",
+			OperationName:    "GetDriveSmartInfo",
 			OperationSummary: "Get disk smart info by Serial Number",
-			OperationID:      "get-smart-info",
+			OperationID:      "get-drive-smart-info",
 			Body:             nil,
 			Params: middleware.Parameters{
 				{
@@ -179,8 +179,8 @@ func (s *Server) handleGetSmartInfoRequest(args [1]string, argsEscaped bool, w h
 
 		type (
 			Request  = struct{}
-			Params   = GetSmartInfoParams
-			Response = GetSmartInfoRes
+			Params   = GetDriveSmartInfoParams
+			Response = GetDriveSmartInfoRes
 		)
 		response, err = middleware.HookMiddleware[
 			Request,
@@ -189,14 +189,14 @@ func (s *Server) handleGetSmartInfoRequest(args [1]string, argsEscaped bool, w h
 		](
 			m,
 			mreq,
-			unpackGetSmartInfoParams,
+			unpackGetDriveSmartInfoParams,
 			func(ctx context.Context, request Request, params Params) (response Response, err error) {
-				response, err = s.h.GetSmartInfo(ctx, params)
+				response, err = s.h.GetDriveSmartInfo(ctx, params)
 				return response, err
 			},
 		)
 	} else {
-		response, err = s.h.GetSmartInfo(ctx, params)
+		response, err = s.h.GetDriveSmartInfo(ctx, params)
 	}
 	if err != nil {
 		recordError("Internal", err)
@@ -204,7 +204,7 @@ func (s *Server) handleGetSmartInfoRequest(args [1]string, argsEscaped bool, w h
 		return
 	}
 
-	if err := encodeGetSmartInfoResponse(response, w, span); err != nil {
+	if err := encodeGetDriveSmartInfoResponse(response, w, span); err != nil {
 		recordError("EncodeResponse", err)
 		if !errors.Is(err, ht.ErrInternalServerErrorResponse) {
 			s.cfg.ErrorHandler(ctx, w, r, err)

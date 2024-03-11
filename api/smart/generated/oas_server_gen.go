@@ -14,12 +14,12 @@ type Handler interface {
 	//
 	// GET /smart
 	GetAllDrivesSmartInfo(ctx context.Context) (GetAllDrivesSmartInfoRes, error)
-	// GetSmartInfo implements get-smart-info operation.
+	// GetDriveSmartInfo implements get-drive-smart-info operation.
 	//
 	// Retrieve the disk information/metrics with the matching serial number.
 	//
 	// GET /smart/{serialNumber}
-	GetSmartInfo(ctx context.Context, params GetSmartInfoParams) (GetSmartInfoRes, error)
+	GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (GetDriveSmartInfoRes, error)
 }
 
 // Server implements http server based on OpenAPI v3 specification and

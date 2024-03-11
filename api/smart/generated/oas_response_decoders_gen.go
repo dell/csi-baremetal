@@ -51,14 +51,20 @@ func decodeGetAllDrivesSmartInfoResponse(resp *http.Response) (res GetAllDrivesS
 		default:
 			return res, validate.InvalidContentType(ct)
 		}
+	case 400:
+		// Code 400.
+		return &GetAllDrivesSmartInfoBadRequest{}, nil
 	case 404:
 		// Code 404.
 		return &GetAllDrivesSmartInfoNotFound{}, nil
+	case 500:
+		// Code 500.
+		return &GetAllDrivesSmartInfoInternalServerError{}, nil
 	}
 	return res, validate.UnexpectedStatusCode(resp.StatusCode)
 }
 
-func decodeGetSmartInfoResponse(resp *http.Response) (res GetSmartInfoRes, _ error) {
+func decodeGetDriveSmartInfoResponse(resp *http.Response) (res GetDriveSmartInfoRes, _ error) {
 	switch resp.StatusCode {
 	case 200:
 		// Code 200.
@@ -95,9 +101,15 @@ func decodeGetSmartInfoResponse(resp *http.Response) (res GetSmartInfoRes, _ err
 		default:
 			return res, validate.InvalidContentType(ct)
 		}
+	case 400:
+		// Code 400.
+		return &GetDriveSmartInfoBadRequest{}, nil
 	case 404:
 		// Code 404.
-		return &GetSmartInfoNotFound{}, nil
+		return &GetDriveSmartInfoNotFound{}, nil
+	case 500:
+		// Code 500.
+		return &GetDriveSmartInfoInternalServerError{}, nil
 	}
 	return res, validate.UnexpectedStatusCode(resp.StatusCode)
 }

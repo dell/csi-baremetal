@@ -321,9 +321,13 @@ paths:
                               "accumulated_load_unload_cycles": "0"
                           }
                       }
+        '400':
+          description: Bad request
         '404':
           description: Disk not found
-      operationId: get-smart-info
+        '500':
+          description: Internal server error
+      operationId: get-drive-smart-info
       description: Retrieve the disk information/metrics with the matching serial number.
   /smart:
     get:
@@ -917,8 +921,12 @@ paths:
                                   "specified_load_unload_count_over_device_lifetime": "0",
                                   "accumulated_load_unload_cycles": "0"
                               }
+        '400':
+          description: Bad request
         '404':
-          description: No disks discovered
+          description: Disks not found
+        '500':
+          description: Internal server error
       operationId: get-all-drives-smart-info
       description: Retrieve all discovered disks information/metrics.
 components:

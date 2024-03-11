@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -40,6 +39,7 @@ type MockDriveMgrClient struct {
 
 // MockDriveMgrClientFail is the implementation of DriveManager interface to imitate failure state
 type MockDriveMgrClientFail struct {
+	Code codes.Code
 }
 
 // GetDrivesList is the simulation of failure during DriveManager's GetDrivesList
@@ -58,14 +58,14 @@ func (m *MockDriveMgrClientFail) LocateNode(ctx context.Context, in *api.NodeLoc
 	return nil, errors.New("locate node failed")
 }
 
-// GetSmartInfo is a stub for GetSmartInfo DriveManager's method
-func (m *MockDriveMgrClientFail) GetSmartInfo(ctx context.Context, req *api.SmartInfoRequest, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetSmartInfo not implemented in MockDriveMgrClient")
+// GetDriveSmartInfo is a stub for GetDriveSmartInfo DriveManager's method
+func (m *MockDriveMgrClientFail) GetDriveSmartInfo(ctx context.Context, req *api.SmartInfoRequest, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+	return nil, status.Errorf(m.Code, "method GetDriveSmartInfo in MockDriveMgrClient returns: %d", m.Code)
 }
 
 // GetAllDrivesSmartInfo is a stub for GetAllDrivesSmartInfo DriveManager's method
 func (m *MockDriveMgrClientFail) GetAllDrivesSmartInfo(ctx context.Context, req *api.Empty, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetAllDrivesSmartInfo not implemented in MockDriveMgrClient")
+	return nil, status.Errorf(m.Code, "method GetAllDrivesSmartInfo in MockDriveMgrClient returns: %d", m.Code)
 }
 
 // NewMockDriveMgrClient returns new instance of MockDriveMgrClient
@@ -104,8 +104,8 @@ func (m *MockDriveMgrClient) LocateNode(ctx context.Context, in *api.NodeLocateR
 	return nil, status.Error(codes.Unimplemented, "method LocateNode not implemented in MockDriveMgrClient")
 }
 
-// GetSmartInfo is a stub for GetSmartInfo DriveManager's method
-func (m *MockDriveMgrClient) GetSmartInfo(ctx context.Context, req *api.SmartInfoRequest, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+// GetDriveSmartInfo is a stub for GetDriveSmartInfo DriveManager's method
+func (m *MockDriveMgrClient) GetDriveSmartInfo(ctx context.Context, req *api.SmartInfoRequest, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
 	serialNumber := req.GetSerialNumber()
 	smartInfo := m.smartInfo[serialNumber]
 
@@ -115,7 +115,7 @@ func (m *MockDriveMgrClient) GetSmartInfo(ctx context.Context, req *api.SmartInf
 			SmartInfo: string(smartInfoStr),
 		}, nil
 	}
-	return nil, fmt.Errorf("failed to get smart info of drive %s: %v", serialNumber, "drive doesn't exist")
+	return nil, status.Errorf(codes.NotFound, "failed to get smart info of drive %s: %v", serialNumber, "drive doesn't exist")
 }
 
 // GetAllDrivesSmartInfo is a stub for GetAllDrivesSmartInfo DriveManager's method
@@ -126,5 +126,5 @@ func (m *MockDriveMgrClient) GetAllDrivesSmartInfo(ctx context.Context, req *api
 			SmartInfo: string(smartInfo),
 		}, nil
 	}
-	return nil, fmt.Errorf("failed to get smart info of all drives: NotFound")
+	return nil, status.Errorf(codes.NotFound, "failed to get smart info of all drives: NotFound")
 }
