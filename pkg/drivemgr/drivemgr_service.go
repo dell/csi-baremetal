@@ -93,7 +93,7 @@ func (svc *DriveServiceServerImpl) GetDriveSmartInfo(ctx context.Context, req *a
 	smartInfo, err := svc.mgr.GetDriveSmartInfo(req.GetSerialNumber())
 	if err != nil {
 		svc.log.Errorf("DriveManager failed with error: %s", err.Error())
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, err
 	}
 	return &api.SmartInfoResponse{
 		SmartInfo: smartInfo,
@@ -107,7 +107,7 @@ func (svc *DriveServiceServerImpl) GetAllDrivesSmartInfo(ctx context.Context, re
 	smartInfo, err := svc.mgr.GetAllDrivesSmartInfo()
 	if err != nil {
 		svc.log.Errorf("DriveManager failed with error: %s", err.Error())
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, err
 	}
 	return &api.SmartInfoResponse{
 		SmartInfo: smartInfo,
