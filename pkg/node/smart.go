@@ -61,7 +61,7 @@ func (s *SmartService) GetAllDrivesSmartInfo(ctx context.Context) (smart.GetAllD
 			case codes.Unimplemented:
 				return &smart.GetAllDrivesSmartInfoBadRequest{}, nil
 			default:
-				return &smart.GetAllDrivesSmartInfoInternalServerError{}, nil
+				s.log.Errorf("Unsupported GRPC code: %d", code.Code())
 			}
 		}
 		return &smart.GetAllDrivesSmartInfoInternalServerError{}, nil
@@ -92,7 +92,7 @@ func (s *SmartService) GetDriveSmartInfo(ctx context.Context, params smart.GetDr
 			case codes.Unimplemented:
 				return &smart.GetDriveSmartInfoBadRequest{}, nil
 			default:
-				return &smart.GetDriveSmartInfoInternalServerError{}, nil
+				s.log.Errorf("Unsupported GRPC code: %d", code.Code())
 			}
 		}
 		return &smart.GetDriveSmartInfoInternalServerError{}, nil
