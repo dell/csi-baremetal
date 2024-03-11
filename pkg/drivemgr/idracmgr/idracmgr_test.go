@@ -139,3 +139,21 @@ func Test_getDrive(t *testing.T) {
 	drive = idracManager.getDrive(server.URL)
 	assert.Nil(t, drive)
 }
+
+func Test_GetDriveSmartInfo(t *testing.T) {
+	manager := NewIDRACManager(logger, time.Second, "user", "password", "127.0.0.1")
+
+	resp, err := manager.GetDriveSmartInfo("")
+
+	assert.Equal(t, "", resp)
+	assert.NotNil(t, err)
+}
+
+func Test_GetAllDrivesSmartInfo(t *testing.T) {
+	manager := NewIDRACManager(logger, time.Second, "user", "password", "127.0.0.1")
+
+	resp, err := manager.GetAllDrivesSmartInfo()
+
+	assert.Equal(t, "", resp)
+	assert.NotNil(t, err)
+}

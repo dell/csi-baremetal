@@ -69,6 +69,17 @@ func (mgr *BaseManager) LocateNode(action int32) error {
 	return status.Error(codes.Unimplemented, "method Locate not implemented in BaseManager")
 }
 
+// GetDriveSmartInfo implements GetDriveSmartInfo method of DriveManager interface
+func (mgr *BaseManager) GetDriveSmartInfo(serialNumber string) (string, error) {
+	return "", status.Error(codes.Unimplemented, "method GetDriveSmartInfo not implemented in BaseManager")
+}
+
+// GetAllDrivesSmartInfo implements GetAllDrivesSmartInfo method of DriveManager interface
+func (mgr *BaseManager) GetAllDrivesSmartInfo() (string, error) {
+	// not implemented
+	return "", status.Error(codes.Unimplemented, "method GetAllDrivesSmartInfo not implemented in BaseManager")
+}
+
 // New is a constructor BaseManager
 func New(exec command.CmdExecutor, logger *logrus.Logger) *BaseManager {
 	return &BaseManager{

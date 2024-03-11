@@ -1227,7 +1227,7 @@ func getNodeUnstageRequest(volumeID, stagePath string) *csi.NodeUnstageVolumeReq
 }
 
 func newNodeService() *CSINodeService {
-	client := mocks.NewMockDriveMgrClient(mocks.DriveMgrRespDrives)
+	client := mocks.NewMockDriveMgrClient(mocks.DriveMgrRespDrives, nil)
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	if err != nil {
 		panic(err)

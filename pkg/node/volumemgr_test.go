@@ -54,6 +54,7 @@ import (
 	mockProv "github.com/dell/csi-baremetal/pkg/mocks/provisioners"
 	p "github.com/dell/csi-baremetal/pkg/node/provisioners"
 	wbtcommon "github.com/dell/csi-baremetal/pkg/node/wbt/common"
+	"google.golang.org/grpc/codes"
 )
 
 // TODO: refactor these UTs - https://github.com/dell/csi-baremetal/issues/90
@@ -636,7 +637,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 
 	t.Run("driveMgr return error", func(t *testing.T) {
 		vm = prepareSuccessVolumeManager(t)
-		vm.driveMgrClient = &mocks.MockDriveMgrClientFail{}
+		vm.driveMgrClient = &mocks.MockDriveMgrClientFail{Code: codes.Unimplemented}
 
 		err = vm.Discover()
 		assert.NotNil(t, err)
@@ -677,7 +678,7 @@ func TestVolumeManager_DiscoverFail(t *testing.T) {
 func TestVolumeManager_DiscoverSuccess(t *testing.T) {
 	var (
 		vm             *VolumeManager
-		driveMgrClient = mocks.NewMockDriveMgrClient(getDriveMgrRespBasedOnDrives(drive1, drive2))
+		driveMgrClient = mocks.NewMockDriveMgrClient(getDriveMgrRespBasedOnDrives(drive1, drive2), nil)
 		err            error
 	)
 
@@ -703,7 +704,7 @@ func TestVolumeManager_Discover_noncleanDisk(t *testing.T) {
 
 	// fist iteration
 	vm := prepareSuccessVolumeManager(t)
-	vm.driveMgrClient = mocks.NewMockDriveMgrClient([]*api.Drive{&drive1, &drive2})
+	vm.driveMgrClient = mocks.NewMockDriveMgrClient([]*api.Drive{&drive1, &drive2}, nil)
 	dItems := getDriveCRsListItems(t, vm.k8sClient)
 	assert.Equal(t, 0, len(dItems))
 
@@ -755,7 +756,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
-		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives, nil)
 
 		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 		assert.Nil(t, err)
@@ -768,7 +769,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	t.Run("disk become bad", func(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
-		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives, nil)
 
 		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 		assert.Nil(t, err)
@@ -790,7 +791,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	t.Run("missing disk", func(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
-		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives, nil)
 
 		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 		assert.Nil(t, err)
@@ -813,7 +814,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	t.Run("health bad annotation", func(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
-		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives, nil)
 
 		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 		assert.Nil(t, err)
@@ -836,7 +837,7 @@ func TestVolumeManager_updatesDrivesCRs_Success(t *testing.T) {
 	t.Run("new drive", func(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
 		driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
-		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+		vm.driveMgrClient = mocks.NewMockDriveMgrClient(driveMgrRespDrives, nil)
 
 		updates, err := vm.updateDrivesCRs(testCtx, driveMgrRespDrives)
 		assert.Nil(t, err)
@@ -1780,7 +1781,7 @@ func TestVolumeManager_WbtConfiguration(t *testing.T) {
 }
 
 func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
-	c := mocks.NewMockDriveMgrClient(nil)
+	c := mocks.NewMockDriveMgrClient(nil, nil)
 	// create map of commands which must be mocked
 	cmds := make(map[string]mocks.CmdOut)
 	// list of all devices
@@ -1799,7 +1800,7 @@ func prepareSuccessVolumeManager(t *testing.T) *VolumeManager {
 
 func prepareSuccessVolumeManagerWithDrives(drives []*api.Drive, t *testing.T) *VolumeManager {
 	nVM := prepareSuccessVolumeManager(t)
-	nVM.driveMgrClient = mocks.NewMockDriveMgrClient(drives)
+	nVM.driveMgrClient = mocks.NewMockDriveMgrClient(drives, nil)
 	for _, d := range drives {
 		dCR := nVM.k8sClient.ConstructDriveCR(d.UUID, *d)
 		if err := nVM.k8sClient.CreateCR(testCtx, dCR.Name, dCR); err != nil {
@@ -1829,7 +1830,7 @@ func getDriveMgrRespBasedOnDrives(drives ...api.Drive) []*api.Drive {
 
 func TestVolumeManager_isDriveSystem(t *testing.T) {
 	driveMgrRespDrives := getDriveMgrRespBasedOnDrives(drive1, drive2)
-	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives)
+	hwMgrClient := mocks.NewMockDriveMgrClient(driveMgrRespDrives, nil)
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
 	assert.Nil(t, err)
 	listBlk := &mocklu.MockWrapLsblk{}

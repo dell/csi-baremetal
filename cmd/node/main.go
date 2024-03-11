@@ -43,6 +43,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	smart "github.com/dell/csi-baremetal/api/smart/generated"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
@@ -90,6 +91,7 @@ var (
 	metricsAddress = flag.String("metrics-address", "", "The TCP network address where the prometheus metrics endpoint will run"+
 		"(example: :8080 which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.")
 	metricspath = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is /metrics.")
+	smartpath   = flag.String("smart-path", "/smart", "The HTTP path where smart metrics will be exposed. Default is /smart.")
 )
 
 func main() {
@@ -178,19 +180,8 @@ func main() {
 
 	handler := util.NewSignalHandler(logger)
 	go handler.SetupSIGTERMHandler(csiUDSServer)
-	if enableMetrics {
-		grpc_prometheus.Register(csiUDSServer.GRPCServer)
-		grpc_prometheus.EnableHandlingTimeHistogram()
-		grpc_prometheus.EnableClientHandlingTimeHistogram()
-		prometheus.MustRegister(metrics.BuildInfo)
 
-		go func() {
-			http.Handle(*metricspath, promhttp.Handler())
-			if err := http.ListenAndServe(*metricsAddress, nil); err != nil {
-				logger.Warnf("metric http returned: %s ", err)
-			}
-		}()
-	}
+	_ = enableHTTPServers(*metricsAddress, *metricspath, *smartpath, clientToDriveMgr, csiUDSServer, logger)
 	go func() {
 		logger.Info("Starting Node Health server ...")
 		if err := util.SetupAndStartHealthCheckServer(
@@ -219,6 +210,51 @@ func main() {
 	}
 
 	logger.Info("Got SIGTERM signal")
+}
+
+func enableHTTPServers(address string,
+	metricsPath string,
+	smartPath string,
+	clientToDriveMgr api.DriveServiceClient,
+	csiUDSServer *rpc.ServerRunner,
+	logger *logrus.Logger) *http.Server {
+	enableMetrics := false
+	enableSmart := false
+
+	if metricsPath != "" {
+		enableMetrics = true
+	}
+	if smartPath != "" {
+		enableSmart = true
+	}
+
+	if enableMetrics || enableSmart {
+		if enableMetrics {
+			grpc_prometheus.Register(csiUDSServer.GRPCServer)
+			grpc_prometheus.EnableHandlingTimeHistogram()
+			grpc_prometheus.EnableClientHandlingTimeHistogram()
+			prometheus.MustRegister(metrics.BuildInfo)
+			http.Handle(metricsPath, promhttp.Handler())
+		}
+		if enableSmart {
+			server, err := smart.NewServer(node.NewSmartService(clientToDriveMgr, logger))
+			if err == nil {
+				http.Handle(smartPath, server)
+				http.Handle(smartPath+"/", server)
+			} else {
+				logger.Warnf("unable to register smart handlers: %s ", err)
+			}
+		}
+
+		srv := &http.Server{Addr: address}
+		go func() {
+			if err := srv.ListenAndServe(); err != nil {
+				logger.Warnf("metric http returned: %s ", err)
+			}
+		}()
+		return srv
+	}
+	return nil
 }
 
 func waitForVolumeManagerReadiness(c *node.CSINodeService, logger *logrus.Logger) {

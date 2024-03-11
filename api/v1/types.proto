@@ -28,7 +28,6 @@ message Drive {
     string SecurityStatus = 20;
     string EncryptionCapable = 21;
     string EncryptionProtocol = 22;
-    string SmartInfo = 23;
 }
 
 message Volume {

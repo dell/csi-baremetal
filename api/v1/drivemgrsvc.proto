@@ -28,8 +28,18 @@ message NodeLocateRequest {
 
 message Empty {}
 
+message SmartInfoRequest {
+    string serialNumber = 1;
+}
+
+message SmartInfoResponse {
+    string smartInfo = 1;
+}
+
 service DriveService {
     rpc GetDrivesList(DrivesRequest) returns (DrivesResponse){};
     rpc Locate(DriveLocateRequest) returns (DriveLocateResponse){};
     rpc LocateNode(NodeLocateRequest) returns (Empty){};
+    rpc GetDriveSmartInfo(SmartInfoRequest) returns (SmartInfoResponse){};
+    rpc GetAllDrivesSmartInfo(Empty) returns (SmartInfoResponse){};
 }

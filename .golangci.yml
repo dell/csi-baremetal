@@ -34,6 +34,7 @@ linters-settings:
           - github.com/dell/csi-baremetal/api/v1/nodecrd
           - github.com/dell/csi-baremetal/api/v1/storagegroupcrd
           - github.com/dell/csi-baremetal/api/v1/volumecrd
+          - github.com/dell/csi-baremetal/api/smart/generated
           - github.com/dell/csi-baremetal/cmd/drivemgr
           - github.com/dell/csi-baremetal/pkg/base
           - github.com/dell/csi-baremetal/pkg/base/error
