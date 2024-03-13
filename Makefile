@@ -79,6 +79,9 @@ clean-node-controller:
 clean-proto:
 	rm -rf ./api/generated/v1/*
 
+clean-smart:
+	rm -rf ./api/smart/generated/*
+
 ### API targets
 install-protoc:
 	mkdir -p proto_3.11.0
@@ -123,7 +126,10 @@ generate-baremetal-crds: install-controller-gen
 	controller-gen $(CRD_OPTIONS) paths=api/v1/nodecrd/node_types.go paths=api/v1/nodecrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 	controller-gen $(CRD_OPTIONS) paths=api/v1/storagegroupcrd/storagegroup_types.go paths=api/v1/storagegroupcrd/groupversion_info.go output:crd:dir=$(CSI_CHART_CRDS_PATH)
 
-generate-api: compile-proto generate-baremetal-crds generate-deepcopy
+generate-smart:
+	go generate ./api/smart/...
+
+generate-api: compile-proto generate-baremetal-crds generate-deepcopy generate-smart
 
 # Used for UT. Need to regenerate after updating k8s API version
 generate-mocks: install-mockery
