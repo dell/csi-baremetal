@@ -56,6 +56,10 @@ def run():
                         help='source path for scheduler config file for the kubernetes >= 1.23', required=True)
     parser.add_argument('--target_config_23_path',
                         help='target path for scheduler config file for the kubernetes >= 1.23', required=True)
+    parser.add_argument('--source_config_29_path',
+                        help='source path for scheduler config file for the kubernetes >= 1.29', required=True)
+    parser.add_argument('--target_config_29_path',
+                        help='target path for scheduler config file for the kubernetes >= 1.29', required=True)
     parser.add_argument(
         '--loglevel', help="Set level for logging", dest="loglevel", default='info')
     parser.add_argument(
@@ -91,6 +95,9 @@ def run():
     source_config_23 = File(args.source_config_23_path)
     target_config_23 = File(args.target_config_23_path)
 
+    source_config_29 = File(args.source_config_29_path)
+    target_config_29 = File(args.target_config_29_path)
+
     config_volume = Volume("scheduler-config", args.target_config_path)
     config_volume.compile_config() 
 
@@ -102,23 +109,31 @@ def run():
 
     config_23_volume = Volume("scheduler-config-23", args.target_config_23_path)
     config_23_volume.compile_config()
+
+    config_29_volume = Volume("scheduler-config-29", args.target_config_29_path)
+    config_29_volume.compile_config()
     
     path =  args.target_config_path
     if kube_major_ver==1 and kube_minor_ver>18:
         path = args.target_config_19_path
     if kube_major_ver==1 and kube_minor_ver>22:
         path = args.target_config_23_path
-
-    # the option is still available for kubernetes 1.26, 1.27, 1.28, 1.29
-    # verify if the option is still available for kubernetes greater than 1.29
-    config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23 and kube_minor_ver<=29)
+    if kube_major_ver==1 and kube_minor_ver>=29:
+        path = args.target_config_29_path
+    
+    log.info(f"Applying scheduler config: {path}")
+    # the option is still available for kubernetes 1.26, 1.27, 1.28, 1.29, 1.30
+    # verify if the option is still available for kubernetes greater than 1.30
+    # https://github.com/kubernetes/kubernetes/blob/c78812868f5f7a9c56c85f2e5c8b41265f3c1ce3/CHANGELOG/CHANGELOG-1.30.md?plain=1#L716
+    # https://github.com/kubernetes/kubernetes/issues/110175
+    config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23 and kube_minor_ver<=30)
 
     manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
     if args.platform == "rke":
         manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
 
     manifest = ManifestFile(
-        manifest, [config_volume, policy_volume, config_19_volume, config_23_volume],
+        manifest, [config_volume, policy_volume, config_19_volume, config_23_volume, config_29_volume],
         path, args.backup_path, config_unschedulable_pods)
 
     # add watcher on signals
@@ -134,6 +149,7 @@ def run():
             # copy config and policy if they don't exist or they have different content
         copy_not_equal(source_config_19, target_config_19)
         copy_not_equal(source_config_23, target_config_23)
+        copy_not_equal(source_config_29, target_config_29)
         copy_not_equal(source_config, target_config)
         copy_not_equal(source_policy, target_policy)
 
