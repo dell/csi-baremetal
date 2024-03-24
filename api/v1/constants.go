@@ -46,7 +46,6 @@ const (
 	HealthSuspect = "SUSPECT"
 	HealthBad     = "BAD"
 
-	// TODO need to split constants by different packages
 	// Drive status
 	DriveStatusOnline  = "ONLINE"
 	DriveStatusOffline = "OFFLINE"
@@ -94,7 +93,7 @@ const (
 	//Volume expansion annotations
 	VolumePreviousStatus   = "expansion/previous-status"
 	VolumePreviousCapacity = "expansion/previous-capacity"
-	// TODO Mount status?
+
 	// Volume mode
 	ModeRAW     = "RAW"
 	ModeRAWPART = "RAW_PART"

@@ -121,8 +121,6 @@ func (cs *CRHelperImpl) DeleteACsByNodeID(nodeID string) error {
 	isError := false
 	for _, ac := range acList.Items {
 		if strings.EqualFold(ac.Spec.NodeId, nodeID) {
-			// todo fix linter issue - https://github.com/kyoh86/scopelint/issues/5
-			// nolint:scopelint
 			if err := cs.k8sClient.DeleteCR(context.Background(), &ac); err != nil {
 				ll.Warningf("Unable to delete AC %s: %s", ac.Name, err)
 				isError = true
@@ -215,8 +213,6 @@ func (cs *CRHelperImpl) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) err
 		if volume.Spec.OperationalStatus != opStatus {
 			volume.Spec.OperationalStatus = opStatus
 			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volume.Spec.Id)
-			// todo fix linter issue - https://github.com/kyoh86/scopelint/issues/5
-			// nolint:scopelint
 			if err := cs.k8sClient.UpdateCR(ctxWithID, &volume); err != nil {
 				ll.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
 				isError = true
@@ -293,8 +289,6 @@ func (cs *CRHelperImpl) UpdateDrivesStatusOnNode(nodeID, status string) error {
 	for _, drive := range drives {
 		if drive.Spec.Status != status {
 			drive.Spec.Status = status
-			// todo fix linter issue - https://github.com/kyoh86/scopelint/issues/5
-			// nolint:scopelint
 			if err := cs.k8sClient.UpdateCR(context.Background(), &drive); err != nil {
 				ll.Errorf("Unable to update status for drive ID %s: %s", drive.Spec.UUID, err)
 				isError = true

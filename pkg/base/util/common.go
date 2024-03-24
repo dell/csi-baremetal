@@ -58,7 +58,6 @@ func ConsistentRead(filename string, retry int, timeout time.Duration) ([]byte, 
 // Receives string name of StorageClass
 // Returns string of CSI StorageClass
 func ConvertStorageClass(strSC string) string {
-	// TODO: use map or something else for such conversion https://github.com/dell/csi-baremetal/issues/84
 	sc := strings.ToUpper(strSC)
 	switch sc {
 	case api.StorageClassHDD,

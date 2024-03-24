@@ -51,7 +51,6 @@ import (
 	"github.com/dell/csi-baremetal/pkg/metrics/common"
 )
 
-// todo review all tests. some might not be relevant
 var (
 	testLogger = logrus.New()
 	testUUID   = uuid.New().String()
