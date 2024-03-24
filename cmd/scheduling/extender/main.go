@@ -62,6 +62,7 @@ var (
 	isPatchingEnabled = flag.Bool("isPatchingEnabled", false, "should enable readiness probe")
 )
 
+// Registering stages
 const (
 	FilterPattern     string = "/filter"
 	PrioritizePattern string = "/prioritize"
