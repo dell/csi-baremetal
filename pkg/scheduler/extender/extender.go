@@ -214,6 +214,7 @@ func (e *Extender) PrioritizeHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// BindHandler does bind of a pod to specific node
 func (e *Extender) BindHandler(w http.ResponseWriter, req *http.Request) {
 	sessionUUID := uuid.New().String()
 	ll := e.logger.WithFields(logrus.Fields{
