@@ -121,6 +121,7 @@ func (cs *CRHelperImpl) DeleteACsByNodeID(nodeID string) error {
 	isError := false
 	for _, ac := range acList.Items {
 		if strings.EqualFold(ac.Spec.NodeId, nodeID) {
+			// nolint:scopelint
 			if err := cs.k8sClient.DeleteCR(context.Background(), &ac); err != nil {
 				ll.Warningf("Unable to delete AC %s: %s", ac.Name, err)
 				isError = true
