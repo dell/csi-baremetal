@@ -215,6 +215,7 @@ func (cs *CRHelperImpl) UpdateVolumesOpStatusOnNode(nodeID, opStatus string) err
 			volume.Spec.OperationalStatus = opStatus
 			ctxWithID := context.WithValue(context.Background(), base.RequestUUID, volume.Spec.Id)
 			if err := cs.k8sClient.UpdateCR(ctxWithID, &volume); err != nil {
+				// nolint:scopelint
 				ll.Errorf("Unable to update operational status for volume ID %s: %s", volume.Spec.Id, err)
 				isError = true
 			}
@@ -291,6 +292,7 @@ func (cs *CRHelperImpl) UpdateDrivesStatusOnNode(nodeID, status string) error {
 		if drive.Spec.Status != status {
 			drive.Spec.Status = status
 			if err := cs.k8sClient.UpdateCR(context.Background(), &drive); err != nil {
+				// nolint:scopelint
 				ll.Errorf("Unable to update status for drive ID %s: %s", drive.Spec.UUID, err)
 				isError = true
 			}
