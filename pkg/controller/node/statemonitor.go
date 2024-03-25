@@ -148,7 +148,6 @@ func (n *ServicesStateMonitor) UpdateNodeHealthCache() {
 				state   *serviceState
 				isExist bool
 			)
-			// todo when node is removed from cluster?
 			if state, isExist = n.nodeHealthMap[nodeID]; !isExist {
 				state = &serviceState{status: Unknown, time: currentTime}
 				// add pod to the map - no need to print warning message here since this is cache initialization

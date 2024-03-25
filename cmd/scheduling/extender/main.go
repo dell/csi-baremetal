@@ -62,7 +62,7 @@ var (
 	isPatchingEnabled = flag.Bool("isPatchingEnabled", false, "should enable readiness probe")
 )
 
-// TODO should be passed as parameters https://github.com/dell/csi-baremetal/issues/78
+// Registering stages
 const (
 	FilterPattern     string = "/filter"
 	PrioritizePattern string = "/prioritize"
