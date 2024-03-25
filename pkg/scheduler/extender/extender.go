@@ -653,7 +653,7 @@ func generateEphemeralVolumeName(podName, volumeName string) string {
 	return podName + "-" + volumeName
 }
 
-func createRequestFromPVCSpec(volumeName, storageType, storageGroup string, resourceRequirements coreV1.ResourceRequirements, log *logrus.Entry) *genV1.CapacityRequest {
+func createRequestFromPVCSpec(volumeName, storageType, storageGroup string, resourceRequirements coreV1.VolumeResourceRequirements, log *logrus.Entry) *genV1.CapacityRequest {
 	storageReq, ok := resourceRequirements.Requests[coreV1.ResourceStorage]
 	if !ok {
 		log.Errorf("There is no key for storage resource for PVC %s", volumeName)

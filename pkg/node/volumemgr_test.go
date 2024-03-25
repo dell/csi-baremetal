@@ -472,12 +472,11 @@ func removeVolume(t *testing.T, status string) {
 	//successfully remove finalizer
 	err = vm.k8sClient.ReadCR(testCtx, newVolumeCR.Name, newVolumeCR.Namespace, newVolumeCR)
 	assert.Nil(t, err)
-	newVolumeCR.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
-	err = vm.k8sClient.UpdateCR(testCtx, newVolumeCR)
+	err = vm.k8sClient.DeleteCR(testCtx, newVolumeCR)
 	assert.Nil(t, err)
 
 	res, err = vm.Reconcile(testCtx, req)
-	assert.NotNil(t, k8sError.IsNotFound(err))
+	assert.Nil(t, err)
 	assert.Equal(t, res, ctrl.Result{})
 }
 

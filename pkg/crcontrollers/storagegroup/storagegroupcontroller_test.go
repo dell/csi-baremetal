@@ -212,8 +212,8 @@ func TestStorageGroupController_Reconcile(t *testing.T) {
 		kubeClient := k8s.NewKubeClient(mockK8sClient, testLogger, objects.NewObjectLogger(), testNs)
 		storageGroupController := NewController(kubeClient, kubeClient, testLogger)
 
-		mockK8sClient.On("Get", mock.Anything, mock.Anything, &dcrd.Drive{}).Return(k8sErrNotFound)
-		mockK8sClient.On("Get", mock.Anything, mock.Anything, &sgcrd.StorageGroup{}).Return(testErr)
+		mockK8sClient.On("Get", mock.Anything, mock.Anything, &dcrd.Drive{}, mock.Anything).Return(k8sErrNotFound)
+		mockK8sClient.On("Get", mock.Anything, mock.Anything, &sgcrd.StorageGroup{}, mock.Anything).Return(testErr)
 
 		res, err := storageGroupController.Reconcile(testCtx, req)
 		assert.NotNil(t, res)
@@ -320,8 +320,7 @@ func TestStorageGroupController_Reconcile(t *testing.T) {
 		assert.Equal(t, testSG2.Name, testDrive2Result.Labels[apiV1.StorageGroupLabelKey])
 
 		// reconcile deletion of testSG1
-		testSG1.DeletionTimestamp = &v1.Time{Time: time.Now()}
-		assert.Nil(t, storageGroupController.client.UpdateCR(testCtx, testSG1))
+		assert.Nil(t, storageGroupController.client.DeleteCR(testCtx, testSG1))
 
 		req = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: testSG1.Name}}
 		assert.NotNil(t, req)

@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -371,11 +370,17 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		)
 
 		k8sNode.Annotations[common.DeafultNodeIDAnnotationKey] = "aaaa-bbbb-cccc-dddd"
-		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
+		bmNode.Finalizers = []string{"csibm-finalizer"}
 
 		createObjects(t, c.k8sClient, bmNode, k8sNode)
 
-		res, err := c.reconcileForCSIBMNode(bmNode)
+		err := c.k8sClient.DeleteCR(testCtx, bmNode)
+		assert.Nil(t, err)
+
+		delBmNode := new(nodecrd.Node)
+		c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+
+		res, err := c.reconcileForCSIBMNode(delBmNode)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -470,11 +475,17 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		)
 
 		c.cache.put(k8sNodeName, bmNode.Name)
-		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
 		bmNode.Finalizers = []string{"csibm-finalizer"}
 
 		createObjects(t, c.k8sClient, bmNode)
-		res, err := c.reconcileForCSIBMNode(bmNode)
+
+		err := c.k8sClient.DeleteCR(testCtx, bmNode)
+		assert.Nil(t, err)
+
+		delBmNode := new(nodecrd.Node)
+		c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+
+		res, err := c.reconcileForCSIBMNode(delBmNode)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
