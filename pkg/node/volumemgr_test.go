@@ -112,7 +112,6 @@ var (
 		Children: nil,
 	}
 
-	// todo don't hardcode device name
 	lsblkSingleDeviceCmd = fmt.Sprintf(lsblk.CmdTmpl, "/dev/sda")
 
 	testDriveCR = drivecrd.Drive{

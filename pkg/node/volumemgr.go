@@ -298,7 +298,6 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		// Failed drive shouldn't be cleaned up - to avoid data loss
 		case apiV1.Removed, apiV1.Failed:
 			// we need to update annotation on related drive CRD
-			// todo can we do polling instead?
 			ll.Infof("Volume %s is removed. Updating related", volume.Name)
 			// drive must be present in the system
 			drive, _ := m.crHelper.GetDriveCRByVolume(volume)
@@ -372,7 +371,6 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 		ll.Errorf("Unable to read drive CR, error: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
-	// TODO add annotations for additional statuses?
 	if volumeStatus == apiV1.VolumeUsageReleased {
 		m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
 	}
@@ -680,7 +678,6 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec := *drivePtr
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
-			// TODO: what operational status should be if drivemgr reported drive with not a good health
 			toCreateSpec.Usage = apiV1.DriveUsageInUse
 			toCreateSpec.IsClean = true
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
@@ -719,7 +716,6 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			ll.Warnf("Set status %s for drive %v", apiV1.DriveStatusOffline, d.Spec)
 			previousState := d.DeepCopy()
 			toUpdate := d
-			// TODO: which operational status should be in case when there is drive CR that doesn't have corresponding drive from drivemgr response
 			toUpdate.Spec.Status = apiV1.DriveStatusOffline
 			if value, ok := d.GetAnnotations()[driveHealthOverrideAnnotation]; ok {
 				m.overrideDriveHealth(&toUpdate.Spec, value, d.Name)
@@ -1000,7 +996,6 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 		prevHealthState := vol.Spec.Health
 		vol.Spec.Health = cur.Health
 		// initiate volume release
-		// TODO need to check for specific annotation instead
 		if vol.Spec.Health == apiV1.HealthBad || vol.Spec.Health == apiV1.HealthSuspect {
 			if vol.Spec.Usage == apiV1.VolumeUsageInUse {
 				vol.Spec.Usage = apiV1.VolumeUsageReleasing
@@ -1017,9 +1012,6 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 				prevHealthState, vol.Spec.Health, cur.Health, cur.NodeId)
 		}
 	}
-	// Handle resources with LogicalVolumeGroup
-	// This is not work for the current moment because HAL doesn't monitor disks with LVM
-	// TODO: Handle disk health which are used by LVGs - https://github.com/dell/csi-baremetal/issues/88
 }
 
 func (m *VolumeManager) checkVGErrors(lvg *lvgcrd.LogicalVolumeGroup, drivePath string) {

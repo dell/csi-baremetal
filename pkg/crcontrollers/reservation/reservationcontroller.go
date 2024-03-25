@@ -115,7 +115,6 @@ func (c *Controller) handleReservationUpdate(ctx context.Context, log *logrus.En
 			volumes[i] = &v1api.Volume{Id: capacity.Name, Size: capacity.Size, StorageClass: capacity.StorageClass, StorageGroup: capacity.StorageGroup}
 		}
 
-		// TODO: do not read all ACs and ACRs for each request: https://github.com/dell/csi-baremetal/issues/89
 		acReader := capacityplanner.NewACReader(c.client, log, true)
 		acrReader := capacityplanner.NewACRReader(c.client, log, true)
 		capManager := c.capacityManagerBuilder.GetCapacityManager(log, acReader, acrReader)
