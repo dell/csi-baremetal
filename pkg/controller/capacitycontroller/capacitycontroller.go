@@ -105,10 +105,12 @@ func (d *Controller) reconcileLVG(ctx context.Context, lvg *lvgcrd.LogicalVolume
 	)
 	// If LVG status is failed or Health is not good, try to reset its AC size to 0
 	if status == apiV1.Failed || health != apiV1.HealthGood {
+		log.Warnf("LVG operation failed: Status '%s', Health '%s'", status, health)
 		return ctrl.Result{}, d.resetACSizeOfLVG(name)
 	}
 	// If LVG is already presented on a machine but doesn't have AC, try to create its AC using annotation with
 	// VG free space
+	log.Infof("Create AC by using LVG free space annotation for %s", name)
 	size, err := getFreeSpaceFromLVGAnnotation(lvg.Annotations)
 	if err != nil {
 		log.Errorf("Failed to get free space from LVG %v, err: %v", lvg, err)
@@ -147,6 +149,7 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveCR *drivec
 	size := drive.GetSize()
 	// if drive is not clean, size is 0
 	if !drive.GetIsClean() {
+		log.Warnf("Drive %s is not clean, setting AC size to 0", driveUUID)
 		size = 0
 	}
 	ac, err := d.cachedCrHelper.GetACByLocation(driveUUID)
@@ -155,6 +158,7 @@ func (d *Controller) createOrUpdateCapacity(ctx context.Context, driveCR *drivec
 		updateAvailableCapacityLabelsWhenNecessary(driveCR, ac)
 		// If ac is exists, update its size to drive size
 		if ac.Spec.Size != size {
+			log.Infof("Update AC size to %d %s based on drive %s", size, ac.Name, ac.Spec.Location)
 			ac.Spec.Size = size
 		}
 		if err := d.client.Update(context.WithValue(ctx, base.RequestUUID, ac.Name), ac); err != nil {
@@ -294,6 +298,7 @@ func (d *Controller) resetACSizeOfLVG(lvgName string) error {
 		}
 		return err
 	}
+	d.log.Warnf("Resetting AC size to 0 for failed LVG %s", lvgName)
 	if ac.Spec.Size != 0 {
 		ac.Spec.Size = 0
 		if err := d.client.UpdateCR(context.Background(), ac); err != nil {
