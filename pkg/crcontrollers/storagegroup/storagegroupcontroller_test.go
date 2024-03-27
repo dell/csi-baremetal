@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -165,6 +167,25 @@ var (
 		},
 	}
 )
+
+func TestStorageGroupController_setupWithManger(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
+
+	mgr := &mocks.MockManager{}
+	mgr.On("GetClient").Return(kubeClient.Client)
+	mgr.On("GetCache").Return(&mocks.MockCache{})
+	mgr.On("GetControllerOptions").Return(config.Controller{})
+	mgr.On("GetScheme").Return(kubeClient.Scheme())
+	mgr.On("GetLogger").Return(logr.Logger{})
+	mgr.On("Add", mock.Anything).Return(nil)
+
+	c := NewController(kubeClient, kubeClient, testLogger)
+	assert.NotNil(t, c)
+
+	err = c.SetupWithManager(mgr)
+	assert.Nil(t, err)
+}
 
 func TestStorageGroupController_filterDeleteEvent(t *testing.T) {
 	kubeClient, err := k8s.GetFakeKubeClient(testNs, testLogger)
