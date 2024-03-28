@@ -249,9 +249,11 @@ func TestReconcile_TryToDeleteLVGWithVolume(t *testing.T) {
 		req       = ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: lvgCR1.Name}}
 	)
 
-	lvgToDell.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
 	lvgToDell.ObjectMeta.Finalizers = []string{lvgFinalizer}
 	err := c.k8sClient.UpdateCR(tCtx, lvgToDell)
+	assert.Nil(t, err)
+
+	err = c.k8sClient.DeleteCR(tCtx, lvgToDell)
 	assert.Nil(t, err)
 
 	err = c.k8sClient.CreateCR(tCtx, testVolumeCR1.Name, &testVolumeCR1)
@@ -283,6 +285,7 @@ func TestReconcile_DeletionFailed(t *testing.T) {
 	// expect that LogicalVolumeGroup still contains LV
 	e.OnCommand(fmt.Sprintf(lvm.LVsInVGCmdTmpl, lvgCR1.Name)).Return("lv1", "", nil)
 
+	c.k8sClient.DeleteCR(tCtx, lvgToDell)
 	res, err := c.Reconcile(tCtx, req)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "there are LVs in LogicalVolumeGroup")

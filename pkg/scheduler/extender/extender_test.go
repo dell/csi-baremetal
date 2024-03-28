@@ -74,7 +74,7 @@ var (
 		VolumeClaimTemplate: &coreV1.PersistentVolumeClaimTemplate{
 			Spec: coreV1.PersistentVolumeClaimSpec{
 				StorageClassName: &testSCName1,
-				Resources: coreV1.ResourceRequirements{
+				Resources: coreV1.VolumeResourceRequirements{
 					Requests: coreV1.ResourceList{
 						coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
 					},
@@ -93,7 +93,7 @@ var (
 		VolumeClaimTemplate: &coreV1.PersistentVolumeClaimTemplate{
 			Spec: coreV1.PersistentVolumeClaimSpec{
 				StorageClassName: &testSCName2,
-				Resources: coreV1.ResourceRequirements{
+				Resources: coreV1.VolumeResourceRequirements{
 					Requests: coreV1.ResourceList{
 						coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
 					},
@@ -134,7 +134,7 @@ var (
 		},
 		Spec: coreV1.PersistentVolumeClaimSpec{
 			StorageClassName: &testSCName1,
-			Resources: coreV1.ResourceRequirements{
+			Resources: coreV1.VolumeResourceRequirements{
 				Requests: coreV1.ResourceList{
 					coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
 				},
@@ -151,7 +151,7 @@ var (
 		},
 		Spec: coreV1.PersistentVolumeClaimSpec{
 			StorageClassName: &testSCName2,
-			Resources: coreV1.ResourceRequirements{
+			Resources: coreV1.VolumeResourceRequirements{
 				Requests: coreV1.ResourceList{
 					coreV1.ResourceStorage: *resource.NewQuantity(testSizeGb*1024, resource.DecimalSI),
 				},

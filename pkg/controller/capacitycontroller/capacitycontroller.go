@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -58,7 +57,7 @@ func NewCapacityController(client *k8s.KubeClient, k8sCache k8s.CRReader, log *l
 func (d *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&drivecrd.Drive{}).
-		Watches(&source.Kind{Type: &lvgcrd.LogicalVolumeGroup{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&lvgcrd.LogicalVolumeGroup{}, &handler.EnqueueRequestForObject{}).
 		WithEventFilter(predicate.Funcs{
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				return false

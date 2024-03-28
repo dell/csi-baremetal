@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,12 +31,13 @@ type K8Client struct {
 	client.Reader
 	client.Writer
 	client.StatusClient
+	client.SubResourceClientConstructor
 	mock.Mock
 }
 
 // Get is mock implementation of Get method from client.Reader interface
-func (k *K8Client) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
-	args := k.Mock.Called(ctx, key, obj)
+func (k *K8Client) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opt ...client.GetOption) error {
+	args := k.Mock.Called(ctx, key, obj, opt)
 	return args.Error(0)
 }
 
@@ -85,4 +87,16 @@ func (k *K8Client) Scheme() *runtime.Scheme {
 func (k *K8Client) RESTMapper() meta.RESTMapper {
 	args := k.Mock.Called()
 	return args.Get(0).(meta.RESTMapper)
+}
+
+// GroupVersionKindFor is mock implementation of GroupVersionKindFor method from client.Client interface
+func (k *K8Client) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	args := k.Mock.Called()
+	return args.Get(0).(schema.GroupVersionKind), args.Error(1)
+}
+
+// IsObjectNamespaced is mock implementation of IsObjectNamespaced method from client.Client interface
+func (k *K8Client) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	args := k.Mock.Called()
+	return args.Bool(0), args.Error(1)
 }

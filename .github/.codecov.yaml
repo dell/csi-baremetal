@@ -9,3 +9,5 @@ coverage:
 ignore:
   # test module
   - "pkg/base/k8s/fake_kubeclient.go"
+  - "pkg/mocks/k8sclient.go"
+  - "pkg/mocks/manager.go"
