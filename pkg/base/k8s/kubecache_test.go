@@ -17,21 +17,26 @@ limitations under the License.
 package k8s
 
 import (
+	"context"
 	"testing"
 
+	"github.com/dell/csi-baremetal/pkg/base/logger/objects"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	coreV1 "k8s.io/api/core/v1"
 )
 
 func TestKubeCache_InitKubeCache(t *testing.T) {
-	// testLogger = logrus.New()
-	// k, err := GetFakeKubeClient(testNs, testLogger)
-	// assert.Nil(t, err)
+	testNs := "default"
 
-	// kubeClient := NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs)
-	// assert.NotNil(t, kubeClient)
+	testLogger = logrus.New()
+	k, err := GetFakeKubeClient(testNs, testLogger)
+	assert.Nil(t, err)
 
-	// kubeCache, err := InitKubeCache(context.TODO(), testLogger, &coreV1.PersistentVolumeClaim{})
-	// assert.NotNil(t, kubeCache)
-	// assert.Nil(t, err)
-	assert.True(t, true)
+	kubeClient := NewKubeClient(k, testLogger, objects.NewObjectLogger(), testNs)
+	assert.NotNil(t, kubeClient)
+
+	kubeCache, err := InitKubeCache(context.TODO(), testLogger, &coreV1.PersistentVolumeClaim{})
+	assert.NotNil(t, kubeCache)
+	assert.Nil(t, err)
 }
