@@ -402,7 +402,8 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.Nil(t, err)
 
 		delBmNode := new(nodecrd.Node)
-		c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+		err = c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+		assert.Nil(t, err)
 
 		res, err := c.reconcileForCSIBMNode(delBmNode)
 		assert.Nil(t, err)
@@ -507,7 +508,8 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		assert.Nil(t, err)
 
 		delBmNode := new(nodecrd.Node)
-		c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+		err = c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+		assert.Nil(t, err)
 
 		res, err := c.reconcileForCSIBMNode(delBmNode)
 		assert.Nil(t, err)

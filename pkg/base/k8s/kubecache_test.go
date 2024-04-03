@@ -20,13 +20,23 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func TestKubeCache_InitKubeCache(t *testing.T) {
-	// testLogger = logrus.New()
+func TestKubeCache_GetK8SCache(t *testing.T) {
+	config := &rest.Config{}
+	origFun := ctrl.GetConfigOrDie
 
-	// kubeCache, err := InitKubeCache(context.TODO(), testLogger, &coreV1.PersistentVolumeClaim{})
-	// assert.NotNil(t, kubeCache)
-	// assert.Nil(t, err)
-	assert.True(t, true)
+	defer func() {
+		ctrl.GetConfigOrDie = origFun
+	}()
+
+	ctrl.GetConfigOrDie = func() *rest.Config {
+		return config
+	}
+
+	cache, err := GetK8SCache()
+	assert.Nil(t, err)
+	assert.NotNil(t, cache)
 }
