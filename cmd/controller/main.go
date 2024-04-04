@@ -175,8 +175,7 @@ func createManager(ctx context.Context, client *k8s.KubeClient, log *logrus.Logg
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:    scheme,
-		Namespace: *namespace,
+		Scheme: scheme,
 	})
 	if err != nil {
 		return nil, err

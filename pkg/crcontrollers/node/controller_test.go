@@ -3,21 +3,24 @@ package node
 import (
 	"context"
 	"testing"
-	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	crdV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/crcontrollers/node/common"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 var (
@@ -83,6 +86,26 @@ var (
 		},
 	}
 )
+
+func TestController_setupWithManger(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
+	assert.Nil(t, err)
+
+	mgr := &mocks.MockManager{}
+	mgr.On("GetClient").Return(kubeClient.Client)
+	mgr.On("GetCache").Return(&mocks.MockCache{})
+	mgr.On("GetControllerOptions").Return(config.Controller{})
+	mgr.On("GetScheme").Return(kubeClient.Scheme())
+	mgr.On("GetLogger").Return(logr.Logger{})
+	mgr.On("Add", mock.Anything).Return(nil)
+
+	c, err := NewController("", false, "", kubeClient, testLogger)
+	assert.Nil(t, err)
+	assert.NotNil(t, c)
+
+	err = c.SetupWithManager(mgr)
+	assert.Nil(t, err)
+}
 
 func TestNewCSIBMController(t *testing.T) {
 	k8sClient, err := k8s.GetFakeKubeClient(testNS, testLogger)
@@ -371,11 +394,18 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		)
 
 		k8sNode.Annotations[common.DeafultNodeIDAnnotationKey] = "aaaa-bbbb-cccc-dddd"
-		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
+		bmNode.Finalizers = []string{"csibm-finalizer"}
 
 		createObjects(t, c.k8sClient, bmNode, k8sNode)
 
-		res, err := c.reconcileForCSIBMNode(bmNode)
+		err := c.k8sClient.DeleteCR(testCtx, bmNode)
+		assert.Nil(t, err)
+
+		delBmNode := new(nodecrd.Node)
+		err = c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+		assert.Nil(t, err)
+
+		res, err := c.reconcileForCSIBMNode(delBmNode)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 
@@ -470,11 +500,18 @@ func Test_reconcileForCSIBMNode(t *testing.T) {
 		)
 
 		c.cache.put(k8sNodeName, bmNode.Name)
-		bmNode.DeletionTimestamp = &metaV1.Time{Time: time.Now()}
 		bmNode.Finalizers = []string{"csibm-finalizer"}
 
 		createObjects(t, c.k8sClient, bmNode)
-		res, err := c.reconcileForCSIBMNode(bmNode)
+
+		err := c.k8sClient.DeleteCR(testCtx, bmNode)
+		assert.Nil(t, err)
+
+		delBmNode := new(nodecrd.Node)
+		err = c.k8sClient.Get(testCtx, k8sCl.ObjectKey{Name: bmNode.Name}, delBmNode)
+		assert.Nil(t, err)
+
+		res, err := c.reconcileForCSIBMNode(delBmNode)
 		assert.Nil(t, err)
 		assert.Equal(t, ctrl.Result{}, res)
 

@@ -21,11 +21,14 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
@@ -34,6 +37,7 @@ import (
 	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
 	"github.com/dell/csi-baremetal/pkg/base/util"
+	"github.com/dell/csi-baremetal/pkg/mocks"
 )
 
 var (
@@ -141,6 +145,25 @@ type inputData struct {
 type expectedResult struct {
 	reconcileError error
 	acList         accrd.AvailableCapacityList
+}
+
+func TestCapacityController_setupWithManger(t *testing.T) {
+	kubeClient, err := k8s.GetFakeKubeClient(ns, testLogger)
+	assert.Nil(t, err)
+
+	mgr := &mocks.MockManager{}
+	mgr.On("GetClient").Return(kubeClient.Client)
+	mgr.On("GetCache").Return(&mocks.MockCache{})
+	mgr.On("GetControllerOptions").Return(config.Controller{})
+	mgr.On("GetScheme").Return(kubeClient.Scheme())
+	mgr.On("GetLogger").Return(logr.Logger{})
+	mgr.On("Add", mock.Anything).Return(nil)
+
+	c := NewCapacityController(kubeClient, kubeClient, testLogger)
+	assert.NotNil(t, c)
+
+	err = c.SetupWithManager(mgr)
+	assert.Nil(t, err)
 }
 
 func Test_NewLVGController(t *testing.T) {

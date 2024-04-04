@@ -82,6 +82,7 @@ linters-settings:
           - github.com/grpc-ecosystem/go-grpc-prometheus
           - github.com/prometheus/client_golang/prometheus
           - github.com/sirupsen/logrus
+          - github.com/go-logr/logr
           - github.com/stretchr/testify/assert
           - github.com/stretchr/testify/mock
           - github.com/viney-shih/go-lock
@@ -112,6 +113,7 @@ linters-settings:
           - sigs.k8s.io/controller-runtime/pkg/manager
           - sigs.k8s.io/controller-runtime/pkg/predicate
           - sigs.k8s.io/controller-runtime/pkg/source
+          - sigs.k8s.io/controller-runtime/pkg/config
       test:
         files:
           - "$test"

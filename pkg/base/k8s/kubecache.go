@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,8 +34,13 @@ func GetK8SCache() (cache.Cache, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	client, err := rest.HTTPClientFor(config)
+	if err != nil {
+		return nil, err
+	}
 	// Create the mapper provider
-	mapper, err := crApiutil.NewDynamicRESTMapper(config)
+	mapper, err := crApiutil.NewDynamicRESTMapper(config, client)
 	if err != nil {
 		return nil, err
 	}

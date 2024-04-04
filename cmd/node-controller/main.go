@@ -104,8 +104,7 @@ func prepareK8sRuntimeManager() (ctrl.Manager, error) {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:    scheme,
-		Namespace: *namespace,
+		Scheme: scheme,
 	})
 
 	if err != nil {

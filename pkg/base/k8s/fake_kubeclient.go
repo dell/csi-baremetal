@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sCl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -73,7 +74,7 @@ type FakeClientWrapper struct {
 }
 
 // Get is a wrapper around Get method
-func (fkw *FakeClientWrapper) Get(ctx context.Context, key k8sCl.ObjectKey, obj k8sCl.Object) error {
+func (fkw *FakeClientWrapper) Get(ctx context.Context, key k8sCl.ObjectKey, obj k8sCl.Object, opts ...k8sCl.GetOption) error {
 	if ctx.Value(getFailCtxKey) == getFailCtxValue {
 		return errors.New("raise error in get")
 	}
@@ -170,6 +171,21 @@ func (fkw *FakeClientWrapper) removeNSFromListOptions(opts []k8sCl.ListOption) [
 func (fkw *FakeClientWrapper) removeNSFromObjKey(key k8sCl.ObjectKey) k8sCl.ObjectKey {
 	key.Namespace = ""
 	return key
+}
+
+// GroupVersionKindFor is a wrapper around GroupVersionKindFor method
+func (fkw *FakeClientWrapper) GroupVersionKindFor(obj runtime.Object) (gvk schema.GroupVersionKind, err error) {
+	return fkw.client.GroupVersionKindFor(obj)
+}
+
+// IsObjectNamespaced is a wrapper around IsObjectNamespaced method
+func (fkw *FakeClientWrapper) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return fkw.client.IsObjectNamespaced(obj)
+}
+
+// SubResource is a wrapper around SubResource method
+func (fkw *FakeClientWrapper) SubResource(subresource string) k8sCl.SubResourceClient {
+	return fkw.client.SubResource(subresource)
 }
 
 // GetFakeKubeClient returns fake KubeClient  for test purposes

@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	"github.com/dell/csi-baremetal/api/v1/nodecrd"
@@ -181,7 +180,7 @@ func (bmc *Controller) SetupWithManager(m ctrl.Manager) error {
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 1, // reconcile all object by turn, concurrent reconciliation isn't supported
 		}).
-		Watches(&source.Kind{Type: &coreV1.Node{}}, &handler.EnqueueRequestForObject{}). // secondary resource
+		Watches(&coreV1.Node{}, &handler.EnqueueRequestForObject{}). // secondary resource
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				if _, ok := e.Object.(*nodecrd.Node); ok {
