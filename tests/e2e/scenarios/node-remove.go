@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/kubernetes/test/e2e/framework"
+	e2eframework "k8s.io/kubernetes/test/e2e/framework"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
@@ -69,7 +69,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 	}
 
 	cleanup := func() {
-		Logf("Starting cleanup for test NodeRemoval")
+		e2eframework.Logf("Starting cleanup for test NodeRemoval")
 
 		if taintNodeName != "" {
 			podsBefore, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
@@ -87,7 +87,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 			pods, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
 			framework.ExpectNoError(err)
 
-			Logf("Count of pods before test was %d, after - %d", len(podsBefore), len(pods))
+			e2eframework.Logf("Count of pods before test was %d, after - %d", len(podsBefore), len(pods))
 			if len(pods)-len(podsBefore) <= 0 {
 				framework.Failf("Csi-baremetal-node not ready")
 			}
@@ -111,7 +111,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
-		Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
+		e2eframework.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
 
 		taint := corev1.Taint{
 			Key:    "node.dell.com/drain",
@@ -138,14 +138,14 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 				break
 			}
 		}
-		Logf("csibmnode %s labeled with %s=%s", taintedNodeId, taint.Key, taint.Value)
+		e2eframework.Logf("csibmnode %s labeled with %s=%s", taintedNodeId, taint.Key, taint.Value)
 
 		// delete node
 		cmd = fmt.Sprintf("kubectl delete node %s", taintNodeName)
 		_, _, err = executor.RunCmd(cmd)
 		framework.ExpectNoError(err)
 
-		Logf("Waiting for csibmnode to be deleted...")
+		e2eframework.Logf("Waiting for csibmnode to be deleted...")
 		for start := time.Now(); time.Since(start) < time.Minute*10; time.Sleep(time.Second * 30) {
 			if !isNodeExist(f, taintedNodeId) {
 				break
@@ -180,7 +180,7 @@ func foundCsibmnodeByNodeName(f *framework.Framework, nodeName string) (string, 
 			return "", err
 		}
 		if taintedNodeName == nodeName {
-			Logf("Node %s has nodeID %s", taintedNodeName, nodeUUID)
+			e2eframework.Logf("Node %s has nodeID %s", taintedNodeName, nodeUUID)
 			taintedCsibmnode = nodeUUID
 			break
 		}
@@ -211,7 +211,7 @@ func isNodeExist(f *framework.Framework, nodeID string) bool {
 		nodeUUID, _, err := unstructured.NestedString(node.UnstructuredContent(), "spec", "UUID")
 		framework.ExpectNoError(err)
 		if nodeUUID == nodeID {
-			Logf("Node %s exist", nodeID)
+			e2eframework.Logf("Node %s exist", nodeID)
 			return true
 		}
 	}
@@ -224,7 +224,7 @@ func isRecourseExistOnNode(f *framework.Framework, resource schema.GroupVersionR
 		specNodeID, _, err := unstructured.NestedString(el.UnstructuredContent(), "spec", "NodeId")
 		framework.ExpectNoError(err)
 		if specNodeID == nodeID {
-			Logf("On taintedNode %s exist %s", nodeID, resource)
+			e2eframework.Logf("On taintedNode %s exist %s", nodeID, resource)
 			return true
 		}
 	}

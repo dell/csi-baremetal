@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
-	"k8s.io/kubernetes/test/e2e/framework"
+	e2eframework "k8s.io/kubernetes/test/e2e/framework"
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 	//_ "github.com/dell/csi-baremetal-e2e-tests/e2e/scenarios"

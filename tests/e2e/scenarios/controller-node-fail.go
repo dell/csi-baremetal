@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/test/e2e/framework"
+	e2eframework "k8s.io/kubernetes/test/e2e/framework"
 	e2edep "k8s.io/kubernetes/test/e2e/framework/deployment"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
@@ -81,7 +81,7 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 	}
 
 	cleanup := func() {
-		Logf("Starting cleanup for test ControllerNodeFail")
+		e2eframework.Logf("Starting cleanup for test ControllerNodeFail")
 
 		// try to make node ready again
 		cmd := fmt.Sprintf("docker exec %s systemctl start kubelet.service", nodeName)
@@ -121,18 +121,18 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 		}
 
 		// to speed up failover delete pod
-		Logf("Deleting pod %s...", controllerPodName)
+		e2eframework.Logf("Deleting pod %s...", controllerPodName)
 		err = f.ClientSet.CoreV1().Pods(ns).Delete(ctx, controllerPodName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
 		// waiting for the new controller pod to appear in cluster and become ready for 15 minute
 		var found bool
-		Logf("Waiting to controller pod to run on another node...")
+		e2eframework.Logf("Waiting to controller pod to run on another node...")
 		for start := time.Now(); time.Since(start) < time.Minute*15; time.Sleep(time.Second * 30) {
 			podList, err := e2edep.GetPodsForDeployment(f.ClientSet, deployment)
 			framework.ExpectNoError(err)
 			for _, item := range podList.Items {
-				Logf("Pod %s with status %s", item.Name, string(item.Status.Phase))
+				e2eframework.Logf("Pod %s with status %s", item.Name, string(item.Status.Phase))
 				if item.Status.Phase == corev1.PodRunning && item.Name != controllerPodName {
 					found = true
 					break
@@ -156,7 +156,7 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
-		Logf("Waiting for test pod %s to be in running state...", pod.Name)
+		e2eframework.Logf("Waiting for test pod %s to be in running state...", pod.Name)
 		err = e2epod.WaitForPodNameRunningInNamespace(f.ClientSet, pod.Name, f.Namespace.Name)
 		framework.ExpectNoError(err)
 	})

@@ -27,7 +27,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/test/e2e/framework"
+	e2eframework"k8s.io/kubernetes/test/e2e/framework"
 	pode2e "k8s.io/kubernetes/test/e2e/framework/pod"
 	e2epv "k8s.io/kubernetes/test/e2e/framework/pv"
 
@@ -54,36 +54,36 @@ func GetExecutor() command.CmdExecutor {
 // NodeUnpublish and NodeUnstage properly. Next it deletes PVC and waits for correctly deletion of bounded PV
 // to clear device for next tests (CSI performs wipefs during PV deletion). The last step is the deletion of driver.
 func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod []*corev1.Pod, pvc []*corev1.PersistentVolumeClaim) {
-	Logf("Starting cleanup")
+	e2eframework.Logf("Starting cleanup")
 	var err error
 
 	for _, p := range pod {
-		Logf("Deleting Pod %s", p.Name)
+		e2eframework.Logf("Deleting Pod %s", p.Name)
 		err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Delete(context.TODO(), p.Name, metav1.DeleteOptions{})
 		if err != nil {
 			if apierrs.IsNotFound(err) {
 				continue
 			}
-			Logf("Failed to delete pod %s: %v", p.Name, err)
+			e2eframework.Logf("Failed to delete pod %s: %v", p.Name, err)
 		}
 	}
 	for _, p := range pod {
-		Logf("Wait up to %v for pod %q to be fully deleted", pode2e.PodDeleteTimeout, p.Name)
+		e2eframework.Logf("Wait up to %v for pod %q to be fully deleted", pode2e.PodDeleteTimeout, p.Name)
 		err = pode2e.WaitForPodNotFoundInNamespace(f.ClientSet, p.Name, f.Namespace.Name, time.Minute*2)
 		if err != nil {
-			Logf("Failed to delete pod %s: %v", p.Name, err)
+			e2eframework.Logf("Failed to delete pod %s: %v", p.Name, err)
 		}
 	}
 
 	// to speed up we need to delete PVC in parallel
 	pvs := []*corev1.PersistentVolume{}
 	for _, claim := range pvc {
-		Logf("Deleting PVC %s", claim.Name)
+		e2eframework.Logf("Deleting PVC %s", claim.Name)
 		pv, _ := GetBoundPV(context.TODO(), f.ClientSet, claim)
 		// Get the bound PV
 		err := e2epv.DeletePersistentVolumeClaim(f.ClientSet, claim.Name, f.Namespace.Name)
 		if err != nil {
-			Logf("failed to delete pvc, error: %v", err)
+			e2eframework.Logf("failed to delete pvc, error: %v", err)
 		}
 		// add pv to the list
 		if pv != nil {
@@ -95,13 +95,13 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 	for _, pv := range pvs {
 		err = e2epv.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
 		if err != nil {
-			Logf("unable to delete PV %s, ignore that error", pv.Name)
+			e2eframework.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}
 	}
 	// wait for SC deletion
 	storageClasses, err := f.ClientSet.StorageV1().StorageClasses().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		Logf("failed to read SC list, error: %v", err)
+		e2eframework.Logf("failed to read SC list, error: %v", err)
 	} else {
 		for _, sc := range storageClasses.Items {
 			if !strings.HasPrefix(sc.Name, f.Namespace.Name) {
@@ -109,7 +109,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 			}
 			err = f.ClientSet.StorageV1().StorageClasses().Delete(context.TODO(), sc.Name, metav1.DeleteOptions{})
 			if err != nil {
-				Logf("failed to remove SC, error: %v", err)
+				e2eframework.Logf("failed to remove SC, error: %v", err)
 			}
 		}
 	}
@@ -119,7 +119,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		driverCleanupFn()
 		driverCleanupFn = nil
 	}
-	Logf("Cleanup finished.")
+	e2eframework.Logf("Cleanup finished.")
 }
 
 // GetBoundPV returns a PV details.
@@ -137,18 +137,18 @@ func GetBoundPV(ctx context.Context, client clientset.Interface, pvc *corev1.Per
 
 // WaitForStatefulSetReplicasReady waits for all replicas of a StatefulSet to become ready or until timeout occurs, whichever comes first.
 func WaitForStatefulSetReplicasReady(ctx context.Context, statefulSetName, ns string, c clientset.Interface, Poll, timeout time.Duration) error {
-	Logf("Waiting up to %v for StatefulSet %s to have all replicas ready", timeout, statefulSetName)
+	e2eframework.Logf("Waiting up to %v for StatefulSet %s to have all replicas ready", timeout, statefulSetName)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(Poll) {
 		sts, err := c.AppsV1().StatefulSets(ns).Get(ctx, statefulSetName, metav1.GetOptions{})
 		if err != nil {
-			Logf("Get StatefulSet %s failed, ignoring for %v: %v", statefulSetName, Poll, err)
+			e2eframework.Logf("Get StatefulSet %s failed, ignoring for %v: %v", statefulSetName, Poll, err)
 			continue
 		}
 		if sts.Status.ReadyReplicas == *sts.Spec.Replicas {
-			Logf("All %d replicas of StatefulSet %s are ready. (%v)", sts.Status.ReadyReplicas, statefulSetName, time.Since(start))
+			e2eframework.Logf("All %d replicas of StatefulSet %s are ready. (%v)", sts.Status.ReadyReplicas, statefulSetName, time.Since(start))
 			return nil
 		}
-		Logf("StatefulSet %s found but there are %d ready replicas and %d total replicas.", statefulSetName, sts.Status.ReadyReplicas, *sts.Spec.Replicas)
+		e2eframework.Logf("StatefulSet %s found but there are %d ready replicas and %d total replicas.", statefulSetName, sts.Status.ReadyReplicas, *sts.Spec.Replicas)
 	}
 	return fmt.Errorf("StatefulSet %s still has unready pods within %v", statefulSetName, timeout)
 }
