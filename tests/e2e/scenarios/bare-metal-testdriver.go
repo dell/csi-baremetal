@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
-	e2eframework "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/framework"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	"k8s.io/kubernetes/test/e2e/framework/volume"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
@@ -139,7 +139,7 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		e2eskipper.Skipf("Baremetal Driver does not support block volume mode with volume expansion - skipping")
 	}
 
-	if pattern.VolType == storageframework.PreprovisionedPV && pattern.FsType != ext4Fs{
+	if pattern.VolType == storageframework.PreprovisionedPV && pattern.FsType != ext4Fs {
 		e2eskipper.Skipf("Run PreprovisionedPV tests only for ext4  -- skipping")
 	}
 }
@@ -256,7 +256,7 @@ type CSIVolume struct {
 }
 
 func (v *CSIVolume) DeleteVolume() {
-	e2eframework.Logf("Delete volume %s", v.volName)
+	framework.Logf("Delete volume %s", v.volName)
 	err := v.f.DynamicClient.Resource(common.VolumeGVR).Namespace(v.f.Namespace.Name).Delete(context.TODO(), v.volName, metav1.DeleteOptions{})
 	framework.ExpectNoError(err)
 }
@@ -326,7 +326,7 @@ func waitCreatedVolumeStatus(f *framework.Framework, name string) bool {
 				break
 			}
 		}
-		e2eframework.Logf("Volume status is %s, need - CREATED", csiStatus)
+		framework.Logf("Volume status is %s, need - CREATED", csiStatus)
 		if csiStatus == "CREATED" {
 			return true
 		}
@@ -343,7 +343,7 @@ func foundAvailableDrive(f *framework.Framework) (string, string, int64) {
 		acLocation, _, _ := unstructured.NestedString(el.UnstructuredContent(), "spec", "Location")
 		acSize, _, _ := unstructured.NestedInt64(el.UnstructuredContent(), "spec", "Size")
 		if acSize >= defaultACSize {
-			e2eframework.Logf("Found available capacity: Location - %s, Size - %d", acLocation, acSize)
+			framework.Logf("Found available capacity: Location - %s, Size - %d", acLocation, acSize)
 			driveUUID = acLocation
 			volumeSize = acSize
 			break
@@ -355,7 +355,7 @@ func foundAvailableDrive(f *framework.Framework) (string, string, int64) {
 		tempDriveUUID, _, _ := unstructured.NestedString(el.UnstructuredContent(), "spec", "UUID")
 		driveNode, _, _ := unstructured.NestedString(el.UnstructuredContent(), "spec", "NodeId")
 		if tempDriveUUID == driveUUID {
-			e2eframework.Logf("Drive %s is located on %s node", tempDriveUUID, driveNode)
+			framework.Logf("Drive %s is located on %s node", tempDriveUUID, driveNode)
 			driveNodeID = driveNode
 			break
 		}

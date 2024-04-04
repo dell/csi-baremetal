@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	e2eframework "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/framework"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
@@ -88,7 +88,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 	}
 
 	cleanup := func() {
-		e2eframework.Logf("Starting cleanup for test DriveHealthChange")
+		framework.Logf("Starting cleanup for test DriveHealthChange")
 		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
 	}
 
@@ -102,7 +102,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		acUnstructuredList := getUObjList(f, common.ACGVR)
 		// Save amount of ACs before drive's health changing
 		amountOfACBeforeDiskFailure := len(acUnstructuredList.Items)
-		e2eframework.Logf("found %d ac", amountOfACBeforeDiskFailure)
+		framework.Logf("found %d ac", amountOfACBeforeDiskFailure)
 
 		targetAC := acUnstructuredList.Items[0]
 		acLocation, _, err := unstructured.NestedString(targetAC.Object, "spec", "Location")
@@ -140,7 +140,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 			size, _, err := unstructured.NestedInt64(targetAC.Object, "spec", "Size")
 			framework.ExpectNoError(err)
 			if size == 0 {
-				e2eframework.Logf("AC size is 0")
+				framework.Logf("AC size is 0")
 				return
 			}
 			if time.Now().After(deadline) {
@@ -390,7 +390,7 @@ func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionR
 			result, _, err := unstructured.NestedString(drive.Object, fields...)
 			framework.ExpectNoError(err)
 			if result == expectedValue {
-				e2eframework.Logf("%s %s in expected state: %s", resource.Resource, name, expectedValue)
+				framework.Logf("%s %s in expected state: %s", resource.Resource, name, expectedValue)
 				return
 			}
 		}
@@ -440,10 +440,10 @@ func checkExpectedEventsExist(f *framework.Framework, object runtime.Object, eve
 			}
 		}
 		if !found {
-			e2eframework.Logf("expected event not found: %s", er)
+			framework.Logf("expected event not found: %s", er)
 			return false
 		}
 	}
-	e2eframework.Logf("all expected events found")
+	framework.Logf("all expected events found")
 	return true
 }

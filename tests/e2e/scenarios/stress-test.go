@@ -30,7 +30,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	e2eframework "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/framework"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
@@ -80,7 +80,7 @@ func driveStressTest(driver *baremetalDriver) {
 	}
 
 	cleanup := func() {
-		e2eframework.Logf("Starting cleanup for test StressTest")
+		framework.Logf("Starting cleanup for test StressTest")
 
 		ssPods, err := f.PodClientNS(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: fmt.Sprintf("sts=%s", stsName)})
 

@@ -26,7 +26,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	e2eframework "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/framework"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
@@ -70,7 +70,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 	}
 
 	cleanup := func() {
-		e2eframework.Logf("Starting cleanup for test NodeReboot")
+		framework.Logf("Starting cleanup for test NodeReboot")
 
 		if containerToStop != "" && !started {
 			_, _, err := executor.RunCmd(fmt.Sprintf("docker start %s", containerToStop))
@@ -96,7 +96,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
-		e2eframework.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
+		framework.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
 
 		// since test is run in Kind k8s cluster, each node is represented by docker container
 		// node' name is the same as a docker container name by which this node is represented.
@@ -128,7 +128,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 		// wait 5 minutes until all pods become ready
 		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 0, 0, 5*time.Minute, nil)
 		framework.ExpectNoError(err)
-		e2eframework.Logf("All pods are ready after node restart")
+		framework.Logf("All pods are ready after node restart")
 
 		// check that pod consume same pvc
 		var boundAgain = false
@@ -149,7 +149,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 				break
 			}
 		}
-		e2eframework.Logf("Pod has same PVC: %v", boundAgain)
+		framework.Logf("Pod has same PVC: %v", boundAgain)
 		framework.ExpectEqual(boundAgain, true)
 	})
 }

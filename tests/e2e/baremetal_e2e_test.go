@@ -22,15 +22,14 @@ import (
 	"testing"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
-	e2eframework "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/framework"
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
-	//_ "github.com/dell/csi-baremetal-e2e-tests/e2e/scenarios"
+	_ "github.com/dell/csi-baremetal-e2e-tests/e2e/scenarios"
 )
 
-//Use env to skip this test during go test ./...
+// Use env to skip this test during go test ./...
 func skipIfNotCI(t *testing.T) {
 	if os.Getenv("CI") != "true" {
 		t.Skip("Skipping testing in not CI environment")
