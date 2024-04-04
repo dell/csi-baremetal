@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/podlogs"
 )
@@ -65,10 +64,10 @@ func collectPodLogs(f *framework.Framework) func() {
 		log.Fatalf("error opening file: %v", err)
 	}
 	if err := podlogs.CopyAllLogs(ctx, cs, ns.Name, to); err != nil {
-		e2elog.Logf("Cant copy all pod logs: %s", err)
+		Logf("Cant copy all pod logs: %s", err)
 	}
 	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs, eventsLogs); err != nil {
-		e2elog.Logf("Cant copy all pod events: %s", err)
+		Logf("Cant copy all pod events: %s", err)
 	}
 	return func() {
 		_ = eventsLogs.Close()
@@ -124,7 +123,7 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 
 	cleanup := func() {
 		if err := executor.DeleteRelease(&chart); err != nil {
-			e2elog.Logf("CSI Operator helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
+			Logf("CSI Operator helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 	}
 
@@ -196,7 +195,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 					break
 				}
 				if time.Now().After(deadline) {
-					e2elog.Logf("Some csibmnodes or lvgs have not been deleted yet")
+					Logf("Some csibmnodes or lvgs have not been deleted yet")
 					printCRs(ctx, f, CsibmnodeGVR, LVGGVR)
 					break
 				}
@@ -204,7 +203,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
-			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
+			Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
 		if BMDriverTestContext.CompleteUninstall {
@@ -272,9 +271,9 @@ func printCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.GroupV
 	for _, gvr := range GVRs {
 		recources, err := f.DynamicClient.Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
 		if err != nil {
-			e2elog.Logf("Failed to get CR list %s: %s", gvr.String(), err.Error())
+			Logf("Failed to get CR list %s: %s", gvr.String(), err.Error())
 		}
-		e2elog.Logf("CR Type: %s", gvr.String())
+		Logf("CR Type: %s", gvr.String())
 		printCRList(recources.Items)
 	}
 }
@@ -283,7 +282,7 @@ func printCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.GroupV
 // Format: <name>string - <spec>map\n
 func printCRList(list []unstructured.Unstructured) {
 	for _, item := range list {
-		e2elog.Logf("%s - %v", item.Object["metadata"].(map[string]interface{})["name"], item.Object["spec"])
+		Logf("%s - %v", item.Object["metadata"].(map[string]interface{})["name"], item.Object["spec"])
 	}
 }
 
@@ -293,7 +292,7 @@ func removeCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.Group
 		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(ctx,
 			metav1.DeleteOptions{}, metav1.ListOptions{})
 		if err != nil {
-			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
+			Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
 		}
 	}
 }

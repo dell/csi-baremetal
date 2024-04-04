@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
@@ -128,7 +127,7 @@ func cleanNodeLabels(c clientset.Interface) {
 		if _, ok := node.Labels[label]; ok {
 			delete(node.Labels, label)
 			if _, err := c.CoreV1().Nodes().Update(context.TODO(), &node, metav1.UpdateOptions{}); err != nil {
-				e2elog.Logf("Error updating node: %s", err)
+				Logf("Error updating node: %s", err)
 			}
 		}
 	}

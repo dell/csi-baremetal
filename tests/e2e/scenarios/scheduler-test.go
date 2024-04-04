@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
@@ -101,12 +100,12 @@ func schedulingTest(driver *baremetalDriver) {
 	}
 
 	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test SchedulingTests")
+		Logf("Starting cleanup for test SchedulingTests")
 		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
 
 		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
 		if err != nil {
-			e2elog.Logf("Configmap %s deletion failed: %v", cmName, err)
+			Logf("Configmap %s deletion failed: %v", cmName, err)
 		}
 	}
 
@@ -264,7 +263,7 @@ func schedulingTest(driver *baremetalDriver) {
 			createTestPod([]string{"ANY"})
 		}
 		volumes := getVolumesByNodes(f)
-		e2elog.Logf("volumes by nodes %v", volumes)
+		Logf("volumes by nodes %v", volumes)
 
 		err := hostsNeedToHaveEqualNumberVolumes(volumes, 1)
 		framework.ExpectNoError(err)

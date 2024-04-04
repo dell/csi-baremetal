@@ -27,7 +27,6 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
@@ -112,12 +111,12 @@ func differentSCTypesTest(driver *baremetalDriver) {
 	}
 
 	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test DifferentScTest")
+		Logf("Starting cleanup for test DifferentScTest")
 		common.CleanupAfterCustomTest(f, driverCleanup, pods, pvcs)
 
 		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
 		if err != nil {
-			e2elog.Logf("Configmap %s deletion failed: %v", cmName, err)
+			Logf("Configmap %s deletion failed: %v", cmName, err)
 		}
 	}
 

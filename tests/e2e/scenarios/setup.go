@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
@@ -72,11 +72,11 @@ func skipIfNotAllTests() {
 
 func failTestIfTimeout() {
 	if common.BMDriverTestContext.NeedAllTests {
-		e2elog.Logf("Skip timeout due to all tests suite")
+		Logf("Skip timeout due to all tests suite")
 		return
 	}
 	if common.BMDriverTestContext.Timeout == 0 {
-		e2elog.Logf("Timeout is not set")
+		Logf("Timeout is not set")
 		return
 	}
 
