@@ -13,9 +13,9 @@ require (
 	github.com/onsi/gomega v1.30.0
 	github.com/sirupsen/logrus v1.9.3
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.29.0
-	k8s.io/apimachinery v0.29.0
-	k8s.io/client-go v0.29.0
+	k8s.io/api v0.29.3
+	k8s.io/apimachinery v0.29.3
+	k8s.io/client-go v0.29.3
 	k8s.io/kubernetes v1.29.3
 )
 
@@ -81,8 +81,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.48.0 // indirect
-	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/prometheus/common v0.52.2 // indirect
+	github.com/prometheus/procfs v0.13.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -125,14 +125,14 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.29.0 // indirect
-	k8s.io/apiserver v0.29.0 // indirect
+	k8s.io/apiserver v0.29.3 // indirect
 	k8s.io/cloud-provider v0.29.0 // indirect
-	k8s.io/component-base v0.29.0 // indirect
+	k8s.io/component-base v0.29.3 // indirect
 	k8s.io/component-helpers v0.29.0 // indirect
 	k8s.io/controller-manager v0.29.0 // indirect
 	k8s.io/csi-translation-lib v0.29.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kms v0.29.0 // indirect
+	k8s.io/kms v0.29.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/kubectl v0.29.0 // indirect
 	k8s.io/kubelet v0.29.0 // indirect
