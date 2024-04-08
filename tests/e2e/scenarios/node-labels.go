@@ -55,19 +55,19 @@ func labeledDeployTestSuite() {
 		installArgs        = setNodeSelectorArg + deployConfigArg
 	)
 
-	ginkgo.It("CSI should use label on nodes", func() {
+	ginkgo.It("CSI should use label on nodes", func(ctx context.Context) {
 		defer cleanNodeLabels(f.ClientSet)
 		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
 		//ctx, cancel := context.WithTimeout(context.Background(), ContextTimeout)
 		//defer cancel()
-		ctx := context.TODO()
+		
 
 		nodes := getWorkerNodes(f.ClientSet)
 		nodes[0].Labels[label] = tag
 		_, err := f.ClientSet.CoreV1().Nodes().Update(ctx, &nodes[0], metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 
-		driverCleanup, err := common.DeployCSIComponents(f, installArgs)
+		driverCleanup, err := common.DeployCSIComponents(ctx, f, installArgs)
 		defer driverCleanup()
 		framework.ExpectNoError(err)
 
@@ -98,8 +98,7 @@ func labeledDeployTestSuite() {
 			time.Sleep(time.Second * 3)
 		}
 
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
-			3*time.Minute, nil)
+		err = e2epod.WaitForPodsRunningReady(ctx, f.ClientSet, f.Namespace.Name, 0, 0, 3*time.Minute)
 		framework.ExpectNoError(err)
 	})
 }

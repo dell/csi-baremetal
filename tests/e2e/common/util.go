@@ -53,13 +53,13 @@ func GetExecutor() command.CmdExecutor {
 // This function deletes pods if were created during test. And waits for its correct deletion to perform
 // NodeUnpublish and NodeUnstage properly. Next it deletes PVC and waits for correctly deletion of bounded PV
 // to clear device for next tests (CSI performs wipefs during PV deletion). The last step is the deletion of driver.
-func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod []*corev1.Pod, pvc []*corev1.PersistentVolumeClaim) {
+func CleanupAfterCustomTest(ctx context.Context, f *framework.Framework, driverCleanupFn func(), pod []*corev1.Pod, pvc []*corev1.PersistentVolumeClaim) {
 	framework.Logf("Starting cleanup")
 	var err error
 
 	for _, p := range pod {
 		framework.Logf("Deleting Pod %s", p.Name)
-		err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Delete(context.TODO(), p.Name, metav1.DeleteOptions{})
+		err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Delete(ctx, p.Name, metav1.DeleteOptions{})
 		if err != nil {
 			if apierrs.IsNotFound(err) {
 				continue
@@ -69,7 +69,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 	}
 	for _, p := range pod {
 		framework.Logf("Wait up to %v for pod %q to be fully deleted", pode2e.PodDeleteTimeout, p.Name)
-		err = pode2e.WaitForPodNotFoundInNamespace(f.ClientSet, p.Name, f.Namespace.Name, time.Minute*2)
+		err = pode2e.WaitForPodNotFoundInNamespace(ctx, f.ClientSet, p.Name, f.Namespace.Name, time.Minute*2)
 		if err != nil {
 			framework.Logf("Failed to delete pod %s: %v", p.Name, err)
 		}
@@ -81,7 +81,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 		framework.Logf("Deleting PVC %s", claim.Name)
 		pv, _ := GetBoundPV(context.TODO(), f.ClientSet, claim)
 		// Get the bound PV
-		err := e2epv.DeletePersistentVolumeClaim(f.ClientSet, claim.Name, f.Namespace.Name)
+		err := e2epv.DeletePersistentVolumeClaim(ctx, f.ClientSet, claim.Name, f.Namespace.Name)
 		if err != nil {
 			framework.Logf("failed to delete pvc, error: %v", err)
 		}
@@ -93,13 +93,13 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 
 	// wait for pv deletion to clear devices for future tests
 	for _, pv := range pvs {
-		err = e2epv.WaitForPersistentVolumeDeleted(f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
+		err = e2epv.WaitForPersistentVolumeDeleted(ctx, f.ClientSet, pv.Name, 5*time.Second, 2*time.Minute)
 		if err != nil {
 			framework.Logf("unable to delete PV %s, ignore that error", pv.Name)
 		}
 	}
 	// wait for SC deletion
-	storageClasses, err := f.ClientSet.StorageV1().StorageClasses().List(context.TODO(), metav1.ListOptions{})
+	storageClasses, err := f.ClientSet.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		framework.Logf("failed to read SC list, error: %v", err)
 	} else {
@@ -107,7 +107,7 @@ func CleanupAfterCustomTest(f *framework.Framework, driverCleanupFn func(), pod 
 			if !strings.HasPrefix(sc.Name, f.Namespace.Name) {
 				continue
 			}
-			err = f.ClientSet.StorageV1().StorageClasses().Delete(context.TODO(), sc.Name, metav1.DeleteOptions{})
+			err = f.ClientSet.StorageV1().StorageClasses().Delete(ctx, sc.Name, metav1.DeleteOptions{})
 			if err != nil {
 				framework.Logf("failed to remove SC, error: %v", err)
 			}

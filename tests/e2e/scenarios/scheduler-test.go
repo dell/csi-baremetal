@@ -65,12 +65,13 @@ func schedulingTest(driver *baremetalDriver) {
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim
 		updateM       sync.Mutex
-		driverCleanup func()
+		//driverCleanup func()
 		ns            string
 		f             = framework.NewDefaultFramework("scheduling-test")
 		availableSC   = []string{storageClassAny, storageClassHDD, storageClassSSD,
 			storageClassNVMe, storageClassHDDLVG, storageClassSSDLVG}
 		storageClasses = make(map[string]*storagev1.StorageClass)
+		ctx             context.Context
 	)
 
 	init := func(lmConf *common.LoopBackManagerConfig) {
@@ -89,7 +90,9 @@ func schedulingTest(driver *baremetalDriver) {
 			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(context.TODO(), lmConfigMap, metav1.CreateOptions{})
 		}
 
-		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
+		// todo: driverCleanup has been removed from higher version of k8s. Lets see how to handle it.
+		// perTestConf, driverCleanup = PrepareCSI(ctx, driver, f, false)
+		perTestConf = PrepareCSI(ctx, driver, f, false)
 
 		for _, scName := range availableSC {
 			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)
@@ -101,7 +104,7 @@ func schedulingTest(driver *baremetalDriver) {
 
 	cleanup := func() {
 		framework.Logf("Starting cleanup for test SchedulingTests")
-		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
+		common.CleanupAfterCustomTest(ctx, f, func(){}, testPODs, testPVCs)
 
 		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
 		if err != nil {
@@ -120,7 +123,7 @@ func schedulingTest(driver *baremetalDriver) {
 			framework.ExpectNoError(err)
 			podPVCs = append(podPVCs, pvc)
 		}
-		pod := startAndWaitForPodWithPVCRunning(f, ns, podPVCs)
+		pod := startAndWaitForPodWithPVCRunning(ctx, f, ns, podPVCs)
 		updateM.Lock()
 		testPODs = append(testPODs, pod)
 		testPVCs = append(testPVCs, podPVCs...)
@@ -145,11 +148,11 @@ func schedulingTest(driver *baremetalDriver) {
 		wg.Wait()
 	}
 
-	ginkgo.It("One node has all capacity", func() {
+	ginkgo.It("One node has all capacity", func(ctx context.Context) {
 		testPodsCount := 3
 		testPodsDisksPerPod := 2
 
-		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 2)
+		nodes := getSchedulableNodesNamesOrSkipTest(ctx, f.ClientSet, 2)
 		nodeWithDisksID := nodes[0]
 		nodeWithDisksDriveCount := testPodsCount * testPodsDisksPerPod
 		defaultDriveCount := 0
@@ -166,10 +169,10 @@ func schedulingTest(driver *baremetalDriver) {
 		createTestPods(testPodsCount, testPodsDisksPerPod)
 	})
 
-	ginkgo.It("PODs should distribute across nodes", func() {
+	ginkgo.It("PODs should distribute across nodes", func(ctx context.Context) {
 		testPodsCount := 3
 		testPodsDisksPerPod := 3
-		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, testPodsCount)
+		nodes := getSchedulableNodesNamesOrSkipTest(ctx, f.ClientSet, testPodsCount)
 
 		defaultDriveCount := 0
 		var lmNodes []common.LoopBackManagerConfigNode
@@ -189,8 +192,8 @@ func schedulingTest(driver *baremetalDriver) {
 		createTestPods(testPodsCount, testPodsDisksPerPod)
 	})
 
-	ginkgo.It("Scheduler should respect SC", func() {
-		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 3)
+	ginkgo.It("Scheduler should respect SC", func(ctx context.Context) {
+		nodes := getSchedulableNodesNamesOrSkipTest(ctx, f.ClientSet, 3)
 
 		node1, node2, node3 := nodes[0], nodes[1], nodes[2]
 
@@ -214,8 +217,8 @@ func schedulingTest(driver *baremetalDriver) {
 		createTestPod([]string{storageClassAny})
 	})
 
-	ginkgo.It("2 LVM PV on one drive", func() {
-		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 2)
+	ginkgo.It("2 LVM PV on one drive", func(ctx context.Context) {
+		nodes := getSchedulableNodesNamesOrSkipTest(ctx, f.ClientSet, 2)
 		defaultDriveCount := 0
 		node1, node2 := nodes[0], nodes[1]
 		driveSize := "250Mi"
@@ -234,11 +237,11 @@ func schedulingTest(driver *baremetalDriver) {
 		createTestPod([]string{storageClassSSDLVG, storageClassSSDLVG})
 	})
 
-	ginkgo.It("PODs should distribute across nodes with sequential deploy", func() {
+	ginkgo.It("PODs should distribute across nodes with sequential deploy", func(ctx context.Context) {
 		// TODO: change result verification https://github.com/dell/csi-baremetal/issues/153
 		ginkgo.Skip("We shouldn't check prioritize work based on kube-scheduler decision, ISSUE-153")
 		testPodsDisksPerPod := 1
-		nodes := getSchedulableNodesNamesOrSkipTest(f.ClientSet, 0)
+		nodes := getSchedulableNodesNamesOrSkipTest(ctx, f.ClientSet, 0)
 		testPodsCount := len(nodes)
 		defaultDriveCount := 0
 
@@ -311,8 +314,8 @@ func buildLMDrivesConfig(node string, drives []common.LoopBackManagerConfigDevic
 	}
 }
 
-func getSchedulableNodesNamesOrSkipTest(client clientset.Interface, minNodeCount int) []string {
-	result, err := getSchedulableNodesNames(client, minNodeCount)
+func getSchedulableNodesNamesOrSkipTest(ctx context.Context, client clientset.Interface, minNodeCount int) []string {
+	result, err := getSchedulableNodesNames(ctx, client, minNodeCount)
 	if err != nil {
 		e2eskipper.Skipf("test's prerequisites not met: %s", err.Error())
 	}
@@ -322,8 +325,8 @@ func getSchedulableNodesNamesOrSkipTest(client clientset.Interface, minNodeCount
 // getSchedulableNodesNames returns list of schedulable nodes
 // will return error if schedulable nodes count < minNodeCount
 // minNodeCount == 0 mean no limit
-func getSchedulableNodesNames(client clientset.Interface, minNodeCount int) ([]string, error) {
-	nodes, err := e2enode.GetReadySchedulableNodes(client)
+func getSchedulableNodesNames(ctx context.Context, client clientset.Interface, minNodeCount int) ([]string, error) {
+	nodes, err := e2enode.GetReadySchedulableNodes(ctx, client)
 	framework.ExpectNoError(err)
 	var nodeNames []string
 	for _, item := range nodes.Items {

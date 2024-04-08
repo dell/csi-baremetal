@@ -79,15 +79,15 @@ func collectPodLogs(f *framework.Framework) func() {
 // and start print containers logs from framework namespace
 // returns cleanup function and error if failed
 // See DeployOperator and DeployCSI descriptions for more details
-func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (func(), error) {
+func DeployCSIComponents(ctx context.Context, f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	cancelLogging := collectPodLogs(f)
-	cleanupOperator, err := DeployOperator(f)
+	cleanupOperator, err := DeployOperator(f, ctx)
 	if err != nil {
 		cancelLogging()
 		return nil, err
 	}
 
-	cleanupCSI, err := DeployCSI(f, additionalInstallArgs)
+	cleanupCSI, err := DeployCSI(ctx, f, additionalInstallArgs)
 	if err != nil {
 		cancelLogging()
 		cleanupOperator()
@@ -108,7 +108,7 @@ func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (
 //
 //	--set image.tag=<OPERATOR_VERSION>
 //	--set image.pullPolicy=IfNotPresent"
-func DeployOperator(f *framework.Framework) (func(), error) {
+func DeployOperator(f *framework.Framework, ctx context.Context) (func(), error) {
 	var (
 		executor        = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: GetExecutor()}
 		operatorVersion = os.Getenv(operatorVersionEnv)
@@ -132,7 +132,7 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 		return nil, err
 	}
 
-	if err := e2epod.WaitForPodsRunningReady(f.ClientSet, chart.namespace, 0, 0, waitTime, nil); err != nil {
+	if err := e2epod.WaitForPodsRunningReady(ctx, f.ClientSet, chart.namespace, 0, 0, waitTime); err != nil {
 		cleanup()
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 //	--set scheduler.patcher.readinessTimeout=(3) - se readiness probe has a race - kube-scheduler restores for a long time after unpatching
 //													override default value here to force patching repeating
 //													if kube-scheduler is not restarted
-func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), error) {
+func DeployCSI(ctx context.Context, f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		cmdExecutor  = GetExecutor()
 		helmExecutor = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: cmdExecutor}
@@ -223,7 +223,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	// wait until operator reconciling CR
 	time.Sleep(sleepBeforeWait)
 
-	if err := e2epod.WaitForPodsRunningReady(f.ClientSet, chart.namespace, 0, 0, podWait, nil); err != nil {
+	if err := e2epod.WaitForPodsRunningReady(ctx, f.ClientSet, chart.namespace, 0, 0, podWait); err != nil {
 		cleanup()
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func CleanupLoopbackDevices(ctx context.Context, f *framework.Framework) error {
 		return err
 	}
 	for _, podName := range podNames {
-		stdout, stderr, err := f.ExecCommandInContainerWithFullOutput(podName, "drivemgr", "/bin/kill", "-SIGHUP", "1")
+		stdout, stderr, err := e2epod.ExecCommandInContainerWithFullOutput(f, podName, "drivemgr", "/bin/kill", "-SIGHUP", "1")
 		framework.Logf("Delete loopdevices in pod %s, stdout: %s, stderr: %s, err: %w", podName, stdout, stderr, err)
 	}
 	return nil

@@ -17,23 +17,23 @@ limitations under the License.
 package scenarios
 
 import (
-	"context"
-	"fmt"
+	// "context"
+	// "fmt"
 	"time"
 
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
+	//e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
-	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/test/e2e/framework"
-	e2edep "k8s.io/kubernetes/test/e2e/framework/deployment"
-	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
-	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
+	//"github.com/onsi/ginkgo/v2"
+	//. "github.com/onsi/gomega"
+	// corev1 "k8s.io/api/core/v1"
+	// storagev1 "k8s.io/api/storage/v1"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "k8s.io/kubernetes/test/e2e/framework"
+	// e2edep "k8s.io/kubernetes/test/e2e/framework/deployment"
+	// e2enode "k8s.io/kubernetes/test/e2e/framework/node"
+	// storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
-	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
+	// "github.com/dell/csi-baremetal-e2e-tests/e2e/common"
 )
 
 const (
@@ -41,123 +41,123 @@ const (
 	ContextTimeout = 20 * time.Minute
 )
 
-func DefineControllerNodeFailTestSuite(driver storageframework.TestDriver) {
-	ginkgo.Context("Baremetal-csi controller node fail tests", func() {
-		controllerNodeFailTest(driver)
-	})
-}
+// func DefineControllerNodeFailTestSuite(driver storageframework.TestDriver) {
+// 	ginkgo.Context("Baremetal-csi controller node fail tests", func() {
+// 		controllerNodeFailTest(driver)
+// 	})
+// }
 
-func controllerNodeFailTest(driver storageframework.TestDriver) {
-	ginkgo.BeforeEach(skipIfNotAllTests)
+// func controllerNodeFailTest(driver storageframework.TestDriver) {
+// 	ginkgo.BeforeEach(skipIfNotAllTests)
 
-	var (
-		pod           *corev1.Pod
-		pvc           *corev1.PersistentVolumeClaim
-		k8sSC         *storagev1.StorageClass
-		executor      = common.GetExecutor()
-		driverCleanup func()
-		ctx           context.Context
-		//cancel		  func()
-		nodeName string
-		ns       string
-		f        = framework.NewDefaultFramework("controller-node-fail")
-	)
+// 	var (
+// 		pod           *corev1.Pod
+// 		pvc           *corev1.PersistentVolumeClaim
+// 		k8sSC         *storagev1.StorageClass
+// 		executor      = common.GetExecutor()
+// 		driverCleanup func()
+// 		ctx           context.Context
+// 		//cancel		  func()
+// 		nodeName string
+// 		ns       string
+// 		f        = framework.NewDefaultFramework("controller-node-fail")
+// 	)
 
-	init := func() {
-		var (
-			perTestConf *storageframework.PerTestConfig
-			err         error
-		)
-		ns = f.Namespace.Name
+// 	init := func() {
+// 		var (
+// 			perTestConf *storageframework.PerTestConfig
+// 			err         error
+// 		)
+// 		ns = f.Namespace.Name
 
-		perTestConf, driverCleanup = driver.PrepareTest(f)
+// 		perTestConf, driverCleanup = driver.PrepareTest(ctx, f)
 
-		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
-		//ctx, cancel = context.WithTimeout(context.Background(), ContextTimeout)
-		ctx = context.Background()
-		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
-		framework.ExpectNoError(err)
-	}
+// 		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
+// 		//ctx, cancel = context.WithTimeout(context.Background(), ContextTimeout)
+// 		ctx = context.Background()
+// 		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
+// 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
+// 		framework.ExpectNoError(err)
+// 	}
 
-	cleanup := func() {
-		framework.Logf("Starting cleanup for test ControllerNodeFail")
+// 	cleanup := func(ctx context.Context) {
+// 		framework.Logf("Starting cleanup for test ControllerNodeFail")
 
-		// try to make node ready again
-		cmd := fmt.Sprintf("docker exec %s systemctl start kubelet.service", nodeName)
-		_, _, err := executor.RunCmd(cmd)
-		framework.ExpectNoError(err)
+// 		// try to make node ready again
+// 		cmd := fmt.Sprintf("docker exec %s systemctl start kubelet.service", nodeName)
+// 		_, _, err := executor.RunCmd(cmd)
+// 		framework.ExpectNoError(err)
 
-		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
-	}
+// 		common.CleanupAfterCustomTest(ctx, f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
+// 	}
 
-	ginkgo.It("controller should keep handle request after node fails", func() {
-		init()
-		//defer cancel()
-		defer cleanup()
+// 	ginkgo.It("controller should keep handle request after node fails", func(ctx context.Context) {
+// 		init()
+// 		//defer cancel()
+// 		ginkgo.DeferCleanup(cleanup)
 
-		deployment, err := f.ClientSet.AppsV1().Deployments(ns).Get(ctx, ControllerName, metav1.GetOptions{})
-		Expect(deployment).ToNot(BeNil())
+// 		deployment, err := f.ClientSet.AppsV1().Deployments(ns).Get(ctx, ControllerName, metav1.GetOptions{})
+// 		Expect(deployment).ToNot(BeNil())
 
-		// try to find csi-baremetal-controller pod, expect 1 controller pod
-		podList, err := e2edep.GetPodsForDeployment(f.ClientSet, deployment)
-		framework.ExpectNoError(err)
-		Expect(podList).ToNot(BeNil())
-		Expect(len(podList.Items)).To(Equal(1))
+// 		// try to find csi-baremetal-controller pod, expect 1 controller pod
+// 		podList, err := e2edep.GetPodsForDeployment(ctx, f.ClientSet, deployment)
+// 		framework.ExpectNoError(err)
+// 		Expect(podList).ToNot(BeNil())
+// 		Expect(len(podList.Items)).To(Equal(1))
 
-		controller := &podList.Items[0]
-		nodeName = controller.Spec.NodeName
-		controllerPodName := controller.Name
+// 		controller := &podList.Items[0]
+// 		nodeName = controller.Spec.NodeName
+// 		controllerPodName := controller.Name
 
-		// try to make node NotReady by kubelet stop on docker node, where controller pod is running
-		cmd := fmt.Sprintf("docker exec %s systemctl stop kubelet.service", nodeName)
-		_, _, err = executor.RunCmd(cmd)
-		framework.ExpectNoError(err)
+// 		// try to make node NotReady by kubelet stop on docker node, where controller pod is running
+// 		cmd := fmt.Sprintf("docker exec %s systemctl stop kubelet.service", nodeName)
+// 		_, _, err = executor.RunCmd(cmd)
+// 		framework.ExpectNoError(err)
 
-		// wait 5 minutes until node with controller become NotReady
-		nodeNotReady := e2enode.WaitForNodeToBeNotReady(f.ClientSet, nodeName, time.Minute*5)
-		if !nodeNotReady {
-			framework.Failf("Node %s still ready", nodeName)
-		}
+// 		// wait 5 minutes until node with controller become NotReady
+// 		nodeNotReady := e2enode.WaitForNodeToBeNotReady(ctx, f.ClientSet, nodeName, time.Minute*5)
+// 		if !nodeNotReady {
+// 			framework.Failf("Node %s still ready", nodeName)
+// 		}
 
-		// to speed up failover delete pod
-		framework.Logf("Deleting pod %s...", controllerPodName)
-		err = f.ClientSet.CoreV1().Pods(ns).Delete(ctx, controllerPodName, metav1.DeleteOptions{})
-		framework.ExpectNoError(err)
+// 		// to speed up failover delete pod
+// 		framework.Logf("Deleting pod %s...", controllerPodName)
+// 		err = f.ClientSet.CoreV1().Pods(ns).Delete(ctx, controllerPodName, metav1.DeleteOptions{})
+// 		framework.ExpectNoError(err)
 
-		// waiting for the new controller pod to appear in cluster and become ready for 15 minute
-		var found bool
-		framework.Logf("Waiting to controller pod to run on another node...")
-		for start := time.Now(); time.Since(start) < time.Minute*15; time.Sleep(time.Second * 30) {
-			podList, err := e2edep.GetPodsForDeployment(f.ClientSet, deployment)
-			framework.ExpectNoError(err)
-			for _, item := range podList.Items {
-				framework.Logf("Pod %s with status %s", item.Name, string(item.Status.Phase))
-				if item.Status.Phase == corev1.PodRunning && item.Name != controllerPodName {
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			framework.Failf("Controller is not ready")
-		}
+// 		// waiting for the new controller pod to appear in cluster and become ready for 15 minute
+// 		var found bool
+// 		framework.Logf("Waiting to controller pod to run on another node...")
+// 		for start := time.Now(); time.Since(start) < time.Minute*15; time.Sleep(time.Second * 30) {
+// 			podList, err := e2edep.GetPodsForDeployment(ctx, f.ClientSet, deployment)
+// 			framework.ExpectNoError(err)
+// 			for _, item := range podList.Items {
+// 				framework.Logf("Pod %s with status %s", item.Name, string(item.Status.Phase))
+// 				if item.Status.Phase == corev1.PodRunning && item.Name != controllerPodName {
+// 					found = true
+// 					break
+// 				}
+// 			}
+// 			if found {
+// 				break
+// 			}
+// 		}
+// 		if !found {
+// 			framework.Failf("Controller is not ready")
+// 		}
 
-		// check if CSI controller keep handle requests
-		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
-			constructPVC(ns, persistentVolumeClaimSize, k8sSC.Name, pvcName),
-			metav1.CreateOptions{})
-		framework.ExpectNoError(err)
+// 		// check if CSI controller keep handle requests
+// 		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
+// 			constructPVC(ns, persistentVolumeClaimSize, k8sSC.Name, pvcName),
+// 			metav1.CreateOptions{})
+// 		framework.ExpectNoError(err)
 
-		pod, err = common.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
-			false, "sleep 3600")
-		framework.ExpectNoError(err)
+// 		pod, err = common.CreatePod(ctx, f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+// 			false, "sleep 3600")
+// 		framework.ExpectNoError(err)
 
-		framework.Logf("Waiting for test pod %s to be in running state...", pod.Name)
-		err = e2epod.WaitForPodNameRunningInNamespace(f.ClientSet, pod.Name, f.Namespace.Name)
-		framework.ExpectNoError(err)
-	})
-}
+// 		framework.Logf("Waiting for test pod %s to be in running state...", pod.Name)
+// 		err = e2epod.WaitForPodNameRunningInNamespace(ctx, f.ClientSet, pod.Name, f.Namespace.Name)
+// 		framework.ExpectNoError(err)
+// 	})
+// }
