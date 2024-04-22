@@ -62,16 +62,15 @@ func schedulingTest(driver *baremetalDriver) {
 	ginkgo.BeforeEach(skipIfNotAllTests)
 
 	var (
-		testPODs      []*corev1.Pod
-		testPVCs      []*corev1.PersistentVolumeClaim
-		updateM       sync.Mutex
-		//driverCleanup func()
-		ns            string
-		f             = framework.NewDefaultFramework("scheduling-test")
-		availableSC   = []string{storageClassAny, storageClassHDD, storageClassSSD,
+		testPODs       []*corev1.Pod
+		testPVCs       []*corev1.PersistentVolumeClaim
+		updateM        sync.Mutex
+		ctx            context.Context
+		ns             string
+		f              = framework.NewDefaultFramework("scheduling-test")
+		availableSC    = []string{storageClassAny, storageClassHDD, storageClassSSD,
 			storageClassNVMe, storageClassHDDLVG, storageClassSSDLVG}
 		storageClasses = make(map[string]*storagev1.StorageClass)
-		ctx             context.Context
 	)
 
 	init := func(lmConf *common.LoopBackManagerConfig) {
@@ -79,8 +78,9 @@ func schedulingTest(driver *baremetalDriver) {
 			perTestConf *storageframework.PerTestConfig
 			err         error
 		)
-
 		ns = f.Namespace.Name
+		ctx = context.Background()
+
 		testPODs, testPVCs = nil, nil
 		storageClasses = make(map[string]*storagev1.StorageClass)
 

@@ -103,12 +103,11 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		if pattern.VolMode == corev1.PersistentVolumeBlock {
 			e2eskipper.Skipf("Should skip tests in short CI suite -- skipping")
 		}
-		
-		// TODO: uncomment after fix
-		// // Skip volume expand tests in short CI
-		// if pattern == storageframework.DefaultFsDynamicPVAllowExpansion {
-		// 	e2eskipper.Skipf("Should skip volume expand tests in short CI suite - skipping")
-		// }
+
+		// Skip volume expand tests in short CI
+		if pattern.Name == storageframework.DefaultFsDynamicPVAllowExpansion.Name {
+			e2eskipper.Skipf("Should skip volume expand tests in short CI suite - skipping")
+		}
 
 		// We have volume and exec pvc test for default fs (equals to xfs) in short CI
 		// Not need to perform them for other filesystems
@@ -156,8 +155,6 @@ func PrepareCSI(ctx context.Context, d *baremetalDriver, f *framework.Framework,
 	cleanup, err := common.DeployCSIComponents(ctx, f, installArgs)
 	framework.ExpectNoError(err)
 
-	// master: https://github.com/kubernetes/kubernetes/blob/master/test/e2e/storage/drivers/in_tree.go
-	// 1.25: https://github.com/kubernetes/kubernetes/blob/release-1.25/test/e2e/storage/drivers/in_tree.go
 	testConf := &storageframework.PerTestConfig{
 		Driver:    d,
 		Prefix:    "baremetal",
