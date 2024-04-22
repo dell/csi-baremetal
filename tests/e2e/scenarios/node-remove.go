@@ -100,7 +100,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 
 	ginkgo.It("CSI node resources should be deleted after node removal", func(ctx context.Context) {
 		init()
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		var err error
 		// create pvc

@@ -84,7 +84,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 
 	ginkgo.It("Pod should consume same PVC after node with it was rebooted", func(ctx context.Context) {
 		init()
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		var err error
 		// create pvc
