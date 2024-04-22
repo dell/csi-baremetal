@@ -98,7 +98,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		framework.ExpectNoError(err)
 
 		configMap := constructLoopbackConfigWithDriveType(ns, nodes.Items, driverType)
-		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(context.TODO(), configMap, metav1.CreateOptions{})
+		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(ctx, configMap, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		perTestConf = PrepareCSI(ctx, driver, f, false)
@@ -107,7 +107,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		if isNeedBlockPartitioned {
 			addRawBlockPartitionedParameter(k8sSC)
 		}
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 

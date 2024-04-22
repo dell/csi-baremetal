@@ -84,7 +84,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		perTestConf = driver.PrepareTest(ctx, f)
 
 		k8sSC = driver.GetDynamicProvisionStorageClass(ctx, perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
@@ -158,7 +158,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 
 		ginkgo.DeferCleanup(cleanup)
 		// Create test pvc on the cluster
-		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
+		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
 			constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
@@ -171,7 +171,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		testPODs = append(testPODs, pod)
 
 		// Get Volume CRs and save variables to identify on which drive the pod's Volume based on
-		volumesUnstructuredList, _ := f.DynamicClient.Resource(common.VolumeGVR).List(context.TODO(), metav1.ListOptions{})
+		volumesUnstructuredList, _ := f.DynamicClient.Resource(common.VolumeGVR).List(ctx, metav1.ListOptions{})
 		targetVolume := volumesUnstructuredList.Items[0]
 		location, _, err := unstructured.NestedString(targetVolume.Object, "spec", "Location")
 		framework.ExpectNoError(err)

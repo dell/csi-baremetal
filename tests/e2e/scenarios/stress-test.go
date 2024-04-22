@@ -103,7 +103,7 @@ func driveStressTest(driver *baremetalDriver) {
 
 		wg.Wait()
 
-		pvcList, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).List(context.TODO(), metav1.ListOptions{})
+		pvcList, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).List(ctx, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 		pvcPointersList := make([]*corev1.PersistentVolumeClaim, len(pvcList.Items))
 		for i, _ := range pvcList.Items {
@@ -119,10 +119,10 @@ func driveStressTest(driver *baremetalDriver) {
 
 		ss := CreateStressTestStatefulSet(ns, int32(amountOfCSINodes), 3, k8sSC.Name,
 			driver.GetClaimSize())
-		ss, err := f.ClientSet.AppsV1().StatefulSets(ns).Create(context.TODO(), ss, metav1.CreateOptions{})
+		ss, err := f.ClientSet.AppsV1().StatefulSets(ns).Create(ctx, ss, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = common.WaitForStatefulSetReplicasReady(context.TODO(), ss.Name, ns, f.ClientSet, 20*time.Second, 10*time.Minute)
+		err = common.WaitForStatefulSetReplicasReady(ctx, ss.Name, ns, f.ClientSet, 20*time.Second, 10*time.Minute)
 		framework.ExpectNoError(err)
 	})
 }

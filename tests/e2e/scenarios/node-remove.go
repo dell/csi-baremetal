@@ -104,7 +104,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 
 		var err error
 		// create pvc
-		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
+		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
 			constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)

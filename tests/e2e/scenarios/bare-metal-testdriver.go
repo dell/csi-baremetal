@@ -184,7 +184,7 @@ func (d *baremetalDriver) PrepareTest(ctx context.Context, f *framework.Framewor
 	if f.BaseName == volumeExpandTag {
 		utils.StartPodLogs(ctx, f, f.Namespace)
 		cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
-		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.TODO(), cm, metav1.CreateOptions{})
+		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(ctx, cm, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 		deployConfig = false
 	}
@@ -259,7 +259,7 @@ type CSIVolume struct {
 
 func (v *CSIVolume) DeleteVolume(ctx context.Context) {
 	framework.Logf("Delete volume %s", v.volName)
-	err := v.f.DynamicClient.Resource(common.VolumeGVR).Namespace(v.f.Namespace.Name).Delete(context.TODO(), v.volName, metav1.DeleteOptions{})
+	err := v.f.DynamicClient.Resource(common.VolumeGVR).Namespace(v.f.Namespace.Name).Delete(ctx, v.volName, metav1.DeleteOptions{})
 	framework.ExpectNoError(err)
 }
 
@@ -269,7 +269,7 @@ func (d *baremetalDriver) CreateVolume(ctx context.Context, config *storageframe
 	ns := f.Namespace.Name
 
 	driveUUID, driveNodeID, volumeSize := foundAvailableDrive(f)
-	vol, err := config.Framework.DynamicClient.Resource(common.VolumeGVR).Namespace(ns).Create(context.TODO(),
+	vol, err := config.Framework.DynamicClient.Resource(common.VolumeGVR).Namespace(ns).Create(ctx,
 		constructVolume(volumeSize, driveUUID, driveNodeID, ns), metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 

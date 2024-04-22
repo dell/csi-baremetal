@@ -87,7 +87,7 @@ func schedulingTest(driver *baremetalDriver) {
 		if lmConf != nil {
 			lmConfigMap, err := common.BuildLoopBackManagerConfigMap(ns, cmName, *lmConf)
 			framework.ExpectNoError(err)
-			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(context.TODO(), lmConfigMap, metav1.CreateOptions{})
+			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(ctx, lmConfigMap, metav1.CreateOptions{})
 		}
 
 		// todo: driverCleanup has been removed from higher version of k8s. Lets see how to handle it.
@@ -96,7 +96,7 @@ func schedulingTest(driver *baremetalDriver) {
 
 		for _, scName := range availableSC {
 			sc := driver.GetStorageClassWithStorageType(perTestConf, scName)
-			sc, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), sc, metav1.CreateOptions{})
+			sc, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, sc, metav1.CreateOptions{})
 			framework.ExpectNoError(err)
 			storageClasses[scName] = sc
 		}
@@ -106,7 +106,7 @@ func schedulingTest(driver *baremetalDriver) {
 		framework.Logf("Starting cleanup for test SchedulingTests")
 		common.CleanupAfterCustomTest(ctx, f, func(){}, testPODs, testPVCs)
 
-		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
+		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(ctx, cmName, metav1.DeleteOptions{})
 		if err != nil {
 			framework.Logf("Configmap %s deletion failed: %v", cmName, err)
 		}
@@ -117,7 +117,7 @@ func schedulingTest(driver *baremetalDriver) {
 		for _, scKey := range podSCList {
 			sc := storageClasses[scKey]
 			pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(
-				context.TODO(),
+				ctx,
 				constructPVC(ns, driver.GetClaimSize(), sc.Name, pvcName+"-"+uuid.New().String()),
 				metav1.CreateOptions{})
 			framework.ExpectNoError(err)
