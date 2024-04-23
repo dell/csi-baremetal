@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/podlogs"
 )
@@ -65,10 +64,10 @@ func collectPodLogs(f *framework.Framework) func() {
 		log.Fatalf("error opening file: %v", err)
 	}
 	if err := podlogs.CopyAllLogs(ctx, cs, ns.Name, to); err != nil {
-		e2elog.Logf("Cant copy all pod logs: %s", err)
+		framework.Logf("Cant copy all pod logs: %s", err)
 	}
 	if err := podlogs.WatchPods(ctx, cs, ns.Name, eventsLogs, eventsLogs); err != nil {
-		e2elog.Logf("Cant copy all pod events: %s", err)
+		framework.Logf("Cant copy all pod events: %s", err)
 	}
 	return func() {
 		_ = eventsLogs.Close()
@@ -80,15 +79,15 @@ func collectPodLogs(f *framework.Framework) func() {
 // and start print containers logs from framework namespace
 // returns cleanup function and error if failed
 // See DeployOperator and DeployCSI descriptions for more details
-func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (func(), error) {
+func DeployCSIComponents(ctx context.Context, f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	cancelLogging := collectPodLogs(f)
-	cleanupOperator, err := DeployOperator(f)
+	cleanupOperator, err := DeployOperator(f, ctx)
 	if err != nil {
 		cancelLogging()
 		return nil, err
 	}
 
-	cleanupCSI, err := DeployCSI(f, additionalInstallArgs)
+	cleanupCSI, err := DeployCSI(ctx, f, additionalInstallArgs)
 	if err != nil {
 		cancelLogging()
 		cleanupOperator()
@@ -106,9 +105,10 @@ func DeployCSIComponents(f *framework.Framework, additionalInstallArgs string) (
 // After install - waiting before all pods ready
 // Cleanup - deleting operator-chart and csi crds
 // Helm command - "helm install csi-baremetal-operator <CHARTS_DIR>/csi-baremetal-operator
-// 			--set image.tag=<OPERATOR_VERSION>
-//			--set image.pullPolicy=IfNotPresent"
-func DeployOperator(f *framework.Framework) (func(), error) {
+//
+//	--set image.tag=<OPERATOR_VERSION>
+//	--set image.pullPolicy=IfNotPresent"
+func DeployOperator(f *framework.Framework, ctx context.Context) (func(), error) {
 	var (
 		executor        = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: GetExecutor()}
 		operatorVersion = os.Getenv(operatorVersionEnv)
@@ -124,7 +124,7 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 
 	cleanup := func() {
 		if err := executor.DeleteRelease(&chart); err != nil {
-			e2elog.Logf("CSI Operator helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
+			framework.Logf("CSI Operator helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 	}
 
@@ -132,7 +132,7 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 		return nil, err
 	}
 
-	if err := e2epod.WaitForPodsRunningReady(f.ClientSet, chart.namespace, 0, 0, waitTime, nil); err != nil {
+	if err := e2epod.WaitForPodsRunningReady(ctx, f.ClientSet, chart.namespace, 0, 0, waitTime); err != nil {
 		cleanup()
 		return nil, err
 	}
@@ -144,16 +144,17 @@ func DeployOperator(f *framework.Framework) (func(), error) {
 // After install - waiting all pods ready, checking kubernetes-scheduler restart
 // Cleanup - deleting csi-chart, cleaning all csi custom resources
 // Helm command - helm install csi-baremetal <CHARTS_DIR>/csi-baremetal-deployment
-// 			--set image.tag=<CSI_VERSION>
-//			--set image.pullPolicy=IfNotPresent - due to kind
-//			--set driver.drivemgr.type=loopbackmgr
-//			--set scheduler.log.level=debug
-//			--set nodeController.log.level=debug
-//			--set driver.log.level=debug
-//			--set scheduler.patcher.readinessTimeout=(3) - se readiness probe has a race - kube-scheduler restores for a long time after unpatching
-//															override default value here to force patching repeating
-//															if kube-scheduler is not restarted
-func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), error) {
+//
+//	--set image.tag=<CSI_VERSION>
+//	--set image.pullPolicy=IfNotPresent - due to kind
+//	--set driver.drivemgr.type=loopbackmgr
+//	--set scheduler.log.level=debug
+//	--set nodeController.log.level=debug
+//	--set driver.log.level=debug
+//	--set scheduler.patcher.readinessTimeout=(3) - se readiness probe has a race - kube-scheduler restores for a long time after unpatching
+//													override default value here to force patching repeating
+//													if kube-scheduler is not restarted
+func DeployCSI(ctx context.Context, f *framework.Framework, additionalInstallArgs string) (func(), error) {
 	var (
 		cmdExecutor  = GetExecutor()
 		helmExecutor = CmdHelmExecutor{kubeconfig: framework.TestContext.KubeConfig, executor: cmdExecutor}
@@ -196,7 +197,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 					break
 				}
 				if time.Now().After(deadline) {
-					e2elog.Logf("Some csibmnodes or lvgs have not been deleted yet")
+					framework.Logf("Some csibmnodes or lvgs have not been deleted yet")
 					printCRs(ctx, f, CsibmnodeGVR, LVGGVR)
 					break
 				}
@@ -204,7 +205,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 		}
 
 		if err := helmExecutor.DeleteRelease(&chart); err != nil {
-			e2elog.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
+			framework.Logf("CSI Deployment helm chart deletion failed. Name: %s, namespace: %s", chart.name, chart.namespace)
 		}
 
 		if BMDriverTestContext.CompleteUninstall {
@@ -222,7 +223,7 @@ func DeployCSI(f *framework.Framework, additionalInstallArgs string) (func(), er
 	// wait until operator reconciling CR
 	time.Sleep(sleepBeforeWait)
 
-	if err := e2epod.WaitForPodsRunningReady(f.ClientSet, chart.namespace, 0, 0, podWait, nil); err != nil {
+	if err := e2epod.WaitForPodsRunningReady(ctx, f.ClientSet, chart.namespace, 0, 0, podWait); err != nil {
 		cleanup()
 		return nil, err
 	}
@@ -241,7 +242,7 @@ func CleanupLoopbackDevices(ctx context.Context, f *framework.Framework) error {
 		return err
 	}
 	for _, podName := range podNames {
-		stdout, stderr, err := f.ExecCommandInContainerWithFullOutput(podName, "drivemgr", "/bin/kill", "-SIGHUP", "1")
+		stdout, stderr, err := e2epod.ExecCommandInContainerWithFullOutput(f, podName, "drivemgr", "/bin/kill", "-SIGHUP", "1")
 		framework.Logf("Delete loopdevices in pod %s, stdout: %s, stderr: %s, err: %w", podName, stdout, stderr, err)
 	}
 	return nil
@@ -272,9 +273,9 @@ func printCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.GroupV
 	for _, gvr := range GVRs {
 		recources, err := f.DynamicClient.Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
 		if err != nil {
-			e2elog.Logf("Failed to get CR list %s: %s", gvr.String(), err.Error())
+			framework.Logf("Failed to get CR list %s: %s", gvr.String(), err.Error())
 		}
-		e2elog.Logf("CR Type: %s", gvr.String())
+		framework.Logf("CR Type: %s", gvr.String())
 		printCRList(recources.Items)
 	}
 }
@@ -283,7 +284,7 @@ func printCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.GroupV
 // Format: <name>string - <spec>map\n
 func printCRList(list []unstructured.Unstructured) {
 	for _, item := range list {
-		e2elog.Logf("%s - %v", item.Object["metadata"].(map[string]interface{})["name"], item.Object["spec"])
+		framework.Logf("%s - %v", item.Object["metadata"].(map[string]interface{})["name"], item.Object["spec"])
 	}
 }
 
@@ -293,7 +294,7 @@ func removeCRs(ctx context.Context, f *framework.Framework, GVRs ...schema.Group
 		err := f.DynamicClient.Resource(gvr).Namespace("").DeleteCollection(ctx,
 			metav1.DeleteOptions{}, metav1.ListOptions{})
 		if err != nil {
-			e2elog.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
+			framework.Logf("Failed to clean CR %s: %s", gvr.String(), err.Error())
 		}
 	}
 }

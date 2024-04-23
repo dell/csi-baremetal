@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
-
 	"github.com/onsi/ginkgo/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
@@ -56,7 +54,7 @@ func driveStressTest(driver *baremetalDriver) {
 
 	var (
 		k8sSC            *storagev1.StorageClass
-		driverCleanup    func()
+		ctx              context.Context
 		ns               string
 		f                = framework.NewDefaultFramework("stress")
 		amountOfCSINodes int
@@ -68,24 +66,25 @@ func driveStressTest(driver *baremetalDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
+		ctx = context.Background()
 
-		perTestConf, driverCleanup = driver.PrepareTest(f)
+		perTestConf = driver.PrepareTest(ctx, f)
 
-		nodes, err := e2enode.GetReadySchedulableNodes(f.ClientSet)
+		nodes, err := e2enode.GetReadySchedulableNodes(ctx, f.ClientSet)
 		framework.ExpectNoError(err)
 		amountOfCSINodes = len(nodes.Items)
 
-		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
+		k8sSC = driver.GetDynamicProvisionStorageClass(ctx, perTestConf, "xfs")
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
-	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test StressTest")
+	cleanup := func(ctx context.Context) {
+		framework.Logf("Starting cleanup for test StressTest")
 
-		ssPods, err := f.PodClientNS(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: fmt.Sprintf("sts=%s", stsName)})
+		ssPods, err := e2epod.PodClientNS(f, ns).List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("sts=%s", stsName)})
 
-		err = f.ClientSet.AppsV1().StatefulSets(ns).Delete(context.TODO(), stsName, metav1.DeleteOptions{})
+		err = f.ClientSet.AppsV1().StatefulSets(ns).Delete(ctx, stsName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
 		var wg sync.WaitGroup
@@ -97,33 +96,33 @@ func driveStressTest(driver *baremetalDriver) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err = e2epod.WaitForPodNotFoundInNamespace(f.ClientSet, podCopy.Name, f.Namespace.Name, 2*time.Minute)
+				err = e2epod.WaitForPodNotFoundInNamespace(ctx, f.ClientSet, podCopy.Name, f.Namespace.Name, 2*time.Minute)
 				framework.ExpectNoError(err)
 			}()
 		}
 
 		wg.Wait()
 
-		pvcList, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).List(context.TODO(), metav1.ListOptions{})
+		pvcList, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).List(ctx, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 		pvcPointersList := make([]*corev1.PersistentVolumeClaim, len(pvcList.Items))
 		for i, _ := range pvcList.Items {
 			pvcPointersList[i] = &pvcList.Items[i]
 		}
 
-		common.CleanupAfterCustomTest(f, driverCleanup, nil, pvcPointersList)
+		common.CleanupAfterCustomTest(ctx, f, nil, nil, pvcPointersList)
 	}
 
-	ginkgo.It("should serve StatefulSet on multi node cluster", func() {
+	ginkgo.It("should serve StatefulSet on multi node cluster", func(ctx context.Context) {
 		init()
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		ss := CreateStressTestStatefulSet(ns, int32(amountOfCSINodes), 3, k8sSC.Name,
 			driver.GetClaimSize())
-		ss, err := f.ClientSet.AppsV1().StatefulSets(ns).Create(context.TODO(), ss, metav1.CreateOptions{})
+		ss, err := f.ClientSet.AppsV1().StatefulSets(ns).Create(ctx, ss, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = common.WaitForStatefulSetReplicasReady(context.TODO(), ss.Name, ns, f.ClientSet, 20*time.Second, 10*time.Minute)
+		err = common.WaitForStatefulSetReplicasReady(ctx, ss.Name, ns, f.ClientSet, 20*time.Second, 10*time.Minute)
 		framework.ExpectNoError(err)
 	})
 }
@@ -149,7 +148,7 @@ func CreateStressTestStatefulSet(ns string, amountOfReplicas int32, volumesPerRe
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: resource.MustParse(claimSize),
 					},

@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
@@ -56,19 +55,19 @@ func labeledDeployTestSuite() {
 		installArgs        = setNodeSelectorArg + deployConfigArg
 	)
 
-	ginkgo.It("CSI should use label on nodes", func() {
+	ginkgo.It("CSI should use label on nodes", func(ctx context.Context) {
 		defer cleanNodeLabels(f.ClientSet)
 		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
 		//ctx, cancel := context.WithTimeout(context.Background(), ContextTimeout)
 		//defer cancel()
-		ctx := context.TODO()
+		
 
 		nodes := getWorkerNodes(f.ClientSet)
 		nodes[0].Labels[label] = tag
 		_, err := f.ClientSet.CoreV1().Nodes().Update(ctx, &nodes[0], metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 
-		driverCleanup, err := common.DeployCSIComponents(f, installArgs)
+		driverCleanup, err := common.DeployCSIComponents(ctx, f, installArgs)
 		defer driverCleanup()
 		framework.ExpectNoError(err)
 
@@ -99,8 +98,7 @@ func labeledDeployTestSuite() {
 			time.Sleep(time.Second * 3)
 		}
 
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, f.Namespace.Name, 0, 0,
-			3*time.Minute, nil)
+		err = e2epod.WaitForPodsRunningReady(ctx, f.ClientSet, f.Namespace.Name, 0, 0, 3*time.Minute)
 		framework.ExpectNoError(err)
 	})
 }
@@ -128,7 +126,7 @@ func cleanNodeLabels(c clientset.Interface) {
 		if _, ok := node.Labels[label]; ok {
 			delete(node.Labels, label)
 			if _, err := c.CoreV1().Nodes().Update(context.TODO(), &node, metav1.UpdateOptions{}); err != nil {
-				e2elog.Logf("Error updating node: %s", err)
+				framework.Logf("Error updating node: %s", err)
 			}
 		}
 	}

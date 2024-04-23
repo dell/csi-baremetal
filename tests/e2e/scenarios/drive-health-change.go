@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
 	"github.com/dell/csi-baremetal-e2e-tests/e2e/common"
@@ -68,7 +67,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		testPODs      []*corev1.Pod
 		testPVCs      []*corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
-		driverCleanup func()
+		ctx           context.Context
 		ns            string
 		eventManager  = &eventing.EventManager{}
 		f             = framework.NewDefaultFramework("health")
@@ -80,30 +79,31 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
+		ctx = context.Background()
 
-		perTestConf, driverCleanup = driver.PrepareTest(f)
+		perTestConf = driver.PrepareTest(ctx, f)
 
-		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
+		k8sSC = driver.GetDynamicProvisionStorageClass(ctx, perTestConf, "xfs")
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
-	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test DriveHealthChange")
-		common.CleanupAfterCustomTest(f, driverCleanup, testPODs, testPVCs)
+	cleanup := func(ctx context.Context) {
+		framework.Logf("Starting cleanup for test DriveHealthChange")
+		common.CleanupAfterCustomTest(ctx, f, nil, testPODs, testPVCs)
 	}
 
-	ginkgo.It("AC for unhealthy drive should be removed", func() {
+	ginkgo.It("AC for unhealthy drive should be removed", func(ctx context.Context) {
 		defaultDriveCount := 3
 		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
 
 		init(conf)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		acUnstructuredList := getUObjList(f, common.ACGVR)
 		// Save amount of ACs before drive's health changing
 		amountOfACBeforeDiskFailure := len(acUnstructuredList.Items)
-		e2elog.Logf("found %d ac", amountOfACBeforeDiskFailure)
+		framework.Logf("found %d ac", amountOfACBeforeDiskFailure)
 
 		targetAC := acUnstructuredList.Items[0]
 		acLocation, _, err := unstructured.NestedString(targetAC.Object, "spec", "Location")
@@ -141,7 +141,7 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 			size, _, err := unstructured.NestedInt64(targetAC.Object, "spec", "Size")
 			framework.ExpectNoError(err)
 			if size == 0 {
-				e2elog.Logf("AC size is 0")
+				framework.Logf("AC size is 0")
 				return
 			}
 			if time.Now().After(deadline) {
@@ -151,27 +151,27 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		}
 	})
 
-	ginkgo.It("volume health should change after drive health changed", func() {
+	ginkgo.It("volume health should change after drive health changed", func(ctx context.Context) {
 		defaultDriveCount := 3
 		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
 		init(conf)
 
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		// Create test pvc on the cluster
-		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
+		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
 			constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// Create test pod that consumes the pvc
-		pod, err := common.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err := common.CreatePod(ctx, f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 		testPVCs = append(testPVCs, pvc)
 		testPODs = append(testPODs, pod)
 
 		// Get Volume CRs and save variables to identify on which drive the pod's Volume based on
-		volumesUnstructuredList, _ := f.DynamicClient.Resource(common.VolumeGVR).List(context.TODO(), metav1.ListOptions{})
+		volumesUnstructuredList, _ := f.DynamicClient.Resource(common.VolumeGVR).List(ctx, metav1.ListOptions{})
 		targetVolume := volumesUnstructuredList.Items[0]
 		location, _, err := unstructured.NestedString(targetVolume.Object, "spec", "Location")
 		framework.ExpectNoError(err)
@@ -207,12 +207,12 @@ func driveHealthChangeTest(driver *baremetalDriver) {
 		}, eventsWaitTimeout)
 	})
 
-	ginkgo.It("Check drive events", func() {
+	ginkgo.It("Check drive events", func(ctx context.Context) {
 		defaultDriveCount := 3
 		conf := &common.LoopBackManagerConfig{DefaultDriveCount: &defaultDriveCount}
 
 		init(conf)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		allDrives := getUObjList(f, common.DriveGVR)
 		Expect(len(allDrives.Items) > 2).To(BeTrue())
@@ -299,7 +299,7 @@ func constructPVC(ns string, claimSize string, storageClass string, pvcName stri
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteOnce,
 			},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: resource.MustParse(claimSize),
 				},
@@ -391,7 +391,7 @@ func waitForObjStateChange(f *framework.Framework, resource schema.GroupVersionR
 			result, _, err := unstructured.NestedString(drive.Object, fields...)
 			framework.ExpectNoError(err)
 			if result == expectedValue {
-				e2elog.Logf("%s %s in expected state: %s", resource.Resource, name, expectedValue)
+				framework.Logf("%s %s in expected state: %s", resource.Resource, name, expectedValue)
 				return
 			}
 		}
@@ -441,10 +441,10 @@ func checkExpectedEventsExist(f *framework.Framework, object runtime.Object, eve
 			}
 		}
 		if !found {
-			e2elog.Logf("expected event not found: %s", er)
+			framework.Logf("expected event not found: %s", er)
 			return false
 		}
 	}
-	e2elog.Logf("all expected events found")
+	framework.Logf("all expected events found")
 	return true
 }

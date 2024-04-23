@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
@@ -50,7 +50,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 		pvc             *corev1.PersistentVolumeClaim
 		k8sSC           *storagev1.StorageClass
 		executor        = common.GetExecutor()
-		driverCleanup   func()
+		ctx             context.Context
 		ns              string
 		containerToStop string
 		started         = false
@@ -63,41 +63,42 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
+		ctx = context.Background()
 
-		perTestConf, driverCleanup = driver.PrepareTest(f)
-		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
+		perTestConf = driver.PrepareTest(ctx, f)
+		k8sSC = driver.GetDynamicProvisionStorageClass(ctx, perTestConf, "xfs")
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
 	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test NodeReboot")
+		framework.Logf("Starting cleanup for test NodeReboot")
 
 		if containerToStop != "" && !started {
 			_, _, err := executor.RunCmd(fmt.Sprintf("docker start %s", containerToStop))
 			framework.ExpectNoError(err)
 		}
 
-		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
+		common.CleanupAfterCustomTest(ctx, f, nil, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
-	ginkgo.It("Pod should consume same PVC after node with it was rebooted", func() {
+	ginkgo.It("Pod should consume same PVC after node with it was rebooted", func(ctx context.Context) {
 		init()
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		var err error
 		// create pvc
-		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
+		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
 			constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// create pod with pvc
-		pod, err = common.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err = common.CreatePod(ctx, f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
-		e2elog.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
+		framework.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
 
 		// since test is run in Kind k8s cluster, each node is represented by docker container
 		// node' name is the same as a docker container name by which this node is represented.
@@ -109,7 +110,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 		framework.ExpectNoError(err)
 
 		// wait up to 5 minutes until node that is located on containerToStop become NotReady
-		nodeNotReady := e2enode.WaitForNodeToBeNotReady(f.ClientSet, containerToStop, time.Minute*5)
+		nodeNotReady := e2enode.WaitForNodeToBeNotReady(ctx, f.ClientSet, containerToStop, time.Minute*5)
 		if !nodeNotReady {
 			framework.Failf("Node %s still ready", containerToStop)
 		}
@@ -121,19 +122,19 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 		started = true
 
 		// wait up to 5 minutes until node that is located on containerToStop become Ready
-		nodeReady := e2enode.WaitForNodeToBeReady(f.ClientSet, containerToStop, time.Minute*5)
+		nodeReady := e2enode.WaitForNodeToBeReady(ctx, f.ClientSet, containerToStop, time.Minute*5)
 		if !nodeReady {
 			framework.Failf("Node %s still NotReady", containerToStop)
 		}
 
 		// wait 5 minutes until all pods become ready
-		err = e2epod.WaitForPodsRunningReady(f.ClientSet, ns, 0, 0, 5*time.Minute, nil)
+		err = e2epod.WaitForPodsRunningReady(ctx, f.ClientSet, ns, 0, 0, 5*time.Minute)
 		framework.ExpectNoError(err)
-		e2elog.Logf("All pods are ready after node restart")
+		framework.Logf("All pods are ready after node restart")
 
 		// check that pod consume same pvc
 		var boundAgain = false
-		pods, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
+		pods, err := e2epod.GetPodsInNamespace(ctx, f.ClientSet, f.Namespace.Name, map[string]string{})
 		framework.ExpectNoError(err)
 
 		// search pod again
@@ -150,7 +151,7 @@ func defineNodeRebootTest(driver *baremetalDriver) {
 				break
 			}
 		}
-		e2elog.Logf("Pod has same PVC: %v", boundAgain)
-		framework.ExpectEqual(boundAgain, true)
+		framework.Logf("Pod has same PVC: %v", boundAgain)
+		gomega.Expect(boundAgain).To(gomega.BeTrue(), "expected boundAgain == true")
 	})
 }

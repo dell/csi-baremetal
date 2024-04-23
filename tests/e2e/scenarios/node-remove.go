@@ -22,13 +22,13 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
@@ -51,7 +51,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		pvc           *corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
 		executor      = common.GetExecutor()
-		driverCleanup func()
+		ctx           context.Context
 		ns            string
 		taintNodeName string
 		f             = framework.NewDefaultFramework("node-remove-test")
@@ -63,17 +63,19 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
-		perTestConf, driverCleanup = driver.PrepareTest(f)
-		k8sSC = driver.GetDynamicProvisionStorageClass(perTestConf, "xfs")
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
+		ctx = context.Background()
+
+		perTestConf = driver.PrepareTest(ctx, f)
+		k8sSC = driver.GetDynamicProvisionStorageClass(ctx, perTestConf, "xfs")
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
 	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test NodeRemoval")
+		framework.Logf("Starting cleanup for test NodeRemoval")
 
 		if taintNodeName != "" {
-			podsBefore, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
+			podsBefore, err := e2epod.GetPodsInNamespace(ctx, f.ClientSet, f.Namespace.Name, map[string]string{})
 			framework.ExpectNoError(err)
 
 			_, _, err = executor.RunCmd(fmt.Sprintf("docker stop %s", taintNodeName))
@@ -81,38 +83,38 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 			_, _, err = executor.RunCmd(fmt.Sprintf("docker start %s", taintNodeName))
 			framework.ExpectNoError(err)
 
-			if !e2enode.WaitForNodeToBeReady(f.ClientSet, taintNodeName, time.Minute*5) {
+			if !e2enode.WaitForNodeToBeReady(ctx, f.ClientSet, taintNodeName, time.Minute*5) {
 				framework.Failf("Node %s is not ready", taintNodeName)
 			}
 
-			pods, err := e2epod.GetPodsInNamespace(f.ClientSet, f.Namespace.Name, map[string]string{})
+			pods, err := e2epod.GetPodsInNamespace(ctx, f.ClientSet, f.Namespace.Name, map[string]string{})
 			framework.ExpectNoError(err)
 
-			e2elog.Logf("Count of pods before test was %d, after - %d", len(podsBefore), len(pods))
+			framework.Logf("Count of pods before test was %d, after - %d", len(podsBefore), len(pods))
 			if len(pods)-len(podsBefore) <= 0 {
 				framework.Failf("Csi-baremetal-node not ready")
 			}
 		}
-		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
+		common.CleanupAfterCustomTest(ctx, f, nil, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
-	ginkgo.It("CSI node resources should be deleted after node removal", func() {
+	ginkgo.It("CSI node resources should be deleted after node removal", func(ctx context.Context) {
 		init()
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		var err error
 		// create pvc
-		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(context.TODO(),
+		pvc, err = f.ClientSet.CoreV1().PersistentVolumeClaims(ns).Create(ctx,
 			constructPVC(ns, driver.GetClaimSize(), k8sSC.Name, pvcName),
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// create pod with pvc
-		pod, err = common.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err = common.CreatePod(ctx, f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
-		e2elog.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
+		framework.Logf("Pod %s with PVC %s created.", pod.Name, pvc.Name)
 
 		taint := corev1.Taint{
 			Key:    "node.dell.com/drain",
@@ -130,7 +132,7 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		framework.ExpectNoError(err)
 
 		// check taint
-		_, err = framework.NodeHasTaint(f.ClientSet, taintNodeName, &taint)
+		_, err = e2enode.NodeHasTaint(ctx, f.ClientSet, taintNodeName, &taint)
 		framework.ExpectNoError(err)
 
 		// wait until csibmnode labeled with node.dell.com/drain=drain
@@ -139,14 +141,14 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 				break
 			}
 		}
-		e2elog.Logf("csibmnode %s labeled with %s=%s", taintedNodeId, taint.Key, taint.Value)
+		framework.Logf("csibmnode %s labeled with %s=%s", taintedNodeId, taint.Key, taint.Value)
 
 		// delete node
 		cmd = fmt.Sprintf("kubectl delete node %s", taintNodeName)
 		_, _, err = executor.RunCmd(cmd)
 		framework.ExpectNoError(err)
 
-		e2elog.Logf("Waiting for csibmnode to be deleted...")
+		framework.Logf("Waiting for csibmnode to be deleted...")
 		for start := time.Now(); time.Since(start) < time.Minute*10; time.Sleep(time.Second * 30) {
 			if !isNodeExist(f, taintedNodeId) {
 				break
@@ -159,10 +161,10 @@ func defineNodeRemovalTest(driver *baremetalDriver) {
 		framework.ExpectNoError(err)
 
 		// time end or deleted
-		framework.ExpectEqual(isNodeExist(f, taintedNodeId), false)
-		framework.ExpectEqual(isRecourseExistOnNode(f, common.DriveGVR, taintedNodeId), false)
-		framework.ExpectEqual(isRecourseExistOnNode(f, common.ACGVR, taintedNodeId), false)
-		framework.ExpectEqual(isRecourseExistOnNode(f, common.VolumeGVR, taintedNodeId), false)
+		gomega.Expect(isNodeExist(f, taintedNodeId)).To(gomega.BeFalse())
+		gomega.Expect(isRecourseExistOnNode(f, common.DriveGVR, taintedNodeId)).To(gomega.BeFalse())
+		gomega.Expect(isRecourseExistOnNode(f, common.ACGVR, taintedNodeId)).To(gomega.BeFalse())
+		gomega.Expect(isRecourseExistOnNode(f, common.VolumeGVR, taintedNodeId)).To(gomega.BeFalse())
 	})
 }
 
@@ -181,7 +183,7 @@ func foundCsibmnodeByNodeName(f *framework.Framework, nodeName string) (string, 
 			return "", err
 		}
 		if taintedNodeName == nodeName {
-			e2elog.Logf("Node %s has nodeID %s", taintedNodeName, nodeUUID)
+			framework.Logf("Node %s has nodeID %s", taintedNodeName, nodeUUID)
 			taintedCsibmnode = nodeUUID
 			break
 		}
@@ -212,7 +214,7 @@ func isNodeExist(f *framework.Framework, nodeID string) bool {
 		nodeUUID, _, err := unstructured.NestedString(node.UnstructuredContent(), "spec", "UUID")
 		framework.ExpectNoError(err)
 		if nodeUUID == nodeID {
-			e2elog.Logf("Node %s exist", nodeID)
+			framework.Logf("Node %s exist", nodeID)
 			return true
 		}
 	}
@@ -225,7 +227,7 @@ func isRecourseExistOnNode(f *framework.Framework, resource schema.GroupVersionR
 		specNodeID, _, err := unstructured.NestedString(el.UnstructuredContent(), "spec", "NodeId")
 		framework.ExpectNoError(err)
 		if specNodeID == nodeID {
-			e2elog.Logf("On taintedNode %s exist %s", nodeID, resource)
+			framework.Logf("On taintedNode %s exist %s", nodeID, resource)
 			return true
 		}
 	}

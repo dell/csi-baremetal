@@ -29,7 +29,7 @@ import (
 
 // CreatePod with given claims based on node selector
 // Modified version of CreatePod function from k8s.io/kubernetes/test/e2e/framework/pod
-func CreatePod(client clientset.Interface, namespace string, nodeSelector map[string]string, pvclaims []*v1.PersistentVolumeClaim, isPrivileged bool, command string) (*v1.Pod, error) {
+func CreatePod(ctx context.Context, client clientset.Interface, namespace string, nodeSelector map[string]string, pvclaims []*v1.PersistentVolumeClaim, isPrivileged bool, command string) (*v1.Pod, error) {
 	pod := MakePod(namespace, nodeSelector, pvclaims, isPrivileged, command)
 
 	pod, err := client.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
@@ -37,7 +37,7 @@ func CreatePod(client clientset.Interface, namespace string, nodeSelector map[st
 		return nil, fmt.Errorf("pod Create API error: %v", err)
 	}
 	// Waiting for pod to be running
-	err = e2epod.WaitTimeoutForPodReadyInNamespace(client, pod.Name, namespace, 5*time.Minute)
+	err = e2epod.WaitTimeoutForPodReadyInNamespace(ctx, client, pod.Name, namespace, 5*time.Minute)
 	if err != nil {
 		return pod, fmt.Errorf("pod %q is not Running: %v", pod.Name, err)
 	}

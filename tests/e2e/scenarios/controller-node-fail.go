@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2edep "k8s.io/kubernetes/test/e2e/framework/deployment"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
@@ -56,7 +55,6 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 		pvc           *corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
 		executor      = common.GetExecutor()
-		driverCleanup func()
 		ctx           context.Context
 		//cancel		  func()
 		nodeName string
@@ -70,38 +68,38 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 			err         error
 		)
 		ns = f.Namespace.Name
-
-		perTestConf, driverCleanup = driver.PrepareTest(f)
-
 		// TODO get rid of TODO context https://github.com/dell/csi-baremetal/issues/556
 		//ctx, cancel = context.WithTimeout(context.Background(), ContextTimeout)
 		ctx = context.Background()
-		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(perTestConf, "xfs")
+
+		perTestConf = driver.PrepareTest(ctx, f)
+
+		k8sSC = driver.(*baremetalDriver).GetDynamicProvisionStorageClass(ctx, perTestConf, "xfs")
 		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
-	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test ControllerNodeFail")
+	cleanup := func(ctx context.Context) {
+		framework.Logf("Starting cleanup for test ControllerNodeFail")
 
 		// try to make node ready again
 		cmd := fmt.Sprintf("docker exec %s systemctl start kubelet.service", nodeName)
 		_, _, err := executor.RunCmd(cmd)
 		framework.ExpectNoError(err)
 
-		common.CleanupAfterCustomTest(f, driverCleanup, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
+		common.CleanupAfterCustomTest(ctx, f, nil, []*corev1.Pod{pod}, []*corev1.PersistentVolumeClaim{pvc})
 	}
 
-	ginkgo.It("controller should keep handle request after node fails", func() {
+	ginkgo.It("controller should keep handle request after node fails", func(ctx context.Context) {
 		init()
 		//defer cancel()
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 
 		deployment, err := f.ClientSet.AppsV1().Deployments(ns).Get(ctx, ControllerName, metav1.GetOptions{})
 		Expect(deployment).ToNot(BeNil())
 
 		// try to find csi-baremetal-controller pod, expect 1 controller pod
-		podList, err := e2edep.GetPodsForDeployment(f.ClientSet, deployment)
+		podList, err := e2edep.GetPodsForDeployment(ctx, f.ClientSet, deployment)
 		framework.ExpectNoError(err)
 		Expect(podList).ToNot(BeNil())
 		Expect(len(podList.Items)).To(Equal(1))
@@ -116,24 +114,24 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 		framework.ExpectNoError(err)
 
 		// wait 5 minutes until node with controller become NotReady
-		nodeNotReady := e2enode.WaitForNodeToBeNotReady(f.ClientSet, nodeName, time.Minute*5)
+		nodeNotReady := e2enode.WaitForNodeToBeNotReady(ctx, f.ClientSet, nodeName, time.Minute*5)
 		if !nodeNotReady {
 			framework.Failf("Node %s still ready", nodeName)
 		}
 
 		// to speed up failover delete pod
-		e2elog.Logf("Deleting pod %s...", controllerPodName)
+		framework.Logf("Deleting pod %s...", controllerPodName)
 		err = f.ClientSet.CoreV1().Pods(ns).Delete(ctx, controllerPodName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
 		// waiting for the new controller pod to appear in cluster and become ready for 15 minute
 		var found bool
-		e2elog.Logf("Waiting to controller pod to run on another node...")
+		framework.Logf("Waiting to controller pod to run on another node...")
 		for start := time.Now(); time.Since(start) < time.Minute*15; time.Sleep(time.Second * 30) {
-			podList, err := e2edep.GetPodsForDeployment(f.ClientSet, deployment)
+			podList, err := e2edep.GetPodsForDeployment(ctx, f.ClientSet, deployment)
 			framework.ExpectNoError(err)
 			for _, item := range podList.Items {
-				e2elog.Logf("Pod %s with status %s", item.Name, string(item.Status.Phase))
+				framework.Logf("Pod %s with status %s", item.Name, string(item.Status.Phase))
 				if item.Status.Phase == corev1.PodRunning && item.Name != controllerPodName {
 					found = true
 					break
@@ -153,12 +151,12 @@ func controllerNodeFailTest(driver storageframework.TestDriver) {
 			metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		pod, err = common.CreatePod(f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
+		pod, err = common.CreatePod(ctx, f.ClientSet, ns, nil, []*corev1.PersistentVolumeClaim{pvc},
 			false, "sleep 3600")
 		framework.ExpectNoError(err)
 
-		e2elog.Logf("Waiting for test pod %s to be in running state...", pod.Name)
-		err = e2epod.WaitForPodNameRunningInNamespace(f.ClientSet, pod.Name, f.Namespace.Name)
+		framework.Logf("Waiting for test pod %s to be in running state...", pod.Name)
+		err = e2epod.WaitForPodNameRunningInNamespace(ctx, f.ClientSet, pod.Name, f.Namespace.Name)
 		framework.ExpectNoError(err)
 	})
 }

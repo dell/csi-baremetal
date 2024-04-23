@@ -80,7 +80,7 @@ func initBaremetalDriverInfo(name string) storageframework.DriverInfo {
 	}
 }
 
-// InitBaremetalDriver initialize driver with short-ci flag
+// initBaremetalDriver initialize driver with short-ci flag
 func initBaremetalDriver() *baremetalDriver {
 	return &baremetalDriver{
 		driverInfo: initBaremetalDriverInfo("csi-baremetal"),
@@ -105,7 +105,7 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		}
 
 		// Skip volume expand tests in short CI
-		if pattern == storageframework.DefaultFsDynamicPVAllowExpansion {
+		if pattern.Name == storageframework.DefaultFsDynamicPVAllowExpansion.Name {
 			e2eskipper.Skipf("Should skip volume expand tests in short CI suite - skipping")
 		}
 
@@ -139,20 +139,20 @@ func (d *baremetalDriver) SkipUnsupportedTest(pattern storageframework.TestPatte
 		e2eskipper.Skipf("Baremetal Driver does not support block volume mode with volume expansion - skipping")
 	}
 
-	if pattern.VolType == storageframework.PreprovisionedPV && pattern.FsType != ext4Fs{
+	if pattern.VolType == storageframework.PreprovisionedPV && pattern.FsType != ext4Fs {
 		e2eskipper.Skipf("Run PreprovisionedPV tests only for ext4  -- skipping")
 	}
 }
 
 // PrepareCSI deploys CSI and enables logging for containers
-func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (*storageframework.PerTestConfig, func()) {
+func PrepareCSI(ctx context.Context, d *baremetalDriver, f *framework.Framework, deployConfig bool) (*storageframework.PerTestConfig) {
 	ginkgo.By("Deploying CSI Baremetal")
 
 	installArgs := ""
 	if deployConfig {
 		installArgs += "--set driver.drivemgr.deployConfig=true"
 	}
-	cleanup, err := common.DeployCSIComponents(f, installArgs)
+	cleanup, err := common.DeployCSIComponents(ctx, f, installArgs)
 	framework.ExpectNoError(err)
 
 	testConf := &storageframework.PerTestConfig{
@@ -161,36 +161,38 @@ func PrepareCSI(d *baremetalDriver, f *framework.Framework, deployConfig bool) (
 		Framework: f,
 	}
 
-	return testConf, func() {
+	ginkgo.DeferCleanup(func(ctx context.Context) {
 		// wait until ephemeral volume will be deleted
-		time.Sleep(time.Second * 20)
+		time.Sleep(time.Second * 20) // TODO: what with this sleep?
 		ginkgo.By("Uninstalling CSI Baremetal")
 		cleanup()
 		// This condition delete custom config for loopbackmanager after every suite
 		if testConf.Framework.BaseName == volumeExpandTag {
 			cm := d.constructDefaultLoopbackConfig(testConf.Framework.Namespace.Name)
-			err := testConf.Framework.ClientSet.CoreV1().ConfigMaps(testConf.Framework.Namespace.Name).Delete(context.TODO(), cm.Name, metav1.DeleteOptions{})
+			err := testConf.Framework.ClientSet.CoreV1().ConfigMaps(testConf.Framework.Namespace.Name).Delete(ctx, cm.Name, metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
 		}
-	}
+	})
+
+	return testConf
 }
 
 // PrepareTest is implementation of TestDriver interface method
-func (d *baremetalDriver) PrepareTest(f *framework.Framework) (*storageframework.PerTestConfig, func()) {
+func (d *baremetalDriver) PrepareTest(ctx context.Context, f *framework.Framework) (*storageframework.PerTestConfig) {
 	deployConfig := true
 	// This condition create custom config for loopbackmanager
 	if f.BaseName == volumeExpandTag {
-		utils.StartPodLogs(f, f.Namespace)
+		utils.StartPodLogs(ctx, f, f.Namespace)
 		cm := d.constructDefaultLoopbackConfig(f.Namespace.Name)
-		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.TODO(), cm, metav1.CreateOptions{})
+		_, err := f.ClientSet.CoreV1().ConfigMaps(f.Namespace.Name).Create(ctx, cm, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 		deployConfig = false
 	}
-	return PrepareCSI(d, f, deployConfig)
+	return PrepareCSI(ctx, d, f, deployConfig)
 }
 
 // GetDynamicProvisionStorageClass is implementation of DynamicPVTestDriver interface method
-func (d *baremetalDriver) GetDynamicProvisionStorageClass(config *storageframework.PerTestConfig,
+func (d *baremetalDriver) GetDynamicProvisionStorageClass(cxt context.Context, config *storageframework.PerTestConfig,
 	fsType string) *storagev1.StorageClass {
 	var scFsType string
 	switch strings.ToLower(fsType) {
@@ -255,19 +257,19 @@ type CSIVolume struct {
 	f       *framework.Framework
 }
 
-func (v *CSIVolume) DeleteVolume() {
+func (v *CSIVolume) DeleteVolume(ctx context.Context) {
 	framework.Logf("Delete volume %s", v.volName)
-	err := v.f.DynamicClient.Resource(common.VolumeGVR).Namespace(v.f.Namespace.Name).Delete(context.TODO(), v.volName, metav1.DeleteOptions{})
+	err := v.f.DynamicClient.Resource(common.VolumeGVR).Namespace(v.f.Namespace.Name).Delete(ctx, v.volName, metav1.DeleteOptions{})
 	framework.ExpectNoError(err)
 }
 
 // CreateVolume is implementation of PreprovisionedPVTestDriver interface method
-func (d *baremetalDriver) CreateVolume(config *storageframework.PerTestConfig, volumeType storageframework.TestVolType) storageframework.TestVolume {
+func (d *baremetalDriver) CreateVolume(ctx context.Context, config *storageframework.PerTestConfig, volumeType storageframework.TestVolType) storageframework.TestVolume {
 	f := config.Framework
 	ns := f.Namespace.Name
 
 	driveUUID, driveNodeID, volumeSize := foundAvailableDrive(f)
-	vol, err := config.Framework.DynamicClient.Resource(common.VolumeGVR).Namespace(ns).Create(context.TODO(),
+	vol, err := config.Framework.DynamicClient.Resource(common.VolumeGVR).Namespace(ns).Create(ctx,
 		constructVolume(volumeSize, driveUUID, driveNodeID, ns), metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 

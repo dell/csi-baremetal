@@ -81,7 +81,7 @@ func (c *Client) initClient() error {
 		opts = append(opts, metricsOpts...)
 	}
 
-	c.GRPCClient, err = grpc.Dial(endpoint, opts...)
+	c.GRPCClient, err = grpc.NewClient(endpoint, opts...)
 	if err != nil {
 		return err
 	}

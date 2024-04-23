@@ -11,11 +11,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*test package includes baremetal test storage class definition for e2e tests
-  and definition of e2e test suites with ginkgo library
-  main file for e2e tests is in cmd/tests directory
-  we can run defined test suites with following command:
-  go test cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=<kubeconfig>
+/*
+test package includes baremetal test storage class definition for e2e tests
+
+	and definition of e2e test suites with ginkgo library
+	main file for e2e tests is in cmd/tests directory
+	we can run defined test suites with following command:
+	go test cmd/tests/baremetal_e2e.go -ginkgo.v -ginkgo.progress --kubeconfig=<kubeconfig>
 */
 package scenarios
 
@@ -24,7 +26,8 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+
+	"k8s.io/kubernetes/test/e2e/framework"
 	e2eskipper "k8s.io/kubernetes/test/e2e/framework/skipper"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
@@ -51,7 +54,7 @@ var (
 var _ = utils.SIGDescribe("CSI Volumes", func() {
 	ginkgo.AfterEach(failTestIfTimeout)
 
-	ginkgo.Context(storageframework.GetDriverNameWithFeatureTags(curDriver), func() {
+	ginkgo.Context(fmt.Sprintf("%s", storageframework.GetDriverNameWithFeatureTags(curDriver)), func() {
 		storageframework.DefineTestSuites(curDriver, CSITestSuites)
 		DefineDriveHealthChangeTestSuite(curDriver)
 		DefineControllerNodeFailTestSuite(curDriver)
@@ -72,11 +75,11 @@ func skipIfNotAllTests() {
 
 func failTestIfTimeout() {
 	if common.BMDriverTestContext.NeedAllTests {
-		e2elog.Logf("Skip timeout due to all tests suite")
+		framework.Logf("Skip timeout due to all tests suite")
 		return
 	}
 	if common.BMDriverTestContext.Timeout == 0 {
-		e2elog.Logf("Timeout is not set")
+		framework.Logf("Timeout is not set")
 		return
 	}
 

@@ -27,7 +27,6 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 
@@ -64,9 +63,9 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		pods          []*corev1.Pod
 		pvcs          []*corev1.PersistentVolumeClaim
 		k8sSC         *storagev1.StorageClass
-		driverCleanup func()
 		f             = framework.NewDefaultFramework("different-scs")
 		ns            string
+		ctx           context.Context
 	)
 
 	init := func(scType string, args ...string) {
@@ -85,6 +84,7 @@ func differentSCTypesTest(driver *baremetalDriver) {
 		}
 
 		ns = f.Namespace.Name
+		ctx = context.Background()
 		pods = make([]*corev1.Pod, 0)
 		pvcs = make([]*corev1.PersistentVolumeClaim, 0)
 
@@ -94,109 +94,109 @@ func differentSCTypesTest(driver *baremetalDriver) {
 			driverType = driveTypeHDD
 		}
 
-		nodes, err := e2enode.GetReadySchedulableNodes(f.ClientSet)
+		nodes, err := e2enode.GetReadySchedulableNodes(ctx, f.ClientSet)
 		framework.ExpectNoError(err)
 
 		configMap := constructLoopbackConfigWithDriveType(ns, nodes.Items, driverType)
-		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(context.TODO(), configMap, metav1.CreateOptions{})
+		_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(ctx, configMap, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		perTestConf, driverCleanup = PrepareCSI(driver, f, false)
+		perTestConf = PrepareCSI(ctx, driver, f, false)
 
 		k8sSC = driver.GetStorageClassWithStorageType(perTestConf, scType)
 		if isNeedBlockPartitioned {
 			addRawBlockPartitionedParameter(k8sSC)
 		}
-		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(context.TODO(), k8sSC, metav1.CreateOptions{})
+		k8sSC, err = f.ClientSet.StorageV1().StorageClasses().Create(ctx, k8sSC, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	}
 
-	cleanup := func() {
-		e2elog.Logf("Starting cleanup for test DifferentScTest")
-		common.CleanupAfterCustomTest(f, driverCleanup, pods, pvcs)
+	cleanup := func(ctx context.Context) {
+		framework.Logf("Starting cleanup for test DifferentScTest")
+		common.CleanupAfterCustomTest(ctx, f, nil, pods, pvcs)
 
-		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
+		err := f.ClientSet.CoreV1().ConfigMaps(ns).Delete(ctx, cmName, metav1.DeleteOptions{})
 		if err != nil {
-			e2elog.Logf("Configmap %s deletion failed: %v", cmName, err)
+			framework.Logf("Configmap %s deletion failed: %v", cmName, err)
 		}
 	}
 
-	ginkgo.It("should create Pod with PVC with SSD type", func() {
+	ginkgo.It("should create Pod with PVC with SSD type", func(ctx context.Context) {
 		scType := "SSD"
 		init(scType)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, f.Namespace.Name)
-		testPod = startAndWaitForPodWithPVCRunning(f, f.Namespace.Name, pvcs)
+		testPod = startAndWaitForPodWithPVCRunning(ctx, f, f.Namespace.Name, pvcs)
 		if testPod != nil {
 			pods = append(pods, testPod)
 		}
 	})
 
-	ginkgo.It("should create Pod with PVC with ANY type", func() {
+	ginkgo.It("should create Pod with PVC with ANY type", func(ctx context.Context) {
 		scType := "ANY"
 		init(scType)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		testPod = startAndWaitForPodWithPVCRunning(ctx, f, ns, pvcs)
 		if testPod != nil {
 			pods = append(pods, testPod)
 		}
 	})
 
-	ginkgo.It("should create Pod with PVC with HDD type", func() {
+	ginkgo.It("should create Pod with PVC with HDD type", func(ctx context.Context) {
 		scType := "HDD"
 		init(scType)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		testPod = startAndWaitForPodWithPVCRunning(ctx, f, ns, pvcs)
 		if testPod != nil {
 			pods = append(pods, testPod)
 		}
 	})
 
 	// test for logical volume group storage class
-	ginkgo.It("should create Pod with PVC with HDDLVG type", func() {
+	ginkgo.It("should create Pod with PVC with HDDLVG type", func(ctx context.Context) {
 		scType := "HDDLVG"
 		init(scType)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		pvcs = createPVCs(f, 3, driver.GetClaimSize(), k8sSC.Name, ns)
-		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		testPod = startAndWaitForPodWithPVCRunning(ctx, f, ns, pvcs)
 		if testPod != nil {
 			pods = append(pods, testPod)
 		}
 	})
 	// test for raw block volumes
-	ginkgo.It("should create Pod with raw block volume HDD", func() {
+	ginkgo.It("should create Pod with raw block volume HDD", func(ctx context.Context) {
 		scType := "HDD"
 		init(scType)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
 			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
-		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		testPod = startAndWaitForPodWithPVCRunning(ctx, f, ns, pvcs)
 		if testPod != nil {
 			pods = append(pods, testPod)
 		}
 	})
 
-	ginkgo.It("should create Pod with raw block volume HDDLVG", func() {
+	ginkgo.It("should create Pod with raw block volume HDDLVG", func(ctx context.Context) {
 		scType := "HDDLVG"
 		init(scType)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
 			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
-		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		testPod = startAndWaitForPodWithPVCRunning(ctx, f, ns, pvcs)
 		if testPod != nil {
 			pods = append(pods, testPod)
 		}
 	})
 
-	ginkgo.It("should create Pod with partitioned raw block volume HDD", func() {
+	ginkgo.It("should create Pod with partitioned raw block volume HDD", func(ctx context.Context) {
 		scType := "HDD"
 		init(scType, needPartitioned)
-		defer cleanup()
+		ginkgo.DeferCleanup(cleanup)
 		pvcs = []*corev1.PersistentVolumeClaim{createBlockPVC(
 			f, 1, driver.GetClaimSize(), k8sSC.Name, ns)}
-		testPod = startAndWaitForPodWithPVCRunning(f, ns, pvcs)
+		testPod = startAndWaitForPodWithPVCRunning(ctx, f, ns, pvcs)
 		if testPod != nil {
 			pods = append(pods, testPod)
 		}
@@ -235,9 +235,9 @@ func createPVCs(f *framework.Framework, numberOfPVC int, size string, scName str
 // startAndWaitForPodWithPVCRunning launch test Pod with PVC and wait until it has Running state
 // Params: E2E test framework, Pod namespace, slice of PVC for Pod
 // Returns: created Pod
-func startAndWaitForPodWithPVCRunning(f *framework.Framework, ns string, pvc []*corev1.PersistentVolumeClaim) *corev1.Pod {
+func startAndWaitForPodWithPVCRunning(ctx context.Context, f *framework.Framework, ns string, pvc []*corev1.PersistentVolumeClaim) *corev1.Pod {
 	// Create test pod that consumes the pvc
-	pod, err := common.CreatePod(f.ClientSet, ns, nil, pvc, false, "sleep 3600")
+	pod, err := common.CreatePod(ctx, f.ClientSet, ns, nil, pvc, false, "sleep 3600")
 	framework.ExpectNoError(err)
 	return pod
 }
