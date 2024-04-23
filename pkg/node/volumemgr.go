@@ -633,6 +633,11 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 	// Try to find not existing CR for discovered drives
 	for _, drivePtr := range drivesFromMgr {
 		exist := false
+		llDrivePtr := ll.WithFields(logrus.Fields{
+			"serial": drivePtr.SerialNumber,
+			"PID":    drivePtr.PID,
+			"VID":    drivePtr.VID,
+		})
 		for index, driveCR := range driveCRs {
 			driveCR := driveCR
 			// If drive CR already exist, try to update, if drive was changed
@@ -656,6 +661,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 
 					toUpdate := driveCR
 					toUpdate.Spec = *drivePtr
+					llDrivePtr.Infof("Updating CR")
 					if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
 						ll.Errorf("Failed to update drive CR (health/status) %v, error %v", toUpdate, err)
 						updates.AddNotChanged(previousState)
@@ -675,6 +681,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 				continue
 			}
 			// drive CR does not exist, try to create it
+			llDrivePtr.Infof("Creating a new drive CR")
 			toCreateSpec := *drivePtr
 			toCreateSpec.NodeId = m.nodeID
 			toCreateSpec.UUID = uuid.New().String()
@@ -682,7 +689,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec.IsClean = true
 			isSystem, err := m.isDriveSystem(drivePtr.Path)
 			if err != nil {
-				ll.Errorf("Failed to determine if drive %v is system, error: %v", drivePtr, err)
+				llDrivePtr.Errorf("Failed to determine if drive is system, error: %v", err)
 			}
 			if isSystem {
 				toCreateSpec.IsClean = false
@@ -712,8 +719,14 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			}
 		}
 
+		llDrivePtr := ll.WithFields(logrus.Fields{
+			"serial": d.Spec.SerialNumber,
+			"PID":    d.Spec.PID,
+			"VID":    d.Spec.VID,
+		})
+
 		if !wasDiscovered {
-			ll.Warnf("Set status %s for drive %v", apiV1.DriveStatusOffline, d.Spec)
+			llDrivePtr.Warnf("Set status %s for drive %v", apiV1.DriveStatusOffline, d.Spec)
 			previousState := d.DeepCopy()
 			toUpdate := d
 			toUpdate.Spec.Status = apiV1.DriveStatusOffline
@@ -722,8 +735,9 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			} else {
 				toUpdate.Spec.Health = apiV1.HealthUnknown
 			}
+			llDrivePtr.Info("Updating CR")
 			if err := m.k8sClient.UpdateCR(ctx, &toUpdate); err != nil {
-				ll.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
+				llDrivePtr.Errorf("Failed to update drive CR %v, error %v", toUpdate, err)
 				updates.AddNotChanged(previousState)
 			} else {
 				updates.AddUpdated(previousState, &toUpdate)
