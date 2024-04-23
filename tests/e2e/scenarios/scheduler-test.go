@@ -90,8 +90,6 @@ func schedulingTest(driver *baremetalDriver) {
 			_, err = f.ClientSet.CoreV1().ConfigMaps(ns).Create(ctx, lmConfigMap, metav1.CreateOptions{})
 		}
 
-		// todo: driverCleanup has been removed from higher version of k8s. Lets see how to handle it.
-		// perTestConf, driverCleanup = PrepareCSI(ctx, driver, f, false)
 		perTestConf = PrepareCSI(ctx, driver, f, false)
 
 		for _, scName := range availableSC {
