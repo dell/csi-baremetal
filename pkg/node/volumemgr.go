@@ -633,11 +633,8 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 	// Try to find not existing CR for discovered drives
 	for _, drivePtr := range drivesFromMgr {
 		exist := false
-		llDrivePtr := ll.WithFields(logrus.Fields{
-			"serial": drivePtr.SerialNumber,
-			"PID":    drivePtr.PID,
-			"VID":    drivePtr.VID,
-		})
+		llDrivePtr := ll.WithField("drive", *drivePtr)
+
 		for index, driveCR := range driveCRs {
 			driveCR := driveCR
 			// If drive CR already exist, try to update, if drive was changed
@@ -698,7 +695,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			toCreateSpec.IsSystem = isSystem
 			driveCR := m.k8sClient.ConstructDriveCR(toCreateSpec.UUID, toCreateSpec)
 			if err := m.k8sClient.CreateCR(ctx, driveCR.Name, driveCR); err != nil {
-				ll.Errorf("Failed to create drive CR %v, error: %v", driveCR, err)
+				llDrivePtr.Errorf("Failed to create drive CR %v, error: %v", driveCR, err)
 			}
 			updates.AddCreated(driveCR)
 			driveCRs = append(driveCRs, *driveCR)
@@ -719,11 +716,7 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 			}
 		}
 
-		llDrivePtr := ll.WithFields(logrus.Fields{
-			"serial": d.Spec.SerialNumber,
-			"PID":    d.Spec.PID,
-			"VID":    d.Spec.VID,
-		})
+		llDrivePtr := ll.WithField("drive", d.Spec)
 
 		if !wasDiscovered {
 			llDrivePtr.Warnf("Set status %s for drive %v", apiV1.DriveStatusOffline, d.Spec)
