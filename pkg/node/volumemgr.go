@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -582,6 +583,9 @@ func (m *VolumeManager) Discover() error {
 	drivesResponse, err := m.driveMgrClient.GetDrivesList(ctx, &api.DrivesRequest{NodeId: m.nodeID})
 	driveMgrDoneFunc()
 	if err != nil {
+		if s, ok := status.FromError(err); ok {
+			m.log.WithField("response", *s).Error("GetDrivesList returned an error")
+		}
 		return err
 	}
 	m.metricDriveMgrCount.Set(float64(len(drivesResponse.Disks)))
@@ -716,7 +720,6 @@ func (m *VolumeManager) updateDrivesCRs(ctx context.Context, drivesFromMgr []*ap
 		}
 
 		llDrive := ll.WithField("drive", d.Spec)
-
 		if !wasDiscovered {
 			llDrive.Warnf("Set status %s for drive %v", apiV1.DriveStatusOffline, d.Spec)
 			previousState := d.DeepCopy()
@@ -970,11 +973,13 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 	// Remove AC based on disk with health BAD, SUSPECT, UNKNOWN
 	lvg, err := m.cachedCrHelper.GetLVGByDrive(ctx, cur.UUID)
 	if lvg != nil {
+		llLVG := ll.WithField("lvg", *lvg)
 		name := lvg.Name
 		// TODO handle situation when LVG health is changing from Bad/Suspect to Good https://github.com/dell/csi-baremetal/issues/385
 		lvg.Spec.Health = cur.Health
+		llLVG.Info("Updating lvg CR's")
 		if err := m.k8sClient.UpdateCR(ctx, lvg); err != nil {
-			ll.Errorf("Failed to update lvg CR's %s health status: %v", name, err)
+			llLVG.Errorf("Failed to update lvg CR's %s health status: %v", name, err)
 		}
 
 		// check for missing disk and re-activate volume group
@@ -992,12 +997,13 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 	// Set disk's health status to volume CR
 	volumes, _ := m.cachedCrHelper.GetVolumesByLocation(ctx, cur.UUID)
 	for _, vol := range volumes {
+		llVol := ll.WithField("volume", *vol)
 		// skip if health is not changed
 		if vol.Spec.Health == cur.Health {
-			ll.Infof("Volume %s status is already %s", vol.Name, cur.Health)
+			llVol.Infof("Volume %s status is already %s", vol.Name, cur.Health)
 			continue
 		}
-		ll.Infof("Setting updated status %s to volume %s", cur.Health, vol.Name)
+		llVol.Infof("Setting updated status %s to volume %s", cur.Health, vol.Name)
 		// save previous health state
 		prevHealthState := vol.Spec.Health
 		vol.Spec.Health = cur.Health
@@ -1008,6 +1014,7 @@ func (m *VolumeManager) handleDriveStatusChange(ctx context.Context, drive updat
 			}
 		}
 
+		llVol.Info("Updating volume CR's")
 		if err := m.k8sClient.UpdateCR(ctx, vol); err != nil {
 			ll.Errorf("Failed to update volume CR's %s health status: %v", vol.Name, err)
 		}
