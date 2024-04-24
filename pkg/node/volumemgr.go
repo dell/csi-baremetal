@@ -584,7 +584,9 @@ func (m *VolumeManager) Discover() error {
 	driveMgrDoneFunc()
 	if err != nil {
 		if s, ok := status.FromError(err); ok {
-			m.log.WithField("response", *s).Error("GetDrivesList returned an error")
+			m.log.WithField("response", s).Error("GetDrivesList returned an error")
+		} else {
+			m.log.Errorf("unable to parse a gRPC response, GetDrivesList returned err: %v", err)
 		}
 		return err
 	}
