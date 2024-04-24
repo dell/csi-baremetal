@@ -287,7 +287,7 @@ func Discovering(c *node.CSINodeService, logger *logrus.Logger) {
 	checker := c.GetLivenessHelper()
 	for {
 		time.Sleep(discoveringWaitTime)
-		logger.Info("Discover is strating")
+		logger.Info("Discover is starting")
 		if err = c.Discover(); err != nil {
 			checker.Fail()
 			logger.Errorf("Discover finished with error: %v", err)
