@@ -178,17 +178,11 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 	vid := drive.VID
 	pid := drive.PID
 	for _, l := range lsblkOut {
-		if strings.EqualFold(l.Serial, sn) && strings.EqualFold(l.Vendor, vid) &&
-			strings.EqualFold(l.Model, pid) {
-			device = l.Name
-			break
+		if strings.EqualFold(l.Serial, sn) {
+			return l.Name, nil
 		}
 	}
 
-	if device == "" {
-		errMsg := fmt.Errorf("unable to find drive path by SN %s, VID %s, PID %s", sn, vid, pid)
-		return "", errMsg
-	}
-
-	return device, nil
+	errMsg := fmt.Errorf("unable to find drive path by SN %s, VID %s, PID %s", sn, vid, pid)
+	return "", errMsg
 }
