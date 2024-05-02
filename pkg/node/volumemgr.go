@@ -231,7 +231,7 @@ func NewVolumeManager(
 		log:                    logger.WithField("component", "VolumeManager"),
 		recorder:               recorder,
 		discoverSystemLVG:      true,
-		volMu:                  keymutex.NewHashed(0),
+		volMu:                  keymutex.NewHashed(1 << 10),
 		systemDrivesUUIDs:      make([]string, 0),
 		metricDriveMgrDuration: driveMgrDuration,
 		metricDriveMgrCount:    driveMgrCount,
@@ -258,12 +258,14 @@ func (m *VolumeManager) SetListBlk(listBlk lsblk.WrapLsblk) {
 // Returns reconcile result as ctrl.DiscoverResult or error if something went wrong
 func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	defer metricsC.ReconcileDuration.EvaluateDurationForType("node_volume_controller")()
-	m.volMu.LockKey(req.Name)
 	ll := m.log.WithFields(logrus.Fields{
 		"method":   "Reconcile",
 		"volumeID": req.Name,
 	})
+	ll.Infof("Locking volume with req.name: %s", req.Name)
+	m.volMu.LockKey(req.Name)
 	defer func() {
+		ll.Infof("Unloocking volume with req.name: %s", req.Name)
 		err := m.volMu.UnlockKey(req.Name)
 		if err != nil {
 			ll.Warnf("Unlocking  volume with error %s", err)
