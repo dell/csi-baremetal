@@ -269,7 +269,7 @@ func (c *Controller) createSystemLVG(lvg *lvgcrd.LogicalVolumeGroup) (locations 
 			ll.Errorf("Unable to create PV for device %s: %v", dev, err)
 			continue
 		}
-		ll.Infof("PV for device %s (drive serial %s) was created.", dev, sn)
+		ll.Debugf("PV for device %s (drive serial %s) was created.", dev, sn)
 		locations = append(locations, driveUUID)
 		deviceFiles = append(deviceFiles, dev)
 	}
