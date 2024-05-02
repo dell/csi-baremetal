@@ -274,12 +274,15 @@ func (m *VolumeManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	ctx, cancelFn := context.WithTimeout(
 		context.WithValue(ctx, base.RequestUUID, req.Name),
 		VolumeOperationsTimeout)
+	ll.Infof("Created context with req.name: %s for volume operations with %d timeout", req.Name, VolumeOperationsTimeout)
 	defer cancelFn()
 
 	volume := &volumecrd.Volume{}
 
+	ll.Infof("Reading Volume CR, req.name: %s, req.namespace: %s", req.Name, req.Namespace)
 	err := m.k8sClient.ReadCR(ctx, req.Name, req.Namespace, volume)
 	if err != nil {
+		ll.Infof("Failed to read Volume CR, error: %v", err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if volume.DeletionTimestamp.IsZero() {
