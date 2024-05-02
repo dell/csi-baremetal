@@ -18,6 +18,7 @@ package command
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -144,10 +145,12 @@ func (e *Executor) RunCmd(cmd interface{}, opts ...Options) (string, string, err
 func (e *Executor) runCmdFromStr(cmd string) (string, string, error) {
 	fields := strings.Fields(cmd)
 	name := fields[0]
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	if len(fields) > 1 {
-		return e.runCmdFromCmdObj(exec.Command(name, fields[1:]...))
+		return e.runCmdFromCmdObj(exec.CommandContext(ctx, name, fields[1:]...))
 	}
-	return e.runCmdFromCmdObj(exec.Command(name))
+	return e.runCmdFromCmdObj(exec.CommandContext(ctx, name))
 }
 
 // runCmdFromCmdObj runs command based on exec.Cmd
