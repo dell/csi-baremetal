@@ -181,6 +181,15 @@ func (e *Executor) runCmdFromCmdObj(cmd *exec.Cmd) (outStr string, errStr string
 	if err != nil {
 		errPart = fmt.Sprintf(", Error: %v", err)
 		level = logrus.ErrorLevel
+
+		if err.Error() == context.DeadlineExceeded.Error() {
+			e.log.WithFields(logrus.Fields{
+				"cmd":         strings.Join(cmd.Args, " "),
+				"duration":    cmdDuration.String(),
+				"duration_ns": cmdDuration.Nanoseconds()}).
+				Logf(logrus.ErrorLevel, "stdout: %s%s%s", outStr, stdErrPart, errPart)
+			err = nil
+		}
 	}
 	e.log.WithFields(logrus.Fields{
 		"cmd":         strings.Join(cmd.Args, " "),
