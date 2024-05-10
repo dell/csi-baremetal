@@ -239,7 +239,7 @@ func enableHTTPServers(address string,
 		if enableSmart {
 			server, err := smart.NewServer(node.NewSmartService(clientToDriveMgr, logger))
 			if err == nil {
-				http.Handle(smartPath+"/", server)
+				http.Handle(smartPath + "/", server)
 			} else {
 				logger.Warnf("unable to register smart handlers: %s ", err)
 			}

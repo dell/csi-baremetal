@@ -24,12 +24,12 @@ import (
 //
 // Retrieve all discovered disks information/metrics.
 //
-// GET /smart/drives/v1
+// GET /smart/api/v1/drives
 func (s *Server) handleGetAllDrivesSmartInfoRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("get-all-drives-smart-info"),
 		semconv.HTTPMethodKey.String("GET"),
-		semconv.HTTPRouteKey.String("/smart/drives/v1"),
+		semconv.HTTPRouteKey.String("/smart/api/v1/drives"),
 	}
 
 	// Start a span for this request.
@@ -117,12 +117,12 @@ func (s *Server) handleGetAllDrivesSmartInfoRequest(args [0]string, argsEscaped 
 //
 // Retrieve the disk information/metrics with the matching serial number.
 //
-// GET /smart/drive/v1/{serialNumber}
+// GET /smart/api/v1/drive/{serialNumber}
 func (s *Server) handleGetDriveSmartInfoRequest(args [1]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("get-drive-smart-info"),
 		semconv.HTTPMethodKey.String("GET"),
-		semconv.HTTPRouteKey.String("/smart/drive/v1/{serialNumber}"),
+		semconv.HTTPRouteKey.String("/smart/api/v1/drive/{serialNumber}"),
 	}
 
 	// Start a span for this request.

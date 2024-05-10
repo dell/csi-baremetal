@@ -11,7 +11,7 @@ info:
 servers:
   - url: 'http://localhost:8787'
 paths:
-  '/smart/drive/v1/{serialNumber}':
+  '/smart/api/v1/drive/{serialNumber}':
     parameters:
       - schema:
           type: string
@@ -329,7 +329,7 @@ paths:
           description: Internal server error
       operationId: get-drive-smart-info
       description: Retrieve the disk information/metrics with the matching serial number.
-  /smart/drives/v1:
+  /smart/api/v1/drives:
     get:
       summary: Get all disks smart info
       tags:

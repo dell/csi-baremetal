@@ -39,6 +39,8 @@ var (
 	tEnableMetrics  = true
 	tMetricsPath    = "/metrics"
 	tSmartPath      = "/smart"
+	tDrivePath      = "/api/v1/drive/"
+	tDrivesPath     = "/api/v1/drives"
 	tMetricsAddress = "localhost:8787"
 	tLogger         = logrus.New()
 	tCsiEndpoint    = "unix:///tmp/csi.sock"
@@ -76,7 +78,7 @@ func getSmartInfo(serialNumber string) (*http.Response, error) {
 	var err error
 
 	for count := 0; count < maxRetries; count++ {
-		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath + "/drive/v1/" + serialNumber)
+		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath + tDrivePath + serialNumber)
 		if err == nil {
 			break
 		}
@@ -90,7 +92,7 @@ func getAllDrivesSmartInfo() (*http.Response, error) {
 	var err error
 
 	for count := 0; count < maxRetries; count++ {
-		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath + "/drives/v1" )
+		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath + tDrivesPath )
 		if err == nil {
 			break
 		}
