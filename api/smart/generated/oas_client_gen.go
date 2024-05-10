@@ -27,13 +27,13 @@ type Invoker interface {
 	//
 	// Retrieve all discovered disks information/metrics.
 	//
-	// GET /smart
+	// GET /smart/drives/v1
 	GetAllDrivesSmartInfo(ctx context.Context) (GetAllDrivesSmartInfoRes, error)
 	// GetDriveSmartInfo invokes get-drive-smart-info operation.
 	//
 	// Retrieve the disk information/metrics with the matching serial number.
 	//
-	// GET /smart/{serialNumber}
+	// GET /smart/drive/v1/{serialNumber}
 	GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (GetDriveSmartInfoRes, error)
 }
 
@@ -89,7 +89,7 @@ func (c *Client) requestURL(ctx context.Context) *url.URL {
 //
 // Retrieve all discovered disks information/metrics.
 //
-// GET /smart
+// GET /smart/drives/v1
 func (c *Client) GetAllDrivesSmartInfo(ctx context.Context) (GetAllDrivesSmartInfoRes, error) {
 	res, err := c.sendGetAllDrivesSmartInfo(ctx)
 	return res, err
@@ -99,7 +99,7 @@ func (c *Client) sendGetAllDrivesSmartInfo(ctx context.Context) (res GetAllDrive
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("get-all-drives-smart-info"),
 		semconv.HTTPMethodKey.String("GET"),
-		semconv.HTTPRouteKey.String("/smart"),
+		semconv.HTTPRouteKey.String("/smart/drives/v1"),
 	}
 
 	// Run stopwatch.
@@ -132,7 +132,7 @@ func (c *Client) sendGetAllDrivesSmartInfo(ctx context.Context) (res GetAllDrive
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/smart"
+	pathParts[0] = "/smart/drives/v1"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -161,7 +161,7 @@ func (c *Client) sendGetAllDrivesSmartInfo(ctx context.Context) (res GetAllDrive
 //
 // Retrieve the disk information/metrics with the matching serial number.
 //
-// GET /smart/{serialNumber}
+// GET /smart/drive/v1/{serialNumber}
 func (c *Client) GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (GetDriveSmartInfoRes, error) {
 	res, err := c.sendGetDriveSmartInfo(ctx, params)
 	return res, err
@@ -171,7 +171,7 @@ func (c *Client) sendGetDriveSmartInfo(ctx context.Context, params GetDriveSmart
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("get-drive-smart-info"),
 		semconv.HTTPMethodKey.String("GET"),
-		semconv.HTTPRouteKey.String("/smart/{serialNumber}"),
+		semconv.HTTPRouteKey.String("/smart/drive/v1/{serialNumber}"),
 	}
 
 	// Run stopwatch.
@@ -204,7 +204,7 @@ func (c *Client) sendGetDriveSmartInfo(ctx context.Context, params GetDriveSmart
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [2]string
-	pathParts[0] = "/smart/"
+	pathParts[0] = "/smart/drive/v1/"
 	{
 		// Encode "serialNumber" parameter.
 		e := uri.NewPathEncoder(uri.PathEncoderConfig{

@@ -49,28 +49,21 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		switch elem[0] {
-		case '/': // Prefix: "/smart"
+		case '/': // Prefix: "/smart/drive"
 			origElem := elem
-			if l := len("/smart"); len(elem) >= l && elem[0:l] == "/smart" {
+			if l := len("/smart/drive"); len(elem) >= l && elem[0:l] == "/smart/drive" {
 				elem = elem[l:]
 			} else {
 				break
 			}
 
 			if len(elem) == 0 {
-				switch r.Method {
-				case "GET":
-					s.handleGetAllDrivesSmartInfoRequest([0]string{}, elemIsEscaped, w, r)
-				default:
-					s.notAllowed(w, r, "GET")
-				}
-
-				return
+				break
 			}
 			switch elem[0] {
-			case '/': // Prefix: "/"
+			case '/': // Prefix: "/v1/"
 				origElem := elem
-				if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+				if l := len("/v1/"); len(elem) >= l && elem[0:l] == "/v1/" {
 					elem = elem[l:]
 				} else {
 					break
@@ -88,6 +81,27 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						s.handleGetDriveSmartInfoRequest([1]string{
 							args[0],
 						}, elemIsEscaped, w, r)
+					default:
+						s.notAllowed(w, r, "GET")
+					}
+
+					return
+				}
+
+				elem = origElem
+			case 's': // Prefix: "s/v1"
+				origElem := elem
+				if l := len("s/v1"); len(elem) >= l && elem[0:l] == "s/v1" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch r.Method {
+					case "GET":
+						s.handleGetAllDrivesSmartInfoRequest([0]string{}, elemIsEscaped, w, r)
 					default:
 						s.notAllowed(w, r, "GET")
 					}
@@ -179,32 +193,21 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 			break
 		}
 		switch elem[0] {
-		case '/': // Prefix: "/smart"
+		case '/': // Prefix: "/smart/drive"
 			origElem := elem
-			if l := len("/smart"); len(elem) >= l && elem[0:l] == "/smart" {
+			if l := len("/smart/drive"); len(elem) >= l && elem[0:l] == "/smart/drive" {
 				elem = elem[l:]
 			} else {
 				break
 			}
 
 			if len(elem) == 0 {
-				switch method {
-				case "GET":
-					r.name = "GetAllDrivesSmartInfo"
-					r.summary = "Get all disks smart info"
-					r.operationID = "get-all-drives-smart-info"
-					r.pathPattern = "/smart"
-					r.args = args
-					r.count = 0
-					return r, true
-				default:
-					return
-				}
+				break
 			}
 			switch elem[0] {
-			case '/': // Prefix: "/"
+			case '/': // Prefix: "/v1/"
 				origElem := elem
-				if l := len("/"); len(elem) >= l && elem[0:l] == "/" {
+				if l := len("/v1/"); len(elem) >= l && elem[0:l] == "/v1/" {
 					elem = elem[l:]
 				} else {
 					break
@@ -222,9 +225,34 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 						r.name = "GetDriveSmartInfo"
 						r.summary = "Get disk smart info by Serial Number"
 						r.operationID = "get-drive-smart-info"
-						r.pathPattern = "/smart/{serialNumber}"
+						r.pathPattern = "/smart/drive/v1/{serialNumber}"
 						r.args = args
 						r.count = 1
+						return r, true
+					default:
+						return
+					}
+				}
+
+				elem = origElem
+			case 's': // Prefix: "s/v1"
+				origElem := elem
+				if l := len("s/v1"); len(elem) >= l && elem[0:l] == "s/v1" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					switch method {
+					case "GET":
+						// Leaf: GetAllDrivesSmartInfo
+						r.name = "GetAllDrivesSmartInfo"
+						r.summary = "Get all disks smart info"
+						r.operationID = "get-all-drives-smart-info"
+						r.pathPattern = "/smart/drives/v1"
+						r.args = args
+						r.count = 0
 						return r, true
 					default:
 						return

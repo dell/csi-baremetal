@@ -12,13 +12,13 @@ type Handler interface {
 	//
 	// Retrieve all discovered disks information/metrics.
 	//
-	// GET /smart
+	// GET /smart/drives/v1
 	GetAllDrivesSmartInfo(ctx context.Context) (GetAllDrivesSmartInfoRes, error)
 	// GetDriveSmartInfo implements get-drive-smart-info operation.
 	//
 	// Retrieve the disk information/metrics with the matching serial number.
 	//
-	// GET /smart/{serialNumber}
+	// GET /smart/drive/v1/{serialNumber}
 	GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (GetDriveSmartInfoRes, error)
 }
 

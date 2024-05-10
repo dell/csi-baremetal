@@ -76,7 +76,7 @@ func getSmartInfo(serialNumber string) (*http.Response, error) {
 	var err error
 
 	for count := 0; count < maxRetries; count++ {
-		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath + "/" + serialNumber)
+		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath + "/drive/v1/" + serialNumber)
 		if err == nil {
 			break
 		}
@@ -90,7 +90,7 @@ func getAllDrivesSmartInfo() (*http.Response, error) {
 	var err error
 
 	for count := 0; count < maxRetries; count++ {
-		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath)
+		resp, err = http.Get("http://" + tMetricsAddress + tSmartPath + "/drives/v1" )
 		if err == nil {
 			break
 		}
