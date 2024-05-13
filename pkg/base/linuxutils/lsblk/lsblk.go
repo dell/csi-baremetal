@@ -47,14 +47,15 @@ type WrapLsblk interface {
 
 // LSBLK is a wrap for system lsblk util
 type LSBLK struct {
-	e command.CmdExecutor
+	e   command.CmdExecutor
+	log *logrus.Logger
 }
 
 // NewLSBLK is a constructor for LSBLK struct
 func NewLSBLK(log *logrus.Logger) *LSBLK {
 	e := command.NewExecutor(log)
 	e.SetLevel(logrus.TraceLevel)
-	return &LSBLK{e: e}
+	return &LSBLK{e: e, log: log}
 }
 
 // CustomInt64 to handle Size lsblk output - 8001563222016 or "8001563222016"
@@ -157,16 +158,10 @@ func (l *LSBLK) GetBlockDevices(device string) ([]BlockDevice, error) {
 	return res, nil
 }
 
-// SearchDrivePath if not defined returns drive path based on drive S/N, VID and PID.
+// SearchDrivePath if not defined returns drive path based on drive S/N.
 // Receives an instance of drivecrd.Drive struct
 // Returns drive's path based on provided drivecrd.Drive or error if something went wrong
 func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
-	// device path might be already set by hwmgr
-	device := drive.Path
-	if device != "" {
-		return device, nil
-	}
-
 	// try to find it with lsblk
 	lsblkOut, err := l.GetBlockDevices("")
 	if err != nil {
@@ -175,14 +170,18 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 
 	// get drive serial number
 	sn := drive.SerialNumber
-	vid := drive.VID
-	pid := drive.PID
 	for _, l := range lsblkOut {
 		if strings.EqualFold(l.Serial, sn) {
 			return l.Name, nil
 		}
 	}
 
-	errMsg := fmt.Errorf("unable to find drive path by SN %s, VID %s, PID %s", sn, vid, pid)
+	// device path might be already set by hwmgr
+	if drive.Path != "" {
+		l.log.Warnf("unable to find a drive path by a given SN: %s, using a device path: %s", sn, drive.Path)
+		return drive.Path, nil
+	}
+
+	errMsg := fmt.Errorf("unable to find drive path by SN %s", sn)
 	return "", errMsg
 }
