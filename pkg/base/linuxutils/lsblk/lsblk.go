@@ -182,6 +182,6 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 		return drive.Path, nil
 	}
 
-	errMsg := fmt.Errorf("unable to find drive path by a SN %s and a drive path", sn)
+	errMsg := fmt.Errorf("unable to find drive path by a SN %s or in DriveCR", sn)
 	return "", errMsg
 }
