@@ -17,7 +17,7 @@ var _ Handler = UnimplementedHandler{}
 //
 // Retrieve all discovered disks information/metrics.
 //
-// GET /smart
+// GET /smart/api/v1/drives
 func (UnimplementedHandler) GetAllDrivesSmartInfo(ctx context.Context) (r GetAllDrivesSmartInfoRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
@@ -26,7 +26,7 @@ func (UnimplementedHandler) GetAllDrivesSmartInfo(ctx context.Context) (r GetAll
 //
 // Retrieve the disk information/metrics with the matching serial number.
 //
-// GET /smart/{serialNumber}
+// GET /smart/api/v1/drive/{serialNumber}
 func (UnimplementedHandler) GetDriveSmartInfo(ctx context.Context, params GetDriveSmartInfoParams) (r GetDriveSmartInfoRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
