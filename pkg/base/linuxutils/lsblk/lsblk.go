@@ -170,18 +170,18 @@ func (l *LSBLK) SearchDrivePath(drive *api.Drive) (string, error) {
 
 	// get drive serial number
 	sn := drive.SerialNumber
-	for _, l := range lsblkOut {
-		if strings.EqualFold(l.Serial, sn) {
-			return l.Name, nil
+	for _, blockDevice := range lsblkOut {
+		if strings.EqualFold(blockDevice.Serial, sn) {
+			return blockDevice.Name, nil
 		}
 	}
 
 	// device path might be already set by hwmgr
 	if drive.Path != "" {
-		l.log.Warnf("unable to find a drive path by a given SN: %s, using a device path: %s", sn, drive.Path)
+		l.log.Warnf("unable to find a drive path by a given SN: %s, using a drive path: %s", sn, drive.Path)
 		return drive.Path, nil
 	}
 
-	errMsg := fmt.Errorf("unable to find drive path by SN %s", sn)
+	errMsg := fmt.Errorf("unable to find drive path by a SN %s and a drive path", sn)
 	return "", errMsg
 }
