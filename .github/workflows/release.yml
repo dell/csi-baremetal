@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Parse release description
         id: split_description
-        uses: jungwinter/split@v2
+        uses: winterjung/split@v2
         with:
           msg: ${{ github.event.release.body }}
 
