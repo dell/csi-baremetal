@@ -19,6 +19,7 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	smart "github.com/dell/csi-baremetal/api/smart/generated"
@@ -69,8 +70,14 @@ func (s *SmartService) GetAllDrivesSmartInfo(ctx context.Context) (smart.GetAllD
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)
 
+	smartInfoRawJSON := smartInfoResponse.GetSmartInfo()
+	if !json.Valid([]byte(smartInfoRawJSON)) {
+		s.log.Errorf("Unable to parse a JSON returned from drivemgr: %v", smartInfoRawJSON)
+		return &smart.GetAllDrivesSmartInfoInternalServerError{}, nil
+	}
+
 	var smartInfo smart.OptString
-	smartInfo.SetTo(smartInfoResponse.GetSmartInfo())
+	smartInfo.SetTo(smartInfoRawJSON)
 	response := smart.SmartMetrics{SmartInfo: smartInfo}
 	return &response, nil
 }
@@ -100,8 +107,14 @@ func (s *SmartService) GetDriveSmartInfo(ctx context.Context, params smart.GetDr
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)
 
+	smartInfoRawJSON := smartInfoResponse.GetSmartInfo()
+	if !json.Valid([]byte(smartInfoRawJSON)) {
+		s.log.Errorf("Unable to parse a JSON returned from drivemgr: %v", smartInfoRawJSON)
+		return &smart.GetDriveSmartInfoInternalServerError{}, nil
+	}
+
 	var smartInfo smart.OptString
-	smartInfo.SetTo(smartInfoResponse.GetSmartInfo())
+	smartInfo.SetTo(smartInfoRawJSON)
 	response := smart.SmartMetrics{SmartInfo: smartInfo}
 	return &response, nil
 }
