@@ -219,13 +219,11 @@ func enableHTTPServers(address string,
 	csiUDSServer *rpc.ServerRunner,
 	logger *logrus.Logger) *http.Server {
 	enableMetrics := false
-	enableSmart := false
+	enableSmart := true
+	logger.Info("Enabeld smart-metrics")
 
 	if metricsPath != "" {
 		enableMetrics = true
-	}
-	if smartPath != "" {
-		enableSmart = true
 	}
 
 	if enableMetrics || enableSmart {
@@ -240,6 +238,7 @@ func enableHTTPServers(address string,
 			server, err := smart.NewServer(node.NewSmartService(clientToDriveMgr, logger))
 			if err == nil {
 				http.Handle(smartPath+"/", server)
+				logger.Infof("Registered smart-metrics %v", smartPath)
 			} else {
 				logger.Warnf("unable to register smart handlers: %s ", err)
 			}

@@ -27,7 +27,9 @@ import (
 
 var (
 	invalidJSONClient = &mocks.MockDriveMgrClientFailJSON{MockJSON: "let's fail"}
-	validJSONClient   = &mocks.MockDriveMgrClientFailJSON{MockJSON: `{"test": "ok"}`}
+	validJSONClient   = &mocks.MockDriveMgrClientFailJSON{MockJSON: `{
+		"test": "ok"
+		}`}
 
 	validJSONSrv   = NewSmartService(validJSONClient, testLogger)
 	invalidJSONSrv = NewSmartService(invalidJSONClient, testLogger)

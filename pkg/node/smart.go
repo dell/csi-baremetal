@@ -75,6 +75,7 @@ func (s *SmartService) GetAllDrivesSmartInfo(ctx context.Context) (smart.GetAllD
 		s.log.Errorf("Unable to parse a JSON returned from drivemgr: %v", smartInfoRawJSON)
 		return &smart.GetAllDrivesSmartInfoInternalServerError{}, nil
 	}
+	s.log.Infof("smart-info JSON parsed succesfully")
 
 	var smartInfo smart.OptString
 	smartInfo.SetTo(smartInfoRawJSON)
@@ -112,6 +113,7 @@ func (s *SmartService) GetDriveSmartInfo(ctx context.Context, params smart.GetDr
 		s.log.Errorf("Unable to parse a JSON returned from drivemgr: %v", smartInfoRawJSON)
 		return &smart.GetDriveSmartInfoInternalServerError{}, nil
 	}
+	s.log.Infof("smart-info JSON parsed succesfully")
 
 	var smartInfo smart.OptString
 	smartInfo.SetTo(smartInfoRawJSON)
