@@ -34,17 +34,17 @@ var (
 )
 
 func TestGetDriveSmartInfo(t *testing.T) {
-	t.Run("Parse_JSON_error", func(t *testing.T) {
+	t.Run("Parse_JSON_return_internal_server_error", func(t *testing.T) {
 		res, err := invalidJSONSrv.GetDriveSmartInfo(context.Background(), api.GetDriveSmartInfoParams{})
 
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.IsType(t, res, &api.GetDriveSmartInfoInternalServerError{})
 	})
 
-	t.Run("Parse_JSON_success", func(t *testing.T) {
+	t.Run("Parse_JSON_return_metrics", func(t *testing.T) {
 		res, err := validJSONSrv.GetDriveSmartInfo(context.Background(), api.GetDriveSmartInfoParams{})
 
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.IsType(t, res, &api.SmartMetrics{})
 	})
 }
