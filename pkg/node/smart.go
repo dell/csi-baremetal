@@ -19,6 +19,7 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	smart "github.com/dell/csi-baremetal/api/smart/generated"
@@ -69,6 +70,10 @@ func (s *SmartService) GetAllDrivesSmartInfo(ctx context.Context) (smart.GetAllD
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)
 
+	if !s.isValidSmartInfoJSON(smartInfoResponse) {
+		return &smart.GetAllDrivesSmartInfoInternalServerError{}, nil
+	}
+
 	var smartInfo smart.OptString
 	smartInfo.SetTo(smartInfoResponse.GetSmartInfo())
 	response := smart.SmartMetrics{SmartInfo: smartInfo}
@@ -100,8 +105,28 @@ func (s *SmartService) GetDriveSmartInfo(ctx context.Context, params smart.GetDr
 
 	s.log.Debugf("Drivemgr response %v ", smartInfoResponse)
 
+	if !s.isValidSmartInfoJSON(smartInfoResponse) {
+		return &smart.GetDriveSmartInfoInternalServerError{}, nil
+	}
+
 	var smartInfo smart.OptString
 	smartInfo.SetTo(smartInfoResponse.GetSmartInfo())
 	response := smart.SmartMetrics{SmartInfo: smartInfo}
 	return &response, nil
+}
+
+// isValidSmartInfoJSON checks if the given SmartInfoResponse contains a valid JSON string.
+//
+// Parameters:
+// - smartInfoResponse: a pointer to an api.SmartInfoResponse object.
+//
+// Return:
+// - bool: true if the response contains a valid JSON string, false otherwise.
+func (s *SmartService) isValidSmartInfoJSON(smartInfoResponse *api.SmartInfoResponse) bool {
+	response := smartInfoResponse.GetSmartInfo()
+	if !json.Valid([]byte(response)) {
+		s.log.Errorf("Invalid Smart Info JSON response from drivemgr: %v", response)
+		return false
+	}
+	return true
 }

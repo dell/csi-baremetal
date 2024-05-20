@@ -42,6 +42,11 @@ type MockDriveMgrClientFail struct {
 	Code codes.Code
 }
 
+// MockDriveMgrClientFailJSON is the implementation of Drive Manager interface to imitate invalid JSONs
+type MockDriveMgrClientFailJSON struct {
+	MockJSON string
+}
+
 // GetDrivesList is the simulation of failure during DriveManager's GetDrivesList
 // Returns nil DrivesResponse and non nil error
 func (m *MockDriveMgrClientFail) GetDrivesList(ctx context.Context, in *api.DrivesRequest, opts ...grpc.CallOption) (*api.DrivesResponse, error) {
@@ -127,4 +132,34 @@ func (m *MockDriveMgrClient) GetAllDrivesSmartInfo(ctx context.Context, req *api
 		}, nil
 	}
 	return nil, status.Errorf(codes.NotFound, "failed to get smart info of all drives: NotFound")
+}
+
+// GetDrivesList is the simulation of failure during DriveManager's GetDrivesList
+// Returns nil DrivesResponse and non nil error
+func (m *MockDriveMgrClientFailJSON) GetDrivesList(ctx context.Context, in *api.DrivesRequest, opts ...grpc.CallOption) (*api.DrivesResponse, error) {
+	return nil, errors.New("drivemgr error")
+}
+
+// Locate is a stub for Locate DriveManager's method
+func (m *MockDriveMgrClientFailJSON) Locate(ctx context.Context, in *api.DriveLocateRequest, opts ...grpc.CallOption) (*api.DriveLocateResponse, error) {
+	return nil, errors.New("locate failed")
+}
+
+// LocateNode is a stub for LocateNode DriveManager's method
+func (m *MockDriveMgrClientFailJSON) LocateNode(ctx context.Context, in *api.NodeLocateRequest, opts ...grpc.CallOption) (*api.Empty, error) {
+	return nil, errors.New("locate node failed")
+}
+
+// GetDriveSmartInfo is a stub for GetDriveSmartInfo DriveManager's method
+func (m *MockDriveMgrClientFailJSON) GetDriveSmartInfo(ctx context.Context, req *api.SmartInfoRequest, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+	return &api.SmartInfoResponse{
+		SmartInfo: m.MockJSON,
+	}, nil
+}
+
+// GetAllDrivesSmartInfo is a stub for GetAllDrivesSmartInfo DriveManager's method
+func (m *MockDriveMgrClientFailJSON) GetAllDrivesSmartInfo(ctx context.Context, req *api.Empty, opts ...grpc.CallOption) (*api.SmartInfoResponse, error) {
+	return &api.SmartInfoResponse{
+		SmartInfo: m.MockJSON,
+	}, nil
 }
