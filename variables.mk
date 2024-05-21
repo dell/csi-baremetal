@@ -1,4 +1,4 @@
-# project name
+# project name TEST
 PROJECT          := csi-baremetal
 PROJECT_PATH     := ${PWD}
 
