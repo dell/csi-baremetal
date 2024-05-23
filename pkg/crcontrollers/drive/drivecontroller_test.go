@@ -416,6 +416,38 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedV))
 	})
+	t.Run("ReleasedUsage - transition to Removing state", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageReleased
+		expectedD.Spec.IsClean = true
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, update)
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoving)
+		assert.Empty(t, expectedD.Annotations)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
+	t.Run("ReleasedUsage - blocked transition to Removing state", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageReleased
+		expectedD.Spec.IsClean = false
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, ignore)
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageReleased)
+		assert.Empty(t, expectedD.Annotations)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
 	t.Run("ReleasedUsage - has drive removalReady annotation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)

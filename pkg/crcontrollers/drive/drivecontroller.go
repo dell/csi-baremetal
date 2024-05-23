@@ -191,9 +191,13 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 
-		status, found := getDriveAnnotationRemoval(drive.Annotations)
-		if !found || status != apiV1.DriveAnnotationRemovalReady {
-			break
+		if drive.Spec.IsClean {
+			log.Infof("Initiating automatic removal of drive: %s", drive.GetName())
+		} else {
+			status, found := getDriveAnnotationRemoval(drive.Annotations)
+			if !found || status != apiV1.DriveAnnotationRemovalReady {
+				break
+			}
 		}
 		toUpdate = true
 		drive.Spec.Usage = apiV1.DriveUsageRemoving
