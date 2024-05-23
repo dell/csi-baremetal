@@ -2,7 +2,7 @@ include variables.mk
 
 include Makefile.docker
 include Makefile.validation
-# optional include
+# optional include TEST
 -include Makefile.addition
 
 .PHONY: version test build
