@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	apiV1 "github.com/dell/csi-baremetal/api/v1"
 )
 
 // SmartInfo is a structure to represent basic Smart metrics
@@ -101,7 +102,7 @@ func (m *MockDriveMgrClient) GetDrivesList(ctx context.Context, in *api.DrivesRe
 
 // Locate is a stub for Locate DriveManager's method
 func (m *MockDriveMgrClient) Locate(ctx context.Context, in *api.DriveLocateRequest, opts ...grpc.CallOption) (*api.DriveLocateResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Locate not implemented in MockDriveMgrClient")
+	return &api.DriveLocateResponse{Status: apiV1.LocateStatusOn}, nil
 }
 
 // LocateNode is a stub for LocateNode DriveManager's method
