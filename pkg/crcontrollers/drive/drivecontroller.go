@@ -419,6 +419,7 @@ func (c *Controller) locateDriveLED(ctx context.Context, log *logrus.Entry, driv
 		c.eventRecorder.Eventf(drive, eventing.DriveLocateLEDFailed, eventMsg)
 	} else {
 		// send warning level alert (warning for attention), good level closes issue, need only send message
+		drive.Spec.LEDState = fmt.Sprintf("%d", status.Status)
 		eventMsg := fmt.Sprintf("Drive successfully removed from CSI, and ready for physical removal, %s", drive.GetDriveDescription())
 		c.eventRecorder.Eventf(drive, eventing.DriveReadyForPhysicalRemoval, eventMsg)
 	}

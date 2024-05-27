@@ -816,6 +816,45 @@ func TestDriveController_locateDriveLED(t *testing.T) {
 	})
 }
 
+func TestDriveController_handleDriveUsageRemovingWithLED(t *testing.T) {
+	k8SClientset := fake.NewSimpleClientset()
+	eventInter := k8SClientset.CoreV1().Events(testNs)
+	scheme, err := k8s.PrepareScheme()
+	if err != nil {
+		log.Fatalf("fail to prepare kubernetes scheme, error: %s", err)
+		return
+	}
+
+	logr := logrus.New()
+	eventRecorder, err := events.New("baremetal-csi-node", "434aa7b1-8b8a-4ae8-92f9-1cc7e09a9030", eventInter, scheme, logr)
+	if err != nil {
+		log.Fatalf("fail to create events recorder, error: %s", err)
+		return
+	}
+
+	kubeClient := setup()
+	dc := NewController(kubeClient, nodeID, &mocks.MockDriveMgrClient{}, eventRecorder, testLogger)
+	assert.NotNil(t, dc)
+	assert.NotNil(t, dc.crHelper)
+
+	t.Run("Check locate drive state", func(t *testing.T) {
+		expectedD := testCRDrive2.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageRemoving
+		expectedD.Spec.LEDState = fmt.Sprintf("%d", apiV1.LocateStatusOff)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, update)
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoved)
+		assert.Equal(t, expectedD.Spec.LEDState, fmt.Sprintf("%d", apiV1.LocateStatusOn))
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
+}
+
 func TestDriveController_handleDriveUsageRemoving(t *testing.T) {
 	kubeClient := setup()
 	dc := NewController(kubeClient, nodeID, nil, new(events.Recorder), testLogger)
