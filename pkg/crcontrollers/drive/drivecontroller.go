@@ -16,6 +16,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -51,6 +52,10 @@ const (
 	// Deprecated annotations to to perform DR restart process
 	driveRestartReplacementAnnotationKeyDeprecated   = "drive"
 	driveRestartReplacementAnnotationValueDeprecated = "add"
+
+	// annotation and key for fake-attach
+	fakeAttachVolumeAnnotation = "fake-attach"
+	fakeAttachVolumeKey        = "yes"
 )
 
 // NewController creates new instance of Controller structure
@@ -311,13 +316,29 @@ func (c *Controller) getVolsStatuses(volumes []*volumecrd.Volume) map[string]str
 	return statuses
 }
 
-func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
-	for _, vol := range volumes {
-		if vol.Spec.CSIStatus != apiV1.Removed {
+// checkAllVolsWithoutFakeAttachRemoved checks if all volumes are removed and not 'fake attached',
+// returns true if any volume's CSIStatus is not 'REMOVED' or it's 'fake attached'
+func (c *Controller) checkAllVolsWithoutFakeAttachRemoved(volumes []*volumecrd.Volume) bool {
+	for _, v := range volumes {
+		if v.Spec.CSIStatus != apiV1.Removed && !c.isFakeAttached(v) {
 			return false
 		}
 	}
 	return true
+}
+
+func (c *Controller) checkLVGVolumeWithoutFakeAttachRemoved(lvg *lvgcrd.LogicalVolumeGroup, volumes []*volumecrd.Volume) bool {
+	for _, v := range volumes {
+		if v.Spec.LocationType == apiV1.LocationTypeLVM && v.Spec.Location == lvg.Name {
+			return c.isFakeAttached(v)
+		}
+	}
+	return false
+}
+
+func (c *Controller) isFakeAttached(v *volumecrd.Volume) bool {
+	value, found := v.Annotations[fakeAttachVolumeAnnotation]
+	return found && value == fakeAttachVolumeKey
 }
 
 // placeStatusInUse places drive.Usage to IN_USE if CR is annotated
@@ -356,13 +377,16 @@ func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 }
 
 func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
-	// wait all volumes have REMOVED status
+	// wait all volumes without fake-attach have REMOVED status
 	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
 	if err != nil {
 		return ignore, err
 	}
-	if !c.checkAllVolsRemoved(volumes) {
-		log.Debugf("Waiting all volumes in REMOVED status, current statuses: %v", c.getVolsStatuses(volumes))
+	if !c.checkAllVolsWithoutFakeAttachRemoved(volumes) {
+		log.Debugf(
+			"Waiting all volumes without fake-attach in REMOVED status, current statuses: %v",
+			c.getVolsStatuses(volumes),
+		)
 		return wait, nil
 	}
 
@@ -371,7 +395,8 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 	if err != nil && err != errTypes.ErrorNotFound {
 		return ignore, err
 	}
-	if lvg != nil {
+
+	if lvg != nil && !c.checkLVGVolumeWithoutFakeAttachRemoved(lvg, volumes) {
 		log.Debugf("Waiting LVG %s remove", lvg.Name)
 		return wait, nil
 	}

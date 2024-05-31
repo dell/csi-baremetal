@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	v1api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	dcrd "github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -1113,4 +1114,83 @@ func TestDriveController_handleDriveLabelUpdate(t *testing.T) {
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedAC))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedLVG))
 	})
+}
+
+func TestCheckAllVolsWithoutFakeAttachRemoved(t *testing.T) {
+	var (
+		withEmptyAnnotations = v1.ObjectMeta{
+			Annotations: map[string]string{},
+		}
+		withFakeAttachAnnotation = v1.ObjectMeta{
+			Annotations: map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey},
+		}
+	)
+	tests := []struct {
+		name     string
+		volumes  []*vcrd.Volume
+		expected bool
+	}{
+		{
+			name: "All volumes removed and no fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: withEmptyAnnotations,
+				},
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: withEmptyAnnotations,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "All volumes removed but one is fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: withFakeAttachAnnotation,
+				},
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: withEmptyAnnotations,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "One volume not removed and no fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Published,
+					},
+					ObjectMeta: withEmptyAnnotations,
+				},
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: withEmptyAnnotations,
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Controller{}
+			result := c.checkAllVolsWithoutFakeAttachRemoved(tt.volumes)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

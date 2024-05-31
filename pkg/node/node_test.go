@@ -1023,12 +1023,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			node.SetWbtConfig(wbtConf)
 			wbtOps.On("SetValue", device, wbtValue).Return(nil)
 
-			pv := &corev1.PersistentVolume{}
-			pv.Name = testVolume2.Id
-			pv.Spec.StorageClassName = volumeSC
-			err := node.k8sClient.Create(testCtx, pv)
-			Expect(err).To(BeNil())
-
+			createPVforWBT(testVolume2.Id, testVolume2.Id, "", volumeSC)
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
 			Expect(err).To(BeNil())
@@ -1070,10 +1065,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			node.SetWbtConfig(wbtConf)
 			wbtOps.On("SetValue", device, wbtValue).Return(nil)
 
-			pv := &corev1.PersistentVolume{}
-			pv.Name = testVolume2.Id
-			pv.Spec.StorageClassName = volumeSC
-			err = node.k8sClient.Create(testCtx, pv)
+			createPVforWBT(testVolume2.Id, testVolume2.Id, testNs, volumeSC)
 			Expect(err).To(BeNil())
 
 			resp, err := node.NodeStageVolume(testCtx, req)
@@ -1112,11 +1104,7 @@ var _ = Describe("CSINodeService Wbt Configuration", func() {
 			node.SetWbtConfig(wbtConf)
 			wbtOps.On("SetValue", device, wbtValue).Return(someErr)
 
-			pv := &corev1.PersistentVolume{}
-			pv.Name = testVolume2.Id
-			pv.Spec.StorageClassName = volumeSC
-			err := node.k8sClient.Create(testCtx, pv)
-			Expect(err).To(BeNil())
+			createPVforWBT(testVolume2.Id, testVolume2.Id, "", volumeSC)
 
 			resp, err := node.NodeStageVolume(testCtx, req)
 			Expect(resp).NotTo(BeNil())
@@ -1262,6 +1250,18 @@ func createPVAndPVCForFakeAttach(volName string) {
 	pvc.Namespace = pvcNamespace
 	pvc.Annotations = map[string]string{fakeAttachAnnotation: fakeAttachAllowKey}
 	if err := node.k8sClient.Create(testCtx, pvc); err != nil {
+		panic(err)
+	}
+}
+
+func createPVforWBT(volName, pvcName, pvcNamespace, scClass string) {
+	pv := &corev1.PersistentVolume{}
+	pv.Name = volName
+	pv.Spec.ClaimRef = &corev1.ObjectReference{}
+	pv.Spec.ClaimRef.Name = pvcName
+	pv.Spec.ClaimRef.Namespace = pvcNamespace
+	pv.Spec.StorageClassName = scClass
+	if err := node.k8sClient.Create(testCtx, pv); err != nil {
 		panic(err)
 	}
 }
