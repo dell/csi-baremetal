@@ -320,7 +320,7 @@ func (c *Controller) getVolsStatuses(volumes []*volumecrd.Volume) map[string]str
 // returns true if any volume's CSIStatus is not 'REMOVED' or it's 'fake attached'
 func (c *Controller) checkAllVolsWithoutFakeAttachRemoved(volumes []*volumecrd.Volume) bool {
 	for _, v := range volumes {
-		if v.Spec.CSIStatus != apiV1.Removed && !c.isFakeAttached(v) {
+		if v.Spec.CSIStatus != apiV1.Removed && !c.isFakeAttach(v) {
 			return false
 		}
 	}
@@ -332,13 +332,13 @@ func (c *Controller) checkAllVolsWithoutFakeAttachRemoved(volumes []*volumecrd.V
 func (c *Controller) checkLVGVolumeWithoutFakeAttach(lvg *lvgcrd.LogicalVolumeGroup, volumes []*volumecrd.Volume) bool {
 	for _, v := range volumes {
 		if v.Spec.LocationType == apiV1.LocationTypeLVM && v.Spec.Location == lvg.Name {
-			return c.isFakeAttached(v)
+			return c.isFakeAttach(v)
 		}
 	}
 	return false
 }
 
-func (c *Controller) isFakeAttached(v *volumecrd.Volume) bool {
+func (c *Controller) isFakeAttach(v *volumecrd.Volume) bool {
 	value, found := v.Annotations[fakeAttachVolumeAnnotation]
 	return found && value == fakeAttachVolumeKey
 }
