@@ -833,26 +833,53 @@ func TestDriveController_handleDriveUsageRemovingWithLED(t *testing.T) {
 	}
 
 	kubeClient := setup()
-	dc := NewController(kubeClient, nodeID, &mocks.MockDriveMgrClient{}, eventRecorder, testLogger)
-	assert.NotNil(t, dc)
-	assert.NotNil(t, dc.crHelper)
 
-	t.Run("Check locate drive state", func(t *testing.T) {
+	tests := []struct {
+		name             string
+		client           api.DriveServiceClient
+		currentUsage     string
+		currentLedState  string
+		expectedUsage    string
+		expectedLedState string
+	}{
+		{
+			name: "Check locate drive state - Success",
+			client: &mocks.MockDriveMgrClient{},
+			currentUsage: apiV1.DriveUsageRemoving,
+			currentLedState: fmt.Sprintf("%d", apiV1.LocateStatusOff),
+			expectedUsage: apiV1.DriveUsageRemoved,
+			expectedLedState: fmt.Sprintf("%d", apiV1.LocateStatusOn),
+		},
+		{
+			name: "Check locate drive state - Locate failure",
+			client: &mocks.MockDriveMgrClientFail{},
+			currentUsage: apiV1.DriveUsageRemoving,
+			currentLedState: fmt.Sprintf("%d", apiV1.LocateStatusOff),
+			expectedUsage: apiV1.DriveUsageFailed,
+			expectedLedState: fmt.Sprintf("%d", apiV1.LocateStatusOff),
+		},
+	}
+
+	for _, tt := range tests {
+		dc := NewController(kubeClient, nodeID, tt.client, eventRecorder, testLogger)
+		assert.NotNil(t, dc)
+		assert.NotNil(t, dc.crHelper)
+
 		expectedD := testCRDrive2.DeepCopy()
 		assert.NotNil(t, expectedD)
-		expectedD.Spec.Usage = apiV1.DriveUsageRemoving
-		expectedD.Spec.LEDState = fmt.Sprintf("%d", apiV1.LocateStatusOff)
+		expectedD.Spec.Usage = tt.currentUsage
+		expectedD.Spec.LEDState = tt.currentLedState
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
 
 		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
 		assert.Equal(t, res, update)
-		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoved)
-		assert.Equal(t, expectedD.Spec.LEDState, fmt.Sprintf("%d", apiV1.LocateStatusOn))
+		assert.Equal(t, expectedD.Spec.Usage, tt.expectedUsage)
+		assert.Equal(t, expectedD.Spec.LEDState, tt.expectedLedState)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
-	})
+	}
 }
 
 func TestDriveController_handleDriveUsageRemoving(t *testing.T) {
