@@ -1263,7 +1263,7 @@ func TestCheckLVGVolumeWithoutFakeAttachRemoved(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			c := &Controller{}
-			assert.Equal(t, tc.expected, c.checkLVGVolumeWithoutFakeAttach(lvg, tc.volumes))
+			assert.Equal(t, tc.expected, c.checkLVGVolumeFakeAttach(lvg, tc.volumes))
 		})
 	}
 }
