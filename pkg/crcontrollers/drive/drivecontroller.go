@@ -392,14 +392,14 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 		return wait, nil
 	}
 
-	// wait lvg is removed if exist
+	// wait lvg without fake-attach is removed if exist
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil && err != errTypes.ErrorNotFound {
 		return ignore, err
 	}
 
 	if lvg != nil && !c.checkLVGVolumeWithoutFakeAttach(lvg, volumes) {
-		log.Debugf("Waiting LVG %s remove", lvg.Name)
+		log.Debugf("Waiting LVG without fake-attach %s remove", lvg.Name)
 		return wait, nil
 	}
 

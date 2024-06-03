@@ -196,7 +196,7 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(
 }
 
 // isFakeAttachNeededForDR - checks if a fake attach is needed for drive replacement,
-// returns true if the volume's corresponding PVC has the fake attach annotation and the drive is released and online,
+// returns true if the volume's corresponding PVC has the fake attach annotation and the drive has usage: REMOVING and STATUS: ONLINE,
 // otherwise, returns false.
 func (s *CSINodeService) isFakeAttachNeededForDR(volumeCR *volumecrd.Volume) bool {
 	pvc, err := s.getPVCForVolume(volumeCR.Spec.Id)
