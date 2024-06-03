@@ -38,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
+	"github.com/dell/csi-baremetal/api/v1/drivecrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -690,6 +691,54 @@ var _ = Describe("CSINodeService Probe()", func() {
 var _ = Describe("CSINodeService Fake-Attach", func() {
 	BeforeEach(func() {
 		setVariables()
+	})
+
+	It("Should stage healthy block-mode volume successfully (DR)", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		drive1 := &drivecrd.Drive{}
+		drive1.Name = "drive1"
+		drive1.Spec.Usage = apiV1.DriveUsageRemoving
+		drive1.Spec.Status = apiV1.DriveStatusOnline
+		err := node.k8sClient.CreateCR(testCtx, drive1.Name, drive1)
+		Expect(err).To(BeNil())
+
+		vol1 := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		vol1.Spec.LocationType = apiV1.LocationTypeDrive
+		vol1.Spec.Location = drive1.Name
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		createPVAndPVCForFakeAttach(vol1.Name)
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil).Once()
+
+		expectedFakeDevice := "/dev/loop2"
+		fakeDeviceSrcFile := fakeDeviceSrcFileDir + vol1.Name
+
+		// The case that create fake device successfully
+		fsOps.On("CreateFakeDevice", fakeDeviceSrcFile).
+			Return(expectedFakeDevice, nil).Once()
+		fsOps.On("PrepareAndPerformMount",
+			expectedFakeDevice, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil).Once()
+
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
+		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
+		Expect(vol1.Annotations[fakeDeviceVolumeAnnotation]).To(Equal(expectedFakeDevice))
 	})
 
 	It("Should stage unhealthy block-mode volume successfully", func() {
