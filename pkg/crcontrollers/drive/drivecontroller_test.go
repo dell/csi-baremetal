@@ -833,11 +833,12 @@ func TestDriveController_handleDriveUsageRemovingWithLED(t *testing.T) {
 	}
 
 	kubeClient := setup()
-	dc := NewController(kubeClient, nodeID, &mocks.MockDriveMgrClient{}, eventRecorder, testLogger)
-	assert.NotNil(t, dc)
-	assert.NotNil(t, dc.crHelper)
 
-	t.Run("Check locate drive state", func(t *testing.T) {
+	t.Run("Check locate drive state - Success", func(t *testing.T) {
+		dc := NewController(kubeClient, nodeID, &mocks.MockDriveMgrClient{}, eventRecorder, testLogger)
+		assert.NotNil(t, dc)
+		assert.NotNil(t, dc.crHelper)
+
 		expectedD := testCRDrive2.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageRemoving
@@ -850,6 +851,26 @@ func TestDriveController_handleDriveUsageRemovingWithLED(t *testing.T) {
 		assert.Equal(t, res, update)
 		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoved)
 		assert.Equal(t, expectedD.Spec.LEDState, fmt.Sprintf("%d", apiV1.LocateStatusOn))
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
+	t.Run("Check locate drive state - Locate failure", func(t *testing.T) {
+		dc := NewController(kubeClient, nodeID, &mocks.MockDriveMgrClientFail{}, eventRecorder, testLogger)
+		assert.NotNil(t, dc)
+		assert.NotNil(t, dc.crHelper)
+
+		expectedD := testCRDrive2.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageRemoving
+		expectedD.Spec.LEDState = fmt.Sprintf("%d", apiV1.LocateStatusOff)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, update)
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageFailed)
+		assert.Equal(t, expectedD.Spec.LEDState, fmt.Sprintf("%d", apiV1.LocateStatusOff))
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 	})
