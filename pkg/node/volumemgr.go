@@ -1303,20 +1303,6 @@ func (m *VolumeManager) getPVCForVolume(volumeID string) (*corev1.PersistentVolu
 	return pvc, nil
 }
 
-func (m *VolumeManager) isPVCNeedFakeAttach(volumeID string) bool {
-	pvc, err := m.getPVCForVolume(volumeID)
-	if err != nil {
-		m.log.Errorf("Failed to get Persistent Volume Claim for Volume %s: %+v", volumeID, err)
-		return false
-	}
-
-	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
-		return true
-	}
-
-	return false
-}
-
 // overrideDriveHealth replaces drive health with passed value,
 // generates error message if value is not valid
 func (m *VolumeManager) overrideDriveHealth(drive *api.Drive, overriddenHealth, driveCRName string) {

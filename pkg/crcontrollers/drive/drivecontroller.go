@@ -327,15 +327,21 @@ func (c *Controller) checkAllVolsWithoutFakeAttachRemoved(volumes []*volumecrd.V
 	return true
 }
 
-// checkLVGVolumeFakeAttach checks if there is any volume in the provided LVG
-// that is located on LVM and is fake attached, returns true if such a volume is found, false otherwise.
-func (c *Controller) checkLVGVolumeFakeAttach(lvg *lvgcrd.LogicalVolumeGroup, volumes []*volumecrd.Volume) bool {
+// checkAllLVGVolsWithoutFakeAttachRemoved checks if all volumes in the given LogicalVolumeGroup are removed or 'fake attached'.
+//
+// Parameters:
+// - lvg: a pointer to the LogicalVolumeGroup object.
+// - volumes: a slice of pointers to the Volume objects.
+//
+// Returns:
+// - bool: true if all volumes in the given LogicalVolumeGroup are removed or 'fake attached'
+func (c *Controller) checkAllLVGVolsWithoutFakeAttachRemoved(lvg *lvgcrd.LogicalVolumeGroup, volumes []*volumecrd.Volume) bool {
 	for _, v := range volumes {
-		if v.Spec.LocationType == apiV1.LocationTypeLVM && v.Spec.Location == lvg.Name {
-			return c.isFakeAttach(v)
+		if v.Spec.LocationType == apiV1.LocationTypeLVM && v.Spec.Location == lvg.Name && !c.isFakeAttach(v) {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func (c *Controller) isFakeAttach(v *volumecrd.Volume) bool {
@@ -398,7 +404,7 @@ func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.E
 		return ignore, err
 	}
 
-	if lvg != nil && !c.checkLVGVolumeFakeAttach(lvg, volumes) {
+	if lvg != nil && !c.checkAllLVGVolsWithoutFakeAttachRemoved(lvg, volumes) {
 		log.Debugf("Waiting LVG without fake-attach %s remove", lvg.Name)
 		return wait, nil
 	}

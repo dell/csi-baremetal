@@ -153,11 +153,13 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(
 	ll *logrus.Entry,
 	volumeCR *volumecrd.Volume,
 	targetPath string,
-	isFakeAttachNeed bool,
+	isFakeAttachAnnotation bool,
 	isFakeAttachDR bool,
+	isErr bool,
 ) error {
 	volumeID := volumeCR.Spec.Id
-	if isFakeAttachNeed {
+	isFakeAttachNeeded := (isErr && isFakeAttachAnnotation) || isFakeAttachDR
+	if isFakeAttachNeeded {
 		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
 			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
 			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
@@ -195,23 +197,31 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(
 	return nil
 }
 
-// isFakeAttachNeededForDR - checks if a fake attach is needed for drive replacement,
-// returns true if the volume's corresponding PVC has the fake attach annotation and the drive has usage: REMOVING and STATUS: ONLINE,
-// otherwise, returns false.
-func (s *CSINodeService) isFakeAttachNeededForDR(volumeCR *volumecrd.Volume) bool {
+// isFakeAttachNeed checks if fake attach annotation is present and needed for drive replacement.
+//
+// Parameters:
+// - volumeCR: a pointer to a volumecrd.Volume object representing the volume to check.
+//
+// Returns:
+// - bool: a boolean indicating whether fake attach annotation is present.
+// - bool: a boolean indicating whether fake attach is needed in DR.
+func (s *CSINodeService) isFakeAttachNeed(volumeCR *volumecrd.Volume) (bool, bool) {
+	fakeAttachBasic, fakeAttachDR := false, false
+
 	pvc, err := s.getPVCForVolume(volumeCR.Spec.Id)
 	if err != nil {
 		s.log.Errorf("Failed to get Persistent Volume Claim for Volume %s: %+v", volumeCR.Spec.Id, err)
-		return false
+		return fakeAttachBasic, fakeAttachDR
 	}
 
 	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
+		fakeAttachBasic = true
 		if driveCR, err := s.crHelper.GetDriveCRByVolume(volumeCR); err == nil {
-			return driveCR.Spec.Usage == apiV1.DriveUsageRemoving && driveCR.Spec.Status == apiV1.DriveStatusOnline
+			fakeAttachDR = driveCR.Spec.Usage == apiV1.DriveUsageRemoving && driveCR.Spec.Status == apiV1.DriveStatusOnline
 		}
 	}
 
-	return false
+	return fakeAttachBasic, fakeAttachDR
 }
 
 // NodeStageVolume is the implementation of CSI Spec NodeStageVolume. Performs when the first pod consumes a volume.
@@ -288,11 +298,11 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
-	isFakeAttachNeed, isFakeAttachNeedDR := false, s.isFakeAttachNeededForDR(volumeCR)
+	isFakeAttachAnnotation, isFakeAttachDR := s.isFakeAttachNeed(volumeCR)
+	isErr := false
 	ignoreErrorIfFakeAttach := func(err error) {
-		if s.isPVCNeedFakeAttach(volumeID) || isFakeAttachNeedDR {
-			isFakeAttachNeed = true
-		} else {
+		isErr = true
+		if !isFakeAttachAnnotation {
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, status.Error(codes.Internal, fmt.Sprintf("failed to stage volume: %s", err.Error()))
 		}
@@ -317,8 +327,9 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		ll,
 		volumeCR,
 		targetPath,
-		isFakeAttachNeed || isFakeAttachNeedDR,
-		isFakeAttachNeedDR,
+		isFakeAttachAnnotation,
+		isFakeAttachDR,
+		isErr,
 	); err != nil {
 		return nil, err
 	}
