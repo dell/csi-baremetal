@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	corev1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -448,6 +449,17 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		expectedD.Spec.IsClean = false
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
 
+		expectedV := failedVolCR.DeepCopy()
+		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
+		expectedV.Spec.Location = expectedD.Name
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
+		pvcName := fmt.Sprintf("%s-%s", expectedD.Name, expectedV.Name)
+		expectedPVC := &corev1.PersistentVolumeClaim{}
+		expectedPVC.Name = pvcName
+		expectedPVC.Spec.VolumeName = expectedV.Name
+		assert.Nil(t, dc.client.CreateCR(testCtx, pvcName, expectedPVC))
+
 		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
@@ -456,6 +468,37 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Empty(t, expectedD.Annotations)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedPVC))
+	})
+	t.Run("ReleasedUsage - has pvc fake-attach annotation", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageReleased
+		expectedD.Spec.IsClean = false
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		expectedV := failedVolCR.DeepCopy()
+		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
+		expectedV.Spec.Location = expectedD.Name
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
+		pvcName := fmt.Sprintf("%s-%s", expectedD.Name, expectedV.Name)
+		expectedPVC := &corev1.PersistentVolumeClaim{}
+		expectedPVC.Name = pvcName
+		expectedPVC.Spec.VolumeName = expectedV.Name
+		expectedPVC.Annotations = map[string]string{fakeAttachPVCAnnotation: fakeAttachPVCAllowKey}
+		assert.Nil(t, dc.client.CreateCR(testCtx, pvcName, expectedPVC))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, update)
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoving)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedPVC))
 	})
 	t.Run("ReleasedUsage - has drive removalReady annotation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
