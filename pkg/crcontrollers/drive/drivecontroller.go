@@ -221,13 +221,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		for _, vol := range volumes {
 			value, found := getDriveAnnotationRemoval(vol.Annotations)
 			if !found || value != apiV1.DriveAnnotationRemovalReady {
-				if vol.Annotations == nil {
-					vol.Annotations = make(map[string]string)
-				}
-				// need to update volume annotations
-				vol.Annotations[apiV1.DriveAnnotationRemoval] = apiV1.DriveAnnotationRemovalReady
-				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationRemovalReady
-				if err := c.client.UpdateCR(ctx, vol); err != nil {
+				if err := c.updateVolumeAnnotations(ctx, vol); err != nil {
 					log.Errorf("Failed to update volume %s annotations, error: %v", vol.Name, err)
 					return ignore, err
 				}
@@ -256,6 +250,17 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return update, nil
 	}
 	return ignore, nil
+}
+
+func (c *Controller) updateVolumeAnnotations(ctx context.Context, volume *volumecrd.Volume) error {
+	if volume.Annotations == nil {
+		volume.Annotations = make(map[string]string)
+	}
+
+	volume.Annotations[apiV1.DriveAnnotationRemoval] = apiV1.DriveAnnotationRemovalReady
+	volume.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationRemovalReady
+
+	return c.client.UpdateCR(ctx, volume)
 }
 
 // For support deprecated Replacement annotation
