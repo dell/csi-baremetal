@@ -200,10 +200,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 
-		if drive.Spec.IsClean {
+		if drive.Spec.IsClean || c.checkAllPVCsWithFakeAttachAnnotation(ctx, drive) {
 			log.Infof("Initiating automatic removal of drive: %s", drive.GetName())
-		} else if c.checkAllPVCsWithFakeAttachAnnotation(ctx, drive) {
-			log.Infof("Fake attach detected for all PVCs, initiating automatic removal of drive: %s", drive.GetName())
 		} else {
 			status, found := getDriveAnnotationRemoval(drive.Annotations)
 			if !found || status != apiV1.DriveAnnotationRemovalReady {
@@ -305,6 +303,11 @@ func (c *Controller) checkAllPVCsWithFakeAttachAnnotation(ctx context.Context, d
 			}
 		}
 	}
+
+	c.log.Infof(
+		"PVCs associated with drive %s have %s annotation, with key %s", drive.Name, fakeAttachPVCAnnotation, fakeAttachPVCAllowKey,
+	)
+
 	return true
 }
 
