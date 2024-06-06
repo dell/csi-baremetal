@@ -1356,3 +1356,70 @@ func TestCheckLVGVolumeWithoutFakeAttachRemoved(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckAllPVCsWithFakeAttachAnnotation(t *testing.T) {
+	ctx := context.Background()
+	c := NewController(setup(), nodeID, &mocks.MockDriveMgrClient{}, new(events.Recorder), testLogger)
+
+	t.Run("returns false when PVC does not have correct annotation", func(t *testing.T) {
+		exptectedD := testCRDrive2.DeepCopy()
+		err := c.client.CreateCR(ctx, exptectedD.Name, exptectedD)
+		assert.Nil(t, err)
+
+		expectedV := failedVolCR.DeepCopy()
+		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
+		expectedV.Spec.Location = exptectedD.Name
+		err = c.client.CreateCR(ctx, expectedV.Name, expectedV)
+		assert.Nil(t, err)
+
+		expectedPVC := &corev1.PersistentVolumeClaim{}
+		expectedPVC.Name = "test-pvc"
+		expectedPVC.Spec.VolumeName = expectedV.Name
+		err = c.client.CreateCR(ctx, expectedPVC.Name, expectedPVC)
+		assert.Nil(t, err)
+
+		expectedPVC2 := &corev1.PersistentVolumeClaim{}
+		expectedPVC2.Name = "test-pvc-2"
+		expectedPVC2.Annotations = map[string]string{fakeAttachPVCAnnotation: fakeAttachPVCAllowKey}
+		err = c.client.CreateCR(ctx, expectedPVC2.Name, expectedPVC2)
+		assert.Nil(t, err)
+
+		assert.False(t, c.checkAllPVCsWithFakeAttachAnnotation(ctx, exptectedD))
+
+		assert.Nil(t, c.client.DeleteCR(ctx, exptectedD))
+		assert.Nil(t, c.client.DeleteCR(ctx, expectedV))
+		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC))
+		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC2))
+	})
+
+	t.Run("returns true when all related PVCs have correct annotation", func(t *testing.T) {
+		exptectedD := testCRDrive2.DeepCopy()
+		err := c.client.CreateCR(ctx, exptectedD.Name, exptectedD)
+		assert.Nil(t, err)
+
+		expectedV := failedVolCR.DeepCopy()
+		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
+		expectedV.Spec.Location = exptectedD.Name
+		err = c.client.CreateCR(ctx, expectedV.Name, expectedV)
+		assert.Nil(t, err)
+
+		expectedPVC := &corev1.PersistentVolumeClaim{}
+		expectedPVC.Name = "test-pvc"
+		expectedPVC.Annotations = map[string]string{fakeAttachPVCAnnotation: fakeAttachPVCAllowKey}
+		expectedPVC.Spec.VolumeName = expectedV.Name
+		err = c.client.CreateCR(ctx, expectedPVC.Name, expectedPVC)
+		assert.Nil(t, err)
+
+		expectedPVC2 := &corev1.PersistentVolumeClaim{}
+		expectedPVC2.Name = "test-pvc-2"
+		err = c.client.CreateCR(ctx, expectedPVC2.Name, expectedPVC2)
+		assert.Nil(t, err)
+
+		assert.True(t, c.checkAllPVCsWithFakeAttachAnnotation(ctx, exptectedD))
+
+		assert.Nil(t, c.client.DeleteCR(ctx, exptectedD))
+		assert.Nil(t, c.client.DeleteCR(ctx, expectedV))
+		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC))
+		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC2))
+	})
+}
