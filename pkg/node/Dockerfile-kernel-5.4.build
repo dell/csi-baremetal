@@ -1,5 +1,5 @@
-FROM    ubuntu:22.04
+FROM    ubuntu:24.04
 
 ADD     health_probe    health_probe
 
-RUN     apt update --no-install-recommends -y -q; apt install --no-install-recommends -y -q util-linux parted xfsprogs lvm2 fdisk gdisk strace udev net-tools; apt remove --no-install-recommends -y --allow-remove-essential -q bash; apt upgrade --no-install-recommends -y -q
+RUN     apt update --no-install-recommends -y -q; apt install --no-install-recommends -y -q util-linux parted xfsprogs lvm2 fdisk gdisk strace udev net-tools; apt upgrade --no-install-recommends -y -q
