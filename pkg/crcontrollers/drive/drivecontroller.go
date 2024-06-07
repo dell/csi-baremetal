@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,6 +59,9 @@ const (
 
 	fakeAttachPVCAnnotation = "pv.attach.kubernetes.io/ignore-if-inaccessible"
 	fakeAttachPVCAllowKey   = "yes"
+
+	allVolumesFakeAttachedAnnotation = "all-volumes-fake-attached"
+	allVolumesFakeAttachedKey        = "yes"
 )
 
 // NewController creates new instance of Controller structure
@@ -200,7 +202,9 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 
-		if drive.Spec.IsClean || c.checkAllPVCsWithFakeAttachAnnotation(ctx, drive) {
+		value, foundAllVolFakeAttach := drive.Annotations[allVolumesFakeAttachedAnnotation]
+		fakeAttachDR := !drive.Spec.IsClean && foundAllVolFakeAttach && value == allVolumesFakeAttachedKey
+		if drive.Spec.IsClean || fakeAttachDR {
 			log.Infof("Initiating automatic removal of drive: %s", drive.GetName())
 		} else {
 			status, found := getDriveAnnotationRemoval(drive.Annotations)
@@ -268,47 +272,6 @@ func getDriveAnnotationRemoval(annotations map[string]string) (string, bool) {
 		status, found = annotations[apiV1.DriveAnnotationReplacement]
 	}
 	return status, found
-}
-
-// checkAllPVCsWithFakeAttachAnnotation checks if all PVCs associated with a given drive have the correct annotation.
-//
-// Parameters:
-// - ctx: the context.Context object for controlling the execution flow.
-// - drive: a pointer to the drivecrd.Drive object representing the drive.
-//
-// Returns:
-// - bool: true if all PVCs have the correct annotation, false otherwise.
-func (c *Controller) checkAllPVCsWithFakeAttachAnnotation(ctx context.Context, drive *drivecrd.Drive) bool {
-	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.GetUUID())
-	if err != nil {
-		c.log.Errorf("failed to list volumes by location %s: %v", drive.Spec.GetUUID(), err)
-		return false
-	}
-
-	volumeNames := make(map[string]struct{})
-	for _, v := range volumes {
-		volumeNames[v.Name] = struct{}{}
-	}
-
-	PVCs := &corev1.PersistentVolumeClaimList{}
-	if err := c.client.Client.List(ctx, PVCs); err != nil {
-		c.log.Errorf("failed to list PVCs: %v", err)
-		return false
-	}
-
-	for _, pvc := range PVCs.Items {
-		if _, ok := volumeNames[pvc.Spec.VolumeName]; ok {
-			if value, found := pvc.Annotations[fakeAttachPVCAnnotation]; !found || value != fakeAttachPVCAllowKey {
-				return false
-			}
-		}
-	}
-
-	c.log.Infof(
-		"PVCs associated with drive %s have %s annotation, with key %s", drive.Name, fakeAttachPVCAnnotation, fakeAttachPVCAllowKey,
-	)
-
-	return true
 }
 
 func (c *Controller) changeVolumeUsageAfterActionAnnotation(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) error {

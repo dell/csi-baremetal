@@ -12,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	corev1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -454,12 +453,6 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		expectedV.Spec.Location = expectedD.Name
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
 
-		pvcName := fmt.Sprintf("%s-%s", expectedD.Name, expectedV.Name)
-		expectedPVC := &corev1.PersistentVolumeClaim{}
-		expectedPVC.Name = pvcName
-		expectedPVC.Spec.VolumeName = expectedV.Name
-		assert.Nil(t, dc.client.CreateCR(testCtx, pvcName, expectedPVC))
-
 		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
@@ -469,26 +462,19 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
-		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedPVC))
 	})
-	t.Run("ReleasedUsage - has pvc fake-attach annotation", func(t *testing.T) {
+	t.Run("ReleasedUsage - has all-volumes-fake-attached annotation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageReleased
 		expectedD.Spec.IsClean = false
+		expectedD.Annotations = map[string]string{allVolumesFakeAttachedAnnotation: allVolumesFakeAttachedKey}
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
 
 		expectedV := failedVolCR.DeepCopy()
 		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
 		expectedV.Spec.Location = expectedD.Name
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
-
-		pvcName := fmt.Sprintf("%s-%s", expectedD.Name, expectedV.Name)
-		expectedPVC := &corev1.PersistentVolumeClaim{}
-		expectedPVC.Name = pvcName
-		expectedPVC.Spec.VolumeName = expectedV.Name
-		expectedPVC.Annotations = map[string]string{fakeAttachPVCAnnotation: fakeAttachPVCAllowKey}
-		assert.Nil(t, dc.client.CreateCR(testCtx, pvcName, expectedPVC))
 
 		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
@@ -498,7 +484,6 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
-		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedPVC))
 	})
 	t.Run("ReleasedUsage - has drive removalReady annotation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
@@ -1355,71 +1340,4 @@ func TestCheckLVGVolumeWithoutFakeAttachRemoved(t *testing.T) {
 			assert.Equal(t, tc.expected, c.checkAllLVGVolsWithoutFakeAttachRemoved(lvg, tc.volumes))
 		})
 	}
-}
-
-func TestCheckAllPVCsWithFakeAttachAnnotation(t *testing.T) {
-	ctx := context.Background()
-	c := NewController(setup(), nodeID, &mocks.MockDriveMgrClient{}, new(events.Recorder), testLogger)
-
-	t.Run("returns false when PVC does not have correct annotation", func(t *testing.T) {
-		exptectedD := testCRDrive2.DeepCopy()
-		err := c.client.CreateCR(ctx, exptectedD.Name, exptectedD)
-		assert.Nil(t, err)
-
-		expectedV := failedVolCR.DeepCopy()
-		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
-		expectedV.Spec.Location = exptectedD.Name
-		err = c.client.CreateCR(ctx, expectedV.Name, expectedV)
-		assert.Nil(t, err)
-
-		expectedPVC := &corev1.PersistentVolumeClaim{}
-		expectedPVC.Name = "test-pvc"
-		expectedPVC.Spec.VolumeName = expectedV.Name
-		err = c.client.CreateCR(ctx, expectedPVC.Name, expectedPVC)
-		assert.Nil(t, err)
-
-		expectedPVC2 := &corev1.PersistentVolumeClaim{}
-		expectedPVC2.Name = "test-pvc-2"
-		expectedPVC2.Annotations = map[string]string{fakeAttachPVCAnnotation: fakeAttachPVCAllowKey}
-		err = c.client.CreateCR(ctx, expectedPVC2.Name, expectedPVC2)
-		assert.Nil(t, err)
-
-		assert.False(t, c.checkAllPVCsWithFakeAttachAnnotation(ctx, exptectedD))
-
-		assert.Nil(t, c.client.DeleteCR(ctx, exptectedD))
-		assert.Nil(t, c.client.DeleteCR(ctx, expectedV))
-		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC))
-		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC2))
-	})
-
-	t.Run("returns true when all related PVCs have correct annotation", func(t *testing.T) {
-		exptectedD := testCRDrive2.DeepCopy()
-		err := c.client.CreateCR(ctx, exptectedD.Name, exptectedD)
-		assert.Nil(t, err)
-
-		expectedV := failedVolCR.DeepCopy()
-		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
-		expectedV.Spec.Location = exptectedD.Name
-		err = c.client.CreateCR(ctx, expectedV.Name, expectedV)
-		assert.Nil(t, err)
-
-		expectedPVC := &corev1.PersistentVolumeClaim{}
-		expectedPVC.Name = "test-pvc"
-		expectedPVC.Annotations = map[string]string{fakeAttachPVCAnnotation: fakeAttachPVCAllowKey}
-		expectedPVC.Spec.VolumeName = expectedV.Name
-		err = c.client.CreateCR(ctx, expectedPVC.Name, expectedPVC)
-		assert.Nil(t, err)
-
-		expectedPVC2 := &corev1.PersistentVolumeClaim{}
-		expectedPVC2.Name = "test-pvc-2"
-		err = c.client.CreateCR(ctx, expectedPVC2.Name, expectedPVC2)
-		assert.Nil(t, err)
-
-		assert.True(t, c.checkAllPVCsWithFakeAttachAnnotation(ctx, exptectedD))
-
-		assert.Nil(t, c.client.DeleteCR(ctx, exptectedD))
-		assert.Nil(t, c.client.DeleteCR(ctx, expectedV))
-		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC))
-		assert.Nil(t, c.client.DeleteCR(ctx, expectedPVC2))
-	})
 }

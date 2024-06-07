@@ -697,7 +697,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
 		drive1 := &drivecrd.Drive{}
 		drive1.Name = "drive1"
-		drive1.Spec.Usage = apiV1.DriveUsageRemoving
+		drive1.Spec.Usage = apiV1.DriveUsageReleased
 		drive1.Spec.Status = apiV1.DriveStatusOnline
 		err := node.k8sClient.CreateCR(testCtx, drive1.Name, drive1)
 		Expect(err).To(BeNil())
