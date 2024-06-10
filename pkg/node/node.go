@@ -245,7 +245,7 @@ func (s *CSINodeService) annotateIfAllVolsFakeAttached(ctx context.Context, volu
 // - volumeCR: a pointer to a volumecrd.Volume object representing the volume to check.
 //
 // Returns:
-// - bool: a boolean indicating whether fake attach annotation is present.
+// - bool: a boolean indicating whether fake attach annotation is present, it's always true when fake attach is needed in DR.
 // - bool: a boolean indicating whether fake attach is needed in DR.
 func (s *CSINodeService) isFakeAttachNeed(volumeCR *volumecrd.Volume) (bool, bool) {
 	fakeAttachBasic, fakeAttachDR := false, false

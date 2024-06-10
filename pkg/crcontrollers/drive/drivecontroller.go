@@ -53,7 +53,7 @@ const (
 	driveRestartReplacementAnnotationKeyDeprecated   = "drive"
 	driveRestartReplacementAnnotationValueDeprecated = "add"
 
-	// annotation and key for fake-attach
+	// annotations and keys for fake-attach
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
 
