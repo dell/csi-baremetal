@@ -173,25 +173,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			toUpdate = true
 		}
 	case apiV1.DriveUsageReleasing:
-		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
-		if err != nil {
-			return ignore, err
-		}
-		allFound := true
-		for _, vol := range volumes {
-			status, found := drive.Annotations[fmt.Sprintf(
-				"%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, vol.Name)]
-			if !found || status != apiV1.VolumeUsageReleased {
-				allFound = false
-				break
-			}
-		}
-		if allFound {
-			drive.Spec.Usage = apiV1.DriveUsageReleased
-			eventMsg := fmt.Sprintf("Drive is ready for documented removal procedure. %s", drive.GetDriveDescription())
-			c.eventRecorder.Eventf(drive, eventing.DriveReadyForRemoval, eventMsg)
-			toUpdate = true
-		}
+		return c.handleDriveUsageReleasing(ctx, log, drive)
 
 	case apiV1.DriveUsageReleased:
 		if c.checkAndPlaceStatusInUse(drive) {
@@ -395,6 +377,32 @@ func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 	}
 
 	return false
+}
+
+func (c *Controller) handleDriveUsageReleasing(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	log.Debugf("releasing drive: %s", drive.Name)
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.GetUUID())
+	if err != nil {
+		return ignore, err
+	}
+	allFound := true
+	for _, vol := range volumes {
+		status, found := drive.Annotations[fmt.Sprintf(
+			"%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, vol.Name)]
+		if !found || status != apiV1.VolumeUsageReleased {
+			allFound = false
+			break
+		}
+	}
+	if !allFound {
+		return ignore, nil
+	}
+
+	drive.Spec.Usage = apiV1.DriveUsageReleased
+	eventMsg := fmt.Sprintf("Drive is ready for documented removal procedure. %s", drive.GetDriveDescription())
+	c.eventRecorder.Eventf(drive, eventing.DriveReadyForRemoval, eventMsg)
+
+	return update, nil
 }
 
 func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
