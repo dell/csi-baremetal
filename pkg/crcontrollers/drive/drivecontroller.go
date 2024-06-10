@@ -57,9 +57,6 @@ const (
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
 
-	fakeAttachPVCAnnotation = "pv.attach.kubernetes.io/ignore-if-inaccessible"
-	fakeAttachPVCAllowKey   = "yes"
-
 	allVolumesFakeAttachedAnnotation = "all-volumes-fake-attached"
 	allVolumesFakeAttachedKey        = "yes"
 )

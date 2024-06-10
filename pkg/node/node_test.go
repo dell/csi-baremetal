@@ -39,6 +39,7 @@ import (
 
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	vcrd "github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base/featureconfig"
 	"github.com/dell/csi-baremetal/pkg/base/k8s"
@@ -950,6 +951,93 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		Expect(err).To(BeNil())
 		Expect(volumeCR.Spec.CSIStatus).To(Equal(apiV1.Published))
 		Expect(volumeCR.Spec.Owners[0]).To(Equal(testPod1Name))
+	})
+	It("Should publish unhealthy fs-mode volume with fake-attach annotation and annotate drive (LVM)", func() {
+		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+		req.VolumeContext[util.PodNameKey] = testPod1Name
+
+		drive1 := &drivecrd.Drive{}
+		drive1.Name = "drive1"
+		drive1.Spec.Usage = apiV1.DriveUsageReleased
+		drive1.Spec.Status = apiV1.DriveStatusOnline
+		drive1.Spec.UUID = drive1.Name
+		err := node.k8sClient.CreateCR(testCtx, drive1.Name, drive1)
+		Expect(err).To(BeNil())
+
+		lvg1 := &lvgcrd.LogicalVolumeGroup{}
+		lvg1.Name = "lvg1"
+		lvg1.Spec.Locations = append(lvg1.Spec.Locations, drive1.Name)
+		err = node.k8sClient.CreateCR(testCtx, lvg1.Name, lvg1)
+		Expect(err).To(BeNil())
+
+		vol1 := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Published
+		vol1.Spec.LocationType = apiV1.LocationTypeLVM
+		vol1.Spec.Location = lvg1.Name
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		vol1.Spec.Mode = apiV1.ModeFS
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		vol2 := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testVolume2.Id, testNs, vol2)
+		Expect(err).To(BeNil())
+		vol2.Spec.LocationType = apiV1.LocationTypeLVM
+		vol2.Spec.Location = lvg1.Name
+		vol2.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		err = node.k8sClient.UpdateCR(testCtx, vol2)
+		Expect(err).To(BeNil())
+
+		fsOps.On("MountFakeTmpfs",
+			testV1ID, req.GetTargetPath()).
+			Return(nil)
+
+		resp, err := node.NodePublishVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		driveCR := &drivecrd.Drive{}
+		err = node.k8sClient.ReadCR(testCtx, drive1.Name, "", driveCR)
+		Expect(err).To(BeNil())
+		Expect(driveCR.Annotations[allVolumesFakeAttachedAnnotation]).To(Equal(allVolumesFakeAttachedKey))
+	})
+	It("Should publish unhealthy fs-mode volume with fake-attach annotation and annotate drive (Drive)", func() {
+		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+		req.VolumeContext[util.PodNameKey] = testPod1Name
+
+		drive1 := &drivecrd.Drive{}
+		drive1.Name = "drive-hdd-1"
+		drive1.Spec.Usage = apiV1.DriveUsageReleased
+		drive1.Spec.Status = apiV1.DriveStatusOnline
+		drive1.Spec.UUID = drive1.Name
+		err := node.k8sClient.CreateCR(testCtx, drive1.Name, drive1)
+		Expect(err).To(BeNil())
+
+		vol1 := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Published
+		vol1.Spec.LocationType = apiV1.LocationTypeDrive
+		vol1.Spec.Location = drive1.Name
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		vol1.Spec.Mode = apiV1.ModeFS
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		fsOps.On("MountFakeTmpfs",
+			testV1ID, req.GetTargetPath()).
+			Return(nil)
+
+		resp, err := node.NodePublishVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		driveCR := &drivecrd.Drive{}
+		err = node.k8sClient.ReadCR(testCtx, drive1.Name, "", driveCR)
+		Expect(err).To(BeNil())
+		Expect(driveCR.Annotations[allVolumesFakeAttachedAnnotation]).To(Equal(allVolumesFakeAttachedKey))
 	})
 	It("Should stage healthy block-mode volume with fake-attach and valid fake-device annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
