@@ -16,6 +16,7 @@ import (
 	api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	"github.com/dell/csi-baremetal/api/v1/drivecrd"
+	"github.com/dell/csi-baremetal/api/v1/lvgcrd"
 	sgcrd "github.com/dell/csi-baremetal/api/v1/storagegroupcrd"
 	"github.com/dell/csi-baremetal/api/v1/volumecrd"
 	"github.com/dell/csi-baremetal/pkg/base"
@@ -51,6 +52,13 @@ const (
 	// Deprecated annotations to to perform DR restart process
 	driveRestartReplacementAnnotationKeyDeprecated   = "drive"
 	driveRestartReplacementAnnotationValueDeprecated = "add"
+
+	// annotations and keys for fake-attach
+	fakeAttachVolumeAnnotation = "fake-attach"
+	fakeAttachVolumeKey        = "yes"
+
+	allVolumesFakeAttachedAnnotation = "all-volumes-fake-attached"
+	allVolumesFakeAttachedKey        = "yes"
 )
 
 // NewController creates new instance of Controller structure
@@ -165,25 +173,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			toUpdate = true
 		}
 	case apiV1.DriveUsageReleasing:
-		volumes, err := c.crHelper.GetVolumesByLocation(ctx, id)
-		if err != nil {
-			return ignore, err
-		}
-		allFound := true
-		for _, vol := range volumes {
-			status, found := drive.Annotations[fmt.Sprintf(
-				"%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, vol.Name)]
-			if !found || status != apiV1.VolumeUsageReleased {
-				allFound = false
-				break
-			}
-		}
-		if allFound {
-			drive.Spec.Usage = apiV1.DriveUsageReleased
-			eventMsg := fmt.Sprintf("Drive is ready for documented removal procedure. %s", drive.GetDriveDescription())
-			c.eventRecorder.Eventf(drive, eventing.DriveReadyForRemoval, eventMsg)
-			toUpdate = true
-		}
+		return c.handleDriveUsageReleasing(ctx, log, drive)
 
 	case apiV1.DriveUsageReleased:
 		if c.checkAndPlaceStatusInUse(drive) {
@@ -191,7 +181,9 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 
-		if drive.Spec.IsClean {
+		value, foundAllVolFakeAttach := drive.Annotations[allVolumesFakeAttachedAnnotation]
+		fakeAttachDR := !drive.Spec.IsClean && foundAllVolFakeAttach && value == allVolumesFakeAttachedKey
+		if drive.Spec.IsClean || fakeAttachDR {
 			log.Infof("Initiating automatic removal of drive: %s", drive.GetName())
 		} else {
 			status, found := getDriveAnnotationRemoval(drive.Annotations)
@@ -210,10 +202,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		for _, vol := range volumes {
 			value, found := getDriveAnnotationRemoval(vol.Annotations)
 			if !found || value != apiV1.DriveAnnotationRemovalReady {
-				// need to update volume annotations
-				vol.Annotations[apiV1.DriveAnnotationRemoval] = apiV1.DriveAnnotationRemovalReady
-				vol.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationRemovalReady
-				if err := c.client.UpdateCR(ctx, vol); err != nil {
+				if err := c.updateVolumeAnnotations(ctx, vol); err != nil {
 					log.Errorf("Failed to update volume %s annotations, error: %v", vol.Name, err)
 					return ignore, err
 				}
@@ -242,6 +231,17 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		return update, nil
 	}
 	return ignore, nil
+}
+
+func (c *Controller) updateVolumeAnnotations(ctx context.Context, volume *volumecrd.Volume) error {
+	if volume.Annotations == nil {
+		volume.Annotations = make(map[string]string)
+	}
+
+	volume.Annotations[apiV1.DriveAnnotationRemoval] = apiV1.DriveAnnotationRemovalReady
+	volume.Annotations[apiV1.DriveAnnotationReplacement] = apiV1.DriveAnnotationRemovalReady
+
+	return c.client.UpdateCR(ctx, volume)
 }
 
 // For support deprecated Replacement annotation
@@ -311,13 +311,37 @@ func (c *Controller) getVolsStatuses(volumes []*volumecrd.Volume) map[string]str
 	return statuses
 }
 
-func (c *Controller) checkAllVolsRemoved(volumes []*volumecrd.Volume) bool {
-	for _, vol := range volumes {
-		if vol.Spec.CSIStatus != apiV1.Removed {
+// checkAllVolsWithoutFakeAttachRemoved checks if all volumes are removed and not 'fake attached',
+// returns true if any volume's CSIStatus is not 'REMOVED' or it's 'fake attached'
+func (c *Controller) checkAllVolsWithoutFakeAttachRemoved(volumes []*volumecrd.Volume) bool {
+	for _, v := range volumes {
+		if v.Spec.CSIStatus != apiV1.Removed && !c.isFakeAttach(v) {
 			return false
 		}
 	}
 	return true
+}
+
+// checkAllLVGVolsWithoutFakeAttachRemoved checks if all volumes in the given LogicalVolumeGroup are removed or 'fake attached'.
+//
+// Parameters:
+// - lvg: a pointer to the LogicalVolumeGroup object.
+// - volumes: a slice of pointers to the Volume objects.
+//
+// Returns:
+// - bool: true if all volumes in the given LogicalVolumeGroup are removed or 'fake attached'
+func (c *Controller) checkAllLVGVolsWithoutFakeAttachRemoved(lvg *lvgcrd.LogicalVolumeGroup, volumes []*volumecrd.Volume) bool {
+	for _, v := range volumes {
+		if v.Spec.LocationType == apiV1.LocationTypeLVM && v.Spec.Location == lvg.Name && !c.isFakeAttach(v) {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Controller) isFakeAttach(v *volumecrd.Volume) bool {
+	value, found := v.Annotations[fakeAttachVolumeAnnotation]
+	return found && value == fakeAttachVolumeKey
 }
 
 // placeStatusInUse places drive.Usage to IN_USE if CR is annotated
@@ -355,24 +379,54 @@ func (c *Controller) checkAndPlaceStatusRemoved(drive *drivecrd.Drive) bool {
 	return false
 }
 
+func (c *Controller) handleDriveUsageReleasing(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
+	log.Debugf("releasing drive: %s", drive.Name)
+	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.GetUUID())
+	if err != nil {
+		return ignore, err
+	}
+	allFound := true
+	for _, vol := range volumes {
+		status, found := drive.Annotations[fmt.Sprintf(
+			"%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, vol.Name)]
+		if !found || status != apiV1.VolumeUsageReleased {
+			allFound = false
+			break
+		}
+	}
+	if !allFound {
+		return ignore, nil
+	}
+
+	drive.Spec.Usage = apiV1.DriveUsageReleased
+	eventMsg := fmt.Sprintf("Drive is ready for documented removal procedure. %s", drive.GetDriveDescription())
+	c.eventRecorder.Eventf(drive, eventing.DriveReadyForRemoval, eventMsg)
+
+	return update, nil
+}
+
 func (c *Controller) handleDriveUsageRemoving(ctx context.Context, log *logrus.Entry, drive *drivecrd.Drive) (uint8, error) {
-	// wait all volumes have REMOVED status
+	// wait all volumes without fake-attach have REMOVED status
 	volumes, err := c.crHelper.GetVolumesByLocation(ctx, drive.Spec.UUID)
 	if err != nil {
 		return ignore, err
 	}
-	if !c.checkAllVolsRemoved(volumes) {
-		log.Debugf("Waiting all volumes in REMOVED status, current statuses: %v", c.getVolsStatuses(volumes))
+	if !c.checkAllVolsWithoutFakeAttachRemoved(volumes) {
+		log.Debugf(
+			"Waiting all volumes without fake-attach in REMOVED status, current statuses: %v",
+			c.getVolsStatuses(volumes),
+		)
 		return wait, nil
 	}
 
-	// wait lvg is removed if exist
+	// wait lvg without fake-attach is removed if exist
 	lvg, err := c.crHelper.GetLVGByDrive(ctx, drive.Spec.UUID)
 	if err != nil && err != errTypes.ErrorNotFound {
 		return ignore, err
 	}
-	if lvg != nil {
-		log.Debugf("Waiting LVG %s remove", lvg.Name)
+
+	if lvg != nil && !c.checkAllLVGVolsWithoutFakeAttachRemoved(lvg, volumes) {
+		log.Debugf("Waiting LVG without fake-attach %s remove", lvg.Name)
 		return wait, nil
 	}
 

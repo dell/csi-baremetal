@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	api "github.com/dell/csi-baremetal/api/generated/v1"
+	v1api "github.com/dell/csi-baremetal/api/generated/v1"
 	apiV1 "github.com/dell/csi-baremetal/api/v1"
 	accrd "github.com/dell/csi-baremetal/api/v1/availablecapacitycrd"
 	dcrd "github.com/dell/csi-baremetal/api/v1/drivecrd"
@@ -150,6 +151,14 @@ var (
 				MatchFields:         map[string]string{"Type": "HDD"},
 			},
 		},
+	}
+
+	objMetaWithEmptyAnnotations = v1.ObjectMeta{
+		Annotations: map[string]string{},
+	}
+
+	objMetaWithFakeAttachAnnotation = v1.ObjectMeta{
+		Annotations: map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey},
 	}
 )
 
@@ -439,6 +448,11 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		expectedD.Spec.IsClean = false
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
 
+		expectedV := failedVolCR.DeepCopy()
+		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
+		expectedV.Spec.Location = expectedD.Name
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
 		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
 		assert.NotNil(t, res)
 		assert.Nil(t, err)
@@ -447,6 +461,29 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Empty(t, expectedD.Annotations)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+	})
+	t.Run("ReleasedUsage - has all-volumes-fake-attached annotation", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageReleased
+		expectedD.Spec.IsClean = false
+		expectedD.Annotations = map[string]string{allVolumesFakeAttachedAnnotation: allVolumesFakeAttachedKey}
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		expectedV := failedVolCR.DeepCopy()
+		expectedV.Spec.LocationType = apiV1.LocationTypeDrive
+		expectedV.Spec.Location = expectedD.Name
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, update)
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoving)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
 	})
 	t.Run("ReleasedUsage - has drive removalReady annotation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
@@ -918,6 +955,34 @@ func TestDriveController_handleDriveUsageRemoving(t *testing.T) {
 		assert.Equal(t, res, wait)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+	})
+	t.Run("Get wait when try to check LVG", func(t *testing.T) {
+		expectedD := testCRDrive2.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageRemoving
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		expectedLVG := lvgCR.DeepCopy()
+		assert.NotNil(t, expectedLVG)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedLVG.Name, expectedLVG))
+
+		expectedV := failedVolCR.DeepCopy()
+		assert.NotNil(t, expectedV)
+		expectedV.Spec.CSIStatus = apiV1.Removed
+		expectedV.Spec.LocationType = apiV1.LocationTypeLVM
+		expectedV.Spec.StorageClass = apiV1.StorageClassHDDLVG
+		expectedV.Spec.Location = lvgCR.Name
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
+		res, err := dc.handleDriveUsageRemoving(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+		assert.Equal(t, res, wait)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedLVG))
 	})
 }
 
@@ -1179,4 +1244,166 @@ func TestDriveController_handleDriveLabelUpdate(t *testing.T) {
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedAC))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedLVG))
 	})
+}
+
+func TestCheckAllVolsWithoutFakeAttachRemoved(t *testing.T) {
+	tests := []struct {
+		name     string
+		volumes  []*vcrd.Volume
+		expected bool
+	}{
+		{
+			name: "All volumes removed and no fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: objMetaWithEmptyAnnotations,
+				},
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: objMetaWithEmptyAnnotations,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "All volumes removed but one is fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: objMetaWithFakeAttachAnnotation,
+				},
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: objMetaWithEmptyAnnotations,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "One volume not removed and no fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Published,
+					},
+					ObjectMeta: objMetaWithEmptyAnnotations,
+				},
+				{
+					Spec: v1api.Volume{
+						CSIStatus: apiV1.Removed,
+					},
+					ObjectMeta: objMetaWithEmptyAnnotations,
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Controller{}
+			result := c.checkAllVolsWithoutFakeAttachRemoved(tt.volumes)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCheckLVGVolumeWithoutFakeAttachRemoved(t *testing.T) {
+	lvgName := "test-lvg"
+	lvg := &lvgcrd.LogicalVolumeGroup{}
+	lvg.Name = lvgName
+
+	testCases := []struct {
+		name     string
+		volumes  []*vcrd.Volume
+		expected bool
+	}{
+		{
+			name:     "Test case where no volumes",
+			volumes:  []*vcrd.Volume{},
+			expected: true,
+		},
+		{
+			name: "Test case where volume is fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						LocationType: apiV1.LocationTypeLVM,
+						Location:     lvgName,
+					},
+					ObjectMeta: objMetaWithFakeAttachAnnotation,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Test case where volume is not fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						LocationType: apiV1.LocationTypeLVM,
+						Location:     lvgName,
+					},
+					ObjectMeta: objMetaWithEmptyAnnotations,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Test case where only one volume is fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						LocationType: apiV1.LocationTypeLVM,
+						Location:     lvgName,
+					},
+					ObjectMeta: objMetaWithEmptyAnnotations,
+				},
+				{
+					Spec: v1api.Volume{
+						LocationType: apiV1.LocationTypeLVM,
+						Location:     lvgName,
+					},
+					ObjectMeta: objMetaWithFakeAttachAnnotation,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Test case where all volumes are fake attached",
+			volumes: []*vcrd.Volume{
+				{
+					Spec: v1api.Volume{
+						LocationType: apiV1.LocationTypeLVM,
+						Location:     lvgName,
+					},
+					ObjectMeta: objMetaWithFakeAttachAnnotation,
+				},
+				{
+					Spec: v1api.Volume{
+						LocationType: apiV1.LocationTypeLVM,
+						Location:     lvgName,
+					},
+					ObjectMeta: objMetaWithFakeAttachAnnotation,
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Controller{}
+			assert.Equal(t, tc.expected, c.checkAllLVGVolsWithoutFakeAttachRemoved(lvg, tc.volumes))
+		})
+	}
 }

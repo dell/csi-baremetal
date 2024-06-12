@@ -60,6 +60,9 @@ const (
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
 
+	allVolumesFakeAttachedAnnotation = "all-volumes-fake-attached"
+	allVolumesFakeAttachedKey        = "yes"
+
 	fakeDeviceVolumeAnnotation = "fake-device"
 	fakeDeviceSrcFileDir       = "/var/lib/kubelet/plugins/kubernetes.io/csi/volumeDevices/fake/"
 
@@ -149,14 +152,24 @@ func getStagingPath(logger *logrus.Entry, stagingPath string) string {
 	return stagingPath
 }
 
-func (s *CSINodeService) processFakeAttachInNodeStageVolume(ll *logrus.Entry, volumeCR *volumecrd.Volume, targetPath string, isFakeAttachNeed bool) error {
+func (s *CSINodeService) processFakeAttachInNodeStageVolume(
+	ll *logrus.Entry,
+	volumeCR *volumecrd.Volume,
+	targetPath string,
+	isFakeAttachAnnotation bool,
+	isFakeAttachDR bool,
+	isErr bool,
+) error {
 	volumeID := volumeCR.Spec.Id
-	if isFakeAttachNeed {
+	isFakeAttachNeeded := (isErr && isFakeAttachAnnotation) || isFakeAttachDR
+	if isFakeAttachNeeded {
 		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
 			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
 			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
-			s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachInvolved,
-				"Fake-attach involved for volume with ID %s", volumeID)
+			if !isFakeAttachDR {
+				s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachInvolved,
+					"Fake-attach involved for volume with ID %s", volumeID)
+			}
 		}
 		// mount fake device in the non-fs mode
 		if volumeCR.Spec.Mode != apiV1.ModeFS {
@@ -174,8 +187,10 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(ll *logrus.Entry, vo
 	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
 		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
 		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
-		s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachCleared,
-			"Fake-attach cleared for volume with ID %s", volumeID)
+		if !isFakeAttachDR {
+			s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachCleared,
+				"Fake-attach cleared for volume with ID %s", volumeID)
+		}
 		// clean fake device in the non-fs mode
 		if volumeCR.Spec.Mode != apiV1.ModeFS {
 			s.VolumeManager.cleanFakeDevice(ll, volumeCR)
@@ -183,6 +198,72 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(ll *logrus.Entry, vo
 		}
 	}
 	return nil
+}
+
+// annotateIfAllVolsFakeAttached checks if all volumes associated with a drive used by a given volume are fake attached.
+//
+// The function takes a context.Context object and a pointer to a volumecrd.Volume object as parameters.
+// It returns an error if there is an error during the process.
+func (s *CSINodeService) annotateIfAllVolsFakeAttached(ctx context.Context, volumeCR *volumecrd.Volume) error {
+	driveCR, err := s.crHelper.GetDriveCRByVolume(volumeCR)
+	if err != nil {
+		s.log.Errorf("failed to get driveCR by volumeCR %s: %v", volumeCR.Name, err)
+		return err
+	}
+
+	volumes, err := s.crHelper.GetVolumesByLocation(ctx, driveCR.Spec.GetUUID())
+	if err != nil {
+		s.log.Errorf("failed to list volumes by location %s: %v", driveCR.Spec.GetUUID(), err)
+		return err
+	}
+
+	for _, v := range volumes {
+		if value, found := v.Annotations[fakeAttachVolumeAnnotation]; !found || value != fakeAttachVolumeKey {
+			s.log.Debugf("volume %s is not fake attached", v.Spec.Id)
+			return nil
+		}
+	}
+
+	if driveCR.Annotations == nil {
+		driveCR.Annotations = make(map[string]string)
+	}
+
+	driveCR.Annotations[allVolumesFakeAttachedAnnotation] = allVolumesFakeAttachedKey
+	if err = s.k8sClient.UpdateCR(ctx, driveCR); err != nil {
+		s.log.Errorf("failed to update driveCR %s: %v", driveCR.Name, err)
+		return err
+	}
+
+	s.log.Infof("all volumes associated with drive: %s are fake attached", driveCR.Spec.GetUUID())
+
+	return nil
+}
+
+// isFakeAttachNeed checks if fake attach annotation is present and needed for drive replacement.
+//
+// Parameters:
+// - volumeCR: a pointer to a volumecrd.Volume object representing the volume to check.
+//
+// Returns:
+// - bool: a boolean indicating whether fake attach annotation is present, it's always true when fake attach is needed in DR.
+// - bool: a boolean indicating whether fake attach is needed in DR.
+func (s *CSINodeService) isFakeAttachNeed(volumeCR *volumecrd.Volume) (bool, bool) {
+	fakeAttachBasic, fakeAttachDR := false, false
+
+	pvc, err := s.getPVCForVolume(volumeCR.Spec.Id)
+	if err != nil {
+		s.log.Errorf("Failed to get Persistent Volume Claim for Volume %s: %+v", volumeCR.Spec.Id, err)
+		return fakeAttachBasic, fakeAttachDR
+	}
+
+	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
+		fakeAttachBasic = true
+		if driveCR, err := s.crHelper.GetDriveCRByVolume(volumeCR); err == nil {
+			fakeAttachDR = driveCR.Spec.Usage == apiV1.DriveUsageReleased && driveCR.Spec.Status == apiV1.DriveStatusOnline
+		}
+	}
+
+	return fakeAttachBasic, fakeAttachDR
 }
 
 // NodeStageVolume is the implementation of CSI Spec NodeStageVolume. Performs when the first pod consumes a volume.
@@ -259,12 +340,11 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	targetPath := getStagingPath(ll, req.GetStagingTargetPath())
-
-	isFakeAttachNeed := false
+	isFakeAttachAnnotation, isFakeAttachDR := s.isFakeAttachNeed(volumeCR)
+	isErr := false
 	ignoreErrorIfFakeAttach := func(err error) {
-		if s.isPVCNeedFakeAttach(volumeID) {
-			isFakeAttachNeed = true
-		} else {
+		isErr = true
+		if !isFakeAttachAnnotation {
 			newStatus = apiV1.Failed
 			resp, errToReturn = nil, status.Error(codes.Internal, fmt.Sprintf("failed to stage volume: %s", err.Error()))
 		}
@@ -285,7 +365,14 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		}
 	}
 
-	if err := s.processFakeAttachInNodeStageVolume(ll, volumeCR, targetPath, isFakeAttachNeed); err != nil {
+	if err := s.processFakeAttachInNodeStageVolume(
+		ll,
+		volumeCR,
+		targetPath,
+		isFakeAttachAnnotation,
+		isFakeAttachDR,
+		isErr,
+	); err != nil {
 		return nil, err
 	}
 
@@ -515,6 +602,12 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		ll.Errorf("Unable to update volume CR to %v, error: %v", volumeCR, err)
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: update volume CR error")
 	}
+
+	if err = s.annotateIfAllVolsFakeAttached(ctx, volumeCR); err != nil {
+		ll.Errorf("Failed to annotate drive CR, error: %v", err)
+		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: annotate drive CR error, %s", err.Error())
+	}
+
 	return resp, errToReturn
 }
 
