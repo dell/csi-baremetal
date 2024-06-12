@@ -55,12 +55,12 @@ const (
 	// fdiks is a name of system util
 	fdisk = "fdisk "
 	// blockdev is a name of system util
-	blockdev = "blockdev "
+	// blockdev = "blockdev "
 
 	// PartprobeDeviceCmdTmpl check that device has partition cmd
 	PartprobeDeviceCmdTmpl = partprobe + "-d -s %s"
-	// BlockdevCmdTmpl synchronize the partition table
-	BlockdevCmdTmpl = blockdev + "--rereadpt -v %s"
+	// SyncPartitionTBCmdTmpl synchronize the partition table
+	SyncPartitionTBCmdTmpl = partprobe + "%s"
 
 	// CreatePartitionTableCmdTmpl create partition table on provided device of provided type cmd template
 	// fill device and partition table type
@@ -276,13 +276,13 @@ func (p *WrapPartitionImpl) GetPartitionUUID(device, partNum string) (string, er
 // Receives device path to sync with partprobe, device could be an empty string (sync for all devices in the system)
 // Returns error if something went wrong
 func (p *WrapPartitionImpl) SyncPartitionTable(device string) (outStr string, errStr string, err error) {
-	cmd := fmt.Sprintf(BlockdevCmdTmpl, device)
+	cmd := fmt.Sprintf(SyncPartitionTBCmdTmpl, device)
 
 	for i := 0; i < p.numberOfRetriesToSyncPartTable; i++ {
 		// sync partition table
 		p.opMutex.Lock()
 		outStr, errStr, err = p.e.RunCmd(cmd, command.UseMetrics(true),
-			command.CmdName(strings.TrimSpace(fmt.Sprintf(BlockdevCmdTmpl, ""))))
+			command.CmdName(strings.TrimSpace(fmt.Sprintf(SyncPartitionTBCmdTmpl, ""))))
 		p.opMutex.Unlock()
 		if err == nil {
 			return
