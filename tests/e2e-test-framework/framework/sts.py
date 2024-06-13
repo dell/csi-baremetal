@@ -35,6 +35,9 @@ class STS:
             ),
             spec=client.V1StatefulSetSpec(
                 replicas=self.replicas,
+                persistent_volume_claim_retention_policy=client.V1StatefulSetPersistentVolumeClaimRetentionPolicy(
+                    when_deleted="Delete"
+                ),
                 service_name=self.name,
                 selector=client.V1LabelSelector(
                     match_labels={
