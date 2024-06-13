@@ -57,14 +57,14 @@ def pytest_sessionfinish():
             thread.join()
         except Exception:
             suite_failed = True
-    
+
     logging.info("[qTest] Summary")
     for thread in pytest.threads:
         if thread.has_failed():
             logging.error(f"[qTest] {thread.test_name} {thread.get_target_name()} failed: {thread.exc}")
         if not thread.has_failed():
             logging.info(f"[qTest] {thread.test_name} {thread.get_target_name()} success.")
-    
+
     assert not suite_failed, "One or more threads failed"
 
 @pytest.fixture(scope="session")
@@ -85,7 +85,7 @@ def link_requirements_in_background(request):
         requirements_thread = PropagatingThread(target=link_requirements, args=(request,), test_name=request.node.name)
         requirements_thread.start()
         pytest.threads.append(requirements_thread)
-    
+
 def link_requirements(request):
     for marker in request.node.iter_markers():
             if marker.name == "requirements":
