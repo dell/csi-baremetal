@@ -440,10 +440,15 @@ func (s *CSINodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	if currStatus == apiV1.Created {
+	switch currStatus {
+	case apiV1.Failed:
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	case apiV1.Created:
 		ll.Info("Volume has been already unstaged")
 		return &csi.NodeUnstageVolumeResponse{}, nil
-	} else if currStatus != apiV1.VolumeReady {
+	case apiV1.VolumeReady:
+		ll.Infof("Expected volume status: %s", currStatus)
+	default:
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.Created, apiV1.VolumeReady)
 		ll.Error(msg)
@@ -555,8 +560,9 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	// if currStatus not in [VolumeReady, Published]
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
+	if currStatus == apiV1.Failed {
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	} else if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)
@@ -575,6 +581,46 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 			resp, errToReturn = nil, fmt.Errorf("failed to publish volume: fake attach error %s", err.Error())
 		}
 	} else {
+		// will check whether srcPath is mounted, if not, need to redo NodeStageVolume
+		srcMounted, err := s.fsOps.IsMounted(srcPath)
+		if err != nil {
+			errMsg := fmt.Sprintf("execute IsMounted on %s with error: %s", srcPath, err.Error())
+			ll.Error(errMsg)
+			return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
+		}
+		if !srcMounted {
+			ll.Warnf("staging path %s is not mounted! need to redo NodeStageVolume!", srcPath)
+			nodeStageReq := &csi.NodeStageVolumeRequest{
+				VolumeId:          volumeID,
+				StagingTargetPath: req.GetStagingTargetPath(),
+				VolumeCapability:  req.GetVolumeCapability(),
+			}
+
+			// unlock volume to redo NodeStageVolume
+			err := s.volMu.UnlockKey(req.GetVolumeId())
+			if err != nil {
+				errMsg := fmt.Sprintf("unlock volume %s to redo NodeStageVolume with error: %s", volumeID, err.Error())
+				ll.Error(errMsg)
+				return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
+			}
+			nodeStageResp, err := s.NodeStageVolume(ctx, nodeStageReq)
+
+			// re-lock the volume to proceed NodePublishVolume
+			s.volMu.LockKey(req.GetVolumeId())
+
+			if nodeStageResp == nil && err != nil {
+				errMsg := fmt.Sprintf("redo NodeStageVolume on volume %s with error: %s", volumeID, err.Error())
+				ll.Error(errMsg)
+				return nil, fmt.Errorf("failed to publish volume: %s", errMsg)
+			}
+
+			// update the content of volume
+			volumeCR, err = s.crHelper.GetVolumeByID(volumeID)
+			if err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("unable to get updated volume %s", volumeID))
+			}
+		}
+
 		_, isBlock := req.GetVolumeCapability().GetAccessType().(*csi.VolumeCapability_Block)
 		if err := s.fsOps.PrepareAndPerformMount(srcPath, dstPath, isBlock, !isBlock, mountOptions...); err != nil {
 			ll.Errorf("Unable to mount volume: %v", err)
@@ -647,8 +693,9 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	}
 
 	currStatus := volumeCR.Spec.CSIStatus
-	// if currStatus not in [VolumeReady, Published]
-	if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
+	if currStatus == apiV1.Failed {
+		ll.Warningf("Volume status: %s. Need to retry.", currStatus)
+	} else if currStatus != apiV1.VolumeReady && currStatus != apiV1.Published {
 		msg := fmt.Sprintf("current volume CR status - %s, expected to be in [%s, %s]",
 			currStatus, apiV1.VolumeReady, apiV1.Published)
 		ll.Error(msg)
@@ -695,6 +742,9 @@ func (s *CSINodeService) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	volumeCR.Spec.Owners = owners
 	if len(volumeCR.Spec.Owners) == 0 {
 		volumeCR.Spec.CSIStatus = apiV1.VolumeReady
+	} else {
+		// ensure the Published status of volume in the successful processing
+		volumeCR.Spec.CSIStatus = apiV1.Published
 	}
 	if updateErr := s.k8sClient.UpdateCR(ctxWithID, volumeCR); updateErr != nil {
 		ll.Errorf("Unable to set volume CR status to VolumeReady: %v", updateErr)
