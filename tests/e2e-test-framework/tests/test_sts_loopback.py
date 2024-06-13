@@ -13,12 +13,12 @@ class TestStsLoopback:
 
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_class="csi-baremetal-sc-hdd")
+        cls.sts.create(storage_class="csi-baremetal-sc")
 
         yield
 
         cls.sts.delete()
 
     @pytest.mark.loopback
-    def test_1000_create_sts_with_loopback_volume(self):
+    def test_6106_create_sts_with_loopback_volume(self):
         assert self.sts.verify(self.timeout) is True, f"STS: {self.name} failed to reach desired number of replicas: {self.replicas}"

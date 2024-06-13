@@ -82,7 +82,7 @@ class STS:
                             storage_class_name=storage_class,
                             resources=client.V1VolumeResourceRequirements(
                                 requests={
-                                    "storage": "50Gi"
+                                    "storage": "50Mi"
                                 }
                             )
                         )
@@ -124,7 +124,7 @@ class STS:
 
                 result = (response.status.available_replicas == self.replicas
                           and response.status.ready_replicas == self.replicas
-                          and response.status.ready_replicas == self.replicas)
+                          and response.status.replicas == self.replicas)
 
                 if time.time() - start_time > timeout:
                     return result
