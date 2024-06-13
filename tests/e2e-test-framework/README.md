@@ -31,7 +31,6 @@ pytest --version
 
 # Update conftest.py
 For local usage you can update the follwing default values:
-* ssh login and password for kubernetes nodes
 * namespace of atlantic installer
 * qtest access token in case you want to link test case to requirements
 * qtest test suite in caes you want to update test results in qtest
@@ -39,15 +38,15 @@ For local usage you can update the follwing default values:
 ...or provide during cli execution:
 
 ```
-pytest  --login=<login> --password=<password> --namespace=<namespace> --qtest_token=<qtest_access_token> --qtest_test_suite=<test_suite_id>
+pytest --namespace=<namespace> --qtest_token=<qtest_access_token> --qtest_test_suite=<test_suite_id>
 ```
 
 ## Test execution
 Single test case:
 
 ```
-pytest -k test_1000_example
-pytest -m example
+pytest -k 6105
+pytest -m hal
 ```
 
 All test cases:
