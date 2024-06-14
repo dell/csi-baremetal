@@ -1,0 +1,6 @@
+[flake8]
+select = E,F,W,C901
+max-line-length = 210
+exclude = .git,.tox,dist,tests,docs,*egg*,build,__init__.py,setup.py,sanity-test,conftest.py
+max-complexity = 10
+ignore = W503
