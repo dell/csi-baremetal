@@ -3,8 +3,8 @@ name: e2e
 on:
   push:
     branches: [ master ]
-  pull_request_review:
-    types: [submitted]
+  pull_request:
+    branches: [ master ]
 
 env:
   REGISTRY: 'ghcr.io/dell/csi-baremetal'
@@ -16,8 +16,6 @@ env:
   kind_wait: '30s'
 jobs:
   e2e:
-    # we need to start validation on master push or on /ci comment in PR only
-    if: github.event_name == 'push' || github.event.review.state == 'approved'
     runs-on: ubuntu-20.04
     steps:
     - name: Get operator branch 
@@ -68,8 +66,9 @@ jobs:
 
     # Set ref if event is merge to master
     - name: Check out code
-      if: github.event.issue.pull_request == false
       uses: actions/checkout@v2
+      with:
+        ref: 'bugfix-previous-master'
       
     - name: Checkout csi-baremetal-operator repo
       id: checkout_branch
