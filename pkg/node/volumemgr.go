@@ -389,9 +389,9 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 
 func (m *VolumeManager) retryDriveUpdate(ctx context.Context, volume *volumecrd.Volume, drive *drivecrd.Drive, driveStatus string) error {
 	ll := m.log.WithFields(logrus.Fields{
-		"method":       "retryDriveUpdate",
-		"volumeID":     volume.Name,
-		"driveStatus":  driveStatus,
+		"method":      "retryDriveUpdate",
+		"volumeID":    volume.Name,
+		"driveStatus": driveStatus,
 	})
 	driveRemovalFailedEventSent := false
 	for i := 0; i < numberOfRetries; i++ {
