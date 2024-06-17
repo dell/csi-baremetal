@@ -387,23 +387,23 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 				driveRemovalFailedEventSent = true
 			}
 			drive.Spec.Usage = driveStatus
-            if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
-                ll.Infof("Retrying to update drive %s usage status to %s. Sleep %d seconds and retry ...",
-                    drive.Name, drive.Spec.Usage, delayBeforeRetry)
-                time.Sleep(time.Second * delayBeforeRetry)
-                drive, err = m.crHelper.GetDriveCRByVolume(volume)
-                if err != nil {
-                    ll.Errorf("Unable to re-fetch drive CR before retry, error: %v", err)
-                    return ctrl.Result{Requeue: true}, err
-                }
-            } else {
-                break
-            }
+			if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+				ll.Infof("Retrying to update drive %s usage status to %s. Sleep %d seconds and retry ...",
+					drive.Name, drive.Spec.Usage, delayBeforeRetry)
+				time.Sleep(time.Second * delayBeforeRetry)
+				drive, err = m.crHelper.GetDriveCRByVolume(volume)
+				if err != nil {
+					ll.Errorf("Unable to re-fetch drive CR before retry, error: %v", err)
+					return ctrl.Result{Requeue: true}, err
+				}
+			} else {
+				break
+			}
 			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
-			drive.Name, drive.Spec.Usage, err)
-        }
-    }
-    return ctrl.Result{}, nil
+				drive.Name, drive.Spec.Usage, err)
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // handleCreatingVolumeInLVG handles volume CR that has storage class related to LogicalVolumeGroup and CSIStatus creating
