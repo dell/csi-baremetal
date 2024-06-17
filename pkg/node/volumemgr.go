@@ -75,6 +75,9 @@ const (
 	// Annotation key for health overriding
 	// Discover function replaces drive health with passed value if the annotation is set
 	driveHealthOverrideAnnotation = "health"
+
+	numberOfRetries  = 2
+	delayBeforeRetry = 5
 )
 
 // eventRecorder interface for sending events
@@ -376,18 +379,31 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 		m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
 	}
 	if drive != nil {
-		if driveStatus == apiV1.DriveUsageFailed {
-			eventMsg := fmt.Sprintf("Failed to release volume(s), %s", drive.GetDriveDescription())
-			m.recorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
-		}
-		drive.Spec.Usage = driveStatus
-		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+		driveRemovalFailedEventSent := false
+		for i := 0; i < numberOfRetries; i++ {
+			if driveStatus == apiV1.DriveUsageFailed && !driveRemovalFailedEventSent {
+				eventMsg := fmt.Sprintf("Failed to release volume(s), %s", drive.GetDriveDescription())
+				m.recorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
+				driveRemovalFailedEventSent = true
+			}
+			drive.Spec.Usage = driveStatus
+            if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+                ll.Infof("Retrying to update drive %s usage status to %s. Sleep %d seconds and retry ...",
+                    drive.Name, drive.Spec.Usage, delayBeforeRetry)
+                time.Sleep(time.Second * delayBeforeRetry)
+                drive, err = m.crHelper.GetDriveCRByVolume(volume)
+                if err != nil {
+                    ll.Errorf("Unable to re-fetch drive CR before retry, error: %v", err)
+                    return ctrl.Result{Requeue: true}, err
+                }
+            } else {
+                break
+            }
 			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.",
-				drive.Name, drive.Spec.Usage, err)
-			return ctrl.Result{Requeue: true}, err
-		}
-	}
-	return ctrl.Result{}, nil
+			drive.Name, drive.Spec.Usage, err)
+        }
+    }
+    return ctrl.Result{}, nil
 }
 
 // handleCreatingVolumeInLVG handles volume CR that has storage class related to LogicalVolumeGroup and CSIStatus creating
