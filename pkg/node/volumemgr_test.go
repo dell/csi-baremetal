@@ -2125,3 +2125,45 @@ func TestVolumeManager_failedToRemoveFinalizer(t *testing.T) {
 	_, err = vm.removeFinalizer(context.TODO(), volumeCR)
 	assert.NotNil(t, err)
 }
+
+func TestVolumeManager_retryDriveUpdate(t *testing.T) {
+	t.Run("success update", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		testDrive := testDriveCR.DeepCopy()
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, testDrive))
+		err := vm.retryDriveUpdate(context.TODO(), testVol, testDrive, "FAILED")
+		assert.Nil(t, err)
+		drive := &drivecrd.Drive{}
+		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testDrive.Name, testDrive.Namespace, drive))
+		assert.Equal(t, apiV1.Failed, drive.Spec.Usage)
+	})
+
+	t.Run("success retry", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		testDrive := testDriveCR.DeepCopy()
+		testDrive2 := testDriveCR.DeepCopy()
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, testDrive))
+		err := vm.retryDriveUpdate(context.TODO(), testVol, testDrive2, "FAILED")
+		assert.Nil(t, err)
+		drive := &drivecrd.Drive{}
+		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testDrive.Name, testDrive.Namespace, drive))
+		assert.Equal(t, apiV1.Failed, drive.Spec.Usage)
+	})
+
+	t.Run("failed update", func(t *testing.T) {
+		vm := prepareSuccessVolumeManager(t)
+		testVol := volCR.DeepCopy()
+		testVol.Spec.CSIStatus = apiV1.Removing
+		testDrive := testDriveCR.DeepCopy()
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
+		err := vm.retryDriveUpdate(context.TODO(), testVol, testDrive, "RELEASED")
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+}
