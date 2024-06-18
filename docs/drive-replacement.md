@@ -81,3 +81,21 @@ To trigger physical drive removal user must put the following annotation on the 
 - User can initiate removal of a healthy drive by setting annotations `health=bad` or `health=suspect` on Drive CR, drive health will be overridden with the passed value
 - Drive can be returned to `IN_USE` state from `FAILED` or `RELEASED` by setting annotation `action=add` on Drive CR
 - Drive can be moved to `REMOVED` state from `FAILED` by setting annotation `action=remove` on Drive CR
+
+# Workaround in Case of Failure
+## Unmount Volume Procedure Fails
+When the unmount volume procedure fails during the drive replacement process, the volume usage status is set to FAILED, causing the entire drive replacement procedure to fail. This failure typically occurs because the problematic volume is being used by another process and cannot be unmounted. The Container Storage Interface (CSI) is not able to automatically recover from this failure scenario, and a POD using a FAILED volume is not scheduled. To recover from this failure, the following actions are required from the user:
+
+- Identify the Volume:
+  * Locate the volume with a FAILED usage status.
+  * Identify the corresponding Persistent Volume Claim (PVC) and POD.
+- Remove PVC and POD:
+  * Delete the identified PVC.
+  * Delete the identified POD.
+- Remove the Volume:
+  * Delete the problematic volume.
+- Verify Removal:
+  * Ensure that after performing the above steps, the POD is successfully scheduled.
+
+
+
