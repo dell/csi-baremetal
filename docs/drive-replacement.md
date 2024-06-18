@@ -95,7 +95,7 @@ When the unmount volume procedure fails during the drive replacement process, th
 - Remove the Volume:
   * Delete the problematic volume.
 - Verify Removal:
-  * Ensure that after performing the above steps, the POD should be successfully scheduled.
+  * Ensure that after performing the above steps, the is successfully scheduled.
 
 
 
