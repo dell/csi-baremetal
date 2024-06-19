@@ -2129,12 +2129,16 @@ func TestVolumeManager_failedToRemoveFinalizer(t *testing.T) {
 func TestVolumeManager_retryDriveUpdate(t *testing.T) {
 	t.Run("success update", func(t *testing.T) {
 		vm := prepareSuccessVolumeManager(t)
+		recorderMock := &mocks.NoOpRecorder{}
+		vm.recorder = recorderMock
 		testVol := volCR.DeepCopy()
 		testVol.Spec.CSIStatus = apiV1.Removing
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 		testDrive := testDriveCR.DeepCopy()
-		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, testDrive))
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, testDrive)) 
 		err := vm.retryDriveUpdate(context.TODO(), testVol, testDrive, "FAILED")
+        assert.Equal(t, 1, len(recorderMock.Calls))
+		assert.Equal(t, eventing.DriveRemovalFailed, recorderMock.Calls[0].Event)
 		assert.Nil(t, err)
 		drive := &drivecrd.Drive{}
 		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testDrive.Name, testDrive.Namespace, drive))

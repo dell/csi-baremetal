@@ -393,18 +393,15 @@ func (m *VolumeManager) retryDriveUpdate(ctx context.Context, volume *volumecrd.
 		"volumeID":    volume.Name,
 		"driveStatus": driveStatus,
 	})
-	driveRemovalFailedEventSent := false
+	if driveStatus == apiV1.DriveUsageFailed {
+		eventMsg := fmt.Sprintf("Failed to release volume(s), %s", drive.GetDriveDescription())
+		m.recorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
+	}
 	for i := 0; i < numberOfRetries; i++ {
-		if driveStatus == apiV1.DriveUsageFailed && !driveRemovalFailedEventSent {
-			eventMsg := fmt.Sprintf("Failed to release volume(s), %s", drive.GetDriveDescription())
-			m.recorder.Eventf(drive, eventing.DriveRemovalFailed, eventMsg)
-			driveRemovalFailedEventSent = true
-		}
-
 		drive.Spec.Usage = driveStatus
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
-			ll.Infof("Retrying to update drive %s usage status to %s. Sleep %d seconds and retry ...",
-				drive.Name, drive.Spec.Usage, delayBeforeRetry)
+			ll.Infof("Retrying to update drive %s usage status to %s. Retry number: %d. Sleep %d seconds and retry ...",
+				drive.Name, drive.Spec.Usage, i, delayBeforeRetry)
 			time.Sleep(time.Second * delayBeforeRetry)
 			drive, err = m.crHelper.GetDriveCRByVolume(volume)
 			if err != nil {
