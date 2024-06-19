@@ -246,7 +246,7 @@ func (s *CSINodeService) annotateIfAllVolsFakeAttached(ctx context.Context, volu
 //
 // Returns:
 // - bool: a boolean indicating whether fake attach annotation is present, it's always true when fake attach is needed in DR.
-// - bool: a boolean indicating whether fake attach is needed in DR.
+// - bool: a boolean indicating whether fake attach is needed in DR or all volumes related to drive were fake attached before reboot.
 func (s *CSINodeService) isFakeAttachNeed(volumeCR *volumecrd.Volume) (bool, bool) {
 	fakeAttachBasic, fakeAttachDR := false, false
 
@@ -259,7 +259,10 @@ func (s *CSINodeService) isFakeAttachNeed(volumeCR *volumecrd.Volume) (bool, boo
 	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
 		fakeAttachBasic = true
 		if driveCR, err := s.crHelper.GetDriveCRByVolume(volumeCR); err == nil {
-			fakeAttachDR = driveCR.Spec.Usage == apiV1.DriveUsageReleased && driveCR.Spec.Status == apiV1.DriveStatusOnline
+			value, found := driveCR.Annotations[allVolumesFakeAttachedAnnotation]
+			// it's required to keep fake-attach during node reboot
+			allVolsPreviouslyFakeAttached := found && value == allVolumesFakeAttachedKey
+			fakeAttachDR = (driveCR.Spec.Usage == apiV1.DriveUsageReleased && driveCR.Spec.Status == apiV1.DriveStatusOnline) || allVolsPreviouslyFakeAttached
 		}
 	}
 

@@ -741,7 +741,54 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
 		Expect(vol1.Annotations[fakeDeviceVolumeAnnotation]).To(Equal(expectedFakeDevice))
 	})
+	It("Should stage healthy block-mode volume successfully after node reboot (DR)", func() {
+		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
+		drive1 := &drivecrd.Drive{}
+		drive1.Name = "drive1"
+		drive1.Spec.Usage = apiV1.DriveUsageRemoved
+		drive1.Spec.Status = apiV1.DriveStatusOnline
+		drive1.Annotations = map[string]string{allVolumesFakeAttachedAnnotation: allVolumesFakeAttachedKey}
+		err := node.k8sClient.CreateCR(testCtx, drive1.Name, drive1)
+		Expect(err).To(BeNil())
 
+		vol1 := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Created
+		vol1.Spec.Mode = apiV1.ModeRAWPART
+		vol1.Spec.LocationType = apiV1.LocationTypeDrive
+		vol1.Spec.Location = drive1.Name
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		createPVAndPVCForFakeAttach(vol1.Name)
+
+		partitionPath := "/partition/path/for/volume1"
+		prov.On("GetVolumePath", &vol1.Spec).Return(partitionPath, nil)
+		fsOps.On("PrepareAndPerformMount",
+			partitionPath, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil).Once()
+
+		expectedFakeDevice := "/dev/loop2"
+		fakeDeviceSrcFile := fakeDeviceSrcFileDir + vol1.Name
+
+		// The case that create fake device successfully
+		fsOps.On("CreateFakeDevice", fakeDeviceSrcFile).
+			Return(expectedFakeDevice, nil).Once()
+		fsOps.On("PrepareAndPerformMount",
+			expectedFakeDevice, path.Join(req.GetStagingTargetPath(), stagingFileName), true, false).
+			Return(nil).Once()
+
+		resp, err := node.NodeStageVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
+		Expect(err).To(BeNil())
+		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		Expect(vol1.Annotations[fakeAttachVolumeAnnotation]).To(Equal(fakeAttachVolumeKey))
+		Expect(vol1.Annotations[fakeDeviceVolumeAnnotation]).To(Equal(expectedFakeDevice))
+	})
 	It("Should stage unhealthy block-mode volume successfully", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
 		vol1 := &vcrd.Volume{}
