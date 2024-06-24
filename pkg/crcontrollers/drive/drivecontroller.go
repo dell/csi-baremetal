@@ -57,8 +57,8 @@ const (
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
 
-	allVolumesFakeAttachedAnnotation = "all-volumes-fake-attached"
-	allVolumesFakeAttachedKey        = "yes"
+	allDRVolumesFakeAttachedAnnotation = "all-dr-volumes-fake-attached"
+	allDRVolumesFakeAttachedKey        = "yes"
 )
 
 // NewController creates new instance of Controller structure
@@ -181,8 +181,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 			break
 		}
 
-		value, foundAllVolFakeAttach := drive.Annotations[allVolumesFakeAttachedAnnotation]
-		fakeAttachDR := !drive.Spec.IsClean && foundAllVolFakeAttach && value == allVolumesFakeAttachedKey
+		value, foundAllDRVolFakeAttach := drive.Annotations[allDRVolumesFakeAttachedAnnotation]
+		fakeAttachDR := !drive.Spec.IsClean && foundAllDRVolFakeAttach && value == allDRVolumesFakeAttachedKey
 		if drive.Spec.IsClean || fakeAttachDR {
 			log.Infof("Initiating automatic removal of drive: %s", drive.GetName())
 		} else {

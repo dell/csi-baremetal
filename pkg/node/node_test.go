@@ -747,7 +747,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		drive1.Name = "drive1"
 		drive1.Spec.Usage = apiV1.DriveUsageRemoved
 		drive1.Spec.Status = apiV1.DriveStatusOnline
-		drive1.Annotations = map[string]string{allVolumesFakeAttachedAnnotation: allVolumesFakeAttachedKey}
+		drive1.Annotations = map[string]string{allDRVolumesFakeAttachedAnnotation: allDRVolumesFakeAttachedKey}
 		err := node.k8sClient.CreateCR(testCtx, drive1.Name, drive1)
 		Expect(err).To(BeNil())
 
@@ -1048,7 +1048,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		driveCR := &drivecrd.Drive{}
 		err = node.k8sClient.ReadCR(testCtx, drive1.Name, "", driveCR)
 		Expect(err).To(BeNil())
-		Expect(driveCR.Annotations[allVolumesFakeAttachedAnnotation]).To(Equal(allVolumesFakeAttachedKey))
+		Expect(driveCR.Annotations[allDRVolumesFakeAttachedAnnotation]).To(Equal(allDRVolumesFakeAttachedKey))
 	})
 	It("Should publish unhealthy fs-mode volume with fake-attach annotation and annotate drive (Drive)", func() {
 		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
@@ -1084,7 +1084,44 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		driveCR := &drivecrd.Drive{}
 		err = node.k8sClient.ReadCR(testCtx, drive1.Name, "", driveCR)
 		Expect(err).To(BeNil())
-		Expect(driveCR.Annotations[allVolumesFakeAttachedAnnotation]).To(Equal(allVolumesFakeAttachedKey))
+		Expect(driveCR.Annotations[allDRVolumesFakeAttachedAnnotation]).To(Equal(allDRVolumesFakeAttachedKey))
+	})
+	It("Should publish unhealthy fs-mode volume with fake-attach annotation and skip annotating an offline drive (Drive)", func() {
+		req := getNodePublishRequest(testV1ID, targetPath, *testVolumeCap)
+		req.VolumeContext[util.PodNameKey] = testPod1Name
+
+		drive1 := &drivecrd.Drive{}
+		drive1.Name = "drive-hdd-1"
+		drive1.Spec.Usage = apiV1.DriveUsageReleased
+		drive1.Spec.Status = apiV1.DriveStatusOffline
+		drive1.Spec.UUID = drive1.Name
+		err := node.k8sClient.CreateCR(testCtx, drive1.Name, drive1)
+		Expect(err).To(BeNil())
+
+		vol1 := &vcrd.Volume{}
+		err = node.k8sClient.ReadCR(testCtx, testVolume1.Id, testNs, vol1)
+		Expect(err).To(BeNil())
+		vol1.Spec.CSIStatus = apiV1.Published
+		vol1.Spec.LocationType = apiV1.LocationTypeDrive
+		vol1.Spec.Location = drive1.Name
+		vol1.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		vol1.Spec.Mode = apiV1.ModeFS
+		err = node.k8sClient.UpdateCR(testCtx, vol1)
+		Expect(err).To(BeNil())
+
+		fsOps.On("MountFakeTmpfs",
+			testV1ID, req.GetTargetPath()).
+			Return(nil)
+
+		resp, err := node.NodePublishVolume(testCtx, req)
+		Expect(resp).NotTo(BeNil())
+		Expect(err).To(BeNil())
+
+		driveCR := &drivecrd.Drive{}
+		err = node.k8sClient.ReadCR(testCtx, drive1.Name, "", driveCR)
+		Expect(err).To(BeNil())
+		_, foundAllDRVolsAnnotation := driveCR.Annotations[allDRVolumesFakeAttachedAnnotation]
+		Expect(foundAllDRVolsAnnotation).To(BeFalse())
 	})
 	It("Should stage healthy block-mode volume with fake-attach and valid fake-device annotation", func() {
 		req := getNodeStageRequest(testVolume1.Id, *testVolumeCap)
