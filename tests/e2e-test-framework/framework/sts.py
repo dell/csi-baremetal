@@ -5,6 +5,27 @@ import pytest
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
+VOLUME_MOUNTS_SINGLE_HDD = client.V1VolumeMount(
+                                    name="volume",
+                                    mount_path="/mnt/volume")
+VOLUME_CLAIM_TEMPLATES_SINGLE_HDD = client.V1PersistentVolumeClaim(
+                        api_version="v1",
+                        kind="PersistentVolumeClaim",
+                        metadata=client.V1ObjectMeta(
+                            name="volume"
+                        ),
+                        spec=client.V1PersistentVolumeClaimSpec(
+                            access_modes=[
+                                "ReadWriteOnce"
+                            ],
+                            storage_class_name="csi-baremetal-sc-hdd",
+                            resources=client.V1VolumeResourceRequirements(
+                                requests={
+                                    "storage": "50Mi"
+                                }
+                            )
+                        )
+                    )
 
 class STS:
     def __init__(self, namespace: str, name: str, replicas: int = 1) -> None:
@@ -25,7 +46,7 @@ class STS:
 
         self.apps_v1_api = client.AppsV1Api()
 
-    def create(self, storage_class: str) -> None:
+    def create(self, volume_mounts: client.V1VolumeMount, volume_claim_templates: client.V1PersistentVolumeClaim) -> None:
         body = client.V1StatefulSet(
             api_version="apps/v1",
             kind="StatefulSet",
@@ -62,34 +83,14 @@ class STS:
                                     "infinity",
                                 ],
                                 volume_mounts=[
-                                    client.V1VolumeMount(
-                                        name="volume",
-                                        mount_path="/mnt/volume"
-                                    )
+                                    volume_mounts
                                 ]
                             )
                         ]
                     )
                 ),
                 volume_claim_templates=[
-                    client.V1PersistentVolumeClaim(
-                        api_version="v1",
-                        kind="PersistentVolumeClaim",
-                        metadata=client.V1ObjectMeta(
-                            name="volume"
-                        ),
-                        spec=client.V1PersistentVolumeClaimSpec(
-                            access_modes=[
-                                "ReadWriteOnce"
-                            ],
-                            storage_class_name=storage_class,
-                            resources=client.V1VolumeResourceRequirements(
-                                requests={
-                                    "storage": "50Mi"
-                                }
-                            )
-                        )
-                    )
+                    volume_claim_templates
                 ]
             )
         )

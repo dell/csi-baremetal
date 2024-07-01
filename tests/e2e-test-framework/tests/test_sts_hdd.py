@@ -1,5 +1,5 @@
 import pytest
-from framework.sts import STS
+from framework.sts import STS, VOLUME_MOUNTS_SINGLE_HDD, VOLUME_CLAIM_TEMPLATES_SINGLE_HDD
 
 
 class TestStsHdd:
@@ -13,7 +13,7 @@ class TestStsHdd:
 
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_class="csi-baremetal-sc-hdd")
+        cls.sts.create(volume_mounts=VOLUME_MOUNTS_SINGLE_HDD, volume_claim_templates=VOLUME_CLAIM_TEMPLATES_SINGLE_HDD)
 
         yield
 
