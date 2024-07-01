@@ -432,8 +432,8 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		return fmt.Errorf("AC not found for Volume %s by location %s: %w", volumeCR.Name, volumeCR.Spec.Location, err)
 	}
 	driveCR, lvgCR, err := vo.crHelper.GetDriveCRAndLVGCRByVolume(&volumeCR)
-	if err != nil {
-		return fmt.Errorf("unable to read Drive CR for Volume %s : %w", volumeCR.Name, err)
+	if driveCR == nil && lvgCR == nil && err != nil{
+		return fmt.Errorf("unable to read neither Drive CR nor LVG CR for Volume %s : %w", volumeCR.Name, err)
 	}
 
 	if util.IsStorageClassLVG(volumeCR.Spec.StorageClass) {
@@ -446,7 +446,7 @@ func (vo *VolumeOperationsImpl) UpdateCRsAfterVolumeDeletion(ctx context.Context
 		}
 	}
 
-	if lvgAction == remove {
+	if lvgAction == remove && driveCR != nil {
 		// Convert AC from LVG to Drive type and location
 		acCR.Spec.Location = driveCR.Spec.GetUUID()
 		acCR.Spec.StorageClass = util.ConvertDriveTypeToStorageClass(driveCR.Spec.GetType())
