@@ -136,21 +136,21 @@ generate-mocks: install-mockery
 	mockery --dir=/usr/local/go/pkg/mod/k8s.io/client-go\@$(CLIENT_GO_VER)/kubernetes/typed/core/v1/ --name=EventInterface --output=pkg/events/mocks
 
 run-csi-baremetal-functional-tests:
-	@echo "Copying SSH key..."; \
-	echo ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}; \
-	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/.ssh/id_rsa id_rsa || { echo "Error: Failed to copy id_rsa"; exit 1; }; \
 	@echo "Configuring functional tests for csi baremetal..."; \
+	echo ${USERNAME}; \
+	echo "server ip: ${E2E_VM_SERVICE_NODE_IP}"; \
+	echo "entrypoint: ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}"; \
 	sed -i '/parser.addoption("--login", action="store", default=""/s/default=""/default="${USERNAME}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	sed -i '/parser.addoption("--password", action="store", default=""/s/default=""/default="${PASSWORD}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	sed -i '/parser.addoption("--qtest_token", action="store", default=""/s/default=""/default="${QTEST_API_KEY}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
-	sed -i '/parser.addoption("--qtest_test_suite", action="store", default=""/s/default=""/default="${QTEST_SUITE_ID_CSI_BAREMETAL}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--qtest_test_suite", action="store", default=""/s/default=""/default="${QTEST_SUITE_ID}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	echo "conftest.py:"; \
 	cat ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	echo "Copying test files to remote server..."; \
 	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} "mkdir -p /root/tests/csi-baremetal-e2e"; \
 	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${PROJECT_DIR}/tests/e2e ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/csi-baremetal-e2e; \
 	echo "Installing dependencies and running tests on remote server..."; \
-	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && ls -la && pip3 install -r requirements.txt && pytest -m hal --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_CSI_BAREMETAL}'; \
+	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && ls -la && pip3 install -r requirements.txt && pytest --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_CSI_BAREMETAL}'; \
 	echo "Copying test results back to local machine..."; \
 	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/csi-baremetal-e2e/e2e-test-framework/test_results_csi_baremetal.xml ${PROJECT_DIR}/test_results_csi_baremetal.xml; \
 	TEST_EXIT_CODE=$$?; \
