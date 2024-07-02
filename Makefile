@@ -7,6 +7,8 @@ include Makefile.validation
 
 .PHONY: version test build
 
+E2E_VM_SERVICE_NODE_IP := $(shell echo $(CLUSTER_IPS) | cut -d',' -f1)
+
 # print version
 version:
 	@printf $(TAG)
