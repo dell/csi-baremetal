@@ -140,9 +140,9 @@ run-csi-baremetal-functional-tests:
 	pwd; \
 	ls -la; \
 	sed -i '/parser.addoption("--login", action="store", default=""/s/default=""/default="${USERNAME}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
-	sed -i '/parser.addoption("--password", action="store", default=""/s/default=""/default="${PASSWORD}"/' ${PROJECT_DIR}/tests/e2e/conftest.py; \
-	sed -i '/parser.addoption("--qtest_token", action="store", default=""/s/default=""/default="${QTEST_API_KEY}"/' ${PROJECT_DIR}/tests/e2e/conftest.py; \
-	sed -i '/parser.addoption("--qtest_test_suite", action="store", default=""/s/default=""/default="${QTEST_SUITE_ID}"/' ${PROJECT_DIR}/tests/e2e/conftest.py; \
+	sed -i '/parser.addoption("--password", action="store", default=""/s/default=""/default="${PASSWORD}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--qtest_token", action="store", default=""/s/default=""/default="${QTEST_API_KEY}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--qtest_test_suite", action="store", default=""/s/default=""/default="${QTEST_SUITE_ID}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	echo "conftest.py:"; \
 	cat ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	echo "Copying test files to remote server..."; \
