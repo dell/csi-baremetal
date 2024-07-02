@@ -4,6 +4,7 @@ import time
 import pytest
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
+from typing import List
 
 class STS:
     def __init__(self, namespace: str, name: str, replicas: int = 1) -> None:
