@@ -150,11 +150,11 @@ run-csi-baremetal-functional-tests:
 	cat ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	echo "Copying test files to remote server..."; \
 	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} "mkdir -p /root/tests/e2e"; \
-	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${PROJECT_DIR}/tests/e2e ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/; \
+	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${PROJECT_DIR}/tests/e2e-test-framework ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/; \
 	echo "Installing dependencies and running tests on remote server..."; \
-	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && cd /root/tests/e2e && pip3 install -r requirements.txt && pytest -m hal --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_CSI_BAREMETAL}'; \
+	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && cd /root/tests/e2e && pip3 install -r requirements.txt && pytest --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_SMART_INFO}'; \
 	echo "Copying test results back to local machine..."; \
-	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/e2e/e2e-test-framework/test_results_csi_baremetal.xml ${PROJECT_DIR}/test_results_csi_baremetal.xml; \
+	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/e2e/test_results_csi_baremetal.xml ${PROJECT_DIR}/test_results_csi_baremetal.xml; \
 	TEST_EXIT_CODE=$$?; \
 	echo "Test exit code: $$TEST_EXIT_CODE"; \
 	if [ -e "${PROJECT_DIR}/test_results_csi_baremetal.xml" ]; then \
