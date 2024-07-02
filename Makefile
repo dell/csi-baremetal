@@ -135,30 +135,9 @@ generate-api: compile-proto generate-baremetal-crds generate-deepcopy generate-s
 generate-mocks: install-mockery
 	mockery --dir=/usr/local/go/pkg/mod/k8s.io/client-go\@$(CLIENT_GO_VER)/kubernetes/typed/core/v1/ --name=EventInterface --output=pkg/events/mocks
 
-#copying kubeconfig from node VM to jenkins container and establishing ssh tunnel
-copy-kubeconfig:
-	@echo "Copying kubeconfig..."; \
-	mkdir -p /etc/rancher/rke2/; \
-	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:${RANCHER_CONFIG_PATH} ${RANCHER_CONFIG_PATH} || { echo "Error: Failed to copy rke2.yaml"; exit 1; }; \
-	chmod 600 /etc/rancher/rke2/rke2.yaml || { echo "Error: Failed to set permissions for rke2.yaml"; exit 1; }; \
-	export KUBECONFIG=${RANCHER_CONFIG_PATH}; \
-	echo "Opening ssh tunnel to node VM..."; \
-	sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -L 6443:localhost:6443 -N -f -l "${USERNAME}" ${E2E_VM_SERVICE_NODE_IP} || { echo "Error: Failed to establish SSH tunnel"; exit 1; }
-
-#adding required DNS entries to /etc/hosts as a pre-requisite for upgrade
-add-dns-entries:
-	@echo "Adding DNS entries..."; \
-	export KUBECONFIG=${RANCHER_CONFIG_PATH}; \
-	pm_ip=$$(kubectl get svc -A -o json | jq -r '.items[] | select(.metadata.name == "platform-manager") | .spec.clusterIP'); \
-	keycloak_ip=$$(kubectl get svc -A -o json | jq -r '.items[] | select(.metadata.name == "keycloak-http") | .spec.clusterIP'); \
-	dockerrepo_ip=$$(kubectl get svc -A -o json | jq -r '.items[] | select(.metadata.name == "docker-registry" and .spec.clusterIP) | .spec.clusterIP'); \
-	helmrepo_ip=$$(kubectl get svc -A -o json | jq -r '.items[] | select(.metadata.name == "helmrepo" and .spec.clusterIP) | .spec.clusterIP'); \
-	entries="$$pm_ip platform-manager.atlantic\n$$keycloak_ip keycloak-http.atlantic\n$$dockerrepo_ip dockerrepo\n$$helmrepo_ip helmrepo"; \
-	echo "Resolved IPs: $$pm_ip $$keycloak_ip $$dockerrepo_ip $$helmrepo_ip"; \
-	(printf "# BEGIN CSI COMPONENTS Upgrade Changes\n$$entries\n# END CSI COMPONENTS Upgrade Changes") | sudo tee -a /etc/hosts
-
 run-csi-baremetal-functional-tests:
 	@echo "Copying SSH key..."; \
+	echo ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}; \
 	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/.ssh/id_rsa id_rsa || { echo "Error: Failed to copy id_rsa"; exit 1; }; \
 	@echo "Configuring functional tests for csi baremetal..."; \
 	sed -i '/parser.addoption("--login", action="store", default=""/s/default=""/default="${USERNAME}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
@@ -168,11 +147,10 @@ run-csi-baremetal-functional-tests:
 	echo "conftest.py:"; \
 	cat ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	echo "Copying test files to remote server..."; \
-	echo ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}; \
 	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} "mkdir -p /root/tests/csi-baremetal-e2e"; \
 	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${PROJECT_DIR}/tests/e2e ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/csi-baremetal-e2e; \
 	echo "Installing dependencies and running tests on remote server..."; \
-	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && ls -la && pip3 install -r requirements.txt && pytest --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_CSI_BAREMETAL}'; \
+	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && ls -la && pip3 install -r requirements.txt && pytest -m hal --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_CSI_BAREMETAL}'; \
 	echo "Copying test results back to local machine..."; \
 	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/csi-baremetal-e2e/e2e-test-framework/test_results_csi_baremetal.xml ${PROJECT_DIR}/test_results_csi_baremetal.xml; \
 	TEST_EXIT_CODE=$$?; \
@@ -199,8 +177,6 @@ functional-tests-cleanup:
 .PHONY: csi-baremetal-functional-tests
 csi-baremetal-functional-tests: \
 	functional-tests-cleanup \
-	copy-kubeconfig \
-	add-dns-entries \
 	run-csi-baremetal-functional-tests \
 	functional-tests-cleanup
 	@echo "Functional tests for csi-baremetal completed successfully."
