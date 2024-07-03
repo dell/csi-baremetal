@@ -159,6 +159,9 @@ kind-install: kind-build
 kind-create-cluster:
 	$(KIND) create cluster --config $(KIND_CONFIG_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
 
+kind-install-calico:
+	kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
+
 kind-delete-cluster:
 	$(KIND) delete cluster
 
