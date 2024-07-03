@@ -8,6 +8,7 @@ include Makefile.validation
 .PHONY: version test build
 
 E2E_VM_SERVICE_NODE_IP := $(shell echo $(CLUSTER_IPS) | cut -d',' -f1)
+BUILD_STATUS := SUCCESS
 
 # print version
 version:
@@ -137,11 +138,9 @@ generate-api: compile-proto generate-baremetal-crds generate-deepcopy generate-s
 generate-mocks: install-mockery
 	mockery --dir=/usr/local/go/pkg/mod/k8s.io/client-go\@$(CLIENT_GO_VER)/kubernetes/typed/core/v1/ --name=EventInterface --output=pkg/events/mocks
 
+
 run-csi-baremetal-functional-tests:
 	@echo "Configuring functional tests for csi baremetal..."; \
-	echo ${USERNAME}; \
-	echo "server ip: ${E2E_VM_SERVICE_NODE_IP}"; \
-	echo "entrypoint: ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}"; \
 	sed -i '/parser.addoption("--login", action="store", default=""/s/default=""/default="${USERNAME}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	sed -i '/parser.addoption("--password", action="store", default=""/s/default=""/default="${PASSWORD}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	sed -i '/parser.addoption("--qtest_token", action="store", default=""/s/default=""/default="${QTEST_API_KEY}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
@@ -171,7 +170,7 @@ run-csi-baremetal-functional-tests:
 		BUILD_STATUS=FAILURE; \
 	fi; \
 	echo "$(BUILD_STATUS)" > build_status.txt; \
-	cat build_status.txt
+
 
 #cleanup test files on remote server
 functional-tests-cleanup:
