@@ -170,7 +170,8 @@ run-csi-baremetal-functional-tests:
 		echo "Functional tests for csi-baremetal failed."; \
 		BUILD_STATUS=FAILURE; \
 	fi; \
-	echo "$(BUILD_STATUS)" > build_status.txt; 
+	echo "$(BUILD_STATUS)" > build_status.txt; \
+	cat build_status.txt
 
 #cleanup test files on remote server
 functional-tests-cleanup:
