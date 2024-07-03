@@ -8,7 +8,6 @@ include Makefile.validation
 .PHONY: version test build
 
 E2E_VM_SERVICE_NODE_IP := $(shell echo $(CLUSTER_IPS) | cut -d',' -f1)
-BUILD_STATUS := SUCCESS
 
 # print version
 version:
@@ -160,17 +159,15 @@ run-csi-baremetal-functional-tests:
 		echo "Test results for csi-baremetal copied successfully."; \
 	else \
 		echo "Error: Failed to copy test results for csi-baremetal."; \
-		BUILD_STATUS=FAILURE; \
 	fi; \
 	if [ $$TEST_EXIT_CODE -eq 0 ]; then \
 		echo "All tests for csi-baremetal passed successfully."; \
-		override BUILD_STATUS = FAILURE; \
+		echo "SUCCESS" > build_status.txt; \
 	else \
 		echo "Functional tests for csi-baremetal failed."; \
-		BUILD_STATUS=FAILURE; \
+		echo "FAILURE" > build_status.txt; \
 	fi; \
-	echo "$(BUILD_STATUS)" > build_status.txt; \
-	cat build_status.txt;
+
 
 
 #cleanup test files on remote server
