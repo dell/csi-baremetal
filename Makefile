@@ -161,14 +161,16 @@ run-csi-baremetal-functional-tests:
 		echo "Test results for csi-baremetal copied successfully."; \
 	else \
 		echo "Error: Failed to copy test results for csi-baremetal."; \
-		exit 1; \
+		BUILD_STATUS=FAILURE; \
 	fi; \
 	if [ $$TEST_EXIT_CODE -eq 0 ]; then \
 		echo "All tests for csi-baremetal passed successfully."; \
+		BUILD_STATUS=SUCCESS; \
 	else \
 		echo "Functional tests for csi-baremetal failed."; \
-		exit 1; \
-	fi;
+		BUILD_STATUS=FAILURE; \
+	fi; \
+	echo "$(BUILD_STATUS)" > build_status.txt; 
 
 #cleanup test files on remote server
 functional-tests-cleanup:
