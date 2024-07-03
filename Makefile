@@ -164,12 +164,13 @@ run-csi-baremetal-functional-tests:
 	fi; \
 	if [ $$TEST_EXIT_CODE -eq 0 ]; then \
 		echo "All tests for csi-baremetal passed successfully."; \
-		BUILD_STATUS=SUCCESS; \
+		override BUILD_STATUS = FAILURE; \
 	else \
 		echo "Functional tests for csi-baremetal failed."; \
 		BUILD_STATUS=FAILURE; \
 	fi; \
 	echo "$(BUILD_STATUS)" > build_status.txt; \
+	cat build_status.txt;
 
 
 #cleanup test files on remote server
