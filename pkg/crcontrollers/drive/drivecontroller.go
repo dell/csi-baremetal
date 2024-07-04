@@ -142,6 +142,11 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			log.Errorf("Failed to delete Drive %s CR", driveName)
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
+		// 
+		if err := c.removeRelatedAC(ctx, log, drive); err != nil {
+			log.Errorf("Removing related acs that stayed Drive %s CR", driveName)
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
 	case wait:
 		return ctrl.Result{RequeueAfter: base.DefaultTimeoutForVolumeUpdate}, nil
 	}
