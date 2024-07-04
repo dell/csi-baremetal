@@ -144,12 +144,12 @@ run-csi-baremetal-functional-tests:
 	echo "edited_list: $$edited_list"; \
 	sed -i '/parser.addoption("--login", action="store", default=""/s/default=""/default="${USERNAME}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	sed -i '/parser.addoption("--password", action="store", default=""/s/default=""/default="${PASSWORD}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
-	sed -i '/parser.addoption("--hosts", action="store", default=\[\], help="Hosts")/s/default=\[\],/default=\['"$$edited_list"'\],/' ${PROJECT_DIR}/tests/e2e/conftest.py; \
+	sed -i '/parser.addoption("--hosts", action="store", default=\[\], help="Hosts")/s/default=\[\],/default=\['"$$edited_list"'\],/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	sed -i '/parser.addoption("--qtest_token", action="store", default=""/s/default=""/default="${QTEST_API_KEY}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	sed -i '/parser.addoption("--qtest_test_suite", action="store", default=""/s/default=""/default="${QTEST_SUITE_ID}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
-	sed -i '/parser.addoption("--ansible_server", action="store", default="", help="Server")/s/default="",/default="${ANSIBLE_SERVER_IP}",/' ${PROJECT_DIR}/tests/e2e/conftest.py; \
+	sed -i '/parser.addoption("--ansible_server", action="store", default="", help="Server")/s/default="",/default="${ANSIBLE_SERVER_IP}",/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	if [ ${REGRESSION_JOB_ENABLE} == "true" ]; then \
-		sed -i '/parser.addoption("--cmo_bundle_version", action="store", default="", help="Version of CMO bundle")/s/default="",/default="'"$$LATEST_BUNDLE_VERSION"'",/' ${PROJECT_DIR}/tests/e2e/conftest.py; \
+		sed -i '/parser.addoption("--cmo_bundle_version", action="store", default="", help="Version of CMO bundle")/s/default="",/default="'"$$LATEST_BUNDLE_VERSION"'",/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
 	fi; \
 	echo "conftest.py:"; \
 	cat ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
