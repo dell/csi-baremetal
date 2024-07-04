@@ -168,8 +168,6 @@ run-csi-baremetal-functional-tests:
 		echo "FAILURE" > build_status.txt; \
 	fi; \
 
-
-
 #cleanup test files on remote server
 functional-tests-cleanup:
 	@echo "Cleaning up functional test files on remote server..."; \
