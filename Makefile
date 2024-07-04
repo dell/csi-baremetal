@@ -186,4 +186,4 @@ csi-baremetal-functional-tests: \
 	functional-tests-cleanup \
 	run-csi-baremetal-functional-tests \
 	functional-tests-cleanup
-	@echo "Functional tests for csi-baremetal completed successfully."
+	@echo "Functional tests for csi-baremetal completed."
