@@ -4,3 +4,4 @@ kubernetes==29.0.0
 tox==4.14.2
 flake8==7.0.0
 pylint==3.1.0
+paramiko==3.4.0

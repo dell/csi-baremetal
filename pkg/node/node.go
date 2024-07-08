@@ -60,8 +60,8 @@ const (
 	fakeAttachVolumeAnnotation = "fake-attach"
 	fakeAttachVolumeKey        = "yes"
 
-	allVolumesFakeAttachedAnnotation = "all-volumes-fake-attached"
-	allVolumesFakeAttachedKey        = "yes"
+	allDRVolumesFakeAttachedAnnotation = "all-dr-volumes-fake-attached"
+	allDRVolumesFakeAttachedKey        = "yes"
 
 	fakeDeviceVolumeAnnotation = "fake-device"
 	fakeDeviceSrcFileDir       = "/var/lib/kubelet/plugins/kubernetes.io/csi/volumeDevices/fake/"
@@ -200,15 +200,21 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(
 	return nil
 }
 
-// annotateIfAllVolsFakeAttached checks if all volumes associated with a drive used by a given volume are fake attached.
+// annotateIfAllDRVolsFakeAttached checks if all volumes associated with a drive (under DR) used by a given volume are fake attached.
 //
 // The function takes a context.Context object and a pointer to a volumecrd.Volume object as parameters.
 // It returns an error if there is an error during the process.
-func (s *CSINodeService) annotateIfAllVolsFakeAttached(ctx context.Context, volumeCR *volumecrd.Volume) error {
+func (s *CSINodeService) annotateIfAllDRVolsFakeAttached(ctx context.Context, volumeCR *volumecrd.Volume) error {
 	driveCR, err := s.crHelper.GetDriveCRByVolume(volumeCR)
 	if err != nil {
 		s.log.Errorf("failed to get driveCR by volumeCR %s: %v", volumeCR.Name, err)
 		return err
+	}
+
+	isDR := driveCR.Spec.Status == apiV1.DriveStatusOnline
+	if !isDR {
+		s.log.Debugf("drive %s is not online, no need to annotate", driveCR.Spec.GetUUID())
+		return nil
 	}
 
 	volumes, err := s.crHelper.GetVolumesByLocation(ctx, driveCR.Spec.GetUUID())
@@ -228,7 +234,7 @@ func (s *CSINodeService) annotateIfAllVolsFakeAttached(ctx context.Context, volu
 		driveCR.Annotations = make(map[string]string)
 	}
 
-	driveCR.Annotations[allVolumesFakeAttachedAnnotation] = allVolumesFakeAttachedKey
+	driveCR.Annotations[allDRVolumesFakeAttachedAnnotation] = allDRVolumesFakeAttachedKey
 	if err = s.k8sClient.UpdateCR(ctx, driveCR); err != nil {
 		s.log.Errorf("failed to update driveCR %s: %v", driveCR.Name, err)
 		return err
@@ -246,7 +252,7 @@ func (s *CSINodeService) annotateIfAllVolsFakeAttached(ctx context.Context, volu
 //
 // Returns:
 // - bool: a boolean indicating whether fake attach annotation is present, it's always true when fake attach is needed in DR.
-// - bool: a boolean indicating whether fake attach is needed in DR.
+// - bool: a boolean indicating whether fake attach is needed in DR or all volumes related to drive were fake attached before reboot.
 func (s *CSINodeService) isFakeAttachNeed(volumeCR *volumecrd.Volume) (bool, bool) {
 	fakeAttachBasic, fakeAttachDR := false, false
 
@@ -259,7 +265,10 @@ func (s *CSINodeService) isFakeAttachNeed(volumeCR *volumecrd.Volume) (bool, boo
 	if value, ok := pvc.Annotations[fakeAttachAnnotation]; ok && value == fakeAttachAllowKey {
 		fakeAttachBasic = true
 		if driveCR, err := s.crHelper.GetDriveCRByVolume(volumeCR); err == nil {
-			fakeAttachDR = driveCR.Spec.Usage == apiV1.DriveUsageReleased && driveCR.Spec.Status == apiV1.DriveStatusOnline
+			value, found := driveCR.Annotations[allDRVolumesFakeAttachedAnnotation]
+			// it's required to keep fake-attach during node reboot
+			allVolsPreviouslyFakeAttached := found && value == allDRVolumesFakeAttachedKey
+			fakeAttachDR = (driveCR.Spec.Usage == apiV1.DriveUsageReleased && driveCR.Spec.Status == apiV1.DriveStatusOnline) || allVolsPreviouslyFakeAttached
 		}
 	}
 
@@ -604,7 +613,7 @@ func (s *CSINodeService) NodePublishVolume(ctx context.Context, req *csi.NodePub
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: update volume CR error")
 	}
 
-	if err = s.annotateIfAllVolsFakeAttached(ctx, volumeCR); err != nil {
+	if err = s.annotateIfAllDRVolsFakeAttached(ctx, volumeCR); err != nil {
 		ll.Errorf("Failed to annotate drive CR, error: %v", err)
 		resp, errToReturn = nil, fmt.Errorf("failed to publish volume: annotate drive CR error, %s", err.Error())
 	}

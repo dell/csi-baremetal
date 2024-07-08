@@ -4,7 +4,7 @@ import time
 import pytest
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
-
+from typing import List
 
 class STS:
     def __init__(self, namespace: str, name: str, replicas: int = 1) -> None:
@@ -25,7 +25,34 @@ class STS:
 
         self.apps_v1_api = client.AppsV1Api()
 
-    def create(self, storage_class: str) -> None:
+    def create(self, storage_classes: List[str]) -> None:
+        volume_mounts = []
+        volume_claim_templates = []
+        for index, storage_class in enumerate(storage_classes):
+            volume_mount = client.V1VolumeMount(
+                                    name="volume"+str(index),
+                                    mount_path="/mnt/volume"+str(index))
+            volume_mounts.append(volume_mount)
+            volume_claim_template = client.V1PersistentVolumeClaim(
+                        api_version="v1",
+                        kind="PersistentVolumeClaim",
+                        metadata=client.V1ObjectMeta(
+                            name="volume"+str(index)
+                        ),
+                        spec=client.V1PersistentVolumeClaimSpec(
+                            access_modes=[
+                                "ReadWriteOnce"
+                            ],
+                            storage_class_name=storage_class,
+                            resources=client.V1VolumeResourceRequirements(
+                                requests={
+                                    "storage": "50Mi"
+                                }
+                            )
+                        )
+                    )
+            volume_claim_templates.append(volume_claim_template)
+            
         body = client.V1StatefulSet(
             api_version="apps/v1",
             kind="StatefulSet",
@@ -61,36 +88,12 @@ class STS:
                                     "sleep",
                                     "infinity",
                                 ],
-                                volume_mounts=[
-                                    client.V1VolumeMount(
-                                        name="volume",
-                                        mount_path="/mnt/volume"
-                                    )
-                                ]
+                                volume_mounts=volume_mounts
                             )
                         ]
                     )
                 ),
-                volume_claim_templates=[
-                    client.V1PersistentVolumeClaim(
-                        api_version="v1",
-                        kind="PersistentVolumeClaim",
-                        metadata=client.V1ObjectMeta(
-                            name="volume"
-                        ),
-                        spec=client.V1PersistentVolumeClaimSpec(
-                            access_modes=[
-                                "ReadWriteOnce"
-                            ],
-                            storage_class_name=storage_class,
-                            resources=client.V1VolumeResourceRequirements(
-                                requests={
-                                    "storage": "50Mi"
-                                }
-                            )
-                        )
-                    )
-                ]
+                volume_claim_templates=volume_claim_templates
             )
         )
 

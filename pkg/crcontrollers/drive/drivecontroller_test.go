@@ -468,7 +468,7 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageReleased
 		expectedD.Spec.IsClean = false
-		expectedD.Annotations = map[string]string{allVolumesFakeAttachedAnnotation: allVolumesFakeAttachedKey}
+		expectedD.Annotations = map[string]string{allDRVolumesFakeAttachedAnnotation: allDRVolumesFakeAttachedKey}
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
 
 		expectedV := failedVolCR.DeepCopy()
@@ -880,19 +880,19 @@ func TestDriveController_handleDriveUsageRemovingWithLED(t *testing.T) {
 		expectedLedState string
 	}{
 		{
-			name: "Check locate drive state - Success",
-			client: &mocks.MockDriveMgrClient{},
-			currentUsage: apiV1.DriveUsageRemoving,
-			currentLedState: fmt.Sprintf("%d", apiV1.LocateStatusOff),
-			expectedUsage: apiV1.DriveUsageRemoved,
+			name:             "Check locate drive state - Success",
+			client:           &mocks.MockDriveMgrClient{},
+			currentUsage:     apiV1.DriveUsageRemoving,
+			currentLedState:  fmt.Sprintf("%d", apiV1.LocateStatusOff),
+			expectedUsage:    apiV1.DriveUsageRemoved,
 			expectedLedState: fmt.Sprintf("%d", apiV1.LocateStatusOn),
 		},
 		{
-			name: "Check locate drive state - Locate failure",
-			client: &mocks.MockDriveMgrClientFail{},
-			currentUsage: apiV1.DriveUsageRemoving,
-			currentLedState: fmt.Sprintf("%d", apiV1.LocateStatusOff),
-			expectedUsage: apiV1.DriveUsageFailed,
+			name:             "Check locate drive state - Locate failure",
+			client:           &mocks.MockDriveMgrClientFail{},
+			currentUsage:     apiV1.DriveUsageRemoving,
+			currentLedState:  fmt.Sprintf("%d", apiV1.LocateStatusOff),
+			expectedUsage:    apiV1.DriveUsageFailed,
 			expectedLedState: fmt.Sprintf("%d", apiV1.LocateStatusOff),
 		},
 	}
