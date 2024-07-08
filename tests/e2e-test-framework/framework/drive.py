@@ -56,14 +56,12 @@ class DriveUtils:
         self._handle_errors(errors)
 
         entry = [e for e in lsblk_output if e.find(disk) >= 0]
-        logging.debug('lsblk output for {}:\n{}'.format(disk, entry))
-        assert len(entry) == 1, 'Found {} drives for requested disk {}'.format(
-            len(entry), disk)
-
+        logging.debug(f"lsblk output for {disk}:\n{entry}")
+        assert len(entry) == 1, f"Found {len(entry)} drives for requested disk {disk}"
         while entry[0].find('  ') >= 0:
             entry[0] = entry[0].replace('  ', ' ')
 
-        logging.debug('final lsblk string: {}'.format(entry[0]))
+        logging.debug(f"final lsblk string: {entry[0]}")
         return entry[0].split(' ')[1].split(':')[0]
 
     def _get_device_name(self, device_path_or_name: str) -> str:
