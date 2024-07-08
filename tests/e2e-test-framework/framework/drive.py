@@ -27,14 +27,14 @@ class DriveUtils:
 
     def remove(self, scsi_id: str) -> None:
         """removes a device from the system using the SCSI ID or device name"""
-        logging.info("removing drive SCSI ID: {}", scsi_id)
+        logging.info(f"removing drive SCSI ID: {scsi_id}")
         _, errors = self.executor.exec(
             f"echo 1 | sudo tee -a /sys/class/scsi_device/{scsi_id}/device/delete")
         self._handle_errors(errors)
 
     def restore(self, host_num: int) -> None:
         """restores the drive for a specified host number"""
-        logging.info("restoring drive for host: {}", str(host_num))
+        logging.info(f"restoring drive for host: {host_num}")
         _, errors = self.executor.exec(
             f"echo '- - -' | sudo tee -a /sys/class/scsi_host/host{host_num}/scan")
         self._handle_errors(errors)
@@ -50,18 +50,18 @@ class DriveUtils:
             int: The host number associated with the drive.
         """
         disk = self._get_device_name(drive_path_or_name)
-        logging.info("getting host number for disk: {}", disk)
+        logging.info(f"getting host number for disk: {disk}")
         lsblk_output, errors = self.executor.exec("lsblk -S")
         lsblk_output = lsblk_output.split('\n')
         self._handle_errors(errors)
 
         entry = [e for e in lsblk_output if e.find(disk) >= 0]
-        logging.debug('lsblk output for {}:\n{}', disk, entry)
+        logging.debug(f"lsblk output for {disk}:\n{entry}")
         assert len(entry) == 1, f"Found {len(entry)} drives for requested disk {disk}"
         while entry[0].find('  ') >= 0:
             entry[0] = entry[0].replace('  ', ' ')
 
-        logging.debug('final lsblk string: {}', entry[0])
+        logging.debug(f"final lsblk string: {entry[0]}")
         return entry[0].split(' ')[1].split(':')[0]
 
     def _get_device_name(self, device_path_or_name: str) -> str:
