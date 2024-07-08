@@ -270,6 +270,7 @@ class Utils:
         self,
         plural: str,
         resource_name: str,
+        namespace: Optional[str] = None,
         reason: Optional[str] = None,
     ) -> List[CoreV1Event]:
         """
@@ -278,14 +279,19 @@ class Utils:
         Args:
             plural (str): The plural name of the resource.
             resource_name (str): The name of the resource.
+            namespace: (Optional[str], optional): The namespace of the resource.
             reason (Optional[str], optional): The reason for filtering events. Defaults to None.
 
         Returns:
             List[CoreV1Event]: A list of events related to the resource by reason.
         """
-        cr = self.custom_objects_api.get_cluster_custom_object(
-            const.CR_GROUP, const.CR_VERSION, plural, resource_name
-        )
+        if namespace:
+            cr = self.custom_objects_api.get_namespaced_custom_object(
+                const.CR_GROUP, const.CR_VERSION, namespace, plural, resource_name)
+        else:
+            cr = self.custom_objects_api.get_cluster_custom_object(
+                const.CR_GROUP, const.CR_VERSION, plural, resource_name
+            )
         uid = cr["metadata"]["uid"]
         field_selector = f"involvedObject.uid={uid}"
         events_list = self.core_v1_api.list_event_for_all_namespaces(
