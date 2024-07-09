@@ -166,11 +166,6 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(
 	if isFakeAttachNeeded {
 		if volumeCR.Annotations[fakeAttachVolumeAnnotation] != fakeAttachVolumeKey {
 			volumeCR.Annotations[fakeAttachVolumeAnnotation] = fakeAttachVolumeKey
-			if volumeCR.Spec.OperationalStatus == apiV1.OperationalStatusOperative {
-				if err := s.crHelper.UpdateVolumeOpStatus(ctx, volumeCR, apiV1.OperationalStatusMissing); err != nil {
-					ll.Errorf("unable to change volume operational status to MISSING with error: %v", err)
-				}
-			}
 			ll.Warningf("Adding fake-attach annotation to the volume with ID %s", volumeID)
 			if !isFakeAttachDR {
 				s.VolumeManager.recorder.Eventf(volumeCR, eventing.FakeAttachInvolved,
@@ -189,6 +184,9 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(
 				ll.Errorf("unable to mount fake device in stage volume request with error: %v", err)
 				return status.Error(codes.Internal, fmt.Sprintf("failed to mount device in stage volume: %s", err.Error()))
 			}
+		}
+		if volumeCR.Spec.OperationalStatus != apiV1.OperationalStatusMissing {
+			volumeCR.Spec.OperationalStatus = apiV1.OperationalStatusMissing
 		}
 	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
 		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
@@ -401,6 +399,8 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			volumeCR.Annotations[wbtChangedVolumeAnnotation] = wbtChangedVolumeKey
 		}
 	}
+	ll.Errorf("raz dwa")
+	ll.Error(volumeCR)
 
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
