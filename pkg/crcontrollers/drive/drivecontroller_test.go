@@ -755,6 +755,33 @@ func TestDriveController_handleDriveStatus(t *testing.T) {
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
 	})
+	t.Run("Missing volume status for fake attach", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		expectedV := failedVolCR.DeepCopy()
+		expectedV.Annotations = map[string]string{fakeAttachVolumeAnnotation: fakeAttachVolumeKey}
+		assert.NotNil(t, expectedV)
+		expectedV.Spec.OperationalStatus = apiV1.OperationalStatusMissing
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
+		err := dc.handleDriveStatus(testCtx, expectedD)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedD.Spec.UUID, driveUUID)
+		assert.Equal(t, expectedD.Spec.Status, apiV1.DriveStatusOnline)
+		assert.Equal(t, expectedD.Spec.Health, apiV1.HealthBad)
+		assert.Empty(t, expectedD.Spec.Usage)
+
+		resultVolume, err := dc.crHelper.GetVolumesByLocation(testCtx, driveUUID)
+		assert.Nil(t, err)
+		assert.NotNil(t, resultVolume)
+		assert.NotNil(t, resultVolume[0].Spec)
+		assert.Equal(t, resultVolume[0].Spec.OperationalStatus, apiV1.OperationalStatusMissing)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
+	})
 }
 
 func TestDriveController_checkAndPlaceStatusInUse(t *testing.T) {
