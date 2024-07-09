@@ -35,3 +35,14 @@ STATUS_OFFLINE = "OFFLINE"
 # health
 HEALTH_GOOD = "GOOD"
 HEALTH_BAD = "BAD"
+
+# fake attach
+FAKE_ATTACH_INVOLVED = "FakeAttachInvolved"
+FAKE_ATTACH_CLEARED = "FakeAttachCleared"
+
+# plurals
+DRIVES_PLURAL = "drives"
+AC_PLURAL = "availablecapacities"
+ACR_PLURAL = "availablecapacityreservations"
+LVG_PLURAL = "logicalvolumegroups"
+VOLUMES_PLURAL = "volumes"
