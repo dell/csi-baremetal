@@ -153,7 +153,6 @@ func getStagingPath(logger *logrus.Entry, stagingPath string) string {
 }
 
 func (s *CSINodeService) processFakeAttachInNodeStageVolume(
-	ctx context.Context,
 	ll *logrus.Entry,
 	volumeCR *volumecrd.Volume,
 	targetPath string,
@@ -379,7 +378,6 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	}
 
 	if err := s.processFakeAttachInNodeStageVolume(
-		ctx,
 		ll,
 		volumeCR,
 		targetPath,
@@ -399,9 +397,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			volumeCR.Annotations[wbtChangedVolumeAnnotation] = wbtChangedVolumeKey
 		}
 	}
-	ll.Errorf("raz dwa")
-	ll.Error(volumeCR)
-
+	
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
