@@ -292,7 +292,7 @@ func (c *Controller) handleDriveStatus(ctx context.Context, drive *drivecrd.Driv
 	case apiV1.DriveStatusOnline:
 		// move MISSING volumes to OPERATIVE status
 		for _, volume := range volumes {
-			if volume.Spec.OperationalStatus == apiV1.OperationalStatusMissing && !c.isFakeAttach(volume) {
+			if volume.Spec.OperationalStatus == apiV1.OperationalStatusMissing {
 				if err := c.crHelper.UpdateVolumeOpStatus(ctx, volume, apiV1.OperationalStatusOperative); err != nil {
 					return err
 				}
