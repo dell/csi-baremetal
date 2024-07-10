@@ -581,9 +581,9 @@ class Utils:
             name=resource_name, namespace=namespace, body=pvc
         )
 
-    def clear_cluster_resources(self, namespace: str) -> None:
+    def clear_csi_resources(self, namespace: str) -> None:
         """
-        Clears the cluster resources by deleting the custom objects in the specified namespace.
+        Clears the CSI resources by deleting the custom objects in the specified namespace.
 
         Args:
             namespace (str): The namespace of the custom objects to be cleared.
@@ -652,35 +652,31 @@ class Utils:
                 f"Exception when calling CustomObjectsApi->delete_namespaced_custom_object: {e}"
             )
 
-    def recreate_pod(self, pod: V1Pod) -> V1Pod:
+    def recreate_pod(self, name: str, namespace: str) -> V1Pod:
         """
         Recreates a Kubernetes Pod by deleting the existing Pod and waiting for a new Pod to be created.
 
         Args:
-            pod (V1Pod): The Pod to recreate.
+            name (str): The name of the pod.
+            namespace (str): The namespace of the pod.
 
         Returns:
             V1Pod: The recreated Pod.
         """
-        namespace = pod.metadata.namespace
-        labels = pod.metadata.labels if pod.metadata.labels is not None else {}
-        label_value = labels.get("app", None)
-
-        assert label_value is not None, "pod label 'app' not found"
         self.core_v1_api.delete_namespaced_pod(
-            name=pod.metadata.name, namespace=namespace
+            name=name, namespace=namespace
         )
         logging.info(
-            f"pod {pod.metadata.name} deleted, waiting for a new pod to be created"
+            f"pod {name} deleted, waiting for a new pod to be created"
         )
 
         time.sleep(5)
-        pod = self.list_pods(label="app=" + label_value, namespace=namespace)[
+        pod = self.list_pods(name, namespace=namespace)[
             0
         ]
         assert self.is_pod_ready(
-            pod.metadata.name, timeout=120
+            name, timeout=120
         ), "pod not ready after 120 seconds timeout"
-        logging.info(f"pod {pod.metadata.name} is ready")
+        logging.info(f"pod {name} is ready")
 
         return pod
