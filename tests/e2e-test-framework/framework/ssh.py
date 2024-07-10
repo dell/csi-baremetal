@@ -38,7 +38,7 @@ class SSHCommandExecutor:
         ssh_client.connect(
             self.ip_address, username=self.username, password=self.password)
 
-        logging.info(f"SSH connected, executing command: {command}")
+        logging.info(f"SSH connected to {self.ip_address}, executing command: {command}")
         _, stdout, stderr = ssh_client.exec_command(command)
         output = stdout.read().decode().strip()
         error = stderr.readlines()
