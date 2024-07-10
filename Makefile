@@ -139,7 +139,7 @@ generate-mocks: install-mockery
 
 
 run-csi-baremetal-functional-tests:
-	@echo "Configuring functional tests for csi baremetal..."; \
+	@echo "Configuring functional tests for csi-baremetal..."; \
 	edited_list=$$(echo ${CLUSTER_IPS} | sed 's/, /", "/g; s/^/"/; s/$$/"/'); \
 	echo "edited_list: $$edited_list"; \
 	sed -i '/parser.addoption("--login", action="store", default=""/s/default=""/default="${USERNAME}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
