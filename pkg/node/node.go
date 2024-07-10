@@ -397,7 +397,7 @@ func (s *CSINodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 			volumeCR.Annotations[wbtChangedVolumeAnnotation] = wbtChangedVolumeKey
 		}
 	}
-	
+
 	if currStatus != apiV1.VolumeReady {
 		volumeCR.Spec.CSIStatus = newStatus
 		if err := s.k8sClient.UpdateCR(ctx, volumeCR); err != nil {
