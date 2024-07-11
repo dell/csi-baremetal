@@ -181,13 +181,17 @@ class DriveUtils:
         for drive, children in drives_to_wipe.items():
             if children["type"] == "part":
                 for child in children["children"]:
-                    self._exec_wipefs(device_name=child)
-                self._exec_wipefs(device_name=drive)
+                    logging.warn("dry-run wiping: " + child)
+                    # self._exec_wipefs(device_name=child)
+                # self._exec_wipefs(device_name=drive)
+                logging.warn("dry-run wiping: " + drive)
             elif children["type"] == "lvm":
-                self._exec_wipefs(device_name=drive)
-                self._exec_dd(device_name=drive)
+                # self._exec_wipefs(device_name=drive)
+                # self._exec_dd(device_name=drive)
+                logging.warn("dry-run wiping: " + drive)
                 for child in children["children"]:
-                    self._remove_csi_device_mapper(child_name=child)
+                    # self._remove_csi_device_mapper(child_name=child)
+                    logging.warn("dry-run wiping - remove device mapper: " + child)
             else:
                 raise ValueError(f"Unknown drive type: {children['type']}")
 
