@@ -70,6 +70,7 @@ jobs:
     - name: Upload coverage report to codecov
       uses: codecov/codecov-action@v3
       with:
+        token: ${{ secrets.CSI_CODECOV_TOKEN }}
         file: ./coverage.out
         flags: unittests
         verbose: true
