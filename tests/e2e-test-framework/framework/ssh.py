@@ -46,6 +46,6 @@ class SSHCommandExecutor:
         ssh_client.close()
 
         if len(error) > 0:
-            logging.error(f"SSH command {command} failed: {error}")
+            logging.warning(f"SSH command {command} failed: {error}")
 
         return output, error
