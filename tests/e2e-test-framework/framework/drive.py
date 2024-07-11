@@ -117,6 +117,10 @@ class DriveUtils:
                                 f"found drive with child mountpoints: \"/dev/{drive['name']}\", skipping..."
                             )
                             break
+            else:
+                logging.warning(
+                    f"found drive with type: {drive['type']}, skipping..."
+                )
         return to_wipe
 
     def _remove_csi_device_mapper(self, child_name: str) -> None:
