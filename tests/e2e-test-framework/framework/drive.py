@@ -89,13 +89,20 @@ class DriveUtils:
         for drive in lsblk_out["blockdevices"]:
             if drive['type'] == 'disk':
                 children = drive.get("children")
+                drive_mountpoints = drive.get("mountpoints", [])
+                drive_mountpoints = [
+                    mountpoint for mountpoint in drive_mountpoints if mountpoint
+                ]
+                if len(drive_mountpoints) == 0:
+                    logging.warning(f"found drive with drive mountpoints: \"/dev/{drive['name']}\", skipping...")
+                    continue
                 if children:
                     for child in children:
-                        mountpoints = child.get("mountpoints", [])
-                        mountpoints = [
-                            mountpoint for mountpoint in mountpoints if mountpoint
+                        child_mountpoints = child.get("mountpoints", [])
+                        child_mountpoints = [
+                            mountpoint for mountpoint in child_mountpoints if mountpoint
                         ]
-                        if len(mountpoints) == 0 and child['type'] in ["part", "lvm"]:
+                        if len(child_mountpoints) == 0 and child['type'] in ["part", "lvm"]:
                             logging.info(
                                 f"found drive \"/dev/{drive['name']}\" with child \"{child['name']}\" with no mountpoints."
                             )
@@ -107,7 +114,7 @@ class DriveUtils:
                             to_wipe[drive["name"]] = drive_type
                         else:
                             logging.warning(
-                                f"found drive with OS: \"/dev/{drive['name']}\", skipping..."
+                                f"found drive with child mountpoints: \"/dev/{drive['name']}\", skipping..."
                             )
                             break
         return to_wipe
