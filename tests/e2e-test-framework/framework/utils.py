@@ -151,10 +151,11 @@ class Utils:
             )
             return False
         except Exception as exc:
-            logging.warning(
-                f"Failed check if '{pod_name}' pod is ready. Reason: {str(exc)}"
-            )
-            return False
+
+        logging.warning(
+            f"Failed check if '{pod_name}' pod is ready. Reason: {str(exc)}"
+        )
+        return False
 
     def list_pods(
         self,
