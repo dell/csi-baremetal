@@ -13,7 +13,7 @@ class TestStsLoopback:
 
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_class="csi-baremetal-sc")
+        cls.sts.create(storage_classes=["csi-baremetal-sc"])
 
         yield
 
