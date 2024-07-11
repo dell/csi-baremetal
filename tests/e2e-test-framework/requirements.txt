@@ -1,7 +1,7 @@
 pytest==8.2.1
 pytest-html-reporter==0.2.9
 kubernetes==29.0.0
-tox
+tox==4.14.2
 flake8==7.0.0
 pylint==3.2.2
 paramiko==3.4.0

@@ -28,7 +28,3 @@ class PropagatingThread(Thread):
 
     def get_target_name(self):
         return self.target.__name__
-
-    # commented out to satisfy tox
-    # def join(self, timeout=None):
-    #     super(PropagatingThread, self).join(timeout)
