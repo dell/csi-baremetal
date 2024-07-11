@@ -93,7 +93,7 @@ class DriveUtils:
                 drive_mountpoints = [
                     mountpoint for mountpoint in drive_mountpoints if mountpoint
                 ]
-                if len(drive_mountpoints) == 0:
+                if len(drive_mountpoints) != 0:
                     logging.warning(f"found drive with drive mountpoints: \"/dev/{drive['name']}\", skipping...")
                     continue
                 if children:
