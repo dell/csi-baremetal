@@ -87,28 +87,40 @@ class DriveUtils:
         """
         to_wipe = {}
         for drive in lsblk_out["blockdevices"]:
-            children = drive.get("children")
-            if children:
-                for child in children:
-                    mountpoints = child.get("mountpoints", [])
-                    mountpoints = [
-                        mountpoint for mountpoint in mountpoints if mountpoint
-                    ]
-                    if len(mountpoints) == 0:
-                        logging.info(
-                            f"found drive \"/dev/{drive['name']}\" with child \"{child['name']}\" with no mountpoints."
-                        )
-                        drive_type = to_wipe.get(
-                            drive["name"], {"children": []}
-                        )
-                        drive_type["type"] = child["type"]
-                        drive_type["children"].append(child["name"])
-                        to_wipe[drive["name"]] = drive_type
-                    else:
-                        logging.warning(
-                            f"found drive with OS: \"/dev/{drive['name']}\", skipping..."
-                        )
-                        break
+            if drive['type'] == 'disk':
+                children = drive.get("children")
+                drive_mountpoints = drive.get("mountpoints", [])
+                drive_mountpoints = [
+                    mountpoint for mountpoint in drive_mountpoints if mountpoint
+                ]
+                if len(drive_mountpoints) != 0:
+                    logging.warning(f"found drive with drive mountpoints: \"/dev/{drive['name']}\", skipping...")
+                    continue
+                if children:
+                    for child in children:
+                        child_mountpoints = child.get("mountpoints", [])
+                        child_mountpoints = [
+                            mountpoint for mountpoint in child_mountpoints if mountpoint
+                        ]
+                        if len(child_mountpoints) == 0 and child['type'] in ["part", "lvm"]:
+                            logging.info(
+                                f"found drive \"/dev/{drive['name']}\" with child \"{child['name']}\" with no mountpoints."
+                            )
+                            drive_type = to_wipe.get(
+                                drive["name"], {"children": []}
+                            )
+                            drive_type["type"] = child["type"]
+                            drive_type["children"].append(child["name"])
+                            to_wipe[drive["name"]] = drive_type
+                        else:
+                            logging.warning(
+                                f"found drive with child mountpoints: \"/dev/{drive['name']}\", skipping..."
+                            )
+                            break
+            else:
+                logging.warning(
+                    f"found device with type: {drive['type']}, skipping..."
+                )
         return to_wipe
 
     def _remove_csi_device_mapper(self, child_name: str) -> None:
