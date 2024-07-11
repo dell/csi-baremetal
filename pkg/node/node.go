@@ -171,6 +171,9 @@ func (s *CSINodeService) processFakeAttachInNodeStageVolume(ll *logrus.Entry, vo
 				return status.Error(codes.Internal, fmt.Sprintf("failed to mount device in stage volume: %s", err.Error()))
 			}
 		}
+		if volumeCR.Spec.OperationalStatus != apiV1.OperationalStatusMissing {
+			volumeCR.Spec.OperationalStatus = apiV1.OperationalStatusMissing
+		}
 	} else if volumeCR.Annotations[fakeAttachVolumeAnnotation] == fakeAttachVolumeKey {
 		delete(volumeCR.Annotations, fakeAttachVolumeAnnotation)
 		ll.Warningf("Removing fake-attach annotation for volume %s", volumeID)
