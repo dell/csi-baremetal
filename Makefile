@@ -7,6 +7,8 @@ include Makefile.validation
 
 .PHONY: version test build
 
+E2E_VM_SERVICE_NODE_IP := $(shell echo $(CLUSTER_IPS) | cut -d',' -f1)
+
 # print version
 version:
 	@printf $(TAG)
@@ -134,3 +136,54 @@ generate-api: compile-proto generate-baremetal-crds generate-deepcopy generate-s
 # Used for UT. Need to regenerate after updating k8s API version
 generate-mocks: install-mockery
 	mockery --dir=/usr/local/go/pkg/mod/k8s.io/client-go\@$(CLIENT_GO_VER)/kubernetes/typed/core/v1/ --name=EventInterface --output=pkg/events/mocks
+
+
+run-csi-baremetal-functional-tests:
+	@echo "Configuring functional tests for csi-baremetal..."; \
+	edited_list=$$(echo ${CLUSTER_IPS} | sed 's/, /", "/g; s/^/"/; s/$$/"/'); \
+	echo "edited_list: $$edited_list"; \
+	sed -i '/parser.addoption("--login", action="store", default=""/s/default=""/default="${USERNAME}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--password", action="store", default=""/s/default=""/default="${PASSWORD}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--hosts", action="store", default=\[\], help="Hosts")/s/default=\[\],/default=\['"$$edited_list"'\],/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--qtest_token", action="store", default=""/s/default=""/default="${QTEST_API_KEY}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--qtest_test_suite", action="store", default=""/s/default=""/default="${QTEST_SUITE_ID}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	sed -i '/parser.addoption("--ansible_server", action="store", default=""/s/default="",/default="${ANSIBLE_SERVER_IP}",/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	if [ ${REGRESSION_JOB_ENABLE} == "true" && ${SKIP_UPGRADE} == "false" ]; then \
+		sed -i '/parser.addoption("--cmo_bundle_version", action="store", default=""/s/default=""/default="${BUNDLE_VERSION}"/' ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	fi; \
+	echo "conftest.py:"; \
+	cat ${PROJECT_DIR}/tests/e2e-test-framework/conftest.py; \
+	echo "Copying test files to remote server..."; \
+	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} "mkdir -p /root/tests/e2e"; \
+	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${PROJECT_DIR}/tests/e2e-test-framework ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/; \
+	echo "Installing dependencies and running tests on remote server..."; \
+	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && cd /root/tests/e2e-test-framework && pip3 install -r requirements.txt && pytest -m hal --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_SMART_INFO}'; \
+	echo "Copying test results back to local machine..."; \
+	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/e2e-test-framework/test_results_csi_baremetal.xml ${PROJECT_DIR}/test_results_csi_baremetal.xml; \
+	TEST_EXIT_CODE=$$?; \
+	echo "Test exit code: $$TEST_EXIT_CODE"; \
+	if [ -e "${PROJECT_DIR}/test_results_csi_baremetal.xml" ]; then \
+		echo "Test results for csi-baremetal copied successfully."; \
+	else \
+		echo "Error: Failed to copy test results for csi-baremetal."; \
+	fi; \
+	if [ $$TEST_EXIT_CODE -eq 0 ]; then \
+		echo "All tests for csi-baremetal passed successfully."; \
+		echo "SUCCESS" > build_status.txt; \
+	else \
+		echo "Functional tests for csi-baremetal failed."; \
+		echo "FAILURE" > build_status.txt; \
+	fi; \
+
+#cleanup test files on remote server
+functional-tests-cleanup:
+	@echo "Cleaning up functional test files on remote server..."; \
+	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} 'rm -rf /root/tests/*'; \
+	echo "Functional test cleanup completed."
+
+.PHONY: csi-baremetal-functional-tests
+csi-baremetal-functional-tests: \
+	functional-tests-cleanup \
+	run-csi-baremetal-functional-tests \
+	functional-tests-cleanup
+	@echo "Functional tests for csi-baremetal completed."

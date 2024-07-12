@@ -1,7 +1,11 @@
-pytest==8.1.1
+pytest==8.2.1
 pytest-html-reporter==0.2.9
 kubernetes==29.0.0
 tox==4.14.2
 flake8==7.0.0
-pylint==3.1.0
+pylint==3.2.2
 paramiko==3.4.0
+wiremock==2.6.1
+docker==7.1.0
+requests==2.32.2
+testcontainers==4.5.1

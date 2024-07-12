@@ -2,7 +2,7 @@ import inspect
 import pytest
 
 
-class DescriptionPlugin:
+class TestDescriptionPlugin:
 
     def __init__(self, terminal_reporter: str):
         self.terminal_reporter = terminal_reporter
