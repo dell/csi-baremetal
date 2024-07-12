@@ -77,7 +77,7 @@ class TestFakeAttach:
         )
         logging.info(f"drive {drive_name} went {const.STATUS_OFFLINE}")
 
-        pod = self.utils.recreate_pod(pod)
+        pod = self.utils.recreate_pod(name=pod.metadata.name, namespace=self.namespace)
         volume_name = volume["metadata"]["name"]
         assert self.utils.event_in(
             resource_name=volume_name, reason=const.FAKE_ATTACH_INVOLVED
@@ -91,7 +91,7 @@ class TestFakeAttach:
             name=drive_name, expected_status=const.STATUS_ONLINE
         )
 
-        self.utils.recreate_pod(pod)
+        self.utils.recreate_pod(name=pod.metadata.name, namespace=self.namespace)
         assert self.utils.event_in(
             resource_name=volume_name,
             reason=const.FAKE_ATTACH_CLEARED,
