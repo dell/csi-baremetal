@@ -327,47 +327,62 @@ class Utils:
             )
             return drive_cr
 
-    def get_events_by_reason(
+    def get_pod_node_ip(self, pod_name: str, namespace: str) -> str:
+        """
+        Retrieves the IP address of the node associated with the given pod name and namespace.
+        Args:
+            pod_name (str): The name of the pod.
+            namespace (str): The namespace of the pod.
+        Returns:
+            str: The IP address of the node associated with the pod.
+        """
+        pod = self.list_pods(name_prefix=pod_name, namespace=namespace)[0]
+        node_name = pod.spec.node_name
+        node = self.core_v1_api.read_node(name=node_name)
+        return node.status.addresses[0].address
+
+    def get_events_by_reason_for_cr(
         self,
-        plural: str,
         resource_name: str,
-        namespace: Optional[str] = None,
-        reason: Optional[str] = None,
+        reason: str,
     ) -> List[CoreV1Event]:
         """
-        Retrieves events related to a specific resource by reason.
+        Retrieves a list of events filtered by the given resource name and reason.
 
         Args:
-            plural (str): The plural name of the resource.
             resource_name (str): The name of the resource.
-            namespace: (Optional[str], optional): The namespace of the resource.
-            reason (Optional[str], optional): The reason for filtering events. Defaults to None.
+            reason (str): The reason for filtering events.
 
         Returns:
-            List[CoreV1Event]: A list of events related to the resource by reason.
+            List[CoreV1Event]: A list of Kubernetes CoreV1Event objects.
         """
-        if namespace:
-            cr = self.custom_objects_api.get_namespaced_custom_object(
-                const.CR_GROUP,
-                const.CR_VERSION,
-                namespace,
-                plural,
-                resource_name,
-            )
-        else:
-            cr = self.custom_objects_api.get_cluster_custom_object(
-                const.CR_GROUP, const.CR_VERSION, plural, resource_name
-            )
-        uid = cr["metadata"]["uid"]
-        field_selector = f"involvedObject.uid={uid}"
+        field_selector = f"involvedObject.name={resource_name},reason={reason}"
         events_list = self.core_v1_api.list_event_for_all_namespaces(
             field_selector=field_selector
         ).items
 
-        if reason:
-            events_list = [e for e in events_list if e.reason == reason]
-
         return events_list
+
+    def event_in(self, resource_name: str, reason: str) -> bool:
+        """
+        Checks if an event with the given resource name and reason exists in the Kubernetes API.
+
+        Args:
+            resource_name (str): The name of the resource.
+            reason (str): The reason for the event.
+
+        Returns:
+            bool: True if the event exists, False otherwise.
+        """
+        events = self.get_events_by_reason_for_cr(
+            resource_name=resource_name,
+            reason=reason,
+        )
+        if len(events) > 0:
+            logging.info(f"event {reason} found")
+            return True
+        logging.warning(f"event {reason} not found")
+        return False
 
     def wait_volume(
         self,
@@ -663,17 +678,13 @@ class Utils:
         Returns:
             V1Pod: The recreated Pod.
         """
-        self.core_v1_api.delete_namespaced_pod(
-            name=name, namespace=namespace
-        )
+        self.core_v1_api.delete_namespaced_pod(name=name, namespace=namespace)
         logging.info(
             f"pod {name} deleted, waiting for a new pod to be created"
         )
 
         time.sleep(5)
-        pod = self.list_pods(name, namespace=namespace)[
-            0
-        ]
+        pod = self.list_pods(name, namespace=namespace)[0]
         assert self.is_pod_ready(
             name, timeout=120
         ), "pod not ready after 120 seconds timeout"

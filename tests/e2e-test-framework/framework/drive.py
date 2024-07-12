@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, List, TypedDict
+from typing import Any, Dict, List, TypedDict
 from framework.ssh import SSHCommandExecutor
 
 
@@ -48,6 +48,44 @@ class DriveUtils:
         )
         self._handle_errors(errors)
 
+    def get_all_hosts(self) -> Dict[str, int]:
+        """
+        Retrieves a dictionary of all SCSI hosts in the system.
+
+        Returns:
+            dict: A dictionary mapping the SCSI ID to the host number.
+        """
+        param = "'{print $9}'"
+        output, errors = self.executor.exec(
+            f"ls -l /sys/class/scsi_device | awk {param}"
+        )
+        self._handle_errors(errors)
+        scsi_ids = output.splitlines()
+        return {
+            scsi_id: int(scsi_id.split(":")[0])
+            for scsi_id in scsi_ids
+            if scsi_id
+        }
+
+    def rescan_missing_hosts(
+        self, before: Dict[str, int], after: Dict[str, int]
+    ) -> None:
+        """
+        Rescans for missing hosts in the system.
+
+        Args:
+            before (Dict[str, int]): A dictionary mapping the SCSI ID to the host number before rescanning.
+            after (Dict[str, int]): A dictionary mapping the SCSI ID to the host number after rescanning.
+
+        Example:
+            >>> drive = DriveUtils(executor=executor)
+            >>> drive.rescan_missing_hosts(before={ '18:0:0:0': 0, '18:0:0:1': 0 }, after={ '18:0:0:0': 0 })
+        """
+        for scsi_id, host_num in before.items():
+            if after.get(scsi_id) is None:
+                self.restore(host_num=host_num)
+                logging.info(f"host{host_num} was restored")
+
     def get_host_num(self, drive_path_or_name: str) -> int:
         """
         Retrieves the host number associated with the specified drive path or name.
@@ -87,22 +125,31 @@ class DriveUtils:
         """
         to_wipe = {}
         for drive in lsblk_out["blockdevices"]:
-            if drive['type'] == 'disk':
+            if drive["type"] == "disk":
                 children = drive.get("children")
                 drive_mountpoints = drive.get("mountpoints", [])
                 drive_mountpoints = [
-                    mountpoint for mountpoint in drive_mountpoints if mountpoint
+                    mountpoint
+                    for mountpoint in drive_mountpoints
+                    if mountpoint
                 ]
                 if len(drive_mountpoints) != 0:
-                    logging.warning(f"found drive with drive mountpoints: \"/dev/{drive['name']}\", skipping...")
+                    logging.warning(
+                        f"found drive with drive mountpoints: \"/dev/{drive['name']}\", skipping..."
+                    )
                     continue
                 if children:
                     for child in children:
                         child_mountpoints = child.get("mountpoints", [])
                         child_mountpoints = [
-                            mountpoint for mountpoint in child_mountpoints if mountpoint
+                            mountpoint
+                            for mountpoint in child_mountpoints
+                            if mountpoint
                         ]
-                        if len(child_mountpoints) == 0 and child['type'] in ["part", "lvm"]:
+                        if len(child_mountpoints) == 0 and child["type"] in [
+                            "part",
+                            "lvm",
+                        ]:
                             logging.info(
                                 f"found drive \"/dev/{drive['name']}\" with child \"{child['name']}\" with no mountpoints."
                             )
@@ -187,7 +234,9 @@ class DriveUtils:
         self._handle_errors(errors)
         output = json.loads(output)
         drives_to_wipe = self._get_drives_to_wipe(lsblk_out=output)
-        logging.warning(f"drives to wipe: {drives_to_wipe}")
+        logging.warning(
+            f"drives to wipe on node {self.executor.ip_address}: {drives_to_wipe}"
+        )
 
         for drive, children in drives_to_wipe.items():
             if children["type"] == "part":

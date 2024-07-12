@@ -1,13 +1,20 @@
 import logging
 from datetime import datetime
+from typing import Generator
 import pytest
-from framework.test_description_plugin import TestDescriptionPlugin
+import re
+
+from datetime import datetime
 from wiremock.testing.testcontainer import wiremock_container
 from wiremock.constants import Config
+
+from framework.test_description_plugin import TestDescriptionPlugin
 from framework.qtest_helper import QTestHelper
 from framework.docker_helper import Docker
-import re
-from datetime import datetime
+from framework.propagating_thread import PropagatingThread
+from framework.utils import Utils
+from framework.ssh import SSHCommandExecutor
+from framework.drive import DriveUtils
 from framework.propagating_thread import PropagatingThread
 
 @pytest.mark.trylast
@@ -69,15 +76,15 @@ def pytest_sessionfinish():
             logging.info(f"[qTest] {thread.test_name} {thread.get_target_name()} success.")
 
 @pytest.fixture(scope="session")
-def vm_user(request):
+def vm_user(request) -> str:
     return request.config.getoption("--login")
 
 @pytest.fixture(scope="session")
-def vm_cred(request):
+def vm_cred(request) -> str:
     return request.config.getoption("--password")
 
 @pytest.fixture(scope="session")
-def namespace(request):
+def namespace(request) -> str:
     return request.config.getoption("--namespace")
 
 @pytest.fixture(scope="session")
@@ -97,13 +104,53 @@ def wire_mock():
         Config.requests_verify = False
         yield wire_mock
 
+def get_utils(request) -> Utils:
+    return Utils(
+        vm_user=request.config.getoption("--login"), 
+        vm_cred=request.config.getoption("--password"), 
+        namespace=request.config.getoption("--namespace")
+    )
+
+def get_ssh_executors(request) -> dict[str, SSHCommandExecutor]:
+    utils  = get_utils(request)
+    worker_ips = utils.get_worker_ips()
+    executors = {ip: SSHCommandExecutor(ip_address=ip, username=utils.vm_user, password=utils.vm_cred) for ip in worker_ips}
+    return executors
+
+@pytest.fixture(scope="session")
+def utils(request) -> Utils:
+    return get_utils(request)
+
+@pytest.fixture(scope="session")
+def ssh_executors(request) -> dict[str, SSHCommandExecutor]:
+    return get_ssh_executors(request)
+
+@pytest.fixture(scope="session")
+def drive_utils_executors(request) -> dict[str, DriveUtils]:
+    ssh_execs = get_ssh_executors(request)
+    return {ip: DriveUtils(executor) for ip, executor in ssh_execs.items()}
+
 @pytest.fixture(scope="function", autouse=True)
 def link_requirements_in_background(request):
     if pytest.qtest_helper is not None:
         requirements_thread = PropagatingThread(target=link_requirements, args=(request,), test_name=request.node.name)
         requirements_thread.start()
         pytest.threads.append(requirements_thread)
-    
+
+@pytest.fixture(autouse=True)
+def keep_drive_count(drive_utils_executors: dict[str, DriveUtils]) -> Generator[None, None, None]:
+    hosts_per_node_before = {ip: drive_utils.get_all_hosts() for ip, drive_utils in drive_utils_executors.items()}
+    yield
+    hosts_per_node_after = {ip: drive_utils.get_all_hosts() for ip, drive_utils in drive_utils_executors.items()}
+    for ip, drive_utils in drive_utils_executors.items():
+        drive_utils.rescan_missing_hosts(before=hosts_per_node_before[ip], after=hosts_per_node_after[ip])
+
+@pytest.fixture(autouse=True)
+def wipe_drives(drive_utils_executors: dict[str, DriveUtils]) -> Generator[None, None, None]:
+    yield
+    for _, drive_utils in drive_utils_executors.items():
+        drive_utils.wipe_drives()
+
 def link_requirements(request):
     for marker in request.node.iter_markers():
         if marker.name == "requirements":
