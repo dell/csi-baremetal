@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime
+from typing import Generator
 import pytest
 import re
 
@@ -110,8 +112,8 @@ def get_utils(request) -> Utils:
 
 def get_ssh_executors(request) -> dict[str, SSHCommandExecutor]:
     utils  = get_utils(request)
-    ips = utils.get_controlplane_ips() + utils.get_worker_ips()
-    executors = {ip: SSHCommandExecutor(ip_address=ip, username=utils.vm_user, password=utils.vm_cred) for ip in ips}
+    worker_ips = utils.get_worker_ips()
+    executors = {ip: SSHCommandExecutor(ip_address=ip, username=utils.vm_user, password=utils.vm_cred) for ip in worker_ips}
     return executors
 
 @pytest.fixture(scope="session")
@@ -133,7 +135,21 @@ def link_requirements_in_background(request):
         requirements_thread = PropagatingThread(target=link_requirements, args=(request,), test_name=request.node.name)
         requirements_thread.start()
         pytest.threads.append(requirements_thread)
-    
+
+@pytest.fixture(autouse=True)
+def keep_drive_count(drive_utils_executors: dict[str, DriveUtils]) -> Generator[None, None, None]:
+    hosts_per_node_before = {ip: drive_utils.get_all_hosts() for ip, drive_utils in drive_utils_executors.items()}
+    yield
+    hosts_per_node_after = {ip: drive_utils.get_all_hosts() for ip, drive_utils in drive_utils_executors.items()}
+    for ip, drive_utils in drive_utils_executors.items():
+        drive_utils.rescan_missing_hosts(before=hosts_per_node_before[ip], after=hosts_per_node_after[ip])
+
+@pytest.fixture(autouse=True)
+def wipe_drives(drive_utils_executors: dict[str, DriveUtils]) -> Generator[None, None, None]:
+    yield
+    for _, drive_utils in drive_utils_executors.items():
+        drive_utils.wipe_drives()
+
 def link_requirements(request):
     for marker in request.node.iter_markers():
         if marker.name == "requirements":

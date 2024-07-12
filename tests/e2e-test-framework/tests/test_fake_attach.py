@@ -27,7 +27,7 @@ class TestFakeAttach:
         cls.drive_utils = drive_utils_executors
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_classes=[const.SSD_SC])
+        cls.sts.create(storage_classes=[const.HDD_SC])
 
         yield
 
@@ -77,7 +77,9 @@ class TestFakeAttach:
         )
         logging.info(f"drive {drive_name} went {const.STATUS_OFFLINE}")
 
-        pod = self.utils.recreate_pod(pod)
+        pod = self.utils.recreate_pod(
+            name=pod.metadata.name, namespace=self.namespace
+        )
         volume_name = volume["metadata"]["name"]
         assert self.event_in(
             plural="volumes",
@@ -93,7 +95,9 @@ class TestFakeAttach:
             name=drive_name, expected_status=const.STATUS_ONLINE
         )
 
-        self.utils.recreate_pod(pod)
+        self.utils.recreate_pod(
+            name=pod.metadata.name, namespace=self.namespace
+        )
         assert self.event_in(
             plural="volumes",
             resource_name=volume_name,

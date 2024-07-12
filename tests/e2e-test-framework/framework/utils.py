@@ -327,6 +327,20 @@ class Utils:
             )
             return drive_cr
 
+    def get_pod_node_ip(self, pod_name: str, namespace: str) -> str:
+        """
+        Retrieves the IP address of the node associated with the given pod name and namespace.
+        Args:
+            pod_name (str): The name of the pod.
+            namespace (str): The namespace of the pod.
+        Returns:
+            str: The IP address of the node associated with the pod.
+        """
+        pod = self.list_pods(name_prefix=pod_name, namespace=namespace)[0]
+        node_name = pod.spec.node_name
+        node = self.core_v1_api.read_node(name=node_name)
+        return node.status.addresses[0].address
+
     def get_events_by_reason(
         self,
         plural: str,
@@ -663,17 +677,13 @@ class Utils:
         Returns:
             V1Pod: The recreated Pod.
         """
-        self.core_v1_api.delete_namespaced_pod(
-            name=name, namespace=namespace
-        )
+        self.core_v1_api.delete_namespaced_pod(name=name, namespace=namespace)
         logging.info(
             f"pod {name} deleted, waiting for a new pod to be created"
         )
 
         time.sleep(5)
-        pod = self.list_pods(name, namespace=namespace)[
-            0
-        ]
+        pod = self.list_pods(name, namespace=namespace)[0]
         assert self.is_pod_ready(
             name, timeout=120
         ), "pod not ready after 120 seconds timeout"
