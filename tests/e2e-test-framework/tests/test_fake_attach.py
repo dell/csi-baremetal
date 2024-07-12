@@ -27,7 +27,7 @@ class TestFakeAttach:
         cls.drive_utils = drive_utils_executors
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_classes=[const.HDD_SC])
+        cls.sts.create(storage_classes=[const.SSD_SC])
 
         yield
 
@@ -77,14 +77,10 @@ class TestFakeAttach:
         )
         logging.info(f"drive {drive_name} went {const.STATUS_OFFLINE}")
 
-        pod = self.utils.recreate_pod(
-            name=pod.metadata.name, namespace=self.namespace
-        )
+        pod = self.utils.recreate_pod(pod)
         volume_name = volume["metadata"]["name"]
-        assert self.event_in(
-            plural="volumes",
-            resource_name=volume_name,
-            reason=const.FAKE_ATTACH_INVOLVED,
+        assert self.utils.event_in(
+            resource_name=volume_name, reason=const.FAKE_ATTACH_INVOLVED
         ), f"event {const.FAKE_ATTACH_INVOLVED} not found"
 
         self.drive_utils[node_ip].restore(host_num=host_num)
@@ -95,25 +91,8 @@ class TestFakeAttach:
             name=drive_name, expected_status=const.STATUS_ONLINE
         )
 
-        self.utils.recreate_pod(
-            name=pod.metadata.name, namespace=self.namespace
-        )
-        assert self.event_in(
-            plural="volumes",
+        self.utils.recreate_pod(pod)
+        assert self.utils.event_in(
             resource_name=volume_name,
             reason=const.FAKE_ATTACH_CLEARED,
         ), f"event {const.FAKE_ATTACH_CLEARED} not found"
-
-    def event_in(self, plural: str, resource_name: str, reason: str) -> bool:
-        events = self.utils.get_events_by_reason(
-            plural=plural,
-            resource_name=resource_name,
-            reason=reason,
-            namespace=self.namespace,
-        )
-        for event in events:
-            if event.reason == reason:
-                logging.info(f"event {reason} found")
-                return True
-        logging.warning(f"event {reason} not found")
-        return False
