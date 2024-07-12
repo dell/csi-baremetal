@@ -103,6 +103,7 @@ def wire_mock():
         Config.base_url = wire_mock.get_url("__admin")
         Config.requests_verify = False
         yield wire_mock
+
 def get_utils(request) -> Utils:
     return Utils(
         vm_user=request.config.getoption("--login"), 
