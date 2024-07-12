@@ -691,19 +691,3 @@ class Utils:
         logging.info(f"pod {name} is ready")
 
         return pod
-
-    def get_pod_node_ip(self, pod_name: str, namespace: str) -> str:
-        """
-        Retrieves the IP address of the node associated with the given pod name and namespace.
-
-        Args:
-            pod_name (str): The name of the pod.
-            namespace (str): The namespace of the pod.
-
-        Returns:
-            str: The IP address of the node associated with the pod.
-        """
-        pod = self.list_pods(name_prefix=pod_name, namespace=namespace)[0]
-        node_name = pod.spec.node_name
-        node = self.core_v1_api.read_node(name=node_name)
-        return node.status.addresses[0].address
