@@ -874,6 +874,7 @@ var _ = Describe("CSINodeService Fake-Attach", func() {
 		err = node.k8sClient.ReadCR(testCtx, testV1ID, "", vol1)
 		Expect(err).To(BeNil())
 		Expect(vol1.Spec.CSIStatus).To(Equal(apiV1.VolumeReady))
+		Expect(vol1.Spec.OperationalStatus).To(Equal(apiV1.OperationalStatusMissing))
 		Expect(vol1.Annotations[fakeDeviceVolumeAnnotation]).To(Equal(newFakeDevice))
 	})
 	It("Should publish unhealthy fs-mode volume with fake-attach annotation", func() {
