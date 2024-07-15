@@ -1,6 +1,7 @@
 import logging
 import time
 import pytest
+from typing import Dict
 
 import framework.const as const
 
@@ -15,7 +16,7 @@ class TestFakeAttachMultipleVolumesPerPod:
     def setup_class(
         cls,
         namespace: str,
-        drive_utils_executors: dict[str, DriveUtils],
+        drive_utils_executors: Dict[str, DriveUtils],
         utils: Utils,
     ):
         cls.namespace = namespace
