@@ -50,8 +50,8 @@ class TestFakeAttach:
 
         self.utils.annotate_pvc(
             resource_name=pvc.metadata.name,
-            annotation_key="pv.attach.kubernetes.io/ignore-if-inaccessible",
-            annotation_value="yes",
+            annotation_key=const.FAKE_ATTACH_PVC_ANNOTATION_KEY,
+            annotation_value=const.FAKE_ATTACH_PVC_ANNOTATION_VALUE,
             namespace=self.namespace,
         )
 
