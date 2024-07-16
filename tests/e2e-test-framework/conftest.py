@@ -113,8 +113,8 @@ def get_utils(request) -> Utils:
 
 def get_ssh_executors(request) -> dict[str, SSHCommandExecutor]:
     utils  = get_utils(request)
-    worker_ips = utils.get_worker_ips()
-    executors = {ip: SSHCommandExecutor(ip_address=ip, username=utils.vm_user, password=utils.vm_cred) for ip in worker_ips}
+    ips = utils.get_worker_ips() + utils.get_controlplane_ips()
+    executors = {ip: SSHCommandExecutor(ip_address=ip, username=utils.vm_user, password=utils.vm_cred) for ip in ips}
     return executors
 
 @pytest.fixture(scope="session")

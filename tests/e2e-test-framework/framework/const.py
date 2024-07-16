@@ -32,13 +32,27 @@ USAGE_RAILED = "FAILED"
 STATUS_ONLINE = "ONLINE"
 STATUS_OFFLINE = "OFFLINE"
 
+# annotation keys
+DRIVE_HEALTH_ANNOTATION = "health"
+VOLUME_RELEASE_ANNOTATION = "release"
+FAKE_ATTACH_PVC_ANNOTATION_KEY = "pv.attach.kubernetes.io/ignore-if-inaccessible"
+
+# annotation values
+VOLUME_RELEASE_DONE_VALUE = "done"
+FAKE_ATTACH_PVC_ANNOTATION_VALUE = "yes"
+
 # health
 HEALTH_GOOD = "GOOD"
 HEALTH_BAD = "BAD"
 
-# fake attach
+# fake attach events
 FAKE_ATTACH_INVOLVED = "FakeAttachInvolved"
 FAKE_ATTACH_CLEARED = "FakeAttachCleared"
+
+# drive events
+DRIVE_HEALTH_FAILURE_EVENT = "DriveHealthFailure"
+DRIVE_READY_FOR_PHYSICAL_REMOVAL_EVENT = "DriveReadyForPhysicalRemoval"
+DRIVE_SUCCESSFULLY_REMOVED_EVENT = "DriveSuccessfullyRemoved"
 
 # plurals
 DRIVES_PLURAL = "drives"

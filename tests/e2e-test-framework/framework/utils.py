@@ -3,6 +3,7 @@ import logging
 
 from typing import Any, Callable, Dict, List, Optional
 from kubernetes.client.rest import ApiException
+from kubernetes import watch
 from kubernetes.client.models import (
     V1Pod,
     V1PersistentVolumeClaim,
@@ -566,6 +567,10 @@ class Utils:
                 custom_resource,
             )
 
+        logging.info(
+            f"{resource_type}/{resource_name} annotated with {annotation_key}: {annotation_value}"
+        )
+
     def annotate_pvc(
         self,
         resource_name: str,
@@ -594,6 +599,9 @@ class Utils:
         pvc.metadata.annotations[annotation_key] = annotation_value
         self.core_v1_api.patch_namespaced_persistent_volume_claim(
             name=resource_name, namespace=namespace, body=pvc
+        )
+        logging.info(
+            f"pvc {resource_name} annotated with {annotation_key}: {annotation_value}"
         )
 
     def clear_csi_resources(self, namespace: str) -> None:
@@ -691,3 +699,59 @@ class Utils:
         logging.info(f"pod {name} is ready")
 
         return pod
+
+    def wait_for_event_with_reason(
+        self, reason: str, timeout_seconds: int = 60
+    ) -> bool:
+        """
+        Wait for an event with a specified reason in the Kubernetes cluster.
+
+        Parameters:
+        - reason (str): The reason of the event to listen for.
+        - timeout_seconds (int): The time in seconds to wait for the event. Default is 60 seconds.
+
+        Returns:
+        - bool: True if the event with the specified reason is raised, False otherwise.
+        """
+        w = watch.Watch()
+        for event in w.stream(
+            self.core_v1_api.list_event_for_all_namespaces,
+            timeout_seconds=timeout_seconds,
+        ):
+            event_reason = event["object"].reason
+            if event_reason == reason:
+                logging.info(f"Event with reason '{reason}' found: {event}")
+                return True
+
+        logging.warning(
+            f"No event with reason '{reason}' found within {timeout_seconds} seconds."
+        )
+        return False
+
+    def clear_pvc_and_pod(
+        self, pod_name: str, pvc_name: str, volume_name: str, namespace: str
+    ) -> None:
+        """
+        Clears the PersistentVolumeClaim (PVC) and the Pod with the specified names in the Kubernetes cluster.
+
+        Args:
+            pod_name (str): The name of the Pod to be cleared.
+            pvc_name (str): The name of the PersistentVolumeClaim to be cleared.
+            volume_name (str): The name of the volume to be checked.
+            namespace (str): The namespace of the PersistentVolumeClaim and Pod.
+
+        Returns:
+            None: This function does not return anything.
+        """
+        logging.info(f"clearing pvc {pvc_name} and pod {pod_name}")
+        self.core_v1_api.delete_namespaced_persistent_volume_claim(
+            name=pvc_name,
+            namespace=namespace,
+        )
+
+        assert self.wait_volume(
+            name=volume_name,
+            expected_usage=const.USAGE_RELEASED,
+        ), f"Volume: {volume_name} failed to reach expected usage: {const.USAGE_RELEASED}"
+
+        self.recreate_pod(name=pod_name, namespace=namespace)
