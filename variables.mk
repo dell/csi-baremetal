@@ -84,7 +84,7 @@ KIND_BUILD_DIR		:= ${PWD}/devkit/kind
 KIND_CONFIG_DIR		:= tests/kind
 KIND				:= ${KIND_BUILD_DIR}/kind
 KIND_CONFIG			:= small-kind.yaml
-KIND_IMAGE_VERSION	:= v1.29.1
+KIND_IMAGE_VERSION	:= v1.29.4
 KIND_WAIT			:= 30s
 
 ### ci vars
