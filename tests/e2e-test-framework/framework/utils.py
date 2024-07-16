@@ -729,7 +729,7 @@ class Utils:
         return False
 
     def clear_pvc_and_pod(
-        self, pod_name: str, pvc_name: str, namespace: str
+        self, pod_name: str, pvc_name: str, volume_name: str, namespace: str
     ) -> None:
         """
         Clears the PersistentVolumeClaim (PVC) and the Pod with the specified names in the Kubernetes cluster.
@@ -737,6 +737,7 @@ class Utils:
         Args:
             pod_name (str): The name of the Pod to be cleared.
             pvc_name (str): The name of the PersistentVolumeClaim to be cleared.
+            volume_name (str): The name of the volume to be checked.
             namespace (str): The namespace of the PersistentVolumeClaim and Pod.
 
         Returns:
@@ -747,5 +748,10 @@ class Utils:
             name=pvc_name,
             namespace=namespace,
         )
-        time.sleep(30) # TODO: investigate why this is needed
+
+        assert self.wait_volume(
+            name=volume_name,
+            expected_usage=const.USAGE_RELEASED,
+        ), f"Volume: {volume_name} failed to reach expected usage: {const.USAGE_RELEASED}"
+
         self.recreate_pod(name=pod_name, namespace=namespace)

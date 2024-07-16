@@ -92,7 +92,7 @@ class TestFakeAttachMultipleVolumesPerPod:
         assert self.utils.wait_volume(
             name=volume_name,
             expected_usage=const.USAGE_RELEASED,
-        ), f"Drive: {drive_name} failed to reach expected health: {const.HEALTH_BAD}"
+        ), f"Volume: {volume_name} failed to reach expected usage: {const.USAGE_RELEASED}"
 
         self.utils.annotate_pvc(
             resource_name=pvc.metadata.name,
@@ -134,6 +134,7 @@ class TestFakeAttachMultipleVolumesPerPod:
         self.utils.clear_pvc_and_pod(
             pod_name=pod.metadata.name,
             pvc_name=pvc.metadata.name,
+            volume_name=pvc.spec.volume_name,
             namespace=self.namespace,
         )
         assert self.utils.is_pod_running(
