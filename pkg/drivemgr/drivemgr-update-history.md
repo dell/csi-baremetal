@@ -8,3 +8,4 @@ git commit for proprietary code.
 2024/01/22  remove upper case from disk serial number. \
 2024/05/29  hal manager CY2310 branch cut. \
 2024/06/05  hal manager update 3.8.1.0-2028.443553c
+2024/07/18  hal manager cve fixes
