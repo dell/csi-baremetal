@@ -168,8 +168,9 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
     # 15. check driveCR succesfully removed
         for drive in drives:
             drive_name = drive["metadata"]["name"]          
-            assert self.utils.check_drive_cr_not_exist(
-                drive_name=drive_name
+            assert self.utils.check_drive_cr_exist_or_not(
+                drive_name=drive_name,
+                cr_existence=False
             ), f"Drive CR {drive_name} still exists"
     # 16. check for events DriveSuccessfullyRemoved in kubernetes events
         for drive in drives:

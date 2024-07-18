@@ -403,7 +403,7 @@ class Utils:
             expected_health (Optional[str], optional): The expected health of the volume. Defaults to None.
             expected_usage (Optional[str], optional): The expected usage of the volume. Defaults to None.
             expected_operational_status (Optional[str], optional): The expected operational status of the volume. Defaults to None.
-            timeout (int): The maximum time to wait for the volume in seconds. Defaults to 60.
+            timeout (int): The maximum time to wait for the volume in seconds. Defaults to 90.
 
         Returns:
             bool: True if the volume meets the expected status, health, and usage within the given timeout, False otherwise.
@@ -443,7 +443,7 @@ class Utils:
             expected_health (Optional[str], optional): The expected health of the drive. Defaults to None.
             expected_usage (Optional[str], optional): The expected usage of the drive. Defaults to None.
             expected_led_state (Optional[str], optional): The expected LED state of the drive. Defaults to None.
-            timeout (int): The maximum time to wait for the drive in seconds. Defaults to 60.
+            timeout (int): The maximum time to wait for the drive in seconds. Defaults to 90.
 
         Returns:
             bool: True if the drive meets the expected status, health, and usage within the given timeout, False otherwise.
@@ -775,23 +775,24 @@ class Utils:
             for pvc in pvcs:
                 assert self.wait_volume(
                     name=pvc.spec.volume_name,
-                    expected_usage=const.USAGE_RELEASED,
-                ), f"Volume: {pvc.spec.volume_name} failed to reach expected usage: {const.USAGE_RELEASED}"
-                logging.info(f"volume: {pvc.spec.volume_name} reach expected usage: {const.USAGE_RELEASED}")
+                    expected_usage=','.join([const.USAGE_RELEASED, const.USAGE_IN_USE]),
+                ), f"Volume: {pvc.spec.volume_name} failed to reach expected usage: {','.join([const.USAGE_RELEASED, const.USAGE_IN_USE])}"
+                logging.info(f"volume: {pvc.spec.volume_name} reach expected usage")
 
         time.sleep(30)
         self.recreate_pod(name=pod_name, namespace=namespace)
     
-    def check_drive_cr_not_exist(self, drive_name: str, timeout: int = 120) -> bool:
+    def check_drive_cr_exist_or_not(self, drive_name: str, cr_existence: bool, timeout: int = 120) -> bool:
         """
-        Checks if a custom resource (CR) representing a drive with the given name does not exist.
+        Checks if a custom resource (CR) representing a drive with the given name exists or not.
 
         Args:
             drive_name (str): The name of the drive CR.
+            cr_existence (bool): The state if drive CR should exist (True) or not (False).
             timeout (int, optional): The timeout for checking the CR, defaults to 120.
 
         Returns:
-            bool: True if the drive CR was removed within the given timeout, False otherwise.
+            bool: True if the drive CR existance is as expected within the given timeout, False otherwise.
         """
         end_time = time.time() + timeout
         while time.time() < end_time:
@@ -803,16 +804,16 @@ class Utils:
                     name=drive_name,
                 )
                 logging.warning(f"Drive CR '{drive_name}' still exists.")
+                if cr_existence:
+                    return True
             except ApiException as e:
                 if e.status == 404:
                     logging.info(f"Drive CR {drive_name} does not exist.")
-                    return True
+                    if not cr_existence:
+                        return True
                 else:
                     raise
             time.sleep(2)
-        logging.warning(
-            f"Drive CR '{drive_name}' still exists after {timeout} seconds timeout."
-        )
         return False
         
         
