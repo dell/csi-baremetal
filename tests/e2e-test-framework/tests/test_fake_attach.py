@@ -6,6 +6,7 @@ import framework.const as const
 from framework.sts import STS
 from framework.utils import Utils
 from framework.drive import DriveUtils
+from typing import Dict
 
 
 class TestFakeAttach:
@@ -14,7 +15,7 @@ class TestFakeAttach:
     def setup_class(
         cls,
         namespace: str,
-        drive_utils_executors: dict[str, DriveUtils],
+        drive_utils_executors: Dict[str, DriveUtils],
         utils: Utils,
     ):
         cls.namespace = namespace

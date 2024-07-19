@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Generator
+from typing import Generator, Dict
 import pytest
 import re
 
@@ -111,7 +111,7 @@ def get_utils(request) -> Utils:
         namespace=request.config.getoption("--namespace")
     )
 
-def get_ssh_executors(request) -> dict[str, SSHCommandExecutor]:
+def get_ssh_executors(request) -> Dict[str, SSHCommandExecutor]:
     utils  = get_utils(request)
     ips = utils.get_worker_ips() + utils.get_controlplane_ips()
     executors = {ip: SSHCommandExecutor(ip_address=ip, username=utils.vm_user, password=utils.vm_cred) for ip in ips}
@@ -122,11 +122,11 @@ def utils(request) -> Utils:
     return get_utils(request)
 
 @pytest.fixture(scope="session")
-def ssh_executors(request) -> dict[str, SSHCommandExecutor]:
+def ssh_executors(request) -> Dict[str, SSHCommandExecutor]:
     return get_ssh_executors(request)
 
 @pytest.fixture(scope="session")
-def drive_utils_executors(request) -> dict[str, DriveUtils]:
+def drive_utils_executors(request) -> Dict[str, DriveUtils]:
     ssh_execs = get_ssh_executors(request)
     return {ip: DriveUtils(executor) for ip, executor in ssh_execs.items()}
 
@@ -138,7 +138,7 @@ def link_requirements_in_background(request):
         pytest.threads.append(requirements_thread)
 
 @pytest.fixture(autouse=True)
-def keep_drive_count(drive_utils_executors: dict[str, DriveUtils]) -> Generator[None, None, None]:
+def keep_drive_count(drive_utils_executors: Dict[str, DriveUtils]) -> Generator[None, None, None]:
     hosts_per_node_before = {ip: drive_utils.get_all_hosts() for ip, drive_utils in drive_utils_executors.items()}
     yield
     hosts_per_node_after = {ip: drive_utils.get_all_hosts() for ip, drive_utils in drive_utils_executors.items()}
@@ -146,7 +146,7 @@ def keep_drive_count(drive_utils_executors: dict[str, DriveUtils]) -> Generator[
         drive_utils.rescan_missing_hosts(before=hosts_per_node_before[ip], after=hosts_per_node_after[ip])
 
 @pytest.fixture(autouse=True)
-def wipe_drives(drive_utils_executors: dict[str, DriveUtils]) -> Generator[None, None, None]:
+def wipe_drives(drive_utils_executors: Dict[str, DriveUtils]) -> Generator[None, None, None]:
     yield
     for _, drive_utils in drive_utils_executors.items():
         drive_utils.wipe_drives()

@@ -31,6 +31,7 @@ USAGE_RAILED = "FAILED"
 # statuses
 STATUS_ONLINE = "ONLINE"
 STATUS_OFFLINE = "OFFLINE"
+STATUS_OPERATIVE = "OPERATIVE"
 
 # annotation keys
 DRIVE_HEALTH_ANNOTATION = "health"
@@ -48,6 +49,11 @@ HEALTH_BAD = "BAD"
 # fake attach events
 FAKE_ATTACH_INVOLVED = "FakeAttachInvolved"
 FAKE_ATTACH_CLEARED = "FakeAttachCleared"
+DRIVE_HEALTH_FAILURE = "DriveHealthFailure"
+DRIVE_READY_FOR_REMOVAL = "DriveReadyForRemoval"
+VOLUME_BAD_HEALTH = "VolumeBadHealth"
+DRIVE_READY_FOR_PHYSICAL_REMOVAL = "DriveReadyForPhysicalRemoval"
+DRIVE_SUCCESSFULLY_REMOVED = "DriveSuccessfullyRemoved"
 
 # drive events
 DRIVE_HEALTH_FAILURE_EVENT = "DriveHealthFailure"
@@ -60,3 +66,6 @@ AC_PLURAL = "availablecapacities"
 ACR_PLURAL = "availablecapacityreservations"
 LVG_PLURAL = "logicalvolumegroups"
 VOLUMES_PLURAL = "volumes"
+
+# led
+LED_STATE = "1,2"
