@@ -2,7 +2,7 @@ name: devkit
 
 on:
   push:
-    branches: [ master ]
+    branches: [ feature/atl-28412 ]
   pull_request:
     branches: [ master ]
 
