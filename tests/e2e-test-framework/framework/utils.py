@@ -48,19 +48,14 @@ class Utils:
         worker_nodes = [
             node
             for node in nodes
-            if "node-role.kubernetes.io/control-plane"
-            not in node.metadata.labels
+            if "node-role.kubernetes.io/control-plane" not in node.metadata.labels
         ]
         assert worker_nodes, "No worker nodes found in the cluster"
         logging.info("[ASSERT] Worker nodes found in the cluster.")
 
-        worker_ips = [
-            node.status.addresses[0].address for node in worker_nodes
-        ]
+        worker_ips = [node.status.addresses[0].address for node in worker_nodes]
         assert worker_ips, "No IP addresses found for worker nodes"
-        logging.info(
-            f"[ASSERT] IP addresses found for worker nodes - {worker_ips}"
-        )
+        logging.info(f"[ASSERT] IP addresses found for worker nodes - {worker_ips}")
 
         return worker_ips
 
@@ -77,17 +72,13 @@ class Utils:
             for node in nodes
             if "node-role.kubernetes.io/control-plane" in node.metadata.labels
         ]
-        assert (
-            controlplane_nodes
-        ), "No control plane nodes found in the cluster"
+        assert controlplane_nodes, "No control plane nodes found in the cluster"
         logging.info("[ASSERT] Control plane nodes found in the cluster.")
 
         controlplane_ips = [
             node.status.addresses[0].address for node in controlplane_nodes
         ]
-        assert (
-            controlplane_ips
-        ), "No IP addresses found for control plane nodes"
+        assert controlplane_ips, "No IP addresses found for control plane nodes"
         logging.info(
             f"[ASSERT] IP addresses found for control plane nodes - {controlplane_ips}"
         )
@@ -212,9 +203,7 @@ class Utils:
         Returns:
             List[V1PersistentVolumeClaim]: A list of PersistentVolumeClaim objects that match the provided filters.
         """
-        pvcs = self.core_v1_api.list_namespaced_persistent_volume_claim(
-            namespace
-        ).items
+        pvcs = self.core_v1_api.list_namespaced_persistent_volume_claim(namespace).items
         if name:
             pvcs = [p for p in pvcs if p.metadata.name == name]
         if namespace:
@@ -272,9 +261,7 @@ class Utils:
                 namespace=self.namespace, pod_name=pod_name
             )
             volume_names = set(pvc.spec.volume_name for pvc in pvcs)
-            volumes = [
-                v for v in volumes if v["metadata"]["name"] in volume_names
-            ]
+            volumes = [v for v in volumes if v["metadata"]["name"] in volume_names]
         if location:
             volumes = [v for v in volumes if v["spec"]["Location"] == location]
         if storage_class:
@@ -416,14 +403,12 @@ class Utils:
         if expected_health:
             expected["Health"] = expected_health
         if expected_operational_status:
-            expected['OperationalStatus'] = expected_operational_status
+            expected["OperationalStatus"] = expected_operational_status
 
         def callback():
             return self.list_volumes(name)[0]
 
-        return self._wait_cr(
-            expected=expected, get_cr_fn=callback, timeout=timeout
-        )
+        return self._wait_cr(expected=expected, get_cr_fn=callback, timeout=timeout)
 
     def wait_drive(
         self,
@@ -463,9 +448,7 @@ class Utils:
                 const.CR_GROUP, const.CR_VERSION, "drives", name
             )
 
-        return self._wait_cr(
-            expected=expected, get_cr_fn=callback, timeout=timeout
-        )
+        return self._wait_cr(expected=expected, get_cr_fn=callback, timeout=timeout)
 
     def _wait_cr(
         self,
@@ -506,9 +489,7 @@ class Utils:
 
         for k, v in assertions.items():
             if not v:
-                logging.error(
-                    f"CR is not in expected state: {k} != {expected[k]}"
-                )
+                logging.error(f"CR is not in expected state: {k} != {expected[k]}")
 
         return False
 
@@ -534,23 +515,19 @@ class Utils:
             None: This function does not return anything.
         """
         if namespace:
-            custom_resource = (
-                self.custom_objects_api.get_namespaced_custom_object(
-                    const.CR_GROUP,
-                    const.CR_VERSION,
-                    namespace,
-                    resource_type,
-                    resource_name,
-                )
+            custom_resource = self.custom_objects_api.get_namespaced_custom_object(
+                const.CR_GROUP,
+                const.CR_VERSION,
+                namespace,
+                resource_type,
+                resource_name,
             )
         else:
-            custom_resource = (
-                self.custom_objects_api.get_cluster_custom_object(
-                    const.CR_GROUP,
-                    const.CR_VERSION,
-                    resource_type,
-                    resource_name,
-                )
+            custom_resource = self.custom_objects_api.get_cluster_custom_object(
+                const.CR_GROUP,
+                const.CR_VERSION,
+                resource_type,
+                resource_name,
             )
 
         annotations = custom_resource["metadata"].get("annotations", {})
@@ -695,9 +672,7 @@ class Utils:
             V1Pod: The recreated Pod.
         """
         self.core_v1_api.delete_namespaced_pod(name=name, namespace=namespace)
-        logging.info(
-            f"pod {name} deleted, waiting for a new pod to be created"
-        )
+        logging.info(f"pod {name} deleted, waiting for a new pod to be created")
 
         time.sleep(5)
         pod = self.list_pods(name, namespace=namespace)[0]
@@ -737,11 +712,15 @@ class Utils:
         return False
 
     def clear_pvc_and_pod(
-        self, pod_name: str, namespace: str, pvc_name: Optional[str] = None, volume_name: Optional[str] = None
+        self,
+        pod_name: str,
+        namespace: str,
+        pvc_name: Optional[str] = None,
+        volume_name: Optional[str] = None,
     ) -> None:
         """
         Clears the PersistentVolumeClaim (PVC) and the Pod with the specified names in the Kubernetes cluster.
-        If the name of pvc or volume is not specified it clears all PVCs connected with specific Pod.  
+        If the name of pvc or volume is not specified it clears all PVCs connected with specific Pod.
 
         Args:
             pod_name (str): The name of the Pod to be cleared.
@@ -764,8 +743,8 @@ class Utils:
             ), f"Volume: {volume_name} failed to reach expected usage: {const.USAGE_RELEASED}"
         else:
             pvcs = self.list_persistent_volume_claims(
-                    namespace=namespace, pod_name=pod_name
-                )
+                namespace=namespace, pod_name=pod_name
+            )
             for pvc in pvcs:
                 logging.info(f"clearing pvc {pvc.metadata.name}")
                 self.core_v1_api.delete_namespaced_persistent_volume_claim(
@@ -775,14 +754,16 @@ class Utils:
             for pvc in pvcs:
                 assert self.wait_volume(
                     name=pvc.spec.volume_name,
-                    expected_usage=','.join([const.USAGE_RELEASED, const.USAGE_IN_USE]),
+                    expected_usage=",".join([const.USAGE_RELEASED, const.USAGE_IN_USE]),
                 ), f"Volume: {pvc.spec.volume_name} failed to reach expected usage: {','.join([const.USAGE_RELEASED, const.USAGE_IN_USE])}"
                 logging.info(f"volume: {pvc.spec.volume_name} reach expected usage")
 
         time.sleep(30)
         self.recreate_pod(name=pod_name, namespace=namespace)
-    
-    def check_drive_cr_exist_or_not(self, drive_name: str, cr_existence: bool, timeout: int = 120) -> bool:
+
+    def check_drive_cr_exist_or_not(
+        self, drive_name: str, cr_existence: bool, timeout: int = 120
+    ) -> bool:
         """
         Checks if a custom resource (CR) representing a drive with the given name exists or not.
 
@@ -815,5 +796,3 @@ class Utils:
                     raise
             time.sleep(2)
         return False
-        
-        
