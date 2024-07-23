@@ -157,8 +157,22 @@ kind-install: kind-build
 	kind version
 
 kind-create-cluster:
-	export KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER=native
-	$(KIND) create cluster --config $(KIND_CONFIG_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
+	KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER=native $(KIND) create cluster --config $(KIND_CONFIG_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
+
+kind-install-calico:
+	docker pull ${REGISTRY}/calico/cni:$(CALICO_VERSION)
+	docker pull ${REGISTRY}/calico/node:$(CALICO_VERSION)
+	docker pull ${REGISTRY}/calico/kube-controllers:$(CALICO_VERSION)
+
+	docker tag ${REGISTRY}/calico/cni:$(CALICO_VERSION) docker.io/calico/cni:$(CALICO_VERSION)
+	docker tag ${REGISTRY}/calico/node:$(CALICO_VERSION) docker.io/calico/node:$(CALICO_VERSION)
+	docker tag ${REGISTRY}/calico/kube-controllers:$(CALICO_VERSION) docker.io/calico/kube-controllers:$(CALICO_VERSION)
+
+	$(KIND) load docker-image docker.io/calico/cni:$(CALICO_VERSION)
+	$(KIND) load docker-image docker.io/calico/node:$(CALICO_VERSION)
+	$(KIND) load docker-image docker.io/calico/kube-controllers:$(CALICO_VERSION)
+	
+	kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/$(CALICO_VERSION)/manifests/calico.yaml
 
 kind-delete-cluster:
 	$(KIND) delete cluster

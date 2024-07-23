@@ -86,6 +86,7 @@ KIND				:= ${KIND_BUILD_DIR}/kind
 KIND_CONFIG			:= small-kind.yaml
 KIND_IMAGE_VERSION	:= v1.29.4
 KIND_WAIT			:= 30s
+CALICO_VERSION      := v3.27.0
 
 ### ci vars
 # timeout for short test suite, must be parsable as Go time.Duration (60m, 2h)
