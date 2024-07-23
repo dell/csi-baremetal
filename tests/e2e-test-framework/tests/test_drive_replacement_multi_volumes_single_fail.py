@@ -55,15 +55,15 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPodSingleFailure:
                 namespace=volume["metadata"]["namespace"])
             drives.append(drive)
         failed_drive = drives[0]
-        health_drive = drives[1]
+        healthy_drive = drives[1]
         failed_volume = volumes[0]
     # 2. simulate drive failure. Annotate drive used by pod with health=BAD
         failed_drive_name = failed_drive["metadata"]["name"]
         self.utils.annotate_custom_resource(
             resource_name=failed_drive_name, 
             resource_type="drives", 
-            annotation_key="health", 
-            annotation_value="BAD"
+            annotation_key=const.DRIVE_HEALTH_ANNOTATION, 
+            annotation_value=const.DRIVE_HEALTH_BAD_ANNOTATION
         )
         logging.info(f"drive: {failed_drive_name} was annotated with health=BAD")
     # 3. wait until drive health is BAD, status=ONLINE, usage=RELEASING.
@@ -94,8 +94,8 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPodSingleFailure:
         self.utils.annotate_custom_resource(
             resource_name=failed_volume_name, 
             resource_type="volumes", 
-            annotation_key="release", 
-            annotation_value="done", 
+            annotation_key=const.VOLUME_RELEASE_ANNOTATION, 
+            annotation_value=const.VOLUME_RELEASE_DONE_VALUE, 
             namespace=volume['metadata']['namespace']
         )
         logging.info(f"volume: {failed_volume_name} was annotated with release=done")
@@ -154,11 +154,11 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPodSingleFailure:
             cr_existence=False
         ), f"Drive CR {failed_drive_name} still exists"
         
-        health_drive_name = health_drive['metadata']['name']
+        healthy_drive_name = healthy_drive['metadata']['name']
         assert self.utils.check_drive_cr_exist_or_not(
-            drive_name=health_drive_name,
+            drive_name=healthy_drive_name,
             cr_existence=True,
-        ), f"Drive CR {health_drive_name} does not exist"
+        ), f"Drive CR {healthy_drive_name} does not exist"
     # 16. check for events DriveSuccessfullyRemoved in kubernetes events
         assert self.utils.event_in(
             resource_name=failed_drive_name,

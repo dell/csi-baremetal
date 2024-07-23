@@ -60,8 +60,8 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
             self.utils.annotate_custom_resource(
                 resource_name=drive_name, 
                 resource_type="drives", 
-                annotation_key="health", 
-                annotation_value="BAD"
+                annotation_key=const.DRIVE_HEALTH_ANNOTATION, 
+                annotation_value=const.DRIVE_HEALTH_BAD_ANNOTATION
             )
             logging.info(f"drive: {drive_name} was annotated with health=BAD")
     # 3. wait until drive health is BAD, status=ONLINE, usage=RELEASING.
@@ -99,8 +99,8 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
             self.utils.annotate_custom_resource(
                 resource_name=volume_name, 
                 resource_type="volumes", 
-                annotation_key="release", 
-                annotation_value="done", 
+                annotation_key=const.VOLUME_RELEASE_ANNOTATION,
+                annotation_value=const.VOLUME_RELEASE_DONE_VALUE, 
                 namespace=volume['metadata']['namespace']
             )
             logging.info(f"volume: {volume_name} was annotated with release=done")
