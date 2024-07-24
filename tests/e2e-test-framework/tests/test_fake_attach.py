@@ -1,4 +1,5 @@
 import logging
+from typing import Dict
 import pytest
 
 import framework.const as const
@@ -6,7 +7,6 @@ import framework.const as const
 from framework.sts import STS
 from framework.utils import Utils
 from framework.drive import DriveUtils
-from typing import Dict
 
 
 class TestFakeAttach:

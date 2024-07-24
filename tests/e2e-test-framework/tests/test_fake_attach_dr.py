@@ -1,7 +1,7 @@
 import logging
 import time
-import pytest
 from typing import Dict
+import pytest
 
 import framework.const as const
 

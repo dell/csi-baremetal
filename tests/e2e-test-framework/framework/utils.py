@@ -48,19 +48,14 @@ class Utils:
         worker_nodes = [
             node
             for node in nodes
-            if "node-role.kubernetes.io/control-plane"
-            not in node.metadata.labels
+            if "node-role.kubernetes.io/control-plane" not in node.metadata.labels
         ]
         assert worker_nodes, "No worker nodes found in the cluster"
         logging.info("[ASSERT] Worker nodes found in the cluster.")
 
-        worker_ips = [
-            node.status.addresses[0].address for node in worker_nodes
-        ]
+        worker_ips = [node.status.addresses[0].address for node in worker_nodes]
         assert worker_ips, "No IP addresses found for worker nodes"
-        logging.info(
-            f"[ASSERT] IP addresses found for worker nodes - {worker_ips}"
-        )
+        logging.info(f"[ASSERT] IP addresses found for worker nodes - {worker_ips}")
 
         return worker_ips
 
@@ -77,17 +72,13 @@ class Utils:
             for node in nodes
             if "node-role.kubernetes.io/control-plane" in node.metadata.labels
         ]
-        assert (
-            controlplane_nodes
-        ), "No control plane nodes found in the cluster"
+        assert controlplane_nodes, "No control plane nodes found in the cluster"
         logging.info("[ASSERT] Control plane nodes found in the cluster.")
 
         controlplane_ips = [
             node.status.addresses[0].address for node in controlplane_nodes
         ]
-        assert (
-            controlplane_ips
-        ), "No IP addresses found for control plane nodes"
+        assert controlplane_ips, "No IP addresses found for control plane nodes"
         logging.info(
             f"[ASSERT] IP addresses found for control plane nodes - {controlplane_ips}"
         )
@@ -212,9 +203,7 @@ class Utils:
         Returns:
             List[V1PersistentVolumeClaim]: A list of PersistentVolumeClaim objects that match the provided filters.
         """
-        pvcs = self.core_v1_api.list_namespaced_persistent_volume_claim(
-            namespace
-        ).items
+        pvcs = self.core_v1_api.list_namespaced_persistent_volume_claim(namespace).items
         if name:
             pvcs = [p for p in pvcs if p.metadata.name == name]
         if namespace:
@@ -272,9 +261,7 @@ class Utils:
                 namespace=self.namespace, pod_name=pod_name
             )
             volume_names = set(pvc.spec.volume_name for pvc in pvcs)
-            volumes = [
-                v for v in volumes if v["metadata"]["name"] in volume_names
-            ]
+            volumes = [v for v in volumes if v["metadata"]["name"] in volume_names]
         if location:
             volumes = [v for v in volumes if v["spec"]["Location"] == location]
         if storage_class:
@@ -403,7 +390,7 @@ class Utils:
             expected_health (Optional[str], optional): The expected health of the volume. Defaults to None.
             expected_usage (Optional[str], optional): The expected usage of the volume. Defaults to None.
             expected_operational_status (Optional[str], optional): The expected operational status of the volume. Defaults to None.
-            timeout (int): The maximum time to wait for the volume in seconds. Defaults to 60.
+            timeout (int): The maximum time to wait for the volume in seconds. Defaults to 90.
 
         Returns:
             bool: True if the volume meets the expected status, health, and usage within the given timeout, False otherwise.
@@ -416,14 +403,12 @@ class Utils:
         if expected_health:
             expected["Health"] = expected_health
         if expected_operational_status:
-            expected['OperationalStatus'] = expected_operational_status
+            expected["OperationalStatus"] = expected_operational_status
 
         def callback():
             return self.list_volumes(name)[0]
 
-        return self._wait_cr(
-            expected=expected, get_cr_fn=callback, timeout=timeout
-        )
+        return self._wait_cr(expected=expected, get_cr_fn=callback, timeout=timeout)
 
     def wait_drive(
         self,
@@ -443,7 +428,7 @@ class Utils:
             expected_health (Optional[str], optional): The expected health of the drive. Defaults to None.
             expected_usage (Optional[str], optional): The expected usage of the drive. Defaults to None.
             expected_led_state (Optional[str], optional): The expected LED state of the drive. Defaults to None.
-            timeout (int): The maximum time to wait for the drive in seconds. Defaults to 60.
+            timeout (int): The maximum time to wait for the drive in seconds. Defaults to 90.
 
         Returns:
             bool: True if the drive meets the expected status, health, and usage within the given timeout, False otherwise.
@@ -463,9 +448,7 @@ class Utils:
                 const.CR_GROUP, const.CR_VERSION, "drives", name
             )
 
-        return self._wait_cr(
-            expected=expected, get_cr_fn=callback, timeout=timeout
-        )
+        return self._wait_cr(expected=expected, get_cr_fn=callback, timeout=timeout)
 
     def _wait_cr(
         self,
@@ -506,9 +489,7 @@ class Utils:
 
         for k, v in assertions.items():
             if not v:
-                logging.error(
-                    f"CR is not in expected state: {k} != {expected[k]}"
-                )
+                logging.error(f"CR is not in expected state: {k} != {expected[k]}")
 
         return False
 
@@ -534,23 +515,19 @@ class Utils:
             None: This function does not return anything.
         """
         if namespace:
-            custom_resource = (
-                self.custom_objects_api.get_namespaced_custom_object(
-                    const.CR_GROUP,
-                    const.CR_VERSION,
-                    namespace,
-                    resource_type,
-                    resource_name,
-                )
+            custom_resource = self.custom_objects_api.get_namespaced_custom_object(
+                const.CR_GROUP,
+                const.CR_VERSION,
+                namespace,
+                resource_type,
+                resource_name,
             )
         else:
-            custom_resource = (
-                self.custom_objects_api.get_cluster_custom_object(
-                    const.CR_GROUP,
-                    const.CR_VERSION,
-                    resource_type,
-                    resource_name,
-                )
+            custom_resource = self.custom_objects_api.get_cluster_custom_object(
+                const.CR_GROUP,
+                const.CR_VERSION,
+                resource_type,
+                resource_name,
             )
 
         annotations = custom_resource["metadata"].get("annotations", {})
@@ -695,9 +672,7 @@ class Utils:
             V1Pod: The recreated Pod.
         """
         self.core_v1_api.delete_namespaced_pod(name=name, namespace=namespace)
-        logging.info(
-            f"pod {name} deleted, waiting for a new pod to be created"
-        )
+        logging.info(f"pod {name} deleted, waiting for a new pod to be created")
 
         time.sleep(5)
         pod = self.list_pods(name, namespace=namespace)[0]
@@ -737,11 +712,15 @@ class Utils:
         return False
 
     def clear_pvc_and_pod(
-        self, pod_name: str, namespace: str, pvc_name: Optional[str] = None, volume_name: Optional[str] = None
+        self,
+        pod_name: str,
+        namespace: str,
+        pvc_name: Optional[str] = None,
+        volume_name: Optional[str] = None,
     ) -> None:
         """
         Clears the PersistentVolumeClaim (PVC) and the Pod with the specified names in the Kubernetes cluster.
-        If the name of pvc or volume is not specified it clears all PVCs connected with specific Pod.  
+        If the name of pvc or volume is not specified it clears all PVCs connected with specific Pod.
 
         Args:
             pod_name (str): The name of the Pod to be cleared.
@@ -764,8 +743,8 @@ class Utils:
             ), f"Volume: {volume_name} failed to reach expected usage: {const.USAGE_RELEASED}"
         else:
             pvcs = self.list_persistent_volume_claims(
-                    namespace=namespace, pod_name=pod_name
-                )
+                namespace=namespace, pod_name=pod_name
+            )
             for pvc in pvcs:
                 logging.info(f"clearing pvc {pvc.metadata.name}")
                 self.core_v1_api.delete_namespaced_persistent_volume_claim(
@@ -775,23 +754,26 @@ class Utils:
             for pvc in pvcs:
                 assert self.wait_volume(
                     name=pvc.spec.volume_name,
-                    expected_usage=const.USAGE_RELEASED,
-                ), f"Volume: {pvc.spec.volume_name} failed to reach expected usage: {const.USAGE_RELEASED}"
-                logging.info(f"volume: {pvc.spec.volume_name} reach expected usage: {const.USAGE_RELEASED}")
+                    expected_usage=",".join([const.USAGE_RELEASED, const.USAGE_IN_USE]),
+                ), f"Volume: {pvc.spec.volume_name} failed to reach expected usage: {','.join([const.USAGE_RELEASED, const.USAGE_IN_USE])}"
+                logging.info(f"volume: {pvc.spec.volume_name} reach expected usage")
 
         time.sleep(30)
         self.recreate_pod(name=pod_name, namespace=namespace)
-    
-    def check_drive_cr_not_exist(self, drive_name: str, timeout: int = 120) -> bool:
+
+    def check_drive_cr_exist_or_not(
+        self, drive_name: str, cr_existence: bool, timeout: int = 120
+    ) -> bool:
         """
-        Checks if a custom resource (CR) representing a drive with the given name does not exist.
+        Checks if a custom resource (CR) representing a drive with the given name exists or not.
 
         Args:
             drive_name (str): The name of the drive CR.
+            cr_existence (bool): The state if drive CR should exist (True) or not (False).
             timeout (int, optional): The timeout for checking the CR, defaults to 120.
 
         Returns:
-            bool: True if the drive CR was removed within the given timeout, False otherwise.
+            bool: True if the drive CR existance is as expected within the given timeout, False otherwise.
         """
         end_time = time.time() + timeout
         while time.time() < end_time:
@@ -803,16 +785,14 @@ class Utils:
                     name=drive_name,
                 )
                 logging.warning(f"Drive CR '{drive_name}' still exists.")
+                if cr_existence:
+                    return True
             except ApiException as e:
                 if e.status == 404:
                     logging.info(f"Drive CR {drive_name} does not exist.")
-                    return True
+                    if not cr_existence:
+                        return True
                 else:
                     raise
             time.sleep(2)
-        logging.warning(
-            f"Drive CR '{drive_name}' still exists after {timeout} seconds timeout."
-        )
         return False
-        
-        

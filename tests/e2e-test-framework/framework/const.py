@@ -39,6 +39,7 @@ VOLUME_RELEASE_ANNOTATION = "release"
 FAKE_ATTACH_PVC_ANNOTATION_KEY = "pv.attach.kubernetes.io/ignore-if-inaccessible"
 
 # annotation values
+DRIVE_HEALTH_BAD_ANNOTATION = "BAD"
 VOLUME_RELEASE_DONE_VALUE = "done"
 FAKE_ATTACH_PVC_ANNOTATION_VALUE = "yes"
 
