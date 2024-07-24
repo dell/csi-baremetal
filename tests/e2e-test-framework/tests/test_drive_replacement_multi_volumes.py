@@ -1,6 +1,6 @@
-import pytest
 import logging
 from typing import Dict
+import pytest
 
 import framework.const as const
 
@@ -137,7 +137,7 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
         self.utils.clear_pvc_and_pod(
             pod_name=pod.metadata.name, namespace=self.namespace
         )
-        # 12. check Drive status to be REMOVING or REMOVED and LED state to be 1 (if drive supports LED ) or 2 (if drive does not support LED) Status to be ONLINE #TODO: status LED 2 => another test case
+        # 12. check Drive status to be REMOVING or REMOVED and LED state to be 1 (if drive supports LED ) or 2 (if drive does not support LED) Status to be ONLINE
         for drive in drives:
             assert self.utils.wait_drive(
                 name=drive["metadata"]["name"],
@@ -163,7 +163,6 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
             assert drive_path, f"Drive path for drive {drive_name} not found"
             logging.info(f"drive_path: {drive_path}")
 
-            host_num = self.drive_utils[node_ip].get_host_num(drive_path)
             scsi_id = self.drive_utils[node_ip].get_scsi_id(drive_path)
             assert scsi_id, f"scsi_id for drive {drive_name} not found"
             logging.info(f"scsi_id: {scsi_id}")

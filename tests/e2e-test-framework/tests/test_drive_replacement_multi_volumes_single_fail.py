@@ -1,6 +1,6 @@
-import pytest
 import logging
 from typing import Dict
+import pytest
 
 import framework.const as const
 
@@ -101,7 +101,7 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPodSingleFailure:
             resource_type="volumes",
             annotation_key=const.VOLUME_RELEASE_ANNOTATION,
             annotation_value=const.VOLUME_RELEASE_DONE_VALUE,
-            namespace=volume["metadata"]["namespace"],
+            namespace=failed_volume["metadata"]["namespace"],
         )
         logging.info(f"volume: {failed_volume_name} was annotated with release=done")
         # 7. check drive usages are RELEASED
@@ -130,7 +130,7 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPodSingleFailure:
         self.utils.clear_pvc_and_pod(
             pod_name=pod.metadata.name, namespace=self.namespace
         )
-        # 12. check Drive status to be REMOVING or REMOVED and LED state to be 1 (if drive supports LED ) or 2 (if drive does not support LED) Status to be ONLINE #TODO: status LED 2 => another test case
+        # 12. check Drive status to be REMOVING or REMOVED and LED state to be 1 (if drive supports LED ) or 2 (if drive does not support LED) Status to be ONLINE
         assert self.utils.wait_drive(
             name=failed_drive_name,
             expected_status=const.STATUS_ONLINE,
