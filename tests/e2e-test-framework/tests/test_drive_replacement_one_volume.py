@@ -36,7 +36,7 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
 
     @pytest.mark.hal
     def test_5771_auto_drive_replacement_with_one_volume_per_pod(self):
-    # 1. get volume for deployed pod
+        # 1. get volume for deployed pod
         assert (
             self.sts.verify(self.timeout) is True
         ), f"STS: {self.name} failed to reach desired number of replicas: {self.replicas}"
@@ -53,17 +53,17 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
             volume_name=volume["metadata"]["name"],
             namespace=volume["metadata"]["namespace"])
 
-    # 2.1 simulate drive failure. Annotate drive used by pod with health=BAD
+        # 2.1 simulate drive failure. Annotate drive used by pod with health=BAD
         drive_name = drive["metadata"]["name"]
         self.utils.annotate_custom_resource(
             resource_name=drive_name,
             resource_type="drives",
-            annotation_key="health",
-            annotation_value="BAD"
+            annotation_key=const.DRIVE_HEALTH_ANNOTATION,
+            annotation_value=const.DRIVE_HEALTH_BAD_ANNOTATION,
         )
         logging.info(f"drive: {drive_name} was annotated with health=BAD")
 
-    # 2.2 wait until drive health is BAD, status=ONLINE, usage=RELEASING.
+        # 2.2 wait until drive health is BAD, status=ONLINE, usage=RELEASING.
         drive_name = drive["metadata"]["name"]
         logging.info(f"Waiting for drive: {drive_name}")
         assert self.utils.wait_drive(
@@ -74,7 +74,7 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
         ), f"Drive {drive_name} failed to reach expected Status: {const.STATUS_ONLINE}, Health: {const.HEALTH_BAD}, Usage: {const.USAGE_RELEASING}"
         logging.info(f"drive {drive_name} went in Status: {const.STATUS_ONLINE}, Health: {const.HEALTH_BAD}, Usage: {const.USAGE_RELEASING}")
 
-    # 2.3. wait until volume health is BAD, status=OPERATIVE, usage=RELEASING.
+        # 2.3. wait until volume health is BAD, status=OPERATIVE, usage=RELEASING.
         volume_name = volume["metadata"]["name"]
         logging.info(f"Waiting for volume: {volume_name}")
         assert self.utils.wait_volume(
@@ -85,14 +85,14 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
         ), f"Volume {volume_name} failed to reach OperationalStatus: {const.STATUS_OPERATIVE}, Health: {const.HEALTH_BAD}, Usage: {const.USAGE_RELEASING}"
         logging.info(f"volume {volume_name} went in OperationalStatus: {const.STATUS_OPERATIVE}, Health: {const.HEALTH_BAD}, Usage: {const.USAGE_RELEASING}")
 
-    # 3. check events and locate event related to DriveHealthFailure
+        # 3. check events and locate event related to DriveHealthFailure
         drive_name = drive["metadata"]["name"]
         assert self.utils.event_in(
             resource_name=drive_name,
             reason=const.DRIVE_HEALTH_FAILURE,
         ), f"event {const.DRIVE_HEALTH_FAILURE} for drive {drive_name} not found"
 
-    # 6.1. annotate volume with release=done
+        # 6.1. annotate volume with release=done
         volume_name = volume["metadata"]["name"]
         self.utils.annotate_custom_resource(
             resource_name=volume_name,
@@ -103,21 +103,21 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
         )
         logging.info(f"volume: {volume_name} was annotated with release=done")
 
-    # 6.2. check drive usages are RELEASED
+        # 6.2. check drive usages are RELEASED
         assert self.utils.wait_drive(
             name=drive['metadata']['name'],
             expected_usage=const.USAGE_RELEASED
         ), f"Drive {drive_name} failed to reach expected Usage: {const.USAGE_RELEASED}"
         logging.info(f"drive {drive_name} went in Usage: {const.USAGE_RELEASED}")
 
-    # 6.3. check volume is RELEASED
+        # 6.3. check volume is RELEASED
         assert self.utils.wait_volume(
             name=volume['metadata']['name'],
             expected_usage=const.USAGE_RELEASED
         ), f"Volume {volume_name} failed to reach expected Usage {const.USAGE_RELEASED}"
         logging.info(f"volume {volume_name} went in Usage: {const.USAGE_RELEASED}")
 
-    # 7.check event DriveReadyForRemoval is generated, check events and locate event related to VolumeBadHealth
+        # 7.check event DriveReadyForRemoval is generated, check events and locate event related to VolumeBadHealth
         drive_name = drive["metadata"]["name"]
         assert self.utils.event_in(
             resource_name=drive_name,
@@ -130,12 +130,12 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
             reason=const.VOLUME_BAD_HEALTH,
         ), f"event {const.VOLUME_BAD_HEALTH} for volume {volume_name} not found"
 
-    # 8. delete pod and pvc
+        # 8. delete pod and pvc
         self.utils.clear_pvc_and_pod(pod_name=pod.metadata.name, namespace=self.namespace)
 
-    # 9.  check drive status to be REMOVING or REMOVED
-    # 10. check LED state to be 1 (if drive supports LED ) or 2 (if drive does not support LED)
-    # 11. check drive status to be ONLINE
+        # 9.  check drive status to be REMOVING or REMOVED
+        # 10. check LED state to be 1 (if drive supports LED ) or 2 (if drive does not support LED)
+        # 11. check drive status to be ONLINE
         assert self.utils.wait_drive(
             name=drive['metadata']['name'],
             expected_status=const.STATUS_ONLINE,
@@ -145,14 +145,14 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
         ), f"Drive {drive_name} failed to reach expected Status: {const.STATUS_ONLINE}, Health: {const.HEALTH_BAD}, Usage: {const.USAGE_REMOVED}, LEDState: {drive["spec"]["LEDState"]}"
         logging.info(f"drive {drive_name} went in Status: {const.STATUS_ONLINE}, Health: {const.HEALTH_BAD}, Usage: {const.USAGE_REMOVED}, LEDState: {drive["spec"]["LEDState"]}")
 
-    # 12. check for events: DriveReadyForPhysicalRemoval
+        # 12. check for events: DriveReadyForPhysicalRemoval
         drive_name = drive["metadata"]["name"]
         assert self.utils.event_in(
             resource_name=drive_name,
             reason=const.DRIVE_READY_FOR_PHYSICAL_REMOVAL,
         ), f"event {const.DRIVE_READY_FOR_PHYSICAL_REMOVAL} for drive {drive_name} not found"
 
-    # 13. get Node ID on which drive resides, Obtain path for affected drive, identify node name for corresponding node id and remove drive
+        # 13. get Node ID on which drive resides, Obtain path for affected drive, identify node name for corresponding node id and remove drive
         drive_name = drive["metadata"]["name"]
         drive_path = drive["spec"]["Path"]
         assert drive_path, f"Drive path for drive {drive_name} not found"
@@ -162,20 +162,19 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
         assert scsi_id, f"scsi_id for drive {drive_name} not found"
         logging.info(f"scsi_id: {scsi_id}")
 
-    # 14. remnove drive
+        # 14. remnove drive
         self.drive_utils[node_ip].remove(scsi_id)
         logging.info(f"drive {drive_path}, {scsi_id} removed")
 
-    # 15. check driveCR succesfully removed
+        # 15. check driveCR succesfully removed
         drive_name = drive["metadata"]["name"]
         assert self.utils.check_drive_cr_not_exist(
             drive_name=drive_name
         ), f"Drive CR {drive_name} still exists"
 
-    # 16. check for events DriveSuccessfullyRemoved in kubernetes events
+        # 16. check for events DriveSuccessfullyRemoved in kubernetes events
         drive_name = drive["metadata"]["name"]
         assert self.utils.event_in(
             resource_name=drive_name,
             reason=const.DRIVE_SUCCESSFULLY_REMOVED,
         ), f"event {const.DRIVE_SUCCESSFULLY_REMOVED} for drive {drive_name} not found"
-
