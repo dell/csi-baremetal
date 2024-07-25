@@ -157,7 +157,7 @@ kind-install: kind-build
 	kind version
 
 kind-create-cluster:
-	KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER=native $(KIND) create cluster --config $(KIND_CONFIG_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT)
+	KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER=native $(KIND) create cluster --config $(KIND_CONFIG_DIR)/$(KIND_CONFIG) --image kindest/node:$(KIND_IMAGE_VERSION) --wait $(KIND_WAIT) --retain
 
 kind-install-calico:
 	docker pull ${REGISTRY}/calico/cni:$(CALICO_VERSION)
