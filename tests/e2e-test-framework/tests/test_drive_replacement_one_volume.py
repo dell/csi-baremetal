@@ -162,14 +162,14 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
         assert scsi_id, f"scsi_id for drive {drive_name} not found"
         logging.info(f"scsi_id: {scsi_id}")
 
-        # 14. remnove drive
+        # 14. remove drive
         self.drive_utils[node_ip].remove(scsi_id)
         logging.info(f"drive {drive_path}, {scsi_id} removed")
 
         # 15. check driveCR succesfully removed
         drive_name = drive["metadata"]["name"]
-        assert self.utils.check_drive_cr_not_exist(
-            drive_name=drive_name
+        assert self.utils.check_drive_cr_exist_or_not(
+            drive_name=drive_name, cr_existence=False
         ), f"Drive CR {drive_name} still exists"
 
         # 16. check for events DriveSuccessfullyRemoved in kubernetes events
