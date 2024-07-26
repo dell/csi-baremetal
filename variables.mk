@@ -58,7 +58,7 @@ LIVENESS_PROBE  := livenessprobe
 BUSYBOX         := busybox
 
 HEALTH_PROBE    	 := health_probe
-HEALTH_PROBE_BIN_URL := https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.24/grpc_health_probe-linux-amd64
+HEALTH_PROBE_BIN_URL := https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.30/grpc_health_probe-linux-amd64
 
 ### go env vars
 GO_ENV_VARS     := GO111MODULE=on ${GOPRIVATE_PART} ${GOPROXY_PART}
