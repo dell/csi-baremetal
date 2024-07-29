@@ -26,7 +26,7 @@ TAG  ?= $(major).$(minor).$(patch)-$(git_rev)
 IMAGE_REPO_TAG := $(REPO):$(TAG)
 
 DOCKER_VERSION ?= 20.10.14_ce
-GO_VERSION ?= 1.21.5
+GO_VERSION ?= 1.21.12
 GOLANGCI_VERSION ?= 1.55.2
 PROTOBUF_VERSION ?= 3.11.0
 PROTOC_GEN_GO_VER ?= v1.3.2
