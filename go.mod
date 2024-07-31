@@ -2,7 +2,7 @@ module github.com/dell/csi-baremetal
 
 go 1.21.0
 
-toolchain go1.21.5
+toolchain go1.21.12
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.3
