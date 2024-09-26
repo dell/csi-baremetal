@@ -234,13 +234,13 @@ jobs:
         args: zip -qq -r reports.zip tests/e2e/reports
 
     - name: Upload report to artifacts
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-artifact@v4.4.0
       with:
         name: e2e_artifacts_archive
         path: reports.zip
 
     - name: Upload report to artifacts
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-artifact@v4.4.0
       with:
         name: e2e_artifacts_log
         path: tests/log.txt

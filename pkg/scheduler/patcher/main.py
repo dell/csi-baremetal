@@ -122,11 +122,11 @@ def run():
         path = args.target_config_29_path
     
     log.info(f"Applying scheduler config: {path}")
-    # the option is still available for kubernetes 1.26, 1.27, 1.28, 1.29, 1.30
-    # verify if the option is still available for kubernetes greater than 1.30
+    # the option is still available for kubernetes 1.26, 1.27, 1.28, 1.29, 1.30, 1.31 and above
+    # verify if the option is still available for kubernetes greater than 1.31
     # https://github.com/kubernetes/kubernetes/blob/c78812868f5f7a9c56c85f2e5c8b41265f3c1ce3/CHANGELOG/CHANGELOG-1.30.md?plain=1#L716
     # https://github.com/kubernetes/kubernetes/issues/110175
-    config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23 and kube_minor_ver<=30)
+    config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23)
 
     manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
     if args.platform == "rke":
