@@ -22,7 +22,7 @@ import time
 from filecmp import clear_cache, cmp
 from os import makedirs, remove
 from os.path import basename, dirname, isfile , join
-from shutil import copy
+from shutil import copy, move
 from signal import SIGINT, SIGTERM, signal
 
 import yaml
@@ -35,15 +35,9 @@ def run():
     parser = argparse.ArgumentParser(
         description='Patcher script for csi-baremetal kube-extender')
     parser.add_argument(
-        '--platform', help='platform, where scheduler is deployed, could be rke or vanilla', required=True)
-    parser.add_argument(
         '--restore', help='restore manifest when on shutdown', action='store_true')
     parser.add_argument('--interval', type=int,
                         help='interval to check manifest config')
-    parser.add_argument('--target-config-path',
-                        help='target path for scheduler config file', required=True)
-    parser.add_argument('--target-policy-path',
-                        help='target path for scheduler policy file', required=True)
     parser.add_argument('--source-config-path',
                         help='source path for scheduler config file', required=True)
     parser.add_argument('--source-policy-path',
@@ -86,17 +80,17 @@ def run():
     source_config = File(args.source_config_path)
     source_policy = File(args.source_policy_path)
 
-    target_config = File(args.target_config_path)
-    target_policy = File(args.target_policy_path)  
+    target_config = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/config.yaml")
+    target_policy = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/policy.yaml")
 
-    source_config_19 = File(args.source_config_19_path)
-    target_config_19 = File(args.target_config_19_path)
+    source_config_19 = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/config-19.yaml")
+    target_config_19 = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/config-19.yaml")
 
-    source_config_23 = File(args.source_config_23_path)
-    target_config_23 = File(args.target_config_23_path)
+    source_config_23 = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/config-23.yaml")
+    target_config_23 = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/config-23.yaml")
 
-    source_config_29 = File(args.source_config_29_path)
-    target_config_29 = File(args.target_config_29_path)
+    source_config_29 = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/config-29.yaml")
+    target_config_29 = File("/var/lib/rancher/rke2/agent/pod-manifests/scheduler/config-29.yaml")
 
     config_volume = Volume("scheduler-config", args.target_config_path)
     config_volume.compile_config() 
@@ -129,8 +123,7 @@ def run():
     config_unschedulable_pods = (kube_major_ver==1 and kube_minor_ver>23)
 
     manifest = "/etc/kubernetes/manifests/kube-scheduler.yaml"
-    if args.platform == "rke":
-        manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
+    manifest = "/var/lib/rancher/rke2/agent/pod-manifests/kube-scheduler.yaml"
 
     manifest = ManifestFile(
         manifest, [config_volume, policy_volume, config_19_volume, config_23_volume, config_29_volume],
@@ -160,6 +153,7 @@ def run():
         if manifest.changed:
             manifest.backup()
             manifest.flush()
+            manifest.backup2()
             log.info('manifest file({}) was patched'.format(manifest.path))
             first_try = False
 
@@ -235,6 +229,13 @@ class ManifestFile(File):
         makedirs(dirname(self.backup_folder), exist_ok=True)
         backup_path = join(self.backup_folder,basename(self.path))
         copy(self.path, backup_path)
+        
+    def backup2(self):
+        backup_path2 = join(self.backup_folder,basename(self.path),"2")
+        move(self.path, backup_path2)    
+        move(backup_path2, self.path)
+        log.info('{} copied to {}'.format(self.pathsrc.path, backup_path2))
+        
 
     def restore(self):
         backup_path = join(self.backup_folder,basename(self.path))
