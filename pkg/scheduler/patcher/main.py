@@ -238,10 +238,11 @@ class ManifestFile(File):
         copy(self.path, backup_path)
 
     def backup2(self):
-        backup_path2 = join(self.backup_folder,basename(self.path),"2")
-        move(self.path, backup_path2)    
-        move(backup_path2, self.path)
-        log.info('{} copied to {}'.format(self.pathsrc.path, backup_path2))
+        backup_path = join(self.backup_folder,basename(self.path))
+        move(self.path, backup_path)    
+        log.info('{} moved to {}'.format(self.path, backup_path))
+        move(backup_path, self.path)
+        log.info('{} moved to {}'.format(self.path, backup_path))
 
     def restore(self):
         backup_path = join(self.backup_folder,basename(self.path))
