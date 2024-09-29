@@ -22,7 +22,7 @@ import time
 from filecmp import clear_cache, cmp
 from os import makedirs, remove
 from os.path import basename, dirname, isfile , join
-from shutil import copy
+from shutil import copy, move
 from signal import SIGINT, SIGTERM, signal
 
 import yaml
@@ -160,6 +160,7 @@ def run():
         if manifest.changed:
             manifest.backup()
             manifest.flush()
+            manifest.backup2()
             log.info('manifest file({}) was patched'.format(manifest.path))
             first_try = False
 
@@ -235,6 +236,12 @@ class ManifestFile(File):
         makedirs(dirname(self.backup_folder), exist_ok=True)
         backup_path = join(self.backup_folder,basename(self.path))
         copy(self.path, backup_path)
+
+    def backup2(self):
+        backup_path2 = join(self.backup_folder,basename(self.path),"2")
+        move(self.path, backup_path2)    
+        move(backup_path2, self.path)
+        log.info('{} copied to {}'.format(self.pathsrc.path, backup_path2))
 
     def restore(self):
         backup_path = join(self.backup_folder,basename(self.path))
