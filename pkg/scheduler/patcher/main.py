@@ -159,10 +159,9 @@ def run():
 
         if manifest.changed:
             manifest.backup()
-            manifest.moveManifest()
-            manifest.flushMovedManifest()
+            manifest.remove()
+            manifest.flush()
             log.info('manifest file({}) was patched'.format(manifest.copyPath))
-            manifest.restoreManifest()
             first_try = False
 
         if first_try:
