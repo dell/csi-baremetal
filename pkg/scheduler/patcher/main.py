@@ -160,7 +160,7 @@ def run():
         if manifest.changed:
             manifest.backup()
             manifest.moveManifest()
-            manifest.flush2()
+            manifest.flushMovedManifest()
             log.info('manifest file({}) was patched'.format(manifest.copyPath))
             manifest.restoreManifest()
             first_try = False
@@ -245,7 +245,7 @@ class ManifestFile(File):
         
     def restoreManifest(self): 
         move(self.copyPath, self.path)    
-        log.info('{} moved to {}'.format(self.copyPath, self.path))    
+        log.info('{} restored from {}'.format(self.copyPath, self.path))    
 
     def restore(self):
         backup_path = join(self.backup_folder,basename(self.path))
@@ -261,7 +261,7 @@ class ManifestFile(File):
             log.debug('manifest {} loaded'.format(self.path))
             self.changed = False
 
-    def flush2(self):
+    def flushMovedManifest(self):
         with open(self.copyPath, 'w') as f:
             yaml.dump(self.content, f)
             log.debug('manifest {} dumped'.format(self.copyPath))
