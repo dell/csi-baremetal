@@ -22,7 +22,7 @@ import time
 from filecmp import clear_cache, cmp
 from os import makedirs, remove
 from os.path import basename, dirname, isfile , join
-from shutil import copy, move
+from shutil import copy
 from signal import SIGINT, SIGTERM, signal
 
 import yaml
@@ -160,8 +160,9 @@ def run():
         if manifest.changed:
             manifest.backup()
             manifest.remove()
+            log.info('manifest file({}) was removed'.format(manifest.path))
             manifest.flush()
-            log.info('manifest file({}) was patched'.format(manifest.copyPath))
+            log.info('manifest file({}) was patched'.format(manifest.path))
             first_try = False
 
         if first_try:
@@ -227,7 +228,6 @@ class Volume:
 class ManifestFile(File):
     def __init__(self, path, volumes, config_path, backup_folder, config_unschedulable_pods):
         self.path = path
-        self.copyPath = path + "_1"
         self.backup_folder = backup_folder
         self.volumes = volumes
         self.config_path = config_path
@@ -237,14 +237,6 @@ class ManifestFile(File):
         makedirs(dirname(self.backup_folder), exist_ok=True)
         backup_path = join(self.backup_folder,basename(self.path))
         copy(self.path, backup_path)
-
-    def moveManifest(self): 
-        move(self.path, self.copyPath)    
-        log.info('{} moved to {}'.format(self.path, self.copyPath))
-        
-    def restoreManifest(self): 
-        move(self.copyPath, self.path)    
-        log.info('{} restored from {}'.format(self.copyPath, self.path))    
 
     def restore(self):
         backup_path = join(self.backup_folder,basename(self.path))
@@ -260,11 +252,6 @@ class ManifestFile(File):
             log.debug('manifest {} loaded'.format(self.path))
             self.changed = False
 
-    def flushMovedManifest(self):
-        with open(self.copyPath, 'w') as f:
-            yaml.dump(self.content, f)
-            log.debug('manifest {} dumped'.format(self.copyPath))
-            
     def flush(self):
         with open(self.path, 'w') as f:
             yaml.dump(self.content, f)
