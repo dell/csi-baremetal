@@ -159,6 +159,8 @@ def run():
 
         if manifest.changed:
             manifest.backup()
+            manifest.remove()
+            log.info('manifest file({}) was removed'.format(manifest.path))
             manifest.flush()
             log.info('manifest file({}) was patched'.format(manifest.path))
             first_try = False
@@ -253,7 +255,7 @@ class ManifestFile(File):
     def flush(self):
         with open(self.path, 'w') as f:
             yaml.dump(self.content, f)
-            log.debug('manifest {} dumped'.format(self.path))
+            log.debug('manifest {} dumped'.format(self.path))        
 
     def patch_volumes(self):
         volumes = self.content['spec']['volumes']
