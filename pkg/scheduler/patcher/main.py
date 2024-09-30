@@ -159,9 +159,10 @@ def run():
 
         if manifest.changed:
             manifest.backup()
-            manifest.flush()
-            manifest.backup2()
-            log.info('manifest file({}) was patched'.format(manifest.path))
+            manifest.moveManifest()
+            manifest.flush2()
+            log.info('manifest file({}) was patched'.format(manifest.copyPath))
+            manifest.restoreManifest()
             first_try = False
 
         if first_try:
@@ -227,6 +228,7 @@ class Volume:
 class ManifestFile(File):
     def __init__(self, path, volumes, config_path, backup_folder, config_unschedulable_pods):
         self.path = path
+        self.copyPath = path + "_1"
         self.backup_folder = backup_folder
         self.volumes = volumes
         self.config_path = config_path
@@ -237,12 +239,13 @@ class ManifestFile(File):
         backup_path = join(self.backup_folder,basename(self.path))
         copy(self.path, backup_path)
 
-    def backup2(self):
-        backup_path = join(self.backup_folder,basename(self.path))
-        move(self.path, backup_path)    
-        log.info('{} moved to {}'.format(self.path, backup_path))
-        move(backup_path, self.path)
-        log.info('{} moved to {}'.format(self.path, backup_path))
+    def moveManifest(self): 
+        move(self.path, self.copyPath)    
+        log.info('{} moved to {}'.format(self.path, self.copyPath))
+        
+    def restoreManifest(self): 
+        move(self.copyPath, self.path)    
+        log.info('{} moved to {}'.format(self.copyPath, self.path))    
 
     def restore(self):
         backup_path = join(self.backup_folder,basename(self.path))
@@ -258,10 +261,15 @@ class ManifestFile(File):
             log.debug('manifest {} loaded'.format(self.path))
             self.changed = False
 
+    def flush2(self):
+        with open(self.copyPath, 'w') as f:
+            yaml.dump(self.content, f)
+            log.debug('manifest {} dumped'.format(self.copyPath))
+            
     def flush(self):
         with open(self.path, 'w') as f:
             yaml.dump(self.content, f)
-            log.debug('manifest {} dumped'.format(self.path))
+            log.debug('manifest {} dumped'.format(self.path))        
 
     def patch_volumes(self):
         volumes = self.content['spec']['volumes']
