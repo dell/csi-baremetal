@@ -10,3 +10,4 @@ git commit for proprietary code.
 2024/06/05  hal manager update 3.8.1.0-2028.443553c
 2024/07/18  hal manager cve fixes
 2024/07/25  hal manager cve fixes
+2024/10/04  hal manager cve fixes
