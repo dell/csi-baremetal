@@ -11,8 +11,7 @@ coverage:
 	go tool cover -html=coverage.out -o coverage.html
 
 test:
-	LANG=en_US.utf8
-	${GO_ENV_VARS} go test --coverpkg=./pkg/...,./cmd/... ${LDFLAGS} `go list ./... | grep "pkg\|cmd"` -v -race -cover -coverprofile=coverage.out
+	${GO_ENV_VARS} LANG="en_US.utf8" go test --coverpkg=./pkg/...,./cmd/... ${LDFLAGS} `go list ./... | grep "pkg\|cmd"` -race -cover -coverprofile=coverage.out -covermode=atomic
 
 # Run tests for pr-validation with writing output to log file
 # Test are different (ginkgo, go testing, etc.) so can't use native ginkgo methods to print junit output.
