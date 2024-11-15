@@ -28,11 +28,12 @@ class TestFakeAttach:
         cls.drive_utils = drive_utils_executors
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_classes=[const.SSD_SC])
+        cls.sts.create(storage_classes=[const.HDD_SC])
 
         yield
 
-        cls.sts.delete()
+        cls.utils.wait_for_pod_removing(cls.sts.delete())
+        cls.utils.clear_csi_resources(namespace=cls.namespace)
 
     @pytest.mark.hal
     def test_5808_fake_attach_without_dr(self):
@@ -80,7 +81,7 @@ class TestFakeAttach:
 
         pod = self.utils.recreate_pod(name=pod.metadata.name, namespace=self.namespace)
         volume_name = volume["metadata"]["name"]
-        assert self.utils.event_in(
+        assert self.utils.wait_event_in(
             resource_name=volume_name, reason=const.FAKE_ATTACH_INVOLVED
         ), f"event {const.FAKE_ATTACH_INVOLVED} not found"
 
@@ -93,7 +94,7 @@ class TestFakeAttach:
         )
 
         self.utils.recreate_pod(name=pod.metadata.name, namespace=self.namespace)
-        assert self.utils.event_in(
+        assert self.utils.wait_event_in(
             resource_name=volume_name,
             reason=const.FAKE_ATTACH_CLEARED,
         ), f"event {const.FAKE_ATTACH_CLEARED} not found"

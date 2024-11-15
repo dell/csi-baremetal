@@ -28,11 +28,12 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
         cls.drive_utils = drive_utils_executors
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_classes=[const.SSD_SC, const.HDD_SC])
+        cls.sts.create(storage_classes=[const.HDD_SC, const.HDD_SC])
 
         yield
 
-        cls.sts.delete()
+        cls.utils.wait_for_pod_removing(cls.sts.delete())
+        cls.utils.clear_csi_resources(namespace=cls.namespace)
 
     @pytest.mark.hal
     def test_5921_auto_drive_replacement_with_multiple_volumes_per_pod(self):
@@ -92,7 +93,7 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
         # 5. check events and locate event related to DriveHealthFailure
         for drive in drives:
             drive_name = drive["metadata"]["name"]
-            assert self.utils.event_in(
+            assert self.utils.wait_event_in(
                 resource_name=drive_name,
                 reason=const.DRIVE_HEALTH_FAILURE,
             ), f"event {const.DRIVE_HEALTH_FAILURE} for drive {drive_name} not found"
@@ -122,14 +123,14 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
         # 9. check event DriveReadyForRemoval is generated
         for drive in drives:
             drive_name = drive["metadata"]["name"]
-            assert self.utils.event_in(
+            assert self.utils.wait_event_in(
                 resource_name=drive_name,
                 reason=const.DRIVE_READY_FOR_REMOVAL,
             ), f"event {const.DRIVE_READY_FOR_REMOVAL} for drive {drive_name} not found"
         # 10. check events and locate event related to VolumeBadHealth
         for volume in volumes:
             volume_name = volume["metadata"]["name"]
-            assert self.utils.event_in(
+            assert self.utils.wait_event_in(
                 resource_name=volume_name,
                 reason=const.VOLUME_BAD_HEALTH,
             ), f"event {const.VOLUME_BAD_HEALTH} for volume {volume_name} not found"
@@ -152,7 +153,7 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
         # 13. check for events: DriveReadyForPhysicalRemoval
         for drive in drives:
             drive_name = drive["metadata"]["name"]
-            assert self.utils.event_in(
+            assert self.utils.wait_event_in(
                 resource_name=drive_name,
                 reason=const.DRIVE_READY_FOR_PHYSICAL_REMOVAL,
             ), f"event {const.DRIVE_READY_FOR_PHYSICAL_REMOVAL} for drive {drive_name} not found"
@@ -178,7 +179,7 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPod:
         # 16. check for events DriveSuccessfullyRemoved in kubernetes events
         for drive in drives:
             drive_name = drive["metadata"]["name"]
-            assert self.utils.event_in(
+            assert self.utils.wait_event_in(
                 resource_name=drive_name,
                 reason=const.DRIVE_SUCCESSFULLY_REMOVED,
             ), f"event {const.DRIVE_SUCCESSFULLY_REMOVED} for drive {drive_name} not found"
