@@ -29,7 +29,7 @@ class TestFakeAttachMultipleVolumesPerPod:
         cls.drive_utils = drive_utils_executors
         cls.sts = STS(cls.namespace, cls.name, cls.replicas)
         cls.sts.delete()
-        cls.sts.create(storage_classes=[const.HDD_SC, const.HDD_SC])
+        cls.sts.create(storage_classes=[const.SSD_SC, const.HDD_SC])
 
         yield
 
