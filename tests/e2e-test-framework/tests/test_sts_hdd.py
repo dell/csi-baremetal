@@ -1,12 +1,18 @@
 import pytest
 from framework.sts import STS
+from framework.utils import Utils
 
 
 class TestStsHdd:
     @classmethod
     @pytest.fixture(autouse=True)
-    def setup_class(cls, namespace):
+    def setup_class(
+        cls,
+        namespace,
+        utils: Utils,
+    ):
         cls.namespace = namespace
+        cls.utils = utils
         cls.name = "test-sts-hdd"
         cls.timeout = 120
         cls.replicas = 1
@@ -17,7 +23,8 @@ class TestStsHdd:
 
         yield
 
-        cls.sts.delete()
+        cls.utils.wait_for_pod_removing(cls.sts.delete())
+        cls.utils.clear_csi_resources(namespace=cls.namespace)
 
     @pytest.mark.hal
     def test_6105_create_sts_with_hdd_volume(self):

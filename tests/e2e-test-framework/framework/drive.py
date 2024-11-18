@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, Dict, List, TypedDict
 from framework.ssh import SSHCommandExecutor
 
@@ -250,6 +251,8 @@ class DriveUtils:
                     self._remove_csi_device_mapper(child_name=child)
             else:
                 raise ValueError(f"Unknown drive type: {children['type']}")
+
+        time.sleep(1)
 
     def _get_device_name(self, device_path_or_name: str) -> str:
         return (

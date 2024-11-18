@@ -96,12 +96,13 @@ class STS:
             assert (
                 response is not None
             ), f"Failed to create StatefulSet: {self.name}"
+            logging.info(f"StatefulSet created : {self.name}")
         except ApiException as exc:
             pytest.fail(
                 f"Failed to create StatefulSet: {self.name}. Reason: {str(exc)}"
             )
 
-    def delete(self) -> None:
+    def delete(self) -> str:
         try:
             response = self.apps_v1_api.delete_namespaced_stateful_set(
                 self.name, self.namespace
@@ -113,6 +114,7 @@ class STS:
             logging.warning(
                 f"Failed to delete StatefulSet: {self.name}. Reason: {str(exc)}"
             )
+        return self.name
 
     def verify(self, timeout: int) -> bool:
         start_time = time.time()

@@ -1,11 +1,13 @@
 import time
 import logging
+import threading
 
 from typing import Any, Callable, Dict, List, Optional
 from kubernetes.client.rest import ApiException
 from kubernetes import watch
 from kubernetes.client.models import (
     V1Pod,
+    V1PersistentVolume,
     V1PersistentVolumeClaim,
     CoreV1Event,
 )
@@ -20,6 +22,7 @@ class Utils:
         self.vm_user = vm_user
         self.vm_cred = vm_cred
         self.namespace = namespace
+        self.storage_class_prefix = "csi-baremetal-sc"
         (
             self.core_v1_api,
             self.custom_objects_api,
@@ -147,6 +150,42 @@ class Utils:
                 f"Failed check if '{pod_name}' pod is ready. Reason: {str(exc)}"
             )
             return False
+
+    def is_pod_exists(self, pod_name: str) -> bool:
+        """
+        Checks if a Pod with the specified name exists in the namespace.
+
+        Args:
+            pod_name (str): The name of the Pod to check.
+
+        Returns:
+            bool: True if the Pod exists, False otherwise.
+        """
+        pods = self.list_pods(name_prefix=pod_name, namespace=self.namespace)
+        if pods:
+            logging.info(f"Pod '{pods[0].metadata.name}' exists in namespace '{self.namespace}'.")
+            return True
+        return False
+
+    def wait_for_pod_removing(self, pod_name: str, timeout: int = 30) -> None:
+        """
+        Waits for a Pod to be in the removing state.
+
+        Args:
+            pod_name (str): The name of the Pod to wait for.
+            timeout (int, optional): The maximum time in seconds to wait for the Pod to be in the removing state. Defaults to 30.
+
+        Returns:
+            None: This function does not return anything.
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if not self.is_pod_exists(pod_name):
+                return
+            time.sleep(1)
+
+        logging.info("Waiting for pods resources to be in the removing state...")
+        time.sleep(3)
 
     def list_pods(
         self,
@@ -372,6 +411,25 @@ class Utils:
         logging.warning(f"event {reason} not found")
         return False
 
+    def wait_event_in(self, resource_name: str, reason: str, timeout: int = 30) -> bool:
+        """
+        Waits for an event with the given resource name and reason to exist in the Kubernetes API.
+
+        Args:
+            resource_name (str): The name of the resource.
+            reason (str): The reason for the event.
+            timeout (int): The maximum time to wait for the event in seconds. Defaults to 90.
+
+        Returns:
+            bool: True if the event exists within the given timeout, False otherwise.
+        """
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            if self.event_in(resource_name, reason):
+                return True
+            time.sleep(1)
+        return False
+
     def wait_volume(
         self,
         name: str,
@@ -454,7 +512,7 @@ class Utils:
         self,
         expected: Dict[str, str],
         get_cr_fn: Callable[[None], Any],
-        timeout: int = 90,
+        timeout: int = 120,
     ) -> bool:
         """
         Waits for the custom resource (CR) to reach the expected state.
@@ -470,6 +528,7 @@ class Utils:
         assertions = {key: False for key, _ in expected.items()}
         end_time = time.time() + timeout
         retry_count = 0
+        cr = None
         while time.time() < end_time:
             if retry_count > 0:
                 logging.warning(
@@ -490,6 +549,8 @@ class Utils:
         for k, v in assertions.items():
             if not v:
                 logging.error(f"CR is not in expected state: {k} != {expected[k]}")
+
+        logging.error(f"CR details: {cr}")
 
         return False
 
@@ -600,65 +661,18 @@ class Utils:
             None: This function does not return anything.
         """
         try:
-            self.custom_objects_api.delete_collection_namespaced_custom_object(
-                group=const.CR_GROUP,
-                version=const.CR_VERSION,
-                namespace=namespace,
-                plural=const.VOLUMES_PLURAL,
-                grace_period_seconds=0,
-                propagation_policy="Foreground",
-            )
-            logging.info("CR volumes: delete request sent")
-            for plural in [
-                const.DRIVES_PLURAL,
-                const.AC_PLURAL,
-                const.ACR_PLURAL,
-                const.LVG_PLURAL,
-            ]:
-                self.custom_objects_api.delete_collection_cluster_custom_object(
-                    group=const.CR_GROUP,
-                    version=const.CR_VERSION,
-                    plural=plural,
-                    grace_period_seconds=0,
-                    propagation_policy="Foreground",
-                )
-                logging.info(f"CR {plural}: delete request sent")
-            self.core_v1_api.delete_collection_namespaced_persistent_volume_claim(
-                namespace=namespace
-            )
-            logging.info("waiting for resources to be in the removing state")
-            time.sleep(10)
-            lvg_list = self.custom_objects_api.list_cluster_custom_object(
-                group=const.CR_GROUP,
-                version=const.CR_VERSION,
-                plural="logicalvolumegroups",
-            )["items"]
-            for lvg in lvg_list:
-                if "finalizers" in lvg.get("metadata", {}):
-                    lvg["metadata"]["finalizers"] = []
-                    self.custom_objects_api.replace_cluster_custom_object(
-                        group=const.CR_GROUP,
-                        version=const.CR_VERSION,
-                        namespace=namespace,
-                        plural=const.LVG_PLURAL,
-                        name=lvg["metadata"]["name"],
-                        body=lvg,
-                    )
-            for v in self.list_volumes():
-                if "finalizers" in v.get("metadata", {}):
-                    v["metadata"]["finalizers"] = []
-                    self.custom_objects_api.replace_namespaced_custom_object(
-                        const.CR_GROUP,
-                        const.CR_VERSION,
-                        namespace,
-                        plural=const.VOLUMES_PLURAL,
-                        name=v["metadata"]["name"],
-                        body=v,
-                    )
+            self.delete_volumes()
+            self.delete_custom_objects([const.DRIVES_PLURAL, const.AC_PLURAL, const.ACR_PLURAL, const.LVG_PLURAL])
+            self.delete_persistent_volumes()
+            self.delete_persistent_volume_claims()
+            self.clear_lvg_finalizers(namespace)
         except ApiException as e:
             print(
                 f"Exception when calling CustomObjectsApi->delete_namespaced_custom_object: {e}"
             )
+
+        logging.info("Waiting for resources to be in the removing state...")
+        time.sleep(5)
 
     def recreate_pod(self, name: str, namespace: str) -> V1Pod:
         """
@@ -796,3 +810,228 @@ class Utils:
                     raise
             time.sleep(2)
         return False
+
+    def delete_persistent_volumes(self) -> None:
+        """
+        Deletes all PersistentVolumes.
+
+        Args:
+            None
+
+        Returns:
+            None: This function does not return anything.
+        """
+        pvs = self.core_v1_api.list_persistent_volume(pretty=True)
+
+        threads = []
+        for pv in pvs.items:
+            if self.storage_class_prefix in pv.spec.storage_class_name:
+                # Create a thread for each persistent volume
+                thread = threading.Thread(target=self.delete_pv, args=(pv,))
+                thread.start()
+                threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        logging.info("Waiting for PV resources to be in the removing state...")
+        time.sleep(5)
+
+    def delete_pv(self, pv: V1PersistentVolume) -> None:
+        """
+        Deletes a PersistentVolume.
+
+        Args:
+            pv (V1PersistentVolume): The PersistentVolume object to be deleted.
+
+        Returns:
+            None: This function does not return anything.
+        """
+        logging.info(f"Deleting PV {pv.metadata.name} ...")
+
+        try:
+            if pv.metadata.finalizers is not None:
+                pv.metadata.finalizers = []
+                self.core_v1_api.replace_persistent_volume(
+                    name=pv.metadata.name,
+                    body=pv
+                )
+            self.core_v1_api.delete_persistent_volume(pv.metadata.name)
+            logging.info(f"PV {pv.metadata.name} deleted.")
+        except ApiException as exc:
+            logging.warning(f"Failed to delete PV {pv.metadata.name}. Reason: {str(exc)}")
+
+    def delete_persistent_volume_claims(self) -> None:
+        """
+        Deletes all PersistentVolumeClaims.
+
+        Args:
+            None
+
+        Returns:
+            None: This function does not return anything.
+        """
+        pvcs = self.list_persistent_volume_claims(
+            namespace=self.namespace
+        )
+
+        threads = []
+        for pvc in pvcs:
+            if self.storage_class_prefix in pvc.spec.storage_class_name:
+                thread = threading.Thread(target=self.delete_pvc, args=(pvc,))
+                thread.start()
+                threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        logging.info("Waiting for PVC resources to be in the removing state...")
+        time.sleep(5)
+
+    def delete_pvc(self, pvc: V1PersistentVolumeClaim) -> None:
+        """
+        Deletes a PersistentVolumeClaim.
+
+        Args:
+            pvc (V1PersistentVolumeClaim): The PersistentVolumeClaim object to be deleted.
+
+        Returns:
+            None: This function does not return anything.
+        """
+        logging.info(f"Deleting PVC {pvc.metadata.name} ...")
+
+        try:
+            if pvc.metadata.finalizers is not None:
+                response = self.core_v1_api.read_namespaced_persistent_volume_claim(
+                    name=pvc.metadata.name,
+                    namespace=self.namespace
+                )
+                response.metadata.finalizers = []
+                self.core_v1_api.patch_namespaced_persistent_volume_claim(
+                    name=response.metadata.name,
+                    namespace=self.namespace,
+                    body=response
+                )
+            time.sleep(0.1)
+            self.core_v1_api.delete_namespaced_persistent_volume_claim(
+                name=pvc.metadata.name,
+                namespace=self.namespace,
+                grace_period_seconds=0,
+                propagation_policy="Foreground"
+            )
+            logging.info(f"PVC {pvc.metadata.name} deleted.")
+        except ApiException as exc:
+            logging.warning(f"Failed to delete PVC {pvc.metadata.name}. Reason: {str(exc)}")
+
+    def delete_volumes(self) -> None:
+        """
+        Deletes all volumes.
+
+        Args:
+            None
+
+        Returns:
+            None: This function does not return anything.
+        """
+        volumes = self.list_volumes()
+
+        threads = []
+        for volume in volumes:
+            thread = threading.Thread(target=self.delete_volume, args=(volume,))
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        logging.info("Waiting for volumes resources to be in the removing state...")
+        time.sleep(2)
+
+    def delete_volume(self, volume: dict) -> None:
+        """
+        Deletes a volume.
+
+        Args:
+            volume (dict): The volume object to be deleted.
+
+        Returns:
+            None: This function does not return anything.
+        """
+        try:
+            logging.info(f"Deleting volume {volume['metadata']['name']} ...")
+
+            if "metadata" in volume and "finalizers" in volume["metadata"]:
+                volume["metadata"]["finalizers"] = []
+                self.custom_objects_api.replace_namespaced_custom_object(
+                    const.CR_GROUP,
+                    const.CR_VERSION,
+                    self.namespace,
+                    plural=const.VOLUMES_PLURAL,
+                    name=volume["metadata"]["name"],
+                    body=volume
+                )
+            time.sleep(0.1)
+            self.custom_objects_api.delete_namespaced_custom_object(
+                const.CR_GROUP,
+                const.CR_VERSION,
+                self.namespace,
+                plural=const.VOLUMES_PLURAL,
+                name=volume["metadata"]["name"]
+            )
+            logging.info(f"Volume {volume['metadata']['name']} deleted")
+        except ApiException as exc:
+            logging.warning(f"Failed to delete volume {volume['metadata']['name']}. Reason: {str(exc)}")
+
+    def clear_lvg_finalizers(self, namespace: str) -> None:
+        """
+        Clears the finalizers of Logical Volume Groups (LVGs) in the specified namespace.
+
+        Args:
+            namespace (str): The namespace of the LVGs.
+
+        Returns:
+            None: This function does not return anything.
+        """
+        lvg_list = self.custom_objects_api.list_cluster_custom_object(
+            group=const.CR_GROUP,
+            version=const.CR_VERSION,
+            plural="logicalvolumegroups",
+        )["items"]
+        for lvg in lvg_list:
+            if "finalizers" in lvg.get("metadata", {}):
+                lvg["metadata"]["finalizers"] = []
+                self.custom_objects_api.replace_cluster_custom_object(
+                    group=const.CR_GROUP,
+                    version=const.CR_VERSION,
+                    namespace=namespace,
+                    plural=const.LVG_PLURAL,
+                    name=lvg["metadata"]["name"],
+                    body=lvg,
+                )
+                logging.info(f"LVG {lvg['metadata']['name']}: finalizers cleared")
+
+        logging.info("Waiting for LVG resources to be in the removing state...")
+        time.sleep(1)
+
+    def delete_custom_objects(self, plurals: List[str]) -> None:
+        """
+        Deletes the custom objects with the specified plurals.
+
+        Args:
+            plurals (List[str]): The list of plurals of the custom objects to be deleted.
+
+        Returns:
+            None: This function does not return anything.
+        """
+        for plural in plurals:
+            self.custom_objects_api.delete_collection_cluster_custom_object(
+                group=const.CR_GROUP,
+                version=const.CR_VERSION,
+                plural=plural,
+                grace_period_seconds=0,
+                propagation_policy="Foreground",
+            )
+            logging.info(f"CR {plural}: delete request sent")
+
+        logging.info("Waiting for custom resources to be in the removing state...")
+        time.sleep(2)

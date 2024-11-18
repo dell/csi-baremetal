@@ -14,6 +14,9 @@ ci.log
 tests/e2e/reports/report.xml
 tests/kind/kind
 tests/log.txt
+# e2e tests results
+tests/e2e-test-framework/logs
+tests/e2e-test-framework/report
 # vscode
 .vscode
 # python 
