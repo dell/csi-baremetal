@@ -38,24 +38,42 @@ base-image-controller:
 
 image-drivemgr: base-image-drivemgr
 	cp ./pkg/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/Dockerfile ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
+	docker build --label image.version=${TAG} --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ./build/${DRIVE_MANAGER}/${DRIVE_MANAGER_TYPE}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker tag ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG} ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 image-node: base-image-node
 	cp ./pkg/${NODE}/Dockerfile* ./build/${NODE}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ./build/${NODE}
-	docker build --network host --force-rm  --file ./build/${NODE}/Dockerfile-kernel-5.4 --tag ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG} ./build/${NODE}
+	docker build --label image.version=${TAG} --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ./build/${NODE}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker tag ${REGISTRY}/${PROJECT}-${NODE}:${TAG} ${REGISTRY}/${PROJECT}-${NODE}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
+	docker build --label image.version=${TAG} --network host --force-rm  --file ./build/${NODE}/Dockerfile-kernel-5.4 --tag ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG} ./build/${NODE}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG} ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 image-controller: base-image-controller
 	cp ./pkg/${CONTROLLER}/Dockerfile ./build/${CONTROLLER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ./build/${CONTROLLER}
+	docker build --label image.version=${TAG} --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ./build/${CONTROLLER}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker tag ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG} ${REGISTRY}/${PROJECT}-${CONTROLLER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 image-extender:
 	cp ./pkg/${SCHEDULER}/${EXTENDER}/Dockerfile ./build/${SCHEDULING_PKG}/${EXTENDER}/
 	cp ./build/${HEALTH_PROBE} ./build/${SCHEDULING_PKG}/${EXTENDER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
+	docker build --label image.version=${TAG} --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ./build/${SCHEDULING_PKG}/${EXTENDER}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker tag ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG} ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 image-extender-patcher:
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PATCHER_PKG}
+	docker build --label image.version=${TAG} --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ./pkg/${SCHEDULER_EXTENDER_PATCHER_PKG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker tag ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG} ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 # image-scheduler:
 # 	cp ./pkg/${SCHEDULER}/${PLUGIN}/Dockerfile ./build/${SCHEDULING_PKG}/${SCHEDULER}/
@@ -63,8 +81,11 @@ image-extender-patcher:
 
 image-node-controller:
 	cp ./pkg/${CR_CONTROLLERS}/${NODE_CONTROLLER_PKG}/Dockerfile ./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}/
-	docker build --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG} \
+	docker build --label image.version=${TAG} --network host --force-rm --tag ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG} \
 	./build/${CR_CONTROLLERS}/${NODE_CONTROLLER}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker tag ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG} ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 ###################
 ### Push images ###
@@ -79,25 +100,46 @@ push-node-controller
 
 push-drivemgr:
 	docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker push ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 push-node:
 	docker push ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker push ${REGISTRY}/${PROJECT}-${NODE}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 	docker push ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker push ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 push-controller:
 	docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker push ${REGISTRY}/${PROJECT}-${CONTROLLER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 push-extender:
 	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 push-extender-patcher:
 	docker push ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker push ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 # push-scheduler:
 # 	docker push ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
 push-node-controller:
 	docker push ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}
+	if [ "${PRODUCT_VERSION_FROM_JENKINS}" != "" ]; then \
+		docker push ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${PRODUCT_VERSION_FROM_JENKINS}; \
+	fi
 
 ####################
 ### Clean images ###
@@ -112,22 +154,29 @@ clean-image-node-controller
 
 clean-image-drivemgr:
 	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${DRIVE_MANAGER_TYPE}:${PRODUCT_VERSION_FROM_JENKINS}
 
 clean-image-node:
 	docker rmi ${REGISTRY}/${PROJECT}-${NODE}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${NODE}:${PRODUCT_VERSION_FROM_JENKINS}
 	docker rmi ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${NODE}-kernel-5.4:${PRODUCT_VERSION_FROM_JENKINS}
 
 clean-image-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${CONTROLLER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${CONTROLLER}:${PRODUCT_VERSION_FROM_JENKINS}
 
 clean-image-extender:
 	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}-${EXTENDER}:${PRODUCT_VERSION_FROM_JENKINS}
 
 clean-image-extender-patcher:
 	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${EXTENDER_PATCHER}:${PRODUCT_VERSION_FROM_JENKINS}
 
 # clean-image-scheduler:
 # 	docker rmi ${REGISTRY}/${PROJECT}-${SCHEDULER}:${TAG}
 
 clean-image-node-controller:
 	docker rmi ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${TAG}
+	docker rmi ${REGISTRY}/${PROJECT}-${NODE_CONTROLLER}:${PRODUCT_VERSION_FROM_JENKINS}
