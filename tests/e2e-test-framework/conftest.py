@@ -42,7 +42,6 @@ def pytest_addoption(parser):
     parser.addoption("--namespace", action="store", default="atlantic", help="Namespace")
     parser.addoption("--hosts", action="store", default=[], help="Hosts")
     parser.addoption("--qtest_token", action="store", default="", help="qTest Token")
-    parser.addoption("--ansible_server", action="store", default="", help="Server")
     parser.addoption("--qtest_test_suite", action="store", default="", help="qTest Test Suite ID")
     parser.addoption("--cmo_bundle_version", action="store", default="", help="Version of CMO bundle")
 
@@ -90,10 +89,6 @@ def namespace(request) -> str:
 @pytest.fixture(scope="session")
 def hosts(request):
     return request.config.getoption("--hosts")
-
-@pytest.fixture(scope="session")
-def ansible_server(request):
-    return request.config.getoption("--ansible_server")
 
 @pytest.fixture(scope="session")
 def wire_mock():
@@ -147,6 +142,8 @@ def keep_drive_count(drive_utils_executors: Dict[str, DriveUtils]) -> Generator[
 
 @pytest.fixture(autouse=True)
 def wipe_drives(drive_utils_executors: Dict[str, DriveUtils]) -> Generator[None, None, None]:
+    for _, drive_utils in drive_utils_executors.items():
+        drive_utils.wipe_drives()
     yield
     for _, drive_utils in drive_utils_executors.items():
         drive_utils.wipe_drives()

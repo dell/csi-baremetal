@@ -252,7 +252,7 @@ class DriveUtils:
             else:
                 raise ValueError(f"Unknown drive type: {children['type']}")
 
-        time.sleep(1)
+        time.sleep(2)
 
     def _get_device_name(self, device_path_or_name: str) -> str:
         return (
