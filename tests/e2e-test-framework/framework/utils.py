@@ -530,7 +530,7 @@ class Utils:
         retry_count = 0
         cr = None
         while time.time() < end_time:
-            if retry_count > 0:
+            if retry_count % 40 == 0:
                 logging.warning(
                     f"CR is not in expected state, retry number: {retry_count}"
                 )
@@ -543,7 +543,7 @@ class Utils:
             if all(assertions.values()):
                 return True
 
-            time.sleep(1)
+            time.sleep(0.05)
             retry_count += 1
 
         for k, v in assertions.items():
@@ -687,15 +687,14 @@ class Utils:
         """
         self.core_v1_api.delete_namespaced_pod(name=name, namespace=namespace)
         logging.info(f"pod {name} deleted, waiting for a new pod to be created")
-
         time.sleep(5)
-        pod = self.list_pods(name, namespace=namespace)[0]
+
         assert self.is_pod_ready(
             name, timeout=150
         ), "pod not ready after 150 seconds timeout"
         logging.info(f"pod {name} is ready")
 
-        return pod
+        return self.list_pods(name, namespace=namespace)[0]
 
     def wait_for_event_with_reason(
         self, reason: str, timeout_seconds: int = 90
