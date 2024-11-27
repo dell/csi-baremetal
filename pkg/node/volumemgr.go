@@ -1263,7 +1263,7 @@ func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
 
 // addVolumeStatusAnnotation add annotation with volume status to drive
 func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeName, status string) {
-	m.log.Infof("Adding volume status annotation %s: %s", volumeName, status)
+	m.log.WithField("drive", drive.Name).Infof("Adding volume status annotation %s: %s", volumeName, status)
 	annotationKey := fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volumeName)
 	// init map if empty
 	if drive.Annotations == nil {
