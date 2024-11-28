@@ -2135,14 +2135,18 @@ func TestVolumeManager_retryDriveUpdate(t *testing.T) {
 		testVol.Spec.CSIStatus = apiV1.Removing
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
 		testDrive := testDriveCR.DeepCopy()
-		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, testDrive)) 
-		err := vm.retryDriveUpdate(context.TODO(), testVol, testDrive, "FAILED")
-        assert.Equal(t, 1, len(recorderMock.Calls))
+		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, testDrive))
+		err := vm.retryDriveUpdate(context.TODO(), testVol, apiV1.VolumeUsageReleased, testDrive, "FAILED")
+		assert.Equal(t, 1, len(recorderMock.Calls))
 		assert.Equal(t, eventing.DriveRemovalFailed, recorderMock.Calls[0].Event)
 		assert.Nil(t, err)
 		drive := &drivecrd.Drive{}
 		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testDrive.Name, testDrive.Namespace, drive))
 		assert.Equal(t, apiV1.Failed, drive.Spec.Usage)
+
+		annotationValue, annotationExist := drive.GetAnnotations()["status/"+testVol.Name]
+		assert.True(t, annotationExist)
+		assert.Equal(t, apiV1.VolumeUsageReleased, annotationValue)
 	})
 
 	t.Run("success retry", func(t *testing.T) {
@@ -2153,11 +2157,15 @@ func TestVolumeManager_retryDriveUpdate(t *testing.T) {
 		testDrive := testDriveCR.DeepCopy()
 		testDrive2 := testDriveCR.DeepCopy()
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Spec.Location, testDrive))
-		err := vm.retryDriveUpdate(context.TODO(), testVol, testDrive2, "FAILED")
+		err := vm.retryDriveUpdate(context.TODO(), testVol, apiV1.VolumeUsageReleased, testDrive2, "FAILED")
 		assert.Nil(t, err)
 		drive := &drivecrd.Drive{}
 		assert.Nil(t, vm.k8sClient.ReadCR(testCtx, testDrive.Name, testDrive.Namespace, drive))
 		assert.Equal(t, apiV1.Failed, drive.Spec.Usage)
+
+		annotationValue, annotationExist := drive.GetAnnotations()["status/"+testVol.Name]
+		assert.True(t, annotationExist)
+		assert.Equal(t, apiV1.VolumeUsageReleased, annotationValue)
 	})
 
 	t.Run("failed update", func(t *testing.T) {
@@ -2166,7 +2174,7 @@ func TestVolumeManager_retryDriveUpdate(t *testing.T) {
 		testVol.Spec.CSIStatus = apiV1.Removing
 		testDrive := testDriveCR.DeepCopy()
 		assert.Nil(t, vm.k8sClient.CreateCR(testCtx, testVol.Name, testVol))
-		err := vm.retryDriveUpdate(context.TODO(), testVol, testDrive, "RELEASED")
+		err := vm.retryDriveUpdate(context.TODO(), testVol, apiV1.VolumeUsageReleased, testDrive, "RELEASED")
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "not found")
 	})
