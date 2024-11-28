@@ -375,11 +375,8 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 		ll.Errorf("Unable to read drive CR, error: %v", err)
 		return ctrl.Result{Requeue: true}, err
 	}
-	if volumeStatus == apiV1.VolumeUsageReleased {
-		m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
-	}
 	if drive != nil {
-		if err := m.retryDriveUpdate(ctx, volume, drive, driveStatus); err != nil {
+		if err := m.retryDriveUpdate(ctx, volume, volumeStatus, drive, driveStatus); err != nil {
 			ll.Errorf("Unable to change drive %s usage status to %s, error: %v.", drive.Name, drive.Spec.Usage, err)
 			return ctrl.Result{Requeue: true}, err
 		}
@@ -387,7 +384,7 @@ func (m *VolumeManager) updateVolumeAndDriveUsageStatus(ctx context.Context, vol
 	return ctrl.Result{}, nil
 }
 
-func (m *VolumeManager) retryDriveUpdate(ctx context.Context, volume *volumecrd.Volume, drive *drivecrd.Drive, driveStatus string) error {
+func (m *VolumeManager) retryDriveUpdate(ctx context.Context, volume *volumecrd.Volume, volumeStatus string, drive *drivecrd.Drive, driveStatus string) error {
 	ll := m.log.WithFields(logrus.Fields{
 		"method":      "retryDriveUpdate",
 		"volumeID":    volume.Name,
@@ -399,6 +396,9 @@ func (m *VolumeManager) retryDriveUpdate(ctx context.Context, volume *volumecrd.
 	}
 	for i := 0; i < numberOfRetries; i++ {
 		drive.Spec.Usage = driveStatus
+		if volumeStatus == apiV1.VolumeUsageReleased {
+			m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
+		}
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
 			ll.Infof("Retrying to update drive %s usage status to %s. Retry number: %d. Sleep %d seconds and retry ...",
 				drive.Name, drive.Spec.Usage, i, delayBeforeRetry)
@@ -1263,6 +1263,7 @@ func (m *VolumeManager) isRootMountpoint(devs []lsblk.BlockDevice) bool {
 
 // addVolumeStatusAnnotation add annotation with volume status to drive
 func (m *VolumeManager) addVolumeStatusAnnotation(drive *drivecrd.Drive, volumeName, status string) {
+	m.log.WithField("drive", drive.Name).Infof("Adding volume status annotation %s: %s", volumeName, status)
 	annotationKey := fmt.Sprintf("%s/%s", apiV1.DriveAnnotationVolumeStatusPrefix, volumeName)
 	// init map if empty
 	if drive.Annotations == nil {
