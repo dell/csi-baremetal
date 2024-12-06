@@ -135,6 +135,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	case update:
 		if err := c.client.UpdateCR(ctx, drive); err != nil {
 			log.Errorf("Failed to update Drive %s CR", driveName)
+			log.Errorf("[ATL-33670]: Failed to update Drive %s CR, Error: %v", driveName, err)
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
 	case remove:
