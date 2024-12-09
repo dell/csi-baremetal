@@ -134,7 +134,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	switch status {
 	case update:
 		if err := c.client.UpdateCR(ctx, drive); err != nil {
-			log.Errorf("Failed to update Drive %s CR", driveName)
+			log.Errorf("Failed to update Drive %s CR, error: %s", driveName, err.Error())
 			return ctrl.Result{}, client.IgnoreNotFound(err)
 		}
 	case remove:
