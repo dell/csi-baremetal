@@ -76,7 +76,7 @@ const (
 	// Discover function replaces drive health with passed value if the annotation is set
 	driveHealthOverrideAnnotation = "health"
 
-	numberOfRetries  = 2
+	numberOfRetries  = 5
 	delayBeforeRetry = 2
 )
 
@@ -400,6 +400,7 @@ func (m *VolumeManager) retryDriveUpdate(ctx context.Context, volume *volumecrd.
 			m.addVolumeStatusAnnotation(drive, volume.Name, apiV1.VolumeUsageReleased)
 		}
 		if err := m.k8sClient.UpdateCR(ctx, drive); err != nil {
+			ll.Infof("Volume %s annotation on drive %s failed, error: %s", volume.Name, drive.Name, err.Error())
 			ll.Infof("Retrying to update drive %s usage status to %s. Retry number: %d. Sleep %d seconds and retry ...",
 				drive.Name, drive.Spec.Usage, i, delayBeforeRetry)
 			time.Sleep(time.Second * delayBeforeRetry)
