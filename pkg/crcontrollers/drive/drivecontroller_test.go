@@ -1410,14 +1410,14 @@ func TestCheckLVGVolumeWithoutFakeAttachRemoved(t *testing.T) {
 
 func TestDriveManualRemovalNotReady(t *testing.T) {
 	tests := []struct {
-		name     string
+		name        string
 		annotations map[string]string
-		want     bool
+		want        bool
 	}{
 		{
-			name: "No annotations",
+			name:        "No annotations",
 			annotations: map[string]string{},
-			want: true,
+			want:        true,
 		},
 		{
 			name: "Annotation exists with different value",
