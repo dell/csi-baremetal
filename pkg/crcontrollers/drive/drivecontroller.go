@@ -187,10 +187,8 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 		fakeAttachDR := !drive.Spec.IsClean && foundAllDRVolFakeAttach && value == allDRVolumesFakeAttachedKey
 		if (drive.Spec.IsClean || fakeAttachDR) && manualRemovalNotReady {
 			log.Infof("Initiating automatic removal of drive: %s", drive.GetName())
-		} else {
-			if manualRemovalNotReady {
+		} else if manualRemovalNotReady {
 				break
-			}
 		}
 		toUpdate = true
 		drive.Spec.Usage = apiV1.DriveUsageRemoving
