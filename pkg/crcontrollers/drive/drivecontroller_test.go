@@ -1407,3 +1407,40 @@ func TestCheckLVGVolumeWithoutFakeAttachRemoved(t *testing.T) {
 		})
 	}
 }
+
+func TestDriveManualRemovalNotReady(t *testing.T) {
+	tests := []struct {
+		name     string
+		annotations map[string]string
+		want     bool
+	}{
+		{
+			name: "No annotations",
+			annotations: map[string]string{},
+			want: true,
+		},
+		{
+			name: "Annotation exists with different value",
+			annotations: map[string]string{
+				apiV1.DriveAnnotationRemoval: "some_value",
+			},
+			want: true,
+		},
+		{
+			name: "Annotation exists with correct value",
+			annotations: map[string]string{
+				apiV1.DriveAnnotationRemoval: apiV1.DriveAnnotationRemovalReady,
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Controller{}
+			if got := c.driveManualRemovalNotReady(tt.annotations); got != tt.want {
+				t.Errorf("driveManualRemovalNotReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
