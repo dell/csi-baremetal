@@ -55,6 +55,13 @@ class TestAutoDriveReplacementWithOneVolumePerPod:
 
         # 2.1 simulate drive failure. Annotate drive used by pod with health=BAD
         drive_name = drive["metadata"]["name"]
+        # mark drive as auto eject
+        self.utils.annotate_custom_resource(
+            resource_name=drive_name,
+            resource_type="drives",
+            annotation_key=const.DRIVE_EJECT,
+            annotation_value=const.DRIVE_EJECT_AUTO,
+        )
         self.utils.annotate_custom_resource(
             resource_name=drive_name,
             resource_type="drives",

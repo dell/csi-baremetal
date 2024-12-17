@@ -60,6 +60,13 @@ class TestAutoDriveReplacementWithMultipleVolumesPerPodSingleFailure:
         failed_volume = volumes[0]
         # 2. simulate drive failure. Annotate drive used by pod with health=BAD
         failed_drive_name = failed_drive["metadata"]["name"]
+        # mark drive as auto eject
+        self.utils.annotate_custom_resource(
+            resource_name=failed_drive_name,
+            resource_type="drives",
+            annotation_key=const.DRIVE_EJECT,
+            annotation_value=const.DRIVE_EJECT_AUTO,
+        )
         self.utils.annotate_custom_resource(
             resource_name=failed_drive_name,
             resource_type="drives",
