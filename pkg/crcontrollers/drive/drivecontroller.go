@@ -610,5 +610,5 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 
 func (c *Controller) driveEjectAuto(annotations map[string]string) bool {
 	status, found := annotations[apiV1.DriveAnnotationEject]
-	return !found || status != apiV1.DriveAnnotationEjectAuto
+	return found && status == apiV1.DriveAnnotationEjectAuto
 }
