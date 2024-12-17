@@ -69,6 +69,9 @@ const (
 	DriveAnnotationVolumeStatusPrefix = "status"
 	// Deprecated annotations
 	DriveAnnotationReplacement = "replacement"
+	// Disk auto eject
+	DriveAnnotationEject     = "eject"
+	DriveAnnotationEjectAuto = "auto"
 
 	// Volume operational status
 	OperationalStatusOperative   = "OPERATIVE"
