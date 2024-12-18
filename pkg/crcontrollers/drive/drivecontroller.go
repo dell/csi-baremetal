@@ -183,7 +183,7 @@ func (c *Controller) handleDriveUpdate(ctx context.Context, log *logrus.Entry, d
 
 		value, foundAllDRVolFakeAttach := drive.Annotations[allDRVolumesFakeAttachedAnnotation]
 		fakeAttachDR := !drive.Spec.IsClean && foundAllDRVolFakeAttach && value == allDRVolumesFakeAttachedKey
-		if drive.Spec.IsClean || fakeAttachDR {
+		if (drive.Spec.IsClean || fakeAttachDR) && c.driveEjectAuto(drive.Annotations) {
 			log.Infof("Initiating automatic removal of drive: %s", drive.GetName())
 		} else {
 			status, found := getDriveAnnotationRemoval(drive.Annotations)
@@ -606,4 +606,9 @@ func (c *Controller) handleDriveLableUpdate(ctx context.Context, log *logrus.Ent
 	}
 	log.Infof("Update AC %s labels to related drive %s successful", ac.GetName(), drive.GetName())
 	return nil
+}
+
+func (c *Controller) driveEjectAuto(annotations map[string]string) bool {
+	status, found := annotations[apiV1.DriveAnnotationEject]
+	return found && status == apiV1.DriveAnnotationEjectAuto
 }

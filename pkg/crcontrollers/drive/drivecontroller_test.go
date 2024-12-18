@@ -425,11 +425,13 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(k8s.ListFailCtx, expectedV))
 	})
-	t.Run("ReleasedUsage - transition to Removing state", func(t *testing.T) {
+	t.Run("ReleasedUsage - auto transition to Removing state", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageReleased
 		expectedD.Spec.IsClean = true
+		expectedD.Annotations = map[string]string{"eject": "auto"}
+
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
 
 		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
@@ -437,9 +439,31 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, res, update)
 		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoving)
+
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+	})
+	t.Run("ReleasedUsage - manual transition to Removing state", func(t *testing.T) {
+		expectedD := testBadCRDrive.DeepCopy()
+		assert.NotNil(t, expectedD)
+		expectedD.Spec.Usage = apiV1.DriveUsageRemoving
+		expectedD.Spec.IsClean = true
+
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
+
+		expectedV := failedVolCR.DeepCopy()
+		assert.NotNil(t, expectedV)
+		expectedV.Spec.CSIStatus = apiV1.Created
+		assert.Nil(t, dc.client.CreateCR(testCtx, expectedV.Name, expectedV))
+
+		res, err := dc.handleDriveUpdate(testCtx, dc.log, expectedD)
+		assert.NotNil(t, res)
+		assert.Nil(t, err)
+
+		assert.Equal(t, expectedD.Spec.Usage, apiV1.DriveUsageRemoving)
 		assert.Empty(t, expectedD.Annotations)
 
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
+		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
 	})
 	t.Run("ReleasedUsage - blocked transition to Removing state", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
@@ -463,12 +487,12 @@ func TestDriveController_handleDriveUpdate(t *testing.T) {
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedD))
 		assert.Nil(t, dc.client.DeleteCR(testCtx, expectedV))
 	})
-	t.Run("ReleasedUsage - has all-volumes-fake-attached annotation", func(t *testing.T) {
+	t.Run("ReleasedUsage - auto removal has all-volumes-fake-attached annotation", func(t *testing.T) {
 		expectedD := testBadCRDrive.DeepCopy()
 		assert.NotNil(t, expectedD)
 		expectedD.Spec.Usage = apiV1.DriveUsageReleased
 		expectedD.Spec.IsClean = false
-		expectedD.Annotations = map[string]string{allDRVolumesFakeAttachedAnnotation: allDRVolumesFakeAttachedKey}
+		expectedD.Annotations = map[string]string{allDRVolumesFakeAttachedAnnotation: allDRVolumesFakeAttachedKey, "eject": "auto"}
 		assert.Nil(t, dc.client.CreateCR(testCtx, expectedD.Name, expectedD))
 
 		expectedV := failedVolCR.DeepCopy()
@@ -1405,5 +1429,30 @@ func TestCheckLVGVolumeWithoutFakeAttachRemoved(t *testing.T) {
 			c := &Controller{}
 			assert.Equal(t, tc.expected, c.checkAllLVGVolsWithoutFakeAttachRemoved(lvg, tc.volumes))
 		})
+	}
+}
+
+func TestDriveEjectAuto(t *testing.T) {
+	c := &Controller{}
+
+	// Test case when annotation is not found
+	annotations := make(map[string]string)
+	result := c.driveEjectAuto(annotations)
+	if result {
+		t.Errorf("Expected false, but got true")
+	}
+
+	// Test case when annotation is found and its value is not 'auto'
+	annotations[apiV1.DriveAnnotationEject] = "manual"
+	result = c.driveEjectAuto(annotations)
+	if result {
+		t.Errorf("Expected false, but got true")
+	}
+
+	// Test case when annotation is found and its value is 'auto'
+	annotations[apiV1.DriveAnnotationEject] = apiV1.DriveAnnotationEjectAuto
+	result = c.driveEjectAuto(annotations)
+	if !result {
+		t.Errorf("Expected true, but got false")
 	}
 }
