@@ -12,3 +12,4 @@ git commit for proprietary code.
 2024/07/25  hal manager cve fixes
 2024/10/04  hal manager cve fixes
 2024/10/14  hal manager cve fixes, base image update
+2024/12/19  hal manager cve fixes, base image update
