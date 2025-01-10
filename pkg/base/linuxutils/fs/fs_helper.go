@@ -50,7 +50,7 @@ const (
 	// MkFSCmdTmpl mkfs command template
 	MkFSCmdTmpl = "mkfs.%s %s %s" // args: 1 - fs type, 2 - device/path, 3 - fs uuid option
 	// XfsUUIDOption option to set uuid for mkfs.xfs
-	XfsUUIDOption = "-m uuid=%s"
+	XfsUUIDOption = "-m uuid=%s -m rmapbt=0"
 	// ExtUUIDOption option to set uuid for mkfs.ext3(4)
 	ExtUUIDOption = "-U %s"
 	// SpeedUpFsCreationOpts options that could be used for speeds up creation of ext3 and ext4 FS
