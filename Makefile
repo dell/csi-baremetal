@@ -160,14 +160,13 @@ run-csi-baremetal-functional-tests:
 	sshpass -p '${PASSWORD}' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USERNAME}@${E2E_VM_SERVICE_NODE_IP} '. /root/venv/python3.12.2/bin/activate && cd /root/tests/e2e-test-framework && pip3 install -r requirements.txt && pytest --junitxml=test_results_csi_baremetal.xml ${TEST_FILTER_CSI_BAREMETAL}'; \
 	echo "Copying test results back to local machine..."; \
 	sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/root/tests/e2e-test-framework/test_results_csi_baremetal.xml ${PROJECT_DIR}/test_results_csi_baremetal.xml; \
-	TEST_EXIT_CODE=$$?; \
-	echo "Test exit code: $$TEST_EXIT_CODE"; \
 	if [ -e "${PROJECT_DIR}/test_results_csi_baremetal.xml" ]; then \
 		echo "Test results for csi-baremetal copied successfully."; \
 	else \
 		echo "Error: Failed to copy test results for csi-baremetal."; \
+		exit 1; \
 	fi; \
-	if [ $$TEST_EXIT_CODE -eq 0 ]; then \
+	if grep -q 'errors="0" failures="0"' "${PROJECT_DIR}/test_results_csi_baremetal.xml"; then \
 		echo "All tests for csi-baremetal passed successfully."; \
 	else \
 		echo "Functional tests for csi-baremetal failed."; \
