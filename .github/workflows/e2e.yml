@@ -161,7 +161,7 @@ jobs:
         version: ${{ env.helm_version }}
           
     - name: Kubectl install
-      uses: azure/setup-kubectl@v1
+      uses: azure/setup-kubectl@v3
       with:
         version: ${{ env.kubectl_version }}
 
