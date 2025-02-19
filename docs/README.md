@@ -28,10 +28,9 @@ Features
 - Raw block mode
 - Ability to deploy on subset of nodes within cluster
 - CSI Operator
+- NVMeOf support
 
 ### Planned features
-- User defined storage classes
-- NVMeOf support
 - Kubernetes Scheduler
 - SMART Self Test execution
 - Volume cloning
