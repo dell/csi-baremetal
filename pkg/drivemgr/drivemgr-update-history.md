@@ -8,3 +8,4 @@ git commit for proprietary code.
 2024/01/22  remove upper case from disk serial number.
 2024/11/04  trigger halmgr build
 2025/03/04  trigger halmgr build
+2025/03/06  trigger halmgr build
